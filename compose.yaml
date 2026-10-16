@@ -1,0 +1,34 @@
+# Development stack: PostgreSQL and the Django API. The frontend runs with
+# `npm run dev` on the host and proxies /api to the backend.
+# The backend uses the dev target of backend/Dockerfile; production uses the
+# default runtime target (see README "Production image").
+name: cultures
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: cultures
+      POSTGRES_USER: cultures
+      POSTGRES_PASSWORD: cultures
+    ports: ["${DB_PORT:-5432}:5432"]
+    volumes: ["db-data:/var/lib/postgresql"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cultures -d cultures"]
+      interval: 2s
+      retries: 30
+
+  backend:
+    build: {context: ./backend, target: dev}
+    # The shared cache (rate limits) lives in a database table; creating it is idempotent.
+    command: sh -c "python manage.py createcachetable && exec python manage.py runserver 0.0.0.0:8000"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DATABASE_URL: postgres://cultures:cultures@db:5432/cultures
+    ports: ["${BACKEND_PORT:-8000}:8000"]
+    # The virtualenv lives in /venv inside the image, outside this mount.
+    volumes: ["./backend:/app"]
+    depends_on:
+      db: {condition: service_healthy}
+
+volumes:
+  db-data:
