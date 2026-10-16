@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+backend/staticfiles/
+node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
