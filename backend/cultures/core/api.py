@@ -27,6 +27,7 @@ from django.core.exceptions import ImproperlyConfigured, ObjectDoesNotExist
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Model, QuerySet
 from rest_framework import permissions, serializers, viewsets
+from rest_framework.generics import GenericAPIView
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -36,10 +37,13 @@ STANDARD_ACTIONS = ("list", "retrieve", "create", "update", "partial_update", "d
 DETAIL_ACTIONS = frozenset({"retrieve", "update", "partial_update", "destroy"})
 COLLECTION_ACTIONS = frozenset({"list", "create"})
 
-# name -> hint; methods must resolve to ScopedViewSetMixin, attributes to DRF's own class.
+# name -> hint; methods must resolve to ScopedViewSetMixin, the others to DRF's own class.
 PROTECTED = {
     "get_queryset": "implement scoped_queryset() instead",
     "get_object": "use self.get_object() from the base, it is already scoped",
+    # get_object() and list() both load through filter_queryset(get_queryset()), so an
+    # override can replace the scope. Narrow lists with filter_backends instead.
+    "filter_queryset": "set filter_backends or filterset_class instead, the scope must stay",
     "get_permissions": "declare action_perms and implement has_perm() instead",
     "check_permissions": "implement has_perm() instead",
     "check_object_permissions": "implement has_perm() instead",
@@ -47,7 +51,7 @@ PROTECTED = {
 }
 
 
-PROTECTED_ATTRIBUTES = {"permission_classes": APIView}
+PROTECTED_ATTRIBUTES = {"permission_classes": APIView, "filter_queryset": GenericAPIView}
 
 
 def _defining_class(cls: type, name: str) -> type:

@@ -57,7 +57,13 @@ def test_a_mixin_placed_before_the_base_cannot_override_get_queryset() -> None:
 
 @pytest.mark.parametrize(
     "name",
-    ["get_object", "get_permissions", "check_permissions", "check_object_permissions"],
+    [
+        "get_object",
+        "filter_queryset",
+        "get_permissions",
+        "check_permissions",
+        "check_object_permissions",
+    ],
 )
 def test_overriding_permission_plumbing_is_refused(name: str) -> None:
     mixin = type("Mixin", (), {name: lambda self, *args: None})
