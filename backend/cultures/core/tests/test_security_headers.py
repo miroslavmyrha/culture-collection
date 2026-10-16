@@ -10,7 +10,17 @@ def test_api_responses_carry_security_headers(client: Client) -> None:
     assert "camera=()" in response["Permissions-Policy"]
     assert response["X-Content-Type-Options"] == "nosniff"
     assert response["X-Frame-Options"] == "DENY"
-    assert "default-src 'none'" in response["Content-Security-Policy"]
+    assert response["Referrer-Policy"] == "same-origin"
+    csp = {
+        directive.split()[0]: directive.split()[1:]
+        for directive in response["Content-Security-Policy"].split("; ")
+    }
+    assert csp == {
+        "default-src": ["'none'"],
+        "frame-ancestors": ["'none'"],
+        "base-uri": ["'none'"],
+        "form-action": ["'self'"],
+    }
 
 
 def test_options_does_not_describe_the_api(client: Client) -> None:

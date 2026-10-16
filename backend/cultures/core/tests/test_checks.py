@@ -30,3 +30,37 @@ def test_meta_without_the_base_loses_uniqueness_and_the_check_reports_it() -> No
 
 def test_project_models_pass_the_check() -> None:
     assert public_id_is_unique() == []
+
+
+@isolate_apps("cultures.core")
+def test_a_conditional_unique_constraint_is_reported() -> None:
+    class Tube(PublicModel):
+        archived = models.BooleanField(default=False)
+
+        class Meta:
+            app_label = "core"
+            constraints = [
+                models.UniqueConstraint(
+                    fields=["public_id"],
+                    condition=models.Q(archived=False),
+                    name="core_tube_public_id_live_uniq",
+                )
+            ]
+
+    assert [e.id for e in public_id_errors([Tube])] == ["core.E001"]
+
+
+@isolate_apps("cultures.core")
+def test_a_composite_unique_constraint_is_reported() -> None:
+    class Rack(PublicModel):
+        label = models.CharField(max_length=20)
+
+        class Meta:
+            app_label = "core"
+            constraints = [
+                models.UniqueConstraint(
+                    fields=["public_id", "label"], name="core_rack_public_id_label_uniq"
+                )
+            ]
+
+    assert [e.id for e in public_id_errors([Rack])] == ["core.E001"]

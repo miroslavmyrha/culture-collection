@@ -1,8 +1,11 @@
 import pytest
 from django.test import Client, RequestFactory
+from rest_framework.permissions import AllowAny
 from rest_framework.settings import api_settings
 
-from cultures.core.throttling import client_ip, ip_bucket
+from config.settings import base
+from cultures.core.testing.contract import routed_api_views
+from cultures.core.throttling import ClientIdentMixin, client_ip, ip_bucket
 from cultures.users.api.views import LoginThrottle
 
 pytestmark = pytest.mark.django_db
@@ -68,3 +71,51 @@ def test_neighbouring_ipv6_addresses_share_the_login_limit(
         for n in range(3)
     ]
     assert statuses == [400, 400, 429]
+
+
+def login_status(client: Client, username: str, address: str) -> int:
+    return client.post(
+        LOGIN,
+        {"username": username, "password": "wrong"},
+        content_type="application/json",
+        REMOTE_ADDR=address,
+    ).status_code
+
+
+def test_another_client_keeps_its_own_login_budget(
+    client: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # One attacker must not lock everyone out: the bucket is per address (IPv6 per /64).
+    monkeypatch.setattr(LoginThrottle, "rate", "1/min", raising=False)
+    assert login_status(client, "a", "198.51.100.7") == 400
+    assert login_status(client, "b", "198.51.100.7") == 429
+    assert login_status(client, "c", "198.51.100.8") == 400
+    assert login_status(client, "d", "2001:db8:1:3::1") == 400
+
+
+UNSAFE_METHODS = {"post", "put", "patch", "delete"}
+SHARED_SCOPES = {"anon", "user", None}
+
+
+def test_every_anonymous_write_has_its_own_throttle_scope() -> None:
+    """An AllowAny view with an unsafe method (login, signup, a public form) gets a
+    throttle keyed on the client address with its own scope and rate, not only the
+    shared anon budget that every other anonymous request uses up too."""
+    anonymous_writes = {
+        name: cls
+        for name, cls in routed_api_views().items()
+        if AllowAny in cls.permission_classes and UNSAFE_METHODS & set(dir(cls))
+    }
+    assert anonymous_writes  # login is one: an empty walk must not pass
+    rates = base.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
+    without_own_scope = sorted(
+        name
+        for name, cls in anonymous_writes.items()
+        if not any(
+            issubclass(throttle, ClientIdentMixin)
+            and getattr(throttle, "scope", None) not in SHARED_SCOPES
+            and rates.get(getattr(throttle, "scope", None))
+            for throttle in cls.throttle_classes
+        )
+    )
+    assert without_own_scope == []

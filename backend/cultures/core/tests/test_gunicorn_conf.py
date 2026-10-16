@@ -20,6 +20,12 @@ def test_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     assert conf["accesslog"] == "-"
 
 
+def test_the_access_log_carries_the_request_id() -> None:
+    # The proxy's or the app's X-Request-ID joins the access log to the app log.
+    conf = runpy.run_path(str(CONF))
+    assert "request_id=%({x-request-id}o)s" in conf["access_log_format"]
+
+
 def test_values_come_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GUNICORN_WORKERS", "5")
     monkeypatch.setenv("GUNICORN_TIMEOUT", "60")
