@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { ALLOWED_ATTR } from '@/lib/sanitize'
 import { SafeHtml } from './SafeHtml'
 
 const html = (input: string) => render(<SafeHtml html={input} />).container.innerHTML
@@ -26,12 +27,24 @@ describe('SafeHtml', () => {
     expect(html(input)).toBe(expected)
   })
 
-  // Every allowed attribute must survive with a realistic value. DOMPurify checks allowed
-  // attributes it does not list as URI-safe against ALLOWED_URI_REGEXP, which once stripped
-  // numeric values such as colspan="2".
-  it('keeps table spans', () => {
-    expect(html('<table><tbody><tr><td colspan="2" rowspan="3">x</td></tr></tbody></table>')).toBe(
-      '<div><table><tbody><tr><td colspan="2" rowspan="3">x</td></tr></tbody></table></div>',
-    )
+})
+
+// Invariant: every allowed attribute survives with a realistic value. DOMPurify checks allowed
+// attributes it does not list as URI-safe against ALLOWED_URI_REGEXP, which once stripped
+// numeric values such as colspan="2".
+describe('SafeHtml allowed attributes (invariant)', () => {
+  const samples: Record<string, string> = {
+    href: '<a href="/samples?page=2#top">x</a>',
+    title: '<p title="Freezer 3, shelf B">x</p>',
+    colspan: '<table><tbody><tr><td colspan="2">x</td></tr></tbody></table>',
+    rowspan: '<table><tbody><tr><td rowspan="3">x</td></tr></tbody></table>',
+  }
+
+  it('has a sample for every allowed attribute', () => {
+    expect(Object.keys(samples).toSorted()).toEqual(ALLOWED_ATTR.toSorted())
+  })
+
+  it.each(Object.entries(samples))('keeps %s', (_attr, input) => {
+    expect(html(input)).toBe(`<div>${input}</div>`)
   })
 })

@@ -1,3 +1,4 @@
+import type { AnyRoute } from '@tanstack/react-router'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -8,7 +9,10 @@ import { makeMe, problem } from '@/test/factories'
 import { mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 import { reported } from '@/test/reports'
+import { authenticatedRoute } from '@/routes/authenticated'
 import { loginSearchSchema } from '@/routes/login'
+import { makeQueryClient } from './query-client'
+import { createAppRouter } from './router'
 
 async function signIn(username = 'lab-tech') {
   const user = userEvent.setup()
@@ -18,19 +22,57 @@ async function signIn(username = 'lab-tech') {
   return user
 }
 
+/**
+ * Records every h1 that was ever in the document, not only the final state: a page that
+ * mounts and then redirects in an effect is gone by the time an end-state assertion runs.
+ */
+function recordHeadings() {
+  const seen = new Set<string>()
+  const observer = new MutationObserver(() => {
+    for (const h of document.querySelectorAll('h1')) seen.add(h.textContent ?? '')
+  })
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+  return { seen, stop: () => observer.disconnect() }
+}
+
+function isBelowAuthenticated(route: AnyRoute) {
+  for (let parent = route.parentRoute; parent; parent = parent.parentRoute) if (parent.id === authenticatedRoute.id) return true
+  return false
+}
+
 afterEach(() => {
   vi.unstubAllEnvs()
+})
+
+// Invariant: every leaf route under the authenticated layout, including routes added later.
+describe('the authenticated layout (invariant)', () => {
+  const paths = Object.values<AnyRoute>(createAppRouter(makeQueryClient()).routesById)
+    .filter((route) => isBelowAuthenticated(route) && !route.children)
+    .map((route) => route.fullPath.replace(/\$\w+/g, 'x'))
+
+  it('has routes to check', () => {
+    expect(paths.length).toBeGreaterThan(0)
+  })
+
+  it.each(paths)('sends anonymous users from %s to /login without ever mounting the page', async (path) => {
+    const headings = recordHeadings()
+    const { router } = renderApp({ path })
+    // The first render test of the file loads the lazy LoginPage chunk cold. With the whole
+    // suite running in parallel that import can take longer than findBy's default 1 s.
+    expect(await screen.findByRole('heading', { name: 'Sign in' }, { timeout: 5000 })).toBeInTheDocument()
+    headings.stop()
+    expect(router.state.location.pathname).toBe('/login')
+    expect(router.state.location.search).toEqual({ redirect: path })
+    expect([...headings.seen]).toEqual(['Sign in'])
+  })
 })
 
 describe('routing and the session guard', () => {
   it('sends anonymous users to /login with the page they wanted', async () => {
     const { router } = renderApp({ path: '/', search: { tab: 'b' } })
-    // The first test of the file loads the lazy LoginPage chunk cold. With the whole suite
-    // running in parallel that import can take longer than findBy's default 1 s.
-    expect(await screen.findByRole('heading', { name: 'Sign in' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/login')
     expect(router.state.location.search).toEqual({ redirect: '/?tab=b' })
-    expect(screen.queryByRole('heading', { name: 'Home' })).not.toBeInTheDocument()
   })
 
   it('accepts the 403 that older backends send for anonymous users', async () => {
@@ -59,17 +101,31 @@ describe('routing and the session guard', () => {
     expect(router.state.location.href).toBe('/')
   })
 
+  it('keeps the redirect when the login answers 401 (the 401 handler stays out of /login)', async () => {
+    const calls = mockApiError('post', '/api/v1/auth/login/', 401, problem(401))
+    const { router } = renderApp({ path: '/login', search: { redirect: '/?tab=b' } })
+    await signIn()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid username or password.')
+    expect(calls).toHaveLength(1)
+    expect(router.state.location.pathname).toBe('/login')
+    expect(router.state.location.search).toEqual({ redirect: '/?tab=b' })
+  })
+
   it('validates the login search params with fallbacks', () => {
     expect(loginSearchSchema.parse({ redirect: 42 })).toEqual({ redirect: undefined })
     expect(loginSearchSchema.parse({})).toEqual({})
     expect(loginSearchSchema.parse({ redirect: '/a' })).toEqual({ redirect: '/a' })
   })
 
-  it('sends signed-in users away from /login', async () => {
+  it.each([
+    [{}, '/'],
+    [{ redirect: '/?tab=b' }, '/?tab=b'],
+    [{ redirect: '//evil.com/x' }, '/'],
+  ])('sends signed-in users away from /login with search %j to %s', async (search, href) => {
     mockApi('get', '/api/v1/auth/me/', makeMe())
-    const { router } = renderApp({ path: '/login' })
+    const { router } = renderApp({ path: '/login', search })
     expect(await screen.findByRole('heading', { name: 'Home' })).toBeInTheDocument()
-    expect(router.state.location.pathname).toBe('/')
+    expect(router.state.location.href).toBe(href)
   })
 
   it('shows not found for an unknown URL', async () => {
@@ -79,21 +135,37 @@ describe('routing and the session guard', () => {
 })
 
 describe('session expiry (401)', () => {
-  it('clears the cache and redirects once for parallel 401s', async () => {
+  it('clears the cache and redirects to /login with the current page', async () => {
     mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))
     const { router, client } = renderApp({ path: '/', search: { tab: 'b' } })
     expect(await screen.findByText('Signed in as lab-tech')).toBeInTheDocument()
-    const navigate = vi.spyOn(router, 'navigate')
     // The session ends: every API call now answers 401.
     mockApiError('get', '/api/v1/auth/me/', 401, problem(401))
     mockApiError('get', '/api/v1/auth/csrf/', 401, problem(401))
     const csrf = (n: number) => client.fetchQuery({ queryKey: ['csrf', n], queryFn: () => unwrap(api.GET('/api/v1/auth/csrf/')) })
     await Promise.allSettled([csrf(1), csrf(2), csrf(3)])
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
-    expect(navigate).toHaveBeenCalledTimes(1)
     expect(router.state.location.search).toEqual({ redirect: '/?tab=b' })
     expect(client.getQueryCache().findAll({ queryKey: ['csrf'] })).toHaveLength(0)
     expect(client.getQueryData(authKeys.me())).toBeNull()
+  })
+
+  // The router updates its location synchronously on navigate, so without a blocker the
+  // pathname check alone stops the later 401s. The redirecting flag matters while a
+  // navigation blocker (an unsaved-changes dialog) holds the redirect.
+  it('asks to navigate once for repeated 401s while a blocker holds the redirect', async () => {
+    mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))
+    const { router, client } = renderApp()
+    expect(await screen.findByText('Signed in as lab-tech')).toBeInTheDocument()
+    const blockerFn = vi.fn<() => Promise<boolean>>(() => new Promise<boolean>(() => {})) // the dialog stays open
+    router.history.block({ blockerFn })
+    mockApiError('get', '/api/v1/auth/csrf/', 401, problem(401))
+    // One after another, not in parallel: the first 401 clears the cache, which cancels queries
+    // still in flight without calling onError, so parallel 401s reach the handler by timing.
+    for (const n of [1, 2, 3]) {
+      await client.fetchQuery({ queryKey: ['csrf', n], queryFn: () => unwrap(api.GET('/api/v1/auth/csrf/')) }).catch(() => undefined)
+    }
+    expect(blockerFn).toHaveBeenCalledOnce()
   })
 })
 
