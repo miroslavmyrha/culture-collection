@@ -1,17 +1,18 @@
+import type { QueryClient } from '@tanstack/react-query'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 import { makeMe, problem, validationProblem } from '@/test/factories'
 import { mockApi, mockApiError, recordRequests } from '@/test/mockApi'
-import { renderWithProviders } from '@/test/render'
+import { makeTestQueryClient, renderWithProviders } from '@/test/render'
 import { server } from '@/test/server'
 import { authKeys } from '../api/keys'
 import { LoginForm } from './LoginForm'
 
-async function submit(username = 'lab-tech', password = 'secret') {
+async function submit({ username = 'lab-tech', password = 'secret', client }: { username?: string; password?: string; client?: QueryClient } = {}) {
   const onSuccess = vi.fn<() => void>()
-  const view = await renderWithProviders(<LoginForm onSuccess={onSuccess} />)
+  const view = await renderWithProviders(<LoginForm onSuccess={onSuccess} />, { client })
   const user = userEvent.setup()
   if (username) await user.type(screen.getByRole('textbox', { name: 'Username' }), username)
   if (password) await user.type(screen.getByLabelText('Password'), password)
@@ -23,9 +24,12 @@ describe('LoginForm', () => {
   it('stores the user in a fresh cache and calls onSuccess', async () => {
     const me = makeMe({ username: 'lab-tech' })
     mockApi('post', '/api/v1/auth/login/', me, { status: 200 })
-    const { client, onSuccess } = await submit()
+    const client = makeTestQueryClient()
+    client.setQueryData(['private', 'records'], ['earlier user'])
+    const { onSuccess } = await submit({ client })
     await vi.waitFor(() => expect(onSuccess).toHaveBeenCalledOnce())
     expect(client.getQueryData(authKeys.me())).toEqual(me)
+    expect(client.getQueryData(['private', 'records'])).toBeUndefined()
   })
 
   it.each([
@@ -68,7 +72,7 @@ describe('LoginForm', () => {
 
   it('validates empty fields without calling the API', async () => {
     const calls = recordRequests('post', '/api/v1/auth/login/')
-    await submit('', '')
+    await submit({ username: '', password: '' })
     expect(await screen.findByText('Enter your username')).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Username' })).toHaveAccessibleDescription('Enter your username')
     expect(screen.getByRole('textbox', { name: 'Username' })).toHaveFocus()

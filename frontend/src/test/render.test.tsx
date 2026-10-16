@@ -3,7 +3,7 @@ import { useNavigate, useSearch } from '@tanstack/react-router'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { allowConsole } from './console'
+import { allowConsole, assertNoConsoleOutput, watchConsole } from './console'
 import { renderHookWithProviders, renderWithProviders } from './render'
 
 function SearchProbe() {
@@ -36,7 +36,8 @@ describe('renderWithProviders', () => {
     expect(screen.getByRole('status')).toHaveTextContent('{"redirect":"/x"}')
   })
 
-  it('keeps the providers on rerender', async () => {    const { rerender, client } = await renderWithProviders(<Cached label="a" />)
+  it('keeps the providers on rerender', async () => {
+    const { rerender, client } = await renderWithProviders(<Cached label="a" />)
     client.setQueryData(['k'], 'from cache')
     rerender(<Cached label="b" />)
     expect(await screen.findByText('b: from cache')).toBeInTheDocument()
@@ -71,5 +72,13 @@ describe('test environment', () => {
     console.warn('an expected warning')
     expect(console.warn).toHaveBeenCalledOnce()
     /* oxlint-enable no-console */
+  })
+
+  // Without this test a guard that never throws keeps the whole suite green.
+  it('fails on an unexpected console.error', () => {
+    // oxlint-disable-next-line no-console -- the point of the test
+    console.error('boom')
+    expect(() => assertNoConsoleOutput()).toThrow('console.error: boom')
+    watchConsole() // start clean, so this test's own afterEach passes
   })
 })
