@@ -21,7 +21,17 @@ describe('SafeHtml', () => {
     ['iframe', '<iframe src="https://example.org"></iframe>ok', '<div>ok</div>'],
     ['form', '<form action="/x"><input name="a"></form>ok', '<div>ok</div>'],
     ['target blank', '<a href="https://example.org" target="_blank">x</a>', '<div><a href="https://example.org">x</a></div>'],
+    ['event handler whose value looks like a path', '<a href="/a" onclick="/x/;alert(1)">x</a>', '<div><a href="/a">x</a></div>'],
   ])('strips %s', (_name, input, expected) => {
     expect(html(input)).toBe(expected)
+  })
+
+  // Every allowed attribute must survive with a realistic value. DOMPurify checks allowed
+  // attributes it does not list as URI-safe against ALLOWED_URI_REGEXP, which once stripped
+  // numeric values such as colspan="2".
+  it('keeps table spans', () => {
+    expect(html('<table><tbody><tr><td colspan="2" rowspan="3">x</td></tr></tbody></table>')).toBe(
+      '<div><table><tbody><tr><td colspan="2" rowspan="3">x</td></tr></tbody></table></div>',
+    )
   })
 })
