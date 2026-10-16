@@ -3,6 +3,7 @@
 from typing import Any
 
 import pytest
+from django.contrib.auth.models import Permission
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Model, QuerySet
 from model_bakery import baker
@@ -14,10 +15,12 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 from cultures.core.api import (
     AUTHENTICATED,
+    STANDARD_ACTIONS,
     ScopedModelViewSet,
     ScopedReadOnlyViewSet,
     ScopedRelatedField,
 )
+from cultures.core.testing import assert_problem
 from cultures.users.models import User
 
 READ_ONLY_PERMS = {"list": AUTHENTICATED, "retrieve": AUTHENTICATED}
@@ -79,11 +82,11 @@ def test_permission_classes_are_refused() -> None:
             permission_classes = (permissions.AllowAny,)
 
 
-def test_every_action_needs_a_permission() -> None:
-    with pytest.raises(TypeError, match=r"no permission for \['retrieve'\]"):
-
-        class Incomplete(ScopedReadOnlyViewSet):
-            action_perms = {"list": AUTHENTICATED}
+@pytest.mark.parametrize("missing", STANDARD_ACTIONS)
+def test_every_action_needs_a_permission(missing: str) -> None:
+    perms = {name: perm for name, perm in ALL_PERMS.items() if name != missing}
+    with pytest.raises(TypeError, match=rf"no permission for \['{missing}'\]"):
+        type("Incomplete", (ScopedModelViewSet,), {"action_perms": perms})
 
 
 def test_custom_actions_need_a_permission_too() -> None:
@@ -159,11 +162,44 @@ class TeamUsers(ScopedModelViewSet):
         return Response({"seen": public_id})  # never loads the object: a bug the base catches
 
 
-def run(method: str, actions: dict[str, Any], user: User | None, **kwargs: Any) -> Response:
+class DenyUnsafe(permissions.BasePermission):
+    def has_permission(self, request: Request, view: Any) -> bool:
+        return request.method in permissions.SAFE_METHODS
+
+
+class FrozenTeamUsers(TeamUsers):
+    extra_permission_classes = (DenyUnsafe,)
+
+
+class GlobalPermUsers(ScopedReadOnlyViewSet):
+    """No has_perm override: the default asks Django's permission backends."""
+
+    serializer_class = UserOut
+    action_perms = {"list": "users.view_user", "retrieve": "users.view_user"}
+
+    def scoped_queryset(self) -> QuerySet[Any]:
+        return User.objects.order_by("username")
+
+
+class ListScope(ScopedReadOnlyViewSet):
+    serializer_class = UserOut
+    action_perms = READ_ONLY_PERMS
+
+    def scoped_queryset(self) -> QuerySet[Any]:
+        return list(User.objects.order_by("pk"))  # type: ignore[return-value]
+
+
+def run(
+    method: str,
+    actions: dict[str, Any],
+    user: User | None,
+    viewset: type[ScopedReadOnlyViewSet | ScopedModelViewSet] = TeamUsers,
+    **kwargs: Any,
+) -> Response:
     request = getattr(APIRequestFactory(), method)("/x/", kwargs.pop("data", None), format="json")
     if user is not None:
         force_authenticate(request, user=user)
-    response: Response = TeamUsers.as_view(actions)(request, **kwargs)
+    response: Response = viewset.as_view(actions)(request, **kwargs)
     response.render()
     return response
 
@@ -187,7 +223,8 @@ def outsider() -> User:
 class TestScopedViewSet:
     def test_anonymous_gets_401(self, teammate: User) -> None:
         response = run("get", {"get": "retrieve"}, None, public_id=teammate.public_id)
-        assert response.status_code == 401
+        assert_problem(response, 401, "not_authenticated")
+        assert response["WWW-Authenticate"] == 'Session realm="api"'
 
     def test_list_shows_only_the_scope(self, me: User, teammate: User, outsider: User) -> None:
         response = run("get", {"get": "list"}, me)
@@ -197,14 +234,15 @@ class TestScopedViewSet:
     def test_list_without_the_permission_is_403(self, me: User) -> None:
         me.first_name = "blocked"
         me.save()
-        assert run("get", {"get": "list"}, me).status_code == 403
+        assert_problem(run("get", {"get": "list"}, me), 403, "permission_denied")
 
     def test_object_outside_the_scope_is_404(self, me: User, outsider: User) -> None:
-        assert run("get", {"get": "retrieve"}, me, public_id=outsider.public_id).status_code == 404
+        response = run("get", {"get": "retrieve"}, me, public_id=outsider.public_id)
+        assert_problem(response, 404, "not_found")
         response = run(
             "patch", {"patch": "partial_update"}, me, public_id=outsider.public_id, data={}
         )
-        assert response.status_code == 404  # not 403: existence stays hidden
+        assert_problem(response, 404, "not_found")  # not 403: existence stays hidden
 
     def test_visible_but_not_permitted_is_403(self, me: User, teammate: User) -> None:
         response = run(
@@ -214,7 +252,7 @@ class TestScopedViewSet:
             public_id=teammate.public_id,
             data={"first_name": "x"},
         )
-        assert response.status_code == 403
+        assert_problem(response, 403, "permission_denied")
         teammate.refresh_from_db()
         assert teammate.first_name != "x"
 
@@ -227,9 +265,13 @@ class TestScopedViewSet:
             data={"first_name": "M"},
         )
         assert response.status_code == 200
+        assert response.data["first_name"] == "M"
+        me.refresh_from_db()
+        assert me.first_name == "M"
 
     def test_malformed_id_is_404(self, me: User) -> None:
-        assert run("get", {"get": "retrieve"}, me, public_id="not-a-uuid").status_code == 404
+        response = run("get", {"get": "retrieve"}, me, public_id="not-a-uuid")
+        assert_problem(response, 404, "not_found")
 
     def test_custom_collection_action_uses_the_scope(self, me: User, outsider: User) -> None:
         assert run("get", {"get": "stats"}, me).data == {"count": 1}
@@ -237,6 +279,36 @@ class TestScopedViewSet:
     def test_detail_action_that_skips_get_object_fails_loudly(self, me: User) -> None:
         with pytest.raises(ImproperlyConfigured, match=r"without self\.get_object"):
             run("get", {"get": "peek"}, me, public_id=me.public_id)
+
+    def test_options_answers_405_not_a_crash(self, me: User) -> None:
+        # DRF routes OPTIONS to the "metadata" action, which has no action_perms entry.
+        assert_problem(run("options", {"get": "list"}, me), 405, "method_not_allowed")
+
+    def test_extra_permission_classes_narrow_access(self, me: User) -> None:
+        response = run(
+            "patch",
+            {"patch": "partial_update"},
+            me,
+            FrozenTeamUsers,
+            public_id=me.public_id,
+            data={"first_name": "changed"},
+        )
+        assert_problem(response, 403, "permission_denied")
+        me.refresh_from_db()
+        assert me.first_name != "changed"
+
+    def test_default_has_perm_refuses_a_user_without_the_django_permission(self, me: User) -> None:
+        response = run("get", {"get": "list"}, me, GlobalPermUsers)
+        assert_problem(response, 403, "permission_denied")
+
+    def test_default_has_perm_allows_a_user_with_the_django_permission(self, me: User) -> None:
+        me.user_permissions.add(Permission.objects.get(codename="view_user"))
+        response = run("get", {"get": "list"}, me, GlobalPermUsers)
+        assert [row["username"] for row in response.data["results"]] == ["me"]
+
+    def test_scoped_queryset_must_return_a_queryset(self, me: User) -> None:
+        with pytest.raises(ImproperlyConfigured, match="must return a QuerySet"):
+            run("get", {"get": "list"}, me, ListScope)
 
 
 # ScopedRelatedField
@@ -285,7 +357,8 @@ class TestScopedRelatedField:
                 "reviewers": [str(visible.public_id), str(hidden.public_id)],
             }
         )
-        assert "reviewers" in serializer.errors
+        assert serializer.errors["reviewers"] == ["Invalid user."]
+        assert serializer.errors["reviewers"][0].code == "does_not_exist"
 
     def test_needs_the_request(self) -> None:
         user = baker.make(User)
