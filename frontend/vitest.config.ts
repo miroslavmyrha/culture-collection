@@ -7,7 +7,7 @@ export default mergeConfig(
     test: {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
-      include: ['src/**/*.test.{ts,tsx}'],
+      include: ['src/**/*.test.{ts,tsx}', 'tools/**/*.test.ts'],
       restoreMocks: true,
       // Dates render the same on every machine and in CI.
       env: { TZ: 'UTC' },

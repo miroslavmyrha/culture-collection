@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { api, unwrap } from '@/lib/api'
+import { api, ApiError, unwrap } from '@/lib/api'
 import { problem } from '@/test/factories'
 import { mockApiError } from '@/test/mockApi'
 import { renderWithProviders } from '@/test/render'
@@ -30,12 +30,12 @@ async function clickSave(handlesError?: boolean) {
 }
 
 describe('global mutation error message', () => {
-  it('shows a safe message for a failed plain mutation and reports 5xx', async () => {
-    mockApiError('post', '/api/v1/auth/logout/', 500, { detail: 'Traceback (most recent call last)' })
+  it('shows a safe message for a failed plain mutation and reports 5xx with the request id', async () => {
+    mockApiError('post', '/api/v1/auth/logout/', 500, { detail: 'Traceback (most recent call last)' }, { headers: { 'X-Request-ID': 'req-9' } })
     await clickSave()
     expect(await screen.findByRole('alert')).toHaveTextContent('The server failed. Try again in a moment.')
     expect(screen.queryByText(/Traceback/)).not.toBeInTheDocument()
-    expect(reported.map((r) => r.context.source)).toEqual(['mutation'])
+    expect(reported).toEqual([{ error: expect.any(ApiError), context: { source: 'mutation', requestId: 'req-9' } }])
   })
 
   it('stays quiet when the mutation handles its error (meta.handlesError)', async () => {

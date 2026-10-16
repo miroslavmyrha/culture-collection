@@ -20,5 +20,5 @@
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": true
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts", "tools"]
 }
