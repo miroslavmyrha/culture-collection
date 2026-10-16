@@ -15,12 +15,13 @@ class RequestTooLarge(APIException):
 
 
 class LimitedJSONParser(JSONParser):
-    """JSONParser that enforces DATA_UPLOAD_MAX_MEMORY_SIZE.
+    """JSONParser that enforces DATA_UPLOAD_MAX_MEMORY_SIZE on its own.
 
-    DRF reads JSON from the request stream, which skips Django's body limit
-    (Django checks it only in request.body and the form parsers). This reads at
-    most the limit plus one byte, so a declared or a chunked oversized body is
-    refused with 413 before it is decoded.
+    A second line: DRF >= 3.17.2 hands JSON parsers a stream over request.body,
+    where Django already refuses a body over the limit (rest_framework/request.py,
+    DRF 3.18.3). Older DRF read the raw stream and skipped Django's check. This
+    reads at most the limit plus one byte, so a declared or a chunked oversized
+    body is refused with 413 before it is decoded, whatever DRF does upstream.
     """
 
     def parse(

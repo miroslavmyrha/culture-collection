@@ -122,9 +122,11 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Body limits. Django checks DATA_UPLOAD_MAX_MEMORY_SIZE for form bodies only;
-# the API's JSON parser (cultures.core.parsers) enforces it for JSON too. Django has
-# no limit on multipart file size: the proxy's client_max_body_size is the cap.
+# Body limits. Django checks DATA_UPLOAD_MAX_MEMORY_SIZE when request.body is read,
+# and DRF >= 3.17.2 parses JSON and form bodies from request.body, so JSON gets a
+# 413 from Django. The API's JSON parser (cultures.core.parsers) caps its read too,
+# as a second line. Django has no limit on multipart file size: the proxy's
+# client_max_body_size is the cap.
 DATA_UPLOAD_MAX_MEMORY_SIZE = env_int("DATA_UPLOAD_MAX_MEMORY_SIZE", default=2 * 1024 * 1024)
 DATA_UPLOAD_MAX_NUMBER_FIELDS = env_int("DATA_UPLOAD_MAX_NUMBER_FIELDS", default=1000)
 DATA_UPLOAD_MAX_NUMBER_FILES = env_int("DATA_UPLOAD_MAX_NUMBER_FILES", default=20)

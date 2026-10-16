@@ -1,11 +1,15 @@
 """Every error has the one problem-details shape (cultures.core.errors)."""
 
-import json
+import importlib
+import pkgutil
 from typing import Any
 
 import pytest
+from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.test import Client, override_settings
+from django.http import Http404
+from django.test import Client, RequestFactory, override_settings
+from django.urls import get_resolver
 from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -13,22 +17,12 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory
 
+import cultures
 from cultures.core import exceptions as domain
+from cultures.core.testing import assert_problem
 from cultures.users.api.views import LoginThrottle
 
 pytestmark = pytest.mark.django_db
-PROBLEM_KEYS = {"type", "title", "status", "detail", "code", "errors"}
-
-
-def assert_problem(response: Any, status: int, code: str) -> dict[str, Any]:
-    assert response.status_code == status, response.content
-    assert response["Content-Type"] == "application/problem+json"
-    body: dict[str, Any] = json.loads(response.content)
-    assert set(body) == PROBLEM_KEYS
-    assert body["status"] == status
-    assert body["code"] == code
-    assert body["type"] == "about:blank"
-    return body
 
 
 class ItemSerializer(serializers.Serializer[None]):
@@ -82,6 +76,48 @@ def test_domain_exceptions_map_to_status(exc: domain.DomainError, status: int, c
     assert body["detail"] == exc.detail
 
 
+def project_domain_errors() -> list[type[domain.DomainError]]:
+    """Every DomainError subclass in the project, after importing all its modules."""
+    for module in pkgutil.walk_packages(cultures.__path__, "cultures."):
+        if not {"tests", "testing", "migrations"} & set(module.name.split(".")):
+            importlib.import_module(module.name)
+    found: list[type[domain.DomainError]] = []
+    pending = [domain.DomainError]
+    while pending:
+        children = pending.pop().__subclasses__()
+        pending += children
+        found += [cls for cls in children if ".tests." not in cls.__module__]
+    return sorted(found, key=lambda cls: f"{cls.__module__}.{cls.__qualname__}")
+
+
+DOMAIN_ERRORS = project_domain_errors()
+
+
+def test_the_domain_error_walk_finds_the_core_exceptions() -> None:
+    core = {domain.NotFound, domain.Forbidden, domain.Conflict}
+    core |= {domain.PreconditionFailed, domain.RuleViolation}
+    assert core <= set(DOMAIN_ERRORS)  # an empty walk must not pass
+
+
+@pytest.mark.parametrize("error", DOMAIN_ERRORS, ids=lambda cls: cls.__qualname__)
+def test_every_domain_error_maps_to_its_status_and_code(error: type[domain.DomainError]) -> None:
+    body = assert_problem(call(raising_view(error())), error.status_code, error.default_code)
+    assert body["detail"] == error.default_detail
+
+
+@pytest.mark.parametrize(
+    ("exc", "status", "code"),
+    [
+        (Http404(), 404, "not_found"),  # get_object_or_404 in a view or a service
+        (DjangoPermissionDenied(), 403, "permission_denied"),
+    ],
+)
+def test_django_exceptions_in_a_view_get_the_problem_shape(
+    exc: Exception, status: int, code: str
+) -> None:
+    assert_problem(call(raising_view(exc)), status, code)
+
+
 def test_domain_exception_with_attr_lists_the_field() -> None:
     exc = domain.RuleViolation("Position taken.", code="position_taken", attr="position")
     body = assert_problem(call(raising_view(exc)), 422, "position_taken")
@@ -133,6 +169,24 @@ def test_404_outside_drf_has_the_same_shape(client: Client) -> None:
     assert_problem(client.get("/api/v1/does-not-exist/"), 404, "not_found")
 
 
+# Django has a handler for each of these statuses (django.urls.resolvers.
+# URLResolver.resolve_error_handler); config/urls.py must replace all of them.
+@pytest.mark.parametrize(
+    ("status", "code", "args"),
+    [
+        (400, "bad_request", (None,)),
+        (403, "permission_denied", (None,)),
+        (404, "not_found", (None,)),
+        (500, "server_error", ()),  # handler500 takes no exception
+    ],
+)
+def test_every_installed_error_handler_answers_a_problem(
+    rf: RequestFactory, status: int, code: str, args: tuple[None, ...]
+) -> None:
+    handler = get_resolver().resolve_error_handler(status)
+    assert_problem(handler(rf.get("/x/"), *args), status, code)
+
+
 def test_429_keeps_retry_after(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(LoginThrottle, "rate", "1/min", raising=False)
     payload = {"username": "a", "password": "b"}
@@ -143,15 +197,9 @@ def test_429_keeps_retry_after(client: Client, monkeypatch: pytest.MonkeyPatch) 
 
 
 @override_settings(DATA_UPLOAD_MAX_MEMORY_SIZE=1024)
-def test_json_body_over_the_limit_is_413() -> None:
-    # DRF reads JSON from the stream, past Django's check: the parser enforces it.
-    data = {"items": [{"name": "x" * 2000, "tags": []}]}
-    assert_problem(call(validating_view, "post", data), 413, "request_too_large")
-
-
-@override_settings(DATA_UPLOAD_MAX_MEMORY_SIZE=1024)
-def test_body_over_the_limit_read_by_django_is_413_too(client: Client) -> None:
-    # Login reads the body for the CSRF check first, so Django's own check fires.
+def test_json_body_over_the_limit_is_413(client: Client) -> None:
+    # DRF >= 3.17.2 parses JSON from request.body, where Django checks the limit
+    # first. The parser's own cap is a second line, tested in test_parsers.py.
     payload = {"username": "a", "password": "x" * 2000}
     response = client.post("/api/v1/auth/login/", payload, content_type="application/json")
     assert_problem(response, 413, "request_too_large")
