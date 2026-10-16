@@ -1,6 +1,6 @@
-# cultures
+# culture-collection
 
-Django + DRF API (`backend/`) and React + TypeScript SPA (`frontend/`).
+A project for learning React, built as a real application ready for production deployment: security, audit trail, tests and deployment are part of the scope, not an afterthought. The domain is a culture collection: microbial strains, their storage, preservation and distribution, with a Django + DRF API (`backend/`) and a React + TypeScript SPA (`frontend/`).
 
 ## Contributing
 Git flow, branch names, commit messages and releases: [CONTRIBUTING.md](CONTRIBUTING.md).
