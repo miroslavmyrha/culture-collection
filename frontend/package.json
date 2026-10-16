@@ -1,0 +1,57 @@
+{
+  "name": "cultures-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "lint": "oxlint --type-aware --deny-warnings",
+    "lint:baseline": "oxlint --type-aware --suppress-all",
+    "lint:prune": "oxlint --type-aware --prune-suppressions",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "playwright test",
+    "api:types": "openapi-typescript ../backend/openapi.yml -o src/api/schema.d.ts",
+    "check": "npm run typecheck && npm run lint && npm run test"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.9.1",
+    "@tanstack/react-query": "^5.104.3",
+    "@tanstack/react-router": "^1.170.44",
+    "dompurify": "^3.4.17",
+    "openapi-fetch": "^0.17.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-hook-form": "^7.90.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@rolldown/plugin-babel": "^0.2.4",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@types/trusted-types": "^2.0.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "jsdom": "^30.1.3",
+    "msw": "^3.0.3",
+    "openapi-typescript": "7.13.0",
+    "oxlint": "^1.81.0",
+    "oxlint-tsgolint": "^7.0.2004",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.5"
+  },
+  "overrides": {
+    "openapi-typescript": {
+      "typescript": "$typescript"
+    }
+  }
+}
