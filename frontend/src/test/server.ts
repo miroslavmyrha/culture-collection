@@ -1,0 +1,15 @@
+import { http, HttpResponse } from 'msw'
+import { setupServer } from 'msw/node'
+import { problem } from './factories'
+
+// Default handlers describe the anonymous state; tests override per case (mockApi).
+export const handlers = [
+  // 401 for anonymous requests; useMe also accepts the 403 older backends sent.
+  http.get('*/api/v1/auth/me/', () => HttpResponse.json(problem(401, { code: 'not_authenticated' }), { status: 401 })),
+  http.get('*/api/v1/auth/csrf/', () => {
+    document.cookie = 'csrftoken=test-token'
+    return new HttpResponse(null, { status: 204 })
+  }),
+]
+
+export const server = setupServer(...handlers)
