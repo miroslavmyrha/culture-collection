@@ -1,4 +1,5 @@
 import pytest
+from django.contrib.auth.models import Permission
 from django.core.exceptions import ImproperlyConfigured
 from model_bakery import baker
 from rest_framework.request import Request
@@ -26,6 +27,12 @@ def test_pk_is_appended_to_the_ordering() -> None:
     ordered = with_total_ordering(User.objects.order_by("-last_name"))
     assert list(ordered.query.order_by) == ["-last_name", "pk"]
     assert list(with_total_ordering(User.objects.order_by("-pk")).query.order_by) == ["-pk"]
+
+
+def test_meta_ordering_is_kept_when_pk_is_appended() -> None:
+    assert Permission._meta.ordering  # the case under test: an ordering from Meta
+    ordered = with_total_ordering(Permission.objects.all())
+    assert list(ordered.query.order_by) == [*Permission._meta.ordering, "pk"]
 
 
 def test_unordered_queryset_is_refused() -> None:

@@ -10,6 +10,10 @@ adds no audit row and a permitted one adds exactly one.
 
 core/tests/test_contract_coverage.py fails when a routed viewset has no contract
 class, so a new viewset cannot ship without this matrix.
+
+A write whose `changes` is the User table needs update_last_login disconnected:
+logging each user in writes users.last_login, so every refused write would seem
+to change the table (see core/tests/test_viewset_contract.py).
 """
 
 import importlib
@@ -118,12 +122,12 @@ class ViewsetContract:
                 assert self.audit_rows() == audit + 1, write
 
 
-def routed_api_views() -> dict[str, type]:
+def routed_api_views() -> dict[str, type[APIView]]:
     """Every DRF view of this project in the URLconf, by dotted name.
 
     Viewsets by class, @api_view functions by function name.
     """
-    found: dict[str, type] = {}
+    found: dict[str, type[APIView]] = {}
 
     def walk(patterns: list[URLPattern | URLResolver]) -> None:
         for pattern in patterns:
