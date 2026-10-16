@@ -2,8 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { safeHref, safeRedirect } from './safe'
 
 describe('safeHref', () => {
-  it.each(['https://example.org/a', 'http://example.org', 'mailto:lab@example.org', '/relative'])('allows %s', (url) => {
-    expect(safeHref(url)).toBeDefined()
+  it.each([
+    ['https://example.org/a', 'https://example.org/a'],
+    ['http://example.org', 'http://example.org/'],
+    ['mailto:lab@example.org', 'mailto:lab@example.org'],
+    ['/relative', `${window.location.origin}/relative`],
+  ])('allows %s as %s', (url, href) => {
+    expect(safeHref(url)).toBe(href)
   })
 
   it.each(['javascript:alert(1)', 'JaVaScRiPt:alert(1)', 'java\tscript:alert(1)', ' javascript:x', '\njavascript:x', 'data:text/html,<script>', 'vbscript:x'])(
@@ -21,7 +26,7 @@ describe('safeHref', () => {
     expect(safeHref('HTTPS://Example.ORG/x')).toBe('https://example.org/x')
   })
 
-  it.each(['https://app.example@evil.com/', 'https://user:pass@example.org/'])('rejects embedded credentials in %s', (url) => {
+  it.each(['https://app.example@evil.com/', 'https://user:pass@example.org/', 'https://:pass@example.org/'])('rejects embedded credentials in %s', (url) => {
     expect(safeHref(url)).toBeUndefined()
   })
 

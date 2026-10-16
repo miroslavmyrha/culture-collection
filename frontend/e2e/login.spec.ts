@@ -3,24 +3,38 @@ import { expect, type Page, test } from '@playwright/test'
 const username = process.env.E2E_USERNAME ?? 'e2e-user'
 const password = process.env.E2E_PASSWORD ?? 'e2e correct horse battery'
 
-/** Collects CSP and Trusted Types violations: console messages and securitypolicyviolation events. */
+/**
+ * Collects CSP and Trusted Types violations from every document the page loads: console errors
+ * and securitypolicyviolation events. The binding sends each event to the test at once, so a
+ * reload or goto does not drop what an earlier document reported (a window variable read at
+ * the end only sees the last document). Chrome words Trusted Types errors as "requires
+ * 'TrustedHTML' assignment", hence the wider pattern.
+ */
 async function watchCsp(page: Page) {
-  const console: string[] = []
+  const seen: string[] = []
   page.on('console', (msg) => {
-    if (msg.type() === 'error' && /Content Security Policy|Trusted ?Type/i.test(msg.text())) console.push(msg.text())
+    if (msg.type() === 'error' && /Content Security Policy|Trusted ?(Type|HTML|Script)/i.test(msg.text())) seen.push(msg.text())
+  })
+  await page.exposeBinding('reportCspViolation', (_source, text: unknown) => {
+    seen.push(String(text))
   })
   await page.addInitScript(() => {
-    const seen: string[] = []
-    Reflect.set(window, 'cspViolations', seen)
-    document.addEventListener('securitypolicyviolation', (e) => seen.push(`${e.effectiveDirective} ${e.blockedURI}`))
-  })
-  return async () => {
-    const events = await page.evaluate((): string[] => {
-      const seen: unknown = Reflect.get(window, 'cspViolations')
-      return Array.isArray(seen) ? seen.map(String) : []
+    document.addEventListener('securitypolicyviolation', (e) => {
+      const report: unknown = Reflect.get(window, 'reportCspViolation')
+      if (typeof report === 'function') void report(`${e.effectiveDirective} ${e.blockedURI}`)
     })
-    return [...console, ...events]
-  }
+  })
+  return () => seen
+}
+
+/** The CSP header as a map of directive to sources. */
+function parseCsp(header: string): Record<string, string[]> {
+  return Object.fromEntries(
+    header.split(';').map((directive) => {
+      const [name = '', ...values] = directive.trim().split(/\s+/)
+      return [name, values]
+    }),
+  )
 }
 
 async function signIn(page: Page, pass = password) {
@@ -49,20 +63,37 @@ test('signs in through the real API under the production CSP and returns to the 
 
   await page.goto('/no-such-page')
   await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible()
-  expect(await violations()).toEqual([])
+  expect(violations()).toEqual([])
 })
 
 test('wrong password shows an error', async ({ page }) => {
   await page.goto('/login')
   await signIn(page, 'wrong password')
-  await expect(page.getByText('Invalid username or password.')).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveText('Invalid username or password.')
+  await expect(page).toHaveURL('/login')
 })
 
-test('sends the security headers and the nonce placeholder', async ({ page }) => {
+test('sends exactly the production CSP, the security headers and the nonce placeholder', async ({ page }) => {
   const response = await page.goto('/login')
   const headers = response?.headers() ?? {}
-  expect(headers['content-security-policy']).toContain("style-src 'self' 'nonce-__CSP_NONCE__'")
-  expect(headers['content-security-policy']).toContain("require-trusted-types-for 'script'; trusted-types dompurify")
+  // A reviewed security contract, not a snapshot: every relaxation (unsafe-eval, unsafe-inline,
+  // a default Trusted Types policy, a new host) has to change this map in review.
+  expect(parseCsp(headers['content-security-policy'] ?? '')).toEqual({
+    'default-src': ["'self'"],
+    'script-src': ["'self'"],
+    'style-src': ["'self'", "'nonce-__CSP_NONCE__'"],
+    'img-src': ["'self'", 'data:'],
+    'font-src': ["'self'"],
+    'connect-src': ["'self'"],
+    'worker-src': ["'self'"],
+    'frame-src': ["'none'"],
+    'object-src': ["'none'"],
+    'base-uri': ["'none'"],
+    'frame-ancestors': ["'none'"],
+    'form-action': ["'self'"],
+    'require-trusted-types-for': ["'script'"],
+    'trusted-types': ['dompurify'],
+  })
   expect(headers).toMatchObject({
     'referrer-policy': 'strict-origin-when-cross-origin',
     'cross-origin-opener-policy': 'same-origin',
