@@ -18,7 +18,9 @@ function lint(file: string, specifier: string): { ok: boolean; output: string } 
   mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, `import probe from '${specifier}'\nexport const used = probe\n`)
   try {
-    const output = execFileSync(oxlint, ['-c', '.oxlintrc.json', '--deny-warnings', file], { cwd: root, encoding: 'utf8' })
+    // A fixed format: oxlint picks its default from the environment (github on Actions, another
+    // one elsewhere), and the github format leaves out the help text this test matches.
+    const output = execFileSync(oxlint, ['-c', '.oxlintrc.json', '--deny-warnings', '--format', 'json', file], { cwd: root, encoding: 'utf8' })
     return { ok: true, output }
   } catch (error) {
     return { ok: false, output: String(Reflect.get(Object(error), 'stdout')) }
