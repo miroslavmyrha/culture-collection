@@ -19,8 +19,13 @@ Set `VITE_API_PROXY` when the backend is not on `http://localhost:8000`.
 ```bash
 tools/install-hooks.sh   # once per clone: secrets + ./check.sh, commit message and branch name checks
 ./check.sh               # secrets, migrations, API contract, lint, types, tests
-./check.sh e2e           # plus Playwright against the real API (backend running)
+./check.sh e2e           # plus Playwright against the real API (backend running, seeded below)
 ./check.sh audit         # plus pip-audit and npm audit (network)
+```
+The e2e tests sign in as `e2e-user`, who manages the lab "E2E lab". Seed it the way CI does,
+and again after a failed run (it resets what the tests change):
+```bash
+docker compose exec -e E2E_PASSWORD='e2e correct horse battery' backend python manage.py seed_e2e
 ```
 
 ## API contract

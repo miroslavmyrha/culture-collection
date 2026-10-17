@@ -49,7 +49,7 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium-headless-shell
 
-      - name: API with a throwaway e2e user
+      - name: API with a throwaway e2e user, lab and membership
         run: |
           # The checkout belongs to the runner's user: the container must write as that uid.
           APP_UID=$(id -u)
@@ -61,8 +61,8 @@ jobs:
           echo "E2E_PASSWORD=$password" >> "$GITHUB_ENV"
           docker compose up -d --build
           docker compose exec -T backend python manage.py migrate --noinput
-          docker compose exec -T -e E2E_PASSWORD="$password" backend python manage.py shell -c \
-            "import os; from django.contrib.auth import get_user_model; get_user_model().objects.create_user('e2e-user', password=os.environ['E2E_PASSWORD'])"
+          # The same seed as locally: the e2e user managing "E2E lab", a colleague in no lab.
+          docker compose exec -T -e E2E_PASSWORD="$password" backend python manage.py seed_e2e
           for _ in $(seq 30); do curl -fsS http://localhost:8000/healthz >/dev/null && exit 0; sleep 2; done
           docker compose logs backend
           exit 1
