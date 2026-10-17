@@ -20,8 +20,11 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
 
 FROM build AS dev
+# The app user must own what it writes in the ./backend bind mount (ruff, mypy and pytest
+# caches, generated files): give it the host user's uid (compose passes APP_UID).
+ARG APP_UID=1000
 RUN uv sync --locked --no-install-project \
-    && useradd --create-home --uid 1000 app \
+    && useradd --create-home --uid "$APP_UID" app \
     && chown -R app:app /venv
 USER app
 EXPOSE 8000

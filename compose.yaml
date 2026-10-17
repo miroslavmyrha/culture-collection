@@ -18,7 +18,8 @@ services:
       retries: 30
 
   backend:
-    build: {context: ./backend, target: dev}
+    # APP_UID: your uid (id -u) when it is not 1000, so the container can write in ./backend.
+    build: {context: ./backend, target: dev, args: {APP_UID: "${APP_UID:-1000}"}}
     # The shared cache (rate limits) lives in a database table; creating it is idempotent.
     command: sh -c "python manage.py createcachetable && exec python manage.py runserver 0.0.0.0:8000"
     environment:
