@@ -15,6 +15,14 @@ cd frontend && npm install && npm run dev   # SPA on :5173, /api proxied to the 
 ```
 Set `VITE_API_PROXY` when the backend is not on `http://localhost:8000`.
 
+The API above connects as the table owner. To run it the way production does, with the
+database roles of ADR 0005 (migrations as `cultures_migration`, the API as the runtime
+role `cultures_app`, `/readyz` checking that it owns nothing):
+```bash
+tools/up-with-runtime-role.sh        # idempotent, and how CI runs the e2e suite
+docker compose up -d backend         # back to the owner
+```
+
 ## Check
 ```bash
 tools/install-hooks.sh   # once per clone: secrets + ./check.sh, commit message and branch name checks
@@ -42,17 +50,55 @@ docker build -t cultures-api backend
 docker run --read-only --tmpfs /tmp -p 8000:8000 --env-file prod.env cultures-api
 ```
 
-Deploy steps, in order: `python manage.py migrate`, `python manage.py createcachetable`,
-then start the new image. Probes: `/healthz` (liveness, no dependencies) and
-`/readyz` (database, cache, no unapplied migrations; 503 lists the failing checks).
-Both answer any Host header, so a probe can use the pod IP.
+### Database roles (once per database)
+The app never connects as the owner of its tables (ADR 0005). As a superuser, or the
+database owner with CREATEROLE, create the roles and their privileges, then set the
+two login passwords:
+```bash
+DATABASE_URL=postgres://<admin>@<host>/<db> python manage.py db_roles
+psql ... -c '\password cultures_migration' -c '\password cultures_app'
+```
+`cultures_audit` (NOLOGIN) owns the audit tables and trigger functions,
+`cultures_migration` runs migrations and owns the other tables, `cultures_app` is what
+the app connects as: no TRUNCATE, ALTER or TRIGGER anywhere, only SELECT and INSERT on
+the audit events, only SELECT on the row changes. Other names: `DB_AUDIT_OWNER_ROLE`,
+`DB_MIGRATION_ROLE`, `DB_RUNTIME_ROLE` (set them for every step below). Run `db_roles`
+again after `backend/cultures/audit/roles.py` changes. It is idempotent.
+
+### Deploy steps, in order
+1. With the new image and the real production environment of the app:
+   `python manage.py check --deploy --fail-level WARNING`.
+2. As the migration role, with a lock timeout so a long query cannot queue traffic
+   behind a migration:
+   `PGOPTIONS='-c lock_timeout=5s' DB_APPLICATION_NAME=cultures-migrate DATABASE_URL=<cultures_migration> python manage.py migrate`,
+   then `python manage.py createcachetable` the same way. The end of `migrate` prints
+   "Database roles: audit objects owned by cultures_audit ...": it gives new audit
+   tables and functions to the audit owner and resets the app's grants. If it prints
+   "privileges unchanged", migrate ran as the wrong role.
+3. Start the new image with `DATABASE_URL=<cultures_app>`. `/readyz` answers 503 with
+   `runtime_role` while the app connects as a role that owns a table or may TRUNCATE
+   one (`DB_RUNTIME_ROLE_REQUIRED`, on by default in production).
+
+Probes: `/healthz` (liveness, no dependencies) and `/readyz` (database, cache, no
+unapplied migrations, the runtime role; 503 lists the failing checks). Both answer any
+Host header, so a probe can use the pod IP.
+
+### Audit reconciliation (scheduled)
+Once a day, as `cultures_app` (it only reads):
+`python manage.py audit_reconcile --since 25h`. It prints row changes that no service
+event explains (a write from psql, a script or a forgotten `QuerySet.update()`) and
+exits 1 when there is one. Alert on the exit code. Changes next to a system actor's
+event, such as a data migration in `migration_audit()`, are printed as `known` and do
+not fail it. Examples: cron `17 6 * * * ... audit_reconcile --since 25h || alert`, a
+systemd timer, or a Kubernetes CronJob with the image and the app's environment.
 
 Required environment: `DJANGO_SECRET_KEY` (or `DJANGO_SECRET_KEY_FILE`), `DATABASE_URL`
-(or `DATABASE_URL_FILE`), `DJANGO_ALLOWED_HOSTS`, `DJANGO_ADMIN_PATH` (not the default).
+(or `DATABASE_URL_FILE`, the runtime role for the app), `DJANGO_ALLOWED_HOSTS`, `DJANGO_ADMIN_PATH` (not the default).
 Behind a TLS proxy: `DJANGO_BEHIND_TLS_PROXY=true`, `DJANGO_NUM_PROXIES` (proxies that
 append to X-Forwarded-For, usually 1) and `GUNICORN_FORWARDED_ALLOW_IPS` (the proxy
 address). Optional: `DJANGO_SECRET_KEY_FALLBACKS` (key rotation), `LOG_FORMAT=json`,
-`ERROR_REPORTING_DSN` (add `sentry-sdk` first), `THROTTLE_*`, `LOGIN_ACCOUNT_*`,
+`ERROR_REPORTING_DSN` (add `sentry-sdk` first), `DB_RUNTIME_ROLE_REQUIRED=false` (only
+where the host gives the app no second role), `THROTTLE_*`, `LOGIN_ACCOUNT_*`,
 `DATA_UPLOAD_MAX_MEMORY_SIZE`. Startup refuses unsafe values; `./check.sh` runs
 `check --deploy` with production settings.
 
