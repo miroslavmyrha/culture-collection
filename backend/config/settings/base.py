@@ -30,6 +30,9 @@ CSRF_TRUSTED_ORIGINS: list[str] = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
+    # Before django.contrib.auth, so its createsuperuser and changepassword commands replace
+    # Django's (the first app in this list wins) and write through the audited services.
+    "cultures.users",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -40,7 +43,6 @@ INSTALLED_APPS = [
     "django_filters",
     "drf_spectacular",
     "cultures.core",
-    "cultures.users",
     "cultures.labs",
     "cultures.audit",
 ]

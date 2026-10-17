@@ -11,7 +11,7 @@ from cultures.labs.models import Lab
 from cultures.labs.permissions import GRANTS, ROLE_PERMS, ROLES, Perm, Role, may_grant, outranks
 from cultures.users.models import User
 
-from .conftest import member_of
+from .conftest import make_user, member_of
 
 V, T, C, M = Role.VIEWER, Role.TECHNICIAN, Role.CURATOR, Role.MANAGER
 
@@ -104,7 +104,7 @@ def test_an_inactive_user_has_no_labs(lab: Lab) -> None:
 
 @pytest.mark.django_db
 def test_a_superuser_has_no_labs_without_memberships(lab: Lab) -> None:
-    root = User.objects.create_superuser("root", password="x" * 20)
+    root = make_user("root", is_staff=True, is_superuser=True)
     assert access_for(root).labs_with(Perm.VIEW_LAB) == frozenset()
 
 
