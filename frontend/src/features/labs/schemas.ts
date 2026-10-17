@@ -17,8 +17,11 @@ export const ROLE_LABELS: Record<Role, string> = {
 /** Only managers manage members. The server decides; this only hides what it would refuse. */
 export const canManageMembers = (role: Role | undefined): boolean => role === 'manager'
 
+/** The own role and every role below it: the ceiling of a grant (may_grant on the server). */
+export const rolesUpTo = (own: Role): Role[] => ROLES.slice(0, ROLES.indexOf(own) + 1)
+
 /** The roles a member manager may grant: up to their own, never above. */
-export const grantableRoles = (own: Role): Role[] => (canManageMembers(own) ? ROLES.slice(0, ROLES.indexOf(own) + 1) : [])
+export const grantableRoles = (own: Role): Role[] => (canManageMembers(own) ? rolesUpTo(own) : [])
 
 export const roleOptions = (roles: readonly Role[]) => roles.map((value) => ({ value, label: ROLE_LABELS[value] }))
 
