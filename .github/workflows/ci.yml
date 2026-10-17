@@ -49,23 +49,26 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium-headless-shell
 
-      - name: API with a throwaway e2e user, lab and membership
+      - name: API as the runtime role, with a throwaway e2e user, lab and membership
         run: |
           # The checkout belongs to the runner's user: the container must write as that uid.
           APP_UID=$(id -u)
           export APP_UID
           echo "APP_UID=$APP_UID" >> "$GITHUB_ENV"
-          # A fresh password per run: nothing to store, nothing to leak, works for forks.
+          # Fresh passwords per run: nothing to store, nothing to leak, works for forks.
           password=$(openssl rand -hex 24)
           echo "::add-mask::$password"
           echo "E2E_PASSWORD=$password" >> "$GITHUB_ENV"
-          docker compose up -d --build
-          docker compose exec -T backend python manage.py migrate --noinput
-          # The same seed as locally: the e2e user managing "E2E lab", a colleague in no lab.
+          DB_MIGRATION_PASSWORD=$(openssl rand -hex 24)
+          DB_RUNTIME_PASSWORD=$(openssl rand -hex 24)
+          echo "::add-mask::$DB_MIGRATION_PASSWORD"
+          echo "::add-mask::$DB_RUNTIME_PASSWORD"
+          export DB_MIGRATION_PASSWORD DB_RUNTIME_PASSWORD
+          # Production's order (ADR 0005): roles, migrate as the migration role, then the
+          # API as the runtime role. It fails unless /readyz confirms that role.
+          tools/up-with-runtime-role.sh
+          # The same seed as locally, written by the runtime role through the services.
           docker compose exec -T -e E2E_PASSWORD="$password" backend python manage.py seed_e2e
-          for _ in $(seq 30); do curl -fsS http://localhost:8000/healthz >/dev/null && exit 0; sleep 2; done
-          docker compose logs backend
-          exit 1
 
       - name: ./check.sh e2e
         run: ./check.sh e2e
