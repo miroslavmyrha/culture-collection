@@ -18,6 +18,8 @@ def test_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     assert conf["forwarded_allow_ips"] == "127.0.0.1,::1"
     assert conf["worker_tmp_dir"] == "/dev/shm"
     assert conf["accesslog"] == "-"
+    # No control socket: the runtime image runs read-only and nothing uses gunicornc.
+    assert conf["control_socket_disable"] is True
 
 
 def test_the_access_log_carries_the_request_id() -> None:
