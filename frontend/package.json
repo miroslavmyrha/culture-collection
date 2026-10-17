@@ -18,7 +18,11 @@
     "check": "npm run typecheck && npm run lint && npm run test"
   },
   "dependencies": {
+    "@emotion/cache": "11.14.0",
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.1",
     "@hookform/resolvers": "^5.9.1",
+    "@mui/material": "9.5.0",
     "@tanstack/react-query": "^5.104.3",
     "@tanstack/react-router": "^1.170.44",
     "dompurify": "^3.4.17",

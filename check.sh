@@ -12,10 +12,18 @@ GITLEAKS_IMAGE=ghcr.io/gitleaks/gitleaks:v8.30.1
 
 echo "== secrets"
 if git rev-parse --git-dir >/dev/null 2>&1; then
+  # In a linked worktree .git is a file that points into the main checkout's .git: mount that
+  # directory too, at the same absolute paths, or gitleaks cannot open the repository.
+  common=$(cd "$(git rev-parse --git-common-dir)" && pwd)
   # tracked changes, then staged ones (new files are only seen once staged; the hook scans staged)
   for mode in "" "--staged"; do
-    docker run --rm -v "$PWD:/repo" -w /repo "$GITLEAKS_IMAGE" git --pre-commit $mode --no-banner --redact . >/dev/null 2>&1 \
-      || fail "possible secret in uncommitted changes: run docker run --rm -v \"\$PWD:/repo\" -w /repo $GITLEAKS_IMAGE git --pre-commit $mode --redact ."
+    out=$(docker run --rm -v "$PWD:$PWD" -v "$common:$common" -w "$PWD" "$GITLEAKS_IMAGE" \
+      git --pre-commit $mode --no-banner --redact . 2>&1) \
+      || fail "possible secret in uncommitted changes: run docker run --rm -v \"\$PWD:\$PWD\" -v \"$common:$common\" -w \"\$PWD\" $GITLEAKS_IMAGE git --pre-commit $mode --redact ."
+    # gitleaks exits 0 when git fails, after scanning nothing: treat that as a failure.
+    case "$out" in
+      *"fatal:"* | *"not a git repository"*) fail "gitleaks could not read the git repository: $out" ;;
+    esac
   done
 else
   echo "(not a git repository, skipped)"
