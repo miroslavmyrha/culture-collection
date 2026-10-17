@@ -8,9 +8,9 @@ export function LoginPage() {
   const { redirect } = route.useSearch()
   const navigate = useNavigate()
   return (
-    <main>
+    <section>
       <h1>Sign in</h1>
       <LoginForm onSuccess={() => void navigate({ href: safeRedirect(redirect), replace: true })} />
-    </main>
+    </section>
   )
 }

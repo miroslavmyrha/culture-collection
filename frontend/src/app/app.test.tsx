@@ -134,6 +134,25 @@ describe('routing and the session guard', () => {
   })
 })
 
+const anonymous = () => undefined // the default handler answers /auth/me/ with 401
+const signedIn = () => void mockApi('get', '/api/v1/auth/me/', makeMe())
+
+describe('base layout', () => {
+  // The layout owns the one <main>: a page that adds its own would nest landmarks.
+  it.each([
+    ['/login', 'Sign in', anonymous],
+    ['/', 'Home', signedIn],
+    ['/no-such-page', 'Page not found', anonymous],
+  ])('renders %s inside the top bar and exactly one main landmark', async (path, heading, session) => {
+    session()
+    renderApp({ path })
+    expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument()
+    expect(screen.getByRole('banner')).toHaveTextContent('Culture collection')
+    expect(screen.getAllByRole('main')).toHaveLength(1)
+    expect(screen.getByRole('main')).toContainElement(screen.getByRole('heading', { name: heading }))
+  })
+})
+
 describe('session expiry (401)', () => {
   it('clears the cache and redirects to /login with the current page', async () => {
     mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))

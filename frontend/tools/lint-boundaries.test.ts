@@ -45,6 +45,14 @@ describe('import boundaries (invariant)', () => {
     ['src/pages/x.ts', '@/app/router', 'Pages compose features'],
     ['src/pages/x.ts', 'dompurify', 'Render HTML only through components/SafeHtml.tsx'],
     ['src/app/x.ts', 'dompurify', 'Render HTML only through components/SafeHtml.tsx'],
+    ['src/features/a/x.ts', '@mui/material', 'Import UI components from @/components/ui'],
+    ['src/features/a/x.ts', '@mui/material/Button', 'Import UI components from @/components/ui'],
+    ['src/pages/x.ts', '@mui/material', 'Import UI components from @/components/ui'],
+    ['src/routes/x.ts', '@mui/material', 'Import UI components from @/components/ui'],
+    ['src/components/x.ts', '@emotion/react', 'Import UI components from @/components/ui'],
+    ['src/lib/x.ts', '@emotion/styled', 'Import UI components from @/components/ui'],
+    ['src/components/ui/x.ts', '@/features/a/api/keys', 'Shared code (lib, components, hooks)'],
+    ['src/components/ui/x.ts', 'dompurify', 'Render HTML only through components/SafeHtml.tsx'],
   ])('%s may not import %s', (file, specifier, message) => {
     const result = lint(file, specifier)
     expect(result.ok).toBe(false)
@@ -57,6 +65,10 @@ describe('import boundaries (invariant)', () => {
     ['src/features/a/deep/x.ts', '../api/keys'],
     ['src/pages/x.ts', '@/features/a/api/keys'],
     ['src/lib/sanitize.ts', 'dompurify'],
+    ['src/components/ui/x.ts', '@mui/material'],
+    ['src/app/x.ts', '@mui/material/styles'],
+    ['src/app/x.ts', '@emotion/cache'],
+    ['src/pages/x.ts', '@/components/ui'],
   ])('%s may import %s', (file, specifier) => {
     expect(lint(file, specifier)).toEqual({ ok: true, output: expect.any(String) })
   })
