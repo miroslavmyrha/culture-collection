@@ -2,14 +2,17 @@
 
 They answer before host validation (CommonMiddleware would reject a probe that
 uses the pod IP as Host), before the SSL redirect and without a session.
-/healthz: the process answers. /readyz: database, cache and migrations are ready;
-503 lists the failing checks by name. Neither reveals versions or error text.
+/healthz: the process answers. /readyz: database, cache and migrations are ready,
+and with DB_RUNTIME_ROLE_REQUIRED (the production default) the app connects as
+the runtime role of ADR 0005; 503 lists the failing checks by name. Neither
+reveals versions or error text.
 """
 
 import json
 import logging
 from collections.abc import Callable
 
+from django.conf import settings
 from django.core.cache import cache
 from django.db import DEFAULT_DB_ALIAS, connections
 from django.db.migrations.executor import MigrationExecutor
@@ -47,10 +50,33 @@ def check_migrations() -> bool:
     return _migrations_applied
 
 
+# True when the connected role owns a table of the public schema (directly or
+# through a role it inherits, superusers included) or may TRUNCATE or add a
+# trigger to one: such a role can empty or switch off the audit trail.
+_PRIVILEGED_ROLE = """
+SELECT EXISTS (
+    SELECT FROM pg_class c
+     WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p')
+       AND (pg_has_role(current_user, c.relowner, 'USAGE')
+            OR has_table_privilege(current_user, c.oid, 'TRUNCATE, TRIGGER'))
+)
+"""
+
+
+def check_runtime_role() -> bool:
+    """The app is not connected as an owner or a role that may TRUNCATE, when required."""
+    if not settings.DB_RUNTIME_ROLE_REQUIRED:
+        return True
+    with connections[DEFAULT_DB_ALIAS].cursor() as cursor:
+        cursor.execute(_PRIVILEGED_ROLE)
+        return bool(cursor.fetchone() == (False,))
+
+
 READINESS_CHECKS: dict[str, Callable[[], bool]] = {
     "database": check_database,
     "cache": check_cache,
     "migrations": check_migrations,
+    "runtime_role": check_runtime_role,
 }
 
 

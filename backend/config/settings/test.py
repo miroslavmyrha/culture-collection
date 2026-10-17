@@ -17,6 +17,9 @@ REST_FRAMEWORK = {
 # Mail stays in django.core.mail.outbox (the test runner sets locmem for every alias too).
 MAILERS = {"default": {"BACKEND": "django.core.mail.backends.locmem.EmailBackend"}}
 
+# Tests connect as the owner. tests/test_health.py turns the check on where it tests it.
+DB_RUNTIME_ROLE_REQUIRED = False
+
 # Per-process cache only here: production shares one cache between workers.
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
 
