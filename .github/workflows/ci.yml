@@ -51,6 +51,10 @@ jobs:
 
       - name: API with a throwaway e2e user
         run: |
+          # The checkout belongs to the runner's user: the container must write as that uid.
+          APP_UID=$(id -u)
+          export APP_UID
+          echo "APP_UID=$APP_UID" >> "$GITHUB_ENV"
           # A fresh password per run: nothing to store, nothing to leak, works for forks.
           password=$(openssl rand -hex 24)
           echo "::add-mask::$password"
