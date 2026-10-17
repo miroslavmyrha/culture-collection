@@ -5,11 +5,13 @@ Both are append-only on three levels:
 - database triggers (migration 0002) refuse UPDATE and DELETE from every role,
   the owner included, and TRUNCATE from every role except the table owner
   (Django's flush in transactional tests runs as the owner);
-- production runs the app as a role that owns nothing, with only SELECT and
-  INSERT on audit_auditevent and only SELECT on audit_rowchange (the row
-  trigger writes it as SECURITY DEFINER). In development the app role owns the
-  tables, so the grants cannot hold there: tests/test_append_only.py proves
-  them with a restricted role. ADR 0005 has the production role setup.
+- production runs the app as the runtime role of ADR 0005, which owns
+  nothing, with only SELECT and INSERT on audit_auditevent and only SELECT on
+  audit_rowchange (the row trigger writes it as SECURITY DEFINER). roles.py
+  holds those grants and `manage.py db_roles` applies them. In development
+  the app connects as the owner, so the grants cannot hold there:
+  tests/test_roles.py and tests/test_append_only.py set the roles up inside
+  the test transaction.
 
 AuditEvent.lab is the tenant (#9): events about a lab's data carry it, so a
 lab's timeline is one indexed query, and reads go through the lab scope like
@@ -170,7 +172,10 @@ class RowChange(models.Model):
     outside the application, and a txid with row changes but no AuditEvent is
     a change that no service explains. actor_id is the user's internal id
     without a foreign key: the trigger cannot trust a session setting to name
-    an existing user.
+    an existing user. It is a claim, not proof: any session can set
+    app.actor_id. The trigger keeps it only when it is a bigint, otherwise it
+    stores null and sets actor_claim_invalid (migration 0008), so a malformed
+    value never blocks a write. request_id is cut to 64 characters.
 
     table_label is the stable name from the trigger arguments ("users.user"),
     not the table name or oid, which change on a rename or a restore. row_pk is
@@ -187,6 +192,7 @@ class RowChange(models.Model):
     old = models.JSONField(null=True)  # UPDATE: only the changed columns. INSERT: null
     new = models.JSONField(null=True)  # UPDATE: only the changed columns. DELETE: null
     actor_id = models.BigIntegerField(null=True)
+    actor_claim_invalid = models.BooleanField(db_default=False)  # app.actor_id was not a bigint
     # null, not "": the trigger found no request id (a change from outside the app).
     request_id = models.CharField(max_length=64, null=True)  # noqa: DJ001
     db_role = models.CharField(max_length=63)  # session_user: the login, also from psql
