@@ -1,18 +1,45 @@
 import type { ReactNode } from 'react'
-import { AppBar, Box, Container, Toolbar, Typography } from '@/components/ui'
+import { AppBar, Box, Button, Container, Link, SkipLink, Toolbar, Typography } from '@/components/ui'
+import { useLogout } from '@/features/auth/api/mutations'
+import { useKnownUser } from '@/features/auth/api/queries'
 
-/** The base layout every route renders in: a top bar and the one <main> of the page. */
+const MAIN_ID = 'main-content'
+
+/**
+ * The shell every route renders in: a skip link, the top bar with the main navigation and the
+ * signed-in user, and the one <main> of the page. Navigation shows only with a session.
+ */
 export function Layout({ children }: { children: ReactNode }) {
+  const user = useKnownUser()
+  const logout = useLogout()
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <SkipLink target={MAIN_ID} />
       <AppBar position="static" elevation={0}>
-        <Toolbar>
+        <Toolbar sx={{ gap: 3 }}>
           <Typography component="p" variant="h6">
-            Culture collection
+            <Link to="/" color="inherit" underline="none">
+              Culture collection
+            </Link>
           </Typography>
+          {user && (
+            <>
+              <Box component="nav" aria-label="Main" sx={{ flexGrow: 1, display: 'flex', gap: 2 }}>
+                {/* includeSearch false: filters or tabs in the URL do not make it a different page. */}
+                <Link to="/" color="inherit" activeOptions={{ exact: true, includeSearch: false }}>
+                  Home
+                </Link>
+              </Box>
+              <Typography component="p">Signed in as {user.username}</Typography>
+              <Button color="inherit" variant="outlined" onClick={() => logout.mutate()} disabled={logout.isPending}>
+                Sign out
+              </Button>
+            </>
+          )}
         </Toolbar>
       </AppBar>
-      <Container component="main" maxWidth="lg" sx={{ py: 4, flex: 1 }}>
+      {/* tabIndex -1: the skip link moves focus here, not only the scroll position. */}
+      <Container component="main" id={MAIN_ID} tabIndex={-1} maxWidth="lg" sx={{ py: 4, flex: 1, outline: 'none' }}>
         {children}
       </Container>
     </Box>
