@@ -18,3 +18,12 @@ export const meQueryOptions = () =>
 export function useMe() {
   return useQuery(meQueryOptions())
 }
+
+/**
+ * The user the cache already knows, without fetching: the route guards and login fill it.
+ * For the always-mounted shell, which must not send its own /me request (a failing one would
+ * be requested and reported twice).
+ */
+export function useKnownUser() {
+  return useQuery({ ...meQueryOptions(), enabled: false }).data ?? null
+}
