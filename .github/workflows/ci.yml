@@ -1,0 +1,93 @@
+# The same checks as ./check.sh locally. CI is the safety net, not the first run.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+  schedule:
+    - cron: "17 5 * * 1" # Monday: dependency audit, so new advisories show up without a code change
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1
+
+jobs:
+  check:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # gitleaks reads the commits of the pull request
+
+      - name: Secrets in the commits of the pull request
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: >-
+          docker run --rm -v "$PWD:/repo" -w /repo "$GITLEAKS_IMAGE"
+          git --no-banner --redact --log-opts="$BASE..HEAD" .
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Frontend dependencies and browser
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium-headless-shell
+
+      - name: API with a throwaway e2e user
+        run: |
+          # A fresh password per run: nothing to store, nothing to leak, works for forks.
+          password=$(openssl rand -hex 24)
+          echo "::add-mask::$password"
+          echo "E2E_PASSWORD=$password" >> "$GITHUB_ENV"
+          docker compose up -d --build
+          docker compose exec -T backend python manage.py migrate --noinput
+          docker compose exec -T -e E2E_PASSWORD="$password" backend python manage.py shell -c \
+            "import os; from django.contrib.auth import get_user_model; get_user_model().objects.create_user('e2e-user', password=os.environ['E2E_PASSWORD'])"
+          for _ in $(seq 30); do curl -fsS http://localhost:8000/healthz >/dev/null && exit 0; sleep 2; done
+          docker compose logs backend
+          exit 1
+
+      - name: ./check.sh e2e
+        run: ./check.sh e2e
+
+      - name: Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-traces
+          path: frontend/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  audit:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: ./check.sh audit
+        run: ./check.sh audit
