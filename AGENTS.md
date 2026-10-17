@@ -36,6 +36,7 @@ Each rule says how it is enforced: [lint], [types], [test], [review].
 ## Frontend (React + TypeScript)
 - Features in `frontend/src/features/<domain>/{api,components,schemas.ts}`; pages are thin. [review]
 - Import boundaries in `.oxlintrc.json`: features import no other feature, app, pages or routes; shared code (`lib`, `components`, `hooks`) imports none of them; `dompurify` only in `lib/sanitize.ts`; `@mui/*` and `@emotion/*` only in `components/ui` and `app/` (ADR 0004), everything else imports from `@/components/ui`. `frontend/tools/lint-boundaries.test.ts` probes every boundary, so a config change that drops one fails. [lint] [test]
+- Selects in forms are `SelectField` from `@/components/ui`: a native `<select>` on `TextField`'s wiring, so `{...register(name)}` works and the ref is the `<select>`. Screens hide actions the role may not do (`canManageMembers`, `grantableRoles` in `features/labs/schemas.ts`); the server still refuses them, and tests cover both. [test]
 - Server state via TanStack Query with key factories (`api/keys.ts`); never fetch in effects. [lint] [review]
 - Form fields are `TextField` from `@/components/ui` with `{...register(name)}`: label, hint and error wired, the ref on the input so the first invalid field gets focus. [test]
 - A session starts or ends only through `resetSessionCache` (`features/auth/api/cache.ts`): login, logout and the 401 handler. Never `queryClient.clear()`: it destroys the me query under the always-mounted shell, which then shows the previous user. [test]

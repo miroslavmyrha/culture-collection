@@ -5,10 +5,11 @@ import { isApiError } from '@/lib/api'
 import { reportError } from '@/lib/report'
 import { authenticatedRoute } from '@/routes/authenticated'
 import { homeRoute } from '@/routes/home'
+import { labDetailRoute, labListRoute } from '@/routes/labs'
 import { loginRoute } from '@/routes/login'
 import { rootRoute } from '@/routes/root'
 
-export const routeTree = rootRoute.addChildren([loginRoute, authenticatedRoute.addChildren([homeRoute])])
+export const routeTree = rootRoute.addChildren([loginRoute, authenticatedRoute.addChildren([homeRoute, labListRoute, labDetailRoute])])
 
 export function createAppRouter(queryClient: QueryClient, history?: RouterHistory) {
   return createRouter({

@@ -29,3 +29,17 @@ export function problem(status: number, overrides: Partial<Problem> = {}): Probl
 export function validationProblem(errors: ProblemError[]): Problem {
   return problem(400, { title: 'Invalid input.', detail: 'Invalid input.', code: 'invalid', errors })
 }
+
+export type Lab = components['schemas']['LabOutput']
+export type Member = components['schemas']['MemberOutput']
+
+export function makeLab(overrides: Partial<Lab> = {}): Lab {
+  const n = next()
+  return { public_id: uuid(n), name: `Lab ${n}`, code: `L${n}`, my_role: 'viewer', ...overrides }
+}
+
+export function makeMember(overrides: Partial<Member> = {}): Member {
+  const n = next()
+  const at = new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString()
+  return { public_id: uuid(n), username: `member-${n}`, first_name: '', last_name: '', role: 'viewer', created_at: at, ...overrides }
+}
