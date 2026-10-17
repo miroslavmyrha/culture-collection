@@ -30,8 +30,13 @@ def current_request_id() -> str:
     return request_id_var.get()
 
 
+def is_valid_request_id(value: str) -> bool:
+    """1 to 64 letters, digits and hyphens: what the header accepts and audit rows store."""
+    return _VALID.fullmatch(value) is not None
+
+
 def accept_or_generate(inbound: str | None) -> str:
-    if inbound and _VALID.fullmatch(inbound):
+    if inbound and is_valid_request_id(inbound):
         return inbound
     return uuid.uuid4().hex
 

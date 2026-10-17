@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from django.db import connections, transaction
 from django.http import HttpRequest, HttpResponse
 
-from cultures.core.request_id import NO_REQUEST, current_request_id
+from cultures.core.request_id import NO_REQUEST, current_request_id, is_valid_request_id
 from cultures.users.models import User
 
 from .models import ActorKind, Channel
@@ -63,7 +63,14 @@ def audit_context(
     reason: str = "",
     request_id: str | None = None,
 ) -> Iterator[AuditContext]:
-    """Enter for commands, tasks and imports. A nested context restores the outer one."""
+    """Enter for commands, tasks and imports. A nested context restores the outer one.
+
+    A request_id passed in (a task gets the id of the request that enqueued it)
+    must look like one: AuditEvent.request_id holds 64 characters, and the row
+    trigger cuts a longer setting, so the two would no longer join.
+    """
+    if request_id is not None and not is_valid_request_id(request_id):
+        raise ValueError(f"request_id must be 1 to 64 letters, digits or hyphens: {request_id!r}")
     context = AuditContext(
         channel=channel,
         actor=actor,
