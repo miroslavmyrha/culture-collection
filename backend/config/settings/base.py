@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "cultures.core",
     "cultures.users",
+    "cultures.labs",
     "cultures.audit",
 ]
 
@@ -233,6 +234,8 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,  # separate input and output schemas for generated TS types
+    # One name per choice set, so the TS types have one Role, not one per field that uses it.
+    "ENUM_NAME_OVERRIDES": {"Role": "cultures.labs.permissions.Role"},
 }
 
 LOG_FORMAT = env_str("LOG_FORMAT", "plain")

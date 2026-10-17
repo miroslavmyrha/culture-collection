@@ -1,7 +1,7 @@
 """A request is its own audit context: its X-Request-ID and its signed-in user.
 
-No routed API view writes audited data yet, so a test-only view routed with
-pytest.mark.urls stands in for one. The contract coverage meta-test walks the
+A test-only view routed with pytest.mark.urls stands in for an app's API, so
+this file depends on no app. The contract coverage meta-test walks the
 project's URLconf, which does not contain this view.
 """
 
