@@ -2,15 +2,15 @@
 # Install git hooks: pre-commit (staged secrets, then ./check.sh), commit-msg
 # (message format) and pre-push (branch naming). Rules: CONTRIBUTING.md.
 set -euo pipefail
-root=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
-hooks="$root/.git/hooks"
+here=$(dirname "$0")
+# --git-path: in a linked worktree .git is a file; hooks live in the main checkout's .git.
+hooks=$(cd "$here" && cd "$(git rev-parse --git-path hooks)" && pwd)
 
 cat > "$hooks/pre-commit" <<'HOOK'
 #!/usr/bin/env bash
+# check.sh scans staged changes for secrets first (gitleaks --staged), then runs every check.
 set -euo pipefail
 root=$(git rev-parse --show-toplevel)
-docker run --rm -v "$root:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.30.1 git --pre-commit --staged --no-banner --redact . \
-  || { echo "commit blocked: possible secret in staged changes" >&2; exit 1; }
 exec "$root/check.sh"
 HOOK
 
