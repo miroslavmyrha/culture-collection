@@ -47,6 +47,13 @@ USER_DEACTIVATED = register(
 USERS_DEACTIVATED = register(
     EventType("users_deactivated", "{actor} deactivated {count} users", reason_required=True)
 )
+LAB_CREATED = register(EventType("lab_created", "{actor} created lab {subject}"))
+LAB_UPDATED = register(EventType("lab_updated", "{actor} changed lab {subject}"))
+MEMBER_ADDED = register(EventType("member_added", "{actor} added {user} as {role}"))
+MEMBER_ROLE_CHANGED = register(
+    EventType("member_role_changed", "{actor} changed the role of {user} to {role}")
+)
+MEMBER_REMOVED = register(EventType("member_removed", "{actor} removed {user}"))
 
 
 @dataclass(frozen=True)
@@ -82,5 +89,13 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "public_id",
         ),
         exclude=("password", "last_login"),  # a secret, and noise on every login
+    ),
+    "labs_lab": RowAudit(
+        label="labs.lab",
+        audited=("id", "public_id", "created_at", "updated_at", "name", "code"),
+    ),
+    "labs_membership": RowAudit(
+        label="labs.membership",
+        audited=("id", "public_id", "created_at", "updated_at", "user_id", "lab_id", "role"),
     ),
 }

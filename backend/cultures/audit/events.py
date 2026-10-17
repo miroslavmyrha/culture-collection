@@ -25,6 +25,7 @@ class Change:
     subject_type: str
     subject_id: uuid.UUID
     changes: dict[str, list[Any]]  # {field: [old, new]} from the persisted state
+    lab_id: int | None = None  # the tenant, for every change to a lab's data
 
 
 def _build(
@@ -44,6 +45,7 @@ def _build(
         actor=actor,
         actor_label=actor.get_username() if actor is not None else context.actor_label,
         actor_kind=kind,
+        lab_id=change.lab_id,
         channel=context.channel,
         request_id=context.request_id,
         batch_id=batch_id,
