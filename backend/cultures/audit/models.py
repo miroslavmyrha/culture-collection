@@ -11,7 +11,9 @@ Both are append-only on three levels:
   tables, so the grants cannot hold there: tests/test_append_only.py proves
   them with a restricted role. ADR 0005 has the production role setup.
 
-No tenant yet: issue #9 adds `lab` to AuditEvent with its own migration.
+AuditEvent.lab is the tenant (#9): events about a lab's data carry it, so a
+lab's timeline is one indexed query, and reads go through the lab scope like
+every other lab-owned row. Events about users have no lab.
 """
 
 from typing import Any, NoReturn
@@ -20,6 +22,8 @@ from django.conf import settings
 from django.contrib.postgres.indexes import BrinIndex
 from django.db import models
 from django.db.models import Q
+
+from cultures.labs.querysets import LabScopedQuerySet
 
 from .registry import reason_required_codes
 
@@ -34,6 +38,14 @@ class AppendOnlyQuerySet[T: models.Model](models.QuerySet[T]):
 
     def delete(self) -> NoReturn:
         raise AppendOnly("audit rows are append-only")
+
+
+# The ignore: django-stubs gives each QuerySet class its own as_manager() return type, so
+# two QuerySet bases always "conflict" for mypy. At run time as_manager() builds one manager.
+class AuditEventQuerySet(  # type: ignore[override]
+    AppendOnlyQuerySet["AuditEvent"], LabScopedQuerySet["AuditEvent"]
+):
+    """Append-only, and scoped by lab for reads (for_access)."""
 
 
 class TransactionNow(models.Func):
@@ -86,6 +98,15 @@ class AuditEvent(models.Model):
     )
     actor_label = models.CharField(max_length=150)  # snapshot: survives renames
     actor_kind = models.CharField(max_length=20, choices=ActorKind.choices)
+    # The tenant. No index of its own: (lab, -occurred_at) below serves the timeline and the FK.
+    lab = models.ForeignKey(
+        "labs.Lab",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        db_index=False,
+    )
     channel = models.CharField(max_length=20, choices=Channel.choices)
     request_id = models.CharField(max_length=64)
     batch_id = models.UUIDField(null=True, blank=True)
@@ -95,7 +116,7 @@ class AuditEvent(models.Model):
     changes = models.JSONField(default=dict)  # {field: [old, new]}, ids only, never secrets
     schema_version = models.PositiveSmallIntegerField(default=1)
 
-    objects = AppendOnlyQuerySet["AuditEvent"].as_manager()
+    objects = AuditEventQuerySet.as_manager()
 
     class Meta:
         constraints = (
@@ -124,6 +145,7 @@ class AuditEvent(models.Model):
             models.Index(fields=["request_id"], name="audit_event_request_idx"),
             models.Index(fields=["txid"], name="audit_event_txid_idx"),
             models.Index(fields=["actor", "-occurred_at"], name="audit_event_actor_time_idx"),
+            models.Index(fields=["lab", "-occurred_at"], name="audit_event_lab_time_idx"),
             BrinIndex(fields=["occurred_at"], name="audit_event_time_brin"),
         )
 
