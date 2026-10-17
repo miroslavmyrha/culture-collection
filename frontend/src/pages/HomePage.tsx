@@ -1,16 +1,12 @@
-import { useLogout } from '@/features/auth/api/mutations'
-import { useMe } from '@/features/auth/api/queries'
+import { Typography } from '@/components/ui'
 
 export function HomePage() {
-  const me = useMe()
-  const logout = useLogout()
   return (
     <section>
-      <h1>Home</h1>
-      {me.data && <p>Signed in as {me.data.username}</p>}
-      <button type="button" onClick={() => logout.mutate()} disabled={logout.isPending}>
-        Sign out
-      </button>
+      <Typography component="h1" variant="h4" gutterBottom>
+        Home
+      </Typography>
+      <Typography>Strains, storage and distribution will appear here.</Typography>
     </section>
   )
 }

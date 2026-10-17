@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useForm } from 'react-hook-form'
 import { describe, expect, it } from 'vitest'
-import { Field } from '@/components/Field'
+import { TextField } from '@/components/ui'
 import { renderWithProviders } from '@/test/render'
 import { problem, validationProblem } from '@/test/factories'
 import { ApiError } from './api'
@@ -10,7 +10,7 @@ import { applyServerErrors } from './forms'
 
 type Values = { name: string; code: string }
 
-/** A minimal form wired the way feature forms are: Field, applyServerErrors, one root alert. */
+/** A minimal form wired the way feature forms are: TextField, applyServerErrors, one root alert. */
 function Form({ error }: { error: unknown }) {
   const { register, handleSubmit, setError, formState } = useForm<Values>({ defaultValues: { name: '', code: '' } })
   const onSubmit = handleSubmit(() => {
@@ -18,12 +18,8 @@ function Form({ error }: { error: unknown }) {
   })
   return (
     <form onSubmit={onSubmit} aria-label="Edit">
-      <Field label="Name" hint="Shown on labels" error={formState.errors.name?.message}>
-        {(control) => <input {...control} {...register('name')} />}
-      </Field>
-      <Field label="Code" error={formState.errors.code?.message}>
-        {(control) => <input {...control} {...register('code')} />}
-      </Field>
+      <TextField label="Name" hint="Shown on labels" error={formState.errors.name?.message} {...register('name')} />
+      <TextField label="Code" error={formState.errors.code?.message} {...register('code')} />
       {formState.errors.root?.server && <p role="alert">{formState.errors.root.server.message}</p>}
       <button type="submit">Save</button>
     </form>

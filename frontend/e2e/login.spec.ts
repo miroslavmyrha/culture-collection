@@ -57,9 +57,13 @@ test('signs in through the real API under the production CSP and returns to the 
   await expect(page.getByText(`Signed in as ${username}`)).toBeVisible()
   expect(await page.evaluate(() => Object.keys(localStorage))).toEqual([])
 
+  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page')
   await page.getByRole('button', { name: 'Sign out' }).click()
   await expect(page.getByRole('form', { name: 'Sign in' })).toBeVisible()
-  await expect(page).toHaveURL('/login')
+  await expect(page).toHaveURL('/login?signedOut=true')
+  await expect(page.getByRole('status')).toHaveText('You have been signed out.')
+  await expect(page.getByRole('navigation', { name: 'Main' })).toHaveCount(0)
+  await expect(page.getByText(`Signed in as ${username}`)).toHaveCount(0)
 
   await page.goto('/no-such-page')
   await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible()

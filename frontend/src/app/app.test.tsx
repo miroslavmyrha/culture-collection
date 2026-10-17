@@ -1,5 +1,5 @@
 import type { AnyRoute } from '@tanstack/react-router'
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { authKeys } from '@/features/auth/api/keys'
@@ -153,6 +153,43 @@ describe('base layout', () => {
   })
 })
 
+describe('app shell', () => {
+  // With search params on purpose: a link that compares them would not be current on /?tab=b.
+  it('shows the main navigation, the user and sign out with a session', async () => {
+    mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))
+    renderApp({ path: '/', search: { tab: 'b' } })
+    const nav = await screen.findByRole('navigation', { name: 'Main' })
+    expect(within(nav).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('banner')).toHaveTextContent('Signed in as lab-tech')
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
+  })
+
+  it('shows neither navigation nor sign out without a session', async () => {
+    renderApp({ path: '/login' })
+    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument() // no "signed out" without signing out
+  })
+
+  it('starts with a skip link to the main content', async () => {
+    renderApp({ path: '/login' })
+    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+    await userEvent.setup().tab()
+    const skip = screen.getByRole('link', { name: 'Skip to content' })
+    expect(skip).toHaveFocus()
+    expect(skip).toHaveAttribute('href', `#${screen.getByRole('main').id}`)
+  })
+
+  it('requests /auth/me/ once when it fails: the shell reads the cache, it does not fetch', async () => {
+    allowConsole(/API error 500|Error in route match/)
+    const calls = mockApiError('get', '/api/v1/auth/me/', 500)
+    renderApp()
+    expect(await screen.findByRole('heading', { name: 'Something went wrong' })).toBeInTheDocument()
+    expect(calls).toHaveLength(1)
+  })
+})
+
 describe('session expiry (401)', () => {
   it('clears the cache and redirects to /login with the current page', async () => {
     mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))
@@ -167,6 +204,9 @@ describe('session expiry (401)', () => {
     expect(router.state.location.search).toEqual({ redirect: '/?tab=b' })
     expect(client.getQueryCache().findAll({ queryKey: ['csrf'] })).toHaveLength(0)
     expect(client.getQueryData(authKeys.me())).toBeNull()
+    // The always-mounted top bar follows the session, not the user it rendered first.
+    expect(screen.queryByText(/Signed in as/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument()
   })
 
   // The router updates its location synchronously on navigate, so without a blocker the
@@ -199,6 +239,9 @@ describe('sign out', () => {
     await user.click(button)
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(client.getQueryData(authKeys.me())).toBeNull()
+    expect(screen.getByRole('status')).toHaveTextContent('You have been signed out.')
+    expect(screen.queryByText(/Signed in as/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
   })
 
   it('still clears the cache when the logout request fails, and says so', async () => {
