@@ -35,11 +35,13 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",  # BrinIndex on the audit tables (system check postgres.E005)
     "rest_framework",
     "django_filters",
     "drf_spectacular",
     "cultures.core",
     "cultures.users",
+    "cultures.audit",
 ]
 
 MIDDLEWARE = [
@@ -53,6 +55,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # The request becomes the audit context: events and row changes carry its user and id.
+    "cultures.audit.context.AuditRequestMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -81,6 +85,11 @@ DATABASES = {"default": environ.Env.db_url_config(env_secret("DATABASE_URL"))}
 DATABASES["default"]["ATOMIC_REQUESTS"] = False  # transactions belong in services
 DATABASES["default"]["CONN_MAX_AGE"] = env_int("DB_CONN_MAX_AGE", default=60, minimum=0)
 DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
+# Stored on every audit_rowchange row: tells the app's writes from a psql session's.
+# Set it per process kind (api, worker, migrate) where they run separately.
+DATABASES["default"].setdefault("OPTIONS", {})["application_name"] = env_str(
+    "DB_APPLICATION_NAME", "cultures"
+)
 
 # One cache shared by all workers: throttles and login limits must not be per
 # process. The table is created by `manage.py createcachetable` (deploy step).
