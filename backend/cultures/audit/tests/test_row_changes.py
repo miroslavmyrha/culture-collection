@@ -10,6 +10,7 @@ from model_bakery import baker
 from cultures.audit.context import AuditContext, audit_context, audited_atomic, migration_audit
 from cultures.audit.models import AuditEvent, Channel, RowChange
 from cultures.audit.operations import attach_row_audit
+from cultures.audit.registry import SECRET_MARKER
 from cultures.users.models import User
 from cultures.users.services import user_deactivate, users_deactivate
 
@@ -120,14 +121,37 @@ def test_a_save_that_changes_nothing_writes_no_row(member: User) -> None:
     assert rows("UPDATE") == []
 
 
-def test_password_and_last_login_are_never_stored(member: User) -> None:
+def test_a_password_change_outside_the_services_leaves_a_marker_without_the_hash(
+    member: User,
+) -> None:
+    """set_password() and save() in a shell: the row says the password changed, not to what."""
     member.set_password("a-new-secret-password")
     member.save()
+
+    stored: list[Any] = list(RowChange.objects.filter(row_pk=str(member.pk)).order_by("pk"))
+    assert [(r.op, r.old, r.new, r.actor_id) for r in stored[1:]] == [
+        ("UPDATE", {"password": SECRET_MARKER}, {"password": SECRET_MARKER}, None)
+    ]
+    assert (stored[0].op, set(stored[0].new)) == ("INSERT", STORED)  # INSERT: no password
+
+
+def test_a_change_of_last_login_alone_writes_no_row(member: User) -> None:
     User.objects.filter(pk=member.pk).update(last_login="2026-10-17T10:00:00Z")
 
-    # Only excluded columns changed, so no UPDATE row; the INSERT row stores neither column.
     stored: list[Any] = list(RowChange.objects.filter(row_pk=str(member.pk)))
-    assert [(r.op, set(r.new)) for r in stored] == [("INSERT", STORED)]
+    assert [r.op for r in stored] == ["INSERT"]
+
+
+def test_a_secret_marker_joins_the_other_changed_columns(member: User) -> None:
+    member.set_password("a-new-secret-password")
+    member.first_name = "Renamed"
+    member.save()
+
+    (update,) = rows("UPDATE")
+    assert (update.old, update.new) == (
+        {"password": SECRET_MARKER, "first_name": ""},
+        {"password": SECRET_MARKER, "first_name": "Renamed"},
+    )
 
 
 def test_the_password_hash_appears_in_no_row_change(in_audited_atomic: AuditContext) -> None:

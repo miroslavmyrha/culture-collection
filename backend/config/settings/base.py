@@ -29,7 +29,11 @@ ALLOWED_HOSTS: list[str] = env_list("DJANGO_ALLOWED_HOSTS")
 CSRF_TRUSTED_ORIGINS: list[str] = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
+    # Replaces "django.contrib.admin": the admin site with the API's login limits.
+    "cultures.users.admin_apps.AdminConfig",
+    # Before django.contrib.auth, so its createsuperuser and changepassword commands replace
+    # Django's (the first app in this list wins) and write through the audited services.
+    "cultures.users",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -40,7 +44,6 @@ INSTALLED_APPS = [
     "django_filters",
     "drf_spectacular",
     "cultures.core",
-    "cultures.users",
     "cultures.labs",
     "cultures.audit",
 ]
