@@ -8,6 +8,7 @@ from django.test import Client, RequestFactory
 from django.urls import reverse
 
 from cultures.audit.models import AuditEvent, Channel, RowChange
+from cultures.core.testing import logged_in
 from cultures.users.admin import REASON_REQUIRED
 from cultures.users.models import User
 
@@ -68,6 +69,20 @@ def test_an_admin_edit_records_the_staff_actor_and_request_id_on_both_layers(
     assert (row.op, row.table_label, row.row_pk) == ("UPDATE", "users.user", str(member.pk))
     assert (row.actor_id, row.request_id) == (staff.pk, "adm-edit")
     assert row.new == {"first_name": "Augusta"}
+
+
+def test_the_actor_is_the_signed_in_staff_user_not_another_superuser(
+    staff: User, member: User
+) -> None:
+    """staff (the first superuser) exists, but deputy makes the change: deputy is the actor."""
+    deputy = make_user("deputy", is_staff=True, is_superuser=True)
+    response = post_change(logged_in(deputy), member, request_id="adm-deputy", last_name="King")
+    assert response.status_code == 302, response.content
+
+    (event,) = AuditEvent.objects.all()
+    assert (event.actor, event.actor_label) == (deputy, "deputy")
+    (row,) = joined(event)
+    assert row.actor_id == deputy.pk
 
 
 def test_a_save_without_changes_records_nothing(admin_client: Client, member: User) -> None:
