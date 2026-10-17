@@ -47,7 +47,7 @@ def installed_row_triggers() -> Installed:
 
 def expected_triggers(audit: RowAudit) -> dict[str, Trigger]:
     """ "O": fires in the normal (origin) replication mode, the enabled state."""
-    args = row_trigger_args(audit.label, audit.pk, audit.exclude)
+    args = row_trigger_args(audit.label, audit.pk, audit.exclude, audit.secret)
     return {
         "audit_row_change": ("O", AFTER_ROW_INSERT_DELETE, None, args),
         "audit_row_update": ("O", AFTER_ROW_UPDATE, CHANGED_ROWS_ONLY, args),
@@ -81,7 +81,7 @@ def unclassified_columns() -> list[str]:
                 [table],
             )
             columns = {name for (name,) in cursor.fetchall()}
-            audited, excluded = set(audit.audited), set(audit.exclude)
+            audited, excluded = set(audit.audited), set(audit.exclude) | set(audit.secret)
             wrong.extend(
                 f"{table}.{c}: not classified" for c in sorted(columns - audited - excluded)
             )
@@ -155,6 +155,7 @@ def test_a_wrong_classification_is_found(monkeypatch: pytest.MonkeyPatch) -> Non
         label=audit.label,
         audited=(*audit.audited[1:], "password", "nickname"),
         exclude=audit.exclude,
+        secret=audit.secret,
     )
     monkeypatch.setitem(ROW_AUDITED_TABLES, "users_user", wrong)
     assert unclassified_columns() == [
