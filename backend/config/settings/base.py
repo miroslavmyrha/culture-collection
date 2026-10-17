@@ -94,6 +94,16 @@ DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 DATABASES["default"].setdefault("OPTIONS", {})["application_name"] = env_str(
     "DB_APPLICATION_NAME", "cultures"
 )
+# The roles of ADR 0005 (cultures/audit/roles.py): `manage.py db_roles` creates them,
+# migrate as the migration role keeps their privileges, the app connects as the runtime role.
+DATABASE_ROLES = {
+    "audit_owner": env_str("DB_AUDIT_OWNER_ROLE", "cultures_audit"),
+    "migration": env_str("DB_MIGRATION_ROLE", "cultures_migration"),
+    "runtime": env_str("DB_RUNTIME_ROLE", "cultures_app"),
+}
+# /readyz fails while the app connects as a role that owns a table or may TRUNCATE
+# one (core/health.py). Development runs as the owner, production requires it.
+DB_RUNTIME_ROLE_REQUIRED = env_bool("DB_RUNTIME_ROLE_REQUIRED", default=False)
 
 # One cache shared by all workers: throttles and login limits must not be per
 # process. The table is created by `manage.py createcachetable` (deploy step).

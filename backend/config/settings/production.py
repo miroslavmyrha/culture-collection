@@ -45,6 +45,10 @@ if ADMIN_PATH.strip("/") in {DEFAULT_ADMIN_PATH.strip("/"), "admin"}:
 
 DEBUG = False
 
+# The app must connect as the runtime role (ADR 0005): /readyz fails otherwise.
+# Turn it off only where the host gives the app no second role.
+DB_RUNTIME_ROLE_REQUIRED = env_bool("DB_RUNTIME_ROLE_REQUIRED", default=True)
+
 # __Host- cookies: Secure, Path=/, no Domain, so a sibling subdomain cannot set
 # or shadow them. The SPA reads the CSRF token from __Host-csrftoken.
 SESSION_COOKIE_NAME = "__Host-sessionid"

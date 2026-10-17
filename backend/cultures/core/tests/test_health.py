@@ -1,10 +1,13 @@
 from collections.abc import Callable
 
 import pytest
+from django.conf import settings
 from django.core.cache.backends.dummy import DummyCache
+from django.db import connection, transaction
 from django.db.utils import OperationalError
 from django.test import Client
 
+from cultures.audit.roles import Roles, setup
 from cultures.core import health
 
 pytestmark = pytest.mark.django_db
@@ -66,10 +69,16 @@ def unapplied_migration(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(health, "MigrationExecutor", Executor)
 
 
+def connected_as_the_owner(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Tests connect as the owner of every table, which is what production must not do.
+    monkeypatch.setattr(settings, "DB_RUNTIME_ROLE_REQUIRED", True)
+
+
 BREAKERS: dict[str, Callable[[pytest.MonkeyPatch], None]] = {
     "database": missing_database,
     "cache": cache_that_keeps_nothing,
     "migrations": unapplied_migration,
+    "runtime_role": connected_as_the_owner,
 }
 
 
@@ -91,3 +100,32 @@ def test_readiness_fails_when_the_dependency_breaks(
 def test_probes_answer_only_get_and_head(client: Client) -> None:
     assert client.head("/healthz").status_code == 200
     assert client.post("/healthz").status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("grant", "ready"),
+    [
+        ("", True),  # exactly APP_ROLE_GRANTS
+        ("GRANT TRUNCATE ON labs_lab TO {role}", False),
+        ("GRANT TRIGGER ON audit_rowchange TO {role}", False),
+        ("GRANT {owner} TO {role}", False),  # owner privileges through a role
+    ],
+)
+def test_the_runtime_role_check_passes_only_for_the_runtime_role(
+    monkeypatch: pytest.MonkeyPatch, grant: str, ready: bool
+) -> None:
+    roles = Roles("cultures_test_audit", "cultures_test_migration", "cultures_test_runtime")
+    monkeypatch.setattr(settings, "DB_RUNTIME_ROLE_REQUIRED", True)
+    with transaction.atomic(), connection.cursor() as cursor:
+        cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
+        setup(cursor, roles)
+        if grant:
+            cursor.execute(grant.format(role=roles.runtime, owner=roles.migration))
+        cursor.execute(f"SET LOCAL ROLE {roles.runtime}")
+        assert health.check_runtime_role() is ready
+        transaction.set_rollback(True)
+
+
+def test_the_runtime_role_check_is_off_unless_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "DB_RUNTIME_ROLE_REQUIRED", False)
+    assert health.check_runtime_role() is True  # development connects as the owner
