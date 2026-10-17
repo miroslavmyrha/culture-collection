@@ -22,6 +22,8 @@ else
 fi
 
 echo "== backend"
+# The dev container writes caches into the ./backend bind mount: build it with the caller's uid.
+export APP_UID="${APP_UID:-$(id -u)}"
 docker compose up -d db >/dev/null || fail "the database did not start: docker compose logs db"
 # Each step stops the run with its own FAILED line. No `a && b` chains: set -e
 # ignores a failure inside one, so a ruff failure would skip mypy and leave the
