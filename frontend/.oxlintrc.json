@@ -76,6 +76,15 @@
             "name": "dompurify",
             "message": "Render HTML only through components/SafeHtml.tsx (lib/sanitize.ts)."
           }
+        ],
+        "patterns": [
+          {
+            "group": [
+              "@mui/**",
+              "@emotion/**"
+            ],
+            "message": "Import UI components from @/components/ui. Only components/ui and app/ (theme, emotion cache) import MUI and emotion."
+          }
         ]
       }
     ],
@@ -116,6 +125,13 @@
                   "../../**"
                 ],
                 "message": "Relative import leaves the feature (or nests too deep): use @/lib or @/components, or flatten."
+              },
+              {
+                "group": [
+                  "@mui/**",
+                  "@emotion/**"
+                ],
+                "message": "Import UI components from @/components/ui. Only components/ui and app/ (theme, emotion cache) import MUI and emotion."
               }
             ]
           }
@@ -147,6 +163,60 @@
                   "@/features/**"
                 ],
                 "message": "Shared code (lib, components, hooks) never imports the app, pages, routes or features."
+              },
+              {
+                "group": [
+                  "@mui/**",
+                  "@emotion/**"
+                ],
+                "message": "Import UI components from @/components/ui. Only components/ui and app/ (theme, emotion cache) import MUI and emotion."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/components/ui/**"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "dompurify",
+                "message": "Render HTML only through components/SafeHtml.tsx (lib/sanitize.ts)."
+              }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "@/app/**",
+                  "@/pages/**",
+                  "@/routes/**",
+                  "@/features/**"
+                ],
+                "message": "Shared code (lib, components, hooks) never imports the app, pages, routes or features."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/app/**"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "dompurify",
+                "message": "Render HTML only through components/SafeHtml.tsx (lib/sanitize.ts)."
               }
             ]
           }
@@ -174,6 +244,13 @@
                   "@/routes/**"
                 ],
                 "message": "Pages compose features; the app shell and routes import pages, not the other way."
+              },
+              {
+                "group": [
+                  "@mui/**",
+                  "@emotion/**"
+                ],
+                "message": "Import UI components from @/components/ui. Only components/ui and app/ (theme, emotion cache) import MUI and emotion."
               }
             ]
           }

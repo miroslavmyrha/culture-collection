@@ -30,7 +30,7 @@ Each rule says how it is enforced: [lint], [types], [test], [review].
 
 ## Frontend (React + TypeScript)
 - Features in `frontend/src/features/<domain>/{api,components,schemas.ts}`; pages are thin. [review]
-- Import boundaries in `.oxlintrc.json`: features import no other feature, app, pages or routes; shared code (`lib`, `components`, `hooks`) imports none of them; `dompurify` only in `lib/sanitize.ts`. `frontend/tools/lint-boundaries.test.ts` probes every boundary, so a config change that drops one fails. [lint] [test]
+- Import boundaries in `.oxlintrc.json`: features import no other feature, app, pages or routes; shared code (`lib`, `components`, `hooks`) imports none of them; `dompurify` only in `lib/sanitize.ts`; `@mui/*` and `@emotion/*` only in `components/ui` and `app/` (ADR 0004), everything else imports from `@/components/ui`. `frontend/tools/lint-boundaries.test.ts` probes every boundary, so a config change that drops one fails. [lint] [test]
 - Server state via TanStack Query with key factories (`api/keys.ts`); never fetch in effects. [lint] [review]
 - API calls only through `src/lib/api.ts` (typed from `openapi.yml`, adds CSRF). Regenerate types with `npm run api:types` after backend schema changes. [types]
 - HTML only through `components/SafeHtml.tsx`; links through `safeHref`; `window.open` only via `openExternal`; no `localStorage` outside `lib/storage.ts` (preferences only). [lint]
