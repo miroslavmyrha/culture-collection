@@ -7,6 +7,7 @@ Git flow, branch names, commit messages and releases: [CONTRIBUTING.md](CONTRIBU
 
 ## Run
 ```bash
+# If `id -u` is not 1000, export APP_UID=$(id -u) first: the container writes in ./backend.
 docker compose up -d                 # PostgreSQL + API on :8000 (BACKEND_PORT, DB_PORT to change), creates the cache table
 docker compose exec backend python manage.py migrate
 docker compose exec backend python manage.py createsuperuser
