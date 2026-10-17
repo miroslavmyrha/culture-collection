@@ -1,6 +1,7 @@
 """Service events: same transaction as the change, fail closed, nested contexts, batches."""
 
 import uuid
+from typing import Any
 
 import pytest
 from django.db import IntegrityError, transaction
@@ -230,3 +231,19 @@ def test_a_batch_skips_users_that_are_already_inactive(audited: AuditContext) ->
             "subject_id", flat=True
         )
     ) == [active.public_id]
+
+
+# savepoint, read and set the trigger settings, lock, update, one INSERT for every event,
+# restore the settings, release the savepoint
+BATCH_QUERIES = 8
+
+
+@pytest.mark.parametrize("count", [2, 6])
+def test_a_batch_writes_all_its_events_in_one_insert(
+    audited: AuditContext, count: int, django_assert_num_queries: Any
+) -> None:
+    """The same queries for 2 and for 6 users: bulk_create, not one INSERT per event."""
+    members = baker.make(User, _quantity=count)
+    with django_assert_num_queries(BATCH_QUERIES):
+        users_deactivate(users=members)
+    assert AuditEvent.objects.count() == count + 1
