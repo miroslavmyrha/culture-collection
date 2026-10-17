@@ -7,8 +7,8 @@ type Props = Omit<MuiTextFieldProps, 'error' | 'helperText' | 'inputRef' | 'ref'
   error?: string | undefined
   /** Help that stays visible, also next to an error. */
   hint?: string | undefined
-  /** Lands on the <input>, so react-hook-form can focus the first invalid field. */
-  ref?: Ref<HTMLInputElement>
+  /** Lands on the <input> (the <select> of a native select), so react-hook-form can focus it. */
+  ref?: Ref<HTMLInputElement | HTMLSelectElement>
 }
 
 /**

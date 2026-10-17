@@ -29,6 +29,10 @@ export function Layout({ children }: { children: ReactNode }) {
                 <Link to="/" color="inherit" activeOptions={{ exact: true, includeSearch: false }}>
                   Home
                 </Link>
+                {/* Not exact: a lab's page is under Labs too. */}
+                <Link to="/labs" color="inherit" activeOptions={{ includeSearch: false }}>
+                  Labs
+                </Link>
               </Box>
               <Typography component="p">Signed in as {user.username}</Typography>
               <Button color="inherit" variant="outlined" onClick={() => logout.mutate()} disabled={logout.isPending}>
