@@ -5,7 +5,11 @@ import { safeRedirect } from '@/lib/safe'
 import { rootRoute } from './root'
 
 // .catch: a bad or hostile value falls back instead of failing the route.
-export const loginSearchSchema = z.object({ redirect: z.string().optional().catch(undefined) })
+export const loginSearchSchema = z.object({
+  redirect: z.string().optional().catch(undefined),
+  // Set by sign-out to confirm it on the login page.
+  signedOut: z.boolean().optional().catch(undefined),
+})
 
 export const loginRoute = createRoute({
   getParentRoute: () => rootRoute,

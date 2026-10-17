@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import { Field } from '@/components/Field'
+import { Alert, Button, Stack, TextField } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
 import { useLogin } from '../api/mutations'
@@ -27,18 +27,16 @@ export function LoginForm({ onSuccess }: Props) {
 
   return (
     <form onSubmit={onSubmit} noValidate aria-label="Sign in">
-      <Field label="Username" error={username?.message}>
-        {(control) => <input autoComplete="username" {...control} {...register('username')} />}
-      </Field>
-      <Field label="Password" error={password?.message}>
-        {(control) => <input type="password" autoComplete="current-password" {...control} {...register('password')} />}
-      </Field>
-      {invalid && <p role="alert">Invalid username or password.</p>}
-      {/* Every other failure (CSRF 403, throttling 429, 5xx, network) must be visible too. */}
-      {failed && <p role="alert">{throttled ? 'Too many attempts. Wait a minute and try again.' : 'Sign-in failed. Try again.'}</p>}
-      <button type="submit" disabled={login.isPending}>
-        Sign in
-      </button>
+      <Stack spacing={2}>
+        <TextField label="Username" autoComplete="username" error={username?.message} {...register('username')} />
+        <TextField label="Password" type="password" autoComplete="current-password" error={password?.message} {...register('password')} />
+        {invalid && <Alert severity="error">Invalid username or password.</Alert>}
+        {/* Every other failure (CSRF 403, throttling 429, 5xx, network) must be visible too. */}
+        {failed && <Alert severity="error">{throttled ? 'Too many attempts. Wait a minute and try again.' : 'Sign-in failed. Try again.'}</Alert>}
+        <Button type="submit" variant="contained" disabled={login.isPending}>
+          Sign in
+        </Button>
+      </Stack>
     </form>
   )
 }
