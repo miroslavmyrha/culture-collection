@@ -60,6 +60,19 @@ export default defineConfig({
     sourcemap: 'hidden',
     // Do not raise this for the entry chunk: split routes or dependencies instead.
     chunkSizeWarningLimit: 500,
+    rolldownOptions: {
+      output: {
+        // Libraries in their own chunks: they change less often than our code, so browsers keep
+        // them cached across deploys, and no single chunk passes the size limit.
+        codeSplitting: {
+          groups: [
+            { name: 'mui', test: /node_modules[\\/](@mui|@emotion|@popperjs|react-transition-group|stylis)[\\/]/, priority: 3 },
+            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 2 },
+            { name: 'vendor', test: /node_modules[\\/]/, priority: 1 },
+          ],
+        },
+      },
+    },
   },
   server: {
     // Same-origin in development: the session and CSRF cookies just work.

@@ -133,3 +133,21 @@ test('enforces Trusted Types; the dompurify policy exists from boot', async ({ p
   expect(result.duplicate).toMatch(/already exists/)
   expect(result.other).toMatch(/disallowed/)
 })
+
+test('MUI styles apply under the production CSP: every emotion style carries the nonce', async ({ page }) => {
+  const violations = await watchCsp(page)
+  await page.goto('/login')
+  const bar = page.getByRole('banner')
+  await expect(bar).toContainText('Culture collection')
+  // Without the nonce the CSP blocks emotion's <style> and the bar keeps a transparent background.
+  expect(await bar.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)')
+  const styles = await page.evaluate(() => {
+    const nonce = document.querySelector<HTMLMetaElement>('meta[property="csp-nonce"]')?.nonce
+    const emotion = [...document.querySelectorAll<HTMLStyleElement>('style[data-emotion]')]
+    return { nonce, count: emotion.length, withNonce: emotion.filter((style) => style.nonce === nonce).length }
+  })
+  expect(styles.nonce).toBe('__CSP_NONCE__')
+  expect(styles.count).toBeGreaterThan(0)
+  expect(styles.withNonce).toBe(styles.count)
+  expect(violations()).toEqual([])
+})

@@ -3,11 +3,11 @@ import { errorMessage } from '@/lib/api'
 
 export function NotFound() {
   return (
-    <main>
+    <section>
       <h1>Page not found</h1>
       <p>The address may be mistyped, or the page was moved.</p>
       <Link to="/">Go to the start page</Link>
-    </main>
+    </section>
   )
 }
 
@@ -23,7 +23,7 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
     void router.invalidate()
   }
   return (
-    <main role="alert">
+    <section role="alert">
       <h1>Something went wrong</h1>
       <p>{errorMessage(error)}</p>
       {import.meta.env.DEV && <pre>{error instanceof Error ? error.message : String(error)}</pre>}
@@ -33,7 +33,7 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
       <button type="button" onClick={() => window.location.reload()}>
         Reload the page
       </button>
-    </main>
+    </section>
   )
 }
 
