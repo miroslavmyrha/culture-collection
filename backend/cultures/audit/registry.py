@@ -54,6 +54,26 @@ MEMBER_ROLE_CHANGED = register(
     EventType("member_role_changed", "{actor} changed the role of {user} to {role}")
 )
 MEMBER_REMOVED = register(EventType("member_removed", "{actor} removed {user}"))
+USER_CREATED = register(EventType("user_created", "{actor} created {subject}"))
+USER_CHANGED = register(EventType("user_changed", "{actor} changed {subject}"))
+USER_ACTIVATED = register(
+    EventType("user_activated", "{actor} activated {subject}", reason_required=True)
+)
+USER_STAFF_CHANGED = register(
+    EventType(
+        "user_staff_changed", "{actor} changed staff status of {subject}", reason_required=True
+    )
+)
+USER_SUPERUSER_CHANGED = register(
+    EventType(
+        "user_superuser_changed",
+        "{actor} changed superuser status of {subject}",
+        reason_required=True,
+    )
+)
+USER_PASSWORD_CHANGED = register(
+    EventType("user_password_changed", "{actor} changed the password of {subject}")
+)
 
 
 @dataclass(frozen=True)

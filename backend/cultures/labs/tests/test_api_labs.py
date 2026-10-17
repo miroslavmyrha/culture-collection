@@ -9,7 +9,7 @@ from cultures.labs.models import Lab
 from cultures.labs.permissions import Role
 from cultures.users.models import User
 
-from .conftest import LAB_URL, LABS_URL, make_lab, member_of
+from .conftest import LAB_URL, LABS_URL, make_lab, make_user, member_of
 
 pytestmark = pytest.mark.django_db
 
@@ -82,7 +82,7 @@ def test_labs_cannot_be_created_or_changed_through_the_api(
 
 
 def test_staff_and_superusers_get_no_shortcut(lab: Lab) -> None:
-    admin = User.objects.create_superuser("root", password="x" * 20)
+    admin = make_user("root", is_staff=True, is_superuser=True)
     client = logged_in(admin)
     assert client.get(LABS_URL).json()["results"] == []
     assert_problem(client.get(LAB_URL), 404, "not_found")
