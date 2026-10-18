@@ -94,9 +94,14 @@ systemd timer, or a Kubernetes CronJob with the image and the app's environment.
 
 Required environment: `DJANGO_SECRET_KEY` (or `DJANGO_SECRET_KEY_FILE`), `DATABASE_URL`
 (or `DATABASE_URL_FILE`, the runtime role for the app), `DJANGO_ALLOWED_HOSTS`, `DJANGO_ADMIN_PATH` (not the default).
-Behind a TLS proxy: `DJANGO_BEHIND_TLS_PROXY=true`, `DJANGO_NUM_PROXIES` (proxies that
-append to X-Forwarded-For, usually 1) and `GUNICORN_FORWARDED_ALLOW_IPS` (the proxy
-address). Optional: `DJANGO_SECRET_KEY_FALLBACKS` (key rotation), `LOG_FORMAT=json`,
+Behind a TLS proxy: `DJANGO_BEHIND_TLS_PROXY=true` and `DJANGO_TRUSTED_PROXIES`, the
+proxies' addresses or networks, comma separated (`10.0.0.5` or `10.0.0.0/24`). The app
+reads `X-Forwarded-For` only on a request that comes from one of them, from the right,
+up to the first address not in the list; gunicorn takes the same list as
+`forwarded_allow_ips`. Each proxy must append the address it saw (nginx
+`proxy_add_x_forwarded_for`, plain addresses without ports) and must not be bypassable.
+`DJANGO_NUM_PROXIES` and `GUNICORN_FORWARDED_ALLOW_IPS` are gone, and startup refuses
+them. Optional: `DJANGO_SECRET_KEY_FALLBACKS` (key rotation), `LOG_FORMAT=json`,
 `ERROR_REPORTING_DSN` (add `sentry-sdk` first), `DB_RUNTIME_ROLE_REQUIRED=false` (only
 where the host gives the app no second role), `THROTTLE_*`, `LOGIN_ACCOUNT_*`,
 `DATA_UPLOAD_MAX_MEMORY_SIZE`. Startup refuses unsafe values; `./check.sh` runs

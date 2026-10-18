@@ -3,10 +3,13 @@
 The login has the same per-IP budget and the same account limit as the API login.
 """
 
+import ipaddress
+
 import pytest
 from django.conf import settings
 from django.test import Client, override_settings
 from django.urls import reverse
+from pytest_django.fixtures import Settings
 
 from config.settings import base
 from cultures.audit.models import AuditEvent, Channel
@@ -61,6 +64,42 @@ def test_another_address_keeps_its_own_admin_login_budget(
         admin_login(client, f"guess{n}", "wrong")
     assert admin_login(client, "staff", PASSWORD, ip="198.51.100.2") == 302
     assert signed_in(client)
+
+
+def test_a_forged_forwarding_header_gives_the_admin_login_no_new_budget(
+    production_rate: str, client: Client
+) -> None:
+    """The admin login reads the client through cultures.core.client_ip like the API."""
+    statuses = [
+        client.post(
+            LOGIN,
+            {"username": f"guess{n}", "password": "wrong"},
+            REMOTE_ADDR=IP,
+            HTTP_X_FORWARDED_FOR=f"203.0.113.{n}",
+        ).status_code
+        for n in range(11)
+    ]
+    assert statuses == [200] * 10 + [429]
+
+
+def test_behind_a_trusted_proxy_the_admin_login_counts_per_client(
+    production_rate: str, client: Client, staff: User, settings: Settings
+) -> None:
+    settings.TRUSTED_PROXIES = (ipaddress.ip_network("10.0.0.0/24"),)
+    for n in range(10):
+        client.post(
+            LOGIN,
+            {"username": f"guess{n}", "password": "wrong"},
+            REMOTE_ADDR="10.0.0.5",
+            HTTP_X_FORWARDED_FOR="203.0.113.1",
+        )
+    behind_the_same_proxy = client.post(
+        LOGIN,
+        {"username": "staff", "password": PASSWORD, "next": "/"},
+        REMOTE_ADDR="10.0.0.5",
+        HTTP_X_FORWARDED_FOR="203.0.113.2",
+    )
+    assert behind_the_same_proxy.status_code == 302
 
 
 def test_the_admin_and_the_api_login_share_one_budget_per_address(

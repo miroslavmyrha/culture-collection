@@ -12,7 +12,7 @@ import environ
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.csp import CSP
 
-from config.env import env_bool, env_int, env_list, env_secret, env_str
+from config.env import env_bool, env_int, env_list, env_networks, env_secret, env_str
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -208,10 +208,11 @@ ADMIN_PATH = env_str("DJANGO_ADMIN_PATH", DEFAULT_ADMIN_PATH)
 ERROR_REPORTING_DSN = env_secret("ERROR_REPORTING_DSN", "")
 ERROR_REPORTING_ENVIRONMENT = env_str("ERROR_REPORTING_ENVIRONMENT", "production")
 
-# Proxies in front of the app that append to X-Forwarded-For. 0 means the
-# header is ignored and REMOTE_ADDR is the client. Without this setting DRF
-# keys throttles on the whole header and a client escapes by rotating it.
-NUM_PROXIES = env_int("DJANGO_NUM_PROXIES", default=0, minimum=0)
+# The proxies in front of the app, as addresses or networks (CIDR). X-Forwarded-For
+# is read only on a request whose REMOTE_ADDR is one of them (cultures.core.client_ip).
+# Empty: the header is ignored and REMOTE_ADDR is the client. gunicorn.conf.py gives
+# gunicorn the same list as forwarded_allow_ips.
+TRUSTED_PROXIES = env_networks("DJANGO_TRUSTED_PROXIES")
 
 REST_FRAMEWORK: dict[str, Any] = {
     # 401 for anonymous requests (WWW-Authenticate: Session), 403 for "not allowed".
@@ -228,7 +229,9 @@ REST_FRAMEWORK: dict[str, Any] = {
     "DEFAULT_PAGINATION_CLASS": "cultures.core.pagination.LimitOffsetPagination",
     "PAGE_SIZE": 50,
     "EXCEPTION_HANDLER": "cultures.core.errors.exception_handler",
-    "NUM_PROXIES": NUM_PROXIES,
+    # Every project throttle takes the client from cultures.core.client_ip (ClientIdentMixin).
+    # 0 keeps DRF's own get_ident, should anything reach it, on REMOTE_ADDR.
+    "NUM_PROXIES": 0,
     "DEFAULT_THROTTLE_CLASSES": [
         "cultures.core.throttling.AnonRateThrottle",
         "cultures.core.throttling.UserRateThrottle",

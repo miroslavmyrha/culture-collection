@@ -53,7 +53,7 @@ exclude = ["migrations/"]
 [[tool.mypy.overrides]]
 # Packages without type information. django-filter ships none, so FilterSet subclasses
 # are typed as Any and need no ignore comment.
-module = ["environ.*", "model_bakery.*", "sentry_sdk.*", "django_filters.*"]
+module = ["environ.*", "model_bakery.*", "sentry_sdk.*", "django_filters.*", "gunicorn.*"]
 ignore_missing_imports = true
 
 [tool.django-stubs]

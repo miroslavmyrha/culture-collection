@@ -120,9 +120,11 @@ REFUSALS: list[tuple[dict[str, str], str]] = [
     ({"DJANGO_SECRET_KEY": "ab" * 40}, "DJANGO_SECRET_KEY"),  # too few distinct characters
     ({"DJANGO_SECRET_KEY_FALLBACKS": "weak"}, "DJANGO_SECRET_KEY_FALLBACKS"),
     ({"DJANGO_SECRET_KEY_FALLBACKS": GOOD_KEY}, "fallbacks"),
-    ({"DJANGO_BEHIND_TLS_PROXY": "true"}, "DJANGO_NUM_PROXIES"),
+    ({"DJANGO_BEHIND_TLS_PROXY": "true"}, "set DJANGO_TRUSTED_PROXIES"),
     ({"DJANGO_BEHIND_TLS_PROXY": "ture"}, "not a boolean"),
-    ({"DJANGO_NUM_PROXIES": "one"}, "not an integer"),
+    ({"DJANGO_NUM_PROXIES": "1"}, "DJANGO_NUM_PROXIES is gone"),
+    ({"DJANGO_TRUSTED_PROXIES": "10.0.0.5/24"}, "DJANGO_TRUSTED_PROXIES"),
+    ({"DJANGO_TRUSTED_PROXIES": "0.0.0.0/0"}, "would trust every client"),
     ({"LOG_FORMAT": "xml"}, "LOG_FORMAT"),
 ]
 
@@ -161,11 +163,25 @@ def test_every_production_refusal_has_a_case() -> None:
     assert untested == [], "add a case to REFUSALS for each of these refusals"
 
 
-def test_production_accepts_proxy_with_num_proxies() -> None:
-    env = {**GOOD_ENV, "DJANGO_BEHIND_TLS_PROXY": "true", "DJANGO_NUM_PROXIES": "1"}
-    expr = "repr(s.SECURE_PROXY_SSL_HEADER), s.REST_FRAMEWORK['NUM_PROXIES']"
-    # Only "https" in the proxy's scheme header marks a request as secure.
-    assert production_value(env, expr) == "('HTTP_X_FORWARDED_PROTO', 'https') 1"
+def test_production_accepts_a_proxy_with_its_trusted_addresses() -> None:
+    env = {
+        **GOOD_ENV,
+        "DJANGO_BEHIND_TLS_PROXY": "true",
+        "DJANGO_TRUSTED_PROXIES": "10.0.0.5, 10.1.0.0/16",
+    }
+    expr = "repr(s.SECURE_PROXY_SSL_HEADER), *s.TRUSTED_PROXIES, s.REST_FRAMEWORK['NUM_PROXIES']"
+    # Only "https" in the proxy's scheme header marks a request as secure. DRF's own
+    # hop count stays 0: the project's throttles read cultures.core.client_ip.
+    assert production_value(env, expr) == (
+        "('HTTP_X_FORWARDED_PROTO', 'https') 10.0.0.5/32 10.1.0.0/16 0"
+    )
+
+
+def test_production_without_a_proxy_trusts_no_forwarding_header() -> None:
+    assert (
+        production_value(GOOD_ENV, "s.TRUSTED_PROXIES, getattr(s, 'SECURE_PROXY_SSL_HEADER', None)")
+        == "() None"
+    )
 
 
 def test_secret_key_and_fallbacks_from_files(tmp_path: Path) -> None:

@@ -2,16 +2,16 @@
 
 from django.core.exceptions import ImproperlyConfigured
 
-from config.env import env_bool, env_int
+from config.env import env_bool, env_int, env_str
 
 from .base import *  # noqa: F403
 from .base import (
     ADMIN_PATH,
     ALLOWED_HOSTS,
     DEFAULT_ADMIN_PATH,
-    NUM_PROXIES,
     SECRET_KEY,
     SECRET_KEY_FALLBACKS,
+    TRUSTED_PROXIES,
 )
 
 MIN_SECRET_KEY_LENGTH = 50
@@ -65,13 +65,20 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = env_bool("DJANGO_SECURE_HSTS_PRELOAD", default=False)
 SILENCED_SYSTEM_CHECKS = ["security.W021"]
 
-# One switch for the proxy: trust its scheme header, and require the number of
-# proxies so the client IP for throttles is taken from the right hop.
+# The hop count of earlier versions trusted X-Forwarded-For from any client. A
+# deploy that still sets it would now key every client on the proxy's address.
+if env_str("DJANGO_NUM_PROXIES", ""):
+    raise ImproperlyConfigured(
+        "DJANGO_NUM_PROXIES is gone: list the proxies' addresses in DJANGO_TRUSTED_PROXIES."
+    )
+
+# One switch for the proxy: trust its scheme header, and require the list of
+# proxies, or every client would share the proxy's address in throttles and login limits.
 BEHIND_TLS_PROXY = env_bool("DJANGO_BEHIND_TLS_PROXY", default=False)
 if BEHIND_TLS_PROXY:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    if NUM_PROXIES < 1:
+    if not TRUSTED_PROXIES:
         raise ImproperlyConfigured(
-            "DJANGO_BEHIND_TLS_PROXY is on: set DJANGO_NUM_PROXIES to the number of proxies "
-            "that append to X-Forwarded-For (usually 1)."
+            "DJANGO_BEHIND_TLS_PROXY is on: set DJANGO_TRUSTED_PROXIES to the addresses or "
+            "networks of the proxies in front of the app."
         )

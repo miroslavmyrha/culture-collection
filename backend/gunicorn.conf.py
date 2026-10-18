@@ -26,9 +26,16 @@ graceful_timeout = _int("GUNICORN_GRACEFUL_TIMEOUT", 30)
 keepalive = _int("GUNICORN_KEEPALIVE", 5)
 max_requests = _int("GUNICORN_MAX_REQUESTS", 1000)
 max_requests_jitter = _int("GUNICORN_MAX_REQUESTS_JITTER", 100)
-# Addresses allowed to set X-Forwarded-Proto and friends: the proxy, never "*"
-# unless the network guarantees that only the proxy reaches the app.
-forwarded_allow_ips = os.environ.get("GUNICORN_FORWARDED_ALLOW_IPS", "127.0.0.1,::1")
+# Peers allowed to set X-Forwarded-Proto and friends: the proxies Django trusts for
+# X-Forwarded-For (DJANGO_TRUSTED_PROXIES, cultures/core/client_ip.py), one list for
+# both. Empty: no peer is trusted. gunicorn checks each entry (an address or a CIDR).
+if os.environ.get("GUNICORN_FORWARDED_ALLOW_IPS", "").strip():
+    raise SystemExit("GUNICORN_FORWARDED_ALLOW_IPS is gone: set DJANGO_TRUSTED_PROXIES instead")
+forwarded_allow_ips = ",".join(
+    entry.strip()
+    for entry in os.environ.get("DJANGO_TRUSTED_PROXIES", "").split(",")
+    if entry.strip()
+)
 # Heartbeat files in memory: works with a read-only root filesystem.
 worker_tmp_dir = os.environ.get("GUNICORN_WORKER_TMP_DIR", "/dev/shm")  # noqa: S108
 # gunicorn 25.1+ opens a control socket in $HOME/.gunicorn by default (gunicorn/config.py,
