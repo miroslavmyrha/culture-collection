@@ -161,3 +161,19 @@ def test_the_lab_lock_comes_first(
             f"{name}: statement {found} before the lab lock {lock}"
         )
     assert first(statements, writes) is not None, f"{name} writes nothing"
+
+
+def test_the_counter_row_is_locked_too(
+    lab: Lab, curator: User, subtilis: Taxon, as_curator: AuditContext
+) -> None:
+    """Defence in depth: a later writer that skips the lab lock (an import) still waits on the
+    counter row, so it never reads a number another transaction is about to hand out."""
+    call = strain_create((lab, access_for(curator), subtilis, lambda **_: None))  # type: ignore[arg-type]
+    call()  # the counter row exists from here on
+    with CaptureQueriesContext(connection) as captured:
+        call()
+    counter = [
+        q["sql"] for q in captured.captured_queries if reads("strains_straincounter")(q["sql"])
+    ]
+    assert counter, "the second accession reads the counter"
+    assert all(sql.rstrip().endswith("FOR UPDATE") for sql in counter), counter

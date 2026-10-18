@@ -164,3 +164,27 @@ def test_strains_are_never_changed_in_place_or_deleted(
         f"{STRAINS_URL}{strain.public_id}/", {}, content_type="application/json"
     )
     assert_problem(response, 405, "method_not_allowed")
+
+
+@pytest.mark.parametrize("call", [c for c in CALLS if c.write], ids=lambda c: c.name)
+@pytest.mark.parametrize("role", [Role.VIEWER, Role.TECHNICIAN])
+def test_a_role_without_the_permission_gets_403_before_its_input_is_read(
+    call: Call, role: Role, strain: Strain, team: dict[Role, User]
+) -> None:
+    """The viewset refuses first: invalid input from a viewer is a 403, never a 400 that
+    tells them what the form expects. The services refuse too, but only after validation."""
+    response = getattr(logged_in(team[role]), call.method)(
+        url(call), {"risk_group": "x", "taxon": "x"}, content_type="application/json"
+    )
+    assert_problem(response, 403, "permission_denied")
+
+
+def test_a_member_of_two_labs_sees_only_the_strains_of_the_lab_in_the_url(
+    strain: Strain, other_lab: Lab, outsider: User, make_strain: MakeStrain, viewer: User
+) -> None:
+    """Both labs are in the user's access: only the URL's lab narrows the list and the detail."""
+    elsewhere = make_strain(lab=other_lab, actor=outsider, name_as_received="in BAC")
+    Membership.objects.create(user=viewer, lab=other_lab, role=Role.VIEWER)
+    listed = [row["public_id"] for row in logged_in(viewer).get(STRAINS_URL).json()["results"]]
+    assert listed == [str(strain.public_id)]
+    assert_problem(logged_in(viewer).get(f"{STRAINS_URL}{elsewhere.public_id}/"), 404, "not_found")
