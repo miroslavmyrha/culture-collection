@@ -54,7 +54,19 @@ describe('LoginForm', () => {
   })
 
   it.each([
-    [429, 'Too many attempts. Wait a minute and try again.'],
+    ['7', 'Too many sign-in attempts. Try again in 1 minute. A browser you signed in with before may still work.'],
+    ['60', 'Too many sign-in attempts. Try again in 1 minute. A browser you signed in with before may still work.'],
+    ['61', 'Too many sign-in attempts. Try again in 2 minutes. A browser you signed in with before may still work.'],
+    ['3600', 'Too many sign-in attempts. Try again in 60 minutes. A browser you signed in with before may still work.'],
+  ])('says when to try again after a 429 with Retry-After %s', async (retryAfter, message) => {
+    mockApiError('post', '/api/v1/auth/login/', 429, problem(429, { code: 'throttled' }), { headers: { 'Retry-After': retryAfter } })
+    await submit()
+    expect(await screen.findByRole('alert')).toHaveTextContent(message)
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+  })
+
+  it.each([
+    [429, 'Too many sign-in attempts. Try again later. A browser you signed in with before may still work.'],
     [403, 'Sign-in failed. Try again.'],
     [500, 'Sign-in failed. Try again.'],
   ])('shows a visible error for %i', async (status, message) => {
