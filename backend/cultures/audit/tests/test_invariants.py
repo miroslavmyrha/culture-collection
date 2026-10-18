@@ -3,7 +3,8 @@
 The walks read pg_trigger and information_schema, so these all fail here:
 a table registered without its migration, a migration that drifted from the
 registry, a trigger attached by hand, a trigger switched off with DISABLE
-TRIGGER, and a new column nobody classified as audited or excluded.
+TRIGGER, a new column nobody classified as audited, excluded, secret or
+personal, and a registry entry for a table or column that does not exist.
 """
 
 import pytest
@@ -48,7 +49,7 @@ def installed_row_triggers() -> Installed:
 
 def expected_triggers(audit: RowAudit) -> dict[str, Trigger]:
     """ "O": fires in the normal (origin) replication mode, the enabled state."""
-    args = row_trigger_args(audit.label, audit.pk, audit.exclude, audit.secret)
+    args = row_trigger_args(audit.label, audit.pk, audit.exclude, audit.secret, audit.personal)
     return {
         "audit_row_change": ("O", AFTER_ROW_INSERT_DELETE, None, args),
         "audit_row_update": ("O", AFTER_ROW_UPDATE, CHANGED_ROWS_ONLY, args),
@@ -71,8 +72,18 @@ def row_audit_mismatches() -> list[str]:
     return wrong
 
 
+def classes(audit: RowAudit) -> dict[str, tuple[str, ...]]:
+    """Every class of the row audit, by name. A column belongs to exactly one."""
+    return {
+        "audited": audit.audited,
+        "excluded": audit.exclude,
+        "secret": audit.secret,
+        "personal": audit.personal,
+    }
+
+
 def unclassified_columns() -> list[str]:
-    """Columns of registered tables that are neither audited nor excluded, or both, or gone."""
+    """Columns in no class or in two, classified columns or tables that do not exist."""
     wrong: list[str] = []
     with connection.cursor() as cursor:
         for table, audit in sorted(ROW_AUDITED_TABLES.items()):
@@ -82,15 +93,18 @@ def unclassified_columns() -> list[str]:
                 [table],
             )
             columns = {name for (name,) in cursor.fetchall()}
-            audited, excluded = set(audit.audited), set(audit.exclude) | set(audit.secret)
-            wrong.extend(
-                f"{table}.{c}: not classified" for c in sorted(columns - audited - excluded)
-            )
-            wrong.extend(
-                f"{table}.{c}: no such column" for c in sorted((audited | excluded) - columns)
-            )
-            wrong.extend(f"{table}.{c}: audited and excluded" for c in sorted(audited & excluded))
-            wrong.extend(f"{table}.{c}: pk not audited" for c in audit.pk if c not in audited)
+            if not columns:
+                wrong.append(f"{table}: no such table")
+                continue
+            named = [(c, kind) for kind, listed in classes(audit).items() for c in listed]
+            classified = {c for c, _ in named}
+            wrong.extend(f"{table}.{c}: not classified" for c in sorted(columns - classified))
+            wrong.extend(f"{table}.{c}: no such column" for c in sorted(classified - columns))
+            for column in sorted(classified):
+                kinds = [kind for c, kind in named if c == column]
+                if len(kinds) > 1:
+                    wrong.append(f"{table}.{column}: in {' and '.join(kinds)}")
+            wrong.extend(f"{table}.{c}: pk not audited" for c in audit.pk if c not in audit.audited)
     return wrong
 
 
@@ -100,9 +114,16 @@ def test_every_registered_table_has_its_row_triggers() -> None:
     assert row_audit_mismatches() == []
 
 
-def test_every_column_of_a_registered_table_is_audited_or_excluded() -> None:
+def test_every_column_of_a_registered_table_is_in_exactly_one_class() -> None:
     assert ROW_AUDITED_TABLES
     assert unclassified_columns() == []
+
+
+def test_the_personal_columns_of_users_are_personal() -> None:
+    """The decision of #37, pinned: names, email and username never reach an audit row."""
+    users = ROW_AUDITED_TABLES["users_user"]
+    assert set(users.personal) == {"username", "first_name", "last_name", "email"}
+    assert users.secret == ("password",)
 
 
 # The invariants themselves: each fault they exist to catch makes them fail.
@@ -157,14 +178,80 @@ def test_a_wrong_classification_is_found(monkeypatch: pytest.MonkeyPatch) -> Non
         audited=(*audit.audited[1:], "password", "nickname"),
         exclude=audit.exclude,
         secret=audit.secret,
+        personal=audit.personal,
     )
     monkeypatch.setitem(ROW_AUDITED_TABLES, "users_user", wrong)
     assert unclassified_columns() == [
         "users_user.id: not classified",
         "users_user.nickname: no such column",
-        "users_user.password: audited and excluded",
+        "users_user.password: in audited and secret",
         "users_user.id: pk not audited",
     ]
+
+
+def test_a_personal_column_also_audited_is_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    audit = ROW_AUDITED_TABLES["users_user"]
+    wrong = RowAudit(
+        label=audit.label,
+        audited=(*audit.audited, "email"),
+        exclude=audit.exclude,
+        secret=audit.secret,
+        personal=audit.personal,
+    )
+    monkeypatch.setitem(ROW_AUDITED_TABLES, "users_user", wrong)
+    assert unclassified_columns() == ["users_user.email: in audited and personal"]
+
+
+def test_a_personal_column_dropped_from_its_class_is_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    audit = ROW_AUDITED_TABLES["users_user"]
+    wrong = RowAudit(
+        label=audit.label,
+        audited=audit.audited,
+        exclude=audit.exclude,
+        secret=audit.secret,
+        personal=tuple(c for c in audit.personal if c != "email"),
+    )
+    monkeypatch.setitem(ROW_AUDITED_TABLES, "users_user", wrong)
+    assert unclassified_columns() == ["users_user.email: not classified"]
+
+
+def test_a_misspelt_personal_column_is_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    audit = ROW_AUDITED_TABLES["users_user"]
+    wrong = RowAudit(
+        label=audit.label,
+        audited=audit.audited,
+        exclude=audit.exclude,
+        secret=audit.secret,
+        personal=(*audit.personal, "emial"),
+    )
+    monkeypatch.setitem(ROW_AUDITED_TABLES, "users_user", wrong)
+    assert unclassified_columns() == ["users_user.emial: no such column"]
+
+
+def test_a_registry_entry_for_a_table_that_does_not_exist_is_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stale entry (care's exclusion lists name models that were removed) must not pass."""
+    gone = RowAudit(label="users.profile", audited=("id",), personal=("name",))
+    monkeypatch.setitem(ROW_AUDITED_TABLES, "users_profile", gone)
+    assert unclassified_columns() == ["users_profile: no such table"]
+
+
+def test_personal_columns_that_drifted_from_the_migration_are_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The registry says personal, the trigger was attached without: the trigger args differ."""
+    audit = ROW_AUDITED_TABLES["users_user"]
+    drifted = RowAudit(
+        label=audit.label,
+        audited=(*audit.audited, *audit.personal),
+        exclude=audit.exclude,
+        secret=audit.secret,
+    )
+    monkeypatch.setitem(ROW_AUDITED_TABLES, "users_user", drifted)
+    assert [line.split(":")[0] for line in row_audit_mismatches()] == ["users_user"]
 
 
 @pytest.mark.parametrize(

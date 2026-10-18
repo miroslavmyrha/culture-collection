@@ -124,14 +124,19 @@ def test_the_app_role_cannot_forge_a_row_change(app_role: CursorWrapper) -> None
 
 
 def test_the_trigger_still_writes_for_the_app_role(member: User, app_role: CursorWrapper) -> None:
-    """SECURITY DEFINER: the role cannot insert row changes, its updates still leave one."""
-    app_role.execute("UPDATE users_user SET first_name = 'Grace' WHERE id = %s", [member.pk])
+    """SECURITY DEFINER: the role cannot insert row changes, its updates still leave one.
+
+    The personal marker of #37 holds for the role too: the name stays out of the row.
+    """
     app_role.execute(
-        "SELECT op, old ->> 'first_name', new ->> 'first_name', db_role FROM audit_rowchange"
-        " WHERE row_pk = %s ORDER BY id DESC",
+        "UPDATE users_user SET first_name = 'Grace', is_staff = true WHERE id = %s", [member.pk]
+    )
+    app_role.execute(
+        "SELECT op, old ->> 'first_name', new ->> 'first_name', new ->> 'is_staff', db_role"
+        " FROM audit_rowchange WHERE row_pk = %s ORDER BY id DESC",
         [str(member.pk)],
     )
-    assert app_role.fetchone() == ("UPDATE", "", "Grace", "cultures")
+    assert app_role.fetchone() == ("UPDATE", "personal", "personal", "true", "cultures")
 
 
 def test_the_app_role_cannot_disable_the_trigger(app_role: CursorWrapper) -> None:

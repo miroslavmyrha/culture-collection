@@ -67,5 +67,5 @@ def test_the_secret_marker_migrations_go_back_and_forth() -> None:
     migrate()
     assert "secret:" in function_body()
     update_args = installed_row_triggers()["users_user"]["audit_row_update"][3]
-    assert update_args == ("users.user", '["id"]', "last_login", "secret:password")
+    assert update_args[:4] == ("users.user", '["id"]', "last_login", "secret:password")
     assert password_change_rows(user, "hash-3") == [("redacted", "redacted")] * 2

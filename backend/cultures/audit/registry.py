@@ -10,11 +10,15 @@ large audit table write that migration as NOT VALID plus VALIDATE (RunSQL in
 SeparateDatabaseAndState), because a plain AddConstraint scans the table under
 an ACCESS EXCLUSIVE lock.
 
-Row-audited tables: every regulated table, each column classified as audited
-or excluded. The table's own migration attaches the triggers with the same
-label, pk and exclusions (cultures.audit.operations.attach_row_audit). The
-invariants in tests/test_invariants.py compare this dict with pg_trigger and
-with the table's real columns, so the three cannot drift apart.
+Row-audited tables: every regulated table, each column classified as audited,
+excluded, secret or personal. The table's own migration attaches the triggers
+with the same label, pk and classes (cultures.audit.operations.attach_row_audit).
+The invariants in tests/test_invariants.py compare this dict with pg_trigger and
+with the real tables and columns, so the three cannot drift apart.
+
+No personal value enters an append-only row (ADR 0005, update of 2026-10-18):
+personal columns are stored as a marker, service events record that a personal
+field changed, never its value, and a user actor is labelled by its public id.
 """
 
 from dataclasses import dataclass
@@ -93,7 +97,7 @@ USER_LOGIN_LIMITS_CLEARED = register(
 
 @dataclass(frozen=True)
 class RowAudit:
-    """How the row trigger treats one table. Every column is either audited or excluded.
+    """How the row trigger treats one table. Every column is in exactly one class.
 
     label: the stable name stored on every RowChange, kept when the table is renamed.
     pk: the primary key columns, stored as text (a JSON array when there are several).
@@ -101,6 +105,10 @@ class RowAudit:
     secret: values never stored either, but an UPDATE that changes one records
     the column with the marker SECRET_MARKER as its old and new value, so a
     password change leaves a row without the hash (audit migration 0006).
+    personal: values that name or reach a person (names, email, username). Every
+    INSERT, UPDATE and DELETE row stores the marker PERSONAL_MARKER in their
+    place, so the trail shows that the column was set or changed, and erasing a
+    person never needs to touch an audit row (audit migration 0010, #37).
     audited: the other columns, listed so that a new column fails the
     classification invariant until someone decides which list it belongs to.
     """
@@ -110,21 +118,22 @@ class RowAudit:
     exclude: tuple[str, ...] = ()
     pk: tuple[str, ...] = ("id",)
     secret: tuple[str, ...] = ()
+    personal: tuple[str, ...] = ()
 
 
 # The value the row trigger stores for a changed secret column. Not a password (S105).
 SECRET_MARKER = "redacted"  # noqa: S105
+# The value the row trigger stores for a personal column, in every row that has the column.
+PERSONAL_MARKER = "personal"
 
 
 ROW_AUDITED_TABLES: dict[str, RowAudit] = {
     "users_user": RowAudit(
         label="users.user",
+        # Ids, privilege flags and the join date say what happened to the account, not who
+        # it is. They stay readable, and stay after an erasure.
         audited=(
             "id",
-            "username",
-            "first_name",
-            "last_name",
-            "email",
             "is_staff",
             "is_active",
             "is_superuser",
@@ -133,13 +142,19 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
         ),
         exclude=("last_login",),  # noise on every login
         secret=("password",),
+        # The username is often a person's name or email address, so it is personal too.
+        personal=("username", "first_name", "last_name", "email"),
     ),
     "labs_lab": RowAudit(
         label="labs.lab",
+        # name and code name an organisational unit, not a person: the trail keeps their
+        # values so old labels stay traceable. A lab is named after its field or unit;
+        # a lab named after a person keeps that name in its history (ADR 0005, 2026-10-18).
         audited=("id", "public_id", "created_at", "updated_at", "name", "code"),
     ),
     "labs_membership": RowAudit(
         label="labs.membership",
+        # Internal ids and a role: the person is reached only through users_user.
         audited=("id", "public_id", "created_at", "updated_at", "user_id", "lab_id", "role"),
     ),
 }

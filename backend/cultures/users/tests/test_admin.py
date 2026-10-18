@@ -68,7 +68,7 @@ def test_an_admin_edit_records_the_staff_actor_and_request_id_on_both_layers(
     (row,) = joined(event)
     assert (row.op, row.table_label, row.row_pk) == ("UPDATE", "users.user", str(member.pk))
     assert (row.actor_id, row.request_id) == (staff.pk, "adm-edit")
-    assert row.new == {"first_name": "Augusta"}
+    assert row.new == {"first_name": "personal"}  # the marker, never the name (#37)
 
 
 def test_the_actor_is_the_signed_in_staff_user_not_another_superuser(
