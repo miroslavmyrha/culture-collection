@@ -106,6 +106,14 @@ TAXON_IDENTIFIER_REMOVED = register(
     EventType("taxon_identifier_removed", "{actor} removed an external id of {taxon}")
 )
 
+# Lab authorisations (ADR 0009): permits staff record for a lab. Ended, never deleted.
+LAB_AUTHORISATION_ADDED = register(
+    EventType("lab_authorisation_added", "{actor} recorded permit {permit_reference}")
+)
+LAB_AUTHORISATION_ENDED = register(
+    EventType("lab_authorisation_ended", "{actor} ended a permit", reason_required=True)
+)
+
 
 @dataclass(frozen=True)
 class RowAudit:
@@ -190,6 +198,24 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
     "taxonomy_taxonidentifier": RowAudit(
         label="taxonomy.taxonidentifier",
         audited=("id", "public_id", "created_at", "updated_at", "taxon_id", "system", "value"),
+    ),
+    "biosafety_labauthorisation": RowAudit(
+        label="biosafety.labauthorisation",
+        # end_reason is free text that names nobody, like every reason (ADR 0005, 2026-10-18).
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "kind",
+            "issuer",
+            "permit_reference",
+            "valid_from",
+            "expires_on",
+            "ended_on",
+            "end_reason",
+        ),
     ),
 }
 

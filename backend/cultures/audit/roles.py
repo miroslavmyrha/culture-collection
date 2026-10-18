@@ -51,6 +51,8 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     # Taxa are never deleted: strains and identifications point at them (PROTECT), and a
     # name that is wrong becomes a synonym or is corrected. External ids may be removed.
     "taxonomy_taxon": ("SELECT", "INSERT", "UPDATE"),
+    # Permits are ended with a date and a reason, never deleted (ADR 0009).
+    "biosafety_labauthorisation": ("SELECT", "INSERT", "UPDATE"),
 }
 
 
