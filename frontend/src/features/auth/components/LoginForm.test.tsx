@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 import { makeMe, problem, validationProblem } from '@/test/factories'
-import { mockApi, mockApiError, recordRequests } from '@/test/mockApi'
+import { holdApi, mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { makeTestQueryClient, renderWithProviders } from '@/test/render'
 import { server } from '@/test/server'
 import { authKeys } from '../api/keys'
@@ -74,6 +74,22 @@ describe('LoginForm', () => {
     await submit()
     expect(await screen.findByRole('alert')).toHaveTextContent(message)
     expect(screen.getAllByRole('alert')).toHaveLength(1) // no second, global message
+  })
+
+  it('keeps the focus on Sign in while the request runs and sends one request for repeated submits', async () => {
+    const login = holdApi('post', '/api/v1/auth/login/')
+    const { user, client } = await submit()
+    const button = screen.getByRole('button', { name: 'Sign in' })
+    await vi.waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'))
+    expect(button).toHaveFocus()
+    expect(button).not.toBeDisabled()
+    await user.keyboard('{Enter}')
+    await user.click(button)
+    expect(client.isMutating()).toBe(1)
+    login.release(401, problem(401))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid username or password.')
+    expect(button).toHaveFocus()
+    expect(login.calls).toHaveLength(1)
   })
 
   it('shows a visible error when offline', async () => {
