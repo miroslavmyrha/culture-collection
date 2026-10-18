@@ -56,14 +56,14 @@ test('a manager sees their lab and role, then adds, changes and removes a member
 
   // The last manager stays
   await page.getByRole('button', { name: `Remove ${username}` }).click()
-  const own = page.getByRole('dialog', { name: `Remove ${username}?` })
+  const own = page.getByRole('alertdialog', { name: `Remove ${username}?` })
   await own.getByRole('button', { name: 'Remove' }).click()
   await expect(own.getByRole('alert')).toHaveText('A lab needs at least one active manager. Make another member manager first.')
   await own.getByRole('button', { name: 'Cancel' }).click()
 
   // Remove after a confirmation
   await page.getByRole('button', { name: 'Remove e2e-colleague' }).click()
-  const confirm = page.getByRole('dialog', { name: 'Remove e2e-colleague?' })
+  const confirm = page.getByRole('alertdialog', { name: 'Remove e2e-colleague?' })
   await expect(confirm.getByRole('button', { name: 'Cancel' })).toBeFocused()
   await confirm.getByRole('button', { name: 'Remove' }).click()
   await expect(confirm).toBeHidden()
