@@ -106,6 +106,20 @@ describe('focus after navigation (WCAG 2.4.3)', () => {
     await waitFor(() => expect(heading).toHaveFocus())
   })
 
+  it('keeps the focus on Next when the pager changes only the search', async () => {
+    signedIn()
+    const calls = mockApi('get', '/api/v1/labs/', page([makeLab()], { count: 60 }))
+    const { router } = renderApp({ path: '/labs' })
+    const user = userEvent.setup()
+    const next = await screen.findByRole('button', { name: 'Next' }, { timeout: 5000 })
+    await user.click(next)
+    await waitFor(() => expect(router.state.location.search).toEqual({ offset: 25 }))
+    await waitFor(() => expect(calls).toHaveLength(2))
+    await waitFor(() => expect(router.state.status).toBe('idle'))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveFocus()
+  })
+
   it('does not move the focus when only the hash changes, or when the new URL has one', async () => {
     signedIn()
     mockApi('get', '/api/v1/labs/', page([makeLab()]))
@@ -128,6 +142,33 @@ describe('focus after navigation (WCAG 2.4.3)', () => {
     await router.navigate({ to: '/labs/$labId', params: { labId: LAB_ID } })
     expect(await screen.findByText(/Could not load the lab/, {}, { timeout: 5000 })).toBeInTheDocument()
     await waitFor(() => expect(screen.getByRole('main')).toHaveFocus())
+  })
+
+  it('focuses the h1 of the page a retry loaded, not the body', async () => {
+    signedIn()
+    mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology' }))
+    members()
+    allowConsole(/API error 503/)
+    mockApiError('get', '/api/v1/labs/{public_id}/', 503)
+    renderApp({ path: `/labs/${LAB_ID}` })
+    const retry = await screen.findByRole('button', { name: 'Try again' }, { timeout: 5000 })
+    lab()
+    await userEvent.setup().click(retry)
+    const heading = await screen.findByRole('heading', { level: 1, name: 'Mycology' })
+    await waitFor(() => expect(heading).toHaveFocus())
+  })
+})
+
+describe('focus after a retry on the route error screen', () => {
+  it('goes to the h1 of the page that loaded', async () => {
+    allowConsole(/API error 500|Error in route match/)
+    mockApiError('get', '/api/v1/auth/me/', 500)
+    renderApp({ path: '/' })
+    const retry = await screen.findByRole('button', { name: 'Try again' }, { timeout: 5000 })
+    signedIn()
+    await userEvent.setup().click(retry)
+    const heading = await screen.findByRole('heading', { level: 1, name: 'Home' }, { timeout: 5000 })
+    await waitFor(() => expect(heading).toHaveFocus())
   })
 })
 
@@ -180,7 +221,7 @@ describe('the account menu on a narrow screen (WCAG 1.4.10)', () => {
     await waitFor(() => expect(heading).toHaveFocus()) // the menu button is gone: the new page's h1
   })
 
-  it('shows a failed sign-out under the bar', async () => {
+  it('shows a failed sign-out under the bar and returns the focus to the menu button when it is closed', async () => {
     narrowScreen()
     allowConsole(/API error 500/)
     signedIn('lab-tech')
@@ -196,5 +237,22 @@ describe('the account menu on a narrow screen (WCAG 1.4.10)', () => {
     await waitFor(() => expect(button).toHaveFocus()) // the menu returned it
     await user.click(within(alert).getByRole('button', { name: 'Close' }))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(button).toHaveFocus()
+  })
+})
+
+describe('the wide bar', () => {
+  it('returns the focus to Sign out when the failure notice is closed', async () => {
+    allowConsole(/API error 500/)
+    signedIn('lab-tech')
+    renderApp({ path: '/' })
+    const user = userEvent.setup()
+    const button = await screen.findByRole('button', { name: 'Sign out' }, { timeout: 5000 })
+    expect(screen.queryByRole('button', { name: /^Account/ })).not.toBeInTheDocument()
+    mockApiError('post', '/api/v1/auth/logout/', 500)
+    await user.click(button)
+    const alert = await screen.findByRole('alert')
+    await user.click(within(alert).getByRole('button', { name: 'Close' }))
+    expect(button).toHaveFocus()
   })
 })

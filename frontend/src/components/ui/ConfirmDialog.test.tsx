@@ -1,5 +1,6 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { ConfirmDialog } from './ConfirmDialog'
 
@@ -45,6 +46,28 @@ function FormDialog({ pending, onSubmit }: { pending: boolean; onSubmit: () => v
         }}
       />
     </ConfirmDialog>
+  )
+}
+
+function Opener({ onExited }: { onExited?: () => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}>
+        Remove bob
+      </button>
+      <ConfirmDialog
+        open={open}
+        title="Remove bob?"
+        description="bob loses access at once."
+        confirmLabel="Remove"
+        destructive
+        pending={false}
+        onClose={() => setOpen(false)}
+        onConfirm={() => setOpen(false)}
+        onExited={onExited}
+      />
+    </>
   )
 }
 
@@ -136,6 +159,28 @@ describe('ConfirmDialog', () => {
       rerender(<FormDialog pending onSubmit={onSubmit} />)
       await user.click(screen.getByRole('button', { name: 'Save' }))
       expect(onSubmit).toHaveBeenCalledOnce()
+    })
+  })
+
+  describe('focus on close', () => {
+    it('lets MUI return the focus to the trigger without onExited', async () => {
+      render(<Opener />)
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Remove bob' }))
+      await user.keyboard('{Escape}')
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Remove bob' })).toHaveFocus())
+    })
+
+    it('leaves the focus to onExited, called once the dialog has gone', async () => {
+      const onExited = vi.fn<() => void>()
+      render(<Opener onExited={onExited} />)
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Remove bob' }))
+      await user.keyboard('{Escape}')
+      await waitFor(() => expect(onExited).toHaveBeenCalledOnce())
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      // MUI did not move it back (disableRestoreFocus): placing it is the caller's job.
+      expect(screen.getByRole('button', { name: 'Remove bob' })).not.toHaveFocus()
     })
   })
 })

@@ -47,9 +47,6 @@ export function LabDetail({ labId, params, onOffsetChange }: Props) {
       <Typography sx={{ mb: 3 }}>
         Code {code}. Your role: {ROLE_LABELS[role]}.
       </Typography>
-      <Typography component="h2" variant="h6" gutterBottom>
-        Members
-      </Typography>
       <MemberTable labId={labId} labName={name} grantable={grantable} params={params} onOffsetChange={onOffsetChange} />
       {grantable.length > 0 && <AddMemberForm labId={labId} roles={grantable} />}
     </>

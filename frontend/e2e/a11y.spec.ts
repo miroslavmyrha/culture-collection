@@ -2,9 +2,9 @@ import { type Browser, type BrowserContext, expect, type Locator, type Page, tes
 import { axe, password, ratio, ring, surfaceOf, tabTo, username, watchCsp } from './support.js'
 
 // Checks that need a browser: reflow at 320 px (WCAG 1.4.10), the focus ring and its contrast
-// (2.4.7, 1.4.11; axe does not test focus rings), and titles and focus after navigation (2.4.2,
-// 2.4.3). Nothing here changes data, so it runs next to labs.spec.ts. One sign-in for the whole
-// file: the login throttle allows 10 a minute.
+// (2.4.7, 1.4.11; axe does not test focus rings), titles and focus after navigation (2.4.2,
+// 2.4.3), and a keyboard walk through every page. Nothing here changes data, so it runs next to
+// labs.spec.ts. One sign-in for the whole file: the login throttle allows 10 a minute.
 
 type State = Awaited<ReturnType<BrowserContext['storageState']>>
 let signedIn: State
@@ -266,6 +266,92 @@ test.describe('titles and focus after navigation', () => {
 
     await page.goto('/no-such-page')
     await expect(page).toHaveTitle('Page not found | Culture collection')
+    await close()
+  })
+
+  test('Next in the pager keeps the focus, also on the last page', async ({ browser }) => {
+    const { page, close } = await open(browser)
+    await pretendMembers(page, 2)
+    await openLab(page, '?limit=1')
+    const pager = page.getByRole('navigation', { name: 'Member pages' })
+    const next = pager.getByRole('button', { name: 'Next' })
+    await tabTo(page, next)
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/offset=1/)
+    await expect(pager).toContainText('2 to 2 of')
+    await expect(next).toBeFocused()
+    await expect(next).toHaveAttribute('aria-disabled', 'true')
+    await close()
+  })
+})
+
+/** Focus stops from the top of the page until Tab leaves the document (the browser's own UI). */
+async function walk(page: Page) {
+  const stops: string[] = []
+  await page.evaluate(() => {
+    const active = document.activeElement
+    if (active instanceof HTMLElement) active.blur()
+  })
+  for (let i = 0; i < 60; i++) {
+    await page.keyboard.press('Tab')
+    const stop = await page.evaluate(() => {
+      const e = document.activeElement
+      if (!e || e === document.body) return null
+      const style = getComputedStyle(e)
+      const fieldset = e.matches('input, select, textarea') ? e.parentElement?.querySelector('fieldset') : null
+      const visible = style.outlineStyle !== 'none' && style.outlineWidth !== '0px' ? true : fieldset ? getComputedStyle(fieldset).borderTopWidth === '2px' : false
+      const label = e.getAttribute('aria-label') ?? (e.textContent ?? '').trim()
+      return { name: `${e.tagName.toLowerCase()}:${label}`, visible }
+    })
+    if (stop === null) break // past the last control: focus left the document
+    expect(stop.visible, `focus indicator on ${stop.name}`).toBe(true)
+    stops.push(stop.name)
+  }
+  expect(stops.length).toBeGreaterThan(0)
+  expect(stops.length, 'Tab never leaves the page').toBeLessThan(60)
+  return stops
+}
+
+// The keyboard walk: Tab through every page from the top. Each stop is a named control with a
+// visible focus indicator, focus never falls to the body, and Tab never gets stuck.
+test.describe('keyboard walk through every page', () => {
+  test('every page has a named, visible stop for every control and none on the body', async ({ browser }) => {
+    const anonymous = await open(browser, { anonymous: true })
+    await anonymous.page.goto('/login')
+    await expect(anonymous.page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+    const login = await walk(anonymous.page)
+    expect(login.slice(0, 5)).toEqual(['a:Skip to content', 'a:Culture collection', 'input:', 'input:', 'button:Sign in'])
+    await anonymous.close()
+
+    const { page, close } = await open(browser)
+    await pretendMembers(page, 3)
+    for (const path of ['/', '/labs']) {
+      await page.goto(path)
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      const stops = await walk(page)
+      expect(stops.slice(0, 5), path).toEqual(['a:Skip to content', 'a:Culture collection', 'a:Home', 'a:Labs', 'button:Sign out'])
+    }
+    // An unknown URL loaded directly: the shell has not asked for the user yet, so no navigation.
+    await page.goto('/no-such-page')
+    await expect(page.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible()
+    expect(await walk(page)).toEqual(['a:Skip to content', 'a:Culture collection', 'a:Go to the start page'])
+    await openLab(page, '?limit=1')
+    const stops = await walk(page)
+    // Every control of the lab page in reading order; Previous is aria-disabled, still a stop.
+    expect(stops).toEqual([
+      'a:Skip to content',
+      'a:Culture collection',
+      'a:Home',
+      'a:Labs',
+      'button:Sign out',
+      `button:Change role of ${username}`,
+      `button:Remove ${username}`,
+      'button:Previous',
+      'button:Next',
+      'input:',
+      'select:ViewerTechnicianCuratorManager',
+      'button:Add member',
+    ])
     await close()
   })
 })

@@ -1,6 +1,6 @@
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { useRouter } from '@tanstack/react-router'
-import { type ReactNode, useEffect } from 'react'
+import { type ReactNode, useEffect, useRef } from 'react'
 import { Alert, AppBar, Box, Button, Container, Link, SkipLink, Toolbar, Typography } from '@/components/ui'
 import { SIGN_OUT_FAILED, useLogout } from '@/features/auth/api/mutations'
 import { useKnownUser } from '@/features/auth/api/queries'
@@ -20,6 +20,9 @@ export function Layout({ children }: { children: ReactNode }) {
   const router = useRouter()
   // noSsr: read the media query in the first render, so a phone never renders the wide bar first.
   const narrow = useMediaQuery((theme) => theme.breakpoints.down('sm'), { noSsr: true })
+  // Sign out, or the menu button that holds it: where focus goes when the failure notice closes.
+  const accountControl = useRef<HTMLButtonElement>(null)
+
   // After a navigation to another page, focus its h1 (or main), so a screen reader reads the new
   // page and Tab starts there, not on the link that is gone (WCAG 2.4.3).
   useEffect(
@@ -62,13 +65,13 @@ export function Layout({ children }: { children: ReactNode }) {
                 </Link>
               </Box>
               {narrow ? (
-                <AccountMenu username={user.username} pending={logout.isPending} onSignOut={signOut} />
+                <AccountMenu ref={accountControl} username={user.username} pending={logout.isPending} onSignOut={signOut} />
               ) : (
                 <>
                   <Typography component="p" sx={{ minWidth: 0 }}>
                     Signed in as {user.username}
                   </Typography>
-                  <Button color="inherit" variant="outlined" aria-disabled={logout.isPending} onClick={signOut}>
+                  <Button ref={accountControl} color="inherit" variant="outlined" aria-disabled={logout.isPending} onClick={signOut}>
                     Sign out
                   </Button>
                 </>
@@ -77,9 +80,17 @@ export function Layout({ children }: { children: ReactNode }) {
           )}
         </Toolbar>
       </AppBar>
-      {/* Under the button that failed, in view: the global notices render after the page. */}
+      {/* Under the button that failed, in view: the global notices render after the page. Closing
+          it would drop the focus with its close button, so focus goes back to sign out. */}
       {user && logout.isError && (
-        <Alert severity="error" square onClose={() => logout.reset()}>
+        <Alert
+          severity="error"
+          square
+          onClose={() => {
+            logout.reset()
+            accountControl.current?.focus()
+          }}
+        >
           {SIGN_OUT_FAILED}
         </Alert>
       )}
