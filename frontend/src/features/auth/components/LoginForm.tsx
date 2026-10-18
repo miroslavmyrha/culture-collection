@@ -26,9 +26,10 @@ export function LoginForm({ onSuccess }: Props) {
     resolver: zodResolver(loginSchema),
     defaultValues: { username: '', password: '' },
   })
-  const onSubmit = handleSubmit((values) =>
-    login.mutate(values, { onSuccess, onError: (error) => applyServerErrors(error, ['username', 'password'], setError) }),
-  )
+  const onSubmit = handleSubmit((values) => {
+    if (login.isPending) return // aria-disabled keeps the focus on the button, so guard here
+    login.mutate(values, { onSuccess, onError: (error) => applyServerErrors(error, ['username', 'password'], setError) })
+  })
   const { username, password } = formState.errors
   // Format errors from the server go on their field. Anything else from a 400 (or 401) stays
   // generic on purpose, and root.server text is never shown: do not say which of the two was wrong.
@@ -45,7 +46,9 @@ export function LoginForm({ onSuccess }: Props) {
         {invalid && <Alert severity="error">Invalid username or password.</Alert>}
         {/* Every other failure (CSRF 403, throttling 429, 5xx, network) must be visible too. */}
         {failed && <Alert severity="error">{throttled ?? 'Sign-in failed. Try again.'}</Alert>}
-        <Button type="submit" variant="contained" disabled={login.isPending}>
+        {/* aria-disabled, not disabled: disabling the focused button drops focus to the body, and
+            after "Invalid username or password." the keyboard user starts from nowhere. */}
+        <Button type="submit" variant="contained" aria-disabled={login.isPending}>
           Sign in
         </Button>
       </Stack>

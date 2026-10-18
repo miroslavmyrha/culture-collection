@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { AppBar, Box, Button, Container, Link, SkipLink, Toolbar, Typography } from '@/components/ui'
-import { useLogout } from '@/features/auth/api/mutations'
+import { Alert, AppBar, Box, Button, Container, Link, SkipLink, Toolbar, Typography } from '@/components/ui'
+import { SIGN_OUT_FAILED, useLogout } from '@/features/auth/api/mutations'
 import { useKnownUser } from '@/features/auth/api/queries'
 
 const MAIN_ID = 'main-content'
@@ -37,13 +37,28 @@ export function Layout({ children }: { children: ReactNode }) {
                 </Link>
               </Box>
               <Typography component="p">Signed in as {user.username}</Typography>
-              <Button color="inherit" variant="outlined" onClick={() => logout.mutate()} disabled={logout.isPending}>
+              {/* aria-disabled and a guard, not disabled: disabling the focused button drops focus to
+                  the body, and after a failed sign-out the user tries again from here. */}
+              <Button
+                color="inherit"
+                variant="outlined"
+                aria-disabled={logout.isPending}
+                onClick={() => {
+                  if (!logout.isPending) logout.mutate()
+                }}
+              >
                 Sign out
               </Button>
             </>
           )}
         </Toolbar>
       </AppBar>
+      {/* Under the button that failed, in view: the global notices render after the page. */}
+      {user && logout.isError && (
+        <Alert severity="error" square onClose={() => logout.reset()}>
+          {SIGN_OUT_FAILED}
+        </Alert>
+      )}
       {/* tabIndex -1: the skip link moves focus here, not only the scroll position. */}
       <Container component="main" id={MAIN_ID} tabIndex={-1} maxWidth="lg" sx={{ py: 4, flex: 1, outline: 'none' }}>
         {children}

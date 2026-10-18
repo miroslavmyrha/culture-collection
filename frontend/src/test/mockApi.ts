@@ -85,3 +85,28 @@ export function recordRequests<M extends Method>(method: M, path: PathFor<M>) {
   )
   return calls
 }
+
+/**
+ * Holds every matching request until the test calls release(): for what a form or dialog does
+ * while its request runs (Escape, Cancel, a second click). release answers the held requests
+ * and every later one with that status and body.
+ */
+export function holdApi<M extends Method>(method: M, path: PathFor<M>) {
+  const calls: RecordedRequest[] = []
+  const waiting: ((response: Response) => void)[] = []
+  let answer: (() => Response) | undefined
+  server.use(
+    http[method](pattern(path), async ({ request }) => {
+      calls.push(await record(request))
+      if (answer) return answer()
+      return new Promise<Response>((resolve) => waiting.push(resolve))
+    }),
+  )
+  return {
+    calls,
+    release(status: number, body: Problem | Record<string, unknown> | null = null) {
+      answer = () => (body === null ? new HttpResponse(null, { status }) : HttpResponse.json(body, { status }))
+      for (const resolve of waiting.splice(0)) resolve(answer())
+    },
+  }
+}

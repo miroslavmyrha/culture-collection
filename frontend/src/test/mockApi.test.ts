@@ -1,9 +1,9 @@
 import { QueryClient } from '@tanstack/react-query'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { meQueryOptions } from '@/features/auth/api/queries'
 import { api, ensureCsrf, unwrap } from '@/lib/api'
 import { makeMe } from './factories'
-import { mockApi, recordRequests } from './mockApi'
+import { holdApi, mockApi, recordRequests } from './mockApi'
 
 describe('mockApi', () => {
   it('is typed by the generated schema', () => {
@@ -31,5 +31,19 @@ describe('mockApi', () => {
     const calls = recordRequests('get', '/api/v1/auth/me/')
     await expect(unwrap(api.GET('/api/v1/auth/me/'))).resolves.toEqual(me)
     expect(calls).toHaveLength(1)
+  })
+
+  it('holdApi answers nothing until release, then the held request and every later one', async () => {
+    const held = holdApi('post', '/api/v1/auth/logout/')
+    let settled = false
+    const first = unwrap(api.POST('/api/v1/auth/logout/')).finally(() => {
+      settled = true
+    })
+    await vi.waitFor(() => expect(held.calls).toHaveLength(1))
+    expect(settled).toBe(false)
+    held.release(500, { status: 500 })
+    await expect(first).rejects.toMatchObject({ status: 500 })
+    await expect(unwrap(api.POST('/api/v1/auth/logout/'))).rejects.toMatchObject({ status: 500 })
+    expect(held.calls).toHaveLength(2)
   })
 })

@@ -1,5 +1,6 @@
 import { createRoute, redirect } from '@tanstack/react-router'
 import { meQueryOptions } from '@/features/auth/api/queries'
+import { safeRedirect } from '@/lib/safe'
 import { rootRoute } from './root'
 
 /**
@@ -11,7 +12,9 @@ export const authenticatedRoute = createRoute({
   id: '_authenticated',
   beforeLoad: async ({ context, location }) => {
     const me = await context.queryClient.ensureQueryData(meQueryOptions())
-    if (!me) throw redirect({ to: '/login', search: { redirect: location.href } })
+    // The router's own location, so already a same-origin path; the helper keeps every redirect
+    // target on one rule (tools/redirect-sinks.test.ts).
+    if (!me) throw redirect({ to: '/login', search: { redirect: safeRedirect(location.href) } })
     return { me }
   },
 })

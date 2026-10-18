@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { api, ensureCsrf, unwrap } from '@/lib/api'
+import { api, ensureCsrf, isApiError, unwrap } from '@/lib/api'
 import type { LoginInput } from '../schemas'
 import { resetSessionCache } from './cache'
 
@@ -18,16 +18,27 @@ export function useLogin() {
   })
 }
 
+export const SIGN_OUT_FAILED = 'Sign-out failed. You are still signed in. Try again.'
+
 export function useLogout() {
   const qc = useQueryClient()
   const navigate = useNavigate()
   return useMutation({
     mutationFn: async () => {
-      await ensureCsrf()
-      await unwrap(api.POST('/api/v1/auth/logout/'))
+      try {
+        await ensureCsrf()
+        await unwrap(api.POST('/api/v1/auth/logout/'))
+      } catch (error) {
+        // 401: the server has no session for us any more, which is what signing out wants.
+        if (!isApiError(error, 401)) throw error
+      }
     },
-    // Settled, not success: a failed logout must not leave the old user's data on screen.
-    onSettled: async () => {
+    // Only a confirmed end clears the cache and leaves the page. After a 5xx, a network error or
+    // a CSRF 403 the session cookie still works: a sign-in form would then be shown to someone
+    // who is still signed in, and on a shared PC the next person reloads into their session.
+    // So the data and the page stay, and the shell says so under the button (SIGN_OUT_FAILED).
+    meta: { handlesError: true },
+    onSuccess: async () => {
       resetSessionCache(qc, null)
       await navigate({ to: '/login', search: { signedOut: true } })
     },
