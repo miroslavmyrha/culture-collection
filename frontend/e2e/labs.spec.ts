@@ -1,6 +1,5 @@
-import { AxeBuilder } from '@axe-core/playwright'
-import { expect, type Locator, type Page, test } from '@playwright/test'
-import { password, username, watchCsp } from './support.js'
+import { expect, type Page, test } from '@playwright/test'
+import { axe, contrast, password, username, watchCsp } from './support.js'
 
 async function signIn(page: Page) {
   await page.goto('/login')
@@ -73,44 +72,6 @@ test('a manager sees their lab and role, then adds, changes and removes a member
   expect(violations()).toEqual([])
 })
 
-/**
- * Axe on one part of the page, with the rules of WCAG 2.2 A and AA. It waits until no ancestor
- * is transparent: during MUI's fade-in axe cannot compute contrast and reports it as incomplete,
- * not as a violation, so a dialog checked too early passes with unreadable text.
- */
-async function axe(page: Page, selector: string) {
-  const target = page.locator(selector)
-  await expect
-    .poll(() =>
-      target.evaluate((element) => {
-        let opacity = 1
-        for (let node: Element | null = element; node; node = node.parentElement) opacity *= Number(getComputedStyle(node).opacity)
-        return opacity
-      }),
-    )
-    .toBe(1)
-  const results = await new AxeBuilder({ page }).include(selector).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze()
-  return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)
-}
-
-const channels = (css: string) => (css.match(/[\d.]+/g) ?? []).map(Number)
-const linear = (c: number) => (c / 255 <= 0.04045 ? c / 255 / 12.92 : ((c / 255 + 0.055) / 1.055) ** 2.4)
-const luminance = ([r = 0, g = 0, b = 0]: number[]) => 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
-
-/**
- * The WCAG contrast of a text's colour (blended over its surface when translucent) against the
- * surface's background. axe leaves contrast inside an MUI dialog as "incomplete" ("could not be
- * determined because it partially overlaps other elements", axe-core 4.13.0), so the dialog's
- * text is measured here.
- */
-async function contrast(text: Locator, surface: Locator) {
-  const [fg = 0, fgG = 0, fgB = 0, alpha = 1] = channels(await text.evaluate((e) => getComputedStyle(e).color))
-  const bg = channels(await surface.evaluate((e) => getComputedStyle(e).backgroundColor))
-  const blended = [fg, fgG, fgB].map((c, i) => c * alpha + (bg[i] ?? 0) * (1 - alpha))
-  const [light, dark] = [luminance(blended), luminance(bg)].toSorted((a, b) => b - a)
-  return ((light ?? 0) + 0.05) / ((dark ?? 0) + 0.05)
-}
-
 // The removal below runs on the keyboard alone, against the real API. The request is held in
 // the browser for a moment (page.route, then passed on unchanged) so the pending dialog can be
 // checked: Escape must not close it, or a failure would be shown nowhere.
@@ -173,5 +134,10 @@ test('a manager removes a member with the keyboard only; the dialog passes axe a
   gate.open?.()
   await expect(dialog).toBeHidden()
   await expect(members.getByRole('row', { name: /e2e-colleague/ })).toHaveCount(0)
+  // The trigger went with its row: focus moves to the same button of the remaining row, not to
+  // the body, and the keyboard carries on from there.
+  await expect(page.getByRole('button', { name: `Remove ${username}` })).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(page.getByRole('button', { name: `Change role of ${username}` })).toBeFocused()
   expect(violations()).toEqual([])
 })

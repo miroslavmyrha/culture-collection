@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { allowConsole } from '@/test/console'
 import { makeMember, page, problem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { renderWithProviders } from '@/test/render'
@@ -155,5 +156,108 @@ describe('removing a member', () => {
     removal.release(204)
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(removal.calls).toHaveLength(1)
+  })
+})
+
+async function three() {
+  const people = ['alice', 'bob', 'carol'].map((username) => makeMember({ username, role: username === 'alice' ? 'manager' : 'viewer' }))
+  const first = mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page(people))
+  await renderWithProviders(
+    <MemberTable labId={LAB_ID} labName="Mycology" grantable={[...ROLES]} params={PARAMS} onOffsetChange={vi.fn<(offset: number) => void>()} />,
+  )
+  await screen.findByRole('table', { name: 'Members' })
+  return { people, first, user: userEvent.setup() }
+}
+
+async function remove(user: ReturnType<typeof userEvent.setup>, username: string, remaining: ReturnType<typeof makeMember>[], count?: number) {
+  mockApi('delete', DETAIL, undefined)
+  mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page(remaining, count === undefined ? {} : { count }))
+  await user.click(screen.getByRole('button', { name: `Remove ${username}` }))
+  await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }))
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+  await waitFor(() => expect(screen.queryByRole('cell', { name: username })).not.toBeInTheDocument())
+}
+
+// Where focus goes after a dialog: never to the body (WCAG 2.4.3). MUI would return it to the
+// trigger, which a removal has just taken out of the table.
+describe('focus after a dialog', () => {
+  it('goes to the same button in the next row after a removal', async () => {
+    const { people, user } = await three()
+    await remove(user, 'bob', [people[0], people[2]].filter((m) => m !== undefined))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Remove carol' })).toHaveFocus())
+  })
+
+  it('goes to the previous row when the removed row was the last one', async () => {
+    const { people, user } = await three()
+    await remove(user, 'carol', people.slice(0, 2))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Remove bob' })).toHaveFocus())
+  })
+
+  it('goes to the Members heading when no row is left on the page', async () => {
+    const bob = makeMember({ username: 'bob' })
+    mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([bob], { count: 26 }))
+    await renderWithProviders(
+      <MemberTable labId={LAB_ID} labName="Mycology" grantable={[...ROLES]} params={{ limit: 25, offset: 25 }} onOffsetChange={vi.fn<(offset: number) => void>()} />,
+    )
+    const user = userEvent.setup()
+    await screen.findByRole('table', { name: 'Members' })
+    await remove(user, 'bob', [], 25) // the 25 on the first page are left
+    expect(await screen.findByText(/This page is empty/)).toBeInTheDocument()
+    const heading = screen.getByRole('heading', { level: 2, name: 'Members' })
+    await waitFor(() => expect(heading).toHaveFocus())
+    expect(screen.getByRole('region', { name: 'Members' })).toContainElement(heading)
+  })
+
+  it('returns to the trigger after Escape', async () => {
+    const { user } = await three()
+    const trigger = screen.getByRole('button', { name: 'Remove bob' })
+    await user.click(trigger)
+    expect(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(trigger).toHaveFocus())
+  })
+
+  it('returns to the trigger after a role change, which keeps the row', async () => {
+    const { people, user } = await three()
+    mockApi('patch', DETAIL, { ...makeMember({ username: 'bob' }), role: 'curator' })
+    const trigger = screen.getByRole('button', { name: 'Change role of bob' })
+    await user.click(trigger)
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save role' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(trigger).toHaveFocus())
+    expect(screen.getAllByRole('row')).toHaveLength(people.length + 1)
+  })
+})
+
+describe('focus after a retry of the members', () => {
+  it('goes to the Members heading when the list loads, not the body', async () => {
+    allowConsole(/API error 503/)
+    mockApiError('get', '/api/v1/labs/{lab_public_id}/members/', 503)
+    await renderWithProviders(
+      <MemberTable labId={LAB_ID} labName="Mycology" grantable={[...ROLES]} params={PARAMS} onOffsetChange={vi.fn<(offset: number) => void>()} />,
+    )
+    const retry = await screen.findByRole('button', { name: 'Try again' })
+    mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([makeMember({ username: 'alice' })]))
+    await userEvent.setup().click(retry)
+    expect(await screen.findByRole('table', { name: 'Members' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Members' })).toHaveFocus())
+  })
+})
+
+describe('focus after "Go to the first page"', () => {
+  it('goes to the Members heading, not the body, when the empty page is replaced', async () => {
+    mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([], { count: 3 }))
+    const onOffsetChange = vi.fn<(offset: number) => void>()
+    const { rerender } = await renderWithProviders(
+      <MemberTable labId={LAB_ID} labName="Mycology" grantable={[...ROLES]} params={{ limit: 25, offset: 50 }} onOffsetChange={onOffsetChange} />,
+    )
+    const first = await screen.findByRole('button', { name: 'Go to the first page' })
+    await userEvent.setup().click(first)
+    expect(onOffsetChange).toHaveBeenCalledWith(0)
+    mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([makeMember({ username: 'alice' })]))
+    rerender(<MemberTable labId={LAB_ID} labName="Mycology" grantable={[...ROLES]} params={PARAMS} onOffsetChange={onOffsetChange} />)
+    expect(await screen.findByRole('table', { name: 'Members' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Members' })).toHaveFocus())
   })
 })

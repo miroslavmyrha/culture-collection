@@ -1,5 +1,5 @@
 import { getRouteApi } from '@tanstack/react-router'
-import { Typography } from '@/components/ui'
+import { PageTitle, Typography } from '@/components/ui'
 import { LabList } from '@/features/labs/components/LabList'
 
 const route = getRouteApi('/_authenticated/labs')
@@ -10,6 +10,7 @@ export function LabListPage() {
   const navigate = route.useNavigate()
   return (
     <section>
+      <PageTitle>Labs</PageTitle>
       <Typography component="h1" variant="h4" gutterBottom>
         Labs
       </Typography>

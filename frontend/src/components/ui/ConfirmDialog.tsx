@@ -20,6 +20,13 @@ type Props = Action & {
   /** Why the action failed. Shown inside the dialog, which stays open. */
   error?: string
   onClose: () => void
+  /**
+   * Runs once the dialog has faded out. When given, MUI does not return the focus to the
+   * trigger (disableRestoreFocus) and this callback places it: the action may have removed the
+   * trigger, and focus on a removed element falls to the body. Pair it with `rememberFocus`
+   * from `@/lib/focus`, taken when the dialog opens.
+   */
+  onExited?: () => void
   /** Fields between the description and the error (a form for `form`). */
   children?: ReactNode
 }
@@ -34,7 +41,7 @@ type Props = Action & {
  * MUI labels the dialog by its DialogTitle but does not describe it: the description and the
  * error are wired here.
  */
-export function ConfirmDialog({ open, title, description, confirmLabel, destructive = false, pending, error, onClose, children, ...action }: Props) {
+export function ConfirmDialog({ open, title, description, confirmLabel, destructive = false, pending, error, onClose, onExited, children, ...action }: Props) {
   const descriptionId = useId()
   const errorId = useId()
   const close = () => {
@@ -55,6 +62,8 @@ export function ConfirmDialog({ open, title, description, confirmLabel, destruct
       maxWidth="xs"
       role={destructive ? 'alertdialog' : 'dialog'}
       aria-describedby={error ? `${descriptionId} ${errorId}` : descriptionId}
+      disableRestoreFocus={onExited !== undefined}
+      slotProps={{ transition: { onExited } }}
     >
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>

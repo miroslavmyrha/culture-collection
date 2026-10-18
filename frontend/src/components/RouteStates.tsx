@@ -1,9 +1,13 @@
 import { type ErrorComponentProps, Link, useRouter } from '@tanstack/react-router'
+import type { MouseEvent } from 'react'
+import { PageTitle } from '@/components/ui'
 import { errorMessage } from '@/lib/api'
+import { focusLost, rememberFocus } from '@/lib/focus'
 
 export function NotFound() {
   return (
     <section>
+      <PageTitle>Page not found</PageTitle>
       <h1>Page not found</h1>
       <p>The address may be mistyped, or the page was moved.</p>
       <Link to="/">Go to the start page</Link>
@@ -18,12 +22,19 @@ export function NotFound() {
  */
 export function RouteError({ error, reset }: ErrorComponentProps) {
   const router = useRouter()
-  const retry = () => {
+  // A retry that works replaces this screen, and the focused button with it. The router mounts
+  // this screen again before the page comes, so focus is placed once the reload has finished
+  // (invalidate resolves after the render): on the page's h1, not in the passing error screen.
+  const retry = (event: MouseEvent<HTMLButtonElement>) => {
+    const spot = rememberFocus(event.currentTarget)
     reset()
-    void router.invalidate()
+    void router.invalidate().then(() => {
+      if (focusLost()) spot.restore()
+    })
   }
   return (
     <section role="alert">
+      <PageTitle>Something went wrong</PageTitle>
       <h1>Something went wrong</h1>
       <p>{errorMessage(error)}</p>
       {import.meta.env.DEV && <pre>{error instanceof Error ? error.message : String(error)}</pre>}
@@ -38,5 +49,10 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
 }
 
 export function Pending() {
-  return <p>Loading…</p>
+  return (
+    <>
+      <PageTitle>Loading</PageTitle>
+      <p>Loading…</p>
+    </>
+  )
 }
