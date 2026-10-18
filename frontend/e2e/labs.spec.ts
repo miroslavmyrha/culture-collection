@@ -1,3 +1,4 @@
+import { AxeBuilder } from '@axe-core/playwright'
 import { expect, type Page, test } from '@playwright/test'
 import { password, username, watchCsp } from './support.js'
 
@@ -69,5 +70,73 @@ test('a manager sees their lab and role, then adds, changes and removes a member
   await expect(confirm).toBeHidden()
   await expect(members.getByRole('row', { name: /e2e-colleague/ })).toHaveCount(0)
 
+  expect(violations()).toEqual([])
+})
+
+/** Axe on one part of the page, with the rules of WCAG 2.2 A and AA. */
+async function axe(page: Page, selector: string) {
+  const results = await new AxeBuilder({ page }).include(selector).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze()
+  return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)
+}
+
+// The removal below runs on the keyboard alone, against the real API. The request is held in
+// the browser for a moment (page.route, then passed on unchanged) so the pending dialog can be
+// checked: Escape must not close it, or a failure would be shown nowhere.
+test('a manager removes a member with the keyboard only; the dialog passes axe and stays open while the request runs', async ({ page }) => {
+  const violations = await watchCsp(page)
+  await signIn(page)
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Labs' }).click()
+  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
+  const form = page.getByRole('form', { name: 'Add a member' })
+  await form.getByLabel('Username').fill('e2e-colleague')
+  await form.getByRole('button', { name: 'Add member' }).click()
+  const members = page.getByRole('table', { name: 'Members' })
+  await expect(members.getByRole('row', { name: /e2e-colleague/ })).toHaveCount(1)
+
+  // From here on only keys.
+  const trigger = page.getByRole('button', { name: 'Remove e2e-colleague' })
+  await page.getByRole('button', { name: 'Change role of e2e-colleague' }).focus()
+  await page.keyboard.press('Tab')
+  await expect(trigger).toBeFocused()
+  await page.keyboard.press('Enter')
+  const dialog = page.getByRole('alertdialog', { name: 'Remove e2e-colleague?' })
+  await expect(dialog).toBeVisible()
+  await expect(dialog).toHaveAccessibleDescription('e2e-colleague leaves E2E lab and loses access to it at once.')
+  const cancel = dialog.getByRole('button', { name: 'Cancel' })
+  const confirm = dialog.getByRole('button', { name: 'Remove' })
+  await expect(cancel).toBeFocused()
+  expect(await axe(page, '[role="alertdialog"]')).toEqual([])
+
+  // Escape closes while nothing runs, and the focus goes back to the row's button.
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  await expect(trigger).toBeFocused()
+
+  const gate: { open?: () => void } = {}
+  const held = new Promise<void>((resolve) => {
+    gate.open = resolve
+  })
+  await page.route('**/api/v1/labs/*/members/*/', async (route) => {
+    if (route.request().method() === 'DELETE') await held
+    await route.continue()
+  })
+  await page.keyboard.press('Enter')
+  await expect(cancel).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(confirm).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(confirm).toHaveAttribute('aria-busy', 'true')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Shift+Tab')
+  await expect(cancel).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(dialog).toBeVisible()
+  await expect(cancel).toHaveAttribute('aria-disabled', 'true')
+  expect(await axe(page, '[role="alertdialog"]')).toEqual([])
+
+  gate.open?.()
+  await expect(dialog).toBeHidden()
+  await expect(members.getByRole('row', { name: /e2e-colleague/ })).toHaveCount(0)
   expect(violations()).toEqual([])
 })
