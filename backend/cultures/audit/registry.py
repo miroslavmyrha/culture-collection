@@ -93,6 +93,8 @@ USER_LOGIN_LIMITS_CLEARED = register(
         reason_required=True,
     )
 )
+# The person's values are gone from the user row, which stays as a tombstone (#37).
+USER_ERASED = register(EventType("user_erased", "{actor} erased {subject}", reason_required=True))
 
 
 @dataclass(frozen=True)
@@ -139,6 +141,7 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "is_superuser",
             "date_joined",
             "public_id",
+            "erased_at",
         ),
         exclude=("last_login",),  # noise on every login
         secret=("password",),

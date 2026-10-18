@@ -75,6 +75,7 @@ SCENARIOS: dict[str, Callable[[User, User], object]] = {
     "user_login_limits_clear": lambda actor, subject: services.user_login_limits_clear(
         user=subject, reason=REASON
     ),
+    "user_erase": lambda actor, subject: services.user_erase(user=subject, reason=REASON),
     "superuser_create": lambda actor, subject: services.superuser_create(
         username=f"{MARK}-root", password=f"{MARK}-pw", email=f"{MARK}@example.org", reason=REASON
     ),

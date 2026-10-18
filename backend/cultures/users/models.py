@@ -31,17 +31,45 @@ class UserManager(DjangoUserManager["User"]):
         return superuser_create(username=username, password=password, email=email or "")
 
 
+# The username of an erased user: this prefix and the public id (services.user_erase).
+ERASED_PREFIX = "erased-"
+
+
 class User(AbstractUser):
-    """Custom user from the first migration: changing it later is very costly."""
+    """Custom user from the first migration: changing it later is very costly.
+
+    An erased user (erased_at set, #37) is a tombstone: the row stays so that
+    every audit row and admin log entry still points at it, with id, public_id
+    and date_joined kept and every personal value gone. The check constraint
+    holds that for every writer, not only the service.
+    """
 
     public_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    erased_at = models.DateTimeField(null=True, blank=True, editable=False)
 
     objects: ClassVar[UserManager] = UserManager()
 
     class Meta(AbstractUser.Meta):
         constraints = [
             models.UniqueConstraint(fields=["public_id"], name="users_user_public_id_uniq"),
+            models.CheckConstraint(
+                condition=models.Q(erased_at__isnull=True)
+                | models.Q(
+                    first_name="",
+                    last_name="",
+                    email="",
+                    is_active=False,
+                    is_staff=False,
+                    is_superuser=False,
+                    username__startswith=ERASED_PREFIX,
+                ),
+                name="users_user_erased_is_a_tombstone",
+            ),
         ]
+
+    @property
+    def is_erased(self) -> bool:
+        return self.erased_at is not None
 
 
 class LoginFailures(models.Model):

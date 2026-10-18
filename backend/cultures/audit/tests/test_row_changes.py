@@ -31,6 +31,7 @@ STORED = {
     "is_superuser",
     "date_joined",
     "public_id",
+    "erased_at",
 }
 
 
