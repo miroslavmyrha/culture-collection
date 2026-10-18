@@ -48,7 +48,12 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
 def test_its_writes_are_audited_as_the_command() -> None:
     seed()
     events = list(AuditEvent.objects.order_by("pk"))
-    assert [e.event_type for e in events] == ["lab_created", "member_added"]
+    assert [e.event_type for e in events] == [
+        "user_created",
+        "user_created",
+        "lab_created",
+        "member_added",
+    ]
     assert {(e.channel, e.actor_kind, e.actor_label, e.actor_id) for e in events} == {
         (Channel.COMMAND, ActorKind.SYSTEM, "command:seed_e2e", None)
     }
@@ -81,6 +86,11 @@ def test_it_resets_what_a_failed_e2e_run_left_behind() -> None:
     seed()
     user.refresh_from_db()
     assert (user.is_active, user.check_password(PASSWORD)) == (True, True)
+    reset = AuditEvent.objects.filter(subject_id=user.public_id).order_by("pk")
+    assert [(e.event_type, e.reason) for e in reset][-2:] == [
+        ("user_activated", "reset the e2e data"),
+        ("user_password_changed", "reset the e2e data"),
+    ]
     assert Membership.objects.get(user=user).role == Role.MANAGER
     assert not Membership.objects.filter(user=colleague).exists()
 

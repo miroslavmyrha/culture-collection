@@ -54,6 +54,26 @@ MEMBER_ROLE_CHANGED = register(
     EventType("member_role_changed", "{actor} changed the role of {user} to {role}")
 )
 MEMBER_REMOVED = register(EventType("member_removed", "{actor} removed {user}"))
+USER_CREATED = register(EventType("user_created", "{actor} created {subject}"))
+USER_CHANGED = register(EventType("user_changed", "{actor} changed {subject}"))
+USER_ACTIVATED = register(
+    EventType("user_activated", "{actor} activated {subject}", reason_required=True)
+)
+USER_STAFF_CHANGED = register(
+    EventType(
+        "user_staff_changed", "{actor} changed staff status of {subject}", reason_required=True
+    )
+)
+USER_SUPERUSER_CHANGED = register(
+    EventType(
+        "user_superuser_changed",
+        "{actor} changed superuser status of {subject}",
+        reason_required=True,
+    )
+)
+USER_PASSWORD_CHANGED = register(
+    EventType("user_password_changed", "{actor} changed the password of {subject}")
+)
 
 
 @dataclass(frozen=True)
@@ -62,7 +82,10 @@ class RowAudit:
 
     label: the stable name stored on every RowChange, kept when the table is renamed.
     pk: the primary key columns, stored as text (a JSON array when there are several).
-    exclude: secrets and noise, never stored, in no INSERT, UPDATE or DELETE row.
+    exclude: noise, never stored, in no INSERT, UPDATE or DELETE row.
+    secret: values never stored either, but an UPDATE that changes one records
+    the column with the marker SECRET_MARKER as its old and new value, so a
+    password change leaves a row without the hash (audit migration 0006).
     audited: the other columns, listed so that a new column fails the
     classification invariant until someone decides which list it belongs to.
     """
@@ -71,6 +94,11 @@ class RowAudit:
     audited: tuple[str, ...]
     exclude: tuple[str, ...] = ()
     pk: tuple[str, ...] = ("id",)
+    secret: tuple[str, ...] = ()
+
+
+# The value the row trigger stores for a changed secret column. Not a password (S105).
+SECRET_MARKER = "redacted"  # noqa: S105
 
 
 ROW_AUDITED_TABLES: dict[str, RowAudit] = {
@@ -88,7 +116,8 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "date_joined",
             "public_id",
         ),
-        exclude=("password", "last_login"),  # a secret, and noise on every login
+        exclude=("last_login",),  # noise on every login
+        secret=("password",),
     ),
     "labs_lab": RowAudit(
         label="labs.lab",

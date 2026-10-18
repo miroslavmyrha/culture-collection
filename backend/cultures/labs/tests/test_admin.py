@@ -20,7 +20,7 @@ PREFIX = "memberships"
 
 @pytest.fixture
 def staff() -> User:
-    return User.objects.create_superuser("staff", password="x" * 20)
+    return make_user("staff", is_staff=True, is_superuser=True)
 
 
 @pytest.fixture
