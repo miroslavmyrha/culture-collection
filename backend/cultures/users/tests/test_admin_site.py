@@ -1,14 +1,17 @@
 """The admin site: the API login's limits on its login, and the own password through a service.
 
-The login has the same per-IP budget and the same account limit as the API login.
+The login has the same per-IP budget and the same failure counters as the API
+login. The scenarios of the counters run on both doors in test_login_limits.py.
 """
 
 import ipaddress
 
 import pytest
+import time_machine
 from django.conf import settings
 from django.test import Client, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from pytest_django.fixtures import Settings
 
 from config.settings import base
@@ -116,22 +119,23 @@ def test_the_admin_and_the_api_login_share_one_budget_per_address(
 
 
 @override_settings(LOGIN_ACCOUNT_MAX_FAILURES=5)
-def test_the_right_password_during_an_account_lock_is_refused_like_in_the_api(
+def test_the_right_password_under_attack_is_refused_like_in_the_api(
     client: Client, staff: User
 ) -> None:
-    statuses = [admin_login(client, "staff", "wrong", ip=f"203.0.113.{n}") for n in range(5)]
-    assert statuses == [200] * 5
-    response = client.post(LOGIN, {"username": "staff", "password": PASSWORD}, REMOTE_ADDR=IP)
-    assert_problem(response, 429, "throttled")
-    assert int(response["Retry-After"]) == settings.LOGIN_ACCOUNT_WINDOW_SECONDS
-    assert not signed_in(client)
-    # The API refuses it the same way: one lock per account, whichever door was used.
-    api = client.post(
-        API_LOGIN,
-        {"username": "staff", "password": PASSWORD},
-        content_type="application/json",
-        REMOTE_ADDR=IP,
-    )
+    with time_machine.travel(timezone.now(), tick=False):
+        statuses = [admin_login(client, "staff", "wrong", ip=f"203.0.113.{n}") for n in range(5)]
+        assert statuses == [200] * 5
+        response = client.post(LOGIN, {"username": "staff", "password": PASSWORD}, REMOTE_ADDR=IP)
+        assert_problem(response, 429, "throttled")
+        assert int(response["Retry-After"]) == settings.LOGIN_ACCOUNT_WINDOW_SECONDS
+        assert not signed_in(client)
+        # The API refuses it the same way: the counters are shared, whichever door was used.
+        api = client.post(
+            API_LOGIN,
+            {"username": "staff", "password": PASSWORD},
+            content_type="application/json",
+            REMOTE_ADDR=IP,
+        )
     assert_problem(api, 429, "throttled")
     assert api["Retry-After"] == response["Retry-After"]
 
@@ -145,13 +149,6 @@ def test_api_failures_count_for_the_admin_account_limit(client: Client, staff: U
             content_type="application/json",
         )
     assert admin_login(client, "staff", PASSWORD) == 429
-
-
-@override_settings(LOGIN_ACCOUNT_MAX_FAILURES=3)
-def test_a_successful_admin_login_clears_the_account_counter(client: Client, staff: User) -> None:
-    assert [admin_login(client, "staff", "wrong") for _ in range(2)] == [200, 200]
-    assert admin_login(client, "staff", PASSWORD) == 302
-    assert [admin_login(Client(), "staff", "wrong") for _ in range(3)] == [200, 200, 200]
 
 
 @override_settings(LOGIN_ACCOUNT_MAX_FAILURES=2)

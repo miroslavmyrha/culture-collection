@@ -74,6 +74,14 @@ USER_SUPERUSER_CHANGED = register(
 USER_PASSWORD_CHANGED = register(
     EventType("user_password_changed", "{actor} changed the password of {subject}")
 )
+# Recorded by the login limits (system actor) when failures from many addresses reach
+# LOGIN_ACCOUNT_MAX_FAILURES: until the window ends only known browsers may sign in.
+LOGIN_ACCOUNT_UNDER_ATTACK = register(
+    EventType(
+        "login_account_under_attack",
+        "{subject} is under a password attack: only browsers used before may sign in",
+    )
+)
 
 
 @dataclass(frozen=True)
@@ -126,5 +134,25 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
     "labs_membership": RowAudit(
         label="labs.membership",
         audited=("id", "public_id", "created_at", "updated_at", "user_id", "lab_id", "role"),
+    ),
+}
+
+
+# Tables of the project's apps that the row trigger does not watch, each with the reason.
+# tests/test_invariants.py walks every table of the project's models: each one is in
+# ROW_AUDITED_TABLES or here, so a new table needs a decision before it ships.
+NOT_ROW_AUDITED: dict[str, str] = {
+    "audit_auditevent": "the service events themselves: append-only, never changed",
+    "audit_rowchange": "the row changes themselves: written only by the row trigger",
+    "users_user_groups": (
+        "Django groups grant nothing here: rights come from lab roles (ADR 0006), and the "
+        "user admin offers no groups"
+    ),
+    "users_user_user_permissions": (
+        "per-user Django permissions are not used and the user admin offers none"
+    ),
+    "users_loginfailures": (
+        "login failure counters: HMAC keys, windows and counts, no record of anyone. A row "
+        "change per failed login would flood the trail. Staff clears are service events"
     ),
 }

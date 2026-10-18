@@ -311,7 +311,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Too many attempts (IP or account) */
+            /** @description Too many attempts (address, account or both), see Retry-After */
             429: {
                 headers: {
                     [name: string]: unknown;

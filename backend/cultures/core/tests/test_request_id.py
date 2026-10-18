@@ -52,3 +52,17 @@ def test_json_formatter_writes_one_json_object_per_record() -> None:
     assert line["level"] == "ERROR"
     assert line["request_id"] == "abc"
     assert "ValueError: boom" in line["exc_info"]
+
+
+def test_json_formatter_adds_the_fields_of_a_structured_line_without_replacing_its_own() -> None:
+    record = logging.LogRecord("app", logging.WARNING, __file__, 1, "login_failed", (), None)
+    record.request_id = "abc"
+    record.fields = {"outcome": "bad_credentials", "count": 3, "message": "forged", "level": "X"}
+    line = json.loads(JsonFormatter().format(record))
+    assert line["outcome"] == "bad_credentials"
+    assert line["count"] == 3
+    assert (line["message"], line["level"], line["request_id"]) == (
+        "login_failed",
+        "WARNING",
+        "abc",
+    )

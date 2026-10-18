@@ -42,3 +42,36 @@ class User(AbstractUser):
         constraints = [
             models.UniqueConstraint(fields=["public_id"], name="users_user_public_id_uniq"),
         ]
+
+
+class LoginFailures(models.Model):
+    """Failed logins of one counter in its current window (cultures.users.login_limits).
+
+    Three kinds of row, told apart by which key is empty: (account, address) for
+    one account from one address bucket, (account, "") for the account from every
+    address, ("", address) for the address bucket across every account. Both keys
+    are HMACs, so the table holds no user name and no IP address, only keys,
+    times and counts. Rows are written by one upsert per failure and deleted by
+    a success (its own pair only), a staff clear and `manage.py prune_login_failures`.
+    """
+
+    pk = models.CompositePrimaryKey("account", "address")
+    account = models.CharField(max_length=64)
+    address = models.CharField(max_length=64)
+    window_ends_at = models.DateTimeField()  # the count starts again at 1 after this
+    last_failure_at = models.DateTimeField()  # the pair's back-off runs from here
+    failures = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(account="", address=""),
+                name="users_loginfailures_has_a_key",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(failures__gte=1), name="users_loginfailures_failures_positive"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.failures} failures until {self.window_ends_at:%Y-%m-%d %H:%M}"

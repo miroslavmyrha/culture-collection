@@ -7,6 +7,7 @@ privileges in the database are exactly APP_ROLE_GRANTS, checked here with
 has_table_privilege, not with the code that grants them.
 """
 
+from datetime import timedelta
 from io import StringIO
 from typing import Any
 
@@ -16,6 +17,7 @@ from django.core.management import call_command
 from django.core.management.sql import emit_post_migrate_signal
 from django.db import connection, transaction
 from django.db.backends.utils import CursorWrapper
+from django.utils import timezone
 from pytest_django.fixtures import Settings
 
 from cultures.audit import roles as roles_module
@@ -31,6 +33,7 @@ from cultures.audit.roles import (
 )
 from cultures.labs import services as labs
 from cultures.labs.permissions import Role
+from cultures.users import login_limits
 from cultures.users.models import User
 
 from .conftest import TEST_ROLES, refused
@@ -136,6 +139,7 @@ def test_the_runtime_privileges_are_exactly_app_role_grants(database_roles: Curs
     assert actual["audit_auditevent"] == ("SELECT", "INSERT")
     assert actual["audit_rowchange"] == ("SELECT",)
     assert actual["users_user"] == ("SELECT", "INSERT", "UPDATE", "DELETE")
+    assert actual["users_loginfailures"] == ("SELECT", "INSERT", "UPDATE", "DELETE")
 
 
 def test_the_runtime_role_has_no_sequence_privilege(database_roles: CursorWrapper) -> None:
@@ -429,3 +433,20 @@ def test_the_runtime_role_keeps_sessions(runtime_role: CursorWrapper) -> None:
     session.save()
     assert SessionStore(session_key=session.session_key)["probe"] == 1
     session.delete()
+
+
+def test_the_runtime_role_counts_clears_and_prunes_login_failures(
+    runtime_role: CursorWrapper,
+) -> None:
+    """The upsert needs INSERT, UPDATE and SELECT (ON CONFLICT ... RETURNING), the rest DELETE."""
+    now = timezone.now()
+    account, address = login_limits.account_key("runtime"), login_limits.address_key("192.0.2.1")
+    assert login_limits.count_failure(account, address, now) == {
+        "pair": 1,
+        "account": 1,
+        "address": 1,
+    }
+    assert login_limits.count_failure(account, address, now)["pair"] == 2
+    assert fetch(runtime_role, "SELECT current_user") == [(TEST_ROLES.runtime,)]
+    assert login_limits.clear_account("runtime") == 2  # the pair and the account row
+    assert login_limits.prune(now + timedelta(days=1)) == 1  # the address row

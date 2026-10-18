@@ -79,6 +79,12 @@ def test_production_cookies_use_host_prefix() -> None:
     assert names.split() == ["__Host-sessionid", "__Host-csrftoken"]
 
 
+def test_production_known_device_cookie_is_host_prefixed_and_secure() -> None:
+    """A __Host- cookie without Secure is dropped by the browser: both must hold."""
+    expr = "s.KNOWN_DEVICE_COOKIE_NAME, s.KNOWN_DEVICE_COOKIE_SECURE"
+    assert production_value(GOOD_ENV, expr).split() == ["__Host-knowndevice", "True"]
+
+
 def test_session_cookie_is_http_only_and_same_site_lax() -> None:
     expr = "s.SESSION_COOKIE_HTTPONLY, s.SESSION_COOKIE_SAMESITE, s.CSRF_COOKIE_SAMESITE"
     assert production_value(GOOD_ENV, expr).split() == ["True", "Lax", "Lax"]

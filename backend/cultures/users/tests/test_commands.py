@@ -1,14 +1,18 @@
-"""createsuperuser and changepassword: Django's commands, writing through the audited services."""
+"""The users app's commands: createsuperuser and changepassword write through the audited
+services, prune_login_failures keeps the login counters small."""
 
+from datetime import timedelta
 from io import StringIO
 
 import pytest
+import time_machine
 from django.core.management import call_command, get_commands
 from django.core.management.base import CommandError
+from django.utils import timezone
 
 from cultures.audit.models import ActorKind, AuditEvent, Channel, RowChange
 from cultures.users.management.commands import changepassword
-from cultures.users.models import User
+from cultures.users.models import LoginFailures, User
 
 from .conftest import PASSWORD, trail
 
@@ -21,7 +25,7 @@ def test_ours_replace_djangos_commands(name: str) -> None:
     assert get_commands()[name] == "cultures.users"
 
 
-@pytest.mark.parametrize("name", ["createsuperuser", "changepassword"])
+@pytest.mark.parametrize("name", ["createsuperuser", "changepassword", "prune_login_failures"])
 def test_help_builds(name: str) -> None:
     with pytest.raises(SystemExit):
         call_command(name, "--help", stdout=StringIO())
@@ -126,3 +130,19 @@ def test_changepassword_gives_up_after_three_tries_and_changes_nothing(
 def test_changepassword_for_an_unknown_user_fails(typed: list[str]) -> None:
     with pytest.raises(CommandError, match="does not exist"):
         call_command("changepassword", "nobody", stdout=StringIO())
+
+
+def test_prune_login_failures_deletes_ended_counters_and_says_how_many() -> None:
+    now = timezone.now()
+    for n, ends in enumerate((now - timedelta(minutes=1), now + timedelta(minutes=1))):
+        LoginFailures.objects.create(
+            account=f"{n:064x}", address="", window_ends_at=ends, last_failure_at=now, failures=1
+        )
+    out = StringIO()
+    with time_machine.travel(now, tick=False):
+        call_command("prune_login_failures", stdout=out)
+        assert out.getvalue() == "deleted 1 ended login failure counters\n"
+        assert list(LoginFailures.objects.values_list("account", flat=True)) == [f"{1:064x}"]
+        again = StringIO()
+        call_command("prune_login_failures", stdout=again)
+    assert again.getvalue() == "deleted 0 ended login failure counters\n"

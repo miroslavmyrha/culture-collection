@@ -45,6 +45,9 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     "audit_rowchange": ("SELECT",),
     # The readiness probe reads it, only migrate writes it.
     "django_migrations": ("SELECT",),
+    # Login counters (cultures.users.login_limits): the upsert inserts, updates and returns
+    # the count, a success, a staff clear and prune_login_failures delete. Not row-audited.
+    "users_loginfailures": ("SELECT", "INSERT", "UPDATE", "DELETE"),
 }
 
 

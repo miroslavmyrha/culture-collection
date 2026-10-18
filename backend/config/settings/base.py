@@ -132,10 +132,26 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-# Login limits: per client IP (DRF throttle scope "login") and per account
-# (failed attempts per normalized username, cleared on success).
-LOGIN_ACCOUNT_MAX_FAILURES = env_int("LOGIN_ACCOUNT_MAX_FAILURES", default=5, minimum=1)
-LOGIN_ACCOUNT_WINDOW_SECONDS = env_int("LOGIN_ACCOUNT_WINDOW_SECONDS", default=30 * 60, minimum=1)
+# Login limits (cultures.users.login_limits): the request rate per address (DRF throttle
+# scope "login"), then failed logins counted in a table, never a hard lock of an account:
+# - per account and address bucket: after PAIR_MAX failures in the window, a back-off of
+#   PAIR_BACKOFF seconds that doubles with each further failure, for that pair only;
+# - per address bucket across accounts: ADDRESS_MAX failures, then the address waits;
+# - per account across addresses: ACCOUNT_MAX failures put the account under attack, and
+#   only a browser holding its known-device cookie may still try.
+LOGIN_PAIR_MAX_FAILURES = env_int("LOGIN_PAIR_MAX_FAILURES", default=5, minimum=1)
+LOGIN_PAIR_WINDOW_SECONDS = env_int("LOGIN_PAIR_WINDOW_SECONDS", default=15 * 60, minimum=1)
+LOGIN_PAIR_BACKOFF_SECONDS = env_int("LOGIN_PAIR_BACKOFF_SECONDS", default=60, minimum=1)
+LOGIN_ADDRESS_MAX_FAILURES = env_int("LOGIN_ADDRESS_MAX_FAILURES", default=30, minimum=1)
+LOGIN_ADDRESS_WINDOW_SECONDS = env_int("LOGIN_ADDRESS_WINDOW_SECONDS", default=60 * 60, minimum=1)
+LOGIN_ACCOUNT_MAX_FAILURES = env_int("LOGIN_ACCOUNT_MAX_FAILURES", default=20, minimum=1)
+LOGIN_ACCOUNT_WINDOW_SECONDS = env_int("LOGIN_ACCOUNT_WINDOW_SECONDS", default=60 * 60, minimum=1)
+# Set on every successful login: signed per account with the user's public id and
+# password hash, so a password change revokes it. HttpOnly, SameSite=Lax, path /, no
+# Domain. Production names it __Host- and makes it Secure, like the session cookie.
+KNOWN_DEVICE_COOKIE_NAME = "knowndevice"
+KNOWN_DEVICE_COOKIE_SECURE = False
+KNOWN_DEVICE_COOKIE_AGE = 365 * 24 * 60 * 60
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
