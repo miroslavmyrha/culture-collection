@@ -223,11 +223,16 @@ def test_a_batch_that_leaves_every_lab_a_manager_goes_through(
 def test_deactivation_locks_every_lab_of_the_users_in_pk_order(
     monkeypatch: pytest.MonkeyPatch, as_system: AuditContext
 ) -> None:
-    """Memberships made in the reverse order of the labs: the locks still follow the lab pk."""
+    """Every lab the user is in, whatever the role, and in lab pk order.
+
+    A lab where the user is only a viewer is locked too: a promotion of the
+    user to manager there would otherwise slip in before the deactivation
+    commits. The memberships are made in the reverse order of the labs.
+    """
     labs = [make_lab() for _ in range(3)]
     leaving, colleague = make_user("leaving"), make_user("colleague")
-    for lab in reversed(labs):
-        Membership.objects.create(user=leaving, lab=lab, role=Role.MANAGER)
+    for lab, role in zip(reversed(labs), [Role.MANAGER, Role.VIEWER, Role.TECHNICIAN], strict=True):
+        Membership.objects.create(user=leaving, lab=lab, role=role)
         Membership.objects.create(user=colleague, lab=lab, role=Role.MANAGER)
     locked: list[int] = []
     original = services._lock_lab
@@ -325,6 +330,17 @@ def test_the_user_form_refuses_to_deactivate_the_last_active_manager(
         "This user is the last active manager of Mycology (MYC)."
         " Make another member a manager first." in response.content.decode()
     )
+    assert state() == before
+
+
+@pytest.mark.usefixtures("gone")
+def test_the_user_form_does_not_count_an_inactive_manager_as_a_replacement(
+    admin_client: Client, lab: Lab, manager: User
+) -> None:
+    before = state()
+    response = deactivate_in_admin(admin_client, manager)
+    assert response.status_code == 200
+    assert "This user is the last active manager of Mycology (MYC)." in response.content.decode()
     assert state() == before
 
 

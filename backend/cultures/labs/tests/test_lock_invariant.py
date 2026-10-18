@@ -8,7 +8,9 @@ until someone puts it on one side. For each scenario the captured SQL must show:
 - every read of the lab's managers (a membership query on role 'manager')
   after that lock, so it reads committed data.
 - the first lock on a user row before the first lab lock (lock order: users,
-  then labs, then memberships).
+  then labs, then memberships), and such a lock in every service that adds a
+  member or deactivates users (LOCKS_USER): a membership cannot appear for a
+  user while the user is being deactivated.
 SQL is text, so this proves the order of statements, not what PostgreSQL
 does with them: the thread races in test_concurrency.py prove that part.
 """
@@ -105,6 +107,9 @@ SCENARIOS: dict[str, Scenario] = {
     )
 }
 
+# Services that lock a user row: the new member's, or the users being deactivated.
+LOCKS_USER = {"membership_create", "member_add", "user_deactivate", "users_deactivate"}
+
 # Public services that neither change memberships nor make a user inactive.
 EXEMPT: dict[str, str] = {
     "lab_create": "a new lab has no members yet",
@@ -160,4 +165,5 @@ def test_the_lab_lock_comes_before_the_managers_are_read(
     early = [sql for sql in statements[:lab_lock] if reads_managers(sql)]
     assert early == [], f"{name} reads the managers before the lab lock"
     user_lock = first(statements, locks("users_user"))
+    assert (user_lock is not None) == (name in LOCKS_USER), f"{name}: user lock {user_lock}"
     assert user_lock is None or user_lock < lab_lock, f"{name} locks a user after a lab"
