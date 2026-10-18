@@ -64,6 +64,12 @@ def test_valid_production_settings_load() -> None:
     assert production_value(GOOD_ENV, "s.DEBUG, s.SESSION_COOKIE_SECURE") == "False True"
 
 
+def test_production_requires_the_runtime_role_unless_turned_off() -> None:
+    assert production_value(GOOD_ENV, "s.DB_RUNTIME_ROLE_REQUIRED") == "True"
+    off = {**GOOD_ENV, "DB_RUNTIME_ROLE_REQUIRED": "false"}
+    assert production_value(off, "s.DB_RUNTIME_ROLE_REQUIRED") == "False"
+
+
 def test_production_forces_debug_off_even_when_the_env_asks() -> None:
     assert production_value({**GOOD_ENV, "DJANGO_DEBUG": "true"}, "s.DEBUG") == "False"
 

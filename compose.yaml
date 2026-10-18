@@ -24,7 +24,10 @@ services:
     command: sh -c "python manage.py createcachetable && exec python manage.py runserver 0.0.0.0:8000"
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.local
-      DATABASE_URL: postgres://cultures:cultures@db:5432/cultures
+      # The owner (compose's superuser) by default. tools/up-with-runtime-role.sh sets
+      # the runtime role of ADR 0005 instead and turns on its readiness check.
+      DATABASE_URL: ${BACKEND_DATABASE_URL:-postgres://cultures:cultures@db:5432/cultures}
+      DB_RUNTIME_ROLE_REQUIRED: ${DB_RUNTIME_ROLE_REQUIRED:-false}
     ports: ["${BACKEND_PORT:-8000}:8000"]
     # The virtualenv lives in /venv inside the image, outside this mount.
     volumes: ["./backend:/app"]

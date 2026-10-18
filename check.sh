@@ -29,6 +29,11 @@ else
   echo "(not a git repository, skipped)"
 fi
 
+echo "== CI"
+# The e2e job must run the API as the runtime role (ADR 0005), as production does.
+grep -Eq '^ +tools/up-with-runtime-role\.sh *$' .github/workflows/ci.yml \
+  || fail "ci.yml must start the API with tools/up-with-runtime-role.sh before the e2e tests"
+
 echo "== backend"
 # The dev container writes caches into the ./backend bind mount: build it with the caller's uid.
 export APP_UID="${APP_UID:-$(id -u)}"
@@ -36,6 +41,9 @@ docker compose up -d db >/dev/null || fail "the database did not start: docker c
 # Each step stops the run with its own FAILED line. No `a && b` chains: set -e
 # ignores a failure inside one, so a ruff failure would skip mypy and leave the
 # exit code to pytest alone.
+# The tests create a database and roles: they connect as the owner, whatever role
+# the running API uses (the empty values select compose's defaults).
+BACKEND_DATABASE_URL='' DB_RUNTIME_ROLE_REQUIRED='' \
 docker compose run --rm -T -e DJANGO_SETTINGS_MODULE=config.settings.test backend sh -c '
   set -eu
   fail() { echo "FAILED: $1" >&2; exit 1; }

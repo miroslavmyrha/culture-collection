@@ -1,12 +1,14 @@
 """Both audit tables are append-only: the models, a trigger for every role, and the grants.
 
 In development the app connects as the owner (a superuser in compose), so the
-grants cannot hold there. Production runs the app as a role that owns nothing
-and gets exactly APP_ROLE_GRANTS. The tests create that role inside the test
-transaction, switch to it with SET LOCAL ROLE, and roll it back afterwards.
+grants cannot hold there. Production runs the app as the runtime role of
+ADR 0005, which owns nothing and gets exactly APP_ROLE_GRANTS
+(cultures/audit/roles.py). These tests set up the same roles inside the test
+transaction (the app_role fixture), switch to the runtime role with SET LOCAL
+ROLE, and roll everything back afterwards. tests/test_roles.py covers the
+setup itself.
 """
 
-from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -18,18 +20,11 @@ from cultures.audit.models import AppendOnly, AuditEvent, RowChange
 from cultures.users.models import User
 from cultures.users.services import user_deactivate
 
+from .conftest import TEST_ROLES, refused
+
 pytestmark = pytest.mark.django_db
 
-ROLE = "cultures_app_test"
-# What production grants the app role (ADR 0005). No UPDATE, DELETE or TRUNCATE on the
-# audit tables, and not even INSERT on audit_rowchange: the trigger writes it as its owner.
-APP_ROLE_GRANTS = f"""
-GRANT SELECT, INSERT ON audit_auditevent TO {ROLE};
-GRANT USAGE ON SEQUENCE audit_auditevent_id_seq TO {ROLE};
-GRANT SELECT ON audit_rowchange TO {ROLE};
-GRANT SELECT, INSERT, UPDATE, DELETE ON users_user TO {ROLE};
-GRANT USAGE ON SEQUENCE users_user_id_seq TO {ROLE};
-"""
+ROLE = TEST_ROLES.runtime
 TABLES = ["audit_auditevent", "audit_rowchange"]
 
 
@@ -52,24 +47,9 @@ def snapshot() -> tuple[list[Any], list[Any]]:
 
 
 @pytest.fixture
-def app_role(event: AuditEvent) -> Iterator[CursorWrapper]:
-    """A cursor that runs as the production app role, inside a savepoint.
-
-    The savepoint is always rolled back: that drops the role and ends SET LOCAL ROLE,
-    so the rest of the test's teardown runs as the owner again. A statement expected
-    to fail runs in its own atomic() (refused()), or the savepoint is left aborted.
-    """
-    with transaction.atomic(), connection.cursor() as cursor:
-        cursor.execute(f"CREATE ROLE {ROLE} NOLOGIN")
-        cursor.execute(APP_ROLE_GRANTS)
-        cursor.execute(f"SET LOCAL ROLE {ROLE}")
-        yield cursor
-        transaction.set_rollback(True)
-
-
-def refused(cursor: CursorWrapper, sql: str, match: str) -> None:
-    with pytest.raises(DatabaseError, match=match), transaction.atomic():
-        cursor.execute(sql)
+def app_role(event: AuditEvent, runtime_role: CursorWrapper) -> CursorWrapper:
+    """The runtime role, after a service wrote an event and a row change."""
+    return runtime_role
 
 
 def test_the_event_model_refuses_changes(event: AuditEvent) -> None:
@@ -126,19 +106,11 @@ def test_the_database_refuses_changes_from_any_role(
     ],
 )
 def test_the_app_role_cannot_change_or_truncate(
-    row_change: RowChange, table: str, statement: str
+    app_role: CursorWrapper, table: str, statement: str
 ) -> None:
+    app_role.execute(f"SELECT count(*) FROM {table}")  # noqa: S608 (reading works)
     before = snapshot()
-    with (
-        pytest.raises(DatabaseError, match=f"permission denied for table {table}"),
-        transaction.atomic(),
-        connection.cursor() as cursor,
-    ):
-        cursor.execute(f"CREATE ROLE {ROLE} NOLOGIN")
-        cursor.execute(APP_ROLE_GRANTS)
-        cursor.execute(f"SET LOCAL ROLE {ROLE}")
-        cursor.execute(f"SELECT count(*) FROM {table}")  # noqa: S608 (reading works)
-        cursor.execute(statement.format(table=table))
+    refused(app_role, statement.format(table=table), f"permission denied for table {table}")
     assert snapshot() == before
 
 

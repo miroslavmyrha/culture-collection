@@ -1,7 +1,7 @@
 # 0005 Audit trail with service events and our own row trigger
 
 Date: 2026-10-17
-Status: accepted (after the spike in issue #8)
+Status: accepted (after the spike in issue #8). Roles, claims and reconciliation built in #34.
 Deciders: maintainer
 
 ## Context
@@ -59,7 +59,10 @@ Additive: two tables, four functions, triggers on `users_user`. Reversible
 adds one migration with `attach_row_audit()`. Changing exclusions is
 detach plus attach in a migration. Adding a reason-required event type
 changes a check constraint: on a large table write it NOT VALID, then
-VALIDATE. #9 adds the tenant column to `AuditEvent`.
+VALIDATE. #9 adds the tenant column to `AuditEvent`. #34 adds
+`RowChange.actor_claim_invalid` (a constant default, metadata only) and
+replaces both trigger function bodies (0008). The roles are no migration:
+they come from `manage.py db_roles`.
 
 ## Consequences
 
@@ -76,13 +79,16 @@ VALIDATE. #9 adds the tenant column to `AuditEvent`.
   import-heavy tables (about 3x and 8x there, slower for single rows).
 - Bypasses by privileged roles: `ALTER TABLE ... DISABLE TRIGGER`,
   `session_replication_role = replica`, dropping the triggers, TRUNCATE by
-  the owner. So production runs the app as a role that owns nothing: a
-  NOLOGIN `audit_owner` owns the audit tables and functions, the migration
-  role creates the schema, the runtime role gets SELECT and INSERT on
-  `audit_auditevent`, only SELECT on `audit_rowchange`, and no TRUNCATE on
-  regulated tables. pgaudit logs DDL and ROLE statements, so a disabled
-  trigger is seen. A data-only `pg_restore` fires the triggers unless
-  `--disable-triggers` is given.
+  the owner, also as a cascade (`TRUNCATE users_user CASCADE` as the owner
+  empties `audit_auditevent`). So production runs the app as a role that
+  owns nothing (see Roles). pgaudit logs DDL and ROLE statements, so a
+  disabled trigger is seen. A data-only `pg_restore` fires the triggers
+  unless `--disable-triggers` is given.
+- RowChange `actor_id` and `request_id` are claims, not proof: any session
+  can `set_config('app.actor_id', ...)`, so psql can name another user (see
+  Claims). They join the two layers and point at who to ask. The service
+  event's actor, written by the app from the authenticated request, is the
+  record of who acted.
 - Our code to maintain. `operations.py` and `migration_audit()` are imported
   by migrations, so their output must never change (new shapes get new
   functions).
@@ -113,6 +119,63 @@ trace in either table. Now:
 Any later change to `audit_row_change()` (for example validating the
 settings it reads) must start from the 0006 body, or the marker is lost:
 `audit/tests/test_row_changes.py` fails when it is.
+
+## Roles (#34)
+
+Built in `cultures/audit/roles.py`, the single source for the setup and the
+tests:
+- `cultures_audit`, NOLOGIN, owns the audit tables and every `audit_*`
+  function, so the SECURITY DEFINER trigger writes `audit_rowchange` as this
+  role and nobody else needs INSERT on it.
+- `cultures_migration` runs `migrate` and `createcachetable` and owns every
+  other table. It is a member of the audit owner, so migrations can still
+  change the audit tables, and the TRUNCATE guard lets it through. It is as
+  privileged as the owner and is used only by the deploy job.
+- `cultures_app`, the runtime role, owns nothing, is a member of no role and
+  has exactly `APP_ROLE_GRANTS`: SELECT and INSERT on `audit_auditevent`,
+  SELECT on `audit_rowchange` and `django_migrations`, SELECT, INSERT, UPDATE
+  and DELETE on every other table. No TRUNCATE, TRIGGER, REFERENCES or
+  MAINTAIN, and no sequence privileges (identity columns need none). It
+  cannot empty, alter, unhook or forge the audit trail, also not through a
+  cascade.
+
+`manage.py db_roles`, run once by an admin and again when `roles.py`
+changes, creates the roles, moves the tables to their owners, declares the
+default privileges of the migration role (so `createcachetable` and new
+tables reach the runtime role) and applies the grants. It is idempotent.
+After every `migrate` run as the migration role, a `post_migrate` handler
+hands audit tables and functions that a migration created back to the audit
+owner and resets the runtime privileges to `APP_ROLE_GRANTS`. A migrate under
+another role (development) changes nothing and says so in its output. With
+`DB_RUNTIME_ROLE_REQUIRED` (on in production) `/readyz` fails while the app
+connects as a role that owns a table or may TRUNCATE one, and CI runs the e2e
+suite with the runtime role (`tools/up-with-runtime-role.sh`).
+
+Names come from `DB_AUDIT_OWNER_ROLE`, `DB_MIGRATION_ROLE` and
+`DB_RUNTIME_ROLE`. Passwords are set by the admin with psql `\password`.
+
+## Claims (#34)
+
+Migration 0008 (after #33's 0006, from its body, so the secret marker
+stays) makes the trigger read the settings as claims that never
+block a write: `app.actor_id` is kept only when it is 1 to 19 ASCII digits
+within the bigint range, otherwise `actor_id` is null and
+`actor_claim_invalid` is true. `app.request_id` is cut to 64 characters.
+Before, a value like `not-a-number` made every regulated write in that
+session fail. `audit_context(request_id=...)` refuses an id that is not 1 to
+64 letters, digits or hyphens, the format of `X-Request-ID`.
+
+## Reconciliation (#34)
+
+`manage.py audit_reconcile --since 25h` reports row changes no service
+explains and exits 1 when it finds one: `no_event` (no AuditEvent in the
+same txid), `invalid_actor`, and `no_actor` (null actor while every event of
+that transaction names a user). A null actor next to an event of a system
+actor (a command, a task, a data migration in `migration_audit()` with
+channel `migration`) is printed as `known` with that event's channel and
+label and does not fail the run. The lookup is `NOT EXISTS` on the indexed
+`txid`, an anti join. Schedule it daily with an hour of overlap, as the
+runtime role (it only reads), and alert on a non-zero exit (README, Deploy).
 
 Fallback: if the triggers cost too much on a table, switch that table to
 statement triggers with transition tables. If our code proves wrong,

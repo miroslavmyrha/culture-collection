@@ -31,6 +31,9 @@ max_requests_jitter = _int("GUNICORN_MAX_REQUESTS_JITTER", 100)
 forwarded_allow_ips = os.environ.get("GUNICORN_FORWARDED_ALLOW_IPS", "127.0.0.1,::1")
 # Heartbeat files in memory: works with a read-only root filesystem.
 worker_tmp_dir = os.environ.get("GUNICORN_WORKER_TMP_DIR", "/dev/shm")  # noqa: S108
+# gunicorn 25.1+ opens a control socket in $HOME/.gunicorn by default (gunicorn/config.py,
+# ControlSocket). Under --read-only it logs an ERROR on every start, and nothing here uses it.
+control_socket_disable = True
 limit_request_line = 8190
 limit_request_fields = 100
 limit_request_field_size = 8190
