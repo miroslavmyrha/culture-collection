@@ -128,6 +128,27 @@ describe('routing and the session guard', () => {
     expect(router.state.location.href).toBe(href)
   })
 
+  // /..//evil.com resolves on our origin but normalises to //evil.com. The router refuses that
+  // href in a beforeLoad redirect with an error, so a helper that only checks its input shows
+  // the route error screen here instead of the start page.
+  it('sends a signed-in user on /login?redirect=/..//evil.com to the start page, never to the error screen', async () => {
+    mockApi('get', '/api/v1/auth/me/', makeMe())
+    const headings = recordHeadings()
+    const { router } = renderApp({ path: '/login', search: { redirect: '/..//evil.com' } })
+    expect(await screen.findByRole('heading', { name: 'Home' })).toBeInTheDocument()
+    headings.stop()
+    expect(router.state.location.href).toBe('/')
+    expect([...headings.seen]).not.toContain('Something went wrong')
+  })
+
+  it('returns to the start page after signing in with a dot-segment redirect', async () => {
+    mockApi('post', '/api/v1/auth/login/', makeMe(), { status: 200 })
+    const { router } = renderApp({ path: '/login', search: { redirect: '/a/..//evil.com' } })
+    await signIn()
+    expect(await screen.findByRole('heading', { name: 'Home' })).toBeInTheDocument()
+    expect(router.state.location.href).toBe('/')
+  })
+
   it('shows not found for an unknown URL', async () => {
     renderApp({ path: '/no-such-page' })
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
