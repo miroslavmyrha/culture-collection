@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { allowConsole } from '@/test/console'
 import { makeMember, page, problem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { renderWithProviders } from '@/test/render'
@@ -226,6 +227,21 @@ describe('focus after a dialog', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await waitFor(() => expect(trigger).toHaveFocus())
     expect(screen.getAllByRole('row')).toHaveLength(people.length + 1)
+  })
+})
+
+describe('focus after a retry of the members', () => {
+  it('goes to the Members heading when the list loads, not the body', async () => {
+    allowConsole(/API error 503/)
+    mockApiError('get', '/api/v1/labs/{lab_public_id}/members/', 503)
+    await renderWithProviders(
+      <MemberTable labId={LAB_ID} labName="Mycology" grantable={[...ROLES]} params={PARAMS} onOffsetChange={vi.fn<(offset: number) => void>()} />,
+    )
+    const retry = await screen.findByRole('button', { name: 'Try again' })
+    mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([makeMember({ username: 'alice' })]))
+    await userEvent.setup().click(retry)
+    expect(await screen.findByRole('table', { name: 'Members' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Members' })).toHaveFocus())
   })
 })
 

@@ -86,6 +86,17 @@ test.describe('reflow at 320 px', () => {
     await expect(account).toBeVisible()
     await expect(page.getByText(`Signed in as ${username}`)).toHaveCount(0)
     expect(await fitsWidth(page)).toBeLessThanOrEqual(320)
+    // Fitting by squeezing is no fit: every control in the bar shows all of its text, inside the screen.
+    const cut = await page.getByRole('banner').evaluate((bar) =>
+      [...bar.querySelectorAll<HTMLElement>('a, button')]
+        .filter((control) => {
+          const box = control.getBoundingClientRect()
+          const clipped = [control, ...control.querySelectorAll<HTMLElement>('*')].some((e) => e.scrollWidth > e.clientWidth)
+          return clipped || box.left < 0 || box.right > 320
+        })
+        .map((control) => control.textContent),
+    )
+    expect(cut).toEqual([])
     expect(await axe(page, 'body')).toEqual([])
 
     await openLab(page)
