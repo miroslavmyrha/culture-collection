@@ -37,13 +37,13 @@ def test_user_create_records_the_new_user_without_a_password_value(
         "cmd-1",
     )
     assert (event.subject_type, event.lab_id) == ("user", None)
+    # The fields that got a value, never the value itself (#37). Empty names: not listed.
     assert event.changes == {
-        "username": [None, "newbie"],
-        "email": [None, "New@example.org"],  # the domain is normalized, as by Django
-        "first_name": [None, ""],
-        "last_name": [None, ""],
+        "username": "changed",
+        "email": "changed",
         "has_usable_password": [None, True],
     }
+    assert user.email == "New@example.org"  # the domain is normalized, as by Django
 
 
 def test_user_create_without_a_password_gives_no_usable_one(audited: AuditContext) -> None:
@@ -71,10 +71,7 @@ def test_user_update_records_only_the_fields_that_changed(
 
     (event,) = events(member)
     assert event.event_type == "user_changed"
-    assert event.changes == {
-        "first_name": ["Ada", "Augusta"],
-        "email": ["member@example.org", "a@b.org"],
-    }
+    assert event.changes == {"first_name": "changed", "email": "changed"}  # no values (#37)
     member.refresh_from_db()
     assert (member.first_name, member.email) == ("Augusta", "a@b.org")
 

@@ -98,7 +98,9 @@ class AuditEvent(models.Model):
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, related_name="+"
     )
-    actor_label = models.CharField(max_length=150)  # snapshot: survives renames
+    # user:<public_id> for a user (never a name: it must outlive an erasure), else the
+    # system actor's label ("command:seed_e2e"). Show a user's name through `actor`.
+    actor_label = models.CharField(max_length=150)
     actor_kind = models.CharField(max_length=20, choices=ActorKind.choices)
     # The tenant. No index of its own: (lab, -occurred_at) below serves the timeline and the FK.
     lab = models.ForeignKey(
@@ -115,7 +117,8 @@ class AuditEvent(models.Model):
     reason = models.TextField(blank=True)
     subject_type = models.CharField(max_length=40)
     subject_id = models.UUIDField()  # public id: the subject may be gone later
-    changes = models.JSONField(default=dict)  # {field: [old, new]}, ids only, never secrets
+    # {field: [old, new]}, ids only, never secrets; a personal field is "changed", no value
+    changes = models.JSONField(default=dict)
     schema_version = models.PositiveSmallIntegerField(default=1)
 
     objects = AuditEventQuerySet.as_manager()

@@ -160,6 +160,15 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
 }
 
 
+# What a service event records for a personal field that was set or changed, never the value.
+PERSONAL_CHANGED = "changed"
+# The personal fields of each event subject type. record_event() and record_batch() write
+# PERSONAL_CHANGED in their place, whatever the service passed (cultures.audit.events).
+PERSONAL_FIELDS: dict[str, tuple[str, ...]] = {
+    "user": ROW_AUDITED_TABLES["users_user"].personal,
+}
+
+
 # Tables of the project's apps that the row trigger does not watch, each with the reason.
 # tests/test_invariants.py walks every table of the project's models: each one is in
 # ROW_AUDITED_TABLES or here, so a new table needs a decision before it ships.

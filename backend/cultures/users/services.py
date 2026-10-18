@@ -14,6 +14,10 @@ Deactivation keeps every lab with an active manager: it locks the users' rows
 (by pk), then cultures.labs.services locks their labs (by pk) and refuses with
 LastManager when a lab would have none left. Nothing is changed and nothing is
 recorded then. The admin makes another member a manager first (ADR 0006).
+
+No event holds a personal value (ADR 0005, update of 2026-10-18): the profile
+fields are personal, so user_created and user_changed record {field: "changed"}
+for the ones that were set or changed, never the old or new value.
 """
 
 from collections.abc import Mapping, Sequence
@@ -23,6 +27,7 @@ from django.db import IntegrityError, transaction
 from cultures.audit.context import audited_atomic
 from cultures.audit.events import Change, record_batch, record_event
 from cultures.audit.registry import (
+    PERSONAL_CHANGED,
     USER_ACTIVATED,
     USER_CHANGED,
     USER_CREATED,
@@ -42,6 +47,7 @@ from .models import User
 
 SUBJECT = "user"
 # The fields user_update may change. Privileges and the password have their own services.
+# All of them are personal: events record that they changed, not to what.
 PROFILE_FIELDS = ("username", "first_name", "last_name", "email")
 USERNAME_UNIQUE = "users_user_username_key"  # PostgreSQL's name for the field's unique=True
 
@@ -88,7 +94,7 @@ def user_create(
         else:
             user.set_password(password)
         _save(user)
-        profile = {field: [None, getattr(user, field)] for field in PROFILE_FIELDS}
+        profile = {field: PERSONAL_CHANGED for field in PROFILE_FIELDS if getattr(user, field)}
         record_event(
             USER_CREATED,
             Change(
@@ -101,23 +107,21 @@ def user_create(
 
 
 def user_update(*, user: User, changes: Mapping[str, str]) -> User:
-    """Change profile fields. The event holds {field: [old, new]} of what really changed."""
+    """Change profile fields. The event names the fields that really changed, no values."""
     unknown = set(changes) - set(PROFILE_FIELDS)
     if unknown:
         raise ValueError(f"user_update changes only {PROFILE_FIELDS}, not {sorted(unknown)}")
     with audited_atomic():
         user = _locked(user)
-        diff = {
-            field: [getattr(user, field), value]
-            for field, value in changes.items()
-            if getattr(user, field) != value
-        }
+        diff = {field: value for field, value in changes.items() if getattr(user, field) != value}
         if not diff:
             return user
-        for field, (_, value) in diff.items():
+        for field, value in diff.items():
             setattr(user, field, value)
         _save(user, list(diff))
-        record_event(USER_CHANGED, Change(SUBJECT, user.public_id, diff))
+        record_event(
+            USER_CHANGED, Change(SUBJECT, user.public_id, dict.fromkeys(diff, PERSONAL_CHANGED))
+        )
     return user
 
 
