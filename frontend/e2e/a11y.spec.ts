@@ -97,6 +97,14 @@ test.describe('reflow at 320 px', () => {
         .map((control) => control.textContent),
     )
     expect(cut).toEqual([])
+    // Today's two links fit anyway: with more of them the nav wraps instead of widening the page.
+    await page.getByRole('navigation', { name: 'Main' }).evaluate((nav) => {
+      const link = nav.querySelector('a')
+      if (link) for (let i = 0; i < 6; i++) nav.append(link.cloneNode(true))
+    })
+    expect(await fitsWidth(page)).toBeLessThanOrEqual(320)
+    await page.reload()
+    await expect(page.getByRole('heading', { level: 1, name: 'Labs' })).toBeVisible()
     expect(await axe(page, 'body')).toEqual([])
 
     await openLab(page)
