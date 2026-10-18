@@ -10,7 +10,7 @@ from model_bakery import baker
 from cultures.audit.context import AuditContext, audit_context, audited_atomic, migration_audit
 from cultures.audit.models import AuditEvent, Channel, RowChange
 from cultures.audit.operations import attach_row_audit
-from cultures.audit.registry import SECRET_MARKER
+from cultures.audit.registry import PERSONAL_MARKER, SECRET_MARKER
 from cultures.users.models import User
 from cultures.users.services import user_deactivate, users_deactivate
 
@@ -18,7 +18,8 @@ from .conftest import make_user
 
 pytestmark = pytest.mark.django_db
 
-# Every users_user column the trigger stores; password and last_login never.
+# Every users_user column the trigger stores, the personal ones as the marker only (#37);
+# password and last_login never.
 STORED = {
     "id",
     "username",
@@ -30,6 +31,7 @@ STORED = {
     "is_superuser",
     "date_joined",
     "public_id",
+    "erased_at",
 }
 
 
@@ -60,7 +62,7 @@ def test_bulk_create_gives_one_insert_row_per_user_with_actor_and_request_id(
     inserted = rows("INSERT")[1:]  # the first one is the admin fixture's
     assert [r.row_pk for r in inserted] == [str(u.pk) for u in created]
     assert {(r.actor_id, r.request_id, r.old) for r in inserted} == {(admin.pk, "cmd-1", None)}
-    assert [r.new["username"] for r in inserted] == ["bulk0", "bulk1", "bulk2"]
+    assert [r.new["username"] for r in inserted] == [PERSONAL_MARKER] * 3
     assert {frozenset(r.new) for r in inserted} == {frozenset(STORED)}
     assert {(r.db_role, r.db_application) for r in inserted} == {("cultures", "cultures")}
 
@@ -76,7 +78,8 @@ def test_queryset_update_gives_update_rows_with_only_the_changed_columns(
     assert [r.row_pk for r in updated] == [str(first.pk), str(second.pk)]
     assert {(r.actor_id, r.request_id) for r in updated} == {(admin.pk, "cmd-1")}
     # is_staff was already False: unchanged, so not stored
-    assert [(r.old, r.new) for r in updated] == [({"first_name": ""}, {"first_name": "Ada"})] * 2
+    marked = {"first_name": PERSONAL_MARKER}
+    assert [(r.old, r.new) for r in updated] == [(marked, marked)] * 2
 
 
 def test_a_raw_sql_update_is_captured(admin: User, in_audited_atomic: AuditContext) -> None:
@@ -84,11 +87,8 @@ def test_a_raw_sql_update_is_captured(admin: User, in_audited_atomic: AuditConte
     execute("UPDATE users_user SET email = 'new@example.org' WHERE id = %s", [member.pk])
 
     (row,) = rows("UPDATE")
-    assert (row.row_pk, row.old, row.new) == (
-        str(member.pk),
-        {"email": "member@example.org"},
-        {"email": "new@example.org"},
-    )
+    marked = {"email": PERSONAL_MARKER}
+    assert (row.row_pk, row.old, row.new) == (str(member.pk), marked, marked)
     assert row.actor_id == admin.pk
 
 
@@ -112,7 +112,7 @@ def test_a_plain_update_after_a_service_write_succeeds_with_no_actor(
     User.objects.filter(pk=other.pk).update(first_name="Plain")
 
     row = RowChange.objects.get(op="UPDATE", row_pk=str(other.pk))
-    assert (row.actor_id, row.request_id, row.new) == (None, None, {"first_name": "Plain"})
+    assert (row.actor_id, row.request_id, row.new) == (None, None, {"first_name": PERSONAL_MARKER})
 
 
 def test_a_save_that_changes_nothing_writes_no_row(member: User) -> None:
@@ -148,10 +148,8 @@ def test_a_secret_marker_joins_the_other_changed_columns(member: User) -> None:
     member.save()
 
     (update,) = rows("UPDATE")
-    assert (update.old, update.new) == (
-        {"password": SECRET_MARKER, "first_name": ""},
-        {"password": SECRET_MARKER, "first_name": "Renamed"},
-    )
+    marked = {"password": SECRET_MARKER, "first_name": PERSONAL_MARKER}
+    assert (update.old, update.new) == (marked, marked)
 
 
 def test_the_password_hash_appears_in_no_row_change(in_audited_atomic: AuditContext) -> None:
@@ -188,7 +186,7 @@ def test_a_delete_is_captured_with_the_old_values_without_excluded_columns(
     (row,) = rows("DELETE")
     assert (row.row_pk, row.new, row.actor_id) == (str(member.pk), None, admin.pk)
     assert set(row.old) == STORED
-    assert (row.old["username"], row.old["email"]) == ("leaving", "leaving@example.org")
+    assert (row.old["username"], row.old["email"]) == (PERSONAL_MARKER, PERSONAL_MARKER)
 
 
 def test_a_truncate_is_captured_once_per_table(
@@ -241,11 +239,11 @@ def test_a_nested_audited_atomic_restores_the_outer_settings(admin: User) -> Non
             audit_context(channel=Channel.TASK, actor=other, request_id="inner"),
             audited_atomic(),
         ):
-            make_user("in-inner")
-        make_user("after-inner")
+            inner = make_user("in-inner")
+        after = make_user("after-inner")
 
     assert list(
-        RowChange.objects.filter(new__username__in=["in-inner", "after-inner"])
+        RowChange.objects.filter(op="INSERT", row_pk__in=[str(inner.pk), str(after.pk)])
         .order_by("pk")
         .values_list("actor_id", "request_id")
     ) == [(other.pk, "inner"), (admin.pk, "outer")]
@@ -259,15 +257,15 @@ def test_a_nested_audited_atomic_that_rolls_back_leaves_the_outer_settings(admin
             audit_context(channel=Channel.TASK, actor=other, request_id="inner"),
             audited_atomic(),
         ):
-            make_user("rolled-back")
+            rolled_back = make_user("rolled-back")
             _ = 1 / 0
-        make_user("after-rollback")
+        after = make_user("after-rollback")
 
     assert list(
-        RowChange.objects.filter(new__username__in=["rolled-back", "after-rollback"])
+        RowChange.objects.filter(op="INSERT", row_pk__in=[str(rolled_back.pk), str(after.pk)])
         .order_by("pk")
-        .values_list("new__username", "actor_id", "request_id")
-    ) == [("after-rollback", admin.pk, "outer")]
+        .values_list("row_pk", "actor_id", "request_id")
+    ) == [(str(after.pk), admin.pk, "outer")]
 
 
 def test_a_nested_audited_atomic_marked_for_rollback_leaves_the_outer_settings(
@@ -276,15 +274,15 @@ def test_a_nested_audited_atomic_marked_for_rollback_leaves_the_outer_settings(
     other = make_user("other")
     with audit_context(channel=Channel.COMMAND, actor=admin, request_id="outer"), audited_atomic():
         with audit_context(channel=Channel.TASK, actor=other), audited_atomic():
-            make_user("marked")
+            marked = make_user("marked")
             transaction.set_rollback(True)
-        make_user("after-mark")
+        after = make_user("after-mark")
 
     assert list(
-        RowChange.objects.filter(new__username__in=["marked", "after-mark"]).values_list(
-            "new__username", "actor_id", "request_id"
-        )
-    ) == [("after-mark", admin.pk, "outer")]
+        RowChange.objects.filter(
+            op="INSERT", row_pk__in=[str(marked.pk), str(after.pk)]
+        ).values_list("row_pk", "actor_id", "request_id")
+    ) == [(str(after.pk), admin.pk, "outer")]
 
 
 def test_a_data_migration_context_tags_its_changes(member: User) -> None:
@@ -310,7 +308,7 @@ def test_the_trigger_writes_the_real_table_even_when_a_temp_table_shadows_it(
     assert execute(
         "SELECT new FROM public.audit_rowchange WHERE op = 'UPDATE' AND row_pk = %s",
         [str(member.pk)],
-    ) == [('{"first_name": "Shadow"}',)]
+    ) == [('{"first_name": "personal"}',)]
 
 
 @pytest.mark.parametrize("function", ["audit_row_change", "audit_row_truncate"])
@@ -345,12 +343,12 @@ def test_a_composite_key_is_stored_as_a_json_array_and_a_rename_keeps_the_label(
 def test_the_settings_end_with_the_transaction(admin: User) -> None:
     """Transaction-local: the next transaction on the same connection has no actor."""
     with audit_context(channel=Channel.COMMAND, actor=admin, request_id="once"), audited_atomic():
-        make_user("inside")
+        inside = make_user("inside")
     with transaction.atomic():
-        make_user("after")
+        after = make_user("after")
 
     assert list(
-        RowChange.objects.filter(new__username__in=["inside", "after"])
+        RowChange.objects.filter(op="INSERT", row_pk__in=[str(inside.pk), str(after.pk)])
         .order_by("pk")
         .values_list("actor_id", "request_id")
     ) == [(admin.pk, "once"), (None, None)]

@@ -13,6 +13,10 @@ model directly and lets staff delete users; this one does neither.
 - "Failed logins" shows the account's login counter, and "Clear login limits"
   (with a reason) deletes the account's counters through user_login_limits_clear.
 - Users are deactivated, never deleted: audit rows point at them.
+- "Erase user" (its own page, with a reason and the username typed again)
+  turns a user into a tombstone through user_erase (#37). An erased user is
+  read-only here: no service changes it any more.
+- Reasons stay in the audit trail for good, so they must not name a person.
 - Groups and per-user Django permissions are not offered: the app's rights
   come from lab roles (ADR 0006), and nothing would audit those tables.
 """
@@ -21,29 +25,37 @@ from typing import TYPE_CHECKING, Any
 
 from django import forms
 from django.conf import settings
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.contrib.admin.utils import unquote
 from django.contrib.auth import admin as auth_admin
 from django.contrib.auth import forms as auth_forms
-from django.http import HttpRequest, HttpResponse
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
+from django.template.response import TemplateResponse
+from django.urls import URLPattern, path, reverse
 from django.utils import timezone
+from django.utils.html import format_html
 
 from cultures.audit.context import audit_context
 from cultures.audit.models import Channel
+from cultures.core.exceptions import DomainError
 from cultures.labs.services import labs_left_without_manager
 
 from . import login_limits, services
 from .admin_site import staff_actor
-from .models import User
+from .models import ERASED_PREFIX, User
 
 # django-stubs makes these generic for mypy only; at run time Django's classes take no
 # type arguments (Django 6.1.2) and the project does not install django_stubs_ext.
 if TYPE_CHECKING:
     UserAdminBase = auth_admin.UserAdmin[User]
     UserChangeFormBase = auth_forms.UserChangeForm[User]
+    UserCreationFormBase = auth_forms.AdminUserCreationForm[User]
     PasswordFormBase = auth_forms.AdminPasswordChangeForm[User]
 else:
     UserAdminBase = auth_admin.UserAdmin
     UserChangeFormBase = auth_forms.UserChangeForm
+    UserCreationFormBase = auth_forms.AdminUserCreationForm
     PasswordFormBase = auth_forms.AdminPasswordChangeForm
 
 # Each one is its own service and event type, and needs a reason.
@@ -53,6 +65,21 @@ REASON_REQUIRED = (
     " or the login limits are cleared."
 )
 LAST_MANAGER = "This user is the last active manager of {lab}. Make another member a manager first."
+# Reasons are free text kept for good in append-only audit rows (ADR 0005, 2026-10-18).
+NO_NAMES = "Do not name a person: the reason stays in the audit trail for good."
+ERASE_CONFIRM = "Type the username exactly as shown to confirm."
+
+
+def _not_reserved(username: str) -> str:
+    """The form's error for what services.user_create and user_update refuse."""
+    if username.startswith(ERASED_PREFIX):
+        raise ValidationError(services.ReservedUsername.default_detail, code="reserved_username")
+    return username
+
+
+class UserCreationForm(UserCreationFormBase):
+    def clean_username(self) -> str:
+        return _not_reserved(super().clean_username())
 
 
 class UserChangeForm(UserChangeFormBase):
@@ -69,9 +96,13 @@ class UserChangeForm(UserChangeFormBase):
         widget=forms.Textarea(attrs={"rows": 2}),
         help_text=(
             "Why active, staff or superuser status changes, or why the login limits are"
-            " cleared. Stored in the audit trail."
+            f" cleared. Stored in the audit trail. {NO_NAMES}"
         ),
     )
+
+    def clean_username(self) -> str:
+        username: str = self.cleaned_data["username"]
+        return _not_reserved(username) if "username" in self.changed_data else username
 
     def clean(self) -> dict[str, Any]:
         cleaned = super().clean() or {}
@@ -84,6 +115,26 @@ class UserChangeForm(UserChangeFormBase):
             for lab in labs_left_without_manager(users=[self.instance]):
                 self.add_error("is_active", LAST_MANAGER.format(lab=lab))
         return cleaned
+
+
+class EraseUserForm(forms.Form):
+    """The erasure page: the username typed again, and a reason that names nobody."""
+
+    confirm = forms.CharField(label="Username", help_text=ERASE_CONFIRM)
+    reason = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text=f"Why this person is erased, for example the request it answers. {NO_NAMES}",
+    )
+
+    def __init__(self, *args: Any, user: User, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+    def clean_confirm(self) -> str:
+        confirm: str = self.cleaned_data["confirm"]
+        if confirm != self.user.get_username():
+            raise ValidationError(ERASE_CONFIRM, code="confirm")
+        return confirm
 
 
 class PasswordThroughServiceForm(PasswordFormBase):
@@ -103,6 +154,7 @@ class PasswordThroughServiceForm(PasswordFormBase):
 @admin.register(User)
 class UserAdmin(UserAdminBase):
     form = UserChangeForm
+    add_form = UserCreationForm
     change_password_form = PasswordThroughServiceForm
     fieldsets = (
         (None, {"fields": ("username", "password")}),
@@ -112,8 +164,9 @@ class UserAdmin(UserAdminBase):
             {"fields": (*PRIVILEGE_FIELDS, "login_limit_state", "clear_login_limits", "reason")},
         ),
         ("Important dates", {"fields": ("last_login", "date_joined")}),
+        ("Erasure", {"fields": ("erasure",)}),
     )
-    readonly_fields = ("last_login", "date_joined", "login_limit_state")
+    readonly_fields = ("last_login", "date_joined", "login_limit_state", "erasure")
     list_filter = ("is_staff", "is_superuser", "is_active")
     filter_horizontal = ()
 
@@ -129,8 +182,57 @@ class UserAdmin(UserAdminBase):
             )
         return f"{counter.failures} until {until}"
 
+    @admin.display(description="Erase")
+    def erasure(self, obj: User) -> str:
+        if obj.erased_at is not None:
+            return f"erased on {obj.erased_at:%Y-%m-%d %H:%M} UTC"
+        if obj.pk is None:
+            return "-"
+        return format_html(
+            '<a href="{}">Erase this user</a>: removes the names, the email, the password,'
+            " the memberships and the sessions for good.",
+            reverse("admin:users_user_erase", args=[obj.pk]),
+        )
+
     def has_delete_permission(self, request: HttpRequest, obj: User | None = None) -> bool:
         return False  # deactivate instead: audit events and memberships point at users
+
+    def has_change_permission(self, request: HttpRequest, obj: User | None = None) -> bool:
+        if obj is not None and obj.erased_at is not None:
+            return False  # a tombstone: user_erase is final, the services refuse it
+        return super().has_change_permission(request, obj)
+
+    def get_urls(self) -> list[URLPattern]:
+        erase = path(
+            "<id>/erase/", self.admin_site.admin_view(self.erase_view), name="users_user_erase"
+        )
+        return [erase, *super().get_urls()]
+
+    def erase_view(self, request: HttpRequest, id: str) -> HttpResponse:
+        user = self.get_object(request, unquote(id))
+        if user is None:
+            raise Http404("No such user.")
+        if not self.has_change_permission(request, user):
+            raise PermissionDenied
+        form = EraseUserForm(request.POST if request.method == "POST" else None, user=user)
+        if form.is_valid():
+            try:
+                with audit_context(channel=Channel.WEB, actor=staff_actor(request)):
+                    erased = services.user_erase(user=user, reason=form.cleaned_data["reason"])
+            except DomainError as refusal:
+                form.add_error(None, refusal.detail)
+            else:
+                self.log_change(request, erased, [{"changed": {"fields": ["erased"]}}])
+                self.message_user(request, "The user was erased.", messages.SUCCESS)
+                return HttpResponseRedirect(reverse("admin:users_user_change", args=[erased.pk]))
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Erase user",
+            "opts": self.opts,
+            "original": user,
+            "form": form,
+        }
+        return TemplateResponse(request, "admin/users/user/erase.html", context)
 
     def changeform_view(
         self,

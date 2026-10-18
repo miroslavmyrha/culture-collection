@@ -14,19 +14,36 @@ Deactivation keeps every lab with an active manager: it locks the users' rows
 (by pk), then cultures.labs.services locks their labs (by pk) and refuses with
 LastManager when a lab would have none left. Nothing is changed and nothing is
 recorded then. The admin makes another member a manager first (ADR 0006).
+
+No event holds a personal value (ADR 0005, update of 2026-10-18): the profile
+fields are personal, so user_created and user_changed record {field: "changed"}
+for the ones that were set or changed, never the old or new value.
+
+Erasure (user_erase) turns the row into a tombstone in place and keeps its id,
+public_id and date_joined, so every audit row still points at it. An erased
+user cannot sign in and nothing changes it any more: the other services
+refuse it with UserErased, and a database check constraint holds the tombstone.
 """
 
 from collections.abc import Mapping, Sequence
 
+from django.contrib.admin.models import LogEntry
+from django.contrib.auth import SESSION_KEY
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.sessions.models import Session
 from django.db import IntegrityError, transaction
+from django.db.models import Q
+from django.utils import timezone
 
 from cultures.audit.context import audited_atomic
 from cultures.audit.events import Change, record_batch, record_event
 from cultures.audit.registry import (
+    PERSONAL_CHANGED,
     USER_ACTIVATED,
     USER_CHANGED,
     USER_CREATED,
     USER_DEACTIVATED,
+    USER_ERASED,
     USER_LOGIN_LIMITS_CLEARED,
     USER_PASSWORD_CHANGED,
     USER_STAFF_CHANGED,
@@ -34,14 +51,16 @@ from cultures.audit.registry import (
     USERS_DEACTIVATED,
     EventType,
 )
-from cultures.core.exceptions import Conflict
-from cultures.labs.services import users_deactivation_check
+from cultures.core.exceptions import Conflict, NotFound, RuleViolation
+from cultures.labs.models import Membership
+from cultures.labs.services import membership_delete, users_deactivation_check
 
 from . import login_limits
-from .models import User
+from .models import ERASED_PREFIX, User
 
 SUBJECT = "user"
 # The fields user_update may change. Privileges and the password have their own services.
+# All of them are personal: events record that they changed, not to what.
 PROFILE_FIELDS = ("username", "first_name", "last_name", "email")
 USERNAME_UNIQUE = "users_user_username_key"  # PostgreSQL's name for the field's unique=True
 
@@ -49,6 +68,31 @@ USERNAME_UNIQUE = "users_user_username_key"  # PostgreSQL's name for the field's
 class UsernameTaken(Conflict):
     default_code = "username_taken"
     default_detail = "A user with this username already exists."
+
+
+class ReservedUsername(RuleViolation):
+    """A live user named like a tombstone could block an erasure (the name is unique)."""
+
+    default_code = "reserved_username"
+    default_detail = f"Usernames starting with {ERASED_PREFIX!r} are reserved for erased users."
+
+
+class UserErased(Conflict):
+    default_code = "user_erased"
+    default_detail = "This user was erased. An erased user cannot be changed or reactivated."
+
+
+class LastSuperuser(RuleViolation):
+    default_code = "last_superuser"
+    default_detail = (
+        "The last active superuser cannot be erased. Make another user superuser first."
+    )
+
+
+def _check_username(username: str) -> str:
+    if username.startswith(ERASED_PREFIX):
+        raise ReservedUsername(attr="username")
+    return username
 
 
 def _save(user: User, fields: list[str] | None = None) -> None:
@@ -64,7 +108,11 @@ def _save(user: User, fields: list[str] | None = None) -> None:
 
 
 def _locked(user: User) -> User:
-    return User.objects.select_for_update().get(pk=user.pk)
+    """The user's row, locked. An erased user is a tombstone: no service changes it."""
+    locked = User.objects.select_for_update().get(pk=user.pk)
+    if locked.is_erased:
+        raise UserErased
+    return locked
 
 
 def user_create(
@@ -78,7 +126,7 @@ def user_create(
     """A new active user without privileges. password None: no usable password."""
     with audited_atomic():
         user = User(
-            username=User.normalize_username(username),
+            username=_check_username(User.normalize_username(username)),
             email=User.objects.normalize_email(email),
             first_name=first_name,
             last_name=last_name,
@@ -88,7 +136,7 @@ def user_create(
         else:
             user.set_password(password)
         _save(user)
-        profile = {field: [None, getattr(user, field)] for field in PROFILE_FIELDS}
+        profile = {field: PERSONAL_CHANGED for field in PROFILE_FIELDS if getattr(user, field)}
         record_event(
             USER_CREATED,
             Change(
@@ -101,23 +149,23 @@ def user_create(
 
 
 def user_update(*, user: User, changes: Mapping[str, str]) -> User:
-    """Change profile fields. The event holds {field: [old, new]} of what really changed."""
+    """Change profile fields. The event names the fields that really changed, no values."""
     unknown = set(changes) - set(PROFILE_FIELDS)
     if unknown:
         raise ValueError(f"user_update changes only {PROFILE_FIELDS}, not {sorted(unknown)}")
     with audited_atomic():
         user = _locked(user)
-        diff = {
-            field: [getattr(user, field), value]
-            for field, value in changes.items()
-            if getattr(user, field) != value
-        }
+        diff = {field: value for field, value in changes.items() if getattr(user, field) != value}
         if not diff:
             return user
-        for field, (_, value) in diff.items():
+        if "username" in diff:
+            _check_username(diff["username"])
+        for field, value in diff.items():
             setattr(user, field, value)
         _save(user, list(diff))
-        record_event(USER_CHANGED, Change(SUBJECT, user.public_id, diff))
+        record_event(
+            USER_CHANGED, Change(SUBJECT, user.public_id, dict.fromkeys(diff, PERSONAL_CHANGED))
+        )
     return user
 
 
@@ -252,3 +300,95 @@ def superuser_create(
         user = user_create(username=username, password=password, email=email)
         user = user_set_staff(user=user, is_staff=True, reason=reason)
         return user_set_superuser(user=user, is_superuser=True, reason=reason)
+
+
+def user_erase(*, user: User, reason: str | None = None) -> User:
+    """Erase a person: the user row becomes a tombstone in place. Needs a reason.
+
+    Kept: id, public_id and date_joined, so every audit row, admin log entry and
+    PROTECT foreign key still resolves. Gone: the username (now "erased-<public_id>"),
+    the names, the email and the password (unusable). The user ends inactive,
+    without staff or superuser status, with erased_at set, without memberships
+    (removed through membership_delete, one member_removed event each), without
+    sessions and without login counters. Admin log entries about the user get the
+    tombstone name, because Django stores the old username in them.
+
+    Refused, with nothing changed: LastManager when the user is the last active
+    manager of a lab (make another member a manager first, ADR 0006), also for an
+    inactive manager of a lab that has no active one left; LastSuperuser for the last
+    active superuser. Erasing an erased user is a no-op: no change and no event.
+
+    Lock order: the user's row together with every active superuser's (by pk),
+    then the labs by pk (users_deactivation_check), then the memberships.
+    """
+    with audited_atomic():
+        rows = (
+            User.objects.select_for_update()
+            .filter(Q(pk=user.pk) | Q(is_superuser=True, is_active=True))
+            .order_by("pk")
+        )
+        locked = {row.pk: row for row in rows}
+        target = locked.get(user.pk)
+        if target is None:
+            raise NotFound
+        if target.is_erased:
+            return target
+        if (target.is_superuser and target.is_active) and not any(
+            row.is_superuser and row.is_active for pk, row in locked.items() if pk != target.pk
+        ):
+            raise LastSuperuser
+        users_deactivation_check(users=[target])
+        memberships = list(Membership.objects.filter(user=target).order_by("lab_id", "pk"))
+        for membership in memberships:
+            membership_delete(membership=membership)
+        sessions = _end_sessions(target)
+        counters = login_limits.clear_account(target.username)
+        before = {f: getattr(target, f) for f in ("is_active", "is_staff", "is_superuser")}
+        had_password = target.has_usable_password()
+        target.username = f"{ERASED_PREFIX}{target.public_id}"
+        target.first_name = target.last_name = target.email = ""
+        target.set_unusable_password()
+        target.is_active = target.is_staff = target.is_superuser = False
+        target.erased_at = timezone.now()
+        _save(target)
+        _rename_in_admin_log(target)
+        record_event(
+            USER_ERASED,
+            Change(
+                SUBJECT,
+                target.public_id,
+                {
+                    **dict.fromkeys(PROFILE_FIELDS, PERSONAL_CHANGED),
+                    **{f: [old, False] for f, old in before.items()},
+                    "has_usable_password": [had_password, False],
+                    "memberships": [len(memberships), 0],
+                    "sessions": [sessions, 0],
+                    "login_failure_counters": [counters, 0],
+                },
+            ),
+            reason=reason,
+        )
+    return target
+
+
+def _end_sessions(user: User) -> int:
+    """Delete the user's sessions. The store has no index by user, so this reads them all.
+
+    Erasure is rare and the table holds live sessions (clearsessions removes old
+    ones). The unusable password alone would end them at the next request (the
+    session hash no longer matches), but the rows would stay.
+    """
+    mine = [
+        session.pk
+        for session in Session.objects.iterator()
+        if session.get_decoded().get(SESSION_KEY) == str(user.pk)
+    ]
+    deleted, _ = Session.objects.filter(pk__in=mine).delete()
+    return deleted
+
+
+def _rename_in_admin_log(user: User) -> None:
+    """Django's admin log copies str(user), the old username, into object_repr."""
+    LogEntry.objects.filter(
+        content_type=ContentType.objects.get_for_model(User), object_id=str(user.pk)
+    ).update(object_repr=str(user))

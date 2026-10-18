@@ -450,3 +450,54 @@ def test_the_runtime_role_counts_clears_and_prunes_login_failures(
     assert fetch(runtime_role, "SELECT current_user") == [(TEST_ROLES.runtime,)]
     assert login_limits.clear_account("runtime") == 2  # the pair and the account row
     assert login_limits.prune(now + timedelta(days=1)) == 1  # the address row
+
+
+def test_the_runtime_role_erases_a_user_and_the_trigger_marks_the_personal_columns(
+    runtime_role: CursorWrapper, audited: AuditContext, admin: User
+) -> None:
+    """user_erase needs DELETE on sessions, memberships and counters, UPDATE on the admin log."""
+    from django.contrib.admin.models import CHANGE, LogEntry  # noqa: PLC0415
+    from django.contrib.contenttypes.models import ContentType  # noqa: PLC0415
+    from django.contrib.sessions.backends.db import SessionStore  # noqa: PLC0415
+
+    from cultures.users import services as users  # noqa: PLC0415
+
+    person = users.user_create(username="leaving", password=None, email="leaving@example.org")
+    users.user_update(user=person, changes={"first_name": "Grace"})
+    lab = labs.lab_create(name="Runtime", code="RUN")
+    labs.membership_create(lab=lab, user=admin, role=Role.MANAGER)
+    labs.membership_create(lab=lab, user=person, role=Role.MANAGER)
+    session = SessionStore()
+    session["_auth_user_id"] = str(person.pk)
+    session.save()
+    account, address = login_limits.account_key("leaving"), login_limits.address_key("192.0.2.9")
+    login_limits.count_failure(account, address, timezone.now())
+    LogEntry.objects.create(
+        user=admin,
+        content_type=ContentType.objects.get_for_model(User),
+        object_id=str(person.pk),
+        object_repr="leaving",
+        action_flag=CHANGE,
+    )
+
+    erased = users.user_erase(user=person, reason="erasure request")
+
+    assert fetch(runtime_role, "SELECT current_user") == [(TEST_ROLES.runtime,)]
+    assert erased.username == f"erased-{person.public_id}"
+    assert not SessionStore().exists(session.session_key or "")
+    assert LogEntry.objects.get(object_id=str(person.pk)).object_repr == erased.username
+    assert not login_limits.clear_account("leaving")
+    changes = RowChange.objects.filter(
+        request_id="cmd-1", table_label="users.user", row_pk=str(person.pk)
+    ).order_by("pk")
+    assert [(c.op, (c.new or {}).get("username"), c.actor_id) for c in changes] == [
+        ("INSERT", "personal", admin.pk),
+        ("UPDATE", None, admin.pk),  # the first name only
+        ("UPDATE", "personal", admin.pk),  # the erasure
+    ]
+    stored = fetch(
+        runtime_role, "SELECT string_agg(old::text || new::text, ' ') FROM audit_rowchange"
+    )
+    assert "leaving" not in str(stored)
+    assert "Grace" not in str(stored)
+    assert AuditEvent.objects.filter(event_type="user_erased", actor=admin).count() == 1

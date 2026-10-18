@@ -62,13 +62,13 @@ def test_an_admin_edit_records_the_staff_actor_and_request_id_on_both_layers(
         Channel.WEB,
         "adm-edit",
     )
-    assert event.changes == {"first_name": ["Ada", "Augusta"]}
+    assert event.changes == {"first_name": "changed"}  # never the name (#37)
     # The row trigger's row joins the event by transaction id and request id. (A test runs in
     # one transaction, so the fixtures' rows share the txid and only both ids pick the row.)
     (row,) = joined(event)
     assert (row.op, row.table_label, row.row_pk) == ("UPDATE", "users.user", str(member.pk))
     assert (row.actor_id, row.request_id) == (staff.pk, "adm-edit")
-    assert row.new == {"first_name": "Augusta"}
+    assert row.new == {"first_name": "personal"}  # the marker, never the name (#37)
 
 
 def test_the_actor_is_the_signed_in_staff_user_not_another_superuser(
@@ -80,7 +80,7 @@ def test_the_actor_is_the_signed_in_staff_user_not_another_superuser(
     assert response.status_code == 302, response.content
 
     (event,) = AuditEvent.objects.all()
-    assert (event.actor, event.actor_label) == (deputy, "deputy")
+    assert (event.actor, event.actor_label) == (deputy, f"user:{deputy.public_id}")
     (row,) = joined(event)
     assert row.actor_id == deputy.pk
 

@@ -1,0 +1,35 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static admin_urls %}
+
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static "admin/css/forms.css" %}" {% csp_nonce_attr %}>{% endblock %}
+{% block bodyclass %}{{ block.super }} {{ opts.app_label }}-{{ opts.model_name }} change-form{% endblock %}
+{% block breadcrumbs %}
+<ol class="breadcrumbs">
+<li><a href="{% url 'admin:index' %}">{% translate 'Home' %}</a></li>
+<li><a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a></li>
+<li><a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a></li>
+<li><a href="{% url opts|admin_urlname:'change' original.pk|admin_urlquote %}">{{ original }}</a></li>
+<li aria-current="page">Erase user</li>
+</ol>
+{% endblock %}
+{% block content %}<div id="content-main">
+<p>Erasing <strong>{{ original }}</strong> cannot be undone. The username becomes
+<code>erased-{{ original.public_id }}</code>, the names and the email are emptied, the
+password becomes unusable, and the user loses staff and superuser status, every lab
+membership and every session. The account stays as a tombstone, so the audit trail
+still points at it.</p>
+<form method="post" id="{{ opts.model_name }}_erase_form">{% csrf_token %}
+{% if form.non_field_errors %}<p class="errornote">{% for error in form.non_field_errors %}{{ error }} {% endfor %}</p>{% endif %}
+<fieldset class="module aligned">
+{% for field in form %}
+<div class="form-row{% if field.errors %} errors{% endif %}">
+  {{ field.errors }}
+  <div class="flex-container">{{ field.label_tag }} {{ field }}</div>
+  {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+</div>
+{% endfor %}
+</fieldset>
+<div class="submit-row"><input type="submit" value="Erase user" class="deletelink"></div>
+</form>
+</div>
+{% endblock %}

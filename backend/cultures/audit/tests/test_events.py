@@ -33,7 +33,9 @@ def test_a_service_writes_one_event_with_every_field(
         "user",
         member.public_id,
     )
-    assert (event.actor, event.actor_label, event.actor_kind) == (admin, "admin", "user")
+    # A pseudonym, never the username: it must outlive a rename and an erasure (#37).
+    label = f"user:{admin.public_id}"
+    assert (event.actor, event.actor_label, event.actor_kind) == (admin, label, "user")
     assert (event.channel, event.request_id, event.reason) == ("command", "cmd-1", "left the lab")
     assert (event.changes, event.batch_id, event.schema_version) == (
         {"is_active": [True, False]},

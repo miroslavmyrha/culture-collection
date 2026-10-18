@@ -4,6 +4,11 @@ Call both inside the service's audited_atomic(), never after commit: the event
 and the change commit or roll back together. Both raise MissingAuditContext
 without a context, and RuleViolation when the type needs a reason and none is
 given (the database refuses it too).
+
+No personal value enters an event (ADR 0005, update of 2026-10-18): a user
+actor is labelled `user:<public_id>`, and a personal field of the subject
+(registry.PERSONAL_FIELDS) is stored as "changed" whatever the service passed.
+Readers that show a name render it through the actor FK at read time.
 """
 
 import uuid
@@ -12,10 +17,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from cultures.core.exceptions import RuleViolation
+from cultures.users.models import User
 
 from .context import AuditContext, MissingAuditContext, current_context
 from .models import ActorKind, AuditEvent
-from .registry import EVENT_TYPES, EventType
+from .registry import EVENT_TYPES, PERSONAL_CHANGED, PERSONAL_FIELDS, EventType
 
 BATCH_SUBJECT = "batch"
 
@@ -24,8 +30,22 @@ BATCH_SUBJECT = "batch"
 class Change:
     subject_type: str
     subject_id: uuid.UUID
-    changes: dict[str, list[Any]]  # {field: [old, new]} from the persisted state
+    # {field: [old, new]} from the persisted state; a personal field: "changed"
+    changes: dict[str, Any]
     lab_id: int | None = None  # the tenant, for every change to a lab's data
+
+
+def actor_label(actor: User) -> str:
+    """A pseudonym that outlives the name: the public id never changes, erasure keeps it."""
+    return f"user:{actor.public_id}"
+
+
+def _without_personal(change: Change) -> dict[str, Any]:
+    personal = PERSONAL_FIELDS.get(change.subject_type, ())
+    return {
+        field: PERSONAL_CHANGED if field in personal else value
+        for field, value in change.changes.items()
+    }
 
 
 def _build(
@@ -43,7 +63,7 @@ def _build(
     return AuditEvent(
         event_type=event_type.code,
         actor=actor,
-        actor_label=actor.get_username() if actor is not None else context.actor_label,
+        actor_label=actor_label(actor) if actor is not None else context.actor_label,
         actor_kind=kind,
         lab_id=change.lab_id,
         channel=context.channel,
@@ -52,7 +72,7 @@ def _build(
         reason=reason,
         subject_type=change.subject_type,
         subject_id=change.subject_id,
-        changes=change.changes,
+        changes=_without_personal(change),
     )
 
 

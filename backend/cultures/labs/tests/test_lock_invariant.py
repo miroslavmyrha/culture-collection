@@ -87,6 +87,11 @@ def users_deactivate(lab: Lab) -> Callable[[], object]:
     return lambda: users.users_deactivate(users=[first, viewer], reason=REASON)
 
 
+def user_erase(lab: Lab) -> Callable[[], object]:
+    first, _ = _two_managers(lab)
+    return lambda: users.user_erase(user=first, reason=REASON)
+
+
 def users_deactivation_check(lab: Lab) -> Callable[[], object]:
     first, _ = _two_managers(lab)
     return lambda: labs.users_deactivation_check(users=[first])
@@ -103,12 +108,19 @@ SCENARIOS: dict[str, Scenario] = {
         member_remove,
         user_deactivate,
         users_deactivate,
+        user_erase,
         users_deactivation_check,
     )
 }
 
-# Services that lock a user row: the new member's, or the users being deactivated.
-LOCKS_USER = {"membership_create", "member_add", "user_deactivate", "users_deactivate"}
+# Services that lock a user row: the new member's, or the users being deactivated or erased.
+LOCKS_USER = {
+    "membership_create",
+    "member_add",
+    "user_deactivate",
+    "users_deactivate",
+    "user_erase",
+}
 
 # Public services that neither change memberships nor make a user inactive.
 EXEMPT: dict[str, str] = {

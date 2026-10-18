@@ -17,6 +17,11 @@ exclusions. Since audit migration 0006 the function stores no value for them
 either, but records that they changed. The default `secret=()` emits exactly
 what these functions emitted before it existed.
 
+Personal columns (`personal=`) are passed as "personal:<column>" after the
+secrets. Since audit migration 0010 the function stores the marker "personal"
+in their place in INSERT, UPDATE and DELETE rows (#37). The default
+`personal=()` emits exactly what these functions emitted before it existed.
+
 Migrations import this module, so its output is part of every migration that
 already ran: never change what these functions emit. A new trigger shape gets
 new functions and a new migration per table.
@@ -40,6 +45,7 @@ _IDENTIFIER = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
 _LABEL = re.compile(r"^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$")
 # Not a password (S105): no column name contains ":" (_IDENTIFIER), so the prefix is unambiguous.
 SECRET_PREFIX = "secret:"  # noqa: S105
+PERSONAL_PREFIX = "personal:"
 
 
 def _checked(pattern: re.Pattern[str], name: str) -> str:
@@ -50,24 +56,31 @@ def _checked(pattern: re.Pattern[str], name: str) -> str:
 
 
 def row_trigger_args(
-    label: str, pk: tuple[str, ...], exclude: tuple[str, ...], secret: tuple[str, ...] = ()
-) -> tuple[str, ...]:
-    """The arguments of the row triggers: label, pk columns as a JSON array, exclusions, secrets."""
-    for column in (*pk, *exclude, *secret):
-        _checked(_IDENTIFIER, column)
-    secrets = (SECRET_PREFIX + column for column in secret)
-    return (_checked(_LABEL, label), json.dumps(list(pk)), *exclude, *secrets)
-
-
-def _create(
-    table: str,
     label: str,
     pk: tuple[str, ...],
     exclude: tuple[str, ...],
     secret: tuple[str, ...] = (),
+    personal: tuple[str, ...] = (),
+) -> tuple[str, ...]:
+    """The row triggers' arguments: label, pk as a JSON array, exclusions, secrets, personal."""
+    for column in (*pk, *exclude, *secret, *personal):
+        _checked(_IDENTIFIER, column)
+    secrets = (SECRET_PREFIX + column for column in secret)
+    personals = (PERSONAL_PREFIX + column for column in personal)
+    return (_checked(_LABEL, label), json.dumps(list(pk)), *exclude, *secrets, *personals)
+
+
+def _create(
+    table: str,
+    *,
+    label: str,
+    pk: tuple[str, ...],
+    exclude: tuple[str, ...],
+    secret: tuple[str, ...] = (),
+    personal: tuple[str, ...] = (),
 ) -> str:
     table = _checked(_IDENTIFIER, table)
-    args = ", ".join(f"'{arg}'" for arg in row_trigger_args(label, pk, exclude, secret))
+    args = ", ".join(f"'{arg}'" for arg in row_trigger_args(label, pk, exclude, secret, personal))
     return f"""
 CREATE TRIGGER audit_row_change AFTER INSERT OR DELETE ON {table}
     FOR EACH ROW EXECUTE FUNCTION audit_row_change({args});
@@ -90,9 +103,13 @@ def attach_row_audit(
     pk: tuple[str, ...] = ("id",),
     exclude: tuple[str, ...] = (),
     secret: tuple[str, ...] = (),
+    personal: tuple[str, ...] = (),
 ) -> migrations.RunSQL:
     """Every INSERT, UPDATE, DELETE and TRUNCATE on `table` writes RowChange rows."""
-    return migrations.RunSQL(_create(table, label, pk, exclude, secret), _drop(table))
+    return migrations.RunSQL(
+        _create(table, label=label, pk=pk, exclude=exclude, secret=secret, personal=personal),
+        _drop(table),
+    )
 
 
 def detach_row_audit(
@@ -102,6 +119,10 @@ def detach_row_audit(
     pk: tuple[str, ...] = ("id",),
     exclude: tuple[str, ...] = (),
     secret: tuple[str, ...] = (),
+    personal: tuple[str, ...] = (),
 ) -> migrations.RunSQL:
     """The reverse of attach_row_audit; the same arguments, so the reverse can re-attach."""
-    return migrations.RunSQL(_drop(table), _create(table, label, pk, exclude, secret))
+    return migrations.RunSQL(
+        _drop(table),
+        _create(table, label=label, pk=pk, exclude=exclude, secret=secret, personal=personal),
+    )

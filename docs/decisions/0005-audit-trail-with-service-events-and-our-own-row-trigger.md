@@ -2,6 +2,7 @@
 
 Date: 2026-10-17
 Status: accepted (after the spike in issue #8). Roles, claims and reconciliation built in #34.
+Amended 2026-10-18: personal data and erasure (#37).
 Deciders: maintainer
 
 ## Context
@@ -62,7 +63,10 @@ changes a check constraint: on a large table write it NOT VALID, then
 VALIDATE. #9 adds the tenant column to `AuditEvent`. #34 adds
 `RowChange.actor_claim_invalid` (a constant default, metadata only) and
 replaces both trigger function bodies (0008). The roles are no migration:
-they come from `manage.py db_roles`.
+they come from `manage.py db_roles`. #37 replaces `audit_row_change()` again
+(0010), re-attaches the users triggers with personal columns (users 0006) and
+adds `users_user.erased_at` with a check constraint (users 0007; the CHECK
+scans the users table once, which is small).
 
 ## Consequences
 
@@ -185,3 +189,86 @@ django-pghistory once it supports Django 6.1 and fixes #261, keeping
 Revisit when: a table needs more than about 1 000 audited writes a second,
 django-pgtrigger ships Django 6.1 support and pghistory answers #261, or a
 regulator asks for a format we cannot produce from these two tables.
+
+## Update 2026-10-18: personal data and erasure (#37)
+
+Before this update the trail copied people into rows that never change: the
+row trigger stored usernames, names and emails in `RowChange`, the
+`user_created` and `user_changed` events held them in `changes`, and
+`actor_label` was the actor's username. An erasure could not reach any of
+them without breaking append-only. The policy now:
+
+- **No personal value enters an append-only row.**
+  - Row trigger: `RowAudit.personal` is a fourth class next to audited,
+    excluded and secret, passed to the trigger as `personal:<column>` after
+    the secrets. Audit migration 0010 (from the 0008 body, so the claims and
+    the secret marker stay) stores the marker `"personal"` instead of the
+    value in INSERT, UPDATE and DELETE rows, so a row still shows that the
+    column was there or changed. `users_user.username`, `first_name`,
+    `last_name` and `email` are personal (users migration 0006). The
+    classification invariant covers all four classes and fails for a column
+    in no class or in two, and for a registry entry that names a table or a
+    column that does not exist.
+  - The other regulated tables: `labs_lab.name` and `code` name an
+    organisational unit, not a person, and stay audited so old labels remain
+    traceable. Labs are named after their field or unit; a lab named after a
+    person keeps that name in its history. `labs_membership` holds ids and a
+    role only. `users_user` ids, flags, `date_joined` and `erased_at` stay
+    audited: they describe the account, not who it is.
+  - Service events: a personal field of the subject is recorded as
+    `{field: "changed"}` (`registry.PERSONAL_FIELDS`). The services pass it
+    so, and `record_event()` and `record_batch()` replace any value a service
+    passes by mistake. Other fields keep `[old, new]`; nothing reads
+    `schema_version` yet, so it stays 1.
+  - Actor label: `user:<public_id>` for a user, the existing labels
+    (`command:...`, `migration:...`, `login-limits`) for system
+    actors. A screen that shows the actor renders it through the `actor` FK
+    at read time. Today that is Django admin's object history (it reads the
+    user row, so an erased actor shows as `erased-<public_id>`).
+    `audit_reconcile` prints the labels as stored: its output goes to logs,
+    which no erasure reaches, so it keeps the pseudonym.
+  - No data migration writes events or row changes yet, so none holds a
+    personal value.
+- **Free text names nobody.** `reason` and any later note field are stored
+  for good. The admin's reason fields say so in their help text. A reason
+  says why ("erasure request 2026-114"), never who.
+- **Erasure is the tombstone.** `user_erase(user=..., reason=...)` (event
+  `user_erased`, reason required) overwrites the user row in place: username
+  `erased-<public_id>`, empty names and email, an unusable password,
+  inactive, not staff, not superuser, `erased_at` set. The pk, `public_id`
+  and `date_joined` stay, so every PROTECT foreign key and every audit row
+  still resolves. In the same transaction it removes the memberships through
+  `membership_delete` (one `member_removed` event each), deletes the user's
+  sessions and login counters, and renames the user in Django's admin log,
+  which copies `str(user)` into `object_repr`. It locks the user row with
+  every active superuser's row (by pk), then the labs by pk, then the
+  memberships. It refuses with `last_manager` when the user is a lab's last
+  active manager (also for an inactive manager of a lab without an active
+  one, as `membership_delete` does for everybody) and with `last_superuser`
+  for the last active superuser, and then changes nothing. A second erasure
+  is a no-op without an event, like every service that finds nothing to
+  change. An erased user cannot sign in, and every other user service
+  refuses it with `user_erased`, `user_activate` included. A check
+  constraint (`users_user_erased_is_a_tombstone`) holds the tombstone
+  against any writer. Usernames starting with `erased-` are reserved, so a
+  live account cannot take the name an erasure needs. The admin has an
+  "Erase user" page (the username typed again and a reason); an erased user
+  is read-only there.
+- **No scrub migration.** No production database holds real people yet, so
+  rows written before 0010 are not rewritten. If one ever does, the scrub is
+  a one-time data migration run as the migration role: inside its own
+  transaction it lifts the append-only trigger of the audit tables, replaces
+  personal values in old `RowChange` and `AuditEvent` rows with the markers,
+  sets a `scrubbed` flag and records one `audit_scrubbed` event with the
+  count. It is the only write an audit row may ever see, and it is audited.
+
+Proven by a test that gives one person a marker in every personal field,
+renames them twice, lets them act through a command, the API and the admin,
+erases them through the admin page, and then searches every text, varchar,
+char and json(b) column of every table for the marker: zero hits, and
+`audit_reconcile` reports no alarm.
+
+Revisit when: a new table holds a person (classify its columns as
+personal), a note or comment field arrives (free text), or the first
+production database with real people exists before a change of this policy
+(then the scrub above is required).
