@@ -86,10 +86,11 @@ describe('routing and the session guard', () => {
   it('signs in, sends the CSRF token and returns to the validated redirect', async () => {
     const me = makeMe({ username: 'lab-tech' })
     const calls = mockApi('post', '/api/v1/auth/login/', me, { status: 200 })
-    const { router } = renderApp({ path: '/login', search: { redirect: '/?tab=b' } })
+    const { router, client } = renderApp({ path: '/login', search: { redirect: '/?tab=b' } })
     await signIn()
     expect(await screen.findByText('Signed in as lab-tech')).toBeInTheDocument()
     expect(router.state.location.href).toBe('/?tab=b')
+    expect(client.getMutationCache().getAll()).toEqual([]) // not even the login with its password
     expect(calls).toHaveLength(1)
     expect(calls[0]?.body).toEqual({ username: 'lab-tech', password: 'correct horse battery' })
     expect(calls[0]?.headers.get('X-CSRFToken')).toBe('test-token')
@@ -218,6 +219,7 @@ describe('session expiry (401)', () => {
     mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))
     const { router, client } = renderApp({ path: '/', search: { tab: 'b' } })
     expect(await screen.findByText('Signed in as lab-tech')).toBeInTheDocument()
+    await client.getMutationCache().build(client, { mutationFn: () => Promise.resolve('earlier write') }).execute(undefined)
     // The session ends: every API call now answers 401.
     mockApiError('get', '/api/v1/auth/me/', 401, problem(401))
     mockApiError('get', '/api/v1/auth/csrf/', 401, problem(401))
@@ -227,6 +229,7 @@ describe('session expiry (401)', () => {
     expect(router.state.location.search).toEqual({ redirect: '/?tab=b' })
     expect(client.getQueryCache().findAll({ queryKey: ['csrf'] })).toHaveLength(0)
     expect(client.getQueryData(authKeys.me())).toBeNull()
+    expect(client.getMutationCache().getAll()).toEqual([])
     // The always-mounted top bar follows the session, not the user it rendered first.
     expect(screen.queryByText(/Signed in as/)).not.toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument()
@@ -262,6 +265,7 @@ describe('sign out', () => {
     await user.click(button)
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(client.getQueryData(authKeys.me())).toBeNull()
+    expect(client.getMutationCache().getAll()).toEqual([])
     expect(screen.getByRole('status')).toHaveTextContent('You have been signed out.')
     expect(screen.queryByText(/Signed in as/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
@@ -317,6 +321,7 @@ describe('sign out', () => {
     expect(screen.getByText('Signed in as lab-tech')).toBeInTheDocument()
     expect(client.getQueryData(['private', 'records'])).toEqual(['secret'])
     expect(client.getQueryData(authKeys.me())).toMatchObject({ username: 'lab-tech' })
+    expect(client.getMutationCache().getAll()).toHaveLength(1) // the failed sign-out, nothing cleared
     // The button keeps the focus and works again.
     expect(button).toHaveFocus()
     expect(button).not.toBeDisabled()
