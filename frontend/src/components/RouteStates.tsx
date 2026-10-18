@@ -1,9 +1,11 @@
 import { type ErrorComponentProps, Link, useRouter } from '@tanstack/react-router'
+import { PageTitle } from '@/components/ui'
 import { errorMessage } from '@/lib/api'
 
 export function NotFound() {
   return (
     <section>
+      <PageTitle>Page not found</PageTitle>
       <h1>Page not found</h1>
       <p>The address may be mistyped, or the page was moved.</p>
       <Link to="/">Go to the start page</Link>
@@ -24,6 +26,7 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
   }
   return (
     <section role="alert">
+      <PageTitle>Something went wrong</PageTitle>
       <h1>Something went wrong</h1>
       <p>{errorMessage(error)}</p>
       {import.meta.env.DEV && <pre>{error instanceof Error ? error.message : String(error)}</pre>}
@@ -38,5 +41,10 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
 }
 
 export function Pending() {
-  return <p>Loading…</p>
+  return (
+    <>
+      <PageTitle>Loading</PageTitle>
+      <p>Loading…</p>
+    </>
+  )
 }

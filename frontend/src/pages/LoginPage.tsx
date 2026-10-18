@@ -1,5 +1,5 @@
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
-import { Alert, Container, Paper, Typography } from '@/components/ui'
+import { Alert, Container, PageTitle, Paper, Typography } from '@/components/ui'
 import { LoginForm } from '@/features/auth/components/LoginForm'
 import { safeRedirect } from '@/lib/safe'
 
@@ -10,6 +10,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   return (
     <Container component="section" maxWidth="xs" disableGutters>
+      <PageTitle>Sign in</PageTitle>
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Typography component="h1" variant="h4" gutterBottom>
           Sign in
