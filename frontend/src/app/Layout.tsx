@@ -37,7 +37,16 @@ export function Layout({ children }: { children: ReactNode }) {
                 </Link>
               </Box>
               <Typography component="p">Signed in as {user.username}</Typography>
-              <Button color="inherit" variant="outlined" onClick={() => logout.mutate()} disabled={logout.isPending}>
+              {/* aria-disabled and a guard, not disabled: disabling the focused button drops focus to
+                  the body, and after a failed sign-out the user tries again from here. */}
+              <Button
+                color="inherit"
+                variant="outlined"
+                aria-disabled={logout.isPending}
+                onClick={() => {
+                  if (!logout.isPending) logout.mutate()
+                }}
+              >
                 Sign out
               </Button>
             </>

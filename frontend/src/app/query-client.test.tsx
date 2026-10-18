@@ -9,10 +9,10 @@ import { renderWithProviders } from '@/test/render'
 import { reported } from '@/test/reports'
 import { makeQueryClient } from './query-client'
 
-function SaveButton({ handlesError = false }: { handlesError?: boolean }) {
+function SaveButton({ handlesError = false, errorMessage }: { handlesError?: boolean; errorMessage?: string }) {
   const save = useMutation({
     mutationFn: () => unwrap(api.POST('/api/v1/auth/logout/')),
-    meta: { handlesError },
+    meta: { handlesError, errorMessage },
   })
   return (
     <>
@@ -24,8 +24,8 @@ function SaveButton({ handlesError = false }: { handlesError?: boolean }) {
   )
 }
 
-async function clickSave(handlesError?: boolean) {
-  await renderWithProviders(<SaveButton handlesError={handlesError} />)
+async function clickSave(handlesError?: boolean, errorMessage?: string) {
+  await renderWithProviders(<SaveButton handlesError={handlesError} errorMessage={errorMessage} />)
   await userEvent.setup().click(screen.getByRole('button', { name: 'Save' }))
 }
 
@@ -44,6 +44,13 @@ describe('global mutation error message', () => {
     expect(await screen.findByText('Inline: could not save.')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(reported).toEqual([]) // a 403 is an answer, not a bug
+  })
+
+  it('shows the mutation\'s own message instead of the generic one (meta.errorMessage)', async () => {
+    mockApiError('post', '/api/v1/auth/logout/', 500)
+    await clickSave(false, 'Saving the box failed. Nothing was changed.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Saving the box failed. Nothing was changed.')
+    expect(screen.queryByText('The server failed. Try again in a moment.')).not.toBeInTheDocument()
   })
 
   it('can be dismissed', async () => {
