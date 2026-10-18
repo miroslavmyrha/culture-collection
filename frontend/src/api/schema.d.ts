@@ -134,6 +134,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/taxa/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Taxa by name. `search` finds names containing the text. */
+        get: operations["taxa_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/taxa/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["taxa_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -211,6 +244,21 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["MemberOutput"][];
         };
+        PaginatedTaxonOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["TaxonOutput"][];
+        };
         PatchedMemberRoleInputRequest: {
             role?: components["schemas"]["Role"];
         };
@@ -229,6 +277,21 @@ export interface components {
             detail: string;
         };
         /**
+         * @description * `domain` - Domain
+         *     * `kingdom` - Kingdom
+         *     * `phylum` - Phylum
+         *     * `class` - Class
+         *     * `order` - Order
+         *     * `family` - Family
+         *     * `genus` - Genus
+         *     * `species` - Species
+         *     * `subspecies` - Subspecies
+         *     * `variety` - Variety
+         *     * `form` - Form
+         * @enum {string}
+         */
+        RankEnum: "domain" | "kingdom" | "phylum" | "class" | "order" | "family" | "genus" | "species" | "subspecies" | "variety" | "form";
+        /**
          * @description * `viewer` - Viewer
          *     * `technician` - Technician
          *     * `curator` - Curator
@@ -236,6 +299,43 @@ export interface components {
          * @enum {string}
          */
         Role: "viewer" | "technician" | "curator" | "manager";
+        /**
+         * @description * `accepted` - Accepted
+         *     * `synonym` - Synonym
+         * @enum {string}
+         */
+        StatusEnum: "accepted" | "synonym";
+        /**
+         * @description * `ncbi` - NCBI Taxonomy
+         *     * `lpsn` - LPSN
+         *     * `mycobank` - MycoBank
+         * @enum {string}
+         */
+        SystemEnum: "ncbi" | "lpsn" | "mycobank";
+        /** @description A taxon inside another resource: enough to show and link it. */
+        TaxonBrief: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly name: string;
+            readonly authority: string;
+            readonly rank: components["schemas"]["RankEnum"];
+            readonly status: components["schemas"]["StatusEnum"];
+        };
+        TaxonIdentifierOutput: {
+            readonly system: components["schemas"]["SystemEnum"];
+            readonly value: string;
+        };
+        TaxonOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly name: string;
+            readonly authority: string;
+            readonly rank: components["schemas"]["RankEnum"];
+            readonly status: components["schemas"]["StatusEnum"];
+            readonly parent: components["schemas"]["TaxonBrief"] | null;
+            readonly accepted: components["schemas"]["TaxonBrief"] | null;
+            readonly identifiers: components["schemas"]["TaxonIdentifierOutput"][];
+        };
     };
     responses: never;
     parameters: never;
@@ -883,6 +983,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LabOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    taxa_list: {
+        parameters: {
+            query?: {
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedTaxonOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    taxa_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxonOutput"];
                 };
             };
             401: {

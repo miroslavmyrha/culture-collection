@@ -96,6 +96,16 @@ USER_LOGIN_LIMITS_CLEARED = register(
 # The person's values are gone from the user row, which stays as a tombstone (#37).
 USER_ERASED = register(EventType("user_erased", "{actor} erased {subject}", reason_required=True))
 
+# Taxonomy (ADR 0008, D4): global, changed by staff, no lab and no strain.
+TAXON_CREATED = register(EventType("taxon_created", "{actor} added taxon {subject}"))
+TAXON_CHANGED = register(EventType("taxon_changed", "{actor} changed taxon {subject}"))
+TAXON_IDENTIFIER_ADDED = register(
+    EventType("taxon_identifier_added", "{actor} added an external id to {taxon}")
+)
+TAXON_IDENTIFIER_REMOVED = register(
+    EventType("taxon_identifier_removed", "{actor} removed an external id of {taxon}")
+)
+
 
 @dataclass(frozen=True)
 class RowAudit:
@@ -159,6 +169,27 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
         label="labs.membership",
         # Internal ids and a role: the person is reached only through users_user.
         audited=("id", "public_id", "created_at", "updated_at", "user_id", "lab_id", "role"),
+    ),
+    "taxonomy_taxon": RowAudit(
+        label="taxonomy.taxon",
+        # authority is a nomenclatural citation ("(Ehrenberg 1835) Cohn 1872"), part of the
+        # published name, not a record about a person: its values stay in the trail.
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "name",
+            "authority",
+            "rank",
+            "parent_id",
+            "status",
+            "accepted_id",
+        ),
+    ),
+    "taxonomy_taxonidentifier": RowAudit(
+        label="taxonomy.taxonidentifier",
+        audited=("id", "public_id", "created_at", "updated_at", "taxon_id", "system", "value"),
     ),
 }
 

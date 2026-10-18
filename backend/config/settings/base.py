@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "cultures.core",
     "cultures.labs",
     "cultures.audit",
+    "cultures.taxonomy",
 ]
 
 MIDDLEWARE = [
