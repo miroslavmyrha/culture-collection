@@ -5,10 +5,11 @@ passwords next to the API login. Here a POST to it passes the same checks as
 the API login (cultures.users.api.views.login_view), in the same order:
 1. the per-IP throttle LoginThrottle, with the same cache key, so the API and
    the admin login share one budget per client;
-2. the per-account limit (login_limits): while it is reached even the right
-   password is refused;
-3. Django's login form. A failed attempt counts for the account, a successful
-   one clears its counter.
+2. the failure counters of cultures.users.login_limits, shared with the API:
+   the pair back-off, the address budget, and the account under attack, where
+   only a browser with the account's known-device cookie may try;
+3. Django's login form. A failed attempt (the form again) counts, a
+   successful one (the redirect) clears its pair and sets the cookie.
 Refusals are a 429 problem with Retry-After, the same as the API's.
 
 The site's own password change view ("Change password" in the header) saves
@@ -19,11 +20,11 @@ from http import HTTPStatus
 from math import ceil
 from typing import Any
 
-from django.conf import settings
 from django.contrib import admin
 from django.contrib.admin.forms import AdminPasswordChangeForm
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.template.response import TemplateResponse
+from django.utils import timezone
 from rest_framework.request import Request
 from rest_framework.views import APIView
 
@@ -31,8 +32,9 @@ from cultures.audit.context import audit_context
 from cultures.audit.models import Channel
 from cultures.core.errors import PROBLEM_CONTENT_TYPE, problem
 
-from . import login_limits, services
+from . import services
 from .api.views import LoginThrottle
+from .login_limits import Attempt, Surface
 from .models import User
 
 TOO_MANY = "Too many login attempts. Try again later."
@@ -74,13 +76,15 @@ class AdminSite(admin.AdminSite):
         if not throttle.allow_request(Request(request), APIView()):  # the key ignores the view
             return _too_many(throttle.wait() or 0)
         username = request.POST.get("username", "")
-        if login_limits.is_locked(username):
-            return _too_many(settings.LOGIN_ACCOUNT_WINDOW_SECONDS)
+        attempt = Attempt.of(request, username, Surface.ADMIN)
+        refusal = attempt.refusal()
+        if refusal is not None:
+            return _too_many(refusal.wait_seconds(timezone.now()))
         response = super().login(request, extra_context)
-        if response.status_code == HTTPStatus.FOUND:  # LoginView redirects after a valid login
-            login_limits.clear(username)
+        if response.status_code == HTTPStatus.FOUND and isinstance(request.user, User):
+            attempt.succeeded(request.user, response)  # LoginView redirects after a valid login
         elif response.status_code == HTTPStatus.OK and username:  # the form again: refused
-            login_limits.record_failure(username)
+            attempt.failed()
         return response
 
     def password_change(

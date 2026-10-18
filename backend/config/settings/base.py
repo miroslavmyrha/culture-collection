@@ -12,7 +12,7 @@ import environ
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.csp import CSP
 
-from config.env import env_bool, env_int, env_list, env_secret, env_str
+from config.env import env_bool, env_int, env_list, env_networks, env_secret, env_str
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -132,10 +132,26 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-# Login limits: per client IP (DRF throttle scope "login") and per account
-# (failed attempts per normalized username, cleared on success).
-LOGIN_ACCOUNT_MAX_FAILURES = env_int("LOGIN_ACCOUNT_MAX_FAILURES", default=5, minimum=1)
-LOGIN_ACCOUNT_WINDOW_SECONDS = env_int("LOGIN_ACCOUNT_WINDOW_SECONDS", default=30 * 60, minimum=1)
+# Login limits (cultures.users.login_limits): the request rate per address (DRF throttle
+# scope "login"), then failed logins counted in a table, never a hard lock of an account:
+# - per account and address bucket: after PAIR_MAX failures in the window, a back-off of
+#   PAIR_BACKOFF seconds that doubles with each further failure, for that pair only;
+# - per address bucket across accounts: ADDRESS_MAX failures, then the address waits;
+# - per account across addresses: ACCOUNT_MAX failures put the account under attack, and
+#   only a browser holding its known-device cookie may still try.
+LOGIN_PAIR_MAX_FAILURES = env_int("LOGIN_PAIR_MAX_FAILURES", default=5, minimum=1)
+LOGIN_PAIR_WINDOW_SECONDS = env_int("LOGIN_PAIR_WINDOW_SECONDS", default=15 * 60, minimum=1)
+LOGIN_PAIR_BACKOFF_SECONDS = env_int("LOGIN_PAIR_BACKOFF_SECONDS", default=60, minimum=1)
+LOGIN_ADDRESS_MAX_FAILURES = env_int("LOGIN_ADDRESS_MAX_FAILURES", default=30, minimum=1)
+LOGIN_ADDRESS_WINDOW_SECONDS = env_int("LOGIN_ADDRESS_WINDOW_SECONDS", default=60 * 60, minimum=1)
+LOGIN_ACCOUNT_MAX_FAILURES = env_int("LOGIN_ACCOUNT_MAX_FAILURES", default=20, minimum=1)
+LOGIN_ACCOUNT_WINDOW_SECONDS = env_int("LOGIN_ACCOUNT_WINDOW_SECONDS", default=60 * 60, minimum=1)
+# Set on every successful login: signed per account with the user's public id and
+# password hash, so a password change revokes it. HttpOnly, SameSite=Lax, path /, no
+# Domain. Production names it __Host- and makes it Secure, like the session cookie.
+KNOWN_DEVICE_COOKIE_NAME = "knowndevice"
+KNOWN_DEVICE_COOKIE_SECURE = False
+KNOWN_DEVICE_COOKIE_AGE = 365 * 24 * 60 * 60
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
@@ -208,10 +224,11 @@ ADMIN_PATH = env_str("DJANGO_ADMIN_PATH", DEFAULT_ADMIN_PATH)
 ERROR_REPORTING_DSN = env_secret("ERROR_REPORTING_DSN", "")
 ERROR_REPORTING_ENVIRONMENT = env_str("ERROR_REPORTING_ENVIRONMENT", "production")
 
-# Proxies in front of the app that append to X-Forwarded-For. 0 means the
-# header is ignored and REMOTE_ADDR is the client. Without this setting DRF
-# keys throttles on the whole header and a client escapes by rotating it.
-NUM_PROXIES = env_int("DJANGO_NUM_PROXIES", default=0, minimum=0)
+# The proxies in front of the app, as addresses or networks (CIDR). X-Forwarded-For
+# is read only on a request whose REMOTE_ADDR is one of them (cultures.core.client_ip).
+# Empty: the header is ignored and REMOTE_ADDR is the client. gunicorn.conf.py gives
+# gunicorn the same list as forwarded_allow_ips.
+TRUSTED_PROXIES = env_networks("DJANGO_TRUSTED_PROXIES")
 
 REST_FRAMEWORK: dict[str, Any] = {
     # 401 for anonymous requests (WWW-Authenticate: Session), 403 for "not allowed".
@@ -228,7 +245,9 @@ REST_FRAMEWORK: dict[str, Any] = {
     "DEFAULT_PAGINATION_CLASS": "cultures.core.pagination.LimitOffsetPagination",
     "PAGE_SIZE": 50,
     "EXCEPTION_HANDLER": "cultures.core.errors.exception_handler",
-    "NUM_PROXIES": NUM_PROXIES,
+    # Every project throttle takes the client from cultures.core.client_ip (ClientIdentMixin).
+    # 0 keeps DRF's own get_ident, should anything reach it, on REMOTE_ADDR.
+    "NUM_PROXIES": 0,
     "DEFAULT_THROTTLE_CLASSES": [
         "cultures.core.throttling.AnonRateThrottle",
         "cultures.core.throttling.UserRateThrottle",

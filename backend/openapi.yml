@@ -63,7 +63,7 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-          description: Too many attempts (IP or account)
+          description: Too many attempts (address, account or both), see Retry-After
   /api/v1/auth/logout/:
     post:
       operationId: auth_logout_create

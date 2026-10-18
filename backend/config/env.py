@@ -6,6 +6,7 @@ django-environ's env.bool turns unknown values into False and its file-aware
 variant keeps the trailing newline of secret files, so neither is used here.
 """
 
+import ipaddress
 import os
 from pathlib import Path
 
@@ -55,6 +56,27 @@ def env_list(name: str, default: list[str] | None = None) -> list[str]:
     if value is None:
         return list(default or [])
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def env_networks(name: str) -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
+    """Comma-separated IP addresses or networks (CIDR), as ipaddress networks.
+
+    Strict like gunicorn's forwarded_allow_ips, which reads the same value: host
+    bits set (192.0.2.1/24) are refused, and so is a /0 network, which would
+    trust every client.
+    """
+    networks = []
+    for entry in env_list(name):
+        try:
+            network = ipaddress.ip_network(entry)
+        except ValueError:
+            raise ImproperlyConfigured(
+                f"{name}: {entry!r} is not an IP address or network (CIDR without host bits)."
+            ) from None
+        if network.prefixlen == 0:
+            raise ImproperlyConfigured(f"{name}: {entry!r} would trust every client.")
+        networks.append(network)
+    return tuple(networks)
 
 
 def env_secret(name: str, default: str | None = None) -> str:

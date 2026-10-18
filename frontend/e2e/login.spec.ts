@@ -11,6 +11,11 @@ function parseCsp(header: string): Record<string, string[]> {
   )
 }
 
+/** knowndevice in development, __Host-knowndevice in production. */
+async function knownDeviceCookie(page: Page) {
+  return (await page.context().cookies()).find((cookie) => cookie.name.endsWith('knowndevice'))
+}
+
 async function signIn(page: Page, pass = password) {
   await page.getByLabel('Username').fill(username)
   await page.getByLabel('Password').fill(pass)
@@ -30,6 +35,11 @@ test('signs in through the real API under the production CSP and returns to the 
   await page.reload()
   await expect(page.getByText(`Signed in as ${username}`)).toBeVisible()
   expect(await page.evaluate(() => Object.keys(localStorage))).toEqual([])
+  // The login remembered this browser for the login limits: out of reach of scripts, no name in it.
+  const device = await knownDeviceCookie(page)
+  expect(device).toMatchObject({ httpOnly: true, sameSite: 'Lax', path: '/' })
+  expect(device?.value).not.toContain(username)
+  expect(await page.evaluate(() => document.cookie)).not.toContain('knowndevice')
 
   await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page')
   await page.getByRole('button', { name: 'Sign out' }).click()
@@ -38,6 +48,7 @@ test('signs in through the real API under the production CSP and returns to the 
   await expect(page.getByRole('status')).toHaveText('You have been signed out.')
   await expect(page.getByRole('navigation', { name: 'Main' })).toHaveCount(0)
   await expect(page.getByText(`Signed in as ${username}`)).toHaveCount(0)
+  expect((await knownDeviceCookie(page))?.value).toBe(device?.value) // signing out keeps it
 
   await page.goto('/no-such-page')
   await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible()

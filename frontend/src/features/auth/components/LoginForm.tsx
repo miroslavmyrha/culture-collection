@@ -8,6 +8,18 @@ import { type LoginInput, loginSchema } from '../schemas'
 
 type Props = { onSuccess: () => void }
 
+const MINUTE_MS = 60_000
+
+/**
+ * The 429 says when to try again (Retry-After) and nothing else: an unknown name gets the same
+ * answer. While an account is under attack, a browser that signed in to it before may still try.
+ */
+function tooManyAttempts(retryAfterMs: number | undefined): string {
+  const minutes = retryAfterMs === undefined ? undefined : Math.max(1, Math.ceil(retryAfterMs / MINUTE_MS))
+  const when = minutes === undefined ? 'later' : `in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`
+  return `Too many sign-in attempts. Try again ${when}. A browser you signed in with before may still work.`
+}
+
 export function LoginForm({ onSuccess }: Props) {
   const login = useLogin()
   const { register, handleSubmit, formState, setError } = useForm<LoginInput>({
@@ -23,7 +35,7 @@ export function LoginForm({ onSuccess }: Props) {
   const rejected = isApiError(login.error, 400) || isApiError(login.error, 401)
   const invalid = rejected && username?.type !== 'server' && password?.type !== 'server'
   const failed = login.isError && !rejected
-  const throttled = isApiError(login.error, 429)
+  const throttled = isApiError(login.error, 429) ? tooManyAttempts(login.error.retryAfterMs) : undefined
 
   return (
     <form onSubmit={onSubmit} noValidate aria-label="Sign in">
@@ -32,7 +44,7 @@ export function LoginForm({ onSuccess }: Props) {
         <TextField label="Password" type="password" autoComplete="current-password" error={password?.message} {...register('password')} />
         {invalid && <Alert severity="error">Invalid username or password.</Alert>}
         {/* Every other failure (CSRF 403, throttling 429, 5xx, network) must be visible too. */}
-        {failed && <Alert severity="error">{throttled ? 'Too many attempts. Wait a minute and try again.' : 'Sign-in failed. Try again.'}</Alert>}
+        {failed && <Alert severity="error">{throttled ?? 'Sign-in failed. Try again.'}</Alert>}
         <Button type="submit" variant="contained" disabled={login.isPending}>
           Sign in
         </Button>

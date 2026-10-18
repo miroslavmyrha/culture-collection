@@ -1,4 +1,9 @@
-"""JSON log lines (LOG_FORMAT=json) with the standard library only."""
+"""JSON log lines (LOG_FORMAT=json) with the standard library only.
+
+A structured line passes its fields as extra={"fields": {...}}: they become keys of
+the JSON object, after the standard keys, which they never replace. The message
+repeats them as key=value for the plain format.
+"""
 
 import json
 import logging
@@ -16,6 +21,10 @@ class JsonFormatter(logging.Formatter):
             "message": record.getMessage(),
             "request_id": getattr(record, "request_id", None) or current_request_id(),
         }
+        fields = getattr(record, "fields", None)
+        if isinstance(fields, dict):
+            for key, value in fields.items():
+                entry.setdefault(str(key), value)
         if record.exc_info:
             entry["exc_info"] = self.formatException(record.exc_info)
         if record.stack_info:

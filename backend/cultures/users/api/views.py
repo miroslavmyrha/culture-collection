@@ -1,5 +1,5 @@
-from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
+from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
@@ -15,8 +15,8 @@ from cultures.core.errors import ProblemSerializer
 from cultures.core.exceptions import DomainError
 from cultures.core.security import enforce_csrf
 from cultures.core.throttling import ClientIdentMixin
-from cultures.users import login_limits
 from cultures.users.auth import current_user
+from cultures.users.login_limits import Attempt, Surface
 
 from .serializers import LoginInputSerializer, MeOutputSerializer
 
@@ -55,7 +55,9 @@ def csrf(request: Request) -> Response:
         200: MeOutputSerializer,
         (400, PROBLEM): OpenApiResponse(ProblemSerializer, "Invalid input or credentials"),
         (403, PROBLEM): OpenApiResponse(ProblemSerializer, "Missing or invalid CSRF token"),
-        (429, PROBLEM): OpenApiResponse(ProblemSerializer, "Too many attempts (IP or account)"),
+        (429, PROBLEM): OpenApiResponse(
+            ProblemSerializer, "Too many attempts (address, account or both), see Retry-After"
+        ),
     },
 )
 @api_view(["POST"])
@@ -65,16 +67,18 @@ def login_view(request: Request) -> Response:
     enforce_csrf(request)  # anonymous write: DRF would not check CSRF here (login CSRF)
     data = LoginInputSerializer(data=request.data)
     data.is_valid(raise_exception=True)
-    username: str = data.validated_data["username"]
-    if login_limits.is_locked(username):
-        raise Throttled(wait=settings.LOGIN_ACCOUNT_WINDOW_SECONDS)
+    attempt = Attempt.of(request, data.validated_data["username"], Surface.API)
+    refusal = attempt.refusal()
+    if refusal is not None:
+        raise Throttled(wait=refusal.wait_seconds(timezone.now()))
     user = authenticate(request, **data.validated_data)
     if user is None:
-        login_limits.record_failure(username)
+        attempt.failed()
         raise InvalidCredentials
-    login_limits.clear(username)
     login(request, user)
-    return Response(MeOutputSerializer(user).data)
+    response = Response(MeOutputSerializer(user).data)
+    attempt.succeeded(user, response)
+    return response
 
 
 @extend_schema(request=None, responses={204: None})

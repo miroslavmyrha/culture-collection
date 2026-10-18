@@ -27,6 +27,7 @@ from cultures.audit.registry import (
     USER_CHANGED,
     USER_CREATED,
     USER_DEACTIVATED,
+    USER_LOGIN_LIMITS_CLEARED,
     USER_PASSWORD_CHANGED,
     USER_STAFF_CHANGED,
     USER_SUPERUSER_CHANGED,
@@ -36,6 +37,7 @@ from cultures.audit.registry import (
 from cultures.core.exceptions import Conflict
 from cultures.labs.services import users_deactivation_check
 
+from . import login_limits
 from .models import User
 
 SUBJECT = "user"
@@ -174,6 +176,25 @@ def user_set_password(*, user: User, raw_password: str | None) -> User:
             ),
         )
     return user
+
+
+def user_login_limits_clear(*, user: User, reason: str | None = None) -> int:
+    """Delete the failed-login counters of the user's account: its pairs and its own count.
+
+    For staff, when a user is held back (the account under attack, a pair in its
+    back-off) and the wait must end now. The counters of the addresses stay: they
+    count other accounts' failures too. Needs a reason, also when there was
+    nothing to delete: the event records the decision. Returns how many counters
+    were deleted.
+    """
+    with audited_atomic():
+        deleted = login_limits.clear_account(user.username)
+        record_event(
+            USER_LOGIN_LIMITS_CLEARED,
+            Change(SUBJECT, user.public_id, {"login_failure_counters": [deleted, 0]}),
+            reason=reason,
+        )
+    return deleted
 
 
 def user_deactivate(*, user: User, reason: str | None = None) -> User:

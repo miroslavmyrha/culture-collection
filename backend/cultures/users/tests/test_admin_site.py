@@ -1,12 +1,18 @@
 """The admin site: the API login's limits on its login, and the own password through a service.
 
-The login has the same per-IP budget and the same account limit as the API login.
+The login has the same per-IP budget and the same failure counters as the API
+login. The scenarios of the counters run on both doors in test_login_limits.py.
 """
 
+import ipaddress
+
 import pytest
+import time_machine
 from django.conf import settings
 from django.test import Client, override_settings
 from django.urls import reverse
+from django.utils import timezone
+from pytest_django.fixtures import Settings
 
 from config.settings import base
 from cultures.audit.models import AuditEvent, Channel
@@ -63,6 +69,42 @@ def test_another_address_keeps_its_own_admin_login_budget(
     assert signed_in(client)
 
 
+def test_a_forged_forwarding_header_gives_the_admin_login_no_new_budget(
+    production_rate: str, client: Client
+) -> None:
+    """The admin login reads the client through cultures.core.client_ip like the API."""
+    statuses = [
+        client.post(
+            LOGIN,
+            {"username": f"guess{n}", "password": "wrong"},
+            REMOTE_ADDR=IP,
+            HTTP_X_FORWARDED_FOR=f"203.0.113.{n}",
+        ).status_code
+        for n in range(11)
+    ]
+    assert statuses == [200] * 10 + [429]
+
+
+def test_behind_a_trusted_proxy_the_admin_login_counts_per_client(
+    production_rate: str, client: Client, staff: User, settings: Settings
+) -> None:
+    settings.TRUSTED_PROXIES = (ipaddress.ip_network("10.0.0.0/24"),)
+    for n in range(10):
+        client.post(
+            LOGIN,
+            {"username": f"guess{n}", "password": "wrong"},
+            REMOTE_ADDR="10.0.0.5",
+            HTTP_X_FORWARDED_FOR="203.0.113.1",
+        )
+    behind_the_same_proxy = client.post(
+        LOGIN,
+        {"username": "staff", "password": PASSWORD, "next": "/"},
+        REMOTE_ADDR="10.0.0.5",
+        HTTP_X_FORWARDED_FOR="203.0.113.2",
+    )
+    assert behind_the_same_proxy.status_code == 302
+
+
 def test_the_admin_and_the_api_login_share_one_budget_per_address(
     production_rate: str, client: Client
 ) -> None:
@@ -77,22 +119,23 @@ def test_the_admin_and_the_api_login_share_one_budget_per_address(
 
 
 @override_settings(LOGIN_ACCOUNT_MAX_FAILURES=5)
-def test_the_right_password_during_an_account_lock_is_refused_like_in_the_api(
+def test_the_right_password_under_attack_is_refused_like_in_the_api(
     client: Client, staff: User
 ) -> None:
-    statuses = [admin_login(client, "staff", "wrong", ip=f"203.0.113.{n}") for n in range(5)]
-    assert statuses == [200] * 5
-    response = client.post(LOGIN, {"username": "staff", "password": PASSWORD}, REMOTE_ADDR=IP)
-    assert_problem(response, 429, "throttled")
-    assert int(response["Retry-After"]) == settings.LOGIN_ACCOUNT_WINDOW_SECONDS
-    assert not signed_in(client)
-    # The API refuses it the same way: one lock per account, whichever door was used.
-    api = client.post(
-        API_LOGIN,
-        {"username": "staff", "password": PASSWORD},
-        content_type="application/json",
-        REMOTE_ADDR=IP,
-    )
+    with time_machine.travel(timezone.now(), tick=False):
+        statuses = [admin_login(client, "staff", "wrong", ip=f"203.0.113.{n}") for n in range(5)]
+        assert statuses == [200] * 5
+        response = client.post(LOGIN, {"username": "staff", "password": PASSWORD}, REMOTE_ADDR=IP)
+        assert_problem(response, 429, "throttled")
+        assert int(response["Retry-After"]) == settings.LOGIN_ACCOUNT_WINDOW_SECONDS
+        assert not signed_in(client)
+        # The API refuses it the same way: the counters are shared, whichever door was used.
+        api = client.post(
+            API_LOGIN,
+            {"username": "staff", "password": PASSWORD},
+            content_type="application/json",
+            REMOTE_ADDR=IP,
+        )
     assert_problem(api, 429, "throttled")
     assert api["Retry-After"] == response["Retry-After"]
 
@@ -106,13 +149,6 @@ def test_api_failures_count_for_the_admin_account_limit(client: Client, staff: U
             content_type="application/json",
         )
     assert admin_login(client, "staff", PASSWORD) == 429
-
-
-@override_settings(LOGIN_ACCOUNT_MAX_FAILURES=3)
-def test_a_successful_admin_login_clears_the_account_counter(client: Client, staff: User) -> None:
-    assert [admin_login(client, "staff", "wrong") for _ in range(2)] == [200, 200]
-    assert admin_login(client, "staff", PASSWORD) == 302
-    assert [admin_login(Client(), "staff", "wrong") for _ in range(3)] == [200, 200, 200]
 
 
 @override_settings(LOGIN_ACCOUNT_MAX_FAILURES=2)

@@ -92,13 +92,31 @@ event, such as a data migration in `migration_audit()`, are printed as `known` a
 not fail it. Examples: cron `17 6 * * * ... audit_reconcile --since 25h || alert`, a
 systemd timer, or a Kubernetes CronJob with the image and the app's environment.
 
+### Login limits
+Failed logins are counted per account and address, per address and per account
+(ADR 0007, `backend/cultures/users/login_limits.py`). No account is ever locked for
+everyone: while an account is under attack, a browser that signed in to it before still
+may. Every failure and refusal logs a `login_failed` line (account reference, address
+bucket, `surface` api or admin, `outcome`, request id), never the typed name, and an
+account going under attack is an audit event. The user admin shows an account's
+"Failed logins", and staff end the wait with "Clear login limits" and a reason (an
+audit event). Once an hour, as `cultures_app`:
+`python manage.py prune_login_failures` deletes ended counters, so a flood of made-up
+names does not stay in the table.
+
 Required environment: `DJANGO_SECRET_KEY` (or `DJANGO_SECRET_KEY_FILE`), `DATABASE_URL`
 (or `DATABASE_URL_FILE`, the runtime role for the app), `DJANGO_ALLOWED_HOSTS`, `DJANGO_ADMIN_PATH` (not the default).
-Behind a TLS proxy: `DJANGO_BEHIND_TLS_PROXY=true`, `DJANGO_NUM_PROXIES` (proxies that
-append to X-Forwarded-For, usually 1) and `GUNICORN_FORWARDED_ALLOW_IPS` (the proxy
-address). Optional: `DJANGO_SECRET_KEY_FALLBACKS` (key rotation), `LOG_FORMAT=json`,
+Behind a TLS proxy: `DJANGO_BEHIND_TLS_PROXY=true` and `DJANGO_TRUSTED_PROXIES`, the
+proxies' addresses or networks, comma separated (`10.0.0.5` or `10.0.0.0/24`). The app
+reads `X-Forwarded-For` only on a request that comes from one of them, from the right,
+up to the first address not in the list; gunicorn takes the same list as
+`forwarded_allow_ips`. Each proxy must append the address it saw (nginx
+`proxy_add_x_forwarded_for`, plain addresses without ports): a hop that is not an
+address ends the walk at the last trusted one. `DJANGO_NUM_PROXIES` and `GUNICORN_FORWARDED_ALLOW_IPS` are gone, and startup refuses
+them. Optional: `DJANGO_SECRET_KEY_FALLBACKS` (key rotation), `LOG_FORMAT=json`,
 `ERROR_REPORTING_DSN` (add `sentry-sdk` first), `DB_RUNTIME_ROLE_REQUIRED=false` (only
-where the host gives the app no second role), `THROTTLE_*`, `LOGIN_ACCOUNT_*`,
+where the host gives the app no second role), `THROTTLE_*`, `LOGIN_PAIR_*`,
+`LOGIN_ADDRESS_*`, `LOGIN_ACCOUNT_*` (`backend/config/settings/base.py`),
 `DATA_UPLOAD_MAX_MEMORY_SIZE`. Startup refuses unsafe values; `./check.sh` runs
 `check --deploy` with production settings.
 

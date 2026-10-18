@@ -7,10 +7,11 @@ TRIGGER, and a new column nobody classified as audited or excluded.
 """
 
 import pytest
+from django.apps import apps
 from django.db import connection
 
 from cultures.audit.operations import ROW_TRIGGERS, row_trigger_args
-from cultures.audit.registry import ROW_AUDITED_TABLES, RowAudit
+from cultures.audit.registry import NOT_ROW_AUDITED, ROW_AUDITED_TABLES, RowAudit
 
 pytestmark = pytest.mark.django_db
 
@@ -182,3 +183,43 @@ def test_an_update_trigger_of_the_wrong_shape_is_found(definition: str) -> None:
             " audit_row_change('users.user', '[\"id\"]', 'password', 'last_login')"
         )
     assert [line.split(":")[0] for line in row_audit_mismatches()] == ["users_user"]
+
+
+def project_tables() -> set[str]:
+    """Every table of the project's models, many-to-many tables included."""
+    project = {app.label for app in apps.get_app_configs() if app.name.startswith("cultures.")}
+    return {
+        model._meta.db_table
+        for model in apps.get_models(include_auto_created=True)
+        if model._meta.app_label in project
+    }
+
+
+def unclassified_tables() -> list[str]:
+    tables = project_tables()
+    wrong = [
+        f"{t}: neither row-audited nor exempt"
+        for t in sorted(tables - set(ROW_AUDITED_TABLES) - set(NOT_ROW_AUDITED))
+    ]
+    wrong += [
+        f"{t}: row-audited and exempt"
+        for t in sorted(set(ROW_AUDITED_TABLES) & set(NOT_ROW_AUDITED))
+    ]
+    wrong += [f"{t}: exempt, but no such table" for t in sorted(set(NOT_ROW_AUDITED) - tables)]
+    return wrong
+
+
+def test_every_project_table_is_row_audited_or_exempt_with_a_reason() -> None:
+    assert {"users_user", "users_loginfailures", "labs_lab"} <= project_tables()
+    assert unclassified_tables() == []
+    assert all(reason.strip() for reason in NOT_ROW_AUDITED.values())
+
+
+def test_a_table_nobody_classified_is_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delitem(NOT_ROW_AUDITED, "users_loginfailures")
+    assert unclassified_tables() == ["users_loginfailures: neither row-audited nor exempt"]
+
+
+def test_a_stale_exemption_is_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(NOT_ROW_AUDITED, "users_gone", "a table that was dropped")
+    assert unclassified_tables() == ["users_gone: exempt, but no such table"]
