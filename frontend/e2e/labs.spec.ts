@@ -58,7 +58,7 @@ test('a manager sees their lab and role, then adds, changes and removes a member
   await page.getByRole('button', { name: `Remove ${username}` }).click()
   const own = page.getByRole('dialog', { name: `Remove ${username}?` })
   await own.getByRole('button', { name: 'Remove' }).click()
-  await expect(own.getByRole('alert')).toHaveText('A lab needs at least one manager. Make another member manager first.')
+  await expect(own.getByRole('alert')).toHaveText('A lab needs at least one active manager. Make another member manager first.')
   await own.getByRole('button', { name: 'Cancel' }).click()
 
   // Remove after a confirmation

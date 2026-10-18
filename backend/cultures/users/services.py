@@ -9,6 +9,11 @@ changes record whether a usable password exists, never a value or a hash.
 
 Validation of input (password rules, field formats) is the caller's job, as
 in Django's forms and commands: these are the trusted writes behind them.
+
+Deactivation keeps every lab with an active manager: it locks the users' rows
+(by pk), then cultures.labs.services locks their labs (by pk) and refuses with
+LastManager when a lab would have none left. Nothing is changed and nothing is
+recorded then. The admin makes another member a manager first (ADR 0006).
 """
 
 from collections.abc import Mapping, Sequence
@@ -29,6 +34,7 @@ from cultures.audit.registry import (
     EventType,
 )
 from cultures.core.exceptions import Conflict
+from cultures.labs.services import users_deactivation_check
 
 from .models import User
 
@@ -171,9 +177,13 @@ def user_set_password(*, user: User, raw_password: str | None) -> User:
 
 
 def user_deactivate(*, user: User, reason: str | None = None) -> User:
-    """Deactivate one user. The actor and channel come from the audit context."""
+    """Deactivate one user. The actor and channel come from the audit context.
+
+    Refused (LastManager) when the user is the last active manager of a lab.
+    """
     with audited_atomic():
-        user = User.objects.select_for_update().get(pk=user.pk)
+        user = _locked(user)
+        users_deactivation_check(users=[user])
         was_active = user.is_active
         user.is_active = False
         user.save(update_fields=["is_active"])
@@ -186,13 +196,18 @@ def user_deactivate(*, user: User, reason: str | None = None) -> User:
 
 
 def users_deactivate(*, users: Sequence[User], reason: str | None = None) -> int:
-    """Deactivate many users with one UPDATE: one event per user plus a batch event."""
+    """Deactivate many users with one UPDATE: one event per user plus a batch event.
+
+    All or nothing: refused (LastManager) when together they are the last
+    active managers of a lab, and then no user is deactivated.
+    """
     with audited_atomic():
         locked = list(
             User.objects.select_for_update()
             .filter(pk__in=[u.pk for u in users], is_active=True)
             .order_by("pk")
         )
+        users_deactivation_check(users=locked)
         User.objects.filter(pk__in=[u.pk for u in locked]).update(is_active=False)
         record_batch(
             USER_DEACTIVATED,

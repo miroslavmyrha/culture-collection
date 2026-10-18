@@ -110,7 +110,7 @@ def test_the_last_manager_stays_with_a_form_error(
     before = snapshot()
     response = change_lab(admin_client, lab, [existing(membership(manager, lab), **change)])
     assert response.status_code == 200
-    assert "A lab needs at least one manager." in response.content.decode()
+    assert "A lab needs at least one active manager." in response.content.decode()
     assert (snapshot(), AuditEvent.objects.count()) == (before, 0)
 
 

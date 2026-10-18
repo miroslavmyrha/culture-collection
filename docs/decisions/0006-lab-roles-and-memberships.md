@@ -40,8 +40,9 @@ curator < manager, each holding the permissions of the roles below it plus
 its own (`GRANTS` in `permissions.py`). Every model with a `lab` foreign key
 uses `LabScopedQuerySet` (`for_access(access, perm)`), enforced by an
 invariant test over the app registry. Managers grant at most their own role,
-a lab never loses its last manager, and every change is an audited service
-call (ADR 0005). `AuditEvent` gets the `lab` tenant column ADR 0005 promised.
+a lab never loses its last active manager (amended below), and every change
+is an audited service call (ADR 0005). `AuditEvent` gets the `lab` tenant
+column ADR 0005 promised.
 
 ## Migration impact
 
@@ -63,6 +64,43 @@ while no later table points at labs. After #10 every new table carries
 - Staff need a membership to use the API like anybody else; admin is their
   tool. Staff access to lab data through the API (with a reason and an
   expiry) is not built.
+
+## Amendment 2026-10-18: an active manager (#35)
+
+"A lab never loses its last manager" counted inactive users. A deactivated
+user keeps the membership, so a lab could end with only inactive managers,
+and then nobody manages its members through the API. Deactivating the last
+manager had the same effect. Decided:
+- Only active managers count, everywhere the rule is checked: the services,
+  the admin lab form, and user deactivation.
+- Deactivating a user who is the last active manager of a lab is refused
+  (`LastManager`, code `last_manager`, the message names the lab). Staff make
+  another member a manager first, then deactivate. `users_deactivate` is all
+  or nothing: one such user refuses the whole batch.
+- No forced deactivation with a reason. Forcing it would create the state
+  the rule exists to prevent, and the way out (name a successor) is one
+  admin save. Considered and rejected: a `force` flag with a reason, and a
+  `replacement` argument on `user_deactivate`, which mixes a membership
+  change into a user service.
+- A refused attempt changes nothing and records nothing, like every other
+  refusal: the service's transaction rolls back with its event and row
+  changes. The audit trail records what happened, not what was tried.
+- Lock order: user rows (by pk), then lab rows (by pk), then memberships.
+  Deactivation locks the users, then every lab they belong to (any role, so
+  a concurrent promotion waits too), and reads the managers under those
+  locks. `membership_create` locks the new member's user row, so no
+  membership appears for a user while the user is being deactivated. The
+  grantor's role and active flag are re-read under the lab lock, so a
+  grantor deactivated after the request built its access object is refused.
+- A lab that already has no active manager stays editable in admin, so staff
+  can name one.
+
+Known limits: the admin lab form is the one place that locks a lab before a
+user: `lab_update` runs before the inline adds members. If the API adds the
+same user to the same lab at that moment, PostgreSQL detects the deadlock
+and aborts one of the two, which would have failed as a duplicate anyway. Changing a membership or a user with
+`QuerySet.update()` or SQL skips the rule (the row trigger still records
+it), as for every other rule in the services.
 
 Fallback: if per-object exceptions appear (a strain shared with one external
 person), add object grants next to the lab role, not instead of it.

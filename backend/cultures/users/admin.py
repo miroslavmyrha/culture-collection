@@ -6,7 +6,9 @@ rows carry the same actor and request id. Django's stock UserAdmin saves the
 model directly and lets staff delete users; this one does neither.
 - Profile fields go through user_update (event user_changed).
 - Active, staff and superuser status go through their own services and need a
-  reason, typed into the change form next to them.
+  reason, typed into the change form next to them. The last active manager of
+  a lab cannot be deactivated: the form says which lab, and the service
+  refuses again under the locks.
 - Passwords (the "Reset password" form) go through user_set_password.
 - Users are deactivated, never deleted: audit rows point at them.
 - Groups and per-user Django permissions are not offered: the app's rights
@@ -23,6 +25,7 @@ from django.http import HttpRequest, HttpResponse
 
 from cultures.audit.context import audit_context
 from cultures.audit.models import Channel
+from cultures.labs.services import labs_left_without_manager
 
 from . import services
 from .admin_site import staff_actor
@@ -42,6 +45,7 @@ else:
 # Each one is its own service and event type, and needs a reason.
 PRIVILEGE_FIELDS = ("is_active", "is_staff", "is_superuser")
 REASON_REQUIRED = "A reason is required when active, staff or superuser status changes."
+LAST_MANAGER = "This user is the last active manager of {lab}. Make another member a manager first."
 
 
 class UserChangeForm(UserChangeFormBase):
@@ -56,6 +60,9 @@ class UserChangeForm(UserChangeFormBase):
         changes_privileges = set(PRIVILEGE_FIELDS) & set(self.changed_data)
         if changes_privileges and not cleaned.get("reason", "").strip():
             self.add_error("reason", REASON_REQUIRED)
+        if "is_active" in self.changed_data and not cleaned.get("is_active"):
+            for lab in labs_left_without_manager(users=[self.instance]):
+                self.add_error("is_active", LAST_MANAGER.format(lab=lab))
         return cleaned
 
 
