@@ -5,6 +5,7 @@ share the counters, the cookie and the 429. A door answers "in", "wrong" (the
 password check failed) or "limited" (429 before the password is checked).
 """
 
+import hashlib
 import ipaddress
 import logging
 from collections.abc import Callable
@@ -18,6 +19,7 @@ from django.core.cache import cache
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.crypto import salted_hmac
 from pytest_django.fixtures import Settings
 
 from cultures.audit.context import audit_context
@@ -574,3 +576,32 @@ class TestCounters:
             now + timedelta(seconds=1)
         ]
         assert login_limits.prune(now) == 0
+
+
+class TestKeys:
+    def test_a_key_is_an_hmac_under_the_login_limits_own_purpose(self) -> None:
+        """Not a bare hash (reversible with a list of names) and not an HMAC that another
+        use of SECRET_KEY, with another or no purpose, would also produce."""
+        expected = salted_hmac(
+            "cultures.users.login_limits", "account:alice", algorithm="sha256"
+        ).hexdigest()
+        assert login_limits.account_key(" Alice ") == expected
+        assert expected != salted_hmac("", "account:alice", algorithm="sha256").hexdigest()
+        assert expected != hashlib.sha256(b"account:alice").hexdigest()
+
+    def test_a_key_changes_with_the_secret_key(self, settings: Settings) -> None:
+        before = login_limits.account_key("alice")
+        settings.SECRET_KEY = "another-secret-" + "y" * 40
+        assert login_limits.account_key("alice") != before
+
+
+def test_a_browser_is_read_for_five_entries_at_most(door: Door, alice: User) -> None:
+    """A cookie stuffed with entries costs no more signature checks than five."""
+    browser = known_browser(door, "alice")
+    valid = browser.cookies[settings.KNOWN_DEVICE_COOKIE_NAME].value
+    stuffed = "|".join(["1:aaaaaa:forged"] * login_limits.KNOWN_DEVICES_PER_BROWSER + [valid])
+    browser.cookies[settings.KNOWN_DEVICE_COOKIE_NAME] = stuffed
+    put_under_attack(door, "alice")
+    assert door(browser, "alice", PASSWORD, NEW) == "limited"
+    browser.cookies[settings.KNOWN_DEVICE_COOKIE_NAME] = valid
+    assert door(browser, "alice", PASSWORD, NEW) == "in"
