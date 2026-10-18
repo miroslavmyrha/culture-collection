@@ -1,9 +1,9 @@
 import { type Browser, type BrowserContext, expect, type Locator, type Page, test } from '@playwright/test'
-import { password, ratio, ring, surfaceOf, tabTo, username } from './support.js'
+import { axe, password, ratio, ring, surfaceOf, tabTo, username, watchCsp } from './support.js'
 
-// Checks that need a browser: the focus ring and its contrast (WCAG 2.4.7, 1.4.11; axe does not
-// test focus rings). Nothing here changes data, so it runs next to labs.spec.ts. One sign-in for
-// the whole file: the login throttle allows 10 a minute.
+// Checks that need a browser: reflow at 320 px (WCAG 1.4.10), and the focus ring and its
+// contrast (2.4.7, 1.4.11; axe does not test focus rings). Nothing here changes data, so it runs
+// next to labs.spec.ts. One sign-in for the whole file: the login throttle allows 10 a minute.
 
 type State = Awaited<ReturnType<BrowserContext['storageState']>>
 let signedIn: State
@@ -62,6 +62,65 @@ async function openLab(page: Page, search = '') {
   await page.goto(`${href ?? ''}${search}`)
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
 }
+
+const fitsWidth = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth)
+
+test.describe('reflow at 320 px', () => {
+  test('login, labs, a lab, its dialog and the account menu fit without scrolling sideways, and pass axe', async ({ browser }) => {
+    const anonymous = await open(browser, { width: 320, anonymous: true })
+    const violationsLogin = await watchCsp(anonymous.page)
+    await anonymous.page.goto('/login')
+    await expect(anonymous.page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+    expect(await fitsWidth(anonymous.page)).toBeLessThanOrEqual(320)
+    expect(await axe(anonymous.page, 'body')).toEqual([])
+    expect(violationsLogin()).toEqual([])
+    await anonymous.close()
+
+    const { page, close } = await open(browser, { width: 320 })
+    const violations = await watchCsp(page)
+    await page.goto('/labs')
+    await expect(page.getByRole('heading', { level: 1, name: 'Labs' })).toBeVisible()
+    // The user and sign-out live in the menu here.
+    const account = page.getByRole('button', { name: `Account (${username})` })
+    await expect(account).toBeVisible()
+    await expect(page.getByText(`Signed in as ${username}`)).toHaveCount(0)
+    expect(await fitsWidth(page)).toBeLessThanOrEqual(320)
+    expect(await axe(page, 'body')).toEqual([])
+
+    await openLab(page)
+    expect(await fitsWidth(page)).toBeLessThanOrEqual(320)
+    expect(await axe(page, 'body')).toEqual([])
+    // The members table is wider than the screen: it scrolls inside its own container.
+    const scroller = page.getByRole('table', { name: 'Members' }).locator('xpath=..')
+    const sizes = await scroller.evaluate((e) => ({ scroll: e.scrollWidth, client: e.clientWidth, overflow: getComputedStyle(e).overflowX }))
+    expect(sizes.overflow).toBe('auto')
+    expect(sizes.scroll).toBeGreaterThan(sizes.client)
+    // A long name without spaces wraps instead of widening the page.
+    await page.getByRole('heading', { level: 1 }).evaluate((h) => {
+      h.textContent = 'Mycology'.repeat(20)
+    })
+    expect(await fitsWidth(page)).toBeLessThanOrEqual(320)
+    await page.reload()
+
+    await page.getByRole('button', { name: `Remove ${username}` }).click()
+    const dialog = page.getByRole('alertdialog', { name: `Remove ${username}?` })
+    await expect(dialog).toBeVisible()
+    expect(await fitsWidth(page)).toBeLessThanOrEqual(320)
+    expect(await axe(page, '[role="alertdialog"]')).toEqual([])
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+
+    await account.click()
+    const menu = page.getByRole('menu', { name: `Account (${username})` })
+    await expect(menu.getByRole('menuitem', { name: 'Sign out' })).toBeFocused()
+    expect(await fitsWidth(page)).toBeLessThanOrEqual(320)
+    expect(await axe(page, '[role="menu"]')).toEqual([])
+    await page.keyboard.press('Escape')
+    await expect(account).toBeFocused()
+    expect(violations()).toEqual([])
+    await close()
+  })
+})
 
 /**
  * A ring 2px solid, with 3:1 against the surface the control sits on (an outset ring; WCAG
@@ -141,6 +200,26 @@ for (const colorScheme of ['light', 'dark'] as const) {
       const lab = page.getByRole('link', { name: 'E2E lab' })
       await tabTo(page, lab)
       await expectRing(lab, 'lab link in the table')
+      await close()
+    })
+
+    test('the account menu button and its item show a ring with 3:1 at 320 px', async ({ browser }) => {
+      const { page, close } = await open(browser, { colorScheme, width: 320 })
+      await page.goto('/')
+      const account = page.getByRole('button', { name: `Account (${username})` })
+      await tabTo(page, account)
+      await expectRing(account, 'account menu button on the bar')
+      await page.keyboard.press('Enter')
+      const item = page.getByRole('menuitem', { name: 'Sign out' })
+      await expect(item).toBeFocused()
+      // MUI insets the ring inside a menu item (a scrolling list would clip it): it sits on the item.
+      const drawn = await ring(item)
+      expect(drawn.style).toBe('solid')
+      expect(drawn.width).toBe('2px')
+      const itemRatio = ratio(drawn.color, await surfaceOf(item, true))
+      test.info().annotations.push({ type: 'focus ring', description: `menu item (inset): ${drawn.color} = ${itemRatio.toFixed(2)}:1` })
+      expect(itemRatio).toBeGreaterThanOrEqual(3)
+      await page.keyboard.press('Escape')
       await close()
     })
   })

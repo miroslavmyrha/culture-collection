@@ -14,7 +14,7 @@ type Props = {
 export function Pager({ label, count, shown, limit, offset, loading, onOffsetChange }: Props) {
   if (count <= limit && offset === 0) return null
   return (
-    <Box component="nav" aria-label={label} sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
+    <Box component="nav" aria-label={label} sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, mt: 2 }}>
       <Typography>
         {offset + 1} to {offset + shown} of {count}
       </Typography>

@@ -22,6 +22,10 @@ export const theme = createTheme({
     fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   },
   components: {
+    MuiCssBaseline: {
+      // A long word (a lab name, a username) breaks instead of widening the page (WCAG 1.4.10).
+      styleOverrides: { body: { overflowWrap: 'break-word' } },
+    },
     MuiAppBar: {
       styleOverrides: {
         // Three classes: more specific than the controls' own `.MuiButton-root.Mui-focusVisible`,
