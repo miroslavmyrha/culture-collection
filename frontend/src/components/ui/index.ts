@@ -22,6 +22,7 @@ export {
   Toolbar,
   Typography,
 } from '@mui/material'
+export { ConfirmDialog } from './ConfirmDialog'
 export { Link } from './Link'
 export { SelectField } from './SelectField'
 export { SkipLink } from './SkipLink'
