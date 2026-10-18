@@ -44,7 +44,7 @@ describe('changing a role', () => {
     const dialog = screen.getByRole('dialog', { name: 'Change the role of alice' })
     await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Role' }), 'viewer')
     await user.click(within(dialog).getByRole('button', { name: 'Save role' }))
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent('A lab needs at least one manager. Make another member manager first.')
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('A lab needs at least one active manager. Make another member manager first.')
     expect(screen.queryByText('server text')).not.toBeInTheDocument()
   })
 
@@ -88,6 +88,6 @@ describe('removing a member', () => {
     await user.click(screen.getByRole('button', { name: 'Remove alice' }))
     const dialog = screen.getByRole('dialog', { name: 'Remove alice?' })
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent('A lab needs at least one manager.')
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('A lab needs at least one active manager.')
   })
 })

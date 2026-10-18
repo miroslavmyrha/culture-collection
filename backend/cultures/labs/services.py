@@ -3,20 +3,33 @@
 Two layers, like zulip's check_* and do_*:
 - lab_* and membership_* are trusted: staff in Django admin and commands call
   them. They keep the rules that hold for everybody (an active user, one
-  membership per user and lab, a lab never loses its last manager) and audit.
+  membership per user and lab, a lab never loses its last active manager)
+  and audit.
 - member_* are the lab managers' writes through the API. Under the same lab
   lock they first re-read the grantor's role from the database, then refuse a
   grant above it, and only then call the trusted layer. The viewset already
   answered 403 from the request's access object; the re-check closes the race
   with a concurrent demotion of the grantor.
 
-Lock order: the lab row first, then memberships. Every member change of a lab
-takes the lab lock, so "is this the last manager?" is answered on committed
-data and two managers cannot demote each other at the same time.
+Lock order: user rows (by pk), then lab rows (by pk), then memberships. Every
+member change of a lab takes the lab lock before it reads the lab's managers,
+so "is this the last active manager?" is answered on committed data and two
+managers cannot demote each other at the same time. Only active managers
+count: an inactive user keeps the membership but cannot manage anybody.
+
+Deactivating users (cultures.users.services) holds their rows locked and calls
+users_deactivation_check, which locks every lab they belong to and refuses to
+leave a lab without an active manager. membership_create locks the new
+member's user row, so no membership appears for a user while the user is
+being deactivated. The admin names a replacement first: there is no forced
+deactivation (ADR 0006). One exception to the order: the admin lab form runs
+lab_update before its inline adds members (ADR 0006, known limits).
 """
 
+from collections.abc import Collection
+
 from django.db import IntegrityError, transaction
-from django.db.models import Model
+from django.db.models import Model, Q
 
 from cultures.audit.context import audited_atomic
 from cultures.audit.events import Change, record_event
@@ -57,7 +70,7 @@ class AlreadyMember(DomainError):
 
 class LastManager(RuleViolation):
     default_code = "last_manager"
-    default_detail = "A lab needs at least one manager."
+    default_detail = "A lab needs at least one active manager."
 
 
 class GrantAboveOwnRole(Forbidden):
@@ -80,6 +93,13 @@ def _save(obj: Model, errors: dict[str, DomainError]) -> None:
 
 def _lock_lab(lab_id: int) -> Lab:
     return Lab.objects.select_for_update().get(pk=lab_id)
+
+
+def _lock_active_user(user: User) -> None:
+    """The user row, so a deactivation of this user waits for us or we see its result."""
+    locked = User.objects.select_for_update(no_key=True).filter(pk=user.pk, is_active=True)
+    if not locked.exists():
+        raise UnknownUser(attr="username")
 
 
 def _user_id(user: User) -> str:
@@ -127,10 +147,10 @@ def _lab_errors() -> dict[str, DomainError]:
 
 
 def membership_create(*, lab: Lab, user: User, role: Role) -> Membership:
+    """Lock order: the user, then the lab (callers that hold the lab lock took the user first)."""
     with audited_atomic():
+        _lock_active_user(user)
         _lock_lab(lab.pk)
-        if not User.objects.filter(pk=user.pk, is_active=True).exists():
-            raise UnknownUser(attr="username")
         membership = Membership(lab=lab, user=user, role=role)
         _save(membership, {MEMBERSHIP_UNIQUE: AlreadyMember(attr="username")})
         record_event(
@@ -151,7 +171,7 @@ def membership_set_role(*, membership: Membership, role: Role) -> Membership:
         if locked.role == role:
             return locked
         if locked.role == Role.MANAGER:
-            _keep_a_manager(locked)
+            _keep_a_manager(locked.lab_id, leaving=Q(pk=locked.pk))
         old = locked.role
         locked.role = role
         locked.save(update_fields=["role", "updated_at"])
@@ -172,7 +192,7 @@ def membership_delete(*, membership: Membership) -> None:
     with audited_atomic():
         locked = _locked_membership(membership)
         if locked.role == Role.MANAGER:
-            _keep_a_manager(locked)
+            _keep_a_manager(locked.lab_id, leaving=Q(pk=locked.pk))
         public_id, lab_id, role = locked.public_id, locked.lab_id, locked.role
         user = _user_id(locked.user)
         locked.delete()
@@ -198,13 +218,56 @@ def _locked_membership(membership: Membership) -> Membership:
     return locked
 
 
-def _keep_a_manager(membership: Membership) -> None:
-    """Caller holds the lab lock, so no other change of this lab's members runs meanwhile."""
-    others = Membership.objects.filter(lab_id=membership.lab_id, role=Role.MANAGER).exclude(
-        pk=membership.pk
+def _keep_a_manager(lab_id: int, *, leaving: Q, detail: str | None = None) -> None:
+    """Refuse when no active manager is left once the memberships in `leaving` stop counting.
+
+    Caller holds the lab lock, so no other change of this lab's members runs meanwhile.
+    """
+    managers = Membership.objects.filter(lab_id=lab_id, role=Role.MANAGER, user__is_active=True)
+    if not managers.exclude(leaving).exists():
+        raise LastManager(detail)
+
+
+def users_deactivation_check(*, users: Collection[User]) -> None:
+    """Before these users become inactive: lock their labs by pk, keep an active manager in each.
+
+    Caller holds the users' rows locked (cultures.users.services), so no new
+    membership of theirs appears meanwhile. Every lab they belong to is locked,
+    whatever their role there: a promotion to manager also waits for the lab.
+    Refuses the whole call when one lab would be left without an active manager.
+    """
+    user_ids = [user.pk for user in users]
+    lab_ids = (
+        Membership.objects.filter(user_id__in=user_ids)
+        .order_by("lab_id")
+        .values_list("lab_id", flat=True)
+        .distinct()
     )
-    if not others.exists():
-        raise LastManager
+    for lab_id in list(lab_ids):
+        lab = _lock_lab(lab_id)
+        leaving = Membership.objects.filter(lab_id=lab_id, user_id__in=user_ids)
+        if leaving.filter(role=Role.MANAGER, user__is_active=True).exists():
+            _keep_a_manager(lab_id, leaving=Q(user_id__in=user_ids), detail=_last_manager_of(lab))
+
+
+def _last_manager_of(lab: Lab) -> str:
+    return (
+        f"This would leave {lab.name} ({lab.code}) without an active manager."
+        " Make another member a manager first."
+    )
+
+
+def labs_left_without_manager(*, users: Collection[User]) -> list[Lab]:
+    """The labs that deactivating these users would leave without an active manager.
+
+    A read without locks, for forms that want to show the error before saving.
+    The service (users_deactivation_check) decides under the locks.
+    """
+    user_ids = [user.pk for user in users]
+    active_managers = Membership.objects.filter(role=Role.MANAGER, user__is_active=True)
+    managed = active_managers.filter(user_id__in=user_ids).values("lab_id")
+    covered = active_managers.exclude(user_id__in=user_ids).values("lab_id")
+    return list(Lab.objects.filter(pk__in=managed).exclude(pk__in=covered).order_by("pk"))
 
 
 # Memberships, checked: a lab manager through the API.
@@ -212,6 +275,7 @@ def _keep_a_manager(membership: Membership) -> None:
 
 def member_add(*, access: Access, lab: Lab, user: User, role: Role) -> Membership:
     with audited_atomic():
+        _lock_active_user(user)  # users before labs
         _lock_lab(lab.pk)
         _check_grant(_grantor_role(access, lab.pk), role)
         return membership_create(lab=lab, user=user, role=role)
@@ -234,7 +298,10 @@ def member_remove(*, access: Access, membership: Membership) -> None:
 
 
 def _grantor_role(access: Access, lab_id: int) -> Role:
-    """The grantor's role as committed now (caller holds the lab lock), not as the request began."""
+    """The grantor's role as committed now (caller holds the lab lock), not as the request began.
+
+    A grantor deactivated or demoted after the request built its access object is refused.
+    """
     role = (
         Membership.objects.filter(lab_id=lab_id, user=access.user, user__is_active=True)
         .values_list("role", flat=True)

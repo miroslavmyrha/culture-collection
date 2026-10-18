@@ -3,8 +3,9 @@
 Every save goes through the trusted services (cultures.labs.services), so admin
 writes are audited like API writes: one AuditEvent each, channel "web", the
 staff user as the actor. The forms refuse what the services would refuse
-(an inactive user, a second membership, a lab left without a manager), so a
-staff user sees a form error instead of a server error. Labs are never deleted.
+(an inactive user, a second membership, a lab left without an active manager),
+so a staff user sees a form error instead of a server error. Labs are never
+deleted.
 """
 
 from typing import TYPE_CHECKING, Any
@@ -12,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 from django import forms
 from django.contrib import admin
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
 
 from cultures.audit.context import audit_context
@@ -46,21 +48,36 @@ class MembershipForm(MembershipFormBase):
         user.queryset = User.objects.filter(is_active=True).order_by("username")
         if self.instance.pk is not None:
             user.disabled = True  # a membership changes its role, never its user
+            # A disabled field still cleans its initial value against the queryset:
+            # keep the member's own user in it, or a lab with an inactive member cannot be saved.
+            user.queryset = User.objects.filter(
+                Q(is_active=True) | Q(pk=self.instance.user_id)
+            ).order_by("username")
 
 
 class MembershipFormSet(forms.BaseInlineFormSet):  # type: ignore[type-arg]
     def clean(self) -> None:
         super().clean()
         lab = self.instance
-        if lab.pk is None or not Membership.objects.filter(lab=lab, role=Role.MANAGER).exists():
-            return
+        if (
+            lab.pk is None
+            or not Membership.objects.filter(
+                lab=lab, role=Role.MANAGER, user__is_active=True
+            ).exists()
+        ):
+            return  # a lab without an active manager stays editable, so staff can name one
         kept = [
-            form.cleaned_data.get("role")
+            form.cleaned_data
             for form in self.forms
             if form.cleaned_data and not form.cleaned_data.get("DELETE")
         ]
-        if Role.MANAGER not in kept:
+        if not any(_active_manager(data) for data in kept):
             raise ValidationError(services.LastManager.default_detail)
+
+
+def _active_manager(data: dict[str, Any]) -> bool:
+    user = data.get("user")
+    return data.get("role") == Role.MANAGER and isinstance(user, User) and user.is_active
 
 
 class MembershipInline(MembershipInlineBase):
