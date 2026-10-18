@@ -66,7 +66,9 @@ replaces both trigger function bodies (0008). The roles are no migration:
 they come from `manage.py db_roles`. #37 replaces `audit_row_change()` again
 (0010), re-attaches the users triggers with personal columns (users 0006) and
 adds `users_user.erased_at` with a check constraint (users 0007; the CHECK
-scans the users table once, which is small).
+scans the users table once, which is small). #50 adds the strain timeline
+root `AuditEvent.strain_id` (0012) and its partial index, built concurrently
+(0013), before the first strain event (ADR 0008, D13).
 
 ## Consequences
 

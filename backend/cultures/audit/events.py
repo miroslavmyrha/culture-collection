@@ -33,6 +33,9 @@ class Change:
     # {field: [old, new]} from the persisted state; a personal field: "changed"
     changes: dict[str, Any]
     lab_id: int | None = None  # the tenant, for every change to a lab's data
+    # The strain's public id, for every change to a strain or anything under it: deposit,
+    # passage, batch, vial, check, placement (ADR 0008, D13). Its timeline reads by it.
+    strain_id: uuid.UUID | None = None
 
 
 def actor_label(actor: User) -> str:
@@ -66,6 +69,7 @@ def _build(
         actor_label=actor_label(actor) if actor is not None else context.actor_label,
         actor_kind=kind,
         lab_id=change.lab_id,
+        strain_id=change.strain_id,
         channel=context.channel,
         request_id=context.request_id,
         batch_id=batch_id,
@@ -74,6 +78,11 @@ def _build(
         subject_id=change.subject_id,
         changes=_without_personal(change),
     )
+
+
+def _shared[T](values: set[T | None]) -> T | None:
+    """The one value every change of a batch names, else None."""
+    return next(iter(values)) if len(values) == 1 else None
 
 
 def _checked(event_type: EventType, context: AuditContext, reason: str | None) -> str:
@@ -105,13 +114,21 @@ def record_batch(
 
     All of them share batch_id, request_id and occurred_at (the transaction's
     start time from the column default). The batch event's subject is the
-    batch itself and its changes hold the count.
+    batch itself and its changes hold the count. It carries the lab and the
+    strain when every change names the same one, so a deaccession that moves
+    a strain's vials shows on that strain's timeline as one line too.
     """
     context = current_context()
     text = _checked(item_type, context, reason)
     _checked(batch_type, context, reason)
     batch_id = uuid.uuid4()
-    summary = Change(BATCH_SUBJECT, batch_id, {"count": [None, len(changes)]})
+    summary = Change(
+        BATCH_SUBJECT,
+        batch_id,
+        {"count": [None, len(changes)]},
+        lab_id=_shared({c.lab_id for c in changes}),
+        strain_id=_shared({c.strain_id for c in changes}),
+    )
     events = [
         *(_build(item_type, context, c, reason=text, batch_id=batch_id) for c in changes),
         _build(batch_type, context, summary, reason=text, batch_id=batch_id),

@@ -16,6 +16,13 @@ Both are append-only on three levels:
 AuditEvent.lab is the tenant (#9): events about a lab's data carry it, so a
 lab's timeline is one indexed query, and reads go through the lab scope like
 every other lab-owned row. Events about users have no lab.
+
+AuditEvent.strain_id is the timeline root (ADR 0008, D13): every event about a
+strain or anything under it (deposit, passage, batch, vial, check, placement,
+request line) carries the strain's public id, so the strain's history is one
+indexed query and needs no walk through the tree. No foreign key: the strain
+table comes later, and an event must outlive the row it names, like
+subject_id. Events about users and labs have no strain.
 """
 
 from typing import Any, NoReturn
@@ -111,6 +118,9 @@ class AuditEvent(models.Model):
         related_name="+",
         db_index=False,
     )
+    # The strain whose timeline shows this event (ADR 0008, D13): its public id, no FK.
+    # No index of its own: the partial (lab, strain_id, -occurred_at) index below serves it.
+    strain_id = models.UUIDField(null=True, blank=True)
     channel = models.CharField(max_length=20, choices=Channel.choices)
     request_id = models.CharField(max_length=64)
     batch_id = models.UUIDField(null=True, blank=True)
@@ -151,6 +161,12 @@ class AuditEvent(models.Model):
             models.Index(fields=["txid"], name="audit_event_txid_idx"),
             models.Index(fields=["actor", "-occurred_at"], name="audit_event_actor_time_idx"),
             models.Index(fields=["lab", "-occurred_at"], name="audit_event_lab_time_idx"),
+            # Most events (users, labs, logins) name no strain: they stay out of this index.
+            models.Index(
+                fields=["lab", "strain_id", "-occurred_at"],
+                name="audit_event_strain_time_idx",
+                condition=Q(strain_id__isnull=False),
+            ),
             BrinIndex(fields=["occurred_at"], name="audit_event_time_brin"),
         )
 
