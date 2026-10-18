@@ -5,11 +5,8 @@ import { reportError } from '@/lib/report'
 
 declare module '@tanstack/react-query' {
   interface Register {
-    /**
-     * handlesError: the caller shows the failure itself, so the global message stays quiet.
-     * errorMessage: the global message for this mutation instead of the generic one by status.
-     */
-    mutationMeta: { handlesError?: boolean; errorMessage?: string }
+    /** handlesError: the caller shows the failure itself, so the global message stays quiet. */
+    mutationMeta: { handlesError?: boolean }
   }
 }
 
@@ -36,7 +33,7 @@ export function makeQueryClient({ onUnauthorized }: Options = {}) {
       onError: (error, _variables, _result, mutation) => {
         if (isApiError(error, 401)) return onUnauthorized?.()
         reportUnexpected(error, 'mutation')
-        if (!mutation.meta?.handlesError) notify.error(mutation.meta?.errorMessage ?? errorMessage(error))
+        if (!mutation.meta?.handlesError) notify.error(errorMessage(error))
       },
     }),
     defaultOptions: {

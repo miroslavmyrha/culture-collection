@@ -313,7 +313,11 @@ describe('sign out', () => {
     const button = await screen.findByRole('button', { name: 'Sign out' })
     const calls = failLogout()
     await user.click(button)
-    expect(await screen.findByRole('alert')).toHaveTextContent('Sign-out failed. You are still signed in. Try again.')
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Sign-out failed. You are still signed in. Try again.')
+    expect(screen.getAllByRole('alert')).toEqual([alert]) // the shell's, no second global notice
+    // Under the top bar, before the page: the global notices render after it, out of view.
+    expect(alert.compareDocumentPosition(screen.getByRole('main')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(calls).toHaveLength(1)
     expect(reported.map((r) => r.context)).toEqual(reports) // a 4xx is an answer, not a bug
     expect(router.state.location.href).toBe('/?tab=b')
@@ -328,6 +332,8 @@ describe('sign out', () => {
     expect(button).toHaveAttribute('aria-disabled', 'false')
     await user.click(button)
     await waitFor(() => expect(calls).toHaveLength(2))
+    await user.click(await screen.findByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('signs out on a retry after a failure, and the failure notice does not follow to the login page', async () => {

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { AppBar, Box, Button, Container, Link, SkipLink, Toolbar, Typography } from '@/components/ui'
-import { useLogout } from '@/features/auth/api/mutations'
+import { Alert, AppBar, Box, Button, Container, Link, SkipLink, Toolbar, Typography } from '@/components/ui'
+import { SIGN_OUT_FAILED, useLogout } from '@/features/auth/api/mutations'
 import { useKnownUser } from '@/features/auth/api/queries'
 
 const MAIN_ID = 'main-content'
@@ -53,6 +53,12 @@ export function Layout({ children }: { children: ReactNode }) {
           )}
         </Toolbar>
       </AppBar>
+      {/* Under the button that failed, in view: the global notices render after the page. */}
+      {user && logout.isError && (
+        <Alert severity="error" square onClose={() => logout.reset()}>
+          {SIGN_OUT_FAILED}
+        </Alert>
+      )}
       {/* tabIndex -1: the skip link moves focus here, not only the scroll position. */}
       <Container component="main" id={MAIN_ID} tabIndex={-1} maxWidth="lg" sx={{ py: 4, flex: 1, outline: 'none' }}>
         {children}

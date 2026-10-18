@@ -36,8 +36,8 @@ export function useLogout() {
     // Only a confirmed end clears the cache and leaves the page. After a 5xx, a network error or
     // a CSRF 403 the session cookie still works: a sign-in form would then be shown to someone
     // who is still signed in, and on a shared PC the next person reloads into their session.
-    // So the data and the page stay, and the global notice says what happened.
-    meta: { errorMessage: SIGN_OUT_FAILED },
+    // So the data and the page stay, and the shell says so under the button (SIGN_OUT_FAILED).
+    meta: { handlesError: true },
     onSuccess: async () => {
       resetSessionCache(qc, null)
       await navigate({ to: '/login', search: { signedOut: true } })
