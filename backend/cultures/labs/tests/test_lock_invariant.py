@@ -121,6 +121,7 @@ EXEMPT: dict[str, str] = {
     "user_set_staff": "admin access, not a lab role",
     "user_set_superuser": "Django permissions, not a lab role",
     "user_set_password": "the password only",
+    "user_login_limits_clear": "deletes login counters, no lab role and no user row",
     "superuser_create": "a new user is in no lab",
 }
 

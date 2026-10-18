@@ -98,7 +98,9 @@ Failed logins are counted per account and address, per address and per account
 everyone: while an account is under attack, a browser that signed in to it before still
 may. Every failure and refusal logs a `login_failed` line (account reference, address
 bucket, `surface` api or admin, `outcome`, request id), never the typed name, and an
-account going under attack is an audit event. Once an hour, as `cultures_app`:
+account going under attack is an audit event. The user admin shows an account's
+"Failed logins", and staff end the wait with "Clear login limits" and a reason (an
+audit event). Once an hour, as `cultures_app`:
 `python manage.py prune_login_failures` deletes ended counters, so a flood of made-up
 names does not stay in the table.
 

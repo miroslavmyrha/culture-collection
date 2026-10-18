@@ -82,6 +82,13 @@ LOGIN_ACCOUNT_UNDER_ATTACK = register(
         "{subject} is under a password attack: only browsers used before may sign in",
     )
 )
+USER_LOGIN_LIMITS_CLEARED = register(
+    EventType(
+        "user_login_limits_cleared",
+        "{actor} cleared the login limits of {subject}",
+        reason_required=True,
+    )
+)
 
 
 @dataclass(frozen=True)

@@ -10,6 +10,8 @@ model directly and lets staff delete users; this one does neither.
   a lab cannot be deactivated: the form says which lab, and the service
   refuses again under the locks.
 - Passwords (the "Reset password" form) go through user_set_password.
+- "Failed logins" shows the account's login counter, and "Clear login limits"
+  (with a reason) deletes the account's counters through user_login_limits_clear.
 - Users are deactivated, never deleted: audit rows point at them.
 - Groups and per-user Django permissions are not offered: the app's rights
   come from lab roles (ADR 0006), and nothing would audit those tables.
@@ -18,16 +20,18 @@ model directly and lets staff delete users; this one does neither.
 from typing import TYPE_CHECKING, Any
 
 from django import forms
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth import admin as auth_admin
 from django.contrib.auth import forms as auth_forms
 from django.http import HttpRequest, HttpResponse
+from django.utils import timezone
 
 from cultures.audit.context import audit_context
 from cultures.audit.models import Channel
 from cultures.labs.services import labs_left_without_manager
 
-from . import services
+from . import login_limits, services
 from .admin_site import staff_actor
 from .models import User
 
@@ -44,21 +48,37 @@ else:
 
 # Each one is its own service and event type, and needs a reason.
 PRIVILEGE_FIELDS = ("is_active", "is_staff", "is_superuser")
-REASON_REQUIRED = "A reason is required when active, staff or superuser status changes."
+REASON_REQUIRED = (
+    "A reason is required when active, staff or superuser status changes"
+    " or the login limits are cleared."
+)
 LAST_MANAGER = "This user is the last active manager of {lab}. Make another member a manager first."
 
 
 class UserChangeForm(UserChangeFormBase):
+    clear_login_limits = forms.BooleanField(
+        required=False,
+        label="Clear login limits",
+        help_text=(
+            "Ends the wait after failed logins for this account, from every address."
+            " Needs a reason."
+        ),
+    )
     reason = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={"rows": 2}),
-        help_text="Why active, staff or superuser status changes. Stored in the audit trail.",
+        help_text=(
+            "Why active, staff or superuser status changes, or why the login limits are"
+            " cleared. Stored in the audit trail."
+        ),
     )
 
     def clean(self) -> dict[str, Any]:
         cleaned = super().clean() or {}
-        changes_privileges = set(PRIVILEGE_FIELDS) & set(self.changed_data)
-        if changes_privileges and not cleaned.get("reason", "").strip():
+        needs_reason = set(PRIVILEGE_FIELDS) & set(self.changed_data) or cleaned.get(
+            "clear_login_limits"
+        )
+        if needs_reason and not cleaned.get("reason", "").strip():
             self.add_error("reason", REASON_REQUIRED)
         if "is_active" in self.changed_data and not cleaned.get("is_active"):
             for lab in labs_left_without_manager(users=[self.instance]):
@@ -87,12 +107,27 @@ class UserAdmin(UserAdminBase):
     fieldsets = (
         (None, {"fields": ("username", "password")}),
         ("Personal info", {"fields": ("first_name", "last_name", "email")}),
-        ("Status", {"fields": (*PRIVILEGE_FIELDS, "reason")}),
+        (
+            "Status",
+            {"fields": (*PRIVILEGE_FIELDS, "login_limit_state", "clear_login_limits", "reason")},
+        ),
         ("Important dates", {"fields": ("last_login", "date_joined")}),
     )
-    readonly_fields = ("last_login", "date_joined")
+    readonly_fields = ("last_login", "date_joined", "login_limit_state")
     list_filter = ("is_staff", "is_superuser", "is_active")
     filter_horizontal = ()
+
+    @admin.display(description="Failed logins")
+    def login_limit_state(self, obj: User) -> str:
+        counter = login_limits.account_counter(obj.username, timezone.now())
+        if counter is None:
+            return "none in the last window"
+        until = f"{counter.window_ends_at:%Y-%m-%d %H:%M} UTC"
+        if counter.failures >= settings.LOGIN_ACCOUNT_MAX_FAILURES:
+            return (
+                f"{counter.failures}: under attack until {until}, only known browsers may sign in"
+            )
+        return f"{counter.failures} until {until}"
 
     def has_delete_permission(self, request: HttpRequest, obj: User | None = None) -> bool:
         return False  # deactivate instead: audit events and memberships point at users
@@ -132,6 +167,8 @@ class UserAdmin(UserAdminBase):
             services.user_set_staff(user=obj, is_staff=obj.is_staff, reason=reason)
         if "is_superuser" in changed:
             services.user_set_superuser(user=obj, is_superuser=obj.is_superuser, reason=reason)
+        if form.cleaned_data.get("clear_login_limits"):
+            services.user_login_limits_clear(user=obj, reason=reason)
 
     def _create(self, obj: User, data: dict[str, Any]) -> None:
         """The add form: a username and a password, or none (set_usable_password off)."""

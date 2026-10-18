@@ -350,6 +350,13 @@ def remember_device(request: HttpRequest | Request, response: HttpResponseBase, 
     )
 
 
+def account_counter(username: str, now: datetime) -> LoginFailures | None:
+    """The account's own counter while its window runs (for the user admin), else None."""
+    return LoginFailures.objects.filter(
+        account=account_key(username), address="", window_ends_at__gt=now
+    ).first()
+
+
 def clear_account(username: str) -> int:
     """Delete every counter of the account (its pairs and its own row). For services only."""
     deleted, _ = LoginFailures.objects.filter(account=account_key(username)).delete()
