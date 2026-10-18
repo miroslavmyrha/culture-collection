@@ -32,6 +32,7 @@ describe('LabDetail', () => {
     expect(screen.getByText('Loading the lab…')).toBeInTheDocument()
     expect(await screen.findByRole('heading', { level: 1, name: 'Mycology' })).toBeInTheDocument()
     expect(screen.getByText('Code MYC. Your role: Viewer.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Strains' })).toHaveAttribute('href', `/labs/${LAB_ID}/strains`)
     const table = await screen.findByRole('table', { name: 'Members' })
     const rows = within(table).getAllByRole('row').slice(1)
     expect(rows.map((row) => within(row).getAllByRole('cell').map((cell) => cell.textContent))).toEqual([

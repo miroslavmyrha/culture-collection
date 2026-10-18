@@ -7,7 +7,13 @@ Brings the database to this state, whatever it was before:
   (or E2E_PASSWORD_FILE);
 - e2e-colleague, active, without a usable password and in no lab: the e2e test
   adds it as a member, changes its role and removes it again;
-- the lab "E2E lab" (code E2E) with the e2e user as its manager.
+- the lab "E2E lab" (code E2E) with the e2e user as its manager;
+- e2e-curator and e2e-viewer, members of the lab in those roles, with the same password:
+  the strain tests create strains as the curator and check what a viewer may not do;
+- a few taxa for the strain form: two genera, a species in each with its NCBI id, and a
+  synonym of each species (its basionym). The lab holds no permit, so a VRAT strain is
+  refused there.
+Strains the tests created stay: numbers are never reused, and a strain is never deleted.
 A second run changes nothing. Every user, lab and membership write goes
 through the services with their audit events (channel command, actor kind
 system).
@@ -24,11 +30,34 @@ from cultures.audit.models import ActorKind, Channel
 from cultures.labs import services
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
+from cultures.taxonomy import services as taxonomy
+from cultures.taxonomy.models import IdentifierSystem, Rank, Taxon
 from cultures.users import services as users
 from cultures.users.models import User
 
 LAB_NAME, LAB_CODE = "E2E lab", "E2E"
 COLLEAGUE = "e2e-colleague"
+CURATOR, VIEWER = "e2e-curator", "e2e-viewer"
+
+# (name, authority, rank, parent name, accepted name, NCBI Taxonomy id). Facts from LPSN and
+# NCBI Taxonomy: Bacillus Cohn 1872 (taxid 1386), B. subtilis (Ehrenberg 1835) Cohn 1872 (1423),
+# basionym Vibrio subtilis Ehrenberg 1835; Escherichia Castellani and Chalmers 1919 (561),
+# E. coli (Migula 1895) Castellani and Chalmers 1919 (562), basionym Bacillus coli Migula 1895.
+TAXA: tuple[tuple[str, str, Rank, str | None, str | None, str | None], ...] = (
+    ("Bacillus", "Cohn 1872", Rank.GENUS, None, None, "1386"),
+    ("Bacillus subtilis", "(Ehrenberg 1835) Cohn 1872", Rank.SPECIES, "Bacillus", None, "1423"),
+    ("Vibrio subtilis", "Ehrenberg 1835", Rank.SPECIES, None, "Bacillus subtilis", None),
+    ("Escherichia", "Castellani and Chalmers 1919", Rank.GENUS, None, None, "561"),
+    (
+        "Escherichia coli",
+        "(Migula 1895) Castellani and Chalmers 1919",
+        Rank.SPECIES,
+        "Escherichia",
+        None,
+        "562",
+    ),
+    ("Bacillus coli", "Migula 1895", Rank.SPECIES, None, "Escherichia coli", None),
+)
 
 
 class Command(BaseCommand):
@@ -55,7 +84,38 @@ class Command(BaseCommand):
             self._role(lab, user, Role.MANAGER)
             for membership in Membership.objects.filter(lab=lab, user=colleague):
                 services.membership_delete(membership=membership)
-        self.stdout.write(f"{username} manages {lab.name}; {COLLEAGUE} is in no lab")
+            self._role(lab, self._user(CURATOR, password), Role.CURATOR)
+            self._role(lab, self._user(VIEWER, password), Role.VIEWER)
+            for row in TAXA:
+                self._taxon(*row)
+        self.stdout.write(
+            f"{username} manages {lab.name}; {CURATOR} and {VIEWER} are its curator and viewer;"
+            f" {COLLEAGUE} is in no lab; {len(TAXA)} taxa"
+        )
+
+    def _taxon(  # noqa: PLR0917 (one row of TAXA, spread)
+        self,
+        name: str,
+        authority: str,
+        rank: Rank,
+        parent: str | None,
+        accepted: str | None,
+        ncbi: str | None,
+    ) -> None:
+        """Created when missing, never changed: staff may have edited the seed's taxa."""
+        if Taxon.objects.filter(name=name, rank=rank).exists():
+            return
+        taxon = taxonomy.taxon_create(
+            fields=taxonomy.TaxonFields(
+                name=name,
+                authority=authority,
+                rank=rank,
+                parent=Taxon.objects.get(name=parent) if parent else None,
+                accepted=Taxon.objects.get(name=accepted) if accepted else None,
+            )
+        )
+        if ncbi:
+            taxonomy.taxon_identifier_add(taxon=taxon, system=IdentifierSystem.NCBI, value=ncbi)
 
     def _user(self, username: str, password: str | None) -> User:
         """An active user with this password (None: no usable one), changed only where needed."""
@@ -75,5 +135,5 @@ class Command(BaseCommand):
         membership = Membership.objects.filter(lab=lab, user=user).first()
         if membership is None:
             services.membership_create(lab=lab, user=user, role=role)
-        else:
+        elif membership.role != role:
             services.membership_set_role(membership=membership, role=role)

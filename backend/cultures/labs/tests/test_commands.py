@@ -9,9 +9,10 @@ from django.core.management.base import CommandError
 from django.test import override_settings
 
 from cultures.audit.models import ActorKind, AuditEvent, Channel, RowChange
-from cultures.labs.management.commands.seed_e2e import COLLEAGUE, LAB_CODE
+from cultures.labs.management.commands.seed_e2e import COLLEAGUE, CURATOR, LAB_CODE, VIEWER
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
+from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
 
 pytestmark = pytest.mark.django_db
@@ -33,7 +34,10 @@ def seed() -> str:
 
 @pytest.mark.usefixtures("env")
 def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
-    assert seed() == "e2e-user manages E2E lab; e2e-colleague is in no lab\n"
+    assert seed() == (
+        "e2e-user manages E2E lab; e2e-curator and e2e-viewer are its curator and viewer;"
+        " e2e-colleague is in no lab; 6 taxa\n"
+    )
     user = User.objects.get(username="e2e-user")
     lab = Lab.objects.get(code=LAB_CODE)
     assert user.check_password(PASSWORD)
@@ -42,6 +46,13 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
     colleague = User.objects.get(username=COLLEAGUE)
     assert (colleague.is_active, colleague.has_usable_password()) == (True, False)
     assert not Membership.objects.filter(user=colleague).exists()
+    for name, role in ((CURATOR, Role.CURATOR), (VIEWER, Role.VIEWER)):
+        member = User.objects.get(username=name)
+        assert member.check_password(PASSWORD)
+        assert Membership.objects.get(user=member, lab=lab).role == role
+    synonyms = dict(Taxon.objects.filter(status="synonym").values_list("name", "accepted__name"))
+    assert synonyms == {"Vibrio subtilis": "Bacillus subtilis", "Bacillus coli": "Escherichia coli"}
+    assert Taxon.objects.get(name="Bacillus subtilis").parent == Taxon.objects.get(name="Bacillus")
 
 
 @pytest.mark.usefixtures("env")
@@ -53,6 +64,14 @@ def test_its_writes_are_audited_as_the_command() -> None:
         "user_created",
         "lab_created",
         "member_added",
+        "user_created",
+        "member_added",
+        "user_created",
+        "member_added",
+        *["taxon_created", "taxon_identifier_added"] * 2,
+        "taxon_created",
+        *["taxon_created", "taxon_identifier_added"] * 2,
+        "taxon_created",
     ]
     assert {(e.channel, e.actor_kind, e.actor_label, e.actor_id) for e in events} == {
         (Channel.COMMAND, ActorKind.SYSTEM, "command:seed_e2e", None)

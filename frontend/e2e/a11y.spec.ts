@@ -363,6 +363,7 @@ test.describe('keyboard walk through every page', () => {
       'a:Home',
       'a:Labs',
       'button:Sign out',
+      'a:Strains',
       `button:Change role of ${username}`,
       `button:Remove ${username}`,
       'button:Previous',

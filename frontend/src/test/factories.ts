@@ -43,3 +43,57 @@ export function makeMember(overrides: Partial<Member> = {}): Member {
   const at = new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString()
   return { public_id: uuid(n), username: `member-${n}`, first_name: '', last_name: '', role: 'viewer', created_at: at, ...overrides }
 }
+
+type Schemas = components['schemas']
+export type Taxon = Schemas['TaxonOutput']
+export type StrainRow = Schemas['StrainListOutput']
+export type Strain = Schemas['StrainDetailOutput']
+
+export function makeTaxon(overrides: Partial<Taxon> = {}): Taxon {
+  const n = next()
+  return { public_id: uuid(n), name: `Genus species${n}`, authority: '', rank: 'species', status: 'accepted', parent: null, accepted: null, identifiers: [], ...overrides }
+}
+
+const brief = ({ public_id, name, authority, rank, status }: Taxon) => ({ public_id, name, authority, rank, status })
+
+export function makeStrainRow(overrides: Partial<StrainRow> = {}): StrainRow {
+  const n = next()
+  const at = new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString()
+  return {
+    public_id: uuid(n),
+    accession_number: `MYC ${n}`,
+    name_as_received: `strain ${n}`,
+    taxon: brief(makeTaxon()),
+    risk_group: 1,
+    status: 'active',
+    restrictions: [],
+    created_at: at,
+    ...overrides,
+  }
+}
+
+export function makeStrain(overrides: Partial<Strain> = {}): Strain {
+  const row = makeStrainRow()
+  const n = next()
+  return {
+    ...row,
+    animal_pathogenicity: 'unknown',
+    plant_pathogenicity: 'unknown',
+    isolation_source: '',
+    country_of_origin: '',
+    isolation_date: '',
+    identifications: [
+      {
+        public_id: uuid(n),
+        taxon: row.taxon,
+        identified_on: '2026-01-10',
+        method: '16S rRNA gene sequence',
+        reason: 'Identification at accession',
+        is_current: true,
+        created_at: row.created_at,
+      },
+    ],
+    restriction_history: [],
+    ...overrides,
+  }
+}

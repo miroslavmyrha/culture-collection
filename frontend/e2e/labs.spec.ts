@@ -134,10 +134,11 @@ test('a manager removes a member with the keyboard only; the dialog passes axe a
   gate.open?.()
   await expect(dialog).toBeHidden()
   await expect(members.getByRole('row', { name: /e2e-colleague/ })).toHaveCount(0)
-  // The trigger went with its row: focus moves to the same button of the remaining row, not to
-  // the body, and the keyboard carries on from there.
-  await expect(page.getByRole('button', { name: `Remove ${username}` })).toBeFocused()
+  // The trigger went with its row: focus moves to the same button of the row that followed it
+  // (the first row now, members sort by username), not to the body, and the keyboard carries on.
+  const next = members.getByRole('row').nth(1)
+  await expect(next.getByRole('button', { name: /^Remove / })).toBeFocused()
   await page.keyboard.press('Shift+Tab')
-  await expect(page.getByRole('button', { name: `Change role of ${username}` })).toBeFocused()
+  await expect(next.getByRole('button', { name: /^Change role of / })).toBeFocused()
   expect(violations()).toEqual([])
 })
