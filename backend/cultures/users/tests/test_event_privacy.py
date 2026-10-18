@@ -129,3 +129,20 @@ def test_record_event_drops_a_personal_value_a_service_passed_by_mistake(
     event.refresh_from_db()
     assert event.changes == {"email": PERSONAL_CHANGED, "is_staff": [False, True]}
     assert events_holding(MARK) == []
+
+
+def test_the_user_services_record_no_values_without_the_event_layer_mask(
+    monkeypatch: pytest.MonkeyPatch, staff: User, member: User
+) -> None:
+    """The services own the rule; the mask in record_event() is only the last line behind it."""
+    monkeypatch.setitem(PERSONAL_FIELDS, "user", ())
+    with audit_context(channel=Channel.COMMAND, actor=staff):
+        created = services.user_create(username=f"{MARK}-bare", password=None, email="b@x.org")
+        services.user_update(user=member, changes={"first_name": f"{MARK} renamed"})
+    changes = [e.changes for e in AuditEvent.objects.order_by("pk")]
+    assert changes[-2:] == [
+        {"username": "changed", "email": "changed", "has_usable_password": [None, False]},
+        {"first_name": "changed"},
+    ]
+    assert events_holding(MARK) == []
+    assert created.username == f"{MARK}-bare"
