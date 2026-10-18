@@ -17,7 +17,9 @@ export function SkipLink({ target }: { target: string }) {
         p: 1,
         bgcolor: 'background.paper',
         color: 'text.primary',
-        '&:focus': { top: 8 },
+        // Shown over the top bar: a ring in the text colour, flush with the link, has 3:1 against
+        // both the link's paper and the bar in either scheme (the primary ring would vanish on the bar).
+        '&:focus': { top: 8, outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 0 },
       }}
     >
       Skip to content
