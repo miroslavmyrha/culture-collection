@@ -1,9 +1,11 @@
 import useMediaQuery from '@mui/material/useMediaQuery'
-import type { ReactNode } from 'react'
+import { useRouter } from '@tanstack/react-router'
+import { type ReactNode, useEffect } from 'react'
 import { Alert, AppBar, Box, Button, Container, Link, SkipLink, Toolbar, Typography } from '@/components/ui'
 import { SIGN_OUT_FAILED, useLogout } from '@/features/auth/api/mutations'
 import { useKnownUser } from '@/features/auth/api/queries'
 import { AccountMenu } from './AccountMenu'
+import { focusPageStart, movesFocus } from './page-focus'
 
 const MAIN_ID = 'main-content'
 
@@ -15,8 +17,20 @@ const MAIN_ID = 'main-content'
 export function Layout({ children }: { children: ReactNode }) {
   const user = useKnownUser()
   const logout = useLogout()
+  const router = useRouter()
   // noSsr: read the media query in the first render, so a phone never renders the wide bar first.
   const narrow = useMediaQuery((theme) => theme.breakpoints.down('sm'), { noSsr: true })
+  // After a navigation to another page, focus its h1 (or main), so a screen reader reads the new
+  // page and Tab starts there, not on the link that is gone (WCAG 2.4.3).
+  useEffect(
+    () =>
+      router.subscribe('onRendered', (event) => {
+        const main = document.getElementById(MAIN_ID)
+        if (main && movesFocus(event)) focusPageStart(main)
+      }),
+    [router],
+  )
+
   // aria-disabled and a guard, not disabled: disabling the focused button drops focus to the
   // body, and after a failed sign-out the user tries again from here.
   const signOut = () => {
@@ -69,7 +83,7 @@ export function Layout({ children }: { children: ReactNode }) {
           {SIGN_OUT_FAILED}
         </Alert>
       )}
-      {/* tabIndex -1: the skip link moves focus here, not only the scroll position. */}
+      {/* tabIndex -1: the skip link and a navigation move focus here, not only the scroll position. */}
       <Container component="main" id={MAIN_ID} tabIndex={-1} maxWidth="lg" sx={{ py: 4, flex: 1, outline: 'none' }}>
         {children}
       </Container>

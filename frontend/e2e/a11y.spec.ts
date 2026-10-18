@@ -1,9 +1,10 @@
 import { type Browser, type BrowserContext, expect, type Locator, type Page, test } from '@playwright/test'
 import { axe, password, ratio, ring, surfaceOf, tabTo, username, watchCsp } from './support.js'
 
-// Checks that need a browser: reflow at 320 px (WCAG 1.4.10), and the focus ring and its
-// contrast (2.4.7, 1.4.11; axe does not test focus rings). Nothing here changes data, so it runs
-// next to labs.spec.ts. One sign-in for the whole file: the login throttle allows 10 a minute.
+// Checks that need a browser: reflow at 320 px (WCAG 1.4.10), the focus ring and its contrast
+// (2.4.7, 1.4.11; axe does not test focus rings), and titles and focus after navigation (2.4.2,
+// 2.4.3). Nothing here changes data, so it runs next to labs.spec.ts. One sign-in for the whole
+// file: the login throttle allows 10 a minute.
 
 type State = Awaited<ReturnType<BrowserContext['storageState']>>
 let signedIn: State
@@ -224,3 +225,47 @@ for (const colorScheme of ['light', 'dark'] as const) {
     })
   })
 }
+
+test.describe('titles and focus after navigation', () => {
+  test('the main navigation by keyboard: each page gets its title and its h1 the focus; the first load keeps focus where it was', async ({ browser }) => {
+    const { page, close } = await open(browser)
+    await page.goto('/')
+    await expect(page).toHaveTitle('Home | Culture collection')
+    await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true)
+
+    // Tab from the start: skip link, the title link, then the main navigation.
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused()
+    await page.keyboard.press('Tab')
+    await page.keyboard.press('Tab')
+    const nav = page.getByRole('navigation', { name: 'Main' })
+    await expect(nav.getByRole('link', { name: 'Home' })).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(nav.getByRole('link', { name: 'Labs' })).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL('/labs')
+    await expect(page).toHaveTitle('Labs | Culture collection')
+    await expect(page.getByRole('heading', { level: 1, name: 'Labs' })).toBeFocused()
+
+    // Tab from the h1 into the table, open the lab.
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('link', { name: 'E2E lab' })).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveTitle('E2E lab | Culture collection')
+    await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeFocused()
+
+    // Back in history is a path change too.
+    await page.goBack()
+    await expect(page.getByRole('heading', { level: 1, name: 'Labs' })).toBeFocused()
+    // Shift+Tab from the h1 goes back to the bar's last control.
+    await page.keyboard.press('Shift+Tab')
+    await expect(page.getByRole('button', { name: 'Sign out' })).toBeFocused()
+    await nav.getByRole('link', { name: 'Home' }).press('Enter')
+    await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeFocused()
+
+    await page.goto('/no-such-page')
+    await expect(page).toHaveTitle('Page not found | Culture collection')
+    await close()
+  })
+})

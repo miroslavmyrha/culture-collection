@@ -71,6 +71,66 @@ describe('page titles (WCAG 2.4.2)', () => {
   })
 })
 
+describe('focus after navigation (WCAG 2.4.3)', () => {
+  it('leaves the focus alone on the first load', async () => {
+    signedIn()
+    mockApi('get', '/api/v1/labs/', page([makeLab()]))
+    renderApp({ path: '/labs' })
+    expect(await screen.findByRole('heading', { level: 1, name: 'Labs' }, { timeout: 5000 })).toBeInTheDocument()
+    // Give a late onRendered the chance to run.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(document.body).toHaveFocus()
+  })
+
+  it('focuses the h1 of the page a link opened', async () => {
+    signedIn()
+    mockApi('get', '/api/v1/labs/', page([makeLab({ public_id: LAB_ID, name: 'Mycology' })]))
+    lab()
+    members()
+    renderApp({ path: '/labs' })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('link', { name: 'Mycology' }, { timeout: 5000 }))
+    const heading = await screen.findByRole('heading', { level: 1, name: 'Mycology' })
+    await waitFor(() => expect(heading).toHaveFocus())
+    expect(heading).toHaveAttribute('tabindex', '-1') // a target, not a tab stop
+  })
+
+  it('focuses the h1 after moving through the main navigation by keyboard', async () => {
+    signedIn()
+    mockApi('get', '/api/v1/labs/', page([makeLab()]))
+    renderApp({ path: '/' })
+    const nav = await screen.findByRole('navigation', { name: 'Main' }, { timeout: 5000 })
+    within(nav).getByRole('link', { name: 'Labs' }).focus()
+    await userEvent.setup().keyboard('{Enter}')
+    const heading = await screen.findByRole('heading', { level: 1, name: 'Labs' }, { timeout: 5000 })
+    await waitFor(() => expect(heading).toHaveFocus())
+  })
+
+  it('does not move the focus when only the hash changes, or when the new URL has one', async () => {
+    signedIn()
+    mockApi('get', '/api/v1/labs/', page([makeLab()]))
+    const { router } = renderApp({ path: '/' })
+    expect(await screen.findByRole('heading', { level: 1, name: 'Home' }, { timeout: 5000 })).toBeInTheDocument()
+    await router.navigate({ to: '/', hash: 'part' })
+    await router.navigate({ to: '/labs', hash: 'part' })
+    expect(await screen.findByRole('heading', { level: 1, name: 'Labs' }, { timeout: 5000 })).toBeInTheDocument()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(document.body).toHaveFocus()
+  })
+
+  it('focuses main when the new page has no h1', async () => {
+    signedIn()
+    mockApiError('get', '/api/v1/labs/{public_id}/', 503)
+    members()
+    allowConsole(/API error 503/)
+    const { router } = renderApp({ path: '/' })
+    expect(await screen.findByRole('heading', { level: 1, name: 'Home' }, { timeout: 5000 })).toBeInTheDocument()
+    await router.navigate({ to: '/labs/$labId', params: { labId: LAB_ID } })
+    expect(await screen.findByText(/Could not load the lab/, {}, { timeout: 5000 })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('main')).toHaveFocus())
+  })
+})
+
 describe('the account menu on a narrow screen (WCAG 1.4.10)', () => {
   it('replaces the user text and Sign out with a named menu button', async () => {
     narrowScreen()
@@ -115,8 +175,9 @@ describe('the account menu on a narrow screen (WCAG 1.4.10)', () => {
     await user.click(await screen.findByRole('button', { name: 'Account (lab-tech)' }, { timeout: 5000 }))
     mockApi('post', '/api/v1/auth/logout/', undefined)
     await user.click(await screen.findByRole('menuitem', { name: 'Sign out' }))
-    expect(await screen.findByRole('heading', { name: 'Sign in' }, { timeout: 5000 })).toBeInTheDocument()
+    const heading = await screen.findByRole('heading', { name: 'Sign in' }, { timeout: 5000 })
     expect(router.state.location.search).toEqual({ signedOut: true })
+    await waitFor(() => expect(heading).toHaveFocus()) // the menu button is gone: the new page's h1
   })
 
   it('shows a failed sign-out under the bar', async () => {
