@@ -43,7 +43,10 @@ Use no audit library. Two layers in `cultures.audit`:
    `attach_row_audit()`. They store a logical table label, the pk as text,
    only changed columns for UPDATE, never the excluded columns, the actor and
    request id from `set_config`, the txid, the login role and
-   `application_name`. A statement trigger records TRUNCATE.
+   `application_name`. A statement trigger records TRUNCATE. Secret columns
+   (the password hash) are never stored either, but an UPDATE that changes
+   one records the column with the marker `"redacted"` (update of
+   2026-10-17 below).
 
 Both tables are append-only: model guards, triggers that refuse UPDATE,
 DELETE and TRUNCATE (TRUNCATE only for non-owners, so Django's test flush
@@ -85,6 +88,31 @@ VALIDATE. #9 adds the tenant column to `AuditEvent`.
   functions).
 - Unpartitioned. If volume needs it: monthly range partitions on
   `occurred_at`, archived with DETACH PARTITION, never DELETE.
+
+## Update 2026-10-17: secret columns (#33)
+
+The first version dropped excluded columns from every row, and an UPDATE
+that changed only excluded columns wrote no row. So a password change by an
+admin, a shell (`set_password()` and `save()`) or `changepassword` left no
+trace in either table. Now:
+- `RowAudit.secret` lists secret columns, passed to the trigger as
+  `secret:<column>` after the plain exclusions. Audit migration 0006 replaces
+  `audit_row_change()` (CREATE OR REPLACE, same owner, grants and triggers):
+  INSERT and DELETE rows still leave a secret out, and an UPDATE that changes
+  it stores `{"<column>": "redacted"}` in old and new, next to the other
+  changed columns. Plain exclusions (`last_login`) behave as before.
+- Users migration 0003 re-attaches the users triggers with `password` as a
+  secret. The tables attached before pass no secret argument, so their rows
+  do not change.
+- The services record the meaning: `user_password_changed` (whether a usable
+  password exists, never a value), and user creation, profile, staff,
+  superuser and active changes as their own events, the privilege ones with a
+  required reason. Django admin, `createsuperuser`, `changepassword` and
+  `seed_e2e` go through them.
+
+Any later change to `audit_row_change()` (for example validating the
+settings it reads) must start from the 0006 body, or the marker is lost:
+`audit/tests/test_row_changes.py` fails when it is.
 
 Fallback: if the triggers cost too much on a table, switch that table to
 statement triggers with transition tables. If our code proves wrong,
