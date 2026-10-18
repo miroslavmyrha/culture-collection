@@ -53,6 +53,12 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     "taxonomy_taxon": ("SELECT", "INSERT", "UPDATE"),
     # Permits are ended with a date and a reason, never deleted (ADR 0009).
     "biosafety_labauthorisation": ("SELECT", "INSERT", "UPDATE"),
+    # Strains and their history are never deleted: numbers are never reused (ADR 0008, D2),
+    # identifications and restrictions are history. A trigger refuses deletes too.
+    "strains_strain": ("SELECT", "INSERT", "UPDATE"),
+    "strains_straincounter": ("SELECT", "INSERT", "UPDATE"),
+    "strains_strainidentification": ("SELECT", "INSERT", "UPDATE"),
+    "strains_strainrestriction": ("SELECT", "INSERT", "UPDATE"),
 }
 
 

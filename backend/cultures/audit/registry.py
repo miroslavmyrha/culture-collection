@@ -114,6 +114,25 @@ LAB_AUTHORISATION_ENDED = register(
     EventType("lab_authorisation_ended", "{actor} ended a permit", reason_required=True)
 )
 
+# Strains (#11). Every event names its strain in strain_id (ADR 0008, D13).
+STRAIN_CREATED = register(EventType("strain_created", "{actor} accessioned {accession_number}"))
+STRAIN_RECLASSIFIED = register(
+    EventType("strain_reclassified", "{actor} identified the strain anew", reason_required=True)
+)
+STRAIN_RISK_GROUP_CHANGED = register(
+    EventType(
+        "strain_risk_group_changed",
+        "{actor} changed the risk group to {risk_group}",
+        reason_required=True,
+    )
+)
+STRAIN_RESTRICTION_ADDED = register(
+    EventType("strain_restriction_added", "{actor} added a restriction", reason_required=True)
+)
+STRAIN_RESTRICTION_ENDED = register(
+    EventType("strain_restriction_ended", "{actor} ended a restriction", reason_required=True)
+)
+
 
 @dataclass(frozen=True)
 class RowAudit:
@@ -198,6 +217,66 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
     "taxonomy_taxonidentifier": RowAudit(
         label="taxonomy.taxonidentifier",
         audited=("id", "public_id", "created_at", "updated_at", "taxon_id", "system", "value"),
+    ),
+    "strains_strain": RowAudit(
+        label="strains.strain",
+        # name_as_received, isolation_source: free text about the material, naming nobody.
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "accession_number",
+            "accession_seq",
+            "status",
+            "name_as_received",
+            "taxon_id",
+            "risk_group",
+            "animal_pathogenicity",
+            "plant_pathogenicity",
+            "isolation_source",
+            "country_of_origin",
+            "isolation_date",
+        ),
+    ),
+    # A counter changed outside the accession service would hand out a number twice.
+    "strains_straincounter": RowAudit(
+        label="strains.straincounter", audited=("lab_id", "last_seq"), pk=("lab_id",)
+    ),
+    "strains_strainidentification": RowAudit(
+        label="strains.strainidentification",
+        # method and reason: free text that names nobody.
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "strain_id",
+            "taxon_id",
+            "identified_on",
+            "method",
+            "reason",
+            "is_current",
+        ),
+    ),
+    "strains_strainrestriction": RowAudit(
+        label="strains.strainrestriction",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "strain_id",
+            "kind",
+            "reference",
+            "act",
+            "gmo_category",
+            "ended_at",
+            "end_reason",
+        ),
     ),
     "biosafety_labauthorisation": RowAudit(
         label="biosafety.labauthorisation",

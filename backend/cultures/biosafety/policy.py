@@ -23,8 +23,8 @@ PERMIT_TIME_ZONE = ZoneInfo("Europe/Prague")
 NEEDS_PERMIT = frozenset(AuthorisationKind.values)
 
 _WHAT = {
-    AuthorisationKind.CZ_VRAT: "an SÚJB permit for highly risky agents (VRAT)",
-    AuthorisationKind.QUARANTINE_PEST: "an ÚKZÚZ permit for quarantine pests",
+    AuthorisationKind.CZ_VRAT: "SÚJB permit for highly risky agents (VRAT)",
+    AuthorisationKind.QUARANTINE_PEST: "ÚKZÚZ permit for quarantine pests",
 }
 
 

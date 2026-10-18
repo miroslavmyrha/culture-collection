@@ -118,6 +118,102 @@ export interface paths {
         patch: operations["labs_members_partial_update"];
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/strains/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_strains_list"];
+        put?: never;
+        post: operations["labs_strains_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_strains_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/reclassify/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_strains_reclassify_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_strains_restrictions_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_strains_restrictions_end_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_strains_risk_group_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{public_id}/": {
         parameters: {
             query?: never;
@@ -171,6 +267,273 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @enum {unknown} */
+        BlankEnum: "";
+        /**
+         * @description * `AD` - AD
+         *     * `AE` - AE
+         *     * `AF` - AF
+         *     * `AG` - AG
+         *     * `AI` - AI
+         *     * `AL` - AL
+         *     * `AM` - AM
+         *     * `AO` - AO
+         *     * `AQ` - AQ
+         *     * `AR` - AR
+         *     * `AS` - AS
+         *     * `AT` - AT
+         *     * `AU` - AU
+         *     * `AW` - AW
+         *     * `AX` - AX
+         *     * `AZ` - AZ
+         *     * `BA` - BA
+         *     * `BB` - BB
+         *     * `BD` - BD
+         *     * `BE` - BE
+         *     * `BF` - BF
+         *     * `BG` - BG
+         *     * `BH` - BH
+         *     * `BI` - BI
+         *     * `BJ` - BJ
+         *     * `BL` - BL
+         *     * `BM` - BM
+         *     * `BN` - BN
+         *     * `BO` - BO
+         *     * `BQ` - BQ
+         *     * `BR` - BR
+         *     * `BS` - BS
+         *     * `BT` - BT
+         *     * `BV` - BV
+         *     * `BW` - BW
+         *     * `BY` - BY
+         *     * `BZ` - BZ
+         *     * `CA` - CA
+         *     * `CC` - CC
+         *     * `CD` - CD
+         *     * `CF` - CF
+         *     * `CG` - CG
+         *     * `CH` - CH
+         *     * `CI` - CI
+         *     * `CK` - CK
+         *     * `CL` - CL
+         *     * `CM` - CM
+         *     * `CN` - CN
+         *     * `CO` - CO
+         *     * `CR` - CR
+         *     * `CU` - CU
+         *     * `CV` - CV
+         *     * `CW` - CW
+         *     * `CX` - CX
+         *     * `CY` - CY
+         *     * `CZ` - CZ
+         *     * `DE` - DE
+         *     * `DJ` - DJ
+         *     * `DK` - DK
+         *     * `DM` - DM
+         *     * `DO` - DO
+         *     * `DZ` - DZ
+         *     * `EC` - EC
+         *     * `EE` - EE
+         *     * `EG` - EG
+         *     * `EH` - EH
+         *     * `ER` - ER
+         *     * `ES` - ES
+         *     * `ET` - ET
+         *     * `FI` - FI
+         *     * `FJ` - FJ
+         *     * `FK` - FK
+         *     * `FM` - FM
+         *     * `FO` - FO
+         *     * `FR` - FR
+         *     * `GA` - GA
+         *     * `GB` - GB
+         *     * `GD` - GD
+         *     * `GE` - GE
+         *     * `GF` - GF
+         *     * `GG` - GG
+         *     * `GH` - GH
+         *     * `GI` - GI
+         *     * `GL` - GL
+         *     * `GM` - GM
+         *     * `GN` - GN
+         *     * `GP` - GP
+         *     * `GQ` - GQ
+         *     * `GR` - GR
+         *     * `GS` - GS
+         *     * `GT` - GT
+         *     * `GU` - GU
+         *     * `GW` - GW
+         *     * `GY` - GY
+         *     * `HK` - HK
+         *     * `HM` - HM
+         *     * `HN` - HN
+         *     * `HR` - HR
+         *     * `HT` - HT
+         *     * `HU` - HU
+         *     * `ID` - ID
+         *     * `IE` - IE
+         *     * `IL` - IL
+         *     * `IM` - IM
+         *     * `IN` - IN
+         *     * `IO` - IO
+         *     * `IQ` - IQ
+         *     * `IR` - IR
+         *     * `IS` - IS
+         *     * `IT` - IT
+         *     * `JE` - JE
+         *     * `JM` - JM
+         *     * `JO` - JO
+         *     * `JP` - JP
+         *     * `KE` - KE
+         *     * `KG` - KG
+         *     * `KH` - KH
+         *     * `KI` - KI
+         *     * `KM` - KM
+         *     * `KN` - KN
+         *     * `KP` - KP
+         *     * `KR` - KR
+         *     * `KW` - KW
+         *     * `KY` - KY
+         *     * `KZ` - KZ
+         *     * `LA` - LA
+         *     * `LB` - LB
+         *     * `LC` - LC
+         *     * `LI` - LI
+         *     * `LK` - LK
+         *     * `LR` - LR
+         *     * `LS` - LS
+         *     * `LT` - LT
+         *     * `LU` - LU
+         *     * `LV` - LV
+         *     * `LY` - LY
+         *     * `MA` - MA
+         *     * `MC` - MC
+         *     * `MD` - MD
+         *     * `ME` - ME
+         *     * `MF` - MF
+         *     * `MG` - MG
+         *     * `MH` - MH
+         *     * `MK` - MK
+         *     * `ML` - ML
+         *     * `MM` - MM
+         *     * `MN` - MN
+         *     * `MO` - MO
+         *     * `MP` - MP
+         *     * `MQ` - MQ
+         *     * `MR` - MR
+         *     * `MS` - MS
+         *     * `MT` - MT
+         *     * `MU` - MU
+         *     * `MV` - MV
+         *     * `MW` - MW
+         *     * `MX` - MX
+         *     * `MY` - MY
+         *     * `MZ` - MZ
+         *     * `NA` - NA
+         *     * `NC` - NC
+         *     * `NE` - NE
+         *     * `NF` - NF
+         *     * `NG` - NG
+         *     * `NI` - NI
+         *     * `NL` - NL
+         *     * `NO` - NO
+         *     * `NP` - NP
+         *     * `NR` - NR
+         *     * `NU` - NU
+         *     * `NZ` - NZ
+         *     * `OM` - OM
+         *     * `PA` - PA
+         *     * `PE` - PE
+         *     * `PF` - PF
+         *     * `PG` - PG
+         *     * `PH` - PH
+         *     * `PK` - PK
+         *     * `PL` - PL
+         *     * `PM` - PM
+         *     * `PN` - PN
+         *     * `PR` - PR
+         *     * `PS` - PS
+         *     * `PT` - PT
+         *     * `PW` - PW
+         *     * `PY` - PY
+         *     * `QA` - QA
+         *     * `RE` - RE
+         *     * `RO` - RO
+         *     * `RS` - RS
+         *     * `RU` - RU
+         *     * `RW` - RW
+         *     * `SA` - SA
+         *     * `SB` - SB
+         *     * `SC` - SC
+         *     * `SD` - SD
+         *     * `SE` - SE
+         *     * `SG` - SG
+         *     * `SH` - SH
+         *     * `SI` - SI
+         *     * `SJ` - SJ
+         *     * `SK` - SK
+         *     * `SL` - SL
+         *     * `SM` - SM
+         *     * `SN` - SN
+         *     * `SO` - SO
+         *     * `SR` - SR
+         *     * `SS` - SS
+         *     * `ST` - ST
+         *     * `SV` - SV
+         *     * `SX` - SX
+         *     * `SY` - SY
+         *     * `SZ` - SZ
+         *     * `TC` - TC
+         *     * `TD` - TD
+         *     * `TF` - TF
+         *     * `TG` - TG
+         *     * `TH` - TH
+         *     * `TJ` - TJ
+         *     * `TK` - TK
+         *     * `TL` - TL
+         *     * `TM` - TM
+         *     * `TN` - TN
+         *     * `TO` - TO
+         *     * `TR` - TR
+         *     * `TT` - TT
+         *     * `TV` - TV
+         *     * `TW` - TW
+         *     * `TZ` - TZ
+         *     * `UA` - UA
+         *     * `UG` - UG
+         *     * `UM` - UM
+         *     * `US` - US
+         *     * `UY` - UY
+         *     * `UZ` - UZ
+         *     * `VA` - VA
+         *     * `VC` - VC
+         *     * `VE` - VE
+         *     * `VG` - VG
+         *     * `VI` - VI
+         *     * `VN` - VN
+         *     * `VU` - VU
+         *     * `WF` - WF
+         *     * `WS` - WS
+         *     * `YE` - YE
+         *     * `YT` - YT
+         *     * `ZA` - ZA
+         *     * `ZM` - ZM
+         *     * `ZW` - ZW
+         * @enum {string}
+         */
+        CountryCode: "AD" | "AE" | "AF" | "AG" | "AI" | "AL" | "AM" | "AO" | "AQ" | "AR" | "AS" | "AT" | "AU" | "AW" | "AX" | "AZ" | "BA" | "BB" | "BD" | "BE" | "BF" | "BG" | "BH" | "BI" | "BJ" | "BL" | "BM" | "BN" | "BO" | "BQ" | "BR" | "BS" | "BT" | "BV" | "BW" | "BY" | "BZ" | "CA" | "CC" | "CD" | "CF" | "CG" | "CH" | "CI" | "CK" | "CL" | "CM" | "CN" | "CO" | "CR" | "CU" | "CV" | "CW" | "CX" | "CY" | "CZ" | "DE" | "DJ" | "DK" | "DM" | "DO" | "DZ" | "EC" | "EE" | "EG" | "EH" | "ER" | "ES" | "ET" | "FI" | "FJ" | "FK" | "FM" | "FO" | "FR" | "GA" | "GB" | "GD" | "GE" | "GF" | "GG" | "GH" | "GI" | "GL" | "GM" | "GN" | "GP" | "GQ" | "GR" | "GS" | "GT" | "GU" | "GW" | "GY" | "HK" | "HM" | "HN" | "HR" | "HT" | "HU" | "ID" | "IE" | "IL" | "IM" | "IN" | "IO" | "IQ" | "IR" | "IS" | "IT" | "JE" | "JM" | "JO" | "JP" | "KE" | "KG" | "KH" | "KI" | "KM" | "KN" | "KP" | "KR" | "KW" | "KY" | "KZ" | "LA" | "LB" | "LC" | "LI" | "LK" | "LR" | "LS" | "LT" | "LU" | "LV" | "LY" | "MA" | "MC" | "MD" | "ME" | "MF" | "MG" | "MH" | "MK" | "ML" | "MM" | "MN" | "MO" | "MP" | "MQ" | "MR" | "MS" | "MT" | "MU" | "MV" | "MW" | "MX" | "MY" | "MZ" | "NA" | "NC" | "NE" | "NF" | "NG" | "NI" | "NL" | "NO" | "NP" | "NR" | "NU" | "NZ" | "OM" | "PA" | "PE" | "PF" | "PG" | "PH" | "PK" | "PL" | "PM" | "PN" | "PR" | "PS" | "PT" | "PW" | "PY" | "QA" | "RE" | "RO" | "RS" | "RU" | "RW" | "SA" | "SB" | "SC" | "SD" | "SE" | "SG" | "SH" | "SI" | "SJ" | "SK" | "SL" | "SM" | "SN" | "SO" | "SR" | "SS" | "ST" | "SV" | "SX" | "SY" | "SZ" | "TC" | "TD" | "TF" | "TG" | "TH" | "TJ" | "TK" | "TL" | "TM" | "TN" | "TO" | "TR" | "TT" | "TV" | "TW" | "TZ" | "UA" | "UG" | "UM" | "US" | "UY" | "UZ" | "VA" | "VC" | "VE" | "VG" | "VI" | "VN" | "VU" | "WF" | "WS" | "YE" | "YT" | "ZA" | "ZM" | "ZW";
+        IdentificationOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly taxon: components["schemas"]["TaxonBrief"];
+            /** Format: date */
+            readonly identified_on: string;
+            readonly method: string;
+            readonly reason: string;
+            readonly is_current: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
         /** @description A lab and the caller's role in it (annotated by the selector, never one query per row). */
         LabOutput: {
             /** Format: uuid */
@@ -244,6 +607,21 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["MemberOutput"][];
         };
+        PaginatedStrainListOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["StrainListOutput"][];
+        };
         PaginatedTaxonOutputList: {
             /** @example 123 */
             count: number;
@@ -262,6 +640,13 @@ export interface components {
         PatchedMemberRoleInputRequest: {
             role?: components["schemas"]["Role"];
         };
+        /**
+         * @description * `unknown` - Unknown
+         *     * `none_known` - No pathogenicity known
+         *     * `pathogenic` - Pathogenic
+         * @enum {string}
+         */
+        Pathogenicity: "unknown" | "none_known" | "pathogenic";
         /** @description The error body of every API response with status 400 and above. */
         Problem: {
             type: string;
@@ -291,6 +676,74 @@ export interface components {
          * @enum {string}
          */
         RankEnum: "domain" | "kingdom" | "phylum" | "class" | "order" | "family" | "genus" | "species" | "subspecies" | "variety" | "form";
+        ReclassifyInputRequest: {
+            /** Format: uuid */
+            taxon: string;
+            /** Format: date */
+            identified_on: string;
+            method: string;
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
+        RestrictionAddInputRequest: {
+            kind: components["schemas"]["RestrictionKind"];
+            reference: string;
+            /** @default  */
+            act: string;
+            gmo_category?: number | null;
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
+        RestrictionBrief: {
+            readonly kind: components["schemas"]["RestrictionKind"];
+            readonly reference: string;
+        };
+        RestrictionEndInputRequest: {
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
+        RestrictionInputRequest: {
+            kind: components["schemas"]["RestrictionKind"];
+            reference: string;
+            /** @default  */
+            act: string;
+            gmo_category?: number | null;
+        };
+        /**
+         * @description * `cz_vrat` - Highly risky agent (VRAT), decree 474/2002 Sb., Annex 1
+         *     * `cz_rat` - Risky agent (RAT), decree 474/2002 Sb., Annex 2
+         *     * `dual_use` - Dual-use item, Regulation (EU) 2021/821, Annex I
+         *     * `quarantine_pest` - Union quarantine pest, Regulation (EU) 2019/2072, Annex II
+         *     * `gmo` - Genetically modified organism in contained use, act 78/2004 Sb.
+         * @enum {string}
+         */
+        RestrictionKind: "cz_vrat" | "cz_rat" | "dual_use" | "quarantine_pest" | "gmo";
+        RestrictionOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly kind: components["schemas"]["RestrictionKind"];
+            readonly reference: string;
+            readonly act: string;
+            readonly gmo_category: number | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly ended_at: string | null;
+            readonly end_reason: string;
+        };
+        /**
+         * @description * `1` - 1
+         *     * `2` - 2
+         *     * `3` - 3
+         *     * `4` - 4
+         * @enum {integer}
+         */
+        RiskGroup: 1 | 2 | 3 | 4;
+        RiskGroupInputRequest: {
+            risk_group: components["schemas"]["RiskGroup"];
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
         /**
          * @description * `viewer` - Viewer
          *     * `technician` - Technician
@@ -299,12 +752,65 @@ export interface components {
          * @enum {string}
          */
         Role: "viewer" | "technician" | "curator" | "manager";
+        StrainCreateInputRequest: {
+            /** Format: uuid */
+            taxon: string;
+            name_as_received: string;
+            /** Format: date */
+            identified_on: string;
+            identification_method: string;
+            risk_group: components["schemas"]["RiskGroup"];
+            /** @default unknown */
+            animal_pathogenicity: components["schemas"]["Pathogenicity"];
+            /** @default unknown */
+            plant_pathogenicity: components["schemas"]["Pathogenicity"];
+            /** @default  */
+            isolation_source: string;
+            /** @default  */
+            country_of_origin: components["schemas"]["CountryCode"] | components["schemas"]["BlankEnum"];
+            /** @default  */
+            isolation_date: string;
+            restrictions?: components["schemas"]["RestrictionInputRequest"][];
+        };
+        StrainDetailOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly accession_number: string | null;
+            readonly name_as_received: string;
+            readonly taxon: components["schemas"]["TaxonBrief"];
+            readonly risk_group: components["schemas"]["RiskGroup"];
+            readonly status: components["schemas"]["StrainStatus"];
+            readonly restrictions: components["schemas"]["RestrictionBrief"][];
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly animal_pathogenicity: components["schemas"]["Pathogenicity"];
+            readonly plant_pathogenicity: components["schemas"]["Pathogenicity"];
+            readonly isolation_source: string;
+            readonly country_of_origin: string;
+            readonly isolation_date: string;
+            readonly identifications: components["schemas"]["IdentificationOutput"][];
+            readonly restriction_history: components["schemas"]["RestrictionOutput"][];
+        };
+        StrainListOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly accession_number: string | null;
+            readonly name_as_received: string;
+            readonly taxon: components["schemas"]["TaxonBrief"];
+            readonly risk_group: components["schemas"]["RiskGroup"];
+            readonly status: components["schemas"]["StrainStatus"];
+            readonly restrictions: components["schemas"]["RestrictionBrief"][];
+            /** Format: date-time */
+            readonly created_at: string;
+        };
         /**
-         * @description * `accepted` - Accepted
-         *     * `synonym` - Synonym
+         * @description * `pending` - Pending
+         *     * `active` - Active
+         *     * `restricted` - Restricted
+         *     * `deaccessioned` - Deaccessioned
          * @enum {string}
          */
-        StatusEnum: "accepted" | "synonym";
+        StrainStatus: "pending" | "active" | "restricted" | "deaccessioned";
         /**
          * @description * `ncbi` - NCBI Taxonomy
          *     * `lpsn` - LPSN
@@ -319,7 +825,7 @@ export interface components {
             readonly name: string;
             readonly authority: string;
             readonly rank: components["schemas"]["RankEnum"];
-            readonly status: components["schemas"]["StatusEnum"];
+            readonly status: components["schemas"]["TaxonStatus"];
         };
         TaxonIdentifierOutput: {
             readonly system: components["schemas"]["SystemEnum"];
@@ -331,11 +837,17 @@ export interface components {
             readonly name: string;
             readonly authority: string;
             readonly rank: components["schemas"]["RankEnum"];
-            readonly status: components["schemas"]["StatusEnum"];
+            readonly status: components["schemas"]["TaxonStatus"];
             readonly parent: components["schemas"]["TaxonBrief"] | null;
             readonly accepted: components["schemas"]["TaxonBrief"] | null;
             readonly identifiers: components["schemas"]["TaxonIdentifierOutput"][];
         };
+        /**
+         * @description * `accepted` - Accepted
+         *     * `synonym` - Synonym
+         * @enum {string}
+         */
+        TaxonStatus: "accepted" | "synonym";
     };
     responses: never;
     parameters: never;
@@ -948,6 +1460,544 @@ export interface operations {
                 };
             };
             /** @description The lab would have no manager left */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_list: {
+        parameters: {
+            query?: {
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+                /**
+                 * @description * `cz_vrat` - Highly risky agent (VRAT), decree 474/2002 Sb., Annex 1
+                 *     * `cz_rat` - Risky agent (RAT), decree 474/2002 Sb., Annex 2
+                 *     * `dual_use` - Dual-use item, Regulation (EU) 2021/821, Annex I
+                 *     * `quarantine_pest` - Union quarantine pest, Regulation (EU) 2019/2072, Annex II
+                 *     * `gmo` - Genetically modified organism in contained use, act 78/2004 Sb.
+                 */
+                restriction?: "cz_rat" | "cz_vrat" | "dual_use" | "gmo" | "quarantine_pest";
+                /**
+                 * @description * `1` - 1
+                 *     * `2` - 2
+                 *     * `3` - 3
+                 *     * `4` - 4
+                 */
+                risk_group?: 1 | 2 | 3 | 4;
+                search?: string;
+                /**
+                 * @description * `pending` - Pending
+                 *     * `active` - Active
+                 *     * `restricted` - Restricted
+                 *     * `deaccessioned` - Deaccessioned
+                 */
+                status?: "active" | "deaccessioned" | "pending" | "restricted";
+                taxon?: string;
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedStrainListOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StrainCreateInputRequest"];
+                "multipart/form-data": components["schemas"]["StrainCreateInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainDetailOutput"];
+                };
+            };
+            /** @description Invalid input, an unknown taxon, or a risk group 4 agent (on risk_group) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The accession number is taken: try again */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainDetailOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_reclassify_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReclassifyInputRequest"];
+                "multipart/form-data": components["schemas"]["ReclassifyInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainDetailOutput"];
+                };
+            };
+            /** @description Invalid input, an unknown taxon, or a risk group 4 agent (on risk_group) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_restrictions_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestrictionAddInputRequest"];
+                "multipart/form-data": components["schemas"]["RestrictionAddInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainDetailOutput"];
+                };
+            };
+            /** @description Invalid input, an unknown taxon, or a risk group 4 agent (on risk_group) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_restrictions_end_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+                restriction_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestrictionEndInputRequest"];
+                "multipart/form-data": components["schemas"]["RestrictionEndInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainDetailOutput"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The restriction has ended already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_risk_group_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiskGroupInputRequest"];
+                "multipart/form-data": components["schemas"]["RiskGroupInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainDetailOutput"];
+                };
+            };
+            /** @description Invalid input, an unknown taxon, or a risk group 4 agent (on risk_group) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
             422: {
                 headers: {
                     [name: string]: unknown;
