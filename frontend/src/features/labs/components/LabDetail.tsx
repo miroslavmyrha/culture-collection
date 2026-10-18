@@ -3,7 +3,7 @@ import { isApiError } from '@/lib/api'
 import { useLab } from '../api/queries'
 import { grantableRoles, type PageParams, ROLE_LABELS } from '../schemas'
 import { AddMemberForm } from './AddMemberForm'
-import { LoadError } from './LoadError'
+import { LoadError } from '@/components/LoadError'
 import { MemberTable } from './MemberTable'
 
 type Props = { labId: string; params: PageParams; onOffsetChange: (offset: number) => void }

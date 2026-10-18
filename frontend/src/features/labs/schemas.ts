@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { components } from '@/api/schema'
+export type { PageParams } from '@/lib/paging'
 
 export type Lab = components['schemas']['LabOutput']
 export type Member = components['schemas']['MemberOutput']
@@ -34,11 +35,3 @@ export type AddMemberInput = z.output<typeof addMemberSchema>
 
 export const changeRoleSchema = z.object({ role: z.enum(ROLES, 'Choose a role') })
 export type ChangeRoleInput = z.output<typeof changeRoleSchema>
-
-/** A page of a list in the URL. Defaults stay out of the URL. A bad value falls back to them. */
-export const pageDefaults = { limit: 25, offset: 0 }
-export const pageSearch = z.object({
-  limit: z.number().int().min(1).max(200).default(pageDefaults.limit).catch(pageDefaults.limit),
-  offset: z.number().int().min(0).default(pageDefaults.offset).catch(pageDefaults.offset),
-})
-export type PageParams = z.output<typeof pageSearch>

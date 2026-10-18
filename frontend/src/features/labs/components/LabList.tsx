@@ -1,8 +1,8 @@
 import { Link, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { useLabList } from '../api/queries'
 import { type PageParams, ROLE_LABELS } from '../schemas'
-import { LoadError } from './LoadError'
-import { Pager, PastTheEnd } from './Pager'
+import { LoadError } from '@/components/LoadError'
+import { Pager, PastTheEnd } from '@/components/Pager'
 
 type Props = {
   params: PageParams

@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { pageSearch } from '@/features/labs/schemas'
+import { pageSearch } from '@/lib/paging'
 import { makeLab, makeMe, makeMember, page } from '@/test/factories'
 import { mockApi } from '@/test/mockApi'
 import { renderApp } from '@/test/render'

@@ -4,8 +4,8 @@ import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { useMemberList } from '../api/queries'
 import { type Member, type PageParams, ROLE_LABELS, type Role } from '../schemas'
 import { ChangeRoleDialog } from './ChangeRoleDialog'
-import { LoadError } from './LoadError'
-import { Pager, PastTheEnd } from './Pager'
+import { LoadError } from '@/components/LoadError'
+import { Pager, PastTheEnd } from '@/components/Pager'
 import { RemoveMemberDialog } from './RemoveMemberDialog'
 
 type Props = {
