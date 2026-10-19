@@ -52,7 +52,10 @@ requirements it meets.
 **Risk group and pathogenicity.** Every strain has a risk group 1 to 4 (a
 check constraint), changed only by a service with a required reason. Two
 separate fields record pathogenicity for animals and for plants, which the
-risk group does not cover. A risk group 4 strain is refused at accession.
+risk group does not cover. A risk group 4 strain is refused at accession,
+and so is a later change of a strain's risk group to 4 (2026-10-19, #54):
+a lab that may not hold such an agent may not hold it after a
+reclassification either.
 
 **Restriction kinds.** A strain carries zero or more restrictions, each one
 kind with a reference:
