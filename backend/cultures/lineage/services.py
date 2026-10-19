@@ -47,7 +47,8 @@ from cultures.labs.permissions import Perm, Role, role_has
 from cultures.labs.services import holds_location_grant
 from cultures.storage.models import StorageUnit
 from cultures.storage.policy import may_store
-from cultures.strains.models import Strain, StrainRestriction, StrainStatus
+from cultures.strains.models import Strain, StrainStatus
+from cultures.strains.selectors import regulating_restrictions
 
 from .models import (
     BATCH_NUMBER_UNIQUE,
@@ -601,7 +602,7 @@ def vial_set_barcode(*, access: Access, vial: Vial, barcode: str) -> Vial:
 
 def is_regulated(strain: Strain) -> bool:
     """A strain with any active restriction."""
-    return StrainRestriction.objects.filter(strain=strain, ended_at__isnull=True).exists()
+    return regulating_restrictions().filter(strain=strain).exists()
 
 
 def location_of(vial: Vial) -> Location | None:

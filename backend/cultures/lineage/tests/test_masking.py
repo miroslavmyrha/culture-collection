@@ -21,10 +21,12 @@ from cultures.labs.models import Lab, LocationGrant, Membership
 from cultures.labs.permissions import GRANTS, Perm, Role
 from cultures.labs.tests.conftest import membership
 from cultures.lineage.models import Passage, Vial
-from cultures.lineage.services import location_of
+from cultures.lineage.services import is_regulated, location_of
 from cultures.storage.models import StorageUnit, UnitKind
 from cultures.storage.tests.conftest import MakeUnit, Tree
+from cultures.strains import services as strains
 from cultures.strains.models import Strain
+from cultures.strains.tests.conftest import GMO
 from cultures.users import services as users
 from cultures.users.models import User
 
@@ -312,3 +314,102 @@ def test_moving_a_regulated_vial_shows_neither_where_it_was_nor_where_it_went(
     )
     hides(again)
     hides(client.get(f"{VIALS_URL}{masked[0].public_id}/"))
+
+
+def end_restrictions(curator: User, strain: Strain, keep: int = 0) -> None:
+    """Ends the strain's active restrictions through the service, all but the last `keep`."""
+    active = list(strain.restrictions.filter(ended_at__isnull=True).order_by("pk"))
+    with audit_context(channel=Channel.API, actor=curator, request_id="req-end"):
+        for restriction in active[: len(active) - keep]:
+            strains.strain_restriction_end(
+                access=access_for(curator), restriction=restriction, reason="delisted"
+            )
+
+
+@pytest.mark.parametrize("role", ROLES)
+def test_a_strain_whose_last_restriction_ended_shows_its_places_again(
+    *,
+    role: Role,
+    team: dict[Role, User],
+    curator: User,
+    keeper: User,
+    regulated: Strain,
+    masked: list[Vial],
+    secret_box: StorageUnit,
+    tree: Tree,
+) -> None:
+    end_restrictions(curator, regulated)
+    assert is_regulated(regulated) is False
+    for reader in (team[role], keeper):
+        client = logged_in(reader)
+        rows = {r["public_id"]: r for r in client.get(VIALS_URL).json()["results"]}
+        detail = client.get(f"{VIALS_URL}{masked[0].public_id}/").json()
+        for shown in (rows[str(masked[0].public_id)], detail):
+            assert (shown["location_masked"], shown["can_reveal"]) == (False, False)
+            assert shown["location"]["box"] == str(secret_box.public_id)
+            assert shown["location"]["label"] == "A1"
+
+
+@pytest.mark.parametrize("role", [Role.TECHNICIAN, Role.CURATOR, Role.MANAGER])
+def test_after_the_last_restriction_ended_the_write_answers_show_the_place(
+    *,
+    role: Role,
+    team: dict[Role, User],
+    curator: User,
+    regulated: Strain,
+    masked: list[Vial],
+    tree: Tree,
+) -> None:
+    end_restrictions(curator, regulated)
+    writer = logged_in(team[role])
+    placed = writer.post(
+        f"{VIALS_URL}{masked[1].public_id}/place/",
+        {"box": str(tree.box.public_id), "row": 7, "col": 7},
+        content_type="application/json",
+    ).json()
+    assert (placed["location"]["label"], placed["location_masked"]) == ("G7", False)
+    status = writer.post(
+        f"{VIALS_URL}{masked[0].public_id}/status/",
+        {"status": "quarantined", "reason": "check"},
+        content_type="application/json",
+    ).json()
+    assert (status["location"]["label"], status["location_masked"], status["can_reveal"]) == (
+        "A1",
+        False,
+        False,
+    )
+    # A reveal now needs no grant and records nothing.
+    events = AuditEvent.objects.count()
+    revealed = writer.post(f"{VIALS_URL}{masked[0].public_id}/reveal-location/")
+    assert revealed.json()["location"]["label"] == "A1"
+    assert AuditEvent.objects.count() == events
+
+
+@pytest.mark.parametrize("role", ROLES)
+def test_one_ended_and_one_active_restriction_stay_masked(
+    *,
+    role: Role,
+    team: dict[Role, User],
+    curator: User,
+    regulated: Strain,
+    masked: list[Vial],
+    secret_box: StorageUnit,
+) -> None:
+    with audit_context(channel=Channel.API, actor=curator, request_id="req-add"):
+        strains.strain_restriction_add(
+            access=access_for(curator), strain=regulated, restriction=GMO, reason="listed"
+        )
+    end_restrictions(curator, regulated, keep=1)  # the dual-use entry ends, the GMO stays
+    assert regulated.restrictions.filter(ended_at__isnull=True).count() == 1
+    assert is_regulated(regulated) is True
+    client = logged_in(team[role])
+    listed = client.get(VIALS_URL)
+    detail = client.get(f"{VIALS_URL}{masked[0].public_id}/")
+    for response in (listed, detail):
+        assert not leaks(response.content.decode(), secret_box)
+    assert (detail.json()["location"], detail.json()["location_masked"]) == (None, True)
+    assert_problem(
+        client.post(f"{VIALS_URL}{masked[0].public_id}/reveal-location/"),
+        403,
+        "location_grant_required",
+    )

@@ -14,7 +14,7 @@ from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
 from cultures.storage.models import StorageUnit, UnitKind
-from cultures.strains.models import StrainRestriction
+from cultures.strains.selectors import regulating_restrictions
 
 from .models import Batch, Passage, Vial, VialPlacement, VialStatus
 
@@ -42,11 +42,7 @@ def batch_list(*, access: Access, lab: Lab) -> QuerySet[Batch]:
 
 
 def _regulated() -> Exists:
-    return Exists(
-        StrainRestriction.objects.filter(
-            strain_id=OuterRef("batch__strain_id"), ended_at__isnull=True
-        )
-    )
+    return Exists(regulating_restrictions().filter(strain_id=OuterRef("batch__strain_id")))
 
 
 def vial_list(*, access: Access, lab: Lab) -> QuerySet[Vial]:
