@@ -13,7 +13,7 @@ from cultures.deposits.models import Deposit, MtaTemplate
 from cultures.labs.management.commands.seed_e2e import COLLEAGUE, CURATOR, LAB_CODE, VIEWER
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
-from cultures.storage.models import BoxType
+from cultures.storage.models import BoxType, StorageUnit
 from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
 
@@ -39,7 +39,7 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
     assert seed() == (
         "e2e-user manages E2E lab; e2e-curator and e2e-viewer are its curator and viewer;"
         " e2e-colleague is in no lab; 8 taxa; a depositor, MTA STD and one accepted deposit;"
-        " 2 box types\n"
+        " 2 box types; E2E freezer > Rack 1 > Box 1\n"
     )
     user = User.objects.get(username="e2e-user")
     lab = Lab.objects.get(code=LAB_CODE)
@@ -67,6 +67,12 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
     assert sorted(BoxType.objects.values_list("name", "rows", "cols")) == [
         ("100-place cryobox (10 x 10)", 10, 10),
         ("81-place cryobox (9 x 9)", 9, 9),
+    ]
+    tree = StorageUnit.objects.filter(lab=lab).order_by("path")
+    assert [(u.kind, u.name, u.parent.name if u.parent else None) for u in tree] == [
+        ("freezer", "E2E freezer", None),
+        ("rack", "Rack 1", "E2E freezer"),
+        ("box", "Box 1", "Rack 1"),
     ]
 
 
@@ -98,6 +104,7 @@ def test_its_writes_are_audited_as_the_command() -> None:
         "passage_created",
         "box_type_created",
         "box_type_created",
+        *["storage_unit_created"] * 3,
     ]
     assert {(e.channel, e.actor_kind, e.actor_label, e.actor_id) for e in events} == {
         (Channel.COMMAND, ActorKind.SYSTEM, "command:seed_e2e", None)

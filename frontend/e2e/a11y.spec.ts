@@ -220,6 +220,14 @@ for (const colorScheme of ['light', 'dark'] as const) {
       const lab = page.getByRole('link', { name: 'E2E lab' })
       await tabTo(page, lab)
       await expectRing(lab, 'lab link in the table')
+
+      // A storage tree item: the ring sits inside its row, on the page.
+      await lab.click()
+      await page.getByRole('link', { name: 'Storage' }).click()
+      const unit = page.getByRole('treeitem', { name: /^E2E freezer,/ })
+      await tabTo(page, unit)
+      const row = unit.locator('> div').first()
+      await expectRing(row, 'tree item row', await surfaceOf(row, true))
       await close()
     })
 
@@ -316,10 +324,14 @@ async function walk(page: Page) {
     const stop = await page.evaluate(() => {
       const e = document.activeElement
       if (!e || e === document.body) return null
-      const style = getComputedStyle(e)
+      // A tree item draws its ring around its own row, not around the units below it.
+      const drawn = e.getAttribute('role') === 'treeitem' ? (e.firstElementChild ?? e) : e
+      const style = getComputedStyle(drawn)
       const fieldset = e.matches('input, select, textarea') ? e.parentElement?.querySelector('fieldset') : null
       const visible = style.outlineStyle !== 'none' && style.outlineWidth !== '0px' ? true : fieldset ? getComputedStyle(fieldset).borderTopWidth === '2px' : false
-      const label = e.getAttribute('aria-label') ?? (e.textContent ?? '').trim()
+      const labelledBy = e.getAttribute('aria-labelledby')
+      const named = labelledBy ? document.getElementById(labelledBy)?.textContent : undefined
+      const label = e.getAttribute('aria-label') ?? named ?? (e.textContent ?? '').trim()
       return { name: `${e.tagName.toLowerCase()}:${label}`, visible }
     })
     if (stop === null) break // past the last control: focus left the document
@@ -375,6 +387,20 @@ test.describe('keyboard walk through every page', () => {
       'input:',
       'select:ViewerTechnicianCuratorManager',
       'button:Add member',
+    ])
+    // The storage tree is one stop, on its first unit (seed_e2e's E2E freezer sorts first).
+    // Loaded directly, like the pages above: the walk starts at the top of a fresh page.
+    await page.goto((await page.getByRole('link', { name: 'Storage' }).getAttribute('href')) ?? '')
+    await expect(page.getByRole('heading', { level: 1, name: 'Storage of E2E lab' })).toBeVisible()
+    expect(await walk(page)).toEqual([
+      'a:Skip to content',
+      'a:Culture collection',
+      'a:Home',
+      'a:Labs',
+      'button:Sign out',
+      'a:Back to E2E lab',
+      'button:Add a freezer or tank',
+      'li:E2E freezer, freezer, -20\u00a0°C',
     ])
     await close()
   })
