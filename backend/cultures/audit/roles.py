@@ -69,6 +69,10 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     "deposits_depositterms": ("SELECT", "INSERT", "UPDATE"),
     "deposits_termsuse": ("SELECT", "INSERT"),
     "lineage_passage": ("SELECT", "INSERT"),
+    # Storage units are retired, never deleted: events and, from #16, placements point at
+    # them. Box types are referenced by boxes. A trigger refuses deletes too.
+    "storage_boxtype": ("SELECT", "INSERT", "UPDATE"),
+    "storage_storageunit": ("SELECT", "INSERT", "UPDATE"),
 }
 
 

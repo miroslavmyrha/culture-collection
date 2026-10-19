@@ -156,6 +156,19 @@ DEPOSIT_REJECTED = register(
     EventType("deposit_rejected", "{actor} rejected a deposit", reason_required=True)
 )
 PASSAGE_CREATED = register(EventType("passage_created", "{actor} recorded passage {number}"))
+# Storage (#14, ADR 0008, D14). Units hold no strains yet, so their events name none. A move
+# records the parent and the path before and after: with the parent as the current pointer,
+# these events are the units' location history (D5).
+BOX_TYPE_CREATED = register(EventType("box_type_created", "{actor} added box type {name}"))
+BOX_TYPE_CHANGED = register(EventType("box_type_changed", "{actor} renamed a box type"))
+STORAGE_UNIT_CREATED = register(EventType("storage_unit_created", "{actor} added {kind} {name}"))
+STORAGE_UNIT_CHANGED = register(EventType("storage_unit_changed", "{actor} changed {subject}"))
+STORAGE_UNIT_MOVED = register(EventType("storage_unit_moved", "{actor} moved {subject}"))
+STORAGE_UNIT_STATUS_CHANGED = register(
+    EventType(
+        "storage_unit_status_changed", "{actor} set {subject} to {status}", reason_required=True
+    )
+)
 
 
 @dataclass(frozen=True)
@@ -300,6 +313,34 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "gmo_category",
             "ended_at",
             "end_reason",
+        ),
+    ),
+    "storage_boxtype": RowAudit(
+        label="storage.boxtype",
+        audited=("id", "public_id", "created_at", "updated_at", "name", "rows", "cols"),
+    ),
+    "storage_storageunit": RowAudit(
+        label="storage.storageunit",
+        # path is derived from parent_id by the trigger, but a move shows in it: kept.
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "kind",
+            "name",
+            "parent_id",
+            "slot",
+            "barcode",
+            "status",
+            "retired_at",
+            "box_type_id",
+            "rows",
+            "cols",
+            "temperature_c",
+            "max_risk_group",
+            "path",
         ),
     ),
     "biosafety_labauthorisation": RowAudit(

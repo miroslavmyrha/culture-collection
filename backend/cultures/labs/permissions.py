@@ -6,8 +6,8 @@ construction: GRANTS lists only what a role adds.
 
 Enforced today: view the lab and its members, manage members (#9), view strains
 and manage them (#11), view and manage depositors and deposits, publish MTA
-versions (#10, #12). The others are named now so later features plug into the
-same map instead of inventing their own checks.
+versions (#10, #12), view and manage storage (#14). The others are named now so later
+features plug into the same map instead of inventing their own checks.
 """
 
 from enum import StrEnum
@@ -37,6 +37,10 @@ class Perm(StrEnum):
     VIEW_STRAINS = "strains.view"
     # Later features check these through the same map.
     HANDLE_VIALS = "vials.handle"
+    # #14: storage. Viewing the units; adding, changing, moving and retiring them. The tree
+    # carries the risk group caps of ADR 0009, so it is the curators' (vials are placed in it
+    # by technicians, #15).
+    VIEW_STORAGE = "storage.view"
     MANAGE_STORAGE = "storage.manage"
     MANAGE_STRAINS = "strains.manage"  # #11
     # #10 and #12: depositors (with their contacts), deposits and their terms. Reading them
@@ -50,10 +54,18 @@ class Perm(StrEnum):
 
 # What each role adds to the roles below it.
 GRANTS: dict[Role, frozenset[Perm]] = {
-    Role.VIEWER: frozenset({Perm.VIEW_LAB, Perm.VIEW_MEMBERS, Perm.VIEW_STRAINS}),
-    Role.TECHNICIAN: frozenset({Perm.HANDLE_VIALS, Perm.MANAGE_STORAGE}),
+    Role.VIEWER: frozenset(
+        {Perm.VIEW_LAB, Perm.VIEW_MEMBERS, Perm.VIEW_STRAINS, Perm.VIEW_STORAGE}
+    ),
+    Role.TECHNICIAN: frozenset({Perm.HANDLE_VIALS}),
     Role.CURATOR: frozenset(
-        {Perm.MANAGE_STRAINS, Perm.VIEW_DEPOSITS, Perm.MANAGE_DEPOSITS, Perm.MANAGE_DISTRIBUTION}
+        {
+            Perm.MANAGE_STRAINS,
+            Perm.MANAGE_STORAGE,
+            Perm.VIEW_DEPOSITS,
+            Perm.MANAGE_DEPOSITS,
+            Perm.MANAGE_DISTRIBUTION,
+        }
     ),
     Role.MANAGER: frozenset({Perm.MANAGE_MEMBERS, Perm.MANAGE_MTA}),
 }
