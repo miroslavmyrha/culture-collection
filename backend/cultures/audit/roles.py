@@ -48,6 +48,17 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     # Login counters (cultures.users.login_limits): the upsert inserts, updates and returns
     # the count, a success, a staff clear and prune_login_failures delete. Not row-audited.
     "users_loginfailures": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    # Taxa are never deleted: strains and identifications point at them (PROTECT), and a
+    # name that is wrong becomes a synonym or is corrected. External ids may be removed.
+    "taxonomy_taxon": ("SELECT", "INSERT", "UPDATE"),
+    # Permits are ended with a date and a reason, never deleted (ADR 0009).
+    "biosafety_labauthorisation": ("SELECT", "INSERT", "UPDATE"),
+    # Strains and their history are never deleted: numbers are never reused (ADR 0008, D2),
+    # identifications and restrictions are history. A trigger refuses deletes too.
+    "strains_strain": ("SELECT", "INSERT", "UPDATE"),
+    "strains_straincounter": ("SELECT", "INSERT", "UPDATE"),
+    "strains_strainidentification": ("SELECT", "INSERT", "UPDATE"),
+    "strains_strainrestriction": ("SELECT", "INSERT", "UPDATE"),
 }
 
 

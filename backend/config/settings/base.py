@@ -46,6 +46,9 @@ INSTALLED_APPS = [
     "cultures.core",
     "cultures.labs",
     "cultures.audit",
+    "cultures.taxonomy",
+    "cultures.biosafety",
+    "cultures.strains",
 ]
 
 MIDDLEWARE = [
@@ -267,7 +270,15 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,  # separate input and output schemas for generated TS types
     # One name per choice set, so the TS types have one Role, not one per field that uses it.
-    "ENUM_NAME_OVERRIDES": {"Role": "cultures.labs.permissions.Role"},
+    "ENUM_NAME_OVERRIDES": {
+        "Role": "cultures.labs.permissions.Role",
+        "Pathogenicity": "cultures.strains.models.Pathogenicity",
+        "RestrictionKind": "cultures.biosafety.models.RestrictionKind",
+        "StrainStatus": "cultures.strains.models.StrainStatus",
+        "TaxonStatus": "cultures.taxonomy.models.TaxonStatus",
+        "RiskGroup": "cultures.strains.api.serializers.RISK_GROUPS",
+        "CountryCode": "cultures.strains.api.serializers.COUNTRY_CHOICES",
+    },
 }
 
 LOG_FORMAT = env_str("LOG_FORMAT", "plain")

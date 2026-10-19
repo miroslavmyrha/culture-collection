@@ -1,0 +1,81 @@
+"""Reads of strains. Every one takes the access object, so the lab scope is in the signature."""
+
+from django.db.models import F, Prefetch, Q, QuerySet
+
+from cultures.biosafety.models import RestrictionKind
+from cultures.labs.access import Access
+from cultures.labs.models import Lab
+from cultures.labs.permissions import Perm
+from cultures.taxonomy.models import Taxon
+from cultures.taxonomy.selectors import taxon_and_below
+
+from .models import Strain, StrainIdentification, StrainRestriction
+
+
+def strain_list(*, access: Access, lab: Lab) -> QuerySet[Strain]:
+    """The strains of one lab the user may view, by accession number (numbered first)."""
+    return (
+        Strain.objects.for_access(access, Perm.VIEW_STRAINS)
+        .filter(lab=lab)
+        .select_related("taxon")
+        .prefetch_related(
+            Prefetch(
+                "restrictions",
+                queryset=StrainRestriction.objects.filter(ended_at__isnull=True).order_by(
+                    "kind", "reference", "pk"
+                ),
+                to_attr="active_restrictions",
+            )
+        )
+        .order_by(F("accession_seq").asc(nulls_last=True), "accession_number", "pk")
+    )
+
+
+def strain_detail(*, access: Access, lab: Lab) -> QuerySet[Strain]:
+    """The same rows with their whole history: every identification and every restriction."""
+    history = strain_list(access=access, lab=lab).prefetch_related(
+        Prefetch(
+            "identifications",
+            queryset=StrainIdentification.objects.select_related("taxon").order_by(
+                "-is_current", "-identified_on", "-created_at", "-pk"
+            ),
+        )
+    )
+    return history.prefetch_related(
+        Prefetch(
+            "restrictions",
+            # Active first, then the ended ones in the order they ended.
+            queryset=StrainRestriction.objects.order_by(
+                F("ended_at").asc(nulls_first=True), "kind", "reference", "pk"
+            ),
+            to_attr="all_restrictions",
+        ),
+    )
+
+
+# Filters, applied to a scoped queryset only (filters.StrainFilter).
+
+
+def under_taxon(strains: QuerySet[Strain], taxon: Taxon) -> QuerySet[Strain]:
+    """Strains whose current taxon is the taxon (or its accepted name), below it, or a synonym
+    of either: "genus Bacillus" finds B. subtilis, its subspecies and old names of both."""
+    return strains.filter(taxon_id__in=taxon_and_below(taxon))
+
+
+def with_restriction(strains: QuerySet[Strain], kind: RestrictionKind) -> QuerySet[Strain]:
+    restricted = StrainRestriction.objects.filter(kind=kind, ended_at__isnull=True).values(
+        "strain_id"
+    )
+    return strains.filter(pk__in=restricted)
+
+
+def matching(strains: QuerySet[Strain], text: str) -> QuerySet[Strain]:
+    """The accession number, the name as received or the current taxon's name contains the text."""
+    text = " ".join(text.split())
+    if not text:
+        return strains
+    return strains.filter(
+        Q(accession_number__icontains=text)
+        | Q(name_as_received__icontains=text)
+        | Q(taxon__name__icontains=text)
+    )

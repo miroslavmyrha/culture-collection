@@ -14,10 +14,12 @@ type Props = Omit<React.ComponentProps<typeof TextField>, 'select' | 'slotProps'
  * <select> works with register() as is, keeps the platform's keyboard and screen reader
  * behaviour, and needs no popup. MUI passes inputRef to the <select> for native selects
  * (@mui/material 9.5.0, NativeSelect/NativeSelectInput.js:216).
+ * The label always sits above the box: a native select always shows an option, also when its
+ * value is '' ("All", "Choose"), and MUI would otherwise draw the label over that text.
  */
 export function SelectField({ options, ref, ...props }: Props) {
   return (
-    <TextField {...props} select slotProps={{ select: { native: true } }} ref={ref}>
+    <TextField {...props} select slotProps={{ select: { native: true }, inputLabel: { shrink: true } }} ref={ref}>
       {options.map((option) => (
         <option key={option.value} value={option.value}>
           {option.label}

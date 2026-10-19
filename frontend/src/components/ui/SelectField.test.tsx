@@ -10,6 +10,12 @@ const OPTIONS = [
 ]
 
 describe('SelectField', () => {
+  // A native select always shows an option, also for '' ("All"): MUI must not draw the label on it.
+  it('keeps its label above the box also when the value is empty', () => {
+    render(<SelectField label="Risk group" options={[{ value: '', label: 'All' }, ...OPTIONS]} />)
+    expect(screen.getByText('Risk group', { selector: 'label' })).toHaveAttribute('data-shrink', 'true')
+  })
+
   it('is a native select named by its label, with every option', () => {
     render(<SelectField label="Role" options={OPTIONS} />)
     const select = screen.getByRole('combobox', { name: 'Role' })

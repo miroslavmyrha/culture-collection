@@ -1,6 +1,6 @@
 import { createRoute, lazyRouteComponent, stripSearchParams } from '@tanstack/react-router'
 import { labDetailOptions, labListOptions, memberListOptions } from '@/features/labs/api/queries'
-import { pageDefaults, pageSearch } from '@/features/labs/schemas'
+import { pageDefaults, pageSearch } from '@/lib/paging'
 import { authenticatedRoute } from './authenticated'
 
 // Under the authenticated layout: the guard runs first, so anonymous users never fetch.

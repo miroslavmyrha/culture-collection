@@ -2,7 +2,8 @@ import { AxeBuilder } from '@axe-core/playwright'
 import { expect, type Locator, type Page } from '@playwright/test'
 
 // Seeded by `python manage.py seed_e2e` (backend/cultures/labs/management/commands/seed_e2e.py),
-// locally and in CI: the user manages the lab "E2E lab", e2e-colleague is in no lab.
+// locally and in CI: the user manages the lab "E2E lab", e2e-curator and e2e-viewer are its curator
+// and viewer, e2e-colleague is in no lab.
 export const username = process.env.E2E_USERNAME ?? 'e2e-user'
 export const password = process.env.E2E_PASSWORD ?? 'e2e correct horse battery'
 

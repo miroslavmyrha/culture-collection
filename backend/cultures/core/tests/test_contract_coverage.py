@@ -39,6 +39,11 @@ EXEMPT = {
     "cultures.users.api.views.me": Exemption(
         "own user only, no lookup", "auth-me", "users/tests/test_auth.py"
     ),
+    "cultures.taxonomy.api.views.TaxonViewSet": Exemption(
+        "global reference data read by every signed-in user: no lab, so no outsider to hide from",
+        "taxon-list",
+        "taxonomy/tests/test_api.py",
+    ),
 }
 
 

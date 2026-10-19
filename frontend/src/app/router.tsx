@@ -8,8 +8,12 @@ import { homeRoute } from '@/routes/home'
 import { labDetailRoute, labListRoute } from '@/routes/labs'
 import { loginRoute } from '@/routes/login'
 import { rootRoute } from '@/routes/root'
+import { strainCreateRoute, strainDetailRoute, strainListRoute } from '@/routes/strains'
 
-export const routeTree = rootRoute.addChildren([loginRoute, authenticatedRoute.addChildren([homeRoute, labListRoute, labDetailRoute])])
+export const routeTree = rootRoute.addChildren([
+  loginRoute,
+  authenticatedRoute.addChildren([homeRoute, labListRoute, labDetailRoute, strainListRoute, strainCreateRoute, strainDetailRoute]),
+])
 
 export function createAppRouter(queryClient: QueryClient, history?: RouterHistory) {
   return createRouter({

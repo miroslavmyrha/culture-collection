@@ -542,6 +542,548 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/strains/:
+    get:
+      operationId: labs_strains_list
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      - in: query
+        name: restriction
+        schema:
+          type: string
+          enum:
+          - cz_rat
+          - cz_vrat
+          - dual_use
+          - gmo
+          - quarantine_pest
+        description: |-
+          * `cz_vrat` - Highly risky agent (VRAT), decree 474/2002 Sb., Annex 1
+          * `cz_rat` - Risky agent (RAT), decree 474/2002 Sb., Annex 2
+          * `dual_use` - Dual-use item, Regulation (EU) 2021/821, Annex I
+          * `quarantine_pest` - Union quarantine pest, Regulation (EU) 2019/2072, Annex II
+          * `gmo` - Genetically modified organism in contained use, act 78/2004 Sb.
+      - in: query
+        name: risk_group
+        schema:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          enum:
+          - 1
+          - 2
+          - 3
+          - 4
+        description: |-
+          * `1` - 1
+          * `2` - 2
+          * `3` - 3
+          * `4` - 4
+      - in: query
+        name: search
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - active
+          - deaccessioned
+          - pending
+          - restricted
+        description: |-
+          * `pending` - Pending
+          * `active` - Active
+          * `restricted` - Restricted
+          * `deaccessioned` - Deaccessioned
+      - in: query
+        name: taxon
+        schema:
+          type: string
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStrainListOutputList'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    post:
+      operationId: labs_strains_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StrainCreateInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StrainCreateInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, an unknown taxon, or a risk group 4 agent (on
+            risk_group)
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'The accession number is taken: try again'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'lab_authorisation_required: the lab holds no valid permit
+            for a restriction''s kind; reason_required'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/:
+    get:
+      operationId: labs_strains_retrieve
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainDetailOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/reclassify/:
+    post:
+      operationId: labs_strains_reclassify_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReclassifyInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReclassifyInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, an unknown taxon, or a risk group 4 agent (on
+            risk_group)
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'lab_authorisation_required: the lab holds no valid permit
+            for a restriction''s kind; reason_required'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/:
+    post:
+      operationId: labs_strains_restrictions_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestrictionAddInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RestrictionAddInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, an unknown taxon, or a risk group 4 agent (on
+            risk_group)
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'lab_authorisation_required: the lab holds no valid permit
+            for a restriction''s kind; reason_required'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end/:
+    post:
+      operationId: labs_strains_restrictions_end_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: restriction_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestrictionEndInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RestrictionEndInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainDetailOutput'
+          description: ''
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The restriction has ended already
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'lab_authorisation_required: the lab holds no valid permit
+            for a restriction''s kind; reason_required'
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group/:
+    post:
+      operationId: labs_strains_risk_group_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiskGroupInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RiskGroupInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, an unknown taxon, or a risk group 4 agent (on
+            risk_group)
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'lab_authorisation_required: the lab holds no valid permit
+            for a restriction''s kind; reason_required'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{public_id}/:
     get:
       operationId: labs_retrieve
@@ -587,8 +1129,644 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/taxa/:
+    get:
+      operationId: taxa_list
+      description: Taxa by name. `search` finds names containing the text.
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      - in: query
+        name: search
+        schema:
+          type: string
+      tags:
+      - taxa
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTaxonOutputList'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/taxa/{public_id}/:
+    get:
+      operationId: taxa_retrieve
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - taxa
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxonOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
 components:
   schemas:
+    BlankEnum:
+      enum:
+      - ''
+    CountryCode:
+      enum:
+      - AD
+      - AE
+      - AF
+      - AG
+      - AI
+      - AL
+      - AM
+      - AO
+      - AQ
+      - AR
+      - AS
+      - AT
+      - AU
+      - AW
+      - AX
+      - AZ
+      - BA
+      - BB
+      - BD
+      - BE
+      - BF
+      - BG
+      - BH
+      - BI
+      - BJ
+      - BL
+      - BM
+      - BN
+      - BO
+      - BQ
+      - BR
+      - BS
+      - BT
+      - BV
+      - BW
+      - BY
+      - BZ
+      - CA
+      - CC
+      - CD
+      - CF
+      - CG
+      - CH
+      - CI
+      - CK
+      - CL
+      - CM
+      - CN
+      - CO
+      - CR
+      - CU
+      - CV
+      - CW
+      - CX
+      - CY
+      - CZ
+      - DE
+      - DJ
+      - DK
+      - DM
+      - DO
+      - DZ
+      - EC
+      - EE
+      - EG
+      - EH
+      - ER
+      - ES
+      - ET
+      - FI
+      - FJ
+      - FK
+      - FM
+      - FO
+      - FR
+      - GA
+      - GB
+      - GD
+      - GE
+      - GF
+      - GG
+      - GH
+      - GI
+      - GL
+      - GM
+      - GN
+      - GP
+      - GQ
+      - GR
+      - GS
+      - GT
+      - GU
+      - GW
+      - GY
+      - HK
+      - HM
+      - HN
+      - HR
+      - HT
+      - HU
+      - ID
+      - IE
+      - IL
+      - IM
+      - IN
+      - IO
+      - IQ
+      - IR
+      - IS
+      - IT
+      - JE
+      - JM
+      - JO
+      - JP
+      - KE
+      - KG
+      - KH
+      - KI
+      - KM
+      - KN
+      - KP
+      - KR
+      - KW
+      - KY
+      - KZ
+      - LA
+      - LB
+      - LC
+      - LI
+      - LK
+      - LR
+      - LS
+      - LT
+      - LU
+      - LV
+      - LY
+      - MA
+      - MC
+      - MD
+      - ME
+      - MF
+      - MG
+      - MH
+      - MK
+      - ML
+      - MM
+      - MN
+      - MO
+      - MP
+      - MQ
+      - MR
+      - MS
+      - MT
+      - MU
+      - MV
+      - MW
+      - MX
+      - MY
+      - MZ
+      - NA
+      - NC
+      - NE
+      - NF
+      - NG
+      - NI
+      - NL
+      - 'NO'
+      - NP
+      - NR
+      - NU
+      - NZ
+      - OM
+      - PA
+      - PE
+      - PF
+      - PG
+      - PH
+      - PK
+      - PL
+      - PM
+      - PN
+      - PR
+      - PS
+      - PT
+      - PW
+      - PY
+      - QA
+      - RE
+      - RO
+      - RS
+      - RU
+      - RW
+      - SA
+      - SB
+      - SC
+      - SD
+      - SE
+      - SG
+      - SH
+      - SI
+      - SJ
+      - SK
+      - SL
+      - SM
+      - SN
+      - SO
+      - SR
+      - SS
+      - ST
+      - SV
+      - SX
+      - SY
+      - SZ
+      - TC
+      - TD
+      - TF
+      - TG
+      - TH
+      - TJ
+      - TK
+      - TL
+      - TM
+      - TN
+      - TO
+      - TR
+      - TT
+      - TV
+      - TW
+      - TZ
+      - UA
+      - UG
+      - UM
+      - US
+      - UY
+      - UZ
+      - VA
+      - VC
+      - VE
+      - VG
+      - VI
+      - VN
+      - VU
+      - WF
+      - WS
+      - YE
+      - YT
+      - ZA
+      - ZM
+      - ZW
+      type: string
+      description: |-
+        * `AD` - AD
+        * `AE` - AE
+        * `AF` - AF
+        * `AG` - AG
+        * `AI` - AI
+        * `AL` - AL
+        * `AM` - AM
+        * `AO` - AO
+        * `AQ` - AQ
+        * `AR` - AR
+        * `AS` - AS
+        * `AT` - AT
+        * `AU` - AU
+        * `AW` - AW
+        * `AX` - AX
+        * `AZ` - AZ
+        * `BA` - BA
+        * `BB` - BB
+        * `BD` - BD
+        * `BE` - BE
+        * `BF` - BF
+        * `BG` - BG
+        * `BH` - BH
+        * `BI` - BI
+        * `BJ` - BJ
+        * `BL` - BL
+        * `BM` - BM
+        * `BN` - BN
+        * `BO` - BO
+        * `BQ` - BQ
+        * `BR` - BR
+        * `BS` - BS
+        * `BT` - BT
+        * `BV` - BV
+        * `BW` - BW
+        * `BY` - BY
+        * `BZ` - BZ
+        * `CA` - CA
+        * `CC` - CC
+        * `CD` - CD
+        * `CF` - CF
+        * `CG` - CG
+        * `CH` - CH
+        * `CI` - CI
+        * `CK` - CK
+        * `CL` - CL
+        * `CM` - CM
+        * `CN` - CN
+        * `CO` - CO
+        * `CR` - CR
+        * `CU` - CU
+        * `CV` - CV
+        * `CW` - CW
+        * `CX` - CX
+        * `CY` - CY
+        * `CZ` - CZ
+        * `DE` - DE
+        * `DJ` - DJ
+        * `DK` - DK
+        * `DM` - DM
+        * `DO` - DO
+        * `DZ` - DZ
+        * `EC` - EC
+        * `EE` - EE
+        * `EG` - EG
+        * `EH` - EH
+        * `ER` - ER
+        * `ES` - ES
+        * `ET` - ET
+        * `FI` - FI
+        * `FJ` - FJ
+        * `FK` - FK
+        * `FM` - FM
+        * `FO` - FO
+        * `FR` - FR
+        * `GA` - GA
+        * `GB` - GB
+        * `GD` - GD
+        * `GE` - GE
+        * `GF` - GF
+        * `GG` - GG
+        * `GH` - GH
+        * `GI` - GI
+        * `GL` - GL
+        * `GM` - GM
+        * `GN` - GN
+        * `GP` - GP
+        * `GQ` - GQ
+        * `GR` - GR
+        * `GS` - GS
+        * `GT` - GT
+        * `GU` - GU
+        * `GW` - GW
+        * `GY` - GY
+        * `HK` - HK
+        * `HM` - HM
+        * `HN` - HN
+        * `HR` - HR
+        * `HT` - HT
+        * `HU` - HU
+        * `ID` - ID
+        * `IE` - IE
+        * `IL` - IL
+        * `IM` - IM
+        * `IN` - IN
+        * `IO` - IO
+        * `IQ` - IQ
+        * `IR` - IR
+        * `IS` - IS
+        * `IT` - IT
+        * `JE` - JE
+        * `JM` - JM
+        * `JO` - JO
+        * `JP` - JP
+        * `KE` - KE
+        * `KG` - KG
+        * `KH` - KH
+        * `KI` - KI
+        * `KM` - KM
+        * `KN` - KN
+        * `KP` - KP
+        * `KR` - KR
+        * `KW` - KW
+        * `KY` - KY
+        * `KZ` - KZ
+        * `LA` - LA
+        * `LB` - LB
+        * `LC` - LC
+        * `LI` - LI
+        * `LK` - LK
+        * `LR` - LR
+        * `LS` - LS
+        * `LT` - LT
+        * `LU` - LU
+        * `LV` - LV
+        * `LY` - LY
+        * `MA` - MA
+        * `MC` - MC
+        * `MD` - MD
+        * `ME` - ME
+        * `MF` - MF
+        * `MG` - MG
+        * `MH` - MH
+        * `MK` - MK
+        * `ML` - ML
+        * `MM` - MM
+        * `MN` - MN
+        * `MO` - MO
+        * `MP` - MP
+        * `MQ` - MQ
+        * `MR` - MR
+        * `MS` - MS
+        * `MT` - MT
+        * `MU` - MU
+        * `MV` - MV
+        * `MW` - MW
+        * `MX` - MX
+        * `MY` - MY
+        * `MZ` - MZ
+        * `NA` - NA
+        * `NC` - NC
+        * `NE` - NE
+        * `NF` - NF
+        * `NG` - NG
+        * `NI` - NI
+        * `NL` - NL
+        * `NO` - NO
+        * `NP` - NP
+        * `NR` - NR
+        * `NU` - NU
+        * `NZ` - NZ
+        * `OM` - OM
+        * `PA` - PA
+        * `PE` - PE
+        * `PF` - PF
+        * `PG` - PG
+        * `PH` - PH
+        * `PK` - PK
+        * `PL` - PL
+        * `PM` - PM
+        * `PN` - PN
+        * `PR` - PR
+        * `PS` - PS
+        * `PT` - PT
+        * `PW` - PW
+        * `PY` - PY
+        * `QA` - QA
+        * `RE` - RE
+        * `RO` - RO
+        * `RS` - RS
+        * `RU` - RU
+        * `RW` - RW
+        * `SA` - SA
+        * `SB` - SB
+        * `SC` - SC
+        * `SD` - SD
+        * `SE` - SE
+        * `SG` - SG
+        * `SH` - SH
+        * `SI` - SI
+        * `SJ` - SJ
+        * `SK` - SK
+        * `SL` - SL
+        * `SM` - SM
+        * `SN` - SN
+        * `SO` - SO
+        * `SR` - SR
+        * `SS` - SS
+        * `ST` - ST
+        * `SV` - SV
+        * `SX` - SX
+        * `SY` - SY
+        * `SZ` - SZ
+        * `TC` - TC
+        * `TD` - TD
+        * `TF` - TF
+        * `TG` - TG
+        * `TH` - TH
+        * `TJ` - TJ
+        * `TK` - TK
+        * `TL` - TL
+        * `TM` - TM
+        * `TN` - TN
+        * `TO` - TO
+        * `TR` - TR
+        * `TT` - TT
+        * `TV` - TV
+        * `TW` - TW
+        * `TZ` - TZ
+        * `UA` - UA
+        * `UG` - UG
+        * `UM` - UM
+        * `US` - US
+        * `UY` - UY
+        * `UZ` - UZ
+        * `VA` - VA
+        * `VC` - VC
+        * `VE` - VE
+        * `VG` - VG
+        * `VI` - VI
+        * `VN` - VN
+        * `VU` - VU
+        * `WF` - WF
+        * `WS` - WS
+        * `YE` - YE
+        * `YT` - YT
+        * `ZA` - ZA
+        * `ZM` - ZM
+        * `ZW` - ZW
+    IdentificationOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        taxon:
+          allOf:
+          - $ref: '#/components/schemas/TaxonBrief'
+          readOnly: true
+        identified_on:
+          type: string
+          format: date
+          readOnly: true
+        method:
+          type: string
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        is_current:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - identified_on
+      - is_current
+      - method
+      - public_id
+      - reason
+      - taxon
     LabOutput:
       type: object
       description: A lab and the caller's role in it (annotated by the selector, never
@@ -753,11 +1931,67 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MemberOutput'
+    PaginatedStrainListOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StrainListOutput'
+    PaginatedTaxonOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaxonOutput'
     PatchedMemberRoleInputRequest:
       type: object
       properties:
         role:
           $ref: '#/components/schemas/Role'
+    Pathogenicity:
+      enum:
+      - unknown
+      - none_known
+      - pathogenic
+      type: string
+      description: |-
+        * `unknown` - Unknown
+        * `none_known` - No pathogenicity known
+        * `pathogenic` - Pathogenic
     Problem:
       type: object
       description: The error body of every API response with status 400 and above.
@@ -797,6 +2031,203 @@ components:
       - attr
       - code
       - detail
+    RankEnum:
+      enum:
+      - domain
+      - kingdom
+      - phylum
+      - class
+      - order
+      - family
+      - genus
+      - species
+      - subspecies
+      - variety
+      - form
+      type: string
+      description: |-
+        * `domain` - Domain
+        * `kingdom` - Kingdom
+        * `phylum` - Phylum
+        * `class` - Class
+        * `order` - Order
+        * `family` - Family
+        * `genus` - Genus
+        * `species` - Species
+        * `subspecies` - Subspecies
+        * `variety` - Variety
+        * `form` - Form
+    ReclassifyInputRequest:
+      type: object
+      properties:
+        taxon:
+          type: string
+          format: uuid
+        identified_on:
+          type: string
+          format: date
+        method:
+          type: string
+          minLength: 1
+          maxLength: 200
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+      required:
+      - identified_on
+      - method
+      - reason
+      - taxon
+    RestrictionAddInputRequest:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/RestrictionKind'
+        reference:
+          type: string
+          minLength: 1
+          maxLength: 100
+        act:
+          type: string
+          default: ''
+          maxLength: 30
+        gmo_category:
+          type: integer
+          maximum: 4
+          minimum: 1
+          nullable: true
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+      required:
+      - kind
+      - reason
+      - reference
+    RestrictionBrief:
+      type: object
+      properties:
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/RestrictionKind'
+          readOnly: true
+        reference:
+          type: string
+          readOnly: true
+      required:
+      - kind
+      - reference
+    RestrictionEndInputRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+      required:
+      - reason
+    RestrictionInputRequest:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/RestrictionKind'
+        reference:
+          type: string
+          minLength: 1
+          maxLength: 100
+        act:
+          type: string
+          default: ''
+          maxLength: 30
+        gmo_category:
+          type: integer
+          maximum: 4
+          minimum: 1
+          nullable: true
+      required:
+      - kind
+      - reference
+    RestrictionKind:
+      enum:
+      - cz_vrat
+      - cz_rat
+      - dual_use
+      - quarantine_pest
+      - gmo
+      type: string
+      description: |-
+        * `cz_vrat` - Highly risky agent (VRAT), decree 474/2002 Sb., Annex 1
+        * `cz_rat` - Risky agent (RAT), decree 474/2002 Sb., Annex 2
+        * `dual_use` - Dual-use item, Regulation (EU) 2021/821, Annex I
+        * `quarantine_pest` - Union quarantine pest, Regulation (EU) 2019/2072, Annex II
+        * `gmo` - Genetically modified organism in contained use, act 78/2004 Sb.
+    RestrictionOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/RestrictionKind'
+          readOnly: true
+        reference:
+          type: string
+          readOnly: true
+        act:
+          type: string
+          readOnly: true
+        gmo_category:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        ended_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        end_reason:
+          type: string
+          readOnly: true
+      required:
+      - act
+      - created_at
+      - end_reason
+      - ended_at
+      - gmo_category
+      - kind
+      - public_id
+      - reference
+    RiskGroup:
+      enum:
+      - 1
+      - 2
+      - 3
+      - 4
+      type: integer
+      description: |-
+        * `1` - 1
+        * `2` - 2
+        * `3` - 3
+        * `4` - 4
+    RiskGroupInputRequest:
+      type: object
+      properties:
+        risk_group:
+          $ref: '#/components/schemas/RiskGroup'
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+      required:
+      - reason
+      - risk_group
     Role:
       enum:
       - viewer
@@ -809,6 +2240,294 @@ components:
         * `technician` - Technician
         * `curator` - Curator
         * `manager` - Manager
+    StrainCreateInputRequest:
+      type: object
+      properties:
+        taxon:
+          type: string
+          format: uuid
+        name_as_received:
+          type: string
+          minLength: 1
+          maxLength: 200
+        identified_on:
+          type: string
+          format: date
+        identification_method:
+          type: string
+          minLength: 1
+          maxLength: 200
+        risk_group:
+          $ref: '#/components/schemas/RiskGroup'
+        animal_pathogenicity:
+          allOf:
+          - $ref: '#/components/schemas/Pathogenicity'
+          default: unknown
+        plant_pathogenicity:
+          allOf:
+          - $ref: '#/components/schemas/Pathogenicity'
+          default: unknown
+        isolation_source:
+          type: string
+          default: ''
+          maxLength: 200
+        country_of_origin:
+          default: ''
+          oneOf:
+          - $ref: '#/components/schemas/CountryCode'
+          - $ref: '#/components/schemas/BlankEnum'
+        isolation_date:
+          type: string
+          default: ''
+          maxLength: 10
+        restrictions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RestrictionInputRequest'
+      required:
+      - identification_method
+      - identified_on
+      - name_as_received
+      - risk_group
+      - taxon
+    StrainDetailOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        accession_number:
+          type: string
+          readOnly: true
+          nullable: true
+        name_as_received:
+          type: string
+          readOnly: true
+        taxon:
+          allOf:
+          - $ref: '#/components/schemas/TaxonBrief'
+          readOnly: true
+        risk_group:
+          allOf:
+          - $ref: '#/components/schemas/RiskGroup'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StrainStatus'
+          readOnly: true
+        restrictions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RestrictionBrief'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        animal_pathogenicity:
+          allOf:
+          - $ref: '#/components/schemas/Pathogenicity'
+          readOnly: true
+        plant_pathogenicity:
+          allOf:
+          - $ref: '#/components/schemas/Pathogenicity'
+          readOnly: true
+        isolation_source:
+          type: string
+          readOnly: true
+        country_of_origin:
+          type: string
+          readOnly: true
+        isolation_date:
+          type: string
+          readOnly: true
+        identifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/IdentificationOutput'
+          readOnly: true
+        restriction_history:
+          type: array
+          items:
+            $ref: '#/components/schemas/RestrictionOutput'
+          readOnly: true
+      required:
+      - accession_number
+      - animal_pathogenicity
+      - country_of_origin
+      - created_at
+      - identifications
+      - isolation_date
+      - isolation_source
+      - name_as_received
+      - plant_pathogenicity
+      - public_id
+      - restriction_history
+      - restrictions
+      - risk_group
+      - status
+      - taxon
+    StrainListOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        accession_number:
+          type: string
+          readOnly: true
+          nullable: true
+        name_as_received:
+          type: string
+          readOnly: true
+        taxon:
+          allOf:
+          - $ref: '#/components/schemas/TaxonBrief'
+          readOnly: true
+        risk_group:
+          allOf:
+          - $ref: '#/components/schemas/RiskGroup'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StrainStatus'
+          readOnly: true
+        restrictions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RestrictionBrief'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - accession_number
+      - created_at
+      - name_as_received
+      - public_id
+      - restrictions
+      - risk_group
+      - status
+      - taxon
+    StrainStatus:
+      enum:
+      - pending
+      - active
+      - restricted
+      - deaccessioned
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `active` - Active
+        * `restricted` - Restricted
+        * `deaccessioned` - Deaccessioned
+    SystemEnum:
+      enum:
+      - ncbi
+      - lpsn
+      - mycobank
+      type: string
+      description: |-
+        * `ncbi` - NCBI Taxonomy
+        * `lpsn` - LPSN
+        * `mycobank` - MycoBank
+    TaxonBrief:
+      type: object
+      description: 'A taxon inside another resource: enough to show and link it.'
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        authority:
+          type: string
+          readOnly: true
+        rank:
+          allOf:
+          - $ref: '#/components/schemas/RankEnum'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/TaxonStatus'
+          readOnly: true
+      required:
+      - authority
+      - name
+      - public_id
+      - rank
+      - status
+    TaxonIdentifierOutput:
+      type: object
+      properties:
+        system:
+          allOf:
+          - $ref: '#/components/schemas/SystemEnum'
+          readOnly: true
+        value:
+          type: string
+          readOnly: true
+      required:
+      - system
+      - value
+    TaxonOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        authority:
+          type: string
+          readOnly: true
+        rank:
+          allOf:
+          - $ref: '#/components/schemas/RankEnum'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/TaxonStatus'
+          readOnly: true
+        parent:
+          allOf:
+          - $ref: '#/components/schemas/TaxonBrief'
+          readOnly: true
+          nullable: true
+        accepted:
+          allOf:
+          - $ref: '#/components/schemas/TaxonBrief'
+          readOnly: true
+          nullable: true
+        identifiers:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaxonIdentifierOutput'
+          readOnly: true
+      required:
+      - accepted
+      - authority
+      - identifiers
+      - name
+      - parent
+      - public_id
+      - rank
+      - status
+    TaxonStatus:
+      enum:
+      - accepted
+      - synonym
+      type: string
+      description: |-
+        * `accepted` - Accepted
+        * `synonym` - Synonym
   securitySchemes:
     cookieAuth:
       type: apiKey
