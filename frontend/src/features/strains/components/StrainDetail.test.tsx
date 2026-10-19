@@ -155,6 +155,25 @@ describe('StrainDetail', { timeout: 20_000 }, () => {
     expect(dialog).toBeInTheDocument()
   })
 
+  it('puts a box cap refusal on the risk group, naming no box', async () => {
+    mockApi('get', DETAIL, strain)
+    mockApiError('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group/', 400, {
+      ...problem(400, { code: 'risk_group_above_box_cap' }),
+      errors: [{ attr: 'risk_group', code: 'risk_group_above_box_cap', detail: 'server words' }],
+    })
+    await render()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Change risk group' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Change the risk group of MYC 42' })
+    const group = within(dialog).getByRole('combobox', { name: 'Risk group' })
+    await user.selectOptions(group, '3')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'reassessed')
+    await user.click(within(dialog).getByRole('button', { name: 'Save risk group' }))
+    await waitFor(() => expect(group).toHaveAccessibleDescription("A box holding this strain's vials does not allow this risk group. Move the vials first."))
+    expect(group).toHaveFocus()
+    expect(dialog).not.toHaveTextContent(/server words|Box/)
+  })
+
   it('asks for a reason before changing the risk group, without a request', async () => {
     mockApi('get', DETAIL, strain)
     const held = holdApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group/')

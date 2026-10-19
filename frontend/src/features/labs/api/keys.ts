@@ -12,4 +12,6 @@ export const labKeys = {
   detail: (labId: string) => [...labKeys.details(), labId] as const,
   members: (labId: string) => [...labKeys.detail(labId), 'members'] as const,
   memberList: (labId: string, params: PageParams) => [...labKeys.members(labId), params] as const,
+  /** Who may see where the lab's regulated strains are (ADR 0009): managers only. */
+  locationGrants: (labId: string) => [...labKeys.detail(labId), 'location-grants'] as const,
 }

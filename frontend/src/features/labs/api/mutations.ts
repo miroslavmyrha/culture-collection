@@ -50,3 +50,32 @@ export function useRemoveMember(labId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: labKeys.all }),
   })
 }
+
+export function useGrantLocation(labId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: { member: string; reason: string }) => {
+      await ensureCsrf()
+      return unwrap(api.POST('/api/v1/labs/{lab_public_id}/location-grants/', { params: { path: { lab_public_id: labId } }, body }))
+    },
+    meta: { handlesError: true },
+    onSuccess: () => qc.invalidateQueries({ queryKey: labKeys.locationGrants(labId) }),
+  })
+}
+
+export function useRevokeLocation(labId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ grantId, reason }: { grantId: string; reason: string }) => {
+      await ensureCsrf()
+      await unwrap(
+        api.POST('/api/v1/labs/{lab_public_id}/location-grants/{public_id}/revoke/', {
+          params: { path: { lab_public_id: labId, public_id: grantId } },
+          body: { reason },
+        }),
+      )
+    },
+    meta: { handlesError: true },
+    onSuccess: () => qc.invalidateQueries({ queryKey: labKeys.locationGrants(labId) }),
+  })
+}

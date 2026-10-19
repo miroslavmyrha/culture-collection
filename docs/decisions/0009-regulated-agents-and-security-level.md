@@ -2,6 +2,7 @@
 
 Date: 2026-10-18
 Status: accepted (#50). Open questions listed at the end.
+Amended 2026-10-19: location masking as built (#16).
 Deciders: maintainer
 
 ## Context
@@ -213,3 +214,49 @@ Standards and guidance:
 Revisit when: the host answers the scope question, SÚJB answers on the
 electronic register, ISO 35001 edition 2 is published, a new ASVS version
 is released, or the lab plans work with risk group 4.
+
+## Amendment 2026-10-19: location masking as built (#16)
+
+Vials get places in #16, so the storage location of regulated strains is decided now. A
+regulated strain is one with an active restriction of any kind.
+
+**The permission is a row per person, not a role.** `labs.LocationGrant` names a user and a
+lab, with who granted it, when and why, and when, by whom and why it was revoked. One open
+grant per user and lab (a partial unique index); rows are never deleted and a revoked grant
+never reopens (a guard trigger). A lab's managers grant and revoke it (`labs.manage_members`)
+to members of the lab, each with a reason, recorded as `location_grant_added` and
+`location_grant_revoked`. It is in no role's `GRANTS` and no role implies it. It counts only
+while the holder is active and still a member: removing the member revokes the grant in the
+same transaction, so adding the person back does not bring it back.
+
+**Masked everywhere, revealed one vial at a time.** For a vial of a regulated strain every
+response leaves the location out and says it is masked: the vial list, the vial detail, the
+placement and transition responses, also for holders of the grant. A holder gets a reveal
+action (`POST .../vials/<id>/reveal-location/`), which under the lab lock re-reads the grant
+and the role, writes `vial_location_revealed` (actor, vial, strain, request id, no location)
+in its own transaction, and only after the commit answers with the location. A failed write
+is a failed response. The list endpoints never carry a regulated location, and there are no
+exports yet; the one export path to come must keep it out (studies s8).
+
+**Placing without the permission.** A technician or curator places and moves vials of a
+regulated strain without the grant: the work at the bench needs no screen to find a
+position, and the person who puts a vial in knows where it went. The response and every list
+show the location masked afterwards, so the place is not kept on screen or in the browser's
+cache. The placement events hold the box and position, as every placement does; the
+strain's timeline (#19) must mask them for readers without the grant. Refused: making
+placement need the grant, which would put the bench work of a regulated strain on the few
+holders, and a placement that does not say where it put the vial, which a technician cannot
+check.
+
+**Known limits.** A refused position ("taken") tells that something occupies it, not what.
+The box grid (#15) must show a regulated vial's cell as occupied without its strain to
+anyone without a reveal. The event of a reveal names the vial, so the trail of reveals is
+itself readable only by those who read the audit trail. A deactivated holder keeps the row;
+it counts again only if the account is activated and still a member, which staff do.
+
+Meets ASVS 5.0 14.2.6 (sensitive data masked unless specifically viewed) and 16.3.2 for
+these reads (each reveal logged before the data is returned).
+
+Migration impact: additive, `labs` 0003 and 0004 (the table, then its row audit and
+guard) and the reason check of `audit_auditevent` (audit 0018). Reversible with `migrate
+labs 0002` once the lineage tables of the same issue are gone.

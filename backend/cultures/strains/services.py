@@ -14,8 +14,9 @@ A refusal raises before anything is written, or rolls back what was, so it
 changes nothing and records nothing.
 
 Rules (ADR 0009): a risk group 4 agent is refused, at accession and as a
-change. A changed risk group, a reclassification, an added or an ended
-restriction each need a reason (audit.registry, reason_required).
+change, and so is a group above the cap of a box holding the strain's vials.
+A changed risk group, a reclassification, an added or an ended restriction
+each need a reason (audit.registry, reason_required).
 """
 
 import re
@@ -45,6 +46,8 @@ from cultures.labs.access import Access
 from cultures.labs.locks import lock_lab
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Perm, Role, role_has
+from cultures.lineage.models import VialPlacement
+from cultures.storage.models import StorageUnit
 from cultures.taxonomy.models import Taxon
 
 from .countries import COUNTRY_CODES
@@ -80,6 +83,16 @@ class RiskGroupRefused(DomainError):
 
     default_code = "risk_group_4_refused"
     default_detail = "The collection does not hold risk group 4 agents."
+
+    def __init__(self, detail: str | None = None, *, attr: str | None = "risk_group") -> None:
+        super().__init__(detail, attr=attr)
+
+
+class RiskGroupAboveBoxCap(DomainError):
+    """A field error on the risk group. Names no box: a regulated strain's place stays masked."""
+
+    default_code = "risk_group_above_box_cap"
+    default_detail = "A box holding this strain's vials does not allow this risk group."
 
     def __init__(self, detail: str | None = None, *, attr: str | None = "risk_group") -> None:
         super().__init__(detail, attr=attr)
@@ -401,10 +414,30 @@ def strain_reclassify(
     return locked
 
 
+def _check_boxes_hold(strain: Strain, risk_group: int) -> None:
+    """A higher group must fit the cap of every box that holds a vial of the strain now (ADR 0009,
+    the may_store gate). Caller holds the lab lock, then the strain's row; the boxes are locked
+    last, in pk order. Placements take the lab lock too, so none appears meanwhile."""
+    boxes = list(
+        StorageUnit.objects.select_for_update()
+        .filter(
+            pk__in=VialPlacement.objects.filter(
+                removed_at__isnull=True, vial__batch__strain=strain
+            ).values("box_id")
+        )
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
+    caps = StorageUnit.objects.filter(pk__in=boxes).with_path_facts()
+    if any(vars(box)["effective_max_risk_group"] < risk_group for box in caps):
+        raise RiskGroupAboveBoxCap
+
+
 def strain_set_risk_group(
     *, access: Access, strain: Strain, risk_group: int, reason: str
 ) -> Strain:
-    """The same group again changes nothing and records nothing."""
+    """The same group again changes nothing and records nothing. A higher group is refused while
+    a box holding the strain's vials does not allow it; a lower one always fits."""
     _check_risk_group(risk_group)
     with audited_atomic():
         lock_lab(strain.lab_id)
@@ -412,6 +445,8 @@ def strain_set_risk_group(
         locked = _locked_strain(strain)
         if locked.risk_group == risk_group:
             return locked
+        if risk_group > locked.risk_group:
+            _check_boxes_hold(locked, risk_group)
         old = locked.risk_group
         locked.risk_group = risk_group
         record_event(

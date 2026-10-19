@@ -18,6 +18,9 @@ from model_bakery import baker
 
 from cultures.audit.context import AuditContext, audit_context
 from cultures.audit.models import ActorKind, Channel
+
+# The production roles inside the test transaction, the same fixtures the audit tests use.
+from cultures.audit.tests.conftest import database_roles, runtime_role  # noqa: F401
 from cultures.labs.access import Access, access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role

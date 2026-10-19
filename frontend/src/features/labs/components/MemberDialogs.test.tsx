@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { allowConsole } from '@/test/console'
 import { makeMember, page, problem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError, recordRequests } from '@/test/mockApi'
@@ -11,6 +11,11 @@ import { MemberTable } from './MemberTable'
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const PARAMS = { limit: 25, offset: 0 }
 const DETAIL = '/api/v1/labs/{lab_public_id}/members/{public_id}/'
+
+// A manager's table also reads who may see regulated locations (LocationGrants.test.tsx).
+beforeEach(() => {
+  mockApi('get', '/api/v1/labs/{lab_public_id}/location-grants/', [])
+})
 
 /** The container around the paper: a click there is a click on the backdrop for MUI. */
 function backdropOf(dialog: HTMLElement) {

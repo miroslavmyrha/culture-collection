@@ -21,7 +21,11 @@ Brings the database to this state, whatever it was before:
   deposit by its name as received;
 - two box types, and a small storage tree that never changes (E2E freezer > Rack 1 > Box 1),
   added by e2e-curator: the keyboard walk and the focus ring checks need a tree to stand on.
-  The storage tests build their own freezers, racks and boxes next to it.
+  The storage tests build their own freezers, racks and boxes next to it;
+- for the vial tests (#16): a second accepted deposit, Testella exempli (invented) with a RAT
+  restriction (invented reference), whose two vials lie in E2E freezer > Rack 1 > Box R, so
+  their places are masked; the e2e user holds the lab's location grant and reveals them,
+  e2e-curator does not. The batch is made once, found by its strain.
 Strains and storage units the tests created stay: numbers are never reused, and neither a
 strain nor a unit is ever deleted.
 A second run changes nothing. Every user, lab and membership write goes
@@ -38,6 +42,7 @@ from django.core.management.base import BaseCommand, CommandError
 from config.env import env_secret, env_str
 from cultures.audit.context import audit_context
 from cultures.audit.models import ActorKind, Channel
+from cultures.biosafety.models import RestrictionKind
 from cultures.deposits import services as deposits
 from cultures.deposits.models import (
     AbsScope,
@@ -50,10 +55,13 @@ from cultures.deposits.models import (
 )
 from cultures.labs import services
 from cultures.labs.access import access_for
-from cultures.labs.models import Lab, Membership
+from cultures.labs.models import Lab, LocationGrant, Membership
 from cultures.labs.permissions import Role
+from cultures.lineage import services as lineage
+from cultures.lineage.models import Batch, Method, Passage, Purpose
 from cultures.storage import services as storage
 from cultures.storage.models import BoxType, StorageUnit, UnitKind
+from cultures.strains import services as strains
 from cultures.taxonomy import services as taxonomy
 from cultures.taxonomy.models import IdentifierSystem, Rank, Taxon
 from cultures.users import services as users
@@ -63,6 +71,8 @@ LAB_NAME, LAB_CODE = "E2E lab", "E2E"
 COLLEAGUE = "e2e-colleague"
 DEPOSITOR = deposits.ContactInput("E2E Depositor", "e2e.depositor@example.org", "Example street 1")
 SEEDED_DEPOSIT = "B. subtilis e2e seed"
+REGULATED_DEPOSIT = "Testella exempli e2e regulated"
+REGULATED_BOX = "Box R"
 CURATOR, VIEWER = "e2e-curator", "e2e-viewer"
 
 # (name, authority, rank, parent name, accepted name, NCBI Taxonomy id). Facts from LPSN and
@@ -125,10 +135,12 @@ class Command(BaseCommand):
                 if not BoxType.objects.filter(name__iexact=name).exists():
                     storage.box_type_create(name=name, rows=rows, cols=cols)
             self._storage(lab, User.objects.get(username=CURATOR))
+            self._regulated(lab, curator=User.objects.get(username=CURATOR), manager=user)
         self.stdout.write(
             f"{username} manages {lab.name}; {CURATOR} and {VIEWER} are its curator and viewer;"
             f" {COLLEAGUE} is in no lab; {len(TAXA)} taxa; a depositor, MTA STD and"
-            f" one accepted deposit; {len(BOX_TYPES)} box types; {FREEZER} > Rack 1 > Box 1"
+            f" one accepted deposit; {len(BOX_TYPES)} box types; {FREEZER} > Rack 1 > Box 1;"
+            f" a regulated strain with two vials in {REGULATED_BOX}, revealed by {username}"
         )
 
     def _taxon(  # noqa: PLR0917 (one row of TAXA, spread)
@@ -215,6 +227,79 @@ class Command(BaseCommand):
         rack = unit("Rack 1", freezer, storage.NewUnit(UnitKind.RACK, "Rack 1", freezer, slot=1))
         box_type = BoxType.objects.get(name=BOX_TYPES[0][0])
         unit("Box 1", rack, storage.NewUnit(UnitKind.BOX, "Box 1", rack, slot=1, box_type=box_type))
+
+    def _regulated(self, lab: Lab, *, curator: User, manager: User) -> None:
+        """A regulated strain with two placed vials, and the manager's location grant."""
+        access = access_for(curator)
+        deposit = Deposit.objects.filter(lab=lab, name_as_received=REGULATED_DEPOSIT).first()
+        if deposit is None:
+            received = deposits.deposit_receive(
+                access=access,
+                lab=lab,
+                data=deposits.NewDeposit(
+                    depositor=Depositor.objects.get(lab=lab, contact__name=DEPOSITOR.name),
+                    received_on=date(2026, 10, 3),
+                    condition=Condition.INTACT,
+                    name_as_received=REGULATED_DEPOSIT,
+                    terms=deposits.TermsInput(
+                        abs_scope=AbsScope.NOT_IN_SCOPE,
+                        uses=[(Use(use), Decision.PERMIT) for use in Use.values],
+                    ),
+                ),
+            )
+            deposit = deposits.deposit_accept(
+                access=access,
+                deposit=deposits.deposit_start_check(access=access, deposit=received),
+                facts=deposits.StrainFacts(
+                    taxon=Taxon.objects.get(name="Testella exempli"),
+                    identified_on=date(2026, 10, 4),
+                    identification_method="16S rRNA gene sequence",
+                    risk_group=1,
+                    restrictions=[
+                        strains.RestrictionInput(
+                            RestrictionKind.CZ_RAT, "Příloha 2 (invented example)"
+                        )
+                    ],
+                ),
+            )
+        strain = deposit.strain
+        assert strain is not None  # noqa: S101 (accepted above)
+        rack = StorageUnit.objects.get(lab=lab, parent__name=FREEZER, name="Rack 1")
+        box = StorageUnit.objects.filter(lab=lab, parent=rack, name=REGULATED_BOX).first()
+        if box is None:
+            box = storage.unit_create(
+                access=access,
+                lab=lab,
+                data=storage.NewUnit(
+                    UnitKind.BOX,
+                    REGULATED_BOX,
+                    rack,
+                    slot=2,
+                    box_type=BoxType.objects.get(name=BOX_TYPES[0][0]),
+                ),
+            )
+        if not Batch.objects.filter(strain=strain).exists():
+            lineage.batch_preserve(
+                access=access,
+                passage=Passage.objects.get(strain=strain, number=0),
+                data=lineage.NewBatch(
+                    method=Method.CRYO_MINUS80,
+                    purpose=Purpose.SEED,
+                    preserved_on=date(2026, 10, 5),
+                    vial_count=2,
+                    cryoprotectant="10 % glycerol",
+                    box=box,
+                ),
+            )
+        if not LocationGrant.objects.filter(
+            lab=lab, user=manager, revoked_at__isnull=True
+        ).exists():
+            services.location_grant_add(
+                access=access_for(manager),
+                lab=lab,
+                membership=Membership.objects.get(lab=lab, user=manager),
+                reason="Keeps the register of the e2e lab (invented example).",
+            )
 
     def _user(self, username: str, password: str | None) -> User:
         """An active user with this password (None: no usable one), changed only where needed."""

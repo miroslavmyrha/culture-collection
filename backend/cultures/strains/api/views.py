@@ -32,7 +32,9 @@ from .serializers import (
 
 # 401, 403, 404 and 429 with the Problem body are added to every operation by core.schema.
 INVALID = OpenApiResponse(
-    ProblemSerializer, "Invalid input, an unknown taxon, or a risk group 4 agent (on risk_group)"
+    ProblemSerializer,
+    "Invalid input, an unknown taxon, a risk group 4 agent, or a group above the cap of a box"
+    " holding the strain's vials (risk_group_above_box_cap), on risk_group",
 )
 RULE = OpenApiResponse(
     ProblemSerializer,

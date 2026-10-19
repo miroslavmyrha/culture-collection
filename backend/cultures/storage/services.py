@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from django.db import IntegrityError, transaction
-from django.db.models import Model
+from django.db.models import Max, Min, Model
 from django.utils import timezone
 
 from cultures.audit.context import audited_atomic
@@ -40,6 +40,7 @@ from cultures.labs.access import Access
 from cultures.labs.locks import lock_lab
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Perm, Role, role_has
+from cultures.lineage.models import VialPlacement
 
 from .models import (
     BOX_TYPE_NAME_UNIQUE,
@@ -125,10 +126,36 @@ def normalised(text: str) -> str:
 def box_occupied(box: StorageUnit) -> bool:
     """Whether a vial sits in a position of the box: its rows and columns are frozen from then on.
 
-    Nothing occupies a position before vials are placed (#16), which counts its open placements
-    here. Every service that changes a box's size or retires a box asks this.
+    Counts its open placements (lineage.VialPlacement, #16). Every service that changes a box's
+    size or retires a box asks this, under the lab lock that every placement takes too.
     """
-    return False
+    return box.placements.filter(removed_at__isnull=True).exists()
+
+
+def held_risk_group(unit: StorageUnit) -> int | None:
+    """The highest risk group of a strain with a vial placed in the unit or anything below it,
+    None when nothing is. A cap may not go below it (ADR 0008, storage amendment)."""
+    held = VialPlacement.objects.filter(
+        removed_at__isnull=True, box__path__contains=[unit.pk]
+    ).aggregate(top=Max("vial__batch__strain__risk_group"))
+    top: int | None = held["top"]
+    return top
+
+
+def _cap_above(unit: StorageUnit) -> int | None:
+    """The lowest cap of the units holding this one, None for a root."""
+    caps = StorageUnit.objects.filter(pk__in=unit.path[:-1], max_risk_group__isnull=False)
+    lowest: int | None = caps.aggregate(cap=Min("max_risk_group"))["cap"]
+    return lowest
+
+
+def _check_cap_holds(held: int | None, cap: int | None, attr: str) -> None:
+    if held is not None and cap is not None and cap < held:
+        raise InvalidUnit(
+            f"Vials of risk group {held} are stored here: the cap cannot go below {held}.",
+            code="cap_below_held",
+            attr=attr,
+        )
 
 
 # Checks on the input alone: no query, so they run before any lock.
@@ -339,6 +366,9 @@ def unit_update(*, access: Access, unit: StorageUnit, fields: UnitFields) -> Sto
         locked.barcode = checked.barcode or None
         locked.temperature_c = checked.temperature_c
         locked.max_risk_group = checked.max_risk_group
+        if checked.max_risk_group != before["max_risk_group"]:
+            caps = [c for c in (checked.max_risk_group, _cap_above(locked)) if c is not None]
+            _check_cap_holds(held_risk_group(locked), min(caps, default=None), "max_risk_group")
         new_type = checked.box_type
         if new_type is not None and new_type.pk != locked.box_type_id:
             if box_occupied(locked):
@@ -388,6 +418,9 @@ def unit_move(
         _check_parent(locked.lab_id, UnitKind(locked.kind), target)  # refuses a root too
         if target.pk == locked.parent_id and slot == locked.slot:
             return locked
+        if target.pk != locked.parent_id:
+            facts = vars(StorageUnit.objects.filter(pk=target.pk).with_path_facts().get())
+            _check_cap_holds(held_risk_group(locked), facts["effective_max_risk_group"], "parent")
         old_parent = locked.parent
         old_slot, old_path = locked.slot, _public_path(locked)
         locked.parent, locked.slot = target, slot

@@ -21,6 +21,7 @@ function mockLab(role: Role) {
       makeMember({ username: 'bob', role: 'technician' }),
     ]),
   )
+  mockApi('get', '/api/v1/labs/{lab_public_id}/location-grants/', [])
 }
 
 const render = () => renderWithProviders(<LabDetail labId={LAB_ID} params={PARAMS} onOffsetChange={vi.fn<(offset: number) => void>()} />)

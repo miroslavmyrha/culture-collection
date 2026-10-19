@@ -227,3 +227,67 @@ export function makeUnitRow(overrides: Partial<UnitRow> = {}): UnitRow {
 export function makeUnit(overrides: Partial<Unit> = {}): Unit {
   return { ...makeUnitRow(), ancestors: [], children: [], ...overrides }
 }
+
+export type PassageRow = Schemas['PassageOutput']
+export type BatchRow = Schemas['BatchOutput']
+export type VialRow = Schemas['VialOutput']
+export type LocationGrant = Schemas['LocationGrantOutput']
+
+export function makePassage(overrides: Partial<PassageRow> = {}): PassageRow {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    strain: uuid(9000),
+    number: 0,
+    source_kind: 'deposit',
+    source_passage: null,
+    source_vial: null,
+    created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString(),
+    ...overrides,
+  }
+}
+
+export function makeBatch(overrides: Partial<BatchRow> = {}): BatchRow {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    strain: uuid(9000),
+    number: 1,
+    passage: uuid(9001),
+    passage_number: 0,
+    method: 'cryo_minus80',
+    cryoprotectant: '10 % glycerol',
+    preserved_on: '2026-10-01',
+    purpose: 'distribution',
+    status: 'pending_check',
+    vial_count_created: 3,
+    vials_available: 3,
+    created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString(),
+    ...overrides,
+  }
+}
+
+/** Available and not placed by default. */
+export function makeVial(overrides: Partial<VialRow> = {}): VialRow {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    label: `MYC 42 / 1 / ${n}`,
+    batch: uuid(9002),
+    batch_number: 1,
+    seq: n,
+    barcode: null,
+    status: 'available',
+    status_changed_at: null,
+    placed: false,
+    location: null,
+    location_masked: false,
+    can_reveal: false,
+    ...overrides,
+  }
+}
+
+export function makeLocationGrant(overrides: Partial<LocationGrant> = {}): LocationGrant {
+  const n = next()
+  return { public_id: uuid(n), member: uuid(9003), username: 'bob', reason: 'keeps the register', created_at: '2026-10-01T10:00:00Z', ...overrides }
+}

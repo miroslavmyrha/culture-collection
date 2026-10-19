@@ -5,6 +5,7 @@ from django.db.models import Model, QuerySet
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
+from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -13,11 +14,14 @@ from cultures.core.errors import PROBLEM_CONTENT_TYPE as PROBLEM
 from cultures.core.errors import ProblemSerializer
 from cultures.labs import selectors, services
 from cultures.labs.access import access_of
-from cultures.labs.models import Lab, Membership
+from cultures.labs.models import Lab, LocationGrant, Membership
 from cultures.labs.permissions import Perm
 
 from .serializers import (
     LabOutputSerializer,
+    LocationGrantInputSerializer,
+    LocationGrantOutputSerializer,
+    LocationRevokeInputSerializer,
     MemberCreateInputSerializer,
     MemberOutputSerializer,
     MemberRoleInputSerializer,
@@ -127,4 +131,80 @@ class MemberViewSet(ScopedModelViewSet):
     @extend_schema(responses={204: None, (422, PROBLEM): LAST_MANAGER})
     def destroy(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         services.member_remove(access=access_of(request), membership=self.get_object())
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+GRANT_INVALID = OpenApiResponse(
+    ProblemSerializer, "An unknown member, or one who holds the grant already (already_granted)"
+)
+REASON = OpenApiResponse(ProblemSerializer, "reason_required")
+REVOKED = OpenApiResponse(ProblemSerializer, "grant_revoked: revoked already")
+
+
+# Who may see where the lab's regulated strains are stored (ADR 0009, amendment of
+# 2026-10-19). Part of no role: a manager grants it to a member and revokes it, each with a
+# reason. Only managers list the grants (labs.manage_members): the list of people who may
+# find regulated agents is itself kept to few. The list holds the open grants, not paged.
+@extend_schema(parameters=[LAB_PARAMETER])
+class LocationGrantViewSet(ScopedReadOnlyViewSet):
+    action_perms = {
+        "list": Perm.MANAGE_MEMBERS,
+        "retrieve": Perm.MANAGE_MEMBERS,
+        "create": Perm.MANAGE_MEMBERS,
+        "revoke": Perm.MANAGE_MEMBERS,
+    }
+    serializer_class = LocationGrantOutputSerializer
+    pagination_class = None
+
+    @cached_property
+    def lab(self) -> Lab:
+        return selectors.lab_get(
+            access=access_of(self.request), public_id=self.kwargs["lab_public_id"]
+        )
+
+    def scoped_queryset(self) -> QuerySet[Any]:
+        return selectors.location_grant_list(access=access_of(self.request), lab=self.lab)
+
+    def has_perm(self, perm: str, obj: Model | None) -> bool:
+        lab_id = obj.lab_id if isinstance(obj, LocationGrant) else self.lab.pk
+        return access_of(self.request).can(Perm(perm), lab_id)
+
+    @extend_schema(
+        request=LocationGrantInputSerializer,
+        responses={
+            201: LocationGrantOutputSerializer,
+            (400, PROBLEM): GRANT_INVALID,
+            (422, PROBLEM): REASON,
+        },
+    )
+    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        lab = self.lab  # first: an outsider gets 404, never a 400 that reveals the lab
+        data = LocationGrantInputSerializer(
+            data=request.data, context=self.get_serializer_context()
+        )
+        data.is_valid(raise_exception=True)
+        membership: Membership = data.validated_data["member"]
+        if membership.lab_id != lab.pk:  # the same error as an unknown member
+            raise services.UnknownMember
+        grant = services.location_grant_add(
+            access=access_of(request),
+            lab=lab,
+            membership=membership,
+            reason=data.validated_data["reason"],
+        )
+        fresh = self.scoped_queryset().get(pk=grant.pk)
+        return Response(LocationGrantOutputSerializer(fresh).data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        request=LocationRevokeInputSerializer,
+        responses={204: None, (409, PROBLEM): REVOKED, (422, PROBLEM): REASON},
+    )
+    @action(detail=True, methods=["post"], url_path="revoke")
+    def revoke(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        grant: LocationGrant = self.get_object()
+        data = LocationRevokeInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.location_grant_revoke(
+            access=access_of(request), grant=grant, reason=data.validated_data["reason"]
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)

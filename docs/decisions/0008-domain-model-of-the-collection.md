@@ -2,7 +2,8 @@
 
 Date: 2026-10-18
 Status: accepted (#50)
-Amended 2026-10-19: terms, contacts and the intake (#10, #12).
+Amended 2026-10-19: terms, contacts and the intake (#10, #12); storage (#14);
+preservation, batches and vials (#16).
 Deciders: maintainer
 
 ## Context
@@ -99,6 +100,7 @@ before the tables it shapes:
 - D6 box coordinates, 1-based rows and columns with computed labels: with
   the box grid (#15). Decided 2026-10-19 with storage, see the storage amendment below.
 - D7 vial states and transitions: with preservation and batches (#16).
+  Decided 2026-10-19, see the preservation amendment below.
 - D9 terms model, versioned terms per deposit with frozen MTA versions:
   with depositors and terms (#10).
 - D10 use vocabulary of the terms: with depositors and terms (#10), agreed
@@ -107,9 +109,11 @@ before the tables it shapes:
 - D14 storage model, one unit table or one per level: with storage (#14).
   Decided 2026-10-19, see the storage amendment below.
 - D15 seed and distribution stock: with preservation and batches (#16).
+  Decided 2026-10-19, see the preservation amendment below.
 - D16 identity, purity and viability checks: with viability checks (#17).
 - D17 vial barcodes, generated labels and pre-printed codes: with
-  preservation and batches (#16).
+  preservation and batches (#16). Decided 2026-10-19, see the preservation
+  amendment below.
 - D18 requesters, records kept by curators or a portal: with distribution
   (#18).
 - D19 when vials are reserved for a request: with distribution (#18).
@@ -344,3 +348,106 @@ Revisit when: a lab holds more than about 5 000 units (load the tree by
 level), a lab needs another kind (a shelf, a drawer, a canister of its
 own), a lab labels its positions otherwise, or a report needs past unit
 locations as one query.
+
+## Amendment 2026-10-19: preservation, batches and vials (#16)
+
+Decided with preservation and vial batches (#16). The box grid is #15, viability checks
+#17, distribution #18.
+
+**D1 as built: three passage sources.** `lineage.Passage` gets `source_vial`, so its check
+is `num_nonnulls(source_deposit, source_passage, source_vial) = 1`, and passage 0 still
+comes only from the deposit. A subculture is a passage from a parent passage, a revival a
+passage from a vial. Either is numbered one more than its source (D3): the parent's number,
+or the number of the passage the vial's batch was preserved from. A revival consumes the
+vial in the same transaction, and the vial is the source of one passage at most (a one to
+one key). The service checks that the source belongs to the same strain. A strain without
+passage 0 (one created before deposit intake, or by a later import) cannot be preserved
+until it has a passage; the import decides how it gets one.
+
+**Batch.** `lineage.Batch` is one preservation of one passage: lab, strain, passage, a
+number per strain, the method (`cryo_minus80`, `cryo_ln2`, `lyophilised`), the protectant
+as free text (`cryoprotectant`, "10 % glycerol", or the lyoprotectant), the day it was
+preserved (`preserved_on`, a Czech day, not in the future), `vial_count_created` (1 to 200,
+a fact of the event, not a stock counter), a purpose and a status. The number is the
+strain's highest plus one, taken under the strain's row lock, and a unique constraint
+(strain, number) is the final arbiter. A batch is never deleted and changes only its status
+(a guard trigger).
+- **D15: purpose `seed` or `distribution`** (recommendation a). OECD General 11.2 keeps a
+  seed stock made from the original and supplies only from distribution stock, so seed
+  vials are never distributed. #18 enforces it; the purpose is set at preservation and
+  never changes.
+- **Status: `pending_check`, `released`, `on_hold`, `exhausted`.** A batch starts
+  `pending_check`. No service changes the status in #16: release and hold follow the checks
+  of #17 (D16), which brings the edges and their guard. Exhausted is set by #18 or by the
+  last vial leaving, decided there.
+
+**D17: barcode nullable and unique per lab, label always computed** (recommendation c). A
+vial's label is "<accession number> / <batch number> / <seq>", computed, never stored. A
+pre-printed or scanned barcode is optional, unique per lab (also after the vial left: the
+code is printed on the tube), without spaces, and may be set or corrected with its own
+event. Scanning comes with the box grid (#15).
+
+**D7: vial states.** `lineage.Vial` is one physical item: lab, batch, `seq` (1 to the
+count, unique per batch), barcode, status and `status_changed_at`. No quantity: a vial is
+used whole. The states and edges (lab-domain D7):
+- `available` > `reserved`, `consumed`, `quarantined`, `to_destroy`, `lost`,
+  `entered_in_error`;
+- `reserved` > `available`, `distributed`, `to_destroy`;
+- `quarantined` > `available`, `to_destroy`;
+- `to_destroy` > `destroyed`;
+- `lost` > `available` (found again);
+- terminal: `consumed`, `destroyed`, `distributed`, `entered_in_error`.
+`entered_in_error` is allowed only for a vial whose status never changed
+(`status_changed_at` is null): a vial that had a life is corrected by its states, not
+erased. One service, `vial_transition`, locks the row, checks the edge, needs a reason and
+records the event; a guard trigger refuses every other edge, a delete and any change of the
+identity columns. Reserved and distributed belong to distribution (#18, D19): the API and
+the screen offer the other states only.
+
+**D5 as built: placements.** `lineage.VialPlacement` is one interval of one vial in one
+position: lab, vial, box, row, col, `placed_at` and `placed_by`, `removed_at` and
+`removed_by`, and a removal reason (`moved`, `consumed`, `destroyed`, `distributed`,
+`lost`, `entered_in_error`). Rows and columns are 1-based (D6).
+- Partial unique indexes: one open placement per vial, one open placement per box position.
+- The upper bound needs the box: the service checks it under the box's row lock, and the
+  placement trigger checks it again on insert, with the box's kind and lab. The CHECK says
+  row and col are 1 or more.
+- A placement row never changes but for its one removal, and is never deleted (a trigger).
+- A move closes the open row (`moved`) and opens a new one in one transaction. A vial that
+  leaves the collection (`consumed`, `destroyed`, `distributed`, `entered_in_error`) or is
+  `lost` has its open row closed with that reason by the transition; the vial trigger
+  refuses those states while a placement is open, and the placement trigger refuses to open
+  one for a vial in them. Quarantined, to destroy and reserved vials keep their place.
+- Preserving a batch into a box locks the box, takes the free positions in fill order (row
+  by row, A1, A2, ...), refuses when fewer are free than vials, writes the rows with
+  `bulk_create` and records one event per vial plus a summary (`record_batch`).
+- Every placement asks `storage.policy.may_store(box, strain.risk_group)` under the lab
+  lock: a box only, active along its path, with a cap at or above the strain's risk group.
+- `storage.services.box_occupied` counts open placements, so an occupied box keeps its size
+  and is not retired. As announced with storage, lowering a unit's cap below the risk group
+  of a strain stored in it or below it is refused, and so is moving a unit under a parent
+  whose cap is lower than what it holds. The other side holds too: a strain's risk group is
+  not raised above the effective cap of a box that holds one of its vials
+  (`risk_group_above_box_cap`, on the risk group, naming no box, so a regulated strain's place
+  stays masked). The strain service locks the lab, the strain, then those boxes; a lower
+  group always fits.
+
+**Who does what.** Viewers and up see passages, batches and vials (`strains.view`).
+Technicians and up preserve, subculture, revive, place, move and change a vial's state
+(`vials.handle`): the bench work. Every service takes the lab lock first, then the strain,
+the vial and the box rows, and re-reads the actor's role under the lab lock.
+
+**Events.** `passage_created`, `batch_created`, `vial_created` and `vials_created`,
+`vial_placed` and `vials_placed`, `vial_moved`, `vial_status_changed` (reason required),
+`vial_barcode_set`, each with the strain (D13).
+
+Migration impact: additive. `lineage` 0003 adds `source_vial` (a nullable column, no
+rewrite), replaces the source check (a scan of `lineage_passage`, small) and creates
+`lineage_batch`, `lineage_vial` and `lineage_vialplacement`; 0004 attaches their row audit
+and triggers. Audit 0018 extends the reason check of `audit_auditevent`, a scan of the audit
+table under its lock. Reversible while no vial exists: `migrate lineage 0002`, then
+`migrate labs 0002` and `migrate audit 0017` (ADR 0009 amendment of the same day).
+
+Revisit when: a lab labels vials with its own scheme, a batch needs more than 200 vials,
+a protocol needs aliquots used in part (a quantity), or a vial must sit in two places (a
+straw in a goblet).

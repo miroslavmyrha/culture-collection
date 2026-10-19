@@ -69,6 +69,13 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     "deposits_depositterms": ("SELECT", "INSERT", "UPDATE"),
     "deposits_termsuse": ("SELECT", "INSERT"),
     "lineage_passage": ("SELECT", "INSERT"),
+    # #16: batches change their status, vials their status and barcode, a placement gets its
+    # one removal. None is ever deleted (triggers refuse it as well).
+    "lineage_batch": ("SELECT", "INSERT", "UPDATE"),
+    "lineage_vial": ("SELECT", "INSERT", "UPDATE"),
+    "lineage_vialplacement": ("SELECT", "INSERT", "UPDATE"),
+    # ADR 0009: a location grant is revoked, never deleted.
+    "labs_locationgrant": ("SELECT", "INSERT", "UPDATE"),
     # Storage units are retired, never deleted: events and, from #16, placements point at
     # them. Box types are referenced by boxes. A trigger refuses deletes too.
     "storage_boxtype": ("SELECT", "INSERT", "UPDATE"),

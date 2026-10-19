@@ -12,6 +12,13 @@ from cultures.taxonomy.selectors import taxon_and_below
 from .models import Strain, StrainIdentification, StrainRestriction
 
 
+def regulating_restrictions() -> QuerySet[StrainRestriction]:
+    """The restrictions that make a strain regulated (ADR 0009): every active one, of any kind.
+    An ended restriction regulates nothing. The one definition: the vial lists mask by it and
+    the reveal decides by it (lineage), so the two cannot drift apart."""
+    return StrainRestriction.objects.filter(ended_at__isnull=True)
+
+
 def strain_list(*, access: Access, lab: Lab) -> QuerySet[Strain]:
     """The strains of one lab the user may view, by accession number (numbered first)."""
     return (

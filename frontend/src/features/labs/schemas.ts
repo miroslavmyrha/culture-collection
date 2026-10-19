@@ -38,3 +38,9 @@ export type AddMemberInput = z.output<typeof addMemberSchema>
 
 export const changeRoleSchema = z.object({ role: z.enum(ROLES, 'Choose a role') })
 export type ChangeRoleInput = z.output<typeof changeRoleSchema>
+
+export type LocationGrant = components['schemas']['LocationGrantOutput']
+
+/** A grant or a revocation of the regulated locations: always with a reason (ADR 0009). */
+export const locationGrantSchema = z.object({ reason: z.string().trim().min(1, 'Say why').max(2000, 'Use at most 2000 characters') })
+export type LocationGrantInput = z.input<typeof locationGrantSchema>

@@ -1,4 +1,4 @@
-import { type MouseEvent, useRef, useState } from 'react'
+import { type MouseEvent, type ReactNode, useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
 import { Box, Button, PageTitle, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { isApiError } from '@/lib/api'
@@ -7,7 +7,13 @@ import { useStrain } from '../api/queries'
 import { countryName, GMO_CATEGORY_LABELS, PATHOGENICITY_LABELS, RESTRICTION_LABELS, STATUS_LABELS, type Strain } from '../schemas'
 import { AddRestrictionDialog, EndRestrictionDialog, ReclassifyDialog, RiskGroupDialog } from './StrainDialogs'
 
-type Props = { labId: string; strainId: string; canManage: boolean }
+type Props = {
+  labId: string
+  strainId: string
+  canManage: boolean
+  /** What the page puts under the restrictions: the strain's passages, batches and vials. */
+  renderMaterial?: (strain: Strain) => ReactNode
+}
 
 type Restriction = Strain['restriction_history'][number]
 type Open = { kind: 'reclassify' | 'risk' | 'add' | 'end'; restriction?: Restriction; open: boolean } | null
@@ -16,7 +22,7 @@ type Open = { kind: 'reclassify' | 'risk' | 'add' | 'end'; restriction?: Restric
 const date = (iso: string) => new Date(iso).toLocaleDateString('sv')
 
 /** One strain: its number, current taxon, biosafety facts, origin and its whole history. */
-export function StrainDetail({ labId, strainId, canManage }: Props) {
+export function StrainDetail({ labId, strainId, canManage, renderMaterial }: Props) {
   const strain = useStrain(labId, strainId)
   const [open, setOpen] = useState<Open>(null)
   const spot = useRef<FocusReturn | null>(null)
@@ -106,6 +112,8 @@ export function StrainDetail({ labId, strainId, canManage }: Props) {
         )}
         {ended.length > 0 && <RestrictionTable rows={ended} caption="Ended restrictions" />}
       </Section>
+
+      {renderMaterial?.(s)}
 
       <Section title="Identification history">
         <TableContainer {...scrollable('Identification history')}>

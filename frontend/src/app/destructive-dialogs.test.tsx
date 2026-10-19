@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest'
 import { RejectDialog } from '@/features/deposits/components/DepositDialogs'
 import { RemoveMemberDialog } from '@/features/labs/components/RemoveMemberDialog'
 import { UnitStatusDialog } from '@/features/storage/components/UnitDialogs'
-import { makeDeposit, makeMember, makeUnit } from '@/test/factories'
+import { ReviveDialog } from '@/features/vials/components/VialDialogs'
+import { makeDeposit, makeMember, makeUnit, makeVial } from '@/test/factories'
 import { renderWithProviders } from '@/test/render'
 
 /**
@@ -54,6 +55,20 @@ const DESTRUCTIVE: Record<string, { render: () => ReactElement; name: string; co
     ),
     name: 'Retire Rack 1?',
     consequence: 'A retired unit stays in the history but changes no more and takes nothing. This cannot be undone.',
+  },
+  '/src/features/vials/components/VialDialogs.tsx': {
+    render: () => (
+      <ReviveDialog
+        labId="00000000-0000-4000-8000-00000000000a"
+        strainId="00000000-0000-4000-8000-0000000000d1"
+        vial={makeVial({ label: 'MYC 42 / 1 / 3' })}
+        open
+        onClose={() => {}}
+        onExited={() => {}}
+      />
+    ),
+    name: 'Revive vial MYC 42 / 1 / 3?',
+    consequence: 'The vial is used up and leaves its position, and a new passage starts from it. This cannot be undone.',
   },
 }
 

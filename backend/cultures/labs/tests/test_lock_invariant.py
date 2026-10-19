@@ -92,6 +92,21 @@ def user_erase(lab: Lab) -> Callable[[], object]:
     return lambda: users.user_erase(user=first, reason=REASON)
 
 
+def location_grant_add(lab: Lab) -> Callable[[], object]:
+    first, second = _two_managers(lab)
+    return lambda: labs.location_grant_add(
+        access=access_for(first), lab=lab, membership=membership(second, lab), reason=REASON
+    )
+
+
+def location_grant_revoke(lab: Lab) -> Callable[[], object]:
+    first, second = _two_managers(lab)
+    grant = labs.location_grant_add(
+        access=access_for(first), lab=lab, membership=membership(second, lab), reason=REASON
+    )
+    return lambda: labs.location_grant_revoke(access=access_for(first), grant=grant, reason=REASON)
+
+
 def users_deactivation_check(lab: Lab) -> Callable[[], object]:
     first, _ = _two_managers(lab)
     return lambda: labs.users_deactivation_check(users=[first])
@@ -110,6 +125,8 @@ SCENARIOS: dict[str, Scenario] = {
         users_deactivate,
         user_erase,
         users_deactivation_check,
+        location_grant_add,
+        location_grant_revoke,
     )
 }
 
@@ -135,6 +152,7 @@ EXEMPT: dict[str, str] = {
     "user_set_password": "the password only",
     "user_login_limits_clear": "deletes login counters, no lab role and no user row",
     "superuser_create": "a new user is in no lab",
+    "holds_location_grant": "a read; the services that decide on it hold the lab lock",
 }
 
 
