@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { allowConsole } from '@/test/console'
-import { makeLab, makeMe, makeMember, makeStrain, makeStrainRow, page, problem } from '@/test/factories'
+import { makeLab, makeMe, makeMember, makeMtaTemplate, makeStrain, makeStrainRow, page, problem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
@@ -10,6 +10,9 @@ const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const STRAIN_ID = '00000000-0000-4000-8000-0000000000d1'
 const STRAINS = '/api/v1/labs/{lab_public_id}/strains/'
 const STRAIN = '/api/v1/labs/{lab_public_id}/strains/{public_id}/'
+const DEPOSITORS = '/api/v1/labs/{lab_public_id}/depositors/'
+const MTAS = '/api/v1/labs/{lab_public_id}/mta-templates/'
+const MTA = '/api/v1/labs/{lab_public_id}/mta-templates/{public_id}/'
 const signedIn = (username = 'lab-tech') => void mockApi('get', '/api/v1/auth/me/', makeMe({ username }))
 const lab = (overrides = {}) => mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', ...overrides }))
 const members = (count = 1) => mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([makeMember()], { count }))
@@ -47,6 +50,12 @@ describe('page titles (WCAG 2.4.2)', () => {
     [`/labs/${LAB_ID}/strains/${STRAIN_ID}`, 'MYC 42', () => (signedIn(), lab(), mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42' })))],
     [`/labs/${LAB_ID}/strains/${STRAIN_ID}`, 'Strain not found', () => (signedIn(), lab(), mockApiError('get', STRAIN, 404, problem(404)))],
     [`/labs/${LAB_ID}/strains/${STRAIN_ID}`, 'Could not load the strain', () => (signedIn(), lab(), mockApiError('get', STRAIN, 500))],
+    [`/labs/${LAB_ID}/depositors`, 'Depositors of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', DEPOSITORS, page([])))],
+    [`/labs/${LAB_ID}/mta-templates`, 'MTA templates of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', MTAS, page([])))],
+    [`/labs/${LAB_ID}/mta-templates/new`, 'Publish an MTA version in Mycology', () => (signedIn(), lab({ my_role: 'manager' }))],
+    [`/labs/${LAB_ID}/mta-templates/${STRAIN_ID}`, 'STD version 1', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', MTA, makeMtaTemplate()))],
+    [`/labs/${LAB_ID}/mta-templates/${STRAIN_ID}`, 'MTA not found', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', MTA, 404, problem(404)))],
+    [`/labs/${LAB_ID}/mta-templates/${STRAIN_ID}`, 'MTA template', () => (signedIn(), lab({ my_role: 'viewer' }), mockApiError('get', MTA, 404, problem(404)))],
     ['/no-such-page', 'Page not found', () => undefined],
   ])('%s shows "%s | Culture collection"', async (path, title, setup) => {
     allowConsole(/API error 500/)

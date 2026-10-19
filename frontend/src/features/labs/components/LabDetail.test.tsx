@@ -26,6 +26,17 @@ function mockLab(role: Role) {
 const render = () => renderWithProviders(<LabDetail labId={LAB_ID} params={PARAMS} onOffsetChange={vi.fn<(offset: number) => void>()} />)
 
 describe('LabDetail', () => {
+  it('leads a curator to the depositors and the MTA templates', async () => {
+    mockLab('curator')
+    await render()
+    const sections = await screen.findByRole('navigation', { name: 'Lab sections' })
+    expect(within(sections).getAllByRole('link').map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
+      ['Strains', `/labs/${LAB_ID}/strains`],
+      ['Depositors', `/labs/${LAB_ID}/depositors`],
+      ['MTA templates', `/labs/${LAB_ID}/mta-templates`],
+    ])
+  })
+
   it('shows the lab, my role and the members table', async () => {
     mockLab('viewer')
     await render()
@@ -33,6 +44,8 @@ describe('LabDetail', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Mycology' })).toBeInTheDocument()
     expect(screen.getByText('Code MYC. Your role: Viewer.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Strains' })).toHaveAttribute('href', `/labs/${LAB_ID}/strains`)
+    // Depositors hold personal contacts: a viewer is not led to them.
+    expect(screen.queryByRole('link', { name: 'Depositors' })).not.toBeInTheDocument()
     const table = await screen.findByRole('table', { name: 'Members' })
     const rows = within(table).getAllByRole('row').slice(1)
     expect(rows.map((row) => within(row).getAllByRole('cell').map((cell) => cell.textContent))).toEqual([

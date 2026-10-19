@@ -5,10 +5,9 @@ import { Alert, Box, Button, SelectField, Stack, TextField, Typography } from '@
 import { isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
 import type { components } from '@/api/schema'
-import { COUNTRY_CODES } from '../countries'
+import { countryOptions } from '@/lib/countries'
 import {
   type CountryCode,
-  countryName,
   type StrainFactsForm as Values,
   type StrainFactsValues,
   strainFactsSchema,
@@ -78,10 +77,7 @@ const today = () => new Date().toLocaleDateString('sv') // YYYY-MM-DD in local t
 export function StrainFactsForm({ label, submitLabel, nameAsReceived, submit, onDone, country = '' }: Props) {
   const [failure, setFailure] = useState<string>()
   const addButton = useRef<HTMLButtonElement>(null)
-  const countries = useMemo(
-    () => [{ value: '', label: 'Unknown' }, ...COUNTRY_CODES.map((code) => ({ value: code, label: countryName(code) })).toSorted((a, b) => a.label.localeCompare(b.label))],
-    [],
-  )
+  const countries = useMemo(() => countryOptions(), [])
   const { control, register, handleSubmit, formState, setError } = useForm<Values, unknown, StrainFactsValues>({
     resolver: zodResolver(strainFactsSchema),
     defaultValues: {

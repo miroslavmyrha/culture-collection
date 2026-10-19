@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { components } from '@/api/schema'
 import { pageDefaults } from '@/lib/paging'
-import { COUNTRY_CODES } from './countries'
+import { isCountry } from '@/lib/countries'
 
 type Schemas = components['schemas']
 export type StrainRow = Schemas['StrainListOutput']
@@ -14,8 +14,6 @@ export type RestrictionKind = Schemas['RestrictionKind']
 export type StrainStatus = Schemas['StrainStatus']
 export type CountryCode = Schemas['CountryCode']
 export type Role = Schemas['Role']
-
-const COUNTRIES: ReadonlySet<string> = new Set(COUNTRY_CODES)
 
 /** Curators and managers write strains (strains.manage). The server decides; this only hides. */
 export const canManageStrains = (role: Role | undefined): boolean => role === 'curator' || role === 'manager'
@@ -55,9 +53,7 @@ export const GMO_CATEGORY_LABELS: Record<number, string> = { 1: 'I', 2: 'II', 3:
 export const options = <T extends string | number>(labels: Record<T, string>, values: readonly T[]) =>
   values.map((value) => ({ value: String(value), label: labels[value] }))
 
-/** Country names in English from the browser's own data; the codes come from the API schema. */
-const regionNames = new Intl.DisplayNames(['en'], { type: 'region' })
-export const countryName = (code: string) => regionNames.of(code) ?? code
+export { countryName } from '@/lib/countries'
 
 export const taxonLabel = (taxon: Pick<Taxon, 'name' | 'authority'>) => (taxon.authority ? `${taxon.name} ${taxon.authority}` : taxon.name)
 
@@ -112,7 +108,7 @@ const riskGroup = z.string().transform((value, ctx): RiskGroup => {
   ctx.addIssue({ code: 'custom', message: 'Choose a risk group' })
   return z.NEVER
 })
-const country = z.custom<CountryCode | ''>((value) => value === '' || (typeof value === 'string' && COUNTRIES.has(value)), 'Choose a country')
+const country = z.custom<CountryCode | ''>(isCountry, 'Choose a country')
 
 /** What the check of a deposit found: the facts of the strain its acceptance creates. */
 export const strainFactsSchema = z.object({
