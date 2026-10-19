@@ -37,3 +37,14 @@ export function useLab(labId: string) {
 export function useMemberList(labId: string, params: PageParams) {
   return useQuery(memberListOptions(labId, params))
 }
+
+export const locationGrantsOptions = (labId: string) =>
+  queryOptions({
+    queryKey: labKeys.locationGrants(labId),
+    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/labs/{lab_public_id}/location-grants/', { signal, params: { path: { lab_public_id: labId } } })),
+  })
+
+/** Only managers read the grants: for anybody else the request is not even sent. */
+export function useLocationGrants(labId: string, enabled: boolean) {
+  return useQuery({ ...locationGrantsOptions(labId), enabled })
+}

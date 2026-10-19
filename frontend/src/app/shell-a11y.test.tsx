@@ -19,6 +19,11 @@ const UNITS = '/api/v1/labs/{lab_public_id}/storage-units/'
 const UNIT = '/api/v1/labs/{lab_public_id}/storage-units/{public_id}/'
 const UNIT_ID = '00000000-0000-4000-8000-0000000000b1'
 const signedIn = (username = 'lab-tech') => void mockApi('get', '/api/v1/auth/me/', makeMe({ username }))
+/** The strain page's passages, batches and vials, and the boxes for its forms: all empty. */
+const material = () => {
+  for (const path of ['/api/v1/labs/{lab_public_id}/passages/', '/api/v1/labs/{lab_public_id}/batches/', '/api/v1/labs/{lab_public_id}/vials/'] as const) mockApi('get', path, page([]))
+  mockApi('get', '/api/v1/labs/{lab_public_id}/storage-units/', [])
+}
 const lab = (overrides = {}) => mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', ...overrides }))
 const members = (count = 1) => mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([makeMember()], { count }))
 
@@ -52,7 +57,7 @@ describe('page titles (WCAG 2.4.2)', () => {
     [`/labs/${LAB_ID}`, 'Could not load the lab', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 500), members())],
     [`/labs/${LAB_ID}/strains`, 'Strains of Mycology', () => (signedIn(), lab(), mockApi('get', STRAINS, page([makeStrainRow()])))],
     [`/labs/${LAB_ID}/strains`, 'Lab not found', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApi('get', STRAINS, page([])))],
-    [`/labs/${LAB_ID}/strains/${STRAIN_ID}`, 'MYC 42', () => (signedIn(), lab(), mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42' })))],
+    [`/labs/${LAB_ID}/strains/${STRAIN_ID}`, 'MYC 42', () => (signedIn(), lab(), material(), mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42' })))],
     [`/labs/${LAB_ID}/strains/${STRAIN_ID}`, 'Strain not found', () => (signedIn(), lab(), mockApiError('get', STRAIN, 404, problem(404)))],
     [`/labs/${LAB_ID}/strains/${STRAIN_ID}`, 'Could not load the strain', () => (signedIn(), lab(), mockApiError('get', STRAIN, 500))],
     [`/labs/${LAB_ID}/depositors`, 'Depositors of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', DEPOSITORS, page([])))],

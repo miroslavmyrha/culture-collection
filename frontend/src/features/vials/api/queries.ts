@@ -1,0 +1,55 @@
+import { queryOptions, useQuery } from '@tanstack/react-query'
+import { api, unwrap } from '@/lib/api'
+import { boxChoices } from '../schemas'
+import { vialKeys } from './keys'
+
+// One page of the most the API gives: a strain's material fits in it (a batch has at most 200
+// vials; the count tells when it does not).
+export const MATERIAL_PAGE = 200
+
+const strainQuery = (labId: string, strainId: string) => ({
+  path: { lab_public_id: labId },
+  query: { strain: strainId, limit: MATERIAL_PAGE },
+})
+
+export const passagesOptions = (labId: string, strainId: string) =>
+  queryOptions({
+    queryKey: vialKeys.passages(labId, strainId),
+    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/labs/{lab_public_id}/passages/', { signal, params: strainQuery(labId, strainId) })),
+  })
+
+export const batchesOptions = (labId: string, strainId: string) =>
+  queryOptions({
+    queryKey: vialKeys.batches(labId, strainId),
+    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/labs/{lab_public_id}/batches/', { signal, params: strainQuery(labId, strainId) })),
+  })
+
+export const vialsOptions = (labId: string, strainId: string) =>
+  queryOptions({
+    queryKey: vialKeys.vials(labId, strainId),
+    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/labs/{lab_public_id}/vials/', { signal, params: strainQuery(labId, strainId) })),
+  })
+
+/** The lab's active boxes, named by their path, for the forms that place vials. */
+export const boxesOptions = (labId: string) =>
+  queryOptions({
+    queryKey: vialKeys.boxes(labId),
+    queryFn: async ({ signal }) =>
+      boxChoices(await unwrap(api.GET('/api/v1/labs/{lab_public_id}/storage-units/', { signal, params: { path: { lab_public_id: labId } } }))),
+  })
+
+export function usePassages(labId: string, strainId: string) {
+  return useQuery(passagesOptions(labId, strainId))
+}
+
+export function useBatches(labId: string, strainId: string) {
+  return useQuery(batchesOptions(labId, strainId))
+}
+
+export function useVials(labId: string, strainId: string) {
+  return useQuery(vialsOptions(labId, strainId))
+}
+
+export function useBoxes(labId: string, enabled: boolean) {
+  return useQuery({ ...boxesOptions(labId), enabled })
+}
