@@ -2,26 +2,41 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { allowConsole } from '@/test/console'
-import { makeStrain, makeTaxon, page, problem, validationProblem } from '@/test/factories'
+import { useMutation } from '@tanstack/react-query'
+import { api, ensureCsrf, unwrap } from '@/lib/api'
+import { makeDeposit, makeTaxon, page, problem, validationProblem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { renderWithProviders } from '@/test/render'
-import { strainKeys } from '../api/keys'
-import type { Strain } from '../schemas'
-import { CreateStrainForm } from './CreateStrainForm'
+import { type StrainFactsBody, StrainFactsForm } from './StrainFactsForm'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
-const PATH = '/api/v1/labs/{lab_public_id}/strains/'
+const DEPOSIT_ID = '00000000-0000-4000-8000-0000000000d1'
+// The page passes the deposit's accept mutation; this one sends the same request.
+const PATH = '/api/v1/labs/{lab_public_id}/deposits/{public_id}/accept/'
 // Invented taxa: the tests pair them with restrictions and risk groups, which no real
 // organism should be shown with unless the facts hold.
 const exempli = makeTaxon({ public_id: '00000000-0000-4000-8000-0000000000c1', name: 'Testella exempli', authority: 'Doe 2001' })
 const fictivibrio = makeTaxon({ public_id: '00000000-0000-4000-8000-0000000000c2', name: 'Fictivibrio exempli', status: 'synonym' })
 
-async function setup() {
+function Harness({ onDone, country }: { onDone: () => void; country?: 'CZ' }) {
+  const accept = useMutation({
+    mutationFn: async (body: StrainFactsBody) => {
+      await ensureCsrf()
+      return unwrap(api.POST(PATH, { params: { path: { lab_public_id: LAB_ID, public_id: DEPOSIT_ID } }, body }))
+    },
+    meta: { handlesError: true },
+  })
+  return (
+    <StrainFactsForm label="Accept the deposit" submitLabel="Accept" nameAsReceived="T. exempli T1" submit={accept} onDone={onDone} country={country} />
+  )
+}
+
+async function setup(country?: 'CZ') {
   mockApi('get', '/api/v1/taxa/', page([exempli, fictivibrio]))
-  const onCreated = vi.fn<(strain: Strain) => void>()
-  const view = await renderWithProviders(<CreateStrainForm labId={LAB_ID} onCreated={onCreated} />)
+  const onDone = vi.fn<() => void>()
+  const view = await renderWithProviders(<Harness onDone={onDone} country={country} />)
   const user = userEvent.setup()
-  return { ...view, user, onCreated, form: screen.getByRole('form', { name: 'Add a strain' }) }
+  return { ...view, user, onDone, form: screen.getByRole('form', { name: 'Accept the deposit' }) }
 }
 
 const field = (name: string) => screen.getByRole('textbox', { name })
@@ -37,22 +52,20 @@ async function pickTaxon(user: UserEvent, text = 'exem') {
 
 async function fillRequired(user: UserEvent) {
   await pickTaxon(user)
-  await user.type(field('Name as received'), 'T. exempli T1')
   await user.clear(field('Identified on'))
   await user.type(field('Identified on'), '2026-01-10')
   await user.type(field('Identification method'), '16S rRNA gene sequence')
   await user.selectOptions(select('Risk group'), '2')
 }
 
-const submit = (user: UserEvent) => user.click(screen.getByRole('button', { name: 'Add strain' }))
+const submit = (user: UserEvent) => user.click(screen.getByRole('button', { name: 'Accept' }))
 
 // Long forms typed key by key, beside other test files: more than the default 5 s per test.
-describe('CreateStrainForm', { timeout: 20_000 }, () => {
-  it('sends the strain with its restrictions, the CSRF token, and goes to it', async () => {
-    const created = makeStrain({ accession_number: 'MYC 1' })
-    const calls = mockApi('post', PATH, created)
-    const { user, client, onCreated } = await setup()
-    client.setQueryData(strainKeys.list(LAB_ID, { limit: 25, offset: 0 }), page([]))
+describe('StrainFactsForm', { timeout: 20_000 }, () => {
+  it('sends the facts with their restrictions and the CSRF token, never a name', async () => {
+    const calls = mockApi('post', PATH, makeDeposit({ status: 'accepted' }))
+    const { user, onDone } = await setup()
+    expect(screen.getByText('T. exempli T1')).toBeInTheDocument()
     await fillRequired(user)
     await user.selectOptions(select('Plant pathogenicity'), 'pathogenic')
     await user.type(field('Isolation source'), ' garden  soil ')
@@ -70,13 +83,12 @@ describe('CreateStrainForm', { timeout: 20_000 }, () => {
     await user.type(within(second).getByRole('textbox', { name: 'List entry' }), 'MŽP 2026/12')
     await user.selectOptions(within(second).getByRole('combobox', { name: 'Contained use category' }), '2')
     await submit(user)
-    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(created))
+    await waitFor(() => expect(onDone).toHaveBeenCalledOnce())
     expect(calls).toHaveLength(1)
-    expect(calls[0]?.url.pathname).toBe(`/api/v1/labs/${LAB_ID}/strains/`)
+    expect(calls[0]?.url.pathname).toBe(`/api/v1/labs/${LAB_ID}/deposits/${DEPOSIT_ID}/accept/`)
     expect(calls[0]?.headers.get('X-CSRFToken')).toBe('test-token')
     expect(calls[0]?.body).toEqual({
       taxon: exempli.public_id,
-      name_as_received: 'T. exempli T1',
       identified_on: '2026-01-10',
       identification_method: '16S rRNA gene sequence',
       risk_group: 2,
@@ -90,8 +102,11 @@ describe('CreateStrainForm', { timeout: 20_000 }, () => {
         { kind: 'gmo', reference: 'MŽP 2026/12', act: '', gmo_category: 2 },
       ],
     })
-    expect(client.getQueryData(strainKeys.detail(LAB_ID, created.public_id))).toEqual(created)
-    expect(client.getQueryState(strainKeys.list(LAB_ID, { limit: 25, offset: 0 }))?.isInvalidated).toBe(true)
+  })
+
+  it('offers the country the deposit states', async () => {
+    await setup('CZ')
+    expect(select('Country of origin')).toHaveValue('CZ')
   })
 
   it('picks the taxon in the combobox by keyboard, synonyms marked', async () => {
@@ -117,7 +132,7 @@ describe('CreateStrainForm', { timeout: 20_000 }, () => {
     await submit(user)
     expect(select('Taxon')).toHaveAccessibleDescription('Type part of the name, then choose. Choose a taxon')
     expect(select('Taxon')).toHaveFocus()
-    expect(field('Name as received')).toHaveAccessibleDescription('As the depositor gave it. It cannot be changed later. Enter the name as received')
+    expect(select('Risk group')).toHaveAccessibleDescription(/Choose a risk group$/)
     expect(select('Risk group')).toHaveAttribute('aria-invalid', 'true')
     expect(calls).toHaveLength(0)
   })
@@ -176,7 +191,7 @@ describe('CreateStrainForm', { timeout: 20_000 }, () => {
   })
 
   it.each([
-    ['name_as_received', () => field('Name as received')],
+    ['identification_method', () => field('Identification method')],
     ['isolation_date', () => field('Isolation date')],
     ['country_of_origin', () => select('Country of origin')],
     ['taxon', () => select('Taxon')],
@@ -216,11 +231,11 @@ describe('CreateStrainForm', { timeout: 20_000 }, () => {
     expect(screen.queryByText('internal detail')).not.toBeInTheDocument()
   })
 
-  it('keeps the focus on Add strain while it sends, and sends once', async () => {
+  it('keeps the focus on Accept while it sends, and sends once', async () => {
     const held = holdApi('post', PATH)
     const { user, client } = await setup()
     await fillRequired(user)
-    const button = screen.getByRole('button', { name: 'Add strain' })
+    const button = screen.getByRole('button', { name: 'Accept' })
     await user.click(button)
     await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'))
     expect(button).not.toBeDisabled()
@@ -228,7 +243,7 @@ describe('CreateStrainForm', { timeout: 20_000 }, () => {
     await user.click(button)
     expect(client.isMutating()).toBe(1)
     expect(held.calls).toHaveLength(1)
-    held.release(201, makeStrain())
+    held.release(200, makeDeposit())
     await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'false'))
   })
 

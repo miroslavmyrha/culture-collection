@@ -4,7 +4,6 @@ from typing import Any
 from django.db.models import Model, QuerySet
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
-from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -20,14 +19,13 @@ from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
 from cultures.strains import selectors, services
 from cultures.strains.filters import StrainFilter
-from cultures.strains.models import Pathogenicity, Strain, StrainRestriction
+from cultures.strains.models import Strain, StrainRestriction
 
 from .serializers import (
     ReclassifyInputSerializer,
     RestrictionAddInputSerializer,
     RestrictionEndInputSerializer,
     RiskGroupInputSerializer,
-    StrainCreateInputSerializer,
     StrainDetailOutputSerializer,
     StrainListOutputSerializer,
 )
@@ -36,7 +34,6 @@ from .serializers import (
 INVALID = OpenApiResponse(
     ProblemSerializer, "Invalid input, an unknown taxon, or a risk group 4 agent (on risk_group)"
 )
-TAKEN = OpenApiResponse(ProblemSerializer, "The accession number is taken: try again")
 RULE = OpenApiResponse(
     ProblemSerializer,
     "lab_authorisation_required: the lab holds no valid permit for a restriction's kind;"
@@ -47,7 +44,7 @@ LAB_PARAMETER = OpenApiParameter("lab_public_id", OpenApiTypes.UUID, OpenApiPara
 RESTRICTION_PARAMETER = OpenApiParameter("restriction_id", OpenApiTypes.UUID, OpenApiParameter.PATH)
 
 
-def _restrictions(items: list[dict[str, Any]]) -> list[services.RestrictionInput]:
+def restrictions_of(items: list[dict[str, Any]]) -> list[services.RestrictionInput]:
     return [
         services.RestrictionInput(
             kind=RestrictionKind(item["kind"]),
@@ -63,14 +60,15 @@ def _restrictions(items: list[dict[str, Any]]) -> list[services.RestrictionInput
 # through the caller's labs first: not a member gives 404 for every action, before any
 # role check or input validation. Viewers and up read (strains.view), curators and up
 # write (strains.manage); the services re-read the role under the lab lock. Strains are
-# never changed in place or deleted: each change is an action with its reason.
+# never changed in place or deleted: each change is an action with its reason. They are not
+# created here either: a strain comes from an accepted deposit (deposits, ADR 0008 amendment
+# of 2026-10-19), and later from the catalogue import.
 # (Comments, not a docstring: a docstring becomes the description of every operation.)
 @extend_schema(parameters=[LAB_PARAMETER])
 class StrainViewSet(ScopedReadOnlyViewSet):
     action_perms = {
         "list": Perm.VIEW_STRAINS,
         "retrieve": Perm.VIEW_STRAINS,
-        "create": Perm.MANAGE_STRAINS,
         "reclassify": Perm.MANAGE_STRAINS,
         "risk_group": Perm.MANAGE_STRAINS,
         "add_restriction": Perm.MANAGE_STRAINS,
@@ -100,41 +98,6 @@ class StrainViewSet(ScopedReadOnlyViewSet):
             pk=strain.pk
         )
         return Response(StrainDetailOutputSerializer(fresh).data)
-
-    @extend_schema(
-        request=StrainCreateInputSerializer,
-        responses={
-            201: StrainDetailOutputSerializer,
-            (400, PROBLEM): INVALID,
-            (409, PROBLEM): TAKEN,
-            (422, PROBLEM): RULE,
-        },
-    )
-    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        lab = self.lab  # first: an outsider gets 404, never a 400 that reveals the lab
-        data = StrainCreateInputSerializer(data=request.data, context=self.get_serializer_context())
-        data.is_valid(raise_exception=True)
-        values = data.validated_data
-        strain = services.strain_create(
-            access=access_of(request),
-            lab=lab,
-            data=services.NewStrain(
-                name_as_received=values["name_as_received"],
-                taxon=values["taxon"],
-                identified_on=values["identified_on"],
-                identification_method=values["identification_method"],
-                risk_group=values["risk_group"],
-                animal_pathogenicity=Pathogenicity(values["animal_pathogenicity"]),
-                plant_pathogenicity=Pathogenicity(values["plant_pathogenicity"]),
-                isolation_source=values["isolation_source"],
-                country_of_origin=values["country_of_origin"],
-                isolation_date=values["isolation_date"],
-                restrictions=_restrictions(values["restrictions"]),
-            ),
-        )
-        response = self._detail(strain)
-        response.status_code = status.HTTP_201_CREATED
-        return response
 
     @extend_schema(
         request=ReclassifyInputSerializer,
@@ -195,7 +158,7 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         data = RestrictionAddInputSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         values = data.validated_data
-        (restriction,) = _restrictions([values])
+        (restriction,) = restrictions_of([values])
         services.strain_restriction_add(
             access=access_of(request),
             strain=strain,

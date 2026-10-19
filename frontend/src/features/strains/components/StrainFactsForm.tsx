@@ -4,13 +4,14 @@ import { type Path, useController, useFieldArray, useForm, useWatch } from 'reac
 import { Alert, Box, Button, SelectField, Stack, TextField, Typography } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
-import { useCreateStrain } from '../api/mutations'
+import type { components } from '@/api/schema'
 import { COUNTRY_CODES } from '../countries'
 import {
-  type CreateStrainForm as Values,
-  type CreateStrainValues,
+  type CountryCode,
   countryName,
-  createStrainSchema,
+  type StrainFactsForm as Values,
+  type StrainFactsValues,
+  strainFactsSchema,
   emptyRestriction,
   GMO_CATEGORIES,
   GMO_CATEGORY_LABELS,
@@ -20,16 +21,32 @@ import {
   RESTRICTION_KINDS,
   RESTRICTION_LABELS,
   restrictionBody,
-  type Strain,
 } from '../schemas'
 import { PERMIT_REFUSED_BY_KIND, problemField, RISK_GROUP_4_REFUSED, strainError } from '../strainErrors'
 import { TaxonField } from './TaxonField'
 
-type Props = { labId: string; onCreated: (strain: Strain) => void }
+export type StrainFactsBody = components['schemas']['StrainFactsInputRequest']
+
+/** The mutation that sends the facts: the page passes it in (deposit acceptance today). */
+type Submit = {
+  mutate: (body: StrainFactsBody, options: { onSuccess: () => void; onError: (error: Error) => void }) => void
+  isPending: boolean
+}
+
+type Props = {
+  /** The form's accessible name. */
+  label: string
+  submitLabel: string
+  /** The deposit's name as received, which the strain takes unchanged. */
+  nameAsReceived: string
+  submit: Submit
+  onDone: () => void
+  /** The country of origin the deposit's terms state, offered as the strain's. */
+  country?: CountryCode | ''
+}
 
 const FIELDS = [
   'taxon',
-  'name_as_received',
   'identified_on',
   'identification_method',
   'risk_group',
@@ -53,30 +70,29 @@ const CATEGORY_OPTIONS = [{ value: '', label: 'Choose' }, ...GMO_CATEGORIES.map(
 const today = () => new Date().toLocaleDateString('sv') // YYYY-MM-DD in local time
 
 /**
- * For curators: accession a strain. It gets its number from the server ("MYC 42") and becomes
- * active at once. A risk group 4 agent and a VRAT or quarantine pest without the lab's permit
- * are refused by the server; the refusal lands on the field it is about, focused.
+ * For curators: what the check of a deposit found, which the new strain takes. The server
+ * numbers the strain ("MYC 42") and it is active at once. A risk group 4 agent and a VRAT or
+ * quarantine pest without the lab's permit are refused by the server; the refusal lands on
+ * the field it is about, focused.
  */
-export function CreateStrainForm({ labId, onCreated }: Props) {
-  const create = useCreateStrain(labId)
+export function StrainFactsForm({ label, submitLabel, nameAsReceived, submit, onDone, country = '' }: Props) {
   const [failure, setFailure] = useState<string>()
   const addButton = useRef<HTMLButtonElement>(null)
   const countries = useMemo(
     () => [{ value: '', label: 'Unknown' }, ...COUNTRY_CODES.map((code) => ({ value: code, label: countryName(code) })).toSorted((a, b) => a.label.localeCompare(b.label))],
     [],
   )
-  const { control, register, handleSubmit, formState, setError } = useForm<Values, unknown, CreateStrainValues>({
-    resolver: zodResolver(createStrainSchema),
+  const { control, register, handleSubmit, formState, setError } = useForm<Values, unknown, StrainFactsValues>({
+    resolver: zodResolver(strainFactsSchema),
     defaultValues: {
       taxon: null,
-      name_as_received: '',
       identified_on: today(),
       identification_method: '',
       risk_group: '',
       animal_pathogenicity: 'unknown',
       plant_pathogenicity: 'unknown',
       isolation_source: '',
-      country_of_origin: '',
+      country_of_origin: country,
       isolation_date: '',
       restrictions: [],
     },
@@ -90,13 +106,12 @@ export function CreateStrainForm({ labId, onCreated }: Props) {
   const errors = formState.errors
 
   const onSubmit = handleSubmit((values) => {
-    if (create.isPending) return // aria-disabled keeps focus on the button, so guard here
+    if (submit.isPending) return // aria-disabled keeps focus on the button, so guard here
     setFailure(undefined)
     if (!values.taxon) return // the schema refused it already
-    create.mutate(
+    submit.mutate(
       {
         taxon: values.taxon.public_id,
-        name_as_received: values.name_as_received.trim(),
         identified_on: values.identified_on,
         identification_method: values.identification_method.trim(),
         risk_group: values.risk_group,
@@ -108,7 +123,7 @@ export function CreateStrainForm({ labId, onCreated }: Props) {
         restrictions: values.restrictions.map(restrictionBody),
       },
       {
-        onSuccess: (strain) => onCreated(strain),
+        onSuccess: onDone,
         onError: (error) => {
           // Refusals the form owns, on the field they are about, never in the server's words.
           if (isApiError(error) && error.code === 'risk_group_4_refused') {
@@ -131,7 +146,7 @@ export function CreateStrainForm({ labId, onCreated }: Props) {
   const message = errors.root?.server?.message ?? failure
 
   return (
-    <Box component="form" onSubmit={onSubmit} noValidate aria-label="Add a strain">
+    <Box component="form" onSubmit={onSubmit} noValidate aria-label={label}>
       <Stack spacing={2} sx={{ maxWidth: 640 }}>
         <Typography component="h2" variant="h6">
           Identity
@@ -146,13 +161,9 @@ export function CreateStrainForm({ labId, onCreated }: Props) {
           name={taxonName}
           ref={taxonRef}
         />
-        <TextField
-          label="Name as received"
-          hint="As the depositor gave it. It cannot be changed later."
-          autoComplete="off"
-          error={errors.name_as_received?.message}
-          {...register('name_as_received')}
-        />
+        <Typography>
+          Name as received: <b>{nameAsReceived}</b>. The strain keeps it as the depositor gave it.
+        </Typography>
         <TextField label="Identified on" hint="YYYY-MM-DD" autoComplete="off" error={errors.identified_on?.message} {...register('identified_on')} />
         <TextField
           label="Identification method"
@@ -265,8 +276,8 @@ export function CreateStrainForm({ labId, onCreated }: Props) {
 
         {message && <Alert severity="error">{message}</Alert>}
         <Box>
-          <Button type="submit" variant="contained" aria-disabled={create.isPending}>
-            Add strain
+          <Button type="submit" variant="contained" aria-disabled={submit.isPending}>
+            {submitLabel}
           </Button>
         </Box>
       </Stack>

@@ -114,9 +114,9 @@ const riskGroup = z.string().transform((value, ctx): RiskGroup => {
 })
 const country = z.custom<CountryCode | ''>((value) => value === '' || (typeof value === 'string' && COUNTRIES.has(value)), 'Choose a country')
 
-export const createStrainSchema = z.object({
+/** What the check of a deposit found: the facts of the strain its acceptance creates. */
+export const strainFactsSchema = z.object({
   taxon: z.custom<Taxon | null>().refine((value) => value !== null && value !== undefined, 'Choose a taxon'),
-  name_as_received: required('Enter the name as received').max(200, 'Use at most 200 characters'),
   identified_on: isoDay,
   identification_method: required('Enter how it was identified').max(200, 'Use at most 200 characters'),
   risk_group: riskGroup,
@@ -130,8 +130,8 @@ export const createStrainSchema = z.object({
     .regex(/^(\d{4}(-\d{2}(-\d{2})?)?)?$/, 'Use YYYY, YYYY-MM or YYYY-MM-DD'),
   restrictions: z.array(restrictionSchema).max(10, 'At most 10 restrictions'),
 })
-export type CreateStrainForm = z.input<typeof createStrainSchema>
-export type CreateStrainValues = z.output<typeof createStrainSchema>
+export type StrainFactsForm = z.input<typeof strainFactsSchema>
+export type StrainFactsValues = z.output<typeof strainFactsSchema>
 
 export const reasonSchema = required('Say why').max(2000, 'Use at most 2000 characters')
 

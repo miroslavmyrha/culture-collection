@@ -15,7 +15,7 @@ from .conftest import make_user, member_of
 
 V, T, C, M = Role.VIEWER, Role.TECHNICIAN, Role.CURATOR, Role.MANAGER
 
-# The reviewed matrix of the permissions (#9, #11): (perm, roles that have it).
+# The reviewed matrix of the permissions (#9, #11, #10 and #12): (perm, roles that have it).
 MATRIX = [
     (Perm.VIEW_LAB, {V, T, C, M}),
     (Perm.VIEW_MEMBERS, {V, T, C, M}),
@@ -24,7 +24,9 @@ MATRIX = [
     (Perm.HANDLE_VIALS, {T, C, M}),
     (Perm.MANAGE_STORAGE, {T, C, M}),
     (Perm.MANAGE_STRAINS, {C, M}),
+    (Perm.VIEW_DEPOSITS, {C, M}),
     (Perm.MANAGE_DEPOSITS, {C, M}),
+    (Perm.MANAGE_MTA, {M}),
     (Perm.MANAGE_DISTRIBUTION, {C, M}),
 ]
 

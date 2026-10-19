@@ -133,6 +133,30 @@ STRAIN_RESTRICTION_ENDED = register(
     EventType("strain_restriction_ended", "{actor} ended a restriction", reason_required=True)
 )
 
+# Depositors, MTA templates and deposits (#10, #12). A depositor event records a field of
+# its contact as "changed" (PERSONAL_FIELDS). Deposit events name the strain from acceptance
+# on (ADR 0008, D13).
+DEPOSITOR_CREATED = register(EventType("depositor_created", "{actor} added a depositor"))
+DEPOSITOR_CHANGED = register(EventType("depositor_changed", "{actor} changed a depositor"))
+CONTACT_ERASED = register(
+    EventType("contact_erased", "{actor} erased a contact", reason_required=True)
+)
+MTA_TEMPLATE_PUBLISHED = register(
+    EventType("mta_template_published", "{actor} published MTA {code} version {version}")
+)
+DEPOSIT_RECEIVED = register(EventType("deposit_received", "{actor} received a deposit"))
+DEPOSIT_TERMS_REPLACED = register(
+    EventType("deposit_terms_replaced", "{actor} changed the terms", reason_required=True)
+)
+DEPOSIT_CHECK_STARTED = register(
+    EventType("deposit_check_started", "{actor} started checking a deposit")
+)
+DEPOSIT_ACCEPTED = register(EventType("deposit_accepted", "{actor} accepted a deposit"))
+DEPOSIT_REJECTED = register(
+    EventType("deposit_rejected", "{actor} rejected a deposit", reason_required=True)
+)
+PASSAGE_CREATED = register(EventType("passage_created", "{actor} recorded passage {number}"))
+
 
 @dataclass(frozen=True)
 class RowAudit:
@@ -296,15 +320,108 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "end_reason",
         ),
     ),
+    # Deposits (#10, #12). The depositor holds ids and its institution, an organisation; the
+    # person is in deposits_contact (NOT_ROW_AUDITED). Notes and reasons name nobody.
+    "deposits_depositor": RowAudit(
+        label="deposits.depositor",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "contact_id",
+            "institution",
+        ),
+    ),
+    "deposits_mtatemplate": RowAudit(
+        label="deposits.mtatemplate",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "code",
+            "version",
+            "title",
+            "text",
+            "text_sha256",
+        ),
+    ),
+    "deposits_deposit": RowAudit(
+        label="deposits.deposit",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "depositor_id",
+            "status",
+            "received_on",
+            "condition",
+            "condition_note",
+            "name_as_received",
+            "depositor_passages",
+            "strain_id",
+            "decided_at",
+            "rejection_reason",
+        ),
+    ),
+    "deposits_depositterms": RowAudit(
+        label="deposits.depositterms",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "deposit_id",
+            "version",
+            "is_active",
+            "mta_id",
+            "abs_scope",
+            "country_of_origin",
+            "collection_date",
+            "pic_reference",
+            "mat_reference",
+            "ircc",
+            "permit_reference",
+            "reason",
+        ),
+    ),
+    "deposits_termsuse": RowAudit(
+        label="deposits.termsuse", audited=("id", "terms_id", "use", "decision")
+    ),
+    "lineage_passage": RowAudit(
+        label="lineage.passage",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "strain_id",
+            "number",
+            "source_deposit_id",
+            "source_passage_id",
+        ),
+    ),
 }
 
 
+# The columns of deposits_contact: all of them name or reach a person.
+CONTACT_PERSONAL = ("name", "email", "postal_address")
 # What a service event records for a personal field that was set or changed, never the value.
 PERSONAL_CHANGED = "changed"
 # The personal fields of each event subject type. record_event() and record_batch() write
 # PERSONAL_CHANGED in their place, whatever the service passed (cultures.audit.events).
 PERSONAL_FIELDS: dict[str, tuple[str, ...]] = {
     "user": ROW_AUDITED_TABLES["users_user"].personal,
+    # A contact's values, also in the events of the depositor that holds it (ADR 0008, D11).
+    "contact": CONTACT_PERSONAL,
+    "depositor": CONTACT_PERSONAL,
 }
 
 
@@ -324,5 +441,10 @@ NOT_ROW_AUDITED: dict[str, str] = {
     "users_loginfailures": (
         "login failure counters: HMAC keys, windows and counts, no record of anyone. A row "
         "change per failed login would flood the trail. Staff clears are service events"
+    ),
+    "deposits_contact": (
+        "names, e-mail and postal addresses of people (ADR 0008, D11): kept out of every "
+        "append-only row, so an erasure needs no audit row changed. Its services record "
+        "events with the fields as changed"
     ),
 }

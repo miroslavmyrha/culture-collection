@@ -30,13 +30,6 @@ class Call:
 
     def body(self, taxon: Taxon) -> dict[str, Any]:
         bodies: dict[str, dict[str, Any]] = {
-            "create": {
-                "taxon": str(taxon.public_id),
-                "name_as_received": "T. exempli new",
-                "identified_on": "2026-02-01",
-                "identification_method": "16S",
-                "risk_group": 1,
-            },
             "reclassify": {
                 "taxon": str(taxon.public_id),
                 "identified_on": "2026-02-01",
@@ -57,7 +50,6 @@ class Call:
 CALLS = [
     Call("list", "get", "", write=False),
     Call("retrieve", "get", "{strain}/", write=False),
-    Call("create", "post", "", write=True),
     Call("reclassify", "post", "{strain}/reclassify/", write=True),
     Call("risk_group", "post", "{strain}/risk-group/", write=True),
     Call("add_restriction", "post", "{strain}/restrictions/", write=True),
@@ -123,7 +115,7 @@ def test_each_role_may_do_what_its_permissions_say(
         assert response.status_code == 200, response.content
         return
     if ALLOWED[role]:
-        assert response.status_code == (201 if call.name == "create" else 200), response.content
+        assert response.status_code == 200, response.content
         assert state() != before
         assert AuditEvent.objects.count() == before[-1] + 1  # one event per write
     else:
@@ -149,9 +141,11 @@ def test_an_unknown_strain_and_a_malformed_id_are_404(strain: Strain, curator: U
 
 
 def test_outside_the_lab_invalid_input_is_still_404(strain: Strain, outsider: User) -> None:
-    """The lab is resolved before the body is read: a 400 would confirm the lab exists."""
+    """The strain is resolved before the body is read: a 400 would confirm it exists."""
     response = logged_in(outsider).post(
-        STRAINS_URL, {"risk_group": "x"}, content_type="application/json"
+        f"{STRAINS_URL}{strain.public_id}/risk-group/",
+        {"risk_group": "x"},
+        content_type="application/json",
     )
     assert_problem(response, 404, "not_found")
 

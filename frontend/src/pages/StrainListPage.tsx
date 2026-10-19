@@ -3,7 +3,6 @@ import { Link, PageTitle, Stack, Typography } from '@/components/ui'
 import { LabGate } from '@/features/labs/components/LabGate'
 import { StrainFilters } from '@/features/strains/components/StrainFilters'
 import { StrainList } from '@/features/strains/components/StrainList'
-import { canManageStrains } from '@/features/strains/schemas'
 
 const route = getRouteApi('/_authenticated/labs/$labId/strains')
 
@@ -26,11 +25,6 @@ export function StrainListPage() {
               <Link to="/labs/$labId" params={{ labId }}>
                 Back to {lab.name}
               </Link>
-              {canManageStrains(lab.my_role) && (
-                <Link to="/labs/$labId/strains/new" params={{ labId }}>
-                  Add a strain
-                </Link>
-              )}
             </Stack>
             <StrainFilters
               filters={filters}

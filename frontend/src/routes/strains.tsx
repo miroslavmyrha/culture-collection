@@ -22,13 +22,6 @@ export const strainListRoute = createRoute({
   component: lazyRouteComponent(() => import('@/pages/StrainListPage'), 'StrainListPage'),
 })
 
-export const strainCreateRoute = createRoute({
-  getParentRoute: () => authenticatedRoute,
-  path: 'labs/$labId/strains/new',
-  loader: ({ context, params }) => context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
-  component: lazyRouteComponent(() => import('@/pages/StrainCreatePage'), 'StrainCreatePage'),
-})
-
 export const strainDetailRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: 'labs/$labId/strains/$strainId',

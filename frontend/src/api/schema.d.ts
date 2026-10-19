@@ -86,6 +86,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/depositors/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_depositors_list"];
+        put?: never;
+        post: operations["labs_depositors_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/depositors/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_depositors_retrieve"];
+        put: operations["labs_depositors_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/deposits/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_deposits_list"];
+        put?: never;
+        post: operations["labs_deposits_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/deposits/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_deposits_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/deposits/{public_id}/accept/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_deposits_accept_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/deposits/{public_id}/reject/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_deposits_reject_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/deposits/{public_id}/start-check/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_deposits_start_check_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/deposits/{public_id}/terms/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_deposits_terms_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/members/": {
         parameters: {
             query?: never;
@@ -118,6 +246,38 @@ export interface paths {
         patch: operations["labs_members_partial_update"];
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/mta-templates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_mta_templates_list"];
+        put?: never;
+        post: operations["labs_mta_templates_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/mta-templates/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_mta_templates_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/strains/": {
         parameters: {
             query?: never;
@@ -127,7 +287,7 @@ export interface paths {
         };
         get: operations["labs_strains_list"];
         put?: never;
-        post: operations["labs_strains_create"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -267,8 +427,22 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description * `not_in_scope` - Not in scope
+         *     * `in_scope` - In scope
+         *     * `unknown` - Unknown
+         * @enum {string}
+         */
+        AbsScope: "not_in_scope" | "in_scope" | "unknown";
         /** @enum {unknown} */
         BlankEnum: "";
+        /**
+         * @description * `intact` - Intact
+         *     * `damaged` - Container or packaging damaged
+         *     * `other` - Other, see the note
+         * @enum {string}
+         */
+        Condition: "intact" | "damaged" | "other";
         /**
          * @description * `AD` - AD
          *     * `AE` - AE
@@ -522,6 +696,94 @@ export interface components {
          * @enum {string}
          */
         CountryCode: "AD" | "AE" | "AF" | "AG" | "AI" | "AL" | "AM" | "AO" | "AQ" | "AR" | "AS" | "AT" | "AU" | "AW" | "AX" | "AZ" | "BA" | "BB" | "BD" | "BE" | "BF" | "BG" | "BH" | "BI" | "BJ" | "BL" | "BM" | "BN" | "BO" | "BQ" | "BR" | "BS" | "BT" | "BV" | "BW" | "BY" | "BZ" | "CA" | "CC" | "CD" | "CF" | "CG" | "CH" | "CI" | "CK" | "CL" | "CM" | "CN" | "CO" | "CR" | "CU" | "CV" | "CW" | "CX" | "CY" | "CZ" | "DE" | "DJ" | "DK" | "DM" | "DO" | "DZ" | "EC" | "EE" | "EG" | "EH" | "ER" | "ES" | "ET" | "FI" | "FJ" | "FK" | "FM" | "FO" | "FR" | "GA" | "GB" | "GD" | "GE" | "GF" | "GG" | "GH" | "GI" | "GL" | "GM" | "GN" | "GP" | "GQ" | "GR" | "GS" | "GT" | "GU" | "GW" | "GY" | "HK" | "HM" | "HN" | "HR" | "HT" | "HU" | "ID" | "IE" | "IL" | "IM" | "IN" | "IO" | "IQ" | "IR" | "IS" | "IT" | "JE" | "JM" | "JO" | "JP" | "KE" | "KG" | "KH" | "KI" | "KM" | "KN" | "KP" | "KR" | "KW" | "KY" | "KZ" | "LA" | "LB" | "LC" | "LI" | "LK" | "LR" | "LS" | "LT" | "LU" | "LV" | "LY" | "MA" | "MC" | "MD" | "ME" | "MF" | "MG" | "MH" | "MK" | "ML" | "MM" | "MN" | "MO" | "MP" | "MQ" | "MR" | "MS" | "MT" | "MU" | "MV" | "MW" | "MX" | "MY" | "MZ" | "NA" | "NC" | "NE" | "NF" | "NG" | "NI" | "NL" | "NO" | "NP" | "NR" | "NU" | "NZ" | "OM" | "PA" | "PE" | "PF" | "PG" | "PH" | "PK" | "PL" | "PM" | "PN" | "PR" | "PS" | "PT" | "PW" | "PY" | "QA" | "RE" | "RO" | "RS" | "RU" | "RW" | "SA" | "SB" | "SC" | "SD" | "SE" | "SG" | "SH" | "SI" | "SJ" | "SK" | "SL" | "SM" | "SN" | "SO" | "SR" | "SS" | "ST" | "SV" | "SX" | "SY" | "SZ" | "TC" | "TD" | "TF" | "TG" | "TH" | "TJ" | "TK" | "TL" | "TM" | "TN" | "TO" | "TR" | "TT" | "TV" | "TW" | "TZ" | "UA" | "UG" | "UM" | "US" | "UY" | "UZ" | "VA" | "VC" | "VE" | "VG" | "VI" | "VN" | "VU" | "WF" | "WS" | "YE" | "YT" | "ZA" | "ZM" | "ZW";
+        /**
+         * @description * `permit` - Permitted
+         *     * `deny` - Not permitted
+         *     * `on_request` - On request to the depositor
+         * @enum {string}
+         */
+        Decision: "permit" | "deny" | "on_request";
+        DepositDetailOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly status: components["schemas"]["DepositStatus"];
+            /** Format: date */
+            readonly received_on: string;
+            readonly name_as_received: string;
+            readonly depositor: components["schemas"]["DepositorBrief"];
+            readonly strain: components["schemas"]["StrainBrief"] | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly condition: components["schemas"]["Condition"];
+            readonly condition_note: string;
+            readonly depositor_passages: number | null;
+            /** Format: date-time */
+            readonly decided_at: string | null;
+            readonly rejection_reason: string;
+            readonly terms: components["schemas"]["TermsOutput"];
+            readonly terms_history: components["schemas"]["TermsOutput"][];
+        };
+        DepositListOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly status: components["schemas"]["DepositStatus"];
+            /** Format: date */
+            readonly received_on: string;
+            readonly name_as_received: string;
+            readonly depositor: components["schemas"]["DepositorBrief"];
+            readonly strain: components["schemas"]["StrainBrief"] | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        DepositReceiveInputRequest: {
+            /** Format: uuid */
+            depositor: string;
+            /** Format: date */
+            received_on: string;
+            condition: components["schemas"]["Condition"];
+            /**
+             * @description About the material. Stored for good: name no person.
+             * @default
+             */
+            condition_note: string;
+            name_as_received: string;
+            depositor_passages?: number | null;
+            terms: components["schemas"]["TermsInputRequest"];
+        };
+        /**
+         * @description * `received` - Received
+         *     * `checking` - Checking
+         *     * `accepted` - Accepted
+         *     * `rejected` - Rejected
+         * @enum {string}
+         */
+        DepositStatus: "received" | "checking" | "accepted" | "rejected";
+        DepositorBrief: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly name: string;
+            readonly institution: string;
+            readonly erased: boolean;
+        };
+        DepositorInputRequest: {
+            name: string;
+            email?: string;
+            /** @default  */
+            postal_address: string;
+            /** @default  */
+            institution: string;
+        };
+        DepositorOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly name: string;
+            readonly institution: string;
+            readonly erased: boolean;
+            readonly email: string;
+            readonly postal_address: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
         IdentificationOutput: {
             /** Format: uuid */
             readonly public_id: string;
@@ -577,6 +839,70 @@ export interface components {
         MemberRoleInputRequest: {
             role: components["schemas"]["Role"];
         };
+        MtaTemplateBrief: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly code: string;
+            readonly version: number;
+            readonly title: string;
+            readonly text_sha256: string;
+        };
+        MtaTemplateDetailOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly code: string;
+            readonly version: number;
+            readonly title: string;
+            readonly text_sha256: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly text: string;
+        };
+        MtaTemplateInputRequest: {
+            code: string;
+            title: string;
+            text: string;
+        };
+        MtaTemplateListOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly code: string;
+            readonly version: number;
+            readonly title: string;
+            readonly text_sha256: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        PaginatedDepositListOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["DepositListOutput"][];
+        };
+        PaginatedDepositorOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["DepositorOutput"][];
+        };
         PaginatedLabOutputList: {
             /** @example 123 */
             count: number;
@@ -606,6 +932,21 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["MemberOutput"][];
+        };
+        PaginatedMtaTemplateListOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["MtaTemplateListOutput"][];
         };
         PaginatedStrainListOutputList: {
             /** @example 123 */
@@ -685,6 +1026,10 @@ export interface components {
             /** @description Why, in a sentence. Stored for good: name no person. */
             reason: string;
         };
+        RejectInputRequest: {
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
         RestrictionAddInputRequest: {
             kind: components["schemas"]["RestrictionKind"];
             reference: string;
@@ -752,25 +1097,10 @@ export interface components {
          * @enum {string}
          */
         Role: "viewer" | "technician" | "curator" | "manager";
-        StrainCreateInputRequest: {
+        StrainBrief: {
             /** Format: uuid */
-            taxon: string;
-            name_as_received: string;
-            /** Format: date */
-            identified_on: string;
-            identification_method: string;
-            risk_group: components["schemas"]["RiskGroup"];
-            /** @default unknown */
-            animal_pathogenicity: components["schemas"]["Pathogenicity"];
-            /** @default unknown */
-            plant_pathogenicity: components["schemas"]["Pathogenicity"];
-            /** @default  */
-            isolation_source: string;
-            /** @default  */
-            country_of_origin: components["schemas"]["CountryCode"] | components["schemas"]["BlankEnum"];
-            /** @default  */
-            isolation_date: string;
-            restrictions?: components["schemas"]["RestrictionInputRequest"][];
+            readonly public_id: string;
+            readonly accession_number: string | null;
         };
         StrainDetailOutput: {
             /** Format: uuid */
@@ -790,6 +1120,29 @@ export interface components {
             readonly isolation_date: string;
             readonly identifications: components["schemas"]["IdentificationOutput"][];
             readonly restriction_history: components["schemas"]["RestrictionOutput"][];
+        };
+        /**
+         * @description What a check of a deposit found: everything a new strain needs but its name as
+         *     received, which the deposit holds (deposits.services.deposit_accept).
+         */
+        StrainFactsInputRequest: {
+            /** Format: uuid */
+            taxon: string;
+            /** Format: date */
+            identified_on: string;
+            identification_method: string;
+            risk_group: components["schemas"]["RiskGroup"];
+            /** @default unknown */
+            animal_pathogenicity: components["schemas"]["Pathogenicity"];
+            /** @default unknown */
+            plant_pathogenicity: components["schemas"]["Pathogenicity"];
+            /** @default  */
+            isolation_source: string;
+            /** @default  */
+            country_of_origin: components["schemas"]["CountryCode"] | components["schemas"]["BlankEnum"];
+            /** @default  */
+            isolation_date: string;
+            restrictions?: components["schemas"]["RestrictionInputRequest"][];
         };
         StrainListOutput: {
             /** Format: uuid */
@@ -848,6 +1201,67 @@ export interface components {
          * @enum {string}
          */
         TaxonStatus: "accepted" | "synonym";
+        TermsInputRequest: {
+            /** Format: uuid */
+            mta: string | null;
+            abs_scope: components["schemas"]["AbsScope"];
+            /** @default  */
+            country_of_origin: components["schemas"]["CountryCode"] | components["schemas"]["BlankEnum"];
+            /** @default  */
+            collection_date: string;
+            /** @default  */
+            pic_reference: string;
+            /** @default  */
+            mat_reference: string;
+            /** @default  */
+            ircc: string;
+            /** @default  */
+            permit_reference: string;
+            uses: components["schemas"]["TermsUseRequest"][];
+        };
+        TermsOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly version: number;
+            readonly is_active: boolean;
+            readonly mta: components["schemas"]["MtaTemplateBrief"] | null;
+            readonly abs_scope: components["schemas"]["AbsScope"];
+            readonly country_of_origin: string;
+            readonly collection_date: string;
+            readonly pic_reference: string;
+            readonly mat_reference: string;
+            readonly ircc: string;
+            readonly permit_reference: string;
+            readonly reason: string;
+            readonly uses: components["schemas"]["TermsUse"][];
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        TermsReplaceInputRequest: {
+            terms: components["schemas"]["TermsInputRequest"];
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
+        TermsUse: {
+            use: components["schemas"]["Use"];
+            decision: components["schemas"]["Decision"];
+        };
+        TermsUseRequest: {
+            use: components["schemas"]["Use"];
+            decision: components["schemas"]["Decision"];
+        };
+        /**
+         * @description * `research_noncommercial` - Non-commercial research
+         *     * `research_commercial` - Commercial research
+         *     * `teaching` - Teaching
+         *     * `diagnostics` - Diagnostics
+         *     * `production` - Production
+         *     * `reference_qc` - Reference material and quality control
+         *     * `patent_deposit_related` - Related to a patent deposit
+         *     * `redistribution` - Redistribution to third parties
+         * @enum {string}
+         */
+        Use: "research_noncommercial" | "research_commercial" | "teaching" | "diagnostics" | "production" | "reference_qc" | "patent_deposit_related" | "redistribution";
     };
     responses: never;
     parameters: never;
@@ -1058,6 +1472,779 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_depositors_list: {
+        parameters: {
+            query?: {
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+                search?: string;
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedDepositorOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_depositors_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepositorInputRequest"];
+                "multipart/form-data": components["schemas"]["DepositorInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositorOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_depositors_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositorOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_depositors_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepositorInputRequest"];
+                "multipart/form-data": components["schemas"]["DepositorInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositorOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description contact_erased: the depositor's contact was erased */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_deposits_list: {
+        parameters: {
+            query?: {
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+                search?: string;
+                /**
+                 * @description * `received` - Received
+                 *     * `checking` - Checking
+                 *     * `accepted` - Accepted
+                 *     * `rejected` - Rejected
+                 */
+                status?: "accepted" | "checking" | "received" | "rejected";
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedDepositListOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_deposits_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepositReceiveInputRequest"];
+                "multipart/form-data": components["schemas"]["DepositReceiveInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositDetailOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_deposits_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositDetailOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_deposits_accept_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StrainFactsInputRequest"];
+                "multipart/form-data": components["schemas"]["StrainFactsInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositDetailOutput"];
+                };
+            };
+            /** @description Invalid input, an unknown taxon, or a risk group 4 agent (on risk_group) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description deposit_state: the deposit is no longer in the state the action starts from; terms_changed; accession_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_deposits_reject_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectInputRequest"];
+                "multipart/form-data": components["schemas"]["RejectInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositDetailOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description deposit_state: the deposit is no longer in the state the action starts from; terms_changed; accession_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_deposits_start_check_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositDetailOutput"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description deposit_state: the deposit is no longer in the state the action starts from; terms_changed; accession_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_deposits_terms_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TermsReplaceInputRequest"];
+                "multipart/form-data": components["schemas"]["TermsReplaceInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositDetailOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description deposit_state: the deposit is no longer in the state the action starts from; terms_changed; accession_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1478,6 +2665,194 @@ export interface operations {
             };
         };
     };
+    labs_mta_templates_list: {
+        parameters: {
+            query?: {
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedMtaTemplateListOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_mta_templates_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MtaTemplateInputRequest"];
+                "multipart/form-data": components["schemas"]["MtaTemplateInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MtaTemplateDetailOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description mta_version_taken: published at the same moment */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_mta_templates_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MtaTemplateDetailOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     labs_strains_list: {
         parameters: {
             query?: {
@@ -1543,91 +2918,6 @@ export interface operations {
                 };
             };
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    labs_strains_create: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                lab_public_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StrainCreateInputRequest"];
-                "multipart/form-data": components["schemas"]["StrainCreateInputRequest"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StrainDetailOutput"];
-                };
-            };
-            /** @description Invalid input, an unknown taxon, or a risk group 4 agent (on risk_group) */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The accession number is taken: try again */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
-            422: {
                 headers: {
                     [name: string]: unknown;
                 };

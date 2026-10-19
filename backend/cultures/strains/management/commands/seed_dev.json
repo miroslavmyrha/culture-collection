@@ -1610,5 +1610,224 @@
         }
       ]
     }
+  ],
+  "depositors": [
+    {
+      "lab": "BAC",
+      "name": "Jana Vzorová",
+      "email": "jana.vzorova@example.org",
+      "postal_address": "Vzorová 1\n602 00 Brno (invented example)",
+      "institution": "Example University"
+    },
+    {
+      "lab": "MYC",
+      "name": "Petr Příklad",
+      "email": "petr.priklad@example.org",
+      "postal_address": "Příkladná 2\n779 00 Olomouc (invented example)",
+      "institution": "Example Institute of Microbiology"
+    },
+    {
+      "lab": "MYC",
+      "name": "Eva Ukázková",
+      "email": "",
+      "postal_address": "",
+      "institution": ""
+    }
+  ],
+  "mta_templates": [
+    {
+      "lab": "BAC",
+      "code": "STD",
+      "title": "Standard MTA (invented example)",
+      "text": "The recipient uses the material for research and teaching only and passes it to nobody else. (Invented example.)"
+    },
+    {
+      "lab": "BAC",
+      "code": "STD",
+      "title": "Standard MTA (invented example)",
+      "text": "The recipient uses the material for research and teaching only, passes it to nobody else, and cites the collection number in publications. (Invented example, version 2.)"
+    },
+    {
+      "lab": "MYC",
+      "code": "STD",
+      "title": "Standard MTA (invented example)",
+      "text": "Research use only. (Invented example.)"
+    }
+  ],
+  "deposits": [
+    {
+      "lab": "BAC",
+      "depositor": "Jana Vzorová",
+      "name_as_received": "Bacillus subtilis soil isolate DEP-1",
+      "received_on": "2026-09-02",
+      "condition": "intact",
+      "depositor_passages": 2,
+      "mta": [
+        "STD",
+        2
+      ],
+      "terms": {
+        "abs_scope": "not_in_scope",
+        "country_of_origin": "CZ",
+        "collection_date": "2026-06",
+        "uses": {
+          "research_noncommercial": "permit",
+          "research_commercial": "on_request",
+          "teaching": "permit",
+          "diagnostics": "deny",
+          "production": "deny",
+          "reference_qc": "permit",
+          "patent_deposit_related": "deny",
+          "redistribution": "deny"
+        }
+      },
+      "state": "accepted",
+      "strain": {
+        "taxon": "Bacillus subtilis",
+        "identified_on": "2026-09-10",
+        "method": "16S rRNA gene sequence",
+        "isolation_source": "Garden soil",
+        "country_of_origin": "CZ",
+        "isolation_date": "2026-06"
+      }
+    },
+    {
+      "lab": "BAC",
+      "depositor": "Jana Vzorová",
+      "name_as_received": "Testella exempli DEP-2",
+      "received_on": "2026-09-20",
+      "condition": "intact",
+      "mta": [
+        "STD",
+        2
+      ],
+      "terms": {
+        "abs_scope": "unknown",
+        "uses": {
+          "research_noncommercial": "permit",
+          "research_commercial": "on_request",
+          "teaching": "permit",
+          "diagnostics": "deny",
+          "production": "deny",
+          "reference_qc": "permit",
+          "patent_deposit_related": "deny",
+          "redistribution": "deny"
+        }
+      },
+      "state": "checking"
+    },
+    {
+      "lab": "BAC",
+      "depositor": "Jana Vzorová",
+      "name_as_received": "Testella exempli DEP-3",
+      "received_on": "2026-10-05",
+      "condition": "damaged",
+      "condition_note": "Cracked ampoule, the material is dry. (Invented example.)",
+      "mta": [
+        "STD",
+        1
+      ],
+      "terms": {
+        "abs_scope": "unknown",
+        "uses": {
+          "research_noncommercial": "permit",
+          "research_commercial": "on_request",
+          "teaching": "permit",
+          "diagnostics": "deny",
+          "production": "deny",
+          "reference_qc": "permit",
+          "patent_deposit_related": "deny",
+          "redistribution": "deny"
+        }
+      },
+      "state": "received"
+    },
+    {
+      "lab": "BAC",
+      "depositor": "Jana Vzorová",
+      "name_as_received": "Mockia vulgaris DEP-4",
+      "received_on": "2026-08-11",
+      "condition": "intact",
+      "mta": null,
+      "terms": {
+        "abs_scope": "not_in_scope",
+        "uses": {
+          "research_noncommercial": "permit",
+          "research_commercial": "on_request",
+          "teaching": "permit",
+          "diagnostics": "deny",
+          "production": "deny",
+          "reference_qc": "permit",
+          "patent_deposit_related": "deny",
+          "redistribution": "deny"
+        }
+      },
+      "state": "rejected",
+      "rejection_reason": "Mixed culture on the purity plate. (Invented example.)"
+    },
+    {
+      "lab": "MYC",
+      "depositor": "Petr Příklad",
+      "name_as_received": "Testella cerea DEP-5",
+      "received_on": "2026-07-14",
+      "condition": "intact",
+      "mta": [
+        "STD",
+        1
+      ],
+      "terms": {
+        "abs_scope": "in_scope",
+        "country_of_origin": "PE",
+        "collection_date": "2025",
+        "pic_reference": "PIC/DEV/0001 (invented example)",
+        "mat_reference": "MAT/DEV/0001 (invented example)",
+        "permit_reference": "ABS/DEV/0001 (invented example)",
+        "uses": {
+          "research_noncommercial": "permit",
+          "research_commercial": "on_request",
+          "teaching": "permit",
+          "diagnostics": "deny",
+          "production": "deny",
+          "reference_qc": "permit",
+          "patent_deposit_related": "deny",
+          "redistribution": "deny"
+        }
+      },
+      "state": "accepted",
+      "strain": {
+        "taxon": "Testella cerea",
+        "identified_on": "2026-07-30",
+        "method": "ITS region sequence",
+        "isolation_source": "Leaf litter",
+        "country_of_origin": "PE",
+        "isolation_date": "2025",
+        "risk_group": 2,
+        "animal_pathogenicity": "unknown",
+        "plant_pathogenicity": "none_known"
+      }
+    },
+    {
+      "lab": "MYC",
+      "depositor": "Eva Ukázková",
+      "name_as_received": "Mockia vulgaris DEP-6",
+      "received_on": "2026-10-12",
+      "condition": "other",
+      "condition_note": "Arrived without the deposit form; the form followed by e-mail. (Invented example.)",
+      "mta": null,
+      "terms": {
+        "abs_scope": "unknown",
+        "uses": {
+          "research_noncommercial": "permit",
+          "research_commercial": "on_request",
+          "teaching": "permit",
+          "diagnostics": "deny",
+          "production": "deny",
+          "reference_qc": "permit",
+          "patent_deposit_related": "deny",
+          "redistribution": "deny"
+        }
+      },
+      "state": "received"
+    }
   ]
 }

@@ -16,18 +16,6 @@ function settle(qc: QueryClient, labId: string, strain: Strain) {
 
 const path = (labId: string, strainId: string) => ({ path: { lab_public_id: labId, public_id: strainId } })
 
-export function useCreateStrain(labId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (body: Schemas['StrainCreateInputRequest']) => {
-      await ensureCsrf()
-      return unwrap(api.POST('/api/v1/labs/{lab_public_id}/strains/', { params: { path: { lab_public_id: labId } }, body }))
-    },
-    meta: { handlesError: true },
-    onSuccess: (strain) => settle(qc, labId, strain),
-  })
-}
-
 export function useReclassify(labId: string, strainId: string) {
   const qc = useQueryClient()
   return useMutation({

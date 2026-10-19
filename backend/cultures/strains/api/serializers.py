@@ -131,9 +131,11 @@ class RestrictionInputSerializer(serializers.Serializer[None]):
     )
 
 
-class StrainCreateInputSerializer(serializers.Serializer[None]):
+class StrainFactsInputSerializer(serializers.Serializer[None]):
+    """What a check of a deposit found: everything a new strain needs but its name as
+    received, which the deposit holds (deposits.services.deposit_accept)."""
+
     taxon = ScopedRelatedField(model=Taxon, scope=all_taxa)
-    name_as_received = serializers.CharField(max_length=200)
     identified_on = serializers.DateField()
     identification_method = serializers.CharField(max_length=200)
     risk_group = serializers.ChoiceField(choices=RISK_GROUPS)
