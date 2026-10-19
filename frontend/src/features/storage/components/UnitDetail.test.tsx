@@ -196,9 +196,10 @@ describe('UnitDetail', { timeout: 20_000 }, () => {
       tank,
     ]
     mockApi('get', DETAIL, rack)
-    mockApi('get', TREE, tree)
-    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/storage-units/{public_id}/move/', { ...rack, parent: tank.public_id })
-    await render()
+    const treeCalls = mockApi('get', TREE, tree)
+    const moved = { ...rack, parent: tank.public_id, ancestors: [{ public_id: tank.public_id, kind: 'ln2_tank' as const, name: 'Tank B' }] }
+    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/storage-units/{public_id}/move/', moved)
+    const { client } = await render()
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Move' }))
     const dialog = await screen.findByRole('dialog', { name: 'Move Rack 1' })
@@ -212,6 +213,10 @@ describe('UnitDetail', { timeout: 20_000 }, () => {
     await user.click(within(dialog).getByRole('button', { name: 'Move' }))
     await waitFor(() => expect(dialog).not.toBeInTheDocument())
     expect(calls[0]?.body).toEqual({ parent: tank.public_id, slot: 3 })
+    // The answer is the unit itself; the lab's tree is stale now, so it is read again.
+    expect(client.getQueryData(storageKeys.detail(LAB_ID, rack.public_id))).toEqual(moved)
+    expect(client.getQueryState(storageKeys.detail(LAB_ID, rack.public_id))?.isInvalidated).toBe(false)
+    expect(treeCalls).toHaveLength(2)
   })
 
   it('puts the unit out of service with a reason, asked before any request', async () => {
@@ -262,14 +267,14 @@ describe('UnitDetail', { timeout: 20_000 }, () => {
 })
 
 describe('moveTargets', () => {
-  it('offers active units of a kind that may hold it, never the unit or anything below it', () => {
+  it('offers active units of a kind that may hold it, so never the unit or anything below it', () => {
     const f = makeUnitRow({ public_id: 'f', name: 'F' })
     const r = makeUnitRow({ public_id: 'r', kind: 'rack', name: 'R', parent: 'f' })
     const b = makeUnitRow({ public_id: 'b', kind: 'box', name: 'B', parent: 'r', rows: 9, cols: 9 })
     const out = makeUnitRow({ public_id: 'o', kind: 'ln2_tank', name: 'Old', status: 'out_of_service' })
     const r2 = makeUnitRow({ public_id: 'r2', kind: 'rack', name: 'R2', parent: 'f' })
     const rows = [f, r, b, out, r2]
-    expect(moveTargets({ public_id: 'r', kind: 'rack' }, rows)).toEqual([{ value: 'f', label: 'F' }])
-    expect(moveTargets({ public_id: 'b', kind: 'box' }, rows).map((t) => t.label)).toEqual(['F', 'F / R', 'F / R2'])
+    expect(moveTargets({ kind: 'rack' }, rows)).toEqual([{ value: 'f', label: 'F' }])
+    expect(moveTargets({ kind: 'box' }, rows).map((t) => t.label)).toEqual(['F', 'F / R', 'F / R2'])
   })
 })

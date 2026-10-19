@@ -183,15 +183,15 @@ function pathName(row: UnitRow, byId: ReadonlyMap<string, UnitRow>): string {
   return names.join(' / ')
 }
 
-/** The units this one may go into: active, of a kind that may hold it, never itself or below it. */
-export function moveTargets(unit: Pick<Unit, 'public_id' | 'kind'>, rows: readonly UnitRow[]) {
+/**
+ * The units this one may go into: active, and of a kind that may hold it. No kind holds its
+ * own kind, so neither the unit nor anything below it is offered; the server refuses a cycle
+ * on the field anyway.
+ */
+export function moveTargets(unit: Pick<Unit, 'kind'>, rows: readonly UnitRow[]) {
   const byId = new Map(rows.map((row) => [row.public_id, row]))
-  const below = (row: UnitRow): boolean => {
-    for (let at: UnitRow | undefined = row; at; at = at.parent ? byId.get(at.parent) : undefined) if (at.public_id === unit.public_id) return true
-    return false
-  }
   return rows
-    .filter((row) => row.status === 'active' && HOLDS[row.kind].includes(unit.kind) && !below(row))
+    .filter((row) => row.status === 'active' && HOLDS[row.kind].includes(unit.kind))
     .map((row) => ({ value: row.public_id, label: pathName(row, byId) }))
     .toSorted((a, b) => a.label.localeCompare(b.label))
 }

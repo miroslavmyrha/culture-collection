@@ -379,20 +379,16 @@ def unit_move(
         lock_lab(unit.lab_id)
         _require_role(access, unit.lab_id)
         locked = _locked_unit(unit)
-        if locked.parent_id is None:
-            raise InvalidUnit(
-                "A freezer or tank stands on its own: nothing holds it.", attr="parent"
-            )
         target = _fresh_parent(parent)
         assert target is not None  # noqa: S101 (parent is required here)
         if locked.pk in target.path:
             raise InvalidUnit(
                 "A unit cannot go inside itself or a unit it holds.", code="cycle", attr="parent"
             )
-        _check_parent(locked.lab_id, UnitKind(locked.kind), target)
+        _check_parent(locked.lab_id, UnitKind(locked.kind), target)  # refuses a root too
         if target.pk == locked.parent_id and slot == locked.slot:
             return locked
-        old_parent = StorageUnit.objects.get(pk=locked.parent_id)
+        old_parent = locked.parent
         old_slot, old_path = locked.slot, _public_path(locked)
         locked.parent, locked.slot = target, slot
         _save(locked, _unique_errors(), update_fields=["parent", "slot", "updated_at"])
@@ -403,7 +399,7 @@ def unit_move(
                 STORAGE_UNIT,
                 locked.public_id,
                 {
-                    "parent": [str(old_parent.public_id), str(target.public_id)],
+                    "parent": [_ref(old_parent), str(target.public_id)],
                     "slot": [old_slot, slot],
                     "path": [old_path, _public_path(locked)],
                 },
