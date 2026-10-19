@@ -185,15 +185,8 @@ describe('the strains page', () => {
     expect(screen.getByRole('button', { name: 'Next' })).toHaveFocus()
   })
 
-  it('offers adding a strain to a curator only', async () => {
+  it('offers no adding of a strain here: strains come from accepted deposits', async () => {
     signedIn('curator')
-    mockApi('get', LIST, page([]))
-    renderApp({ path: `/labs/${LAB_ID}/strains` })
-    expect(await screen.findByRole('link', { name: 'Add a strain' }, { timeout: 5000 })).toHaveAttribute('href', `/labs/${LAB_ID}/strains/new`)
-  })
-
-  it('offers no adding to a viewer', async () => {
-    signedIn('viewer')
     mockApi('get', LIST, page([]))
     renderApp({ path: `/labs/${LAB_ID}/strains` })
     expect(await screen.findByText('The lab has no strains yet.', undefined, { timeout: 5000 })).toBeInTheDocument()

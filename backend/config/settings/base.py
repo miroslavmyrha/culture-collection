@@ -49,6 +49,8 @@ INSTALLED_APPS = [
     "cultures.taxonomy",
     "cultures.biosafety",
     "cultures.strains",
+    "cultures.deposits",
+    "cultures.lineage",
 ]
 
 MIDDLEWARE = [
@@ -278,6 +280,11 @@ SPECTACULAR_SETTINGS = {
         "TaxonStatus": "cultures.taxonomy.models.TaxonStatus",
         "RiskGroup": "cultures.strains.api.serializers.RISK_GROUPS",
         "CountryCode": "cultures.strains.api.serializers.COUNTRY_CHOICES",
+        "DepositStatus": "cultures.deposits.models.DepositStatus",
+        "Condition": "cultures.deposits.models.Condition",
+        "AbsScope": "cultures.deposits.models.AbsScope",
+        "Use": "cultures.deposits.models.Use",
+        "Decision": "cultures.deposits.models.Decision",
     },
 }
 

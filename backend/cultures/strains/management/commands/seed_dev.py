@@ -21,11 +21,17 @@ What it creates (seed_dev.json holds the labs, taxa and strains):
 - real taxa with their sources, and the invented ones the tests use;
 - strains created through the strain services with the role of each lab's
   curator, some reclassified, some restricted (invented taxa only, a GMO lab
-  strain aside).
+  strain aside);
+- depositors (invented people at example.org), MTA versions (published by each
+  lab's manager) and deposits in every intake state, two of them accepted, which
+  makes their strains through the deposit services.
 Every user gets the same password. Every write goes through the services in one
 transaction, inside an audit context (channel command, actor kind system,
 label command:seed_dev). A second run finds what exists and changes nothing.
 Strains are never deleted, so a strain is found by its lab and name as received.
+A depositor is found by its lab and contact name, an MTA version by its lab, code
+and version, and a deposit by its lab and name as received; a deposit found is
+never moved on.
 """
 
 import json
@@ -43,6 +49,16 @@ from cultures.audit.models import ActorKind, AuditEvent, Channel
 from cultures.audit.registry import LAB_CREATED
 from cultures.biosafety import services as biosafety
 from cultures.biosafety.models import AuthorisationKind, LabAuthorisation, RestrictionKind
+from cultures.deposits import services as deposits
+from cultures.deposits.models import (
+    AbsScope,
+    Condition,
+    Decision,
+    Deposit,
+    Depositor,
+    MtaTemplate,
+    Use,
+)
 from cultures.labs import services as labs
 from cultures.labs.access import Access, access_for
 from cultures.labs.models import Lab, Membership
@@ -156,6 +172,8 @@ class Command(BaseCommand):
                 self._extra_users(lab_by_code, password)
                 for row in data["strains"]:
                     self._strain(row, lab_by_code[row["lab"]], data["taxa"])
+                self.deposits = Counts()
+                self._intake(data, lab_by_code)
         self._report(data)
 
     # Taxa: created when missing, never changed, except a parent added where none is set
@@ -327,10 +345,100 @@ class Command(BaseCommand):
             return strain
         raise CommandError(f"Unknown step in {DATA.name}: {sorted(step)}")
 
+    # Depositors, MTA versions and deposits, through the deposit services.
+
+    def _intake(self, data: dict[str, Any], lab_by_code: dict[str, Lab]) -> None:
+        def staff(code: str, role: Role) -> Access:
+            return access_for(User.objects.get(username=lab_username(code, role)))
+
+        for row in data["depositors"]:
+            lab = lab_by_code[row["lab"]]
+            if not Depositor.objects.filter(lab=lab, contact__name=row["name"]).exists():
+                deposits.depositor_create(
+                    access=staff(lab.code, Role.CURATOR),
+                    lab=lab,
+                    contact=deposits.ContactInput(row["name"], row["email"], row["postal_address"]),
+                    institution=row["institution"],
+                )
+        for (code, mta_code), rows in _grouped(data["mta_templates"]).items():
+            lab = lab_by_code[code]
+            published = MtaTemplate.objects.filter(lab=lab, code=mta_code).count()
+            for row in rows[published:]:
+                deposits.mta_template_publish(
+                    access=staff(code, Role.MANAGER),
+                    lab=lab,
+                    code=mta_code,
+                    title=row["title"],
+                    text=row["text"],
+                )
+        for row in data["deposits"]:
+            self._deposit(row, lab_by_code[row["lab"]], staff(row["lab"], Role.CURATOR), data)
+
+    def _deposit(self, row: dict[str, Any], lab: Lab, access: Access, data: dict[str, Any]) -> None:
+        if Deposit.objects.filter(lab=lab, name_as_received=row["name_as_received"]).exists():
+            self.deposits.found += 1
+            return
+        terms = row["terms"]
+        mta = (
+            MtaTemplate.objects.get(lab=lab, code=row["mta"][0], version=row["mta"][1])
+            if row["mta"]
+            else None
+        )
+        deposit = deposits.deposit_receive(
+            access=access,
+            lab=lab,
+            data=deposits.NewDeposit(
+                depositor=Depositor.objects.get(lab=lab, contact__name=row["depositor"]),
+                received_on=date.fromisoformat(row["received_on"]),
+                condition=Condition(row["condition"]),
+                condition_note=row.get("condition_note", ""),
+                name_as_received=row["name_as_received"],
+                depositor_passages=row.get("depositor_passages"),
+                terms=deposits.TermsInput(
+                    abs_scope=AbsScope(terms["abs_scope"]),
+                    uses=[(Use(u), Decision(d)) for u, d in terms["uses"].items()],
+                    mta=mta,
+                    country_of_origin=terms.get("country_of_origin", ""),
+                    collection_date=terms.get("collection_date", ""),
+                    pic_reference=terms.get("pic_reference", ""),
+                    mat_reference=terms.get("mat_reference", ""),
+                    permit_reference=terms.get("permit_reference", ""),
+                ),
+            ),
+        )
+        self.deposits.created += 1
+        if row["state"] == "received":
+            return
+        deposit = deposits.deposit_start_check(access=access, deposit=deposit)
+        if row["state"] == "rejected":
+            deposits.deposit_reject(access=access, deposit=deposit, reason=row["rejection_reason"])
+        if row["state"] != "accepted":
+            return
+        strain = row["strain"]
+        facts = strain_facts(
+            {**strain, "history": [], "name_as_received": row["name_as_received"]}, data["taxa"]
+        )
+        deposits.deposit_accept(
+            access=access,
+            deposit=deposit,
+            facts=deposits.StrainFacts(
+                taxon=Taxon.objects.get(name=strain["taxon"]),
+                identified_on=date.fromisoformat(strain["identified_on"]),
+                identification_method=strain["method"],
+                risk_group=facts.risk_group,
+                animal_pathogenicity=facts.animal,
+                plant_pathogenicity=facts.plant,
+                isolation_source=strain["isolation_source"],
+                country_of_origin=strain["country_of_origin"],
+                isolation_date=strain["isolation_date"],
+            ),
+        )
+
     def _report(self, data: dict[str, Any]) -> None:
         out = self.stdout.write
         out(f"Taxa: {self.taxa.created} created, {self.taxa.found} found.")
         out(f"Strains: {self.strains.created} created, {self.strains.found} found.")
+        out(f"Deposits: {self.deposits.created} created, {self.deposits.found} found.")
         out("Logins, all with the password you gave:")
         out(f"  {ADMIN:<16} staff and superuser (Django admin), in no lab")
         for row in data["labs"]:
@@ -379,6 +487,14 @@ def strain_facts(row: dict[str, Any], taxa: list[dict[str, Any]]) -> StrainFacts
         Pathogenicity(entry.get("animal_pathogenicity", Pathogenicity.UNKNOWN)),
         Pathogenicity(entry.get("plant_pathogenicity", Pathogenicity.UNKNOWN)),
     )
+
+
+def _grouped(rows: list[dict[str, Any]]) -> dict[tuple[str, str], list[dict[str, Any]]]:
+    """MTA rows by lab and code, in the order of the file: that order is the version order."""
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for row in rows:
+        groups.setdefault((row["lab"], row["code"]), []).append(row)
+    return groups
 
 
 def restriction(row: dict[str, Any]) -> strains.RestrictionInput:

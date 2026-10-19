@@ -2,15 +2,12 @@ import { type Browser, type BrowserContext, expect, type Page, test } from '@pla
 import { axe, password, watchCsp } from './support.js'
 
 // The strain registry against the real API (seed_e2e: e2e-curator and e2e-viewer in "E2E lab",
-// a few taxa, no permits). Real organisms appear only with facts that hold for them (B. subtilis
-// is risk group 1; a lab strain may be a GMO); the permit gate is tried on the invented
-// Testella exempli, so no real organism is entered with a legal status it does not have. Each run adds one strain: numbers are never reused and strains are
-// never deleted, so the tests find theirs by a name made unique per run. One sign-in per role
-// for the whole file: the login throttle allows 10 a minute.
+// a few taxa, no permits, and one strain from an accepted deposit, B. subtilis, risk group 1).
+// Strains come from accepted deposits: deposits.spec.ts adds them. These tests change no data.
+// One sign-in per role for the whole file: the login throttle allows 10 a minute.
 
 type State = Awaited<ReturnType<BrowserContext['storageState']>>
 const signedIn: Record<string, State> = {}
-const RUN = Date.now().toString(36)
 
 async function signIn(browser: Browser, username: string) {
   const context = await browser.newContext()
@@ -45,117 +42,12 @@ async function openStrains(page: Page) {
 
 const fitsWidth = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth)
 
-test('a curator adds a strain with the keyboard alone and finds it in the list and its detail', async ({ browser }) => {
-  const { page, close } = await as(browser, 'e2e-curator')
-  const violations = await watchCsp(page)
-  await openStrains(page)
-  const add = page.getByRole('link', { name: 'Add a strain' })
-  await add.focus()
-  await page.keyboard.press('Enter')
-  await expect(page).toHaveTitle('Add a strain to E2E lab | Culture collection')
-  const form = page.getByRole('form', { name: 'Add a strain' })
-
-  // From here on only keys: Tab moves through the form in reading order.
-  const taxon = form.getByRole('combobox', { name: 'Taxon' })
-  await taxon.focus()
-  await page.keyboard.type('subt')
-  await expect(page.getByRole('option', { name: /Bacillus subtilis/ })).toBeVisible()
-  await page.keyboard.press('ArrowDown')
-  await page.keyboard.press('Enter')
-  await expect(taxon).toHaveValue('Bacillus subtilis (Ehrenberg 1835) Cohn 1872')
-  await page.keyboard.press('Tab')
-  await expect(form.getByRole('textbox', { name: 'Name as received' })).toBeFocused()
-  await page.keyboard.type(`B. subtilis e2e ${RUN}`)
-  await page.keyboard.press('Tab')
-  await expect(form.getByRole('textbox', { name: 'Identified on' })).toBeFocused()
-  await page.keyboard.press('Tab')
-  await page.keyboard.type('16S rRNA gene sequence')
-  await page.keyboard.press('Tab')
-  const risk = form.getByRole('combobox', { name: 'Risk group' })
-  await expect(risk).toBeFocused()
-  await page.keyboard.type('1') // a native select picks the option by its text
-  await expect(risk).toHaveValue('1')
-  await page.keyboard.press('Tab')
-  await page.keyboard.press('Tab')
-  await page.keyboard.press('Tab')
-  await expect(form.getByRole('textbox', { name: 'Isolation source' })).toBeFocused()
-  await page.keyboard.type('garden soil')
-  await page.keyboard.press('Tab')
-  await page.keyboard.type('Czechia')
-  await expect(form.getByRole('combobox', { name: 'Country of origin' })).toHaveValue('CZ')
-  await page.keyboard.press('Tab')
-  await page.keyboard.type('2019-05')
-  await page.keyboard.press('Tab')
-  await expect(form.getByRole('button', { name: 'Add a restriction' })).toBeFocused()
-  await page.keyboard.press('Enter')
-  const restriction = form.getByRole('group', { name: 'Restriction 1' })
-  const kind = restriction.getByRole('combobox', { name: 'Kind' })
-  await kind.focus()
-  await page.keyboard.type('GMO')
-  await expect(kind).toHaveValue('gmo')
-  await page.keyboard.press('Tab')
-  await page.keyboard.type(`Notification e2e ${RUN}`)
-  await page.keyboard.press('Tab')
-  const category = restriction.getByRole('combobox', { name: 'Contained use category' })
-  await expect(category).toBeFocused()
-  await page.keyboard.type('I')
-  await expect(category).toHaveValue('1')
-  await form.getByRole('button', { name: 'Add strain' }).focus()
-  await page.keyboard.press('Enter')
-
-  // The detail of the new strain: its number, its taxon, its history.
-  const heading = page.getByRole('heading', { level: 1, name: /^E2E \d+$/ })
-  await expect(heading).toBeVisible()
-  const number = (await heading.textContent()) ?? ''
-  await expect(page).toHaveTitle(`${number} | Culture collection`)
-  await expect(page.getByText(`B. subtilis e2e ${RUN}`)).toBeVisible()
-  await expect(page.getByRole('table', { name: 'Current restrictions' })).toContainText(`Notification e2e ${RUN}, category I`)
-  await expect(page.getByRole('table', { name: 'Identification history' })).toContainText('Identification at accession')
-
-  // In the list, found by its own name.
-  await page.getByRole('link', { name: 'Strains of E2E lab' }).click()
-  const search = page.getByRole('searchbox', { name: 'Number or name' })
-  await search.fill(RUN)
-  await search.press('Enter')
-  await expect(page).toHaveURL(new RegExp(`search=${RUN}`))
-  const row = page.getByRole('row', { name: new RegExp(RUN) })
-  await expect(row.getByRole('link', { name: number })).toBeVisible()
-  await expect(row).toContainText('GMO in contained use')
-  expect(violations()).toEqual([])
-  await close()
-})
-
-test('a VRAT strain is refused while the lab holds no SÚJB permit, and nothing is added', async ({ browser }) => {
-  const { page, close } = await as(browser, 'e2e-curator')
-  await openStrains(page)
-  await page.getByRole('link', { name: 'Add a strain' }).click()
-  const form = page.getByRole('form', { name: 'Add a strain' })
-  await form.getByRole('combobox', { name: 'Taxon' }).fill('exempli')
-  await page.getByRole('option', { name: /Testella exempli/ }).click()
-  await form.getByRole('textbox', { name: 'Name as received' }).fill(`refused ${RUN}`)
-  await form.getByRole('textbox', { name: 'Identification method' }).fill('MALDI-TOF MS')
-  await form.getByRole('combobox', { name: 'Risk group' }).selectOption('2')
-  await form.getByRole('button', { name: 'Add a restriction' }).click()
-  const kind = form.getByRole('group', { name: 'Restriction 1' }).getByRole('combobox', { name: 'Kind' })
-  await kind.selectOption('cz_vrat')
-  await form.getByRole('group', { name: 'Restriction 1' }).getByRole('textbox', { name: 'List entry' }).fill('Příloha 1, bod 2')
-  await form.getByRole('button', { name: 'Add strain' }).click()
-  await expect(kind).toHaveAttribute('aria-invalid', 'true')
-  await expect(kind).toHaveAccessibleDescription(/no valid SÚJB permit for highly risky agents \(VRAT\)/)
-  await expect(kind).toBeFocused()
-  await page.goto(page.url().replace(/\/new$/, `?search=refused%20${RUN}`))
-  await expect(page.getByText('No strain matches these filters.')).toBeVisible()
-  await close()
-})
-
 test('a viewer reads strains but cannot add one, in the screen and at the API', async ({ browser }) => {
   const { page, close } = await as(browser, 'e2e-viewer')
   await openStrains(page)
-  await expect(page.getByRole('link', { name: 'Add a strain' })).toHaveCount(0)
-  await page.goto(`${page.url()}/new`)
-  await expect(page.getByText('Only curators and managers add strains.')).toBeVisible()
-  await expect(page.getByRole('form', { name: 'Add a strain' })).toHaveCount(0)
-  // The server decides, not the hidden link.
+  await expect(page.getByRole('row', { name: /B\. subtilis e2e seed/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Receive a deposit' })).toHaveCount(0)
+  // The server decides, not the hidden link: strains are no longer created at this URL.
   const status = await page.evaluate(async () => {
     await fetch('/api/v1/auth/csrf/')
     const token = /(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
@@ -167,7 +59,7 @@ test('a viewer reads strains but cannot add one, in the screen and at the API', 
     })
     return response.status
   })
-  expect(status).toBe(403)
+  expect(status).toBe(405)
   await close()
 })
 
@@ -189,14 +81,6 @@ test('the strain pages fit 320 px without scrolling sideways and pass axe', asyn
   expect(await axe(page, '[role="dialog"]')).toEqual([])
   await page.keyboard.press('Escape')
   await expect(page.getByRole('button', { name: 'Change risk group' })).toBeFocused()
-  await page.getByRole('link', { name: 'Strains of E2E lab' }).click()
-  await page.getByRole('link', { name: 'Add a strain' }).click()
-  await expect(page.getByRole('form', { name: 'Add a strain' })).toBeVisible()
-  await page.getByRole('button', { name: 'Add a restriction' }).click()
-  await page.getByRole('combobox', { name: 'Taxon' }).fill('bac')
-  await expect(page.getByRole('listbox')).toBeVisible()
-  expect(await fitsWidth(page)).toBeLessThanOrEqual(320)
-  expect(await axe(page, 'body')).toEqual([])
   expect(violations()).toEqual([])
   await close()
 })

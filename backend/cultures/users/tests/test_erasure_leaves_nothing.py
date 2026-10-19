@@ -23,6 +23,7 @@ from cultures.audit.context import AuditContext, audit_context
 from cultures.audit.models import ActorKind, Channel
 from cultures.audit.reconcile import reconcile
 from cultures.core.testing import logged_in
+from cultures.deposits.models import Contact, Use
 from cultures.labs import services as labs
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Role
@@ -166,3 +167,72 @@ def test_an_erased_person_leaves_no_value_in_any_column() -> None:
     members = logged_in(colleague).get(f"/api/v1/labs/{lab.public_id}/members/").json()
     assert sorted(m["username"] for m in members["results"]) == ["colleague", "third"]
     assert Lab.objects.get(pk=lab.pk).memberships.count() == 2
+
+
+def test_an_erased_depositor_contact_leaves_no_value_in_any_column() -> None:
+    """The depositor's contact (ADR 0008, D11): created and changed through the API, used in
+    a deposit, then erased by staff with erase_contact. Its table is outside the row audit
+    and events record its fields as changed, so nothing else ever held the values."""
+    since = timezone.now()
+    with system():
+        staff = services.superuser_create(username="root", password=PASSWORD, reason="first admin")
+        curator = services.user_create(username="curator", password=None)
+        lab = labs.lab_create(name="Mycology", code="MYC")
+        labs.membership_create(lab=lab, user=curator, role=Role.MANAGER)
+    client = logged_in(curator)
+    base = f"/api/v1/labs/{lab.public_id}"
+    created = client.post(
+        f"{base}/depositors/",
+        {
+            "name": f"{MARK} Jana",
+            "email": f"{MARK}@example.org",
+            "postal_address": f"{MARK} street 1\nBrno",
+            "institution": "Example University",
+        },
+        content_type="application/json",
+    )
+    assert created.status_code == 201, created.content
+    depositor = created.json()["public_id"]
+    changed = client.put(
+        f"{base}/depositors/{depositor}/",
+        {
+            "name": f"{MARK} Jana V.",
+            "email": f"{MARK}.2@example.org",
+            "postal_address": f"{MARK} street 2\nBrno",
+            "institution": "Example",
+        },
+        content_type="application/json",
+    )
+    assert changed.status_code == 200, changed.content
+    received = client.post(
+        f"{base}/deposits/",
+        {
+            "depositor": depositor,
+            "received_on": "2026-10-01",
+            "condition": "intact",
+            "name_as_received": "Testella exempli",
+            "terms": {
+                "mta": None,
+                "abs_scope": "unknown",
+                "uses": [{"use": use, "decision": "on_request"} for use in Use.values],
+            },
+        },
+        content_type="application/json",
+    )
+    assert received.status_code == 201, received.content
+    assert marker_hits() == [
+        "public.deposits_contact.email",
+        "public.deposits_contact.name",
+        "public.deposits_contact.postal_address",
+    ]
+
+    contact = Contact.objects.get(depositor__public_id=depositor)
+    call_command(
+        "erase_contact", str(contact.public_id), "--by", staff.username, "--reason", REASON
+    )
+
+    assert marker_hits() == []
+    assert [f for f in reconcile(since) if f.alarm] == []
+    call_command("audit_reconcile", "--since", since.isoformat())
+    shown = client.get(f"{base}/deposits/{received.json()['public_id']}/").json()["depositor"]
+    assert (shown["name"], shown["institution"], shown["erased"]) == ("", "Example", True)

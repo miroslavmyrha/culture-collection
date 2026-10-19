@@ -110,6 +110,7 @@ SCENARIOS: dict[str, Scenario] = {
 }
 
 EXEMPT: dict[str, str] = {
+    "check_partial_date": "a check on the input alone, no query",
     "check_restriction": "a check on the input alone, no query",
     "normalised": "text normalisation, no query",
 }

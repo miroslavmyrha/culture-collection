@@ -9,6 +9,7 @@ from django.core.management.base import CommandError
 from django.test import override_settings
 
 from cultures.audit.models import ActorKind, AuditEvent, Channel, RowChange
+from cultures.deposits.models import Deposit, MtaTemplate
 from cultures.labs.management.commands.seed_e2e import COLLEAGUE, CURATOR, LAB_CODE, VIEWER
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
@@ -36,7 +37,7 @@ def seed() -> str:
 def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
     assert seed() == (
         "e2e-user manages E2E lab; e2e-curator and e2e-viewer are its curator and viewer;"
-        " e2e-colleague is in no lab; 8 taxa\n"
+        " e2e-colleague is in no lab; 8 taxa; a depositor, MTA STD and one accepted deposit\n"
     )
     user = User.objects.get(username="e2e-user")
     lab = Lab.objects.get(code=LAB_CODE)
@@ -53,6 +54,14 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
     synonyms = dict(Taxon.objects.filter(status="synonym").values_list("name", "accepted__name"))
     assert synonyms == {"Vibrio subtilis": "Bacillus subtilis", "Bacillus coli": "Escherichia coli"}
     assert Taxon.objects.get(name="Bacillus subtilis").parent == Taxon.objects.get(name="Bacillus")
+    deposit = Deposit.objects.get(lab=lab)
+    assert (deposit.status, deposit.depositor.contact.email) == (
+        "accepted",
+        "e2e.depositor@example.org",
+    )
+    assert deposit.strain is not None
+    assert (deposit.strain.accession_number, deposit.strain.risk_group) == ("E2E 1", 1)
+    assert MtaTemplate.objects.get(lab=lab).code == "STD"
 
 
 @pytest.mark.usefixtures("env")
@@ -74,6 +83,13 @@ def test_its_writes_are_audited_as_the_command() -> None:
         "taxon_created",
         "taxon_created",
         "taxon_created",
+        "depositor_created",
+        "mta_template_published",
+        "deposit_received",
+        "deposit_check_started",
+        "strain_created",
+        "deposit_accepted",
+        "passage_created",
     ]
     assert {(e.channel, e.actor_kind, e.actor_label, e.actor_id) for e in events} == {
         (Channel.COMMAND, ActorKind.SYSTEM, "command:seed_e2e", None)

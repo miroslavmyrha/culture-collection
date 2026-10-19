@@ -59,6 +59,16 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     "strains_straincounter": ("SELECT", "INSERT", "UPDATE"),
     "strains_strainidentification": ("SELECT", "INSERT", "UPDATE"),
     "strains_strainrestriction": ("SELECT", "INSERT", "UPDATE"),
+    # Depositors, deposits, terms, MTA versions and passages are never deleted (#10, #12):
+    # a contact is erased in place, the rest is history. Guard triggers refuse deletes too.
+    "deposits_contact": ("SELECT", "INSERT", "UPDATE"),
+    "deposits_depositor": ("SELECT", "INSERT", "UPDATE"),
+    # Frozen rows: inserted, never updated (a trigger refuses it as well).
+    "deposits_mtatemplate": ("SELECT", "INSERT"),
+    "deposits_deposit": ("SELECT", "INSERT", "UPDATE"),
+    "deposits_depositterms": ("SELECT", "INSERT", "UPDATE"),
+    "deposits_termsuse": ("SELECT", "INSERT"),
+    "lineage_passage": ("SELECT", "INSERT"),
 }
 
 

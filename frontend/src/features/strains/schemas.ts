@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { components } from '@/api/schema'
 import { pageDefaults } from '@/lib/paging'
-import { COUNTRY_CODES } from './countries'
+import { isCountry } from '@/lib/countries'
 
 type Schemas = components['schemas']
 export type StrainRow = Schemas['StrainListOutput']
@@ -14,8 +14,6 @@ export type RestrictionKind = Schemas['RestrictionKind']
 export type StrainStatus = Schemas['StrainStatus']
 export type CountryCode = Schemas['CountryCode']
 export type Role = Schemas['Role']
-
-const COUNTRIES: ReadonlySet<string> = new Set(COUNTRY_CODES)
 
 /** Curators and managers write strains (strains.manage). The server decides; this only hides. */
 export const canManageStrains = (role: Role | undefined): boolean => role === 'curator' || role === 'manager'
@@ -55,9 +53,7 @@ export const GMO_CATEGORY_LABELS: Record<number, string> = { 1: 'I', 2: 'II', 3:
 export const options = <T extends string | number>(labels: Record<T, string>, values: readonly T[]) =>
   values.map((value) => ({ value: String(value), label: labels[value] }))
 
-/** Country names in English from the browser's own data; the codes come from the API schema. */
-const regionNames = new Intl.DisplayNames(['en'], { type: 'region' })
-export const countryName = (code: string) => regionNames.of(code) ?? code
+export { countryName } from '@/lib/countries'
 
 export const taxonLabel = (taxon: Pick<Taxon, 'name' | 'authority'>) => (taxon.authority ? `${taxon.name} ${taxon.authority}` : taxon.name)
 
@@ -112,11 +108,11 @@ const riskGroup = z.string().transform((value, ctx): RiskGroup => {
   ctx.addIssue({ code: 'custom', message: 'Choose a risk group' })
   return z.NEVER
 })
-const country = z.custom<CountryCode | ''>((value) => value === '' || (typeof value === 'string' && COUNTRIES.has(value)), 'Choose a country')
+const country = z.custom<CountryCode | ''>(isCountry, 'Choose a country')
 
-export const createStrainSchema = z.object({
+/** What the check of a deposit found: the facts of the strain its acceptance creates. */
+export const strainFactsSchema = z.object({
   taxon: z.custom<Taxon | null>().refine((value) => value !== null && value !== undefined, 'Choose a taxon'),
-  name_as_received: required('Enter the name as received').max(200, 'Use at most 200 characters'),
   identified_on: isoDay,
   identification_method: required('Enter how it was identified').max(200, 'Use at most 200 characters'),
   risk_group: riskGroup,
@@ -130,8 +126,8 @@ export const createStrainSchema = z.object({
     .regex(/^(\d{4}(-\d{2}(-\d{2})?)?)?$/, 'Use YYYY, YYYY-MM or YYYY-MM-DD'),
   restrictions: z.array(restrictionSchema).max(10, 'At most 10 restrictions'),
 })
-export type CreateStrainForm = z.input<typeof createStrainSchema>
-export type CreateStrainValues = z.output<typeof createStrainSchema>
+export type StrainFactsForm = z.input<typeof strainFactsSchema>
+export type StrainFactsValues = z.output<typeof strainFactsSchema>
 
 export const reasonSchema = required('Say why').max(2000, 'Use at most 2000 characters')
 

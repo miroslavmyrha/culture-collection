@@ -10,6 +10,7 @@ urlpatterns = [
     path("api/v1/", include("cultures.labs.api.urls")),
     path("api/v1/", include("cultures.taxonomy.api.urls")),
     path("api/v1/", include("cultures.strains.api.urls")),
+    path("api/v1/", include("cultures.deposits.api.urls")),
     path("api/v1/schema/", SpectacularAPIView.as_view(), name="schema"),
 ]
 

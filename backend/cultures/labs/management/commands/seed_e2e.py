@@ -14,12 +14,18 @@ Brings the database to this state, whatever it was before:
   synonym of each species (its basionym), plus an invented genus and species (Testella
   exempli) for the tests of the restriction gates, so no real organism is entered with a
   legal status it does not have. The lab holds no permit, so a VRAT strain is refused there.
+- for the deposit tests: a depositor (an invented person at example.org), the lab's MTA
+  "STD" version 1, and one deposit accepted as a Bacillus subtilis strain (risk group 1,
+  as LPSN and the DSMZ catalogue state for the species), so the strain pages have a row
+  before any test adds one. The depositor and the MTA are found by name and code, the
+  deposit by its name as received.
 Strains the tests created stay: numbers are never reused, and a strain is never deleted.
 A second run changes nothing. Every user, lab and membership write goes
 through the services with their audit events (channel command, actor kind
 system).
 """
 
+from datetime import date
 from typing import Any
 
 from django.conf import settings
@@ -28,7 +34,18 @@ from django.core.management.base import BaseCommand, CommandError
 from config.env import env_secret, env_str
 from cultures.audit.context import audit_context
 from cultures.audit.models import ActorKind, Channel
+from cultures.deposits import services as deposits
+from cultures.deposits.models import (
+    AbsScope,
+    Condition,
+    Decision,
+    Deposit,
+    Depositor,
+    MtaTemplate,
+    Use,
+)
 from cultures.labs import services
+from cultures.labs.access import access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
 from cultures.taxonomy import services as taxonomy
@@ -38,6 +55,8 @@ from cultures.users.models import User
 
 LAB_NAME, LAB_CODE = "E2E lab", "E2E"
 COLLEAGUE = "e2e-colleague"
+DEPOSITOR = deposits.ContactInput("E2E Depositor", "e2e.depositor@example.org", "Example street 1")
+SEEDED_DEPOSIT = "B. subtilis e2e seed"
 CURATOR, VIEWER = "e2e-curator", "e2e-viewer"
 
 # (name, authority, rank, parent name, accepted name, NCBI Taxonomy id). Facts from LPSN and
@@ -92,9 +111,11 @@ class Command(BaseCommand):
             self._role(lab, self._user(VIEWER, password), Role.VIEWER)
             for row in TAXA:
                 self._taxon(*row)
+            self._deposit(lab, curator=User.objects.get(username=CURATOR), manager=user)
         self.stdout.write(
             f"{username} manages {lab.name}; {CURATOR} and {VIEWER} are its curator and viewer;"
-            f" {COLLEAGUE} is in no lab; {len(TAXA)} taxa"
+            f" {COLLEAGUE} is in no lab; {len(TAXA)} taxa; a depositor, MTA STD and"
+            f" one accepted deposit"
         )
 
     def _taxon(  # noqa: PLR0917 (one row of TAXA, spread)
@@ -120,6 +141,50 @@ class Command(BaseCommand):
         )
         if ncbi:
             taxonomy.taxon_identifier_add(taxon=taxon, system=IdentifierSystem.NCBI, value=ncbi)
+
+    def _deposit(self, lab: Lab, *, curator: User, manager: User) -> None:
+        """The depositor, the MTA and one accepted deposit, created through the services."""
+        access = access_for(curator)
+        depositor = Depositor.objects.filter(lab=lab, contact__name=DEPOSITOR.name).first()
+        if depositor is None:
+            depositor = deposits.depositor_create(
+                access=access, lab=lab, contact=DEPOSITOR, institution="Example University"
+            )
+        if not MtaTemplate.objects.filter(lab=lab, code="STD").exists():
+            deposits.mta_template_publish(
+                access=access_for(manager),
+                lab=lab,
+                code="STD",
+                title="Standard MTA (invented example)",
+                text="The recipient uses the material for research only. (Invented example.)",
+            )
+        if Deposit.objects.filter(lab=lab, name_as_received=SEEDED_DEPOSIT).exists():
+            return
+        deposit = deposits.deposit_receive(
+            access=access,
+            lab=lab,
+            data=deposits.NewDeposit(
+                depositor=depositor,
+                received_on=date(2026, 10, 1),
+                condition=Condition.INTACT,
+                name_as_received=SEEDED_DEPOSIT,
+                terms=deposits.TermsInput(
+                    abs_scope=AbsScope.NOT_IN_SCOPE,
+                    uses=[(Use(use), Decision.PERMIT) for use in Use.values],
+                ),
+            ),
+        )
+        deposit = deposits.deposit_start_check(access=access, deposit=deposit)
+        deposits.deposit_accept(
+            access=access,
+            deposit=deposit,
+            facts=deposits.StrainFacts(
+                taxon=Taxon.objects.get(name="Bacillus subtilis"),
+                identified_on=date(2026, 10, 2),
+                identification_method="16S rRNA gene sequence",
+                risk_group=1,
+            ),
+        )
 
     def _user(self, username: str, password: str | None) -> User:
         """An active user with this password (None: no usable one), changed only where needed."""

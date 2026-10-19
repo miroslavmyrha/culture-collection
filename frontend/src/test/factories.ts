@@ -97,3 +97,95 @@ export function makeStrain(overrides: Partial<Strain> = {}): Strain {
     ...overrides,
   }
 }
+
+export type Depositor = Schemas['DepositorOutput']
+export type MtaTemplate = Schemas['MtaTemplateDetailOutput']
+export type Terms = Schemas['TermsOutput']
+export type DepositRow = Schemas['DepositListOutput']
+export type Deposit = Schemas['DepositDetailOutput']
+
+const USES = [
+  'research_noncommercial',
+  'research_commercial',
+  'teaching',
+  'diagnostics',
+  'production',
+  'reference_qc',
+  'patent_deposit_related',
+  'redistribution',
+] as const
+
+/** Invented people at example.org: a depositor is personal data. */
+export function makeDepositor(overrides: Partial<Depositor> = {}): Depositor {
+  const n = next()
+  const at = new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString()
+  return {
+    public_id: uuid(n),
+    name: `Depositor ${n}`,
+    institution: 'Example University',
+    erased: false,
+    email: `depositor-${n}@example.org`,
+    postal_address: '',
+    created_at: at,
+    ...overrides,
+  }
+}
+
+export function makeMtaTemplate(overrides: Partial<MtaTemplate> = {}): MtaTemplate {
+  const n = next()
+  const at = new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString()
+  return { public_id: uuid(n), code: 'STD', version: 1, title: 'Standard MTA', text_sha256: 'ab'.repeat(32), created_at: at, text: 'Terms.', ...overrides }
+}
+
+export function makeTerms(overrides: Partial<Terms> = {}): Terms {
+  const n = next()
+  const at = new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString()
+  return {
+    public_id: uuid(n),
+    version: 1,
+    is_active: true,
+    mta: null,
+    abs_scope: 'not_in_scope',
+    country_of_origin: '',
+    collection_date: '',
+    pic_reference: '',
+    mat_reference: '',
+    ircc: '',
+    permit_reference: '',
+    reason: '',
+    uses: USES.map((use) => ({ use, decision: 'permit' as const })),
+    created_at: at,
+    ...overrides,
+  }
+}
+
+export function makeDepositRow(overrides: Partial<DepositRow> = {}): DepositRow {
+  const n = next()
+  const at = new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString()
+  const { public_id, name, institution, erased } = makeDepositor()
+  return {
+    public_id: uuid(n),
+    status: 'received',
+    received_on: '2026-10-01',
+    name_as_received: `Testella exempli D${n}`,
+    depositor: { public_id, name, institution, erased },
+    strain: null,
+    created_at: at,
+    ...overrides,
+  }
+}
+
+export function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
+  const terms = makeTerms()
+  return {
+    ...makeDepositRow(),
+    condition: 'intact',
+    condition_note: '',
+    depositor_passages: null,
+    decided_at: null,
+    rejection_reason: '',
+    terms,
+    terms_history: [terms],
+    ...overrides,
+  }
+}

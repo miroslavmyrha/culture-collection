@@ -658,7 +658,7 @@ SCENARIOS: dict[str, Scenario] = {
 def test_every_public_strain_service_has_a_strain_id_scenario() -> None:
     found = public_services(services)
     assert {"strain_create", "strain_reclassify"} <= found  # the walk found the services
-    assert found - {"check_restriction", "normalised"} == set(SCENARIOS)
+    assert found - {"check_partial_date", "check_restriction", "normalised"} == set(SCENARIOS)
 
 
 @pytest.mark.parametrize("name", sorted(SCENARIOS))

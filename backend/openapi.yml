@@ -176,6 +176,738 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/depositors/:
+    get:
+      operationId: labs_depositors_list
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      - in: query
+        name: search
+        schema:
+          type: string
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDepositorOutputList'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    post:
+      operationId: labs_depositors_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepositorInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DepositorInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepositorOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, named by its field
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/depositors/{public_id}/:
+    get:
+      operationId: labs_depositors_retrieve
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepositorOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    put:
+      operationId: labs_depositors_update
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepositorInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DepositorInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepositorOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, named by its field
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'contact_erased: the depositor''s contact was erased'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/deposits/:
+    get:
+      operationId: labs_deposits_list
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      - in: query
+        name: search
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - accepted
+          - checking
+          - received
+          - rejected
+        description: |-
+          * `received` - Received
+          * `checking` - Checking
+          * `accepted` - Accepted
+          * `rejected` - Rejected
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDepositListOutputList'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    post:
+      operationId: labs_deposits_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepositReceiveInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DepositReceiveInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepositDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, named by its field
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/deposits/{public_id}/:
+    get:
+      operationId: labs_deposits_retrieve
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepositDetailOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/deposits/{public_id}/accept/:
+    post:
+      operationId: labs_deposits_accept_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StrainFactsInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StrainFactsInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepositDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, an unknown taxon, or a risk group 4 agent (on
+            risk_group)
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'deposit_state: the deposit is no longer in the state the action
+            starts from; terms_changed; accession_taken'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'lab_authorisation_required: the lab holds no valid permit
+            for a restriction''s kind; reason_required'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/deposits/{public_id}/reject/:
+    post:
+      operationId: labs_deposits_reject_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RejectInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepositDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, named by its field
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'deposit_state: the deposit is no longer in the state the action
+            starts from; terms_changed; accession_taken'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'lab_authorisation_required: the lab holds no valid permit
+            for a restriction''s kind; reason_required'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/deposits/{public_id}/start-check/:
+    post:
+      operationId: labs_deposits_start_check_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepositDetailOutput'
+          description: ''
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'deposit_state: the deposit is no longer in the state the action
+            starts from; terms_changed; accession_taken'
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/deposits/{public_id}/terms/:
+    post:
+      operationId: labs_deposits_terms_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TermsReplaceInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TermsReplaceInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepositDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, named by its field
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'deposit_state: the deposit is no longer in the state the action
+            starts from; terms_changed; accession_taken'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'lab_authorisation_required: the lab holds no valid permit
+            for a restriction''s kind; reason_required'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/members/:
     get:
       operationId: labs_members_list
@@ -542,6 +1274,179 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/mta-templates/:
+    get:
+      operationId: labs_mta_templates_list
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMtaTemplateListOutputList'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    post:
+      operationId: labs_mta_templates_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MtaTemplateInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MtaTemplateInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MtaTemplateDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, named by its field
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'mta_version_taken: published at the same moment'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/mta-templates/{public_id}/:
+    get:
+      operationId: labs_mta_templates_retrieve
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MtaTemplateDetailOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/strains/:
     get:
       operationId: labs_strains_list
@@ -629,79 +1534,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedStrainListOutputList'
           description: ''
-        '401':
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
-          description: ''
-        '403':
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
-          description: ''
-        '404':
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
-          description: ''
-        '429':
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
-          description: ''
-    post:
-      operationId: labs_strains_create
-      parameters:
-      - in: path
-        name: lab_public_id
-        schema:
-          type: string
-          format: uuid
-        required: true
-      tags:
-      - labs
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/StrainCreateInputRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/StrainCreateInputRequest'
-        required: true
-      security:
-      - cookieAuth: []
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StrainDetailOutput'
-          description: ''
-        '400':
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
-          description: Invalid input, an unknown taxon, or a risk group 4 agent (on
-            risk_group)
-        '409':
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
-          description: 'The accession number is taken: try again'
-        '422':
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
-          description: 'lab_authorisation_required: the lab holds no valid permit
-            for a restriction''s kind; reason_required'
         '401':
           content:
             application/problem+json:
@@ -1226,9 +2058,29 @@ paths:
           description: ''
 components:
   schemas:
+    AbsScope:
+      enum:
+      - not_in_scope
+      - in_scope
+      - unknown
+      type: string
+      description: |-
+        * `not_in_scope` - Not in scope
+        * `in_scope` - In scope
+        * `unknown` - Unknown
     BlankEnum:
       enum:
       - ''
+    Condition:
+      enum:
+      - intact
+      - damaged
+      - other
+      type: string
+      description: |-
+        * `intact` - Intact
+        * `damaged` - Container or packaging damaged
+        * `other` - Other, see the note
     CountryCode:
       enum:
       - AD
@@ -1731,6 +2583,254 @@ components:
         * `ZA` - ZA
         * `ZM` - ZM
         * `ZW` - ZW
+    Decision:
+      enum:
+      - permit
+      - deny
+      - on_request
+      type: string
+      description: |-
+        * `permit` - Permitted
+        * `deny` - Not permitted
+        * `on_request` - On request to the depositor
+    DepositDetailOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/DepositStatus'
+          readOnly: true
+        received_on:
+          type: string
+          format: date
+          readOnly: true
+        name_as_received:
+          type: string
+          readOnly: true
+        depositor:
+          allOf:
+          - $ref: '#/components/schemas/DepositorBrief'
+          readOnly: true
+        strain:
+          allOf:
+          - $ref: '#/components/schemas/StrainBrief'
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        condition:
+          allOf:
+          - $ref: '#/components/schemas/Condition'
+          readOnly: true
+        condition_note:
+          type: string
+          readOnly: true
+        depositor_passages:
+          type: integer
+          readOnly: true
+          nullable: true
+        decided_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        rejection_reason:
+          type: string
+          readOnly: true
+        terms:
+          allOf:
+          - $ref: '#/components/schemas/TermsOutput'
+          readOnly: true
+        terms_history:
+          type: array
+          items:
+            $ref: '#/components/schemas/TermsOutput'
+          readOnly: true
+      required:
+      - condition
+      - condition_note
+      - created_at
+      - decided_at
+      - depositor
+      - depositor_passages
+      - name_as_received
+      - public_id
+      - received_on
+      - rejection_reason
+      - status
+      - strain
+      - terms
+      - terms_history
+    DepositListOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/DepositStatus'
+          readOnly: true
+        received_on:
+          type: string
+          format: date
+          readOnly: true
+        name_as_received:
+          type: string
+          readOnly: true
+        depositor:
+          allOf:
+          - $ref: '#/components/schemas/DepositorBrief'
+          readOnly: true
+        strain:
+          allOf:
+          - $ref: '#/components/schemas/StrainBrief'
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - depositor
+      - name_as_received
+      - public_id
+      - received_on
+      - status
+      - strain
+    DepositReceiveInputRequest:
+      type: object
+      properties:
+        depositor:
+          type: string
+          format: uuid
+        received_on:
+          type: string
+          format: date
+        condition:
+          $ref: '#/components/schemas/Condition'
+        condition_note:
+          type: string
+          default: ''
+          description: 'About the material. Stored for good: name no person.'
+          maxLength: 2000
+        name_as_received:
+          type: string
+          minLength: 1
+          maxLength: 200
+        depositor_passages:
+          type: integer
+          maximum: 10000
+          minimum: 0
+          nullable: true
+        terms:
+          $ref: '#/components/schemas/TermsInputRequest'
+      required:
+      - condition
+      - depositor
+      - name_as_received
+      - received_on
+      - terms
+    DepositStatus:
+      enum:
+      - received
+      - checking
+      - accepted
+      - rejected
+      type: string
+      description: |-
+        * `received` - Received
+        * `checking` - Checking
+        * `accepted` - Accepted
+        * `rejected` - Rejected
+    DepositorBrief:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        institution:
+          type: string
+          readOnly: true
+        erased:
+          type: boolean
+          readOnly: true
+      required:
+      - erased
+      - institution
+      - name
+      - public_id
+    DepositorInputRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        email:
+          oneOf:
+          - type: string
+            format: email
+            default: ''
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        postal_address:
+          type: string
+          default: ''
+          maxLength: 1000
+        institution:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - name
+    DepositorOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        institution:
+          type: string
+          readOnly: true
+        erased:
+          type: boolean
+          readOnly: true
+        email:
+          type: string
+          readOnly: true
+        postal_address:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - email
+      - erased
+      - institution
+      - name
+      - postal_address
+      - public_id
     IdentificationOutput:
       type: object
       properties:
@@ -1885,6 +2985,160 @@ components:
           $ref: '#/components/schemas/Role'
       required:
       - role
+    MtaTemplateBrief:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        version:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        text_sha256:
+          type: string
+          readOnly: true
+      required:
+      - code
+      - public_id
+      - text_sha256
+      - title
+      - version
+    MtaTemplateDetailOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        version:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        text_sha256:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        text:
+          type: string
+          readOnly: true
+      required:
+      - code
+      - created_at
+      - public_id
+      - text
+      - text_sha256
+      - title
+      - version
+    MtaTemplateInputRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 20
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        text:
+          type: string
+          minLength: 1
+          maxLength: 100000
+      required:
+      - code
+      - text
+      - title
+    MtaTemplateListOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        version:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        text_sha256:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - code
+      - created_at
+      - public_id
+      - text_sha256
+      - title
+      - version
+    PaginatedDepositListOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DepositListOutput'
+    PaginatedDepositorOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DepositorOutput'
     PaginatedLabOutputList:
       type: object
       required:
@@ -1931,6 +3185,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MemberOutput'
+    PaginatedMtaTemplateListOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MtaTemplateListOutput'
     PaginatedStrainListOutputList:
       type: object
       required:
@@ -2079,6 +3356,16 @@ components:
       - method
       - reason
       - taxon
+    RejectInputRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+      required:
+      - reason
     RestrictionAddInputRequest:
       type: object
       properties:
@@ -2240,56 +3527,20 @@ components:
         * `technician` - Technician
         * `curator` - Curator
         * `manager` - Manager
-    StrainCreateInputRequest:
+    StrainBrief:
       type: object
       properties:
-        taxon:
+        public_id:
           type: string
           format: uuid
-        name_as_received:
+          readOnly: true
+        accession_number:
           type: string
-          minLength: 1
-          maxLength: 200
-        identified_on:
-          type: string
-          format: date
-        identification_method:
-          type: string
-          minLength: 1
-          maxLength: 200
-        risk_group:
-          $ref: '#/components/schemas/RiskGroup'
-        animal_pathogenicity:
-          allOf:
-          - $ref: '#/components/schemas/Pathogenicity'
-          default: unknown
-        plant_pathogenicity:
-          allOf:
-          - $ref: '#/components/schemas/Pathogenicity'
-          default: unknown
-        isolation_source:
-          type: string
-          default: ''
-          maxLength: 200
-        country_of_origin:
-          default: ''
-          oneOf:
-          - $ref: '#/components/schemas/CountryCode'
-          - $ref: '#/components/schemas/BlankEnum'
-        isolation_date:
-          type: string
-          default: ''
-          maxLength: 10
-        restrictions:
-          type: array
-          items:
-            $ref: '#/components/schemas/RestrictionInputRequest'
+          readOnly: true
+          nullable: true
       required:
-      - identification_method
-      - identified_on
-      - name_as_received
-      - risk_group
-      - taxon
+      - accession_number
+      - public_id
     StrainDetailOutput:
       type: object
       properties:
@@ -2367,6 +3618,54 @@ components:
       - restrictions
       - risk_group
       - status
+      - taxon
+    StrainFactsInputRequest:
+      type: object
+      description: |-
+        What a check of a deposit found: everything a new strain needs but its name as
+        received, which the deposit holds (deposits.services.deposit_accept).
+      properties:
+        taxon:
+          type: string
+          format: uuid
+        identified_on:
+          type: string
+          format: date
+        identification_method:
+          type: string
+          minLength: 1
+          maxLength: 200
+        risk_group:
+          $ref: '#/components/schemas/RiskGroup'
+        animal_pathogenicity:
+          allOf:
+          - $ref: '#/components/schemas/Pathogenicity'
+          default: unknown
+        plant_pathogenicity:
+          allOf:
+          - $ref: '#/components/schemas/Pathogenicity'
+          default: unknown
+        isolation_source:
+          type: string
+          default: ''
+          maxLength: 200
+        country_of_origin:
+          default: ''
+          oneOf:
+          - $ref: '#/components/schemas/CountryCode'
+          - $ref: '#/components/schemas/BlankEnum'
+        isolation_date:
+          type: string
+          default: ''
+          maxLength: 10
+        restrictions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RestrictionInputRequest'
+      required:
+      - identification_method
+      - identified_on
+      - risk_group
       - taxon
     StrainListOutput:
       type: object
@@ -2528,6 +3827,168 @@ components:
       description: |-
         * `accepted` - Accepted
         * `synonym` - Synonym
+    TermsInputRequest:
+      type: object
+      properties:
+        mta:
+          type: string
+          format: uuid
+          nullable: true
+        abs_scope:
+          $ref: '#/components/schemas/AbsScope'
+        country_of_origin:
+          default: ''
+          oneOf:
+          - $ref: '#/components/schemas/CountryCode'
+          - $ref: '#/components/schemas/BlankEnum'
+        collection_date:
+          type: string
+          default: ''
+          maxLength: 10
+        pic_reference:
+          type: string
+          default: ''
+          maxLength: 200
+        mat_reference:
+          type: string
+          default: ''
+          maxLength: 200
+        ircc:
+          type: string
+          default: ''
+          maxLength: 100
+        permit_reference:
+          type: string
+          default: ''
+          maxLength: 200
+        uses:
+          type: array
+          items:
+            $ref: '#/components/schemas/TermsUseRequest'
+      required:
+      - abs_scope
+      - mta
+      - uses
+    TermsOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        version:
+          type: integer
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+        mta:
+          allOf:
+          - $ref: '#/components/schemas/MtaTemplateBrief'
+          readOnly: true
+          nullable: true
+        abs_scope:
+          allOf:
+          - $ref: '#/components/schemas/AbsScope'
+          readOnly: true
+        country_of_origin:
+          type: string
+          readOnly: true
+        collection_date:
+          type: string
+          readOnly: true
+        pic_reference:
+          type: string
+          readOnly: true
+        mat_reference:
+          type: string
+          readOnly: true
+        ircc:
+          type: string
+          readOnly: true
+        permit_reference:
+          type: string
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        uses:
+          type: array
+          items:
+            $ref: '#/components/schemas/TermsUse'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - abs_scope
+      - collection_date
+      - country_of_origin
+      - created_at
+      - ircc
+      - is_active
+      - mat_reference
+      - mta
+      - permit_reference
+      - pic_reference
+      - public_id
+      - reason
+      - uses
+      - version
+    TermsReplaceInputRequest:
+      type: object
+      properties:
+        terms:
+          $ref: '#/components/schemas/TermsInputRequest'
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+      required:
+      - reason
+      - terms
+    TermsUse:
+      type: object
+      properties:
+        use:
+          $ref: '#/components/schemas/Use'
+        decision:
+          $ref: '#/components/schemas/Decision'
+      required:
+      - decision
+      - use
+    TermsUseRequest:
+      type: object
+      properties:
+        use:
+          $ref: '#/components/schemas/Use'
+        decision:
+          $ref: '#/components/schemas/Decision'
+      required:
+      - decision
+      - use
+    Use:
+      enum:
+      - research_noncommercial
+      - research_commercial
+      - teaching
+      - diagnostics
+      - production
+      - reference_qc
+      - patent_deposit_related
+      - redistribution
+      type: string
+      description: |-
+        * `research_noncommercial` - Non-commercial research
+        * `research_commercial` - Commercial research
+        * `teaching` - Teaching
+        * `diagnostics` - Diagnostics
+        * `production` - Production
+        * `reference_qc` - Reference material and quality control
+        * `patent_deposit_related` - Related to a patent deposit
+        * `redistribution` - Redistribution to third parties
   securitySchemes:
     cookieAuth:
       type: apiKey

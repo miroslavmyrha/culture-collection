@@ -20,6 +20,7 @@ from cultures.audit.reconcile import reconcile
 from cultures.biosafety.models import AuthorisationKind, LabAuthorisation, RestrictionKind
 from cultures.biosafety.policy import NEEDS_PERMIT, AuthorisationRequired, permit_today, valid_on
 from cultures.core.tests.test_settings import BACKEND, GOOD_ENV, production_value
+from cultures.deposits.models import Contact, Deposit, Depositor, DepositTerms, MtaTemplate
 from cultures.labs import services as labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, Membership
@@ -52,6 +53,8 @@ PASSWORD = "dev correct horse battery"  # noqa: S105 (a test value)
 DATA = load()
 TAXA: list[dict[str, Any]] = DATA["taxa"]
 STRAINS: list[dict[str, Any]] = DATA["strains"]
+DEPOSITS: list[dict[str, Any]] = DATA["deposits"]
+ACCEPTED = [row for row in DEPOSITS if row["state"] == "accepted"]
 LAB_CODES = [lab["code"] for lab in DATA["labs"]]
 INVENTED_GENERA = ("Testella", "Mockia", "Fictivibrio")
 EPOCH = datetime(2000, 1, 1, tzinfo=UTC)
@@ -98,6 +101,11 @@ def state() -> dict[str, Any]:
         "identifications": rows(StrainIdentification, "taxon__name", "is_current"),
         "restrictions": rows(StrainRestriction, "reference", "ended_at"),
         "counters": rows(StrainCounter, "lab__code", "last_seq"),
+        "contacts": rows(Contact, "name", "email", "updated_at"),
+        "depositors": rows(Depositor, "institution", "updated_at"),
+        "mta": rows(MtaTemplate, "code", "version"),
+        "deposits": rows(Deposit, "name_as_received", "status", "updated_at"),
+        "terms": rows(DepositTerms, "version", "is_active"),
     }
 
 
@@ -225,7 +233,7 @@ def test_it_refuses_a_database_with_labs_it_did_not_create() -> None:
 def test_force_adds_the_data_next_to_them() -> None:
     own = _lab_by_someone_else()
     seed("--force")
-    assert Strain.objects.count() == len(STRAINS)
+    assert Strain.objects.count() == len(STRAINS) + len(ACCEPTED)
     assert not Membership.objects.filter(lab=own).exists()
 
 
@@ -297,10 +305,10 @@ def test_it_creates_the_labs_permits_taxa_and_strains() -> None:
     out = seed()
     assert sorted(Lab.objects.values_list("code", flat=True)) == sorted(LAB_CODES)
     assert Taxon.objects.count() == len(TAXA)
-    assert Strain.objects.count() == len(STRAINS)
+    assert Strain.objects.count() == len(STRAINS) + len(ACCEPTED)
     assert f"Strains: {len(STRAINS)} created, 0 found." in out
     per_lab = Counter(Strain.objects.values_list("lab__code", flat=True))
-    assert per_lab == Counter(row["lab"] for row in STRAINS)
+    assert per_lab == Counter(row["lab"] for row in [*STRAINS, *ACCEPTED])
     assert max(per_lab.values()) > 25  # more than one page of the strain list
     reclassified = Counter(
         StrainIdentification.objects.values_list("strain_id", flat=True)
@@ -438,6 +446,51 @@ def test_strains_of_real_taxa_carry_the_verified_facts() -> None:
             .exclude(kind=RestrictionKind.GMO, gmo_category=1)
             .exists()
         ), strain
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_it_creates_depositors_mta_versions_and_deposits_in_every_state() -> None:
+    out = seed()
+    assert f"Deposits: {len(DEPOSITS)} created, 0 found." in out
+    assert Counter(Deposit.objects.values_list("status", flat=True)) == Counter(
+        row["state"] for row in DEPOSITS
+    )
+    assert {"received", "checking", "accepted", "rejected"} == {r["state"] for r in DEPOSITS}
+    assert Depositor.objects.count() == len(DATA["depositors"])
+    assert sorted(MtaTemplate.objects.values_list("lab__code", "code", "version")) == [
+        ("BAC", "STD", 1),
+        ("BAC", "STD", 2),
+        ("MYC", "STD", 1),
+    ]
+    for deposit in Deposit.objects.filter(status="accepted").select_related("strain"):
+        assert deposit.strain is not None
+        assert deposit.strain.name_as_received == deposit.name_as_received
+        assert deposit.first_passage.number == 0
+    events = Counter(AuditEvent.objects.values_list("event_type", flat=True))
+    assert events["deposit_received"] == len(DEPOSITS)
+    assert events["deposit_accepted"] == len(ACCEPTED)
+    assert out.count("Deposits:") == 1
+    again = seed()
+    assert f"Deposits: 0 created, {len(DEPOSITS)} found." in again
+
+
+def test_contacts_and_references_of_the_intake_are_clearly_invented() -> None:
+    for person in DATA["depositors"]:
+        assert person["email"] == "" or person["email"].endswith("@example.org"), person
+        assert person["postal_address"] == "" or "(invented example)" in person["postal_address"]
+    for template in DATA["mta_templates"]:
+        assert "invented example" in template["text"].lower()
+    for row in DEPOSITS:
+        for name in ("pic_reference", "mat_reference", "permit_reference", "ircc"):
+            value = row["terms"].get(name, "")
+            assert value == "" or "/DEV/" in value, (row["name_as_received"], name)
+        for note in (row.get("condition_note", ""), row.get("rejection_reason", "")):
+            assert note == "" or "(Invented example.)" in note
+    # A strain of a real taxon states nothing of its own: strain_facts reads its taxon entry.
+    for row in ACCEPTED:
+        invented = accepted_entry(row["strain"]["taxon"], TAXA).get("invented")
+        assert invented or not {"risk_group", "animal_pathogenicity"} & set(row["strain"]), row
 
 
 def test_help_builds() -> None:

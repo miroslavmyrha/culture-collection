@@ -138,7 +138,7 @@ def _check_not_future(day: date, attr: str) -> None:
         raise InvalidStrain("This date is in the future.", attr=attr)
 
 
-def _check_partial_date(text: str, attr: str) -> None:
+def check_partial_date(text: str, attr: str) -> None:
     """YYYY, YYYY-MM or YYYY-MM-DD, a real day, not after today."""
     if not text:
         return
@@ -191,7 +191,7 @@ def _checked(data: NewStrain) -> NewStrain:
     _check_not_future(data.identified_on, "identified_on")
     if data.country_of_origin and data.country_of_origin not in COUNTRY_CODES:
         raise InvalidStrain("Choose a country.", attr="country_of_origin")
-    _check_partial_date(data.isolation_date, "isolation_date")
+    check_partial_date(data.isolation_date, "isolation_date")
     if len(data.restrictions) > MAX_RESTRICTIONS:
         raise InvalidStrain(f"At most {MAX_RESTRICTIONS} restrictions.", attr="restrictions")
     restrictions = [

@@ -1,8 +1,9 @@
 import { screen } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
+import { RejectDialog } from '@/features/deposits/components/DepositDialogs'
 import { RemoveMemberDialog } from '@/features/labs/components/RemoveMemberDialog'
-import { makeMember } from '@/test/factories'
+import { makeDeposit, makeMember } from '@/test/factories'
 import { renderWithProviders } from '@/test/render'
 
 /**
@@ -25,6 +26,19 @@ const DESTRUCTIVE: Record<string, { render: () => ReactElement; name: string; co
     ),
     name: 'Remove bob?',
     consequence: 'bob leaves Mycology and loses access to it at once.',
+  },
+  '/src/features/deposits/components/DepositDialogs.tsx': {
+    render: () => (
+      <RejectDialog
+        labId="00000000-0000-4000-8000-00000000000a"
+        deposit={makeDeposit({ name_as_received: 'Testella exempli K3', status: 'checking' })}
+        open
+        onClose={() => {}}
+        onExited={() => {}}
+      />
+    ),
+    name: 'Reject Testella exempli K3?',
+    consequence: 'The deposit ends here and becomes no strain. The decision cannot be undone',
   },
 }
 

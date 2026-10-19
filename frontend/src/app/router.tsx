@@ -4,15 +4,16 @@ import { NotFound, Pending, RouteError } from '@/components/RouteStates'
 import { isApiError } from '@/lib/api'
 import { reportError } from '@/lib/report'
 import { authenticatedRoute } from '@/routes/authenticated'
+import { depositDetailRoute, depositListRoute, depositorListRoute, depositReceiveRoute, mtaDetailRoute, mtaListRoute, mtaNewRoute } from '@/routes/deposits'
 import { homeRoute } from '@/routes/home'
 import { labDetailRoute, labListRoute } from '@/routes/labs'
 import { loginRoute } from '@/routes/login'
 import { rootRoute } from '@/routes/root'
-import { strainCreateRoute, strainDetailRoute, strainListRoute } from '@/routes/strains'
+import { strainDetailRoute, strainListRoute } from '@/routes/strains'
 
 export const routeTree = rootRoute.addChildren([
   loginRoute,
-  authenticatedRoute.addChildren([homeRoute, labListRoute, labDetailRoute, strainListRoute, strainCreateRoute, strainDetailRoute]),
+  authenticatedRoute.addChildren([homeRoute, labListRoute, labDetailRoute, strainListRoute, strainDetailRoute, depositorListRoute, mtaListRoute, mtaNewRoute, mtaDetailRoute, depositListRoute, depositReceiveRoute, depositDetailRoute]),
 ])
 
 export function createAppRouter(queryClient: QueryClient, history?: RouterHistory) {

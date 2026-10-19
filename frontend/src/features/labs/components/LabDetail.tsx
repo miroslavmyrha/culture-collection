@@ -1,5 +1,5 @@
-import { Link, PageTitle, Typography } from '@/components/ui'
-import { grantableRoles, type PageParams, ROLE_LABELS } from '../schemas'
+import { Link, PageTitle, Stack, Typography } from '@/components/ui'
+import { canSeeDeposits, grantableRoles, type PageParams, ROLE_LABELS } from '../schemas'
 import { AddMemberForm } from './AddMemberForm'
 import { LabGate } from './LabGate'
 import { MemberTable } from './MemberTable'
@@ -21,11 +21,24 @@ export function LabDetail({ labId, params, onOffsetChange }: Props) {
             <Typography sx={{ mb: 1 }}>
               Code {code}. Your role: {ROLE_LABELS[role]}.
             </Typography>
-            <Typography sx={{ mb: 3 }}>
+            <Stack direction="row" spacing={2} useFlexGap component="nav" aria-label="Lab sections" sx={{ flexWrap: 'wrap', mb: 3 }}>
               <Link to="/labs/$labId/strains" params={{ labId }}>
                 Strains
               </Link>
-            </Typography>
+              {canSeeDeposits(role) && (
+                <>
+                  <Link to="/labs/$labId/deposits" params={{ labId }}>
+                    Deposits
+                  </Link>
+                  <Link to="/labs/$labId/depositors" params={{ labId }}>
+                    Depositors
+                  </Link>
+                  <Link to="/labs/$labId/mta-templates" params={{ labId }}>
+                    MTA templates
+                  </Link>
+                </>
+              )}
+            </Stack>
             <MemberTable labId={labId} labName={name} grantable={grantable} params={params} onOffsetChange={onOffsetChange} />
             {grantable.length > 0 && <AddMemberForm labId={labId} roles={grantable} />}
           </>
