@@ -2,6 +2,7 @@
 
 Date: 2026-10-18
 Status: accepted (#50)
+Amended 2026-10-19: terms, contacts and the intake (#10, #12).
 Deciders: maintainer
 
 ## Context
@@ -177,3 +178,80 @@ migration of every strain.
 Revisit when: the collection takes mixed cultures or consortia, a catalogue
 to import has a numbering this model cannot hold, or a lab needs taxa of its
 own.
+
+## Amendment 2026-10-19: terms, contacts and the intake (#10, #12)
+
+Decided with depositors and terms (#10) and deposit intake (#12).
+
+**D9 Terms are versions per deposit.** A deposit's terms are rows of
+`DepositTerms`, numbered from 1, at most one active per deposit (a partial
+unique index). A change adds a version with a reason and makes it the active
+one; the old version stays, unchanged. The uses are rows (`TermsUse`), one
+per use of D10, each `permit`, `deny` or `on_request`, and a version lists
+every use: "not stated" is no decision. A version may point at one MTA
+template version. MTA templates (`MtaTemplate`) are per lab, with a code and
+a version, and their text is frozen: a trigger refuses any change or delete
+and checks on insert that `text_sha256` is the SHA-256 of the stored text.
+A new text is a new version. A request line (#18) will keep the terms
+version it was approved under.
+
+**D10 Use vocabulary.** `research_noncommercial`, `research_commercial`,
+`teaching`, `diagnostics`, `production`, `reference_qc`,
+`patent_deposit_related`, `redistribution`, as a `TextChoices`. These are
+MTA permissions, not ABS utilisation (storage and culturing are not
+utilisation under Regulation (EU) No 511/2014, guidance 2021/C 13/01).
+To be confirmed with the curators before the first production data: a
+renamed or split use then needs a data migration of every terms version.
+
+**ABS facts are part of each terms version.** Following Regulation (EU) No
+511/2014, Art. 4(3): country of origin (ISO 3166-1 alpha-2), collection date
+(YYYY, YYYY-MM or YYYY-MM-DD), the scope (`not_in_scope`, `in_scope`,
+`unknown`), PIC and MAT references, the IRCC identifier and a permit
+reference. A check constraint: `in_scope` needs an IRCC identifier or a
+permit reference. They sit on the terms version rather than on the deposit
+row, so a correction is a new version with a reason and the facts passed to
+a recipient are one row to pin. The IRCC text is not checked against a
+format: none was verified.
+
+**D11 Contacts.** `deposits.Contact` holds the name, e-mail and postal
+address, is lab scoped and is listed in `NOT_ROW_AUDITED`. A depositor
+(`Depositor`, row audited) points at one contact and holds the institution,
+an organisation, not a person. Events about a depositor or a contact record
+a personal field as `changed` (`registry.PERSONAL_FIELDS`). Erasure
+(`contact_erase`, reason required, command `erase_contact` for staff) empties
+the contact row in place and sets `erased_at`; a check constraint holds the
+empty row. The depositor, its deposits and every audit row stay. Requesters
+(#18) will point at the same table.
+
+**D8 as built.** Deposit: `received` > `checking` > `accepted` or
+`rejected`, held by a guard trigger as well as the services. The receipt
+facts (depositor, received date, condition on arrival, name as received,
+the passage count the depositor states) never change. Rejection needs a
+reason and burns no number.
+- Changed from D8 above: the intake creates no pending strain. Acceptance
+  creates the strain through the strain service (`strain_create`), active
+  and numbered at once, with the name as received from the deposit, and
+  passage 0 from the deposit (D3, `lineage.Passage`). The taxon and the risk
+  group are only known after the check, and a pending strain would need a
+  placeholder for both. `pending` stays a valid status, unused for now.
+- The biosafety gates of #11 run at acceptance: risk group 4 is refused,
+  a VRAT or quarantine pest needs the lab's valid permit.
+- Direct creation leaves the API: the strain create endpoint is removed, and
+  "Add a strain" in the strain list leads to deposit intake. `strain_create`
+  stays for acceptance, the development data and the catalogue import.
+- Events about a deposit carry the strain from acceptance on.
+- `lineage.Passage` has a strain, a number, and exactly one source, the
+  deposit or a parent passage (`num_nonnulls(...) = 1`); passage 0 if and
+  only if the source is the deposit. The vial source comes with #16.
+
+**Who does what.** Curators and managers read and write depositors, deposits
+and terms (`deposits.view`, `deposits.manage`), and read MTA templates.
+Only managers publish an MTA version (`deposits.manage_mta`): its text is a
+legal document the lab signs up to, not daily curation. Viewers and
+technicians see no depositor or deposit, so contacts reach only the people
+who handle deposits.
+
+Migration impact: new tables only (`deposits_*`, `lineage_passage`), each
+with its row audit (except the contact) and guard triggers, the new event
+types in the reason check of `audit_auditevent`. The strain tables do not
+change.
