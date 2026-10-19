@@ -54,7 +54,7 @@ export function StrainFilters({ filters, onChange }: Props) {
       }}
       sx={{ mb: 3 }}
     >
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: { md: 'flex-start' }, flexWrap: 'wrap', rowGap: 2 }}>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ alignItems: { md: 'flex-start' }, flexWrap: 'wrap' }}>
         <TextField ref={textField} label="Number or name" type="search" autoComplete="off" value={text} onChange={(event) => setText(event.target.value)} />
         <Box sx={{ minWidth: { md: 260 } }}>
           <TaxonField
