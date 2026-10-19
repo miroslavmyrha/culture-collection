@@ -276,3 +276,39 @@ def test_a_grant_in_another_lab_counts_only_there(
     assert labs.holds_location_grant(lab_id=other_lab.pk, user=keeper) is False
     body = json.loads(logged_in(keeper).get(VIALS_URL).content)
     assert all(row["can_reveal"] for row in body["results"])
+
+
+def test_moving_a_regulated_vial_shows_neither_where_it_was_nor_where_it_went(
+    technician: User,
+    masked: list[Vial],
+    secret_box: StorageUnit,
+    tree: Tree,
+    plain: Vial,
+) -> None:
+    """A move by someone without the grant: no answer names the old place or the new one, a
+    refused move neither (the position of another vial is taken)."""
+    client = logged_in(technician)
+    url = f"{VIALS_URL}{masked[0].public_id}/place/"
+
+    def hides(response: Any) -> None:
+        text = response.content.decode()
+        assert not leaks(text, secret_box), text
+        assert str(tree.box.public_id) not in text and "Box 1" not in text, text
+        assert '"row"' not in text and '"col"' not in text, text
+
+    taken = client.post(
+        url, {"box": str(tree.box.public_id), "row": 1, "col": 1}, content_type="application/json"
+    )
+    assert_problem(taken, 409, "position_taken")  # the plain vial is in A1
+    hides(taken)
+    moved = client.post(
+        url, {"box": str(tree.box.public_id), "row": 5, "col": 5}, content_type="application/json"
+    )
+    assert moved.status_code == 200
+    hides(moved)
+    assert moved.json()["location"] is None
+    again = client.post(
+        url, {"box": str(tree.box.public_id), "row": 5, "col": 5}, content_type="application/json"
+    )
+    hides(again)
+    hides(client.get(f"{VIALS_URL}{masked[0].public_id}/"))

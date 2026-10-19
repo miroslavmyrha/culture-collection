@@ -366,6 +366,7 @@ test.describe('keyboard walk through every page', () => {
       'a:Depositors',
       'a:MTA templates',
       `button:Change role of ${username}`,
+      `button:Revoke regulated locations for ${username}`,
       `button:Remove ${username}`,
       'button:Previous',
       'button:Next',

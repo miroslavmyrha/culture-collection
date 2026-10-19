@@ -88,7 +88,7 @@ test('a manager removes a member with the keyboard only; the dialog passes axe a
 
   // From here on only keys.
   const trigger = page.getByRole('button', { name: 'Remove e2e-colleague' })
-  await page.getByRole('button', { name: 'Change role of e2e-colleague' }).focus()
+  await page.getByRole('button', { name: 'Grant regulated locations for e2e-colleague' }).focus()
   await page.keyboard.press('Tab')
   await expect(trigger).toBeFocused()
   await page.keyboard.press('Enter')
@@ -138,6 +138,6 @@ test('a manager removes a member with the keyboard only; the dialog passes axe a
   const next = members.getByRole('row').nth(1)
   await expect(next.getByRole('button', { name: /^Remove / })).toBeFocused()
   await page.keyboard.press('Shift+Tab')
-  await expect(next.getByRole('button', { name: /^Change role of / })).toBeFocused()
+  await expect(next.getByRole('button', { name: /regulated locations for / })).toBeFocused()
   expect(violations()).toEqual([])
 })
