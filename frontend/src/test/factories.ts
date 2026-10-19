@@ -189,3 +189,41 @@ export function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
     ...overrides,
   }
 }
+
+export type UnitRow = Schemas['UnitOutput']
+export type Unit = Schemas['UnitDetailOutput']
+export type BoxType = Schemas['BoxTypeOutput']
+
+export function makeBoxType(overrides: Partial<BoxType> = {}): BoxType {
+  const n = next()
+  return { public_id: uuid(n), name: `Cryobox ${n}`, rows: 9, cols: 9, ...overrides }
+}
+
+/** A freezer by default; a rack or box needs `parent`, a box also its size. */
+export function makeUnitRow(overrides: Partial<UnitRow> = {}): UnitRow {
+  const n = next()
+  const at = new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString()
+  return {
+    public_id: uuid(n),
+    kind: 'freezer',
+    name: `Freezer ${n}`,
+    parent: null,
+    slot: null,
+    barcode: null,
+    status: 'active',
+    box_type: null,
+    rows: null,
+    cols: null,
+    temperature_c: null,
+    max_risk_group: 2,
+    effective_max_risk_group: 2,
+    path_active: true,
+    created_at: at,
+    retired_at: null,
+    ...overrides,
+  }
+}
+
+export function makeUnit(overrides: Partial<Unit> = {}): Unit {
+  return { ...makeUnitRow(), ancestors: [], children: [], ...overrides }
+}

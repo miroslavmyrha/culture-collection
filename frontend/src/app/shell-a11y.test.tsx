@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { allowConsole } from '@/test/console'
-import { makeDeposit, makeLab, makeMe, makeMember, makeMtaTemplate, makeStrain, makeStrainRow, page, problem } from '@/test/factories'
+import { makeDeposit, makeLab, makeMe, makeMember, makeMtaTemplate, makeStrain, makeStrainRow, makeUnit, makeUnitRow, page, problem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
@@ -15,6 +15,9 @@ const MTAS = '/api/v1/labs/{lab_public_id}/mta-templates/'
 const MTA = '/api/v1/labs/{lab_public_id}/mta-templates/{public_id}/'
 const DEPOSITS = '/api/v1/labs/{lab_public_id}/deposits/'
 const DEPOSIT = '/api/v1/labs/{lab_public_id}/deposits/{public_id}/'
+const UNITS = '/api/v1/labs/{lab_public_id}/storage-units/'
+const UNIT = '/api/v1/labs/{lab_public_id}/storage-units/{public_id}/'
+const UNIT_ID = '00000000-0000-4000-8000-0000000000b1'
 const signedIn = (username = 'lab-tech') => void mockApi('get', '/api/v1/auth/me/', makeMe({ username }))
 const lab = (overrides = {}) => mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', ...overrides }))
 const members = (count = 1) => mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([makeMember()], { count }))
@@ -64,6 +67,11 @@ describe('page titles (WCAG 2.4.2)', () => {
     [`/labs/${LAB_ID}/deposits/${STRAIN_ID}`, 'Deposit not found', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', DEPOSIT, 404, problem(404)))],
     [`/labs/${LAB_ID}/deposits/${STRAIN_ID}`, 'Could not load the deposit', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', DEPOSIT, 500))],
     [`/labs/${LAB_ID}/deposits/${STRAIN_ID}`, 'Deposit', () => (signedIn(), lab({ my_role: 'viewer' }), mockApiError('get', DEPOSIT, 404, problem(404)))],
+    [`/labs/${LAB_ID}/storage`, 'Storage of Mycology', () => (signedIn(), lab(), mockApi('get', UNITS, [makeUnitRow()]))],
+    [`/labs/${LAB_ID}/storage`, 'Lab not found', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApi('get', UNITS, []))],
+    [`/labs/${LAB_ID}/storage/${UNIT_ID}`, 'Box 1 in Rack 1', () => (signedIn(), lab(), mockApi('get', UNIT, makeUnit({ public_id: UNIT_ID, name: 'Box 1', ancestors: [{ public_id: UNIT_ID.replace('b1', 'a1'), kind: 'rack', name: 'Rack 1' }] })))],
+    [`/labs/${LAB_ID}/storage/${UNIT_ID}`, 'Unit not found', () => (signedIn(), lab(), mockApiError('get', UNIT, 404, problem(404)))],
+    [`/labs/${LAB_ID}/storage/${UNIT_ID}`, 'Could not load the unit', () => (signedIn(), lab(), mockApiError('get', UNIT, 500))],
     ['/no-such-page', 'Page not found', () => undefined],
   ])('%s shows "%s | Culture collection"', async (path, title, setup) => {
     allowConsole(/API error 500/)

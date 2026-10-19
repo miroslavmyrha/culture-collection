@@ -364,6 +364,7 @@ test.describe('keyboard walk through every page', () => {
       'a:Labs',
       'button:Sign out',
       'a:Strains',
+      'a:Storage',
       'a:Deposits',
       'a:Depositors',
       'a:MTA templates',
