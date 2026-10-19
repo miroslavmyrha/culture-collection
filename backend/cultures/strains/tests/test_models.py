@@ -50,32 +50,28 @@ def raw_strain(lab: Lab, taxon: Taxon, **fields: Any) -> Strain:
 
 
 def test_accession_numbers_are_unique_per_lab_ignoring_case(
-    lab: Lab, other_lab: Lab, subtilis: Taxon
+    lab: Lab, other_lab: Lab, exempli: Taxon
 ) -> None:
-    raw_strain(lab, subtilis, accession_number="MYC 1234a", accession_seq=None)
+    raw_strain(lab, exempli, accession_number="MYC 1234a", accession_seq=None)
     with refused("strains_strain_accession_number_uniq"), transaction.atomic():
-        raw_strain(lab, subtilis, accession_number="myc 1234A", accession_seq=None)
-    raw_strain(other_lab, subtilis, accession_number="MYC 1234a", accession_seq=None)  # another lab
+        raw_strain(lab, exempli, accession_number="myc 1234A", accession_seq=None)
+    raw_strain(other_lab, exempli, accession_number="MYC 1234a", accession_seq=None)  # another lab
 
 
-def test_sequences_are_unique_per_lab(lab: Lab, other_lab: Lab, subtilis: Taxon) -> None:
-    raw_strain(lab, subtilis, accession_number="MYC 7", accession_seq=7)
+def test_sequences_are_unique_per_lab(lab: Lab, other_lab: Lab, exempli: Taxon) -> None:
+    raw_strain(lab, exempli, accession_number="MYC 7", accession_seq=7)
     with refused("strains_strain_lab_accession_seq_uniq"), transaction.atomic():
-        raw_strain(lab, subtilis, accession_number="MYC 7b", accession_seq=7)
-    raw_strain(other_lab, subtilis, accession_number="BAC 7", accession_seq=7)
+        raw_strain(lab, exempli, accession_number="MYC 7b", accession_seq=7)
+    raw_strain(other_lab, exempli, accession_number="BAC 7", accession_seq=7)
 
 
 def test_legacy_and_pending_strains_have_no_sequence_and_do_not_collide(
-    lab: Lab, subtilis: Taxon
+    lab: Lab, exempli: Taxon
 ) -> None:
-    raw_strain(lab, subtilis, accession_number="MYC 12a", accession_seq=None)
-    raw_strain(lab, subtilis, accession_number="MYC 12b", accession_seq=None)
-    raw_strain(
-        lab, subtilis, accession_number=None, accession_seq=None, status=StrainStatus.PENDING
-    )
-    raw_strain(
-        lab, subtilis, accession_number=None, accession_seq=None, status=StrainStatus.PENDING
-    )
+    raw_strain(lab, exempli, accession_number="MYC 12a", accession_seq=None)
+    raw_strain(lab, exempli, accession_number="MYC 12b", accession_seq=None)
+    raw_strain(lab, exempli, accession_number=None, accession_seq=None, status=StrainStatus.PENDING)
+    raw_strain(lab, exempli, accession_number=None, accession_seq=None, status=StrainStatus.PENDING)
     assert Strain.objects.filter(accession_seq__isnull=True).count() == 4
 
 
@@ -96,7 +92,7 @@ def test_legacy_and_pending_strains_have_no_sequence_and_do_not_collide(
         ({"status": StrainStatus.PENDING}, "strains_strain_numbered_unless_pending"),
         ({"status": "lost"}, "strains_strain_numbered_unless_pending"),
         ({"name_as_received": ""}, "strains_strain_name_as_received_trimmed"),
-        ({"name_as_received": "B. subtilis "}, "strains_strain_name_as_received_trimmed"),
+        ({"name_as_received": "T. exempli "}, "strains_strain_name_as_received_trimmed"),
         ({"risk_group": 0}, "strains_strain_risk_group_1_to_4"),
         ({"risk_group": 5}, "strains_strain_risk_group_1_to_4"),
         ({"animal_pathogenicity": "harmless"}, "strains_strain_pathogenicity_valid"),
@@ -110,31 +106,31 @@ def test_legacy_and_pending_strains_have_no_sequence_and_do_not_collide(
     ],
 )
 def test_a_strain_row_that_cannot_be_true_is_refused(
-    lab: Lab, subtilis: Taxon, fields: dict[str, Any], constraint: str
+    lab: Lab, exempli: Taxon, fields: dict[str, Any], constraint: str
 ) -> None:
     with refused(constraint), transaction.atomic():
-        raw_strain(lab, subtilis, **fields)
+        raw_strain(lab, exempli, **fields)
 
 
 @pytest.mark.parametrize("risk_group", [1, 2, 3, 4])
-def test_risk_groups_one_to_four_are_stored(lab: Lab, subtilis: Taxon, risk_group: int) -> None:
+def test_risk_groups_one_to_four_are_stored(lab: Lab, exempli: Taxon, risk_group: int) -> None:
     """4 is a valid fact for the database; the services refuse it at accession (ADR 0009)."""
-    assert raw_strain(lab, subtilis, risk_group=risk_group).risk_group == risk_group
+    assert raw_strain(lab, exempli, risk_group=risk_group).risk_group == risk_group
 
 
 @pytest.mark.parametrize("value", ["", "2019", "2019-05", "2019-05-31", "CZ"])
-def test_origin_values_that_are_allowed(lab: Lab, subtilis: Taxon, value: str) -> None:
+def test_origin_values_that_are_allowed(lab: Lab, exempli: Taxon, value: str) -> None:
     field = "country_of_origin" if value == "CZ" else "isolation_date"
-    raw_strain(lab, subtilis, **{field: value})
+    raw_strain(lab, exempli, **{field: value})
 
 
-def test_one_current_identification_per_strain(make_strain: MakeStrain, coli: Taxon) -> None:
+def test_one_current_identification_per_strain(make_strain: MakeStrain, mockia: Taxon) -> None:
     strain = make_strain()
     with refused("strains_identification_one_current"), transaction.atomic():
         StrainIdentification.objects.create(
             lab=strain.lab,
             strain=strain,
-            taxon=coli,
+            taxon=mockia,
             identified_on=date(2026, 2, 1),
             method="m",
             reason="r",
@@ -143,7 +139,7 @@ def test_one_current_identification_per_strain(make_strain: MakeStrain, coli: Ta
     StrainIdentification.objects.create(
         lab=strain.lab,
         strain=strain,
-        taxon=coli,
+        taxon=mockia,
         identified_on=date(2026, 2, 1),
         method="m",
         reason="r",
@@ -159,7 +155,7 @@ def test_one_current_identification_per_strain(make_strain: MakeStrain, coli: Ta
     ],
 )
 def test_an_identification_says_how_and_why(
-    make_strain: MakeStrain, coli: Taxon, fields: dict[str, Any], constraint: str
+    make_strain: MakeStrain, mockia: Taxon, fields: dict[str, Any], constraint: str
 ) -> None:
     strain = make_strain()
     values: dict[str, Any] = {"method": "m", "reason": "r", **fields}
@@ -167,7 +163,7 @@ def test_an_identification_says_how_and_why(
         StrainIdentification.objects.create(
             lab=strain.lab,
             strain=strain,
-            taxon=coli,
+            taxon=mockia,
             identified_on=date(2026, 2, 1),
             is_current=False,
             **values,
@@ -255,9 +251,9 @@ def test_the_counter_never_goes_below_zero(lab: Lab) -> None:
 # The guards (migration 0003): what no writer may change, the owner included.
 
 
-def test_a_strain_is_never_deleted(lab: Lab, subtilis: Taxon) -> None:
+def test_a_strain_is_never_deleted(lab: Lab, exempli: Taxon) -> None:
     """Raw SQL on a strain nothing points at: Django's PROTECT never gets a say."""
-    strain = raw_strain(lab, subtilis)
+    strain = raw_strain(lab, exempli)
     with guarded("strains are never deleted"), transaction.atomic(), connection.cursor() as cursor:
         cursor.execute("DELETE FROM strains_strain WHERE id = %s", [strain.pk])
     assert Strain.objects.filter(pk=strain.pk).exists()
@@ -281,12 +277,12 @@ def test_identity_never_changes(
     with guarded(message), transaction.atomic():
         Strain.objects.filter(pk=strain.pk).update(**values)
     strain.refresh_from_db()
-    assert (strain.accession_number, strain.name_as_received) == ("MYC 1", "Bacillus subtilis 168")
+    assert (strain.accession_number, strain.name_as_received) == ("MYC 1", "Testella exempli T1")
 
 
-def test_a_pending_strain_gets_its_number_once(lab: Lab, subtilis: Taxon) -> None:
+def test_a_pending_strain_gets_its_number_once(lab: Lab, exempli: Taxon) -> None:
     pending = raw_strain(
-        lab, subtilis, accession_number=None, accession_seq=None, status=StrainStatus.PENDING
+        lab, exempli, accession_number=None, accession_seq=None, status=StrainStatus.PENDING
     )
     Strain.objects.filter(pk=pending.pk).update(
         accession_number="MYC 3", accession_seq=3, status=StrainStatus.ACTIVE
@@ -302,10 +298,10 @@ def test_other_strain_fields_may_change(make_strain: MakeStrain) -> None:
     assert (strain.risk_group, strain.isolation_source) == (2, "soil")
 
 
-def test_an_identification_only_stops_being_current(make_strain: MakeStrain, coli: Taxon) -> None:
+def test_an_identification_only_stops_being_current(make_strain: MakeStrain, mockia: Taxon) -> None:
     current = StrainIdentification.objects.get(strain=make_strain())
     for change in (
-        {"taxon": coli},
+        {"taxon": mockia},
         {"method": "other"},
         {"reason": "other"},
         {"identified_on": date(2020, 1, 1)},

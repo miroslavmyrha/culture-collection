@@ -93,7 +93,7 @@ def test_two_accessions_at_once_get_two_numbers(
     lab: Lab,
     curator: User,
     manager: User,
-    subtilis: Taxon,
+    exempli: Taxon,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """With no counter row yet (the lab's first strain) and with one that exists."""
@@ -101,14 +101,14 @@ def test_two_accessions_at_once_get_two_numbers(
         for _ in range(earlier):
             with audit_context(channel=Channel.API, actor=curator):
                 services.strain_create(
-                    access=access_for(curator), lab=lab, data=new_strain(subtilis)
+                    access=access_for(curator), lab=lab, data=new_strain(exempli)
                 )
 
     def accession(actor: User) -> tuple[User, Callable[[], object]]:
         return actor, lambda: services.strain_create(
             access=access_for(actor),
             lab=lab,
-            data=new_strain(subtilis, name_as_received=f"by {actor.username}"),
+            data=new_strain(exempli, name_as_received=f"by {actor.username}"),
         )
 
     outcomes = race(monkeypatch, [accession(curator), accession(manager)])

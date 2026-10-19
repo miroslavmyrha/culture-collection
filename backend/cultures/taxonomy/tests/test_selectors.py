@@ -17,44 +17,42 @@ def below(taxon: Taxon) -> set[str]:
 
 
 def test_a_genus_reaches_its_species_their_subspecies_and_their_synonyms(
-    bacillus: Taxon, subtilis: Taxon, spizizenii: Taxon, vibrio_subtilis: Taxon, coli: Taxon
+    testella: Taxon, exempli: Taxon, alpha: Taxon, fictivibrio: Taxon, mockia: Taxon
 ) -> None:
-    assert below(bacillus) == {
-        "Bacillus",
-        "Bacillus subtilis",
-        "Bacillus subtilis subsp. spizizenii",
-        "Vibrio subtilis",
+    assert below(testella) == {
+        "Testella",
+        "Testella exempli",
+        "Testella exempli subsp. alpha",
+        "Fictivibrio exempli",
     }
 
 
 def test_a_species_reaches_its_subspecies_and_synonyms_but_not_its_genus(
-    bacillus: Taxon, subtilis: Taxon, spizizenii: Taxon, vibrio_subtilis: Taxon
+    testella: Taxon, exempli: Taxon, alpha: Taxon, fictivibrio: Taxon
 ) -> None:
-    assert below(subtilis) == {
-        "Bacillus subtilis",
-        "Bacillus subtilis subsp. spizizenii",
-        "Vibrio subtilis",
+    assert below(exempli) == {
+        "Testella exempli",
+        "Testella exempli subsp. alpha",
+        "Fictivibrio exempli",
     }
 
 
 def test_a_synonym_means_its_accepted_taxon(
-    subtilis: Taxon, spizizenii: Taxon, vibrio_subtilis: Taxon
+    exempli: Taxon, alpha: Taxon, fictivibrio: Taxon
 ) -> None:
-    assert below(vibrio_subtilis) == below(subtilis)
+    assert below(fictivibrio) == below(exempli)
 
 
-def test_a_synonym_of_a_subspecies_is_reached_from_the_genus(
-    bacillus: Taxon, spizizenii: Taxon
-) -> None:
-    make_synonym("Bacillus spizizenii", Rank.SPECIES, spizizenii)
-    assert "Bacillus spizizenii" in below(bacillus)
+def test_a_synonym_of_a_subspecies_is_reached_from_the_genus(testella: Taxon, alpha: Taxon) -> None:
+    make_synonym("Testella alpha", Rank.SPECIES, alpha)
+    assert "Testella alpha" in below(testella)
 
 
 def test_the_walk_ends_on_a_cycle_made_outside_the_services(
-    bacillus: Taxon, subtilis: Taxon
+    testella: Taxon, exempli: Taxon
 ) -> None:
-    Taxon.objects.filter(pk=bacillus.pk).update(parent=subtilis)  # ranks no longer fall
-    assert below(bacillus) == {"Bacillus", "Bacillus subtilis"}
+    Taxon.objects.filter(pk=testella.pk).update(parent=exempli)  # ranks no longer fall
+    assert below(testella) == {"Testella", "Testella exempli"}
 
 
 def search(text: str) -> list[str]:
@@ -64,16 +62,16 @@ def search(text: str) -> list[str]:
 
 
 def test_search_finds_names_containing_the_text_starting_ones_first(
-    bacillus: Taxon, subtilis: Taxon, vibrio_subtilis: Taxon, coli: Taxon
+    testella: Taxon, exempli: Taxon, fictivibrio: Taxon, mockia: Taxon
 ) -> None:
-    make_taxon("Paenibacillus", Rank.GENUS)
-    assert search("bacillus") == ["Bacillus", "Bacillus subtilis", "Paenibacillus"]
-    assert search("  SUBTILIS ") == ["Bacillus subtilis", "Vibrio subtilis"]
+    make_taxon("Paratestella", Rank.GENUS)
+    assert search("testella") == ["Testella", "Testella exempli", "Paratestella"]
+    assert search("  EXEMPLI ") == ["Fictivibrio exempli", "Testella exempli"]
     assert search("") == [
-        "Bacillus",
-        "Bacillus subtilis",
-        "Escherichia",
-        "Escherichia coli",
-        "Paenibacillus",
-        "Vibrio subtilis",
+        "Fictivibrio exempli",
+        "Mockia",
+        "Mockia vulgaris",
+        "Paratestella",
+        "Testella",
+        "Testella exempli",
     ]

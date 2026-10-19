@@ -37,16 +37,16 @@ def taxon_form(**values: Any) -> dict[str, Any]:
 
 
 def test_staff_add_a_species_with_an_ncbi_id(
-    admin_client: Client, staff: User, bacillus: Taxon
+    admin_client: Client, staff: User, testella: Taxon
 ) -> None:
     body = {
-        **taxon_form(name="Bacillus cereus", parent=bacillus.pk),
+        **taxon_form(name="Testella cerea", parent=testella.pk),
         **inline([{"system": "ncbi", "value": "1396"}]),
     }
     response = admin_client.post(reverse("admin:taxonomy_taxon_add"), body)
     assert response.status_code == 302, response.content
-    taxon = Taxon.objects.get(name="Bacillus cereus")
-    assert (taxon.parent, taxon.status) == (bacillus, TaxonStatus.ACCEPTED)
+    taxon = Taxon.objects.get(name="Testella cerea")
+    assert (taxon.parent, taxon.status) == (testella, TaxonStatus.ACCEPTED)
     assert list(taxon.identifiers.values_list("system", "value")) == [("ncbi", "1396")]
     events = list(AuditEvent.objects.order_by("pk").values_list("event_type", "channel", "actor"))
     assert events == [
@@ -56,11 +56,11 @@ def test_staff_add_a_species_with_an_ncbi_id(
 
 
 def test_a_broken_rule_is_a_form_error_and_saves_nothing(
-    admin_client: Client, subtilis: Taxon
+    admin_client: Client, exempli: Taxon
 ) -> None:
     response = admin_client.post(
         reverse("admin:taxonomy_taxon_add"),
-        {**taxon_form(name="Bacillus", rank="genus", parent=subtilis.pk), **inline([])},
+        {**taxon_form(name="Testella", rank="genus", parent=exempli.pk), **inline([])},
     )
     assert response.status_code == 200
     assert "must rank above a genus" in response.content.decode()
@@ -69,14 +69,14 @@ def test_a_broken_rule_is_a_form_error_and_saves_nothing(
 
 
 def test_staff_make_a_name_a_synonym_and_replace_its_id(
-    admin_client: Client, staff: User, bacillus: Taxon, coli: Taxon
+    admin_client: Client, staff: User, testella: Taxon, mockia: Taxon
 ) -> None:
     old = Taxon.objects.create(
-        name="Bacillus coli", rank="species", parent=bacillus, status=TaxonStatus.ACCEPTED
+        name="Testella vulgaris", rank="species", parent=testella, status=TaxonStatus.ACCEPTED
     )
     ident = TaxonIdentifier.objects.create(taxon=old, system="lpsn", value="old")
     body = {
-        **taxon_form(name="Bacillus coli", authority="Migula 1895", accepted=coli.pk),
+        **taxon_form(name="Testella vulgaris", authority="Poe 1980", accepted=mockia.pk),
         **inline([{"id": ident.pk, "taxon": old.pk, "system": "lpsn", "value": "new"}], initial=1),
     }
     response = admin_client.post(reverse("admin:taxonomy_taxon_change", args=[old.pk]), body)
@@ -84,9 +84,9 @@ def test_staff_make_a_name_a_synonym_and_replace_its_id(
     old.refresh_from_db()
     assert (old.status, old.accepted, old.parent, old.authority) == (
         TaxonStatus.SYNONYM,
-        coli,
+        mockia,
         None,
-        "Migula 1895",
+        "Poe 1980",
     )
     assert list(old.identifiers.values_list("value", flat=True)) == ["new"]
     assert list(AuditEvent.objects.order_by("pk").values_list("event_type", flat=True)) == [
@@ -96,9 +96,9 @@ def test_staff_make_a_name_a_synonym_and_replace_its_id(
     ]
 
 
-def test_the_admin_offers_no_delete(admin_client: Client, subtilis: Taxon) -> None:
+def test_the_admin_offers_no_delete(admin_client: Client, exempli: Taxon) -> None:
     response = admin_client.post(
-        reverse("admin:taxonomy_taxon_delete", args=[subtilis.pk]), {"post": "yes"}
+        reverse("admin:taxonomy_taxon_delete", args=[exempli.pk]), {"post": "yes"}
     )
     assert response.status_code == 403
-    assert Taxon.objects.filter(pk=subtilis.pk).exists()
+    assert Taxon.objects.filter(pk=exempli.pk).exists()

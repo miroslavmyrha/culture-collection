@@ -32,7 +32,7 @@ class Call:
         bodies: dict[str, dict[str, Any]] = {
             "create": {
                 "taxon": str(taxon.public_id),
-                "name_as_received": "B. subtilis new",
+                "name_as_received": "T. exempli new",
                 "identified_on": "2026-02-01",
                 "identification_method": "16S",
                 "risk_group": 1,
@@ -95,9 +95,9 @@ def send(user: User | None, call: Call, taxon: Taxon) -> Any:
 
 
 @pytest.mark.parametrize("call", CALLS, ids=lambda c: c.name)
-def test_anonymous_gets_401(call: Call, strain: Strain, coli: Taxon) -> None:
+def test_anonymous_gets_401(call: Call, strain: Strain, mockia: Taxon) -> None:
     before = state()
-    response = send(None, call, coli)
+    response = send(None, call, mockia)
     assert_problem(response, 401, "not_authenticated")
     assert response.has_header("WWW-Authenticate")
     assert state() == before
@@ -105,20 +105,20 @@ def test_anonymous_gets_401(call: Call, strain: Strain, coli: Taxon) -> None:
 
 @pytest.mark.parametrize("call", CALLS, ids=lambda c: c.name)
 def test_a_member_of_another_lab_gets_404_for_everything(
-    call: Call, strain: Strain, outsider: User, coli: Taxon
+    call: Call, strain: Strain, outsider: User, mockia: Taxon
 ) -> None:
     before = state()
-    assert_problem(send(outsider, call, coli), 404, "not_found")
+    assert_problem(send(outsider, call, mockia), 404, "not_found")
     assert state() == before
 
 
 @pytest.mark.parametrize("call", CALLS, ids=lambda c: c.name)
 @pytest.mark.parametrize("role", list(ALLOWED))
 def test_each_role_may_do_what_its_permissions_say(
-    call: Call, role: Role, strain: Strain, team: dict[Role, User], coli: Taxon
+    call: Call, role: Role, strain: Strain, team: dict[Role, User], mockia: Taxon
 ) -> None:
     before = state()
-    response = send(team[role], call, coli)
+    response = send(team[role], call, mockia)
     if not call.write:
         assert response.status_code == 200, response.content
         return
@@ -133,13 +133,13 @@ def test_each_role_may_do_what_its_permissions_say(
 
 @pytest.mark.parametrize("call", [c for c in CALLS if c.write], ids=lambda c: c.name)
 def test_a_curator_elsewhere_is_only_what_they_are_here(
-    call: Call, strain: Strain, other_lab: Lab, coli: Taxon
+    call: Call, strain: Strain, other_lab: Lab, mockia: Taxon
 ) -> None:
     """Curator in BAC, viewer in MYC: MYC's strains are read-only for them (the role per lab)."""
     two_labs = member_of(other_lab, Role.CURATOR, "two-labs")
     Membership.objects.create(user=two_labs, lab=strain.lab, role=Role.VIEWER)
     before = state()
-    assert_problem(send(two_labs, call, coli), 403, "permission_denied")
+    assert_problem(send(two_labs, call, mockia), 403, "permission_denied")
     assert state() == before
 
 

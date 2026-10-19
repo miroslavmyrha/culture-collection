@@ -36,7 +36,7 @@ def seed() -> str:
 def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
     assert seed() == (
         "e2e-user manages E2E lab; e2e-curator and e2e-viewer are its curator and viewer;"
-        " e2e-colleague is in no lab; 6 taxa\n"
+        " e2e-colleague is in no lab; 8 taxa\n"
     )
     user = User.objects.get(username="e2e-user")
     lab = Lab.objects.get(code=LAB_CODE)
@@ -71,6 +71,8 @@ def test_its_writes_are_audited_as_the_command() -> None:
         *["taxon_created", "taxon_identifier_added"] * 2,
         "taxon_created",
         *["taxon_created", "taxon_identifier_added"] * 2,
+        "taxon_created",
+        "taxon_created",
         "taxon_created",
     ]
     assert {(e.channel, e.actor_kind, e.actor_label, e.actor_id) for e in events} == {

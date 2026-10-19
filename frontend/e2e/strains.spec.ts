@@ -2,7 +2,9 @@ import { type Browser, type BrowserContext, expect, type Page, test } from '@pla
 import { axe, password, watchCsp } from './support.js'
 
 // The strain registry against the real API (seed_e2e: e2e-curator and e2e-viewer in "E2E lab",
-// a few taxa, no permits). Each run adds one strain: numbers are never reused and strains are
+// a few taxa, no permits). Real organisms appear only with facts that hold for them (B. subtilis
+// is risk group 1; a lab strain may be a GMO); the permit gate is tried on the invented
+// Testella exempli, so no real organism is entered with a legal status it does not have. Each run adds one strain: numbers are never reused and strains are
 // never deleted, so the tests find theirs by a name made unique per run. One sign-in per role
 // for the whole file: the login throttle allows 10 a minute.
 
@@ -71,8 +73,8 @@ test('a curator adds a strain with the keyboard alone and finds it in the list a
   await page.keyboard.press('Tab')
   const risk = form.getByRole('combobox', { name: 'Risk group' })
   await expect(risk).toBeFocused()
-  await page.keyboard.type('2') // a native select picks the option by its text
-  await expect(risk).toHaveValue('2')
+  await page.keyboard.type('1') // a native select picks the option by its text
+  await expect(risk).toHaveValue('1')
   await page.keyboard.press('Tab')
   await page.keyboard.press('Tab')
   await page.keyboard.press('Tab')
@@ -89,13 +91,15 @@ test('a curator adds a strain with the keyboard alone and finds it in the list a
   const restriction = form.getByRole('group', { name: 'Restriction 1' })
   const kind = restriction.getByRole('combobox', { name: 'Kind' })
   await kind.focus()
-  await page.keyboard.type('Dual')
-  await expect(kind).toHaveValue('dual_use')
+  await page.keyboard.type('GMO')
+  await expect(kind).toHaveValue('gmo')
   await page.keyboard.press('Tab')
-  await page.keyboard.type('1C351.c')
+  await page.keyboard.type(`Notification e2e ${RUN}`)
   await page.keyboard.press('Tab')
-  await expect(restriction.getByRole('textbox', { name: 'Act Annex I was read in' })).toBeFocused()
-  await page.keyboard.type('(EU) 2025/2003')
+  const category = restriction.getByRole('combobox', { name: 'Contained use category' })
+  await expect(category).toBeFocused()
+  await page.keyboard.type('I')
+  await expect(category).toHaveValue('1')
   await form.getByRole('button', { name: 'Add strain' }).focus()
   await page.keyboard.press('Enter')
 
@@ -105,7 +109,7 @@ test('a curator adds a strain with the keyboard alone and finds it in the list a
   const number = (await heading.textContent()) ?? ''
   await expect(page).toHaveTitle(`${number} | Culture collection`)
   await expect(page.getByText(`B. subtilis e2e ${RUN}`)).toBeVisible()
-  await expect(page.getByRole('table', { name: 'Current restrictions' })).toContainText('1C351.c (read in (EU) 2025/2003)')
+  await expect(page.getByRole('table', { name: 'Current restrictions' })).toContainText(`Notification e2e ${RUN}, category I`)
   await expect(page.getByRole('table', { name: 'Identification history' })).toContainText('Identification at accession')
 
   // In the list, found by its own name.
@@ -116,7 +120,7 @@ test('a curator adds a strain with the keyboard alone and finds it in the list a
   await expect(page).toHaveURL(new RegExp(`search=${RUN}`))
   const row = page.getByRole('row', { name: new RegExp(RUN) })
   await expect(row.getByRole('link', { name: number })).toBeVisible()
-  await expect(row).toContainText('Dual-use item')
+  await expect(row).toContainText('GMO in contained use')
   expect(violations()).toEqual([])
   await close()
 })
@@ -126,8 +130,8 @@ test('a VRAT strain is refused while the lab holds no SÚJB permit, and nothing 
   await openStrains(page)
   await page.getByRole('link', { name: 'Add a strain' }).click()
   const form = page.getByRole('form', { name: 'Add a strain' })
-  await form.getByRole('combobox', { name: 'Taxon' }).fill('coli')
-  await page.getByRole('option', { name: /Escherichia coli/ }).click()
+  await form.getByRole('combobox', { name: 'Taxon' }).fill('exempli')
+  await page.getByRole('option', { name: /Testella exempli/ }).click()
   await form.getByRole('textbox', { name: 'Name as received' }).fill(`refused ${RUN}`)
   await form.getByRole('textbox', { name: 'Identification method' }).fill('MALDI-TOF MS')
   await form.getByRole('combobox', { name: 'Risk group' }).selectOption('2')

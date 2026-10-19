@@ -64,13 +64,13 @@ def create(access: Access, lab: Lab, taxon: Taxon, **changes: Any) -> Strain:
 
 
 def test_a_curator_accessions_a_strain_with_its_first_identification(
-    as_curator: AuditContext, curator: User, curator_access: Access, lab: Lab, subtilis: Taxon
+    as_curator: AuditContext, curator: User, curator_access: Access, lab: Lab, exempli: Taxon
 ) -> None:
     strain = create(
         curator_access,
         lab,
-        subtilis,
-        name_as_received="  Bacillus  subtilis 168 ",
+        exempli,
+        name_as_received="  Testella  exempli T1 ",
         risk_group=2,
         animal_pathogenicity=Pathogenicity.NONE_KNOWN,
         plant_pathogenicity=Pathogenicity.UNKNOWN,
@@ -86,8 +86,8 @@ def test_a_curator_accessions_a_strain_with_its_first_identification(
         StrainStatus.ACTIVE,
     )
     assert (strain.name_as_received, strain.taxon, strain.risk_group) == (
-        "Bacillus subtilis 168",
-        subtilis,
+        "Testella exempli T1",
+        exempli,
         2,
     )
     assert (strain.country_of_origin, strain.isolation_date, strain.isolation_source) == (
@@ -102,7 +102,7 @@ def test_a_curator_accessions_a_strain_with_its_first_identification(
         identification.method,
         identification.reason,
     ) == (
-        subtilis,
+        exempli,
         True,
         "16S rRNA gene sequence",
         "Identification at accession",
@@ -126,8 +126,8 @@ def test_a_curator_accessions_a_strain_with_its_first_identification(
     assert event.changes == {
         "accession_number": [None, "MYC 1"],
         "status": [None, "active"],
-        "name_as_received": [None, "Bacillus subtilis 168"],
-        "taxon": [None, str(subtilis.public_id)],
+        "name_as_received": [None, "Testella exempli T1"],
+        "taxon": [None, str(exempli.public_id)],
         "risk_group": [None, 2],
         "animal_pathogenicity": [None, "none_known"],
         "plant_pathogenicity": [None, "unknown"],
@@ -179,22 +179,22 @@ def test_a_refused_accession_burns_no_number(
     as_curator: AuditContext,
     curator_access: Access,
     lab: Lab,
-    subtilis: Taxon,
+    exempli: Taxon,
     make_strain: MakeStrain,
 ) -> None:
     with pytest.raises(AuthorisationRequired):
-        create(curator_access, lab, subtilis, restrictions=[VRAT])
+        create(curator_access, lab, exempli, restrictions=[VRAT])
     assert make_strain().accession_number == "MYC 1"
 
 
 @pytest.mark.parametrize("risk_group", [4])
 def test_a_risk_group_4_agent_is_refused_on_its_field(
-    as_curator: AuditContext, curator_access: Access, lab: Lab, subtilis: Taxon, risk_group: int
+    as_curator: AuditContext, curator_access: Access, lab: Lab, exempli: Taxon, risk_group: int
 ) -> None:
     error = refused(
         services.RiskGroupRefused,
         "risk_group_4_refused",
-        lambda: create(curator_access, lab, subtilis, risk_group=risk_group),
+        lambda: create(curator_access, lab, exempli, risk_group=risk_group),
         attr="risk_group",
     )
     assert error.status_code == 400
@@ -260,14 +260,14 @@ def test_bad_input_is_a_field_error_and_changes_nothing(
     as_curator: AuditContext,
     curator_access: Access,
     lab: Lab,
-    subtilis: Taxon,
+    exempli: Taxon,
     changes: dict[str, Any],
     attr: str,
 ) -> None:
     refused(
         services.InvalidStrain,
         "invalid",
-        lambda: create(curator_access, lab, subtilis, **changes),
+        lambda: create(curator_access, lab, exempli, **changes),
         attr=attr,
     )
 
@@ -284,12 +284,12 @@ def test_a_vrat_or_quarantine_strain_enters_with_a_valid_permit(
     as_curator: AuditContext,
     curator_access: Access,
     lab: Lab,
-    subtilis: Taxon,
+    exempli: Taxon,
     restriction: RestrictionInput,
     kind: AuthorisationKind,
 ) -> None:
     make_permit(lab, kind)
-    strain = create(curator_access, lab, subtilis, restrictions=[restriction])
+    strain = create(curator_access, lab, exempli, restrictions=[restriction])
     assert StrainRestriction.objects.get(strain=strain).kind == kind
 
 
@@ -310,7 +310,7 @@ def test_without_a_valid_permit_of_its_kind_in_its_lab_the_strain_is_refused(
     curator_access: Access,
     lab: Lab,
     other_lab: Lab,
-    subtilis: Taxon,
+    exempli: Taxon,
     permit: str,
 ) -> None:
     today = permit_today()
@@ -330,17 +330,17 @@ def test_without_a_valid_permit_of_its_kind_in_its_lab_the_strain_is_refused(
     error = refused(
         AuthorisationRequired,
         "lab_authorisation_required",
-        lambda: create(curator_access, lab, subtilis, restrictions=[DUAL_USE, VRAT]),
+        lambda: create(curator_access, lab, exempli, restrictions=[DUAL_USE, VRAT]),
         attr="restrictions.1.kind",
     )
     assert error.status_code == 422
 
 
 def test_kinds_without_a_permit_need_none(
-    as_curator: AuditContext, curator_access: Access, lab: Lab, subtilis: Taxon
+    as_curator: AuditContext, curator_access: Access, lab: Lab, exempli: Taxon
 ) -> None:
     rat = RestrictionInput(RestrictionKind.CZ_RAT, "Příloha 2, bod 1")
-    strain = create(curator_access, lab, subtilis, restrictions=[rat, DUAL_USE, GMO])
+    strain = create(curator_access, lab, exempli, restrictions=[rat, DUAL_USE, GMO])
     assert sorted(
         StrainRestriction.objects.filter(strain=strain).values_list("kind", flat=True)
     ) == [
@@ -360,31 +360,31 @@ def test_below_curator_nobody_accessions(
     curator: User,
     curator_access: Access,
     lab: Lab,
-    subtilis: Taxon,
+    exempli: Taxon,
     role: Role,
 ) -> None:
     Membership.objects.filter(user=curator, lab=lab).update(role=role)
-    refused(Forbidden, "permission_denied", lambda: create(curator_access, lab, subtilis))
+    refused(Forbidden, "permission_denied", lambda: create(curator_access, lab, exempli))
 
 
 def test_a_curator_deactivated_meanwhile_is_refused(
-    as_curator: AuditContext, curator: User, curator_access: Access, lab: Lab, subtilis: Taxon
+    as_curator: AuditContext, curator: User, curator_access: Access, lab: Lab, exempli: Taxon
 ) -> None:
     User.objects.filter(pk=curator.pk).update(is_active=False)
-    refused(Forbidden, "permission_denied", lambda: create(curator_access, lab, subtilis))
+    refused(Forbidden, "permission_denied", lambda: create(curator_access, lab, exempli))
 
 
 def test_a_curator_of_another_lab_is_refused(
-    as_curator: AuditContext, curator_access: Access, other_lab: Lab, subtilis: Taxon
+    as_curator: AuditContext, curator_access: Access, other_lab: Lab, exempli: Taxon
 ) -> None:
-    refused(Forbidden, "permission_denied", lambda: create(curator_access, other_lab, subtilis))
+    refused(Forbidden, "permission_denied", lambda: create(curator_access, other_lab, exempli))
 
 
 def test_the_services_need_an_audit_context(
-    curator_access: Access, lab: Lab, subtilis: Taxon
+    curator_access: Access, lab: Lab, exempli: Taxon
 ) -> None:
     with pytest.raises(MissingAuditContext):
-        create(curator_access, lab, subtilis)
+        create(curator_access, lab, exempli)
     assert not Strain.objects.exists()
 
 
@@ -395,29 +395,29 @@ def test_reclassification_adds_the_current_identification_and_moves_the_cached_t
     make_strain: MakeStrain,
     as_curator: AuditContext,
     curator_access: Access,
-    coli: Taxon,
-    subtilis: Taxon,
+    mockia: Taxon,
+    exempli: Taxon,
 ) -> None:
     strain = make_strain()
     first = StrainIdentification.objects.get(strain=strain)
     services.strain_reclassify(
         access=curator_access,
         strain=strain,
-        taxon=coli,
+        taxon=mockia,
         identified_on=date(2026, 3, 1),
         method=" MALDI-TOF  MS",
         reason=REASON,
     )
     strain.refresh_from_db()
-    assert strain.taxon == coli
+    assert strain.taxon == mockia
     rows = list(
         StrainIdentification.objects.filter(strain=strain)
         .order_by("pk")
         .values_list("taxon", "is_current", "method", "reason")
     )
     assert rows == [
-        (subtilis.pk, False, "16S rRNA gene sequence", "Identification at accession"),
-        (coli.pk, True, "MALDI-TOF MS", REASON),
+        (exempli.pk, False, "16S rRNA gene sequence", "Identification at accession"),
+        (mockia.pk, True, "MALDI-TOF MS", REASON),
     ]
     event = AuditEvent.objects.filter(event_type="strain_reclassified").get()
     assert (event.strain_id, event.lab_id, event.reason) == (
@@ -427,7 +427,7 @@ def test_reclassification_adds_the_current_identification_and_moves_the_cached_t
     )
     second = StrainIdentification.objects.get(strain=strain, is_current=True)
     assert event.changes == {
-        "taxon": [str(subtilis.public_id), str(coli.public_id)],
+        "taxon": [str(exempli.public_id), str(mockia.public_id)],
         "identification": [str(first.public_id), str(second.public_id)],
         "identified_on": [None, "2026-03-01"],
         "method": [None, "MALDI-TOF MS"],
@@ -438,11 +438,11 @@ def test_after_two_reclassifications_one_identification_is_current(
     make_strain: MakeStrain,
     as_curator: AuditContext,
     curator_access: Access,
-    coli: Taxon,
-    subtilis: Taxon,
+    mockia: Taxon,
+    exempli: Taxon,
 ) -> None:
     strain = make_strain()
-    for taxon in (coli, subtilis):
+    for taxon in (mockia, exempli):
         services.strain_reclassify(
             access=curator_access,
             strain=strain,
@@ -456,7 +456,7 @@ def test_after_two_reclassifications_one_identification_is_current(
         StrainIdentification.objects.filter(strain=strain, is_current=True).values_list(
             "taxon", flat=True
         )
-    ) == [subtilis.pk]
+    ) == [exempli.pk]
 
 
 @pytest.mark.parametrize(
@@ -472,7 +472,7 @@ def test_a_reclassification_needs_a_reason_a_method_and_a_past_date(
     make_strain: MakeStrain,
     as_curator: AuditContext,
     curator_access: Access,
-    coli: Taxon,
+    mockia: Taxon,
     changes: dict[str, Any],
     error: type[DomainError],
     code: str,
@@ -480,7 +480,7 @@ def test_a_reclassification_needs_a_reason_a_method_and_a_past_date(
 ) -> None:
     strain = make_strain()
     values: dict[str, Any] = {
-        "taxon": coli,
+        "taxon": mockia,
         "identified_on": date(2026, 3, 1),
         "method": "m",
         "reason": REASON,
@@ -667,10 +667,10 @@ def test_every_event_of_a_strain_service_names_its_strain(
     make_strain: MakeStrain,
     as_curator: AuditContext,
     curator_access: Access,
-    coli: Taxon,
+    mockia: Taxon,
 ) -> None:
     strain = make_strain(restrictions=[GMO])
-    SCENARIOS[name](strain, curator_access, coli)
+    SCENARIOS[name](strain, curator_access, mockia)
     events = list(AuditEvent.objects.values_list("event_type", "strain_id", "lab_id"))
     assert len(events) == (1 if name == "strain_create" else 2)
     assert {(strain_id, lab_id) for _, strain_id, lab_id in events} == {
@@ -679,7 +679,7 @@ def test_every_event_of_a_strain_service_names_its_strain(
 
 
 def test_a_viewer_access_object_is_not_enough(
-    make_strain: MakeStrain, viewer: User, as_curator: AuditContext, subtilis: Taxon
+    make_strain: MakeStrain, viewer: User, as_curator: AuditContext, exempli: Taxon
 ) -> None:
     strain = make_strain()
     refused(

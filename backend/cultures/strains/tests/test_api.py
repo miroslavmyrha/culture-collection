@@ -23,7 +23,7 @@ DOMAIN_CODES = {"risk_group_4_refused", "lab_authorisation_required", "unique"}
 def payload(of: Taxon, **changes: Any) -> dict[str, Any]:
     return {
         "taxon": str(of.public_id),
-        "name_as_received": "Bacillus subtilis 168",
+        "name_as_received": "Testella exempli T1",
         "identified_on": "2026-01-10",
         "identification_method": "16S rRNA gene sequence",
         "risk_group": 2,
@@ -45,9 +45,9 @@ def post(user: User, body: dict[str, Any], path: str = "") -> Any:
 
 
 def test_a_curator_creates_a_strain_and_gets_its_detail(
-    curator: User, lab: Lab, subtilis: Taxon
+    curator: User, lab: Lab, exempli: Taxon
 ) -> None:
-    response = post(curator, payload(subtilis), "")
+    response = post(curator, payload(exempli), "")
     assert response.status_code == 201, response.content
     body = response.json()
     strain = Strain.objects.get()
@@ -55,11 +55,11 @@ def test_a_curator_creates_a_strain_and_gets_its_detail(
     assert body == {
         "public_id": str(strain.public_id),
         "accession_number": "MYC 1",
-        "name_as_received": "Bacillus subtilis 168",
+        "name_as_received": "Testella exempli T1",
         "taxon": {
-            "public_id": str(subtilis.public_id),
-            "name": "Bacillus subtilis",
-            "authority": "(Ehrenberg 1835) Cohn 1872",
+            "public_id": str(exempli.public_id),
+            "name": "Testella exempli",
+            "authority": "Doe 2001",
             "rank": "species",
             "status": "accepted",
         },
@@ -120,10 +120,10 @@ def test_a_curator_creates_a_strain_and_gets_its_detail(
 
 
 def test_the_input_names_no_lab_number_or_status(
-    curator: User, lab: Lab, other_lab: Lab, subtilis: Taxon
+    curator: User, lab: Lab, other_lab: Lab, exempli: Taxon
 ) -> None:
     body = payload(
-        subtilis, lab=str(other_lab.public_id), accession_number="MYC 999", status="restricted"
+        exempli, lab=str(other_lab.public_id), accession_number="MYC 999", status="restricted"
     )
     strain = post(curator, body).json()
     assert (strain["accession_number"], strain["status"]) == ("MYC 1", "active")
@@ -182,13 +182,13 @@ def test_server_errors_name_their_field(
     *,
     curator: User,
     lab: Lab,
-    subtilis: Taxon,
+    exempli: Taxon,
     changes: dict[str, Any],
     status: int,
     code: str,
     attr: str,
 ) -> None:
-    response = post(curator, payload(subtilis, **changes))
+    response = post(curator, payload(exempli, **changes))
     top = code if code in DOMAIN_CODES else "invalid"  # a serializer error is "invalid" on top
     body = assert_problem(response, status, top, attr=attr)
     assert field_code(body, attr) == code
@@ -196,11 +196,11 @@ def test_server_errors_name_their_field(
     assert not AuditEvent.objects.exists()
 
 
-def test_the_permit_refusal_says_which_permit(curator: User, lab: Lab, subtilis: Taxon) -> None:
+def test_the_permit_refusal_says_which_permit(curator: User, lab: Lab, exempli: Taxon) -> None:
     body = assert_problem(
         post(
             curator,
-            payload(subtilis, restrictions=[{"kind": "quarantine_pest", "reference": "Annex II"}]),
+            payload(exempli, restrictions=[{"kind": "quarantine_pest", "reference": "Annex II"}]),
         ),
         422,
         "lab_authorisation_required",
@@ -208,36 +208,34 @@ def test_the_permit_refusal_says_which_permit(curator: User, lab: Lab, subtilis:
     assert body["detail"] == "The lab holds no valid ÚKZÚZ permit for quarantine pests today."
 
 
-def test_with_the_permit_a_vrat_strain_is_accepted(
-    curator: User, lab: Lab, subtilis: Taxon
-) -> None:
+def test_with_the_permit_a_vrat_strain_is_accepted(curator: User, lab: Lab, exempli: Taxon) -> None:
     make_permit(lab, AuthorisationKind.CZ_VRAT)
     response = post(
         curator,
-        payload(subtilis, restrictions=[{"kind": "cz_vrat", "reference": "Příloha 1, bod 2"}]),
+        payload(exempli, restrictions=[{"kind": "cz_vrat", "reference": "Příloha 1, bod 2"}]),
     )
     assert response.status_code == 201, response.content
 
 
 def test_reclassify_risk_group_and_restrictions_through_the_actions(
-    curator: User, make_strain: MakeStrain, coli: Taxon
+    curator: User, make_strain: MakeStrain, mockia: Taxon
 ) -> None:
     strain = make_strain(restrictions=[GMO])
     base = f"{strain.public_id}/"
     body = post(
         curator,
         {
-            "taxon": str(coli.public_id),
+            "taxon": str(mockia.public_id),
             "identified_on": "2026-03-01",
             "method": "MALDI-TOF MS",
             "reason": "sequence differs",
         },
         f"{base}reclassify/",
     ).json()
-    assert body["taxon"]["name"] == "Escherichia coli"
+    assert body["taxon"]["name"] == "Mockia vulgaris"
     assert [(i["taxon"]["name"], i["is_current"]) for i in body["identifications"]] == [
-        ("Escherichia coli", True),
-        ("Bacillus subtilis", False),
+        ("Mockia vulgaris", True),
+        ("Testella exempli", False),
     ]
     assert (
         post(curator, {"risk_group": 2, "reason": "reassessed"}, f"{base}risk-group/").json()[
@@ -366,50 +364,50 @@ def collection(
     make_strain: MakeStrain,
     other_lab: Lab,
     outsider: User,
-    subtilis: Taxon,
-    spizizenii: Taxon,
-    vibrio_subtilis: Taxon,
-    coli: Taxon,
+    exempli: Taxon,
+    alpha: Taxon,
+    fictivibrio: Taxon,
+    mockia: Taxon,
 ) -> None:
-    make_strain(name_as_received="sub", taxon=subtilis, risk_group=1, restrictions=[DUAL_USE])
-    make_strain(name_as_received="spiz", taxon=spizizenii, risk_group=2)
-    make_strain(name_as_received="vib", taxon=vibrio_subtilis, risk_group=1)
-    make_strain(name_as_received="coli", taxon=coli, risk_group=2, restrictions=[GMO])
-    make_strain(lab=other_lab, actor=outsider, name_as_received="other lab sub", taxon=subtilis)
+    make_strain(name_as_received="sub", taxon=exempli, risk_group=1, restrictions=[DUAL_USE])
+    make_strain(name_as_received="spiz", taxon=alpha, risk_group=2)
+    make_strain(name_as_received="vib", taxon=fictivibrio, risk_group=1)
+    make_strain(name_as_received="mockia", taxon=mockia, risk_group=2, restrictions=[GMO])
+    make_strain(lab=other_lab, actor=outsider, name_as_received="other lab sub", taxon=exempli)
 
 
 @pytest.mark.usefixtures("collection")
 def test_the_taxon_filter_takes_descendants_and_synonyms_never_another_lab(
     *,
     viewer: User,
-    bacillus: Taxon,
-    subtilis: Taxon,
-    spizizenii: Taxon,
-    vibrio_subtilis: Taxon,
-    coli: Taxon,
+    testella: Taxon,
+    exempli: Taxon,
+    alpha: Taxon,
+    fictivibrio: Taxon,
+    mockia: Taxon,
 ) -> None:
-    assert listed(viewer, taxon=bacillus.public_id) == ["sub", "spiz", "vib"]
-    assert listed(viewer, taxon=subtilis.public_id) == ["sub", "spiz", "vib"]
-    assert listed(viewer, taxon=vibrio_subtilis.public_id) == [
+    assert listed(viewer, taxon=testella.public_id) == ["sub", "spiz", "vib"]
+    assert listed(viewer, taxon=exempli.public_id) == ["sub", "spiz", "vib"]
+    assert listed(viewer, taxon=fictivibrio.public_id) == [
         "sub",
         "spiz",
         "vib",
     ]  # its accepted name
-    assert listed(viewer, taxon=spizizenii.public_id) == ["spiz"]
-    assert listed(viewer, taxon=coli.public_id) == ["coli"]
+    assert listed(viewer, taxon=alpha.public_id) == ["spiz"]
+    assert listed(viewer, taxon=mockia.public_id) == ["mockia"]
 
 
 @pytest.mark.usefixtures("collection")
 def test_the_other_filters_narrow_within_the_lab(viewer: User, make_strain: MakeStrain) -> None:
-    assert listed(viewer, risk_group=2) == ["spiz", "coli"]
+    assert listed(viewer, risk_group=2) == ["spiz", "mockia"]
     assert listed(viewer, restriction="dual_use") == ["sub"]
-    assert listed(viewer, restriction="gmo") == ["coli"]
+    assert listed(viewer, restriction="gmo") == ["mockia"]
     assert listed(viewer, restriction="cz_vrat") == []
-    assert listed(viewer, status="active") == ["sub", "spiz", "vib", "coli"]
+    assert listed(viewer, status="active") == ["sub", "spiz", "vib", "mockia"]
     assert listed(viewer, status="deaccessioned") == []
-    assert listed(viewer, search="MYC 4") == ["coli"]
+    assert listed(viewer, search="MYC 4") == ["mockia"]
     assert listed(viewer, search=" sp ") == ["spiz"]
-    assert listed(viewer, search="escherichia") == ["coli"]  # the current taxon's name
+    assert listed(viewer, search="mockia") == ["mockia"]  # the current taxon's name
     assert listed(viewer, search="other lab") == []
     assert listed(viewer, risk_group=1, restriction="dual_use") == ["sub"]
 
@@ -476,13 +474,13 @@ def test_the_list_query_count_is_exact_and_flat(
     taxon_filter: bool,
     viewer: User,
     make_strain: MakeStrain,
-    bacillus: Taxon,
+    testella: Taxon,
     query_baseline: QueryBaseline,
 ) -> None:
     for _ in range(rows):
         make_strain(restrictions=[DUAL_USE, GMO])
     client = logged_in(viewer)
-    params = {"taxon": str(bacillus.public_id)} if taxon_filter else {}
+    params = {"taxon": str(testella.public_id)} if taxon_filter else {}
     # Session, user, memberships, the lab, (the filter's taxon), count, page with the taxon
     # joined, the active restrictions prefetched.
     with query_baseline("strain_list_by_taxon" if taxon_filter else "strain_list") as captured:
@@ -498,7 +496,7 @@ def test_the_detail_query_count_is_exact_and_flat(
     viewer: User,
     curator: User,
     make_strain: MakeStrain,
-    coli: Taxon,
+    mockia: Taxon,
     query_baseline: QueryBaseline,
 ) -> None:
     strain = make_strain(restrictions=[DUAL_USE, GMO])
@@ -506,7 +504,7 @@ def test_the_detail_query_count_is_exact_and_flat(
         post(
             curator,
             {
-                "taxon": str(coli.public_id),
+                "taxon": str(mockia.public_id),
                 "identified_on": "2026-03-01",
                 "method": "m",
                 "reason": "r",

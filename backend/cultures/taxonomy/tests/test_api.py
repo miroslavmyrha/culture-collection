@@ -24,37 +24,37 @@ def anyone() -> User:
     return user
 
 
-def test_anonymous_gets_401(subtilis: Taxon) -> None:
-    for url in (TAXA_URL, f"{TAXA_URL}{subtilis.public_id}/"):
+def test_anonymous_gets_401(exempli: Taxon) -> None:
+    for url in (TAXA_URL, f"{TAXA_URL}{exempli.public_id}/"):
         response = logged_in(None).get(url)
         assert_problem(response, 401, "not_authenticated")
         assert response.has_header("WWW-Authenticate")
 
 
 def test_any_signed_in_user_reads_a_taxon_with_its_synonymy_and_ids(
-    anyone: User, subtilis: Taxon, vibrio_subtilis: Taxon, bacillus: Taxon
+    anyone: User, exempli: Taxon, fictivibrio: Taxon, testella: Taxon
 ) -> None:
-    TaxonIdentifier.objects.create(taxon=subtilis, system=IdentifierSystem.NCBI, value="1423")
-    body = logged_in(anyone).get(f"{TAXA_URL}{vibrio_subtilis.public_id}/").json()
+    TaxonIdentifier.objects.create(taxon=exempli, system=IdentifierSystem.NCBI, value="900003")
+    body = logged_in(anyone).get(f"{TAXA_URL}{fictivibrio.public_id}/").json()
     assert body == {
-        "public_id": str(vibrio_subtilis.public_id),
-        "name": "Vibrio subtilis",
-        "authority": vibrio_subtilis.authority,
+        "public_id": str(fictivibrio.public_id),
+        "name": "Fictivibrio exempli",
+        "authority": fictivibrio.authority,
         "rank": "species",
         "status": "synonym",
         "parent": None,
         "accepted": {
-            "public_id": str(subtilis.public_id),
-            "name": "Bacillus subtilis",
-            "authority": "(Ehrenberg 1835) Cohn 1872",
+            "public_id": str(exempli.public_id),
+            "name": "Testella exempli",
+            "authority": "Doe 2001",
             "rank": "species",
             "status": "accepted",
         },
         "identifiers": [],
     }
-    accepted = logged_in(anyone).get(f"{TAXA_URL}{subtilis.public_id}/").json()
-    assert accepted["parent"]["public_id"] == str(bacillus.public_id)
-    assert accepted["identifiers"] == [{"system": "ncbi", "value": "1423"}]
+    accepted = logged_in(anyone).get(f"{TAXA_URL}{exempli.public_id}/").json()
+    assert accepted["parent"]["public_id"] == str(testella.public_id)
+    assert accepted["identifiers"] == [{"system": "ncbi", "value": "900003"}]
     assert "id" not in accepted
 
 
@@ -64,20 +64,20 @@ def test_an_unknown_or_malformed_id_is_404(anyone: User) -> None:
 
 
 def test_search_finds_names_by_part(
-    anyone: User, bacillus: Taxon, subtilis: Taxon, coli: Taxon
+    anyone: User, testella: Taxon, exempli: Taxon, mockia: Taxon
 ) -> None:
-    rows = logged_in(anyone).get(TAXA_URL, {"search": "subt"}).json()["results"]
-    assert [row["name"] for row in rows] == ["Bacillus subtilis"]
-    rows = logged_in(anyone).get(TAXA_URL, {"search": "bacillus"}).json()["results"]
-    assert [row["name"] for row in rows] == ["Bacillus", "Bacillus subtilis"]
+    rows = logged_in(anyone).get(TAXA_URL, {"search": "exem"}).json()["results"]
+    assert [row["name"] for row in rows] == ["Testella exempli"]
+    rows = logged_in(anyone).get(TAXA_URL, {"search": "testella"}).json()["results"]
+    assert [row["name"] for row in rows] == ["Testella", "Testella exempli"]
 
 
 @pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
-def test_nobody_writes_taxa_through_the_api(method: str, anyone: User, subtilis: Taxon) -> None:
-    url = TAXA_URL if method == "post" else f"{TAXA_URL}{subtilis.public_id}/"
+def test_nobody_writes_taxa_through_the_api(method: str, anyone: User, exempli: Taxon) -> None:
+    url = TAXA_URL if method == "post" else f"{TAXA_URL}{exempli.public_id}/"
     response = getattr(logged_in(anyone), method)(url, {}, content_type="application/json")
     assert_problem(response, 405, "method_not_allowed")
-    assert Taxon.objects.get(pk=subtilis.pk).name == "Bacillus subtilis"
+    assert Taxon.objects.get(pk=exempli.pk).name == "Testella exempli"
 
 
 @pytest.mark.parametrize("rows", [1, 20])

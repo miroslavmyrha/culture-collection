@@ -11,8 +11,9 @@ Brings the database to this state, whatever it was before:
 - e2e-curator and e2e-viewer, members of the lab in those roles, with the same password:
   the strain tests create strains as the curator and check what a viewer may not do;
 - a few taxa for the strain form: two genera, a species in each with its NCBI id, and a
-  synonym of each species (its basionym). The lab holds no permit, so a VRAT strain is
-  refused there.
+  synonym of each species (its basionym), plus an invented genus and species (Testella
+  exempli) for the tests of the restriction gates, so no real organism is entered with a
+  legal status it does not have. The lab holds no permit, so a VRAT strain is refused there.
 Strains the tests created stay: numbers are never reused, and a strain is never deleted.
 A second run changes nothing. Every user, lab and membership write goes
 through the services with their audit events (channel command, actor kind
@@ -57,6 +58,9 @@ TAXA: tuple[tuple[str, str, Rank, str | None, str | None, str | None], ...] = (
         "562",
     ),
     ("Bacillus coli", "Migula 1895", Rank.SPECIES, None, "Escherichia coli", None),
+    # Invented: the e2e tests pair it with restrictions to exercise the gates.
+    ("Testella", "", Rank.GENUS, None, None, None),
+    ("Testella exempli", "", Rank.SPECIES, "Testella", None, None),
 )
 
 

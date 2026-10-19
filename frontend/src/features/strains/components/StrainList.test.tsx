@@ -12,7 +12,9 @@ import { StrainList } from './StrainList'
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const LIST = '/api/v1/labs/{lab_public_id}/strains/'
 const PARAMS: StrainListParams = { limit: 25, offset: 0 }
-const bacillus = makeTaxon({ public_id: '00000000-0000-4000-8000-0000000000b1', name: 'Bacillus', rank: 'genus' })
+// Invented taxa: the tests pair them with restrictions and risk groups, which no real
+// organism should be shown with unless the facts hold.
+const testella = makeTaxon({ public_id: '00000000-0000-4000-8000-0000000000b1', name: 'Testella', rank: 'genus' })
 
 function renderList(params: StrainListParams = PARAMS) {
   const onOffsetChange = vi.fn<(offset: number) => void>()
@@ -24,7 +26,7 @@ describe('StrainList', () => {
   it('shows each strain with its number linked, the taxon, the risk group and the restrictions', async () => {
     const strain = makeStrainRow({
       accession_number: 'MYC 7',
-      name_as_received: 'B. subtilis 168',
+      name_as_received: 'T. exempli T1',
       risk_group: 2,
       restrictions: [{ kind: 'dual_use', reference: '1C351.c' }],
     })
@@ -36,7 +38,7 @@ describe('StrainList', () => {
     if (!first) throw new Error('no row')
     expect(within(first).getAllByRole('cell').map((cell) => cell.textContent)).toEqual([
       'MYC 7',
-      'B. subtilis 168',
+      'T. exempli T1',
       strain.taxon.name,
       '2',
       'Dual-use item',
@@ -87,7 +89,7 @@ describe('StrainList', () => {
 
   it('asks for the lab and every filter of the URL, and keeps them in the query key', async () => {
     const calls = mockApi('get', LIST, page([]))
-    const params: StrainListParams = { ...PARAMS, taxon: bacillus.public_id, risk_group: 2, status: 'active', restriction: 'gmo', search: 'MYC' }
+    const params: StrainListParams = { ...PARAMS, taxon: testella.public_id, risk_group: 2, status: 'active', restriction: 'gmo', search: 'MYC' }
     const { view } = renderList(params)
     const { client } = await view
     await screen.findByText(/No strain matches/)
@@ -95,7 +97,7 @@ describe('StrainList', () => {
     expect(Object.fromEntries(calls[0]?.url.searchParams ?? [])).toEqual({
       limit: '25',
       offset: '0',
-      taxon: bacillus.public_id,
+      taxon: testella.public_id,
       risk_group: '2',
       status: 'active',
       restriction: 'gmo',
@@ -144,19 +146,19 @@ describe('the strains page', () => {
   it('picks a taxon filter by keyboard in the combobox', async () => {
     signedIn()
     mockApi('get', LIST, page([makeStrainRow()]))
-    const search = mockApi('get', '/api/v1/taxa/', page([bacillus]))
-    mockApi('get', '/api/v1/taxa/{public_id}/', bacillus)
+    const search = mockApi('get', '/api/v1/taxa/', page([testella]))
+    mockApi('get', '/api/v1/taxa/{public_id}/', testella)
     const { router } = renderApp({ path: `/labs/${LAB_ID}/strains` })
     const user = userEvent.setup()
     const taxon = await screen.findByRole('combobox', { name: 'Taxon' }, { timeout: 5000 })
     await user.click(taxon)
-    await user.keyboard('Bac')
-    await screen.findByRole('option', { name: /Bacillus/ }, { timeout: 4000 })
-    expect(search.at(-1)?.url.searchParams.get('search')).toBe('Bac')
+    await user.keyboard('Tes')
+    await screen.findByRole('option', { name: /Testella/ }, { timeout: 4000 })
+    expect(search.at(-1)?.url.searchParams.get('search')).toBe('Tes')
     await user.keyboard('{ArrowDown}{Enter}')
-    await waitFor(() => expect(router.state.location.search).toEqual({ taxon: bacillus.public_id }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ taxon: testella.public_id }))
     // From the URL again: the field shows the taxon's name and keeps the focus.
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Taxon' })).toHaveValue('Bacillus'))
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Taxon' })).toHaveValue('Testella'))
     expect(screen.getByRole('combobox', { name: 'Taxon' })).toBe(taxon)
     expect(taxon).toHaveFocus()
   })

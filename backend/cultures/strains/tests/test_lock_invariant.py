@@ -139,12 +139,12 @@ def test_the_lab_lock_comes_first(
     name: str,
     lab: Lab,
     curator: User,
-    subtilis: Taxon,
+    exempli: Taxon,
     make_strain: MakeStrain,
     as_curator: AuditContext,
 ) -> None:
     # The access object is built before the capture: the request does that before the service.
-    call = SCENARIOS[name]((lab, access_for(curator), subtilis, make_strain))
+    call = SCENARIOS[name]((lab, access_for(curator), exempli, make_strain))
     with CaptureQueriesContext(connection) as captured:
         call()
     statements = [q["sql"] for q in captured.captured_queries]
@@ -164,11 +164,11 @@ def test_the_lab_lock_comes_first(
 
 
 def test_the_counter_row_is_locked_too(
-    lab: Lab, curator: User, subtilis: Taxon, as_curator: AuditContext
+    lab: Lab, curator: User, exempli: Taxon, as_curator: AuditContext
 ) -> None:
     """Defence in depth: a later writer that skips the lab lock (an import) still waits on the
     counter row, so it never reads a number another transaction is about to hand out."""
-    call = strain_create((lab, access_for(curator), subtilis, lambda **_: None))  # type: ignore[arg-type]
+    call = strain_create((lab, access_for(curator), exempli, lambda **_: None))  # type: ignore[arg-type]
     call()  # the counter row exists from here on
     with CaptureQueriesContext(connection) as captured:
         call()

@@ -2,8 +2,10 @@
 
 - lab: Mycology (MYC), fixed public id, one member of every role.
 - other_lab: Bacteriology (BAC), managed by `outsider`: the highest role, elsewhere.
-- Taxa: Bacillus > B. subtilis > subsp. spizizenii, Vibrio subtilis a synonym of
-  B. subtilis, Escherichia > E. coli on another branch.
+- Taxa, invented on purpose: Testella > Testella exempli > subsp. alpha, Fictivibrio
+  exempli a synonym of Testella exempli, Mockia > Mockia vulgaris on another branch. The
+  tests pair them with restrictions and risk groups to exercise the gates, so no real
+  organism gets a legal status it does not have.
 """
 
 from collections.abc import Callable, Iterator
@@ -95,35 +97,33 @@ def team(viewer: User, technician: User, curator: User, manager: User) -> dict[R
 
 
 @pytest.fixture
-def bacillus() -> Taxon:
-    return make_taxon("Bacillus", Rank.GENUS, authority="Cohn 1872")
+def testella() -> Taxon:
+    return make_taxon("Testella", Rank.GENUS, authority="Roe 1999")
 
 
 @pytest.fixture
-def subtilis(bacillus: Taxon) -> Taxon:
-    return make_taxon(
-        "Bacillus subtilis", Rank.SPECIES, bacillus, authority="(Ehrenberg 1835) Cohn 1872"
-    )
+def exempli(testella: Taxon) -> Taxon:
+    return make_taxon("Testella exempli", Rank.SPECIES, testella, authority="Doe 2001")
 
 
 @pytest.fixture
-def spizizenii(subtilis: Taxon) -> Taxon:
-    return make_taxon("Bacillus subtilis subsp. spizizenii", Rank.SUBSPECIES, subtilis)
+def alpha(exempli: Taxon) -> Taxon:
+    return make_taxon("Testella exempli subsp. alpha", Rank.SUBSPECIES, exempli)
 
 
 @pytest.fixture
-def vibrio_subtilis(subtilis: Taxon) -> Taxon:
-    return make_synonym("Vibrio subtilis", Rank.SPECIES, subtilis)
+def fictivibrio(exempli: Taxon) -> Taxon:
+    return make_synonym("Fictivibrio exempli", Rank.SPECIES, exempli)
 
 
 @pytest.fixture
-def coli() -> Taxon:
-    return make_taxon("Escherichia coli", Rank.SPECIES, make_taxon("Escherichia", Rank.GENUS))
+def mockia() -> Taxon:
+    return make_taxon("Mockia vulgaris", Rank.SPECIES, make_taxon("Mockia", Rank.GENUS))
 
 
 def new_strain(taxon: Taxon, **changes: Any) -> NewStrain:
     values: dict[str, Any] = {
-        "name_as_received": "Bacillus subtilis 168",
+        "name_as_received": "Testella exempli T1",
         "taxon": taxon,
         "identified_on": date(2026, 1, 10),
         "identification_method": "16S rRNA gene sequence",
@@ -155,11 +155,11 @@ MakeStrain = Callable[..., Strain]
 
 
 @pytest.fixture
-def make_strain(lab: Lab, curator: User, subtilis: Taxon) -> MakeStrain:
+def make_strain(lab: Lab, curator: User, exempli: Taxon) -> MakeStrain:
     """A strain accessioned by the curator through the service, in its own audit context."""
 
     def make(lab: Lab = lab, actor: User = curator, **changes: Any) -> Strain:
-        data = new_strain(changes.pop("taxon", subtilis), **changes)
+        data = new_strain(changes.pop("taxon", exempli), **changes)
         with audit_context(channel=Channel.API, actor=actor, request_id="req-setup"):
             return services.strain_create(access=access_for(actor), lab=lab, data=data)
 

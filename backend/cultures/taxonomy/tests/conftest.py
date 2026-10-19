@@ -1,8 +1,9 @@
 """Taxa named after what they are, and staff acting outside a request.
 
-The tree: Bacillus (genus) > Bacillus subtilis (species) > B. subtilis subsp. spizizenii,
-Vibrio subtilis a synonym of Bacillus subtilis (its basionym), and Escherichia coli under
-Escherichia, a separate branch that no Bacillus filter may reach.
+The names are invented on purpose, so no test states a fact about a real organism. The
+tree: Testella (genus) > Testella exempli (species) > Testella exempli subsp. alpha,
+Fictivibrio exempli a synonym of Testella exempli, and Mockia vulgaris under Mockia, a
+separate branch that no Testella filter may reach.
 """
 
 from collections.abc import Iterator
@@ -32,35 +33,33 @@ def make_synonym(name: str, rank: Rank, accepted: Taxon) -> Taxon:
 
 
 @pytest.fixture
-def bacillus() -> Taxon:
-    return make_taxon("Bacillus", Rank.GENUS, authority="Cohn 1872")
+def testella() -> Taxon:
+    return make_taxon("Testella", Rank.GENUS, authority="Roe 1999")
 
 
 @pytest.fixture
-def subtilis(bacillus: Taxon) -> Taxon:
-    return make_taxon(
-        "Bacillus subtilis", Rank.SPECIES, bacillus, authority="(Ehrenberg 1835) Cohn 1872"
-    )
+def exempli(testella: Taxon) -> Taxon:
+    return make_taxon("Testella exempli", Rank.SPECIES, testella, authority="Doe 2001")
 
 
 @pytest.fixture
-def spizizenii(subtilis: Taxon) -> Taxon:
-    return make_taxon("Bacillus subtilis subsp. spizizenii", Rank.SUBSPECIES, subtilis)
+def alpha(exempli: Taxon) -> Taxon:
+    return make_taxon("Testella exempli subsp. alpha", Rank.SUBSPECIES, exempli)
 
 
 @pytest.fixture
-def vibrio_subtilis(subtilis: Taxon) -> Taxon:
-    return make_synonym("Vibrio subtilis", Rank.SPECIES, subtilis)
+def fictivibrio(exempli: Taxon) -> Taxon:
+    return make_synonym("Fictivibrio exempli", Rank.SPECIES, exempli)
 
 
 @pytest.fixture
-def escherichia() -> Taxon:
-    return make_taxon("Escherichia", Rank.GENUS)
+def mockia_genus() -> Taxon:
+    return make_taxon("Mockia", Rank.GENUS)
 
 
 @pytest.fixture
-def coli(escherichia: Taxon) -> Taxon:
-    return make_taxon("Escherichia coli", Rank.SPECIES, escherichia)
+def mockia(mockia_genus: Taxon) -> Taxon:
+    return make_taxon("Mockia vulgaris", Rank.SPECIES, mockia_genus)
 
 
 @pytest.fixture

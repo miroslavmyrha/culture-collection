@@ -34,20 +34,20 @@ def refused(code: str, attr: str, call: Any) -> None:
 
 
 def test_staff_add_a_species_under_its_genus(
-    as_staff: AuditContext, staff: User, bacillus: Taxon
+    as_staff: AuditContext, staff: User, testella: Taxon
 ) -> None:
     taxon = services.taxon_create(
         fields=TaxonFields(
-            name=" Bacillus  cereus ",
-            authority="Frankland and Frankland 1887",
+            name=" Testella  cerea ",
+            authority="Moe and Moe 1987",
             rank=Rank.SPECIES,
-            parent=bacillus,
+            parent=testella,
         )
     )
     assert (taxon.name, taxon.status, taxon.parent, taxon.accepted) == (
-        "Bacillus cereus",
+        "Testella cerea",
         TaxonStatus.ACCEPTED,
-        bacillus,
+        testella,
         None,
     )
     event = AuditEvent.objects.get()
@@ -59,54 +59,54 @@ def test_staff_add_a_species_under_its_genus(
     )
     assert (event.lab_id, event.strain_id) == (None, None)  # global: no lab, no strain
     assert event.changes == {
-        "name": [None, "Bacillus cereus"],
-        "authority": [None, "Frankland and Frankland 1887"],
+        "name": [None, "Testella cerea"],
+        "authority": [None, "Moe and Moe 1987"],
         "rank": [None, "species"],
         "status": [None, "accepted"],
-        "parent": [None, str(bacillus.public_id)],
+        "parent": [None, str(testella.public_id)],
         "accepted": [None, None],
     }
 
 
-def test_a_synonym_points_at_its_accepted_name(as_staff: AuditContext, subtilis: Taxon) -> None:
+def test_a_synonym_points_at_its_accepted_name(as_staff: AuditContext, exempli: Taxon) -> None:
     synonym = services.taxon_create(
         fields=TaxonFields(
-            name="Vibrio subtilis", authority="Ehrenberg 1835", rank=Rank.SPECIES, accepted=subtilis
+            name="Fictivibrio exempli", authority="Doe 1990", rank=Rank.SPECIES, accepted=exempli
         )
     )
     assert (synonym.status, synonym.accepted, synonym.parent) == (
         TaxonStatus.SYNONYM,
-        subtilis,
+        exempli,
         None,
     )
 
 
-def test_a_parent_ranks_above_its_child(as_staff: AuditContext, subtilis: Taxon) -> None:
+def test_a_parent_ranks_above_its_child(as_staff: AuditContext, exempli: Taxon) -> None:
     refused(
         "invalid_taxon",
         "parent",
         lambda: services.taxon_create(
-            fields=TaxonFields(name="Bacillus", authority="", rank=Rank.GENUS, parent=subtilis)
+            fields=TaxonFields(name="Testella", authority="", rank=Rank.GENUS, parent=exempli)
         ),
     )
     refused(
         "invalid_taxon",
         "parent",
         lambda: services.taxon_create(
-            fields=TaxonFields(name="Bacillus x", authority="", rank=Rank.SPECIES, parent=subtilis)
+            fields=TaxonFields(name="Testella x", authority="", rank=Rank.SPECIES, parent=exempli)
         ),
     )
 
 
 def test_a_synonym_is_neither_a_parent_nor_an_accepted_name(
-    as_staff: AuditContext, vibrio_subtilis: Taxon
+    as_staff: AuditContext, fictivibrio: Taxon
 ) -> None:
     refused(
         "invalid_taxon",
         "parent",
         lambda: services.taxon_create(
             fields=TaxonFields(
-                name="Vibrio subtilis x", authority="", rank=Rank.SUBSPECIES, parent=vibrio_subtilis
+                name="Fictivibrio exempli x", authority="", rank=Rank.SUBSPECIES, parent=fictivibrio
             )
         ),
     )
@@ -115,42 +115,42 @@ def test_a_synonym_is_neither_a_parent_nor_an_accepted_name(
         "accepted",
         lambda: services.taxon_create(
             fields=TaxonFields(
-                name="Bacillus globigii", authority="", rank=Rank.SPECIES, accepted=vibrio_subtilis
+                name="Testella globosa", authority="", rank=Rank.SPECIES, accepted=fictivibrio
             )
         ),
     )
 
 
 def test_a_synonym_with_a_parent_is_refused(
-    as_staff: AuditContext, bacillus: Taxon, subtilis: Taxon
+    as_staff: AuditContext, testella: Taxon, exempli: Taxon
 ) -> None:
     refused(
         "invalid_taxon",
         "parent",
         lambda: services.taxon_create(
             fields=TaxonFields(
-                name="Vibrio subtilis",
+                name="Fictivibrio exempli",
                 authority="",
                 rank=Rank.SPECIES,
-                parent=bacillus,
-                accepted=subtilis,
+                parent=testella,
+                accepted=exempli,
             )
         ),
     )
 
 
 def test_a_duplicate_name_is_a_field_error(
-    as_staff: AuditContext, subtilis: Taxon, bacillus: Taxon
+    as_staff: AuditContext, exempli: Taxon, testella: Taxon
 ) -> None:
     refused(
         "unique",
         "name",
         lambda: services.taxon_create(
             fields=TaxonFields(
-                name="bacillus subtilis",
-                authority="(Ehrenberg 1835) Cohn 1872",
+                name="testella exempli",
+                authority="Doe 2001",
                 rank=Rank.SPECIES,
-                parent=bacillus,
+                parent=testella,
             )
         ),
     )
@@ -167,97 +167,99 @@ def fields_of(taxon: Taxon, **changes: Any) -> TaxonFields:
     return TaxonFields(**{**values, **changes})
 
 
-def test_staff_make_a_name_a_synonym(as_staff: AuditContext, bacillus: Taxon, coli: Taxon) -> None:
+def test_staff_make_a_name_a_synonym(
+    as_staff: AuditContext, testella: Taxon, mockia: Taxon
+) -> None:
     other = Taxon.objects.create(
-        name="Bacillus coli", rank=Rank.SPECIES, parent=bacillus, status=TaxonStatus.ACCEPTED
+        name="Testella vulgaris", rank=Rank.SPECIES, parent=testella, status=TaxonStatus.ACCEPTED
     )
     updated = services.taxon_update(
-        taxon=other, fields=fields_of(other, parent=None, accepted=coli)
+        taxon=other, fields=fields_of(other, parent=None, accepted=mockia)
     )
-    assert (updated.status, updated.accepted, updated.parent) == (TaxonStatus.SYNONYM, coli, None)
+    assert (updated.status, updated.accepted, updated.parent) == (TaxonStatus.SYNONYM, mockia, None)
     event = AuditEvent.objects.get()
     assert event.event_type == "taxon_changed"
     assert event.changes == {
         "status": ["accepted", "synonym"],
-        "parent": [str(bacillus.public_id), None],
-        "accepted": [None, str(coli.public_id)],
+        "parent": [str(testella.public_id), None],
+        "accepted": [None, str(mockia.public_id)],
     }
 
 
 def test_a_taxon_with_children_does_not_become_a_synonym(
-    as_staff: AuditContext, bacillus: Taxon, subtilis: Taxon, escherichia: Taxon
+    as_staff: AuditContext, testella: Taxon, exempli: Taxon, mockia_genus: Taxon
 ) -> None:
     refused(
         "invalid_taxon",
         "accepted",
         lambda: services.taxon_update(
-            taxon=bacillus, fields=fields_of(bacillus, accepted=escherichia)
+            taxon=testella, fields=fields_of(testella, accepted=mockia_genus)
         ),
     )
 
 
 def test_a_taxon_with_synonyms_does_not_become_a_synonym(
-    as_staff: AuditContext, subtilis: Taxon, vibrio_subtilis: Taxon, coli: Taxon
+    as_staff: AuditContext, exempli: Taxon, fictivibrio: Taxon, mockia: Taxon
 ) -> None:
     """No chains: the synonyms are pointed at the new accepted name first."""
     refused(
         "invalid_taxon",
         "accepted",
         lambda: services.taxon_update(
-            taxon=subtilis, fields=fields_of(subtilis, parent=None, accepted=coli)
+            taxon=exempli, fields=fields_of(exempli, parent=None, accepted=mockia)
         ),
     )
 
 
 def test_a_rank_change_keeps_the_children_below(
-    as_staff: AuditContext, bacillus: Taxon, subtilis: Taxon
+    as_staff: AuditContext, testella: Taxon, exempli: Taxon
 ) -> None:
     refused(
         "invalid_taxon",
         "rank",
         lambda: services.taxon_update(
-            taxon=bacillus, fields=fields_of(bacillus, rank=Rank.SPECIES)
+            taxon=testella, fields=fields_of(testella, rank=Rank.SPECIES)
         ),
     )
 
 
-def test_a_taxon_is_not_its_own_synonym(as_staff: AuditContext, escherichia: Taxon) -> None:
+def test_a_taxon_is_not_its_own_synonym(as_staff: AuditContext, mockia_genus: Taxon) -> None:
     refused(
         "invalid_taxon",
         "accepted",
         lambda: services.taxon_update(
-            taxon=escherichia, fields=fields_of(escherichia, accepted=escherichia)
+            taxon=mockia_genus, fields=fields_of(mockia_genus, accepted=mockia_genus)
         ),
     )
 
 
 def test_a_rule_reads_the_committed_parent_not_the_one_passed(
-    as_staff: AuditContext, bacillus: Taxon, coli: Taxon
+    as_staff: AuditContext, testella: Taxon, mockia: Taxon
 ) -> None:
     """The caller's copy says accepted, the row says synonym (changed meanwhile): refused."""
-    stale = Taxon.objects.get(pk=bacillus.pk)
-    Taxon.objects.filter(pk=bacillus.pk).update(status=TaxonStatus.SYNONYM, accepted=coli)
+    stale = Taxon.objects.get(pk=testella.pk)
+    Taxon.objects.filter(pk=testella.pk).update(status=TaxonStatus.SYNONYM, accepted=mockia)
     refused(
         "invalid_taxon",
         "parent",
         lambda: services.taxon_create(
-            fields=TaxonFields(name="Bacillus x", authority="", rank=Rank.SPECIES, parent=stale)
+            fields=TaxonFields(name="Testella x", authority="", rank=Rank.SPECIES, parent=stale)
         ),
     )
 
 
 def test_an_update_that_changes_nothing_records_nothing(
-    as_staff: AuditContext, subtilis: Taxon
+    as_staff: AuditContext, exempli: Taxon
 ) -> None:
-    services.taxon_update(taxon=subtilis, fields=fields_of(subtilis, name=" Bacillus   subtilis"))
+    services.taxon_update(taxon=exempli, fields=fields_of(exempli, name=" Testella   exempli"))
     assert AuditEvent.objects.count() == 0
 
 
-def test_staff_add_and_remove_an_external_id(as_staff: AuditContext, subtilis: Taxon) -> None:
+def test_staff_add_and_remove_an_external_id(as_staff: AuditContext, exempli: Taxon) -> None:
     added = services.taxon_identifier_add(
-        taxon=subtilis, system=IdentifierSystem.NCBI, value=" 1423 "
+        taxon=exempli, system=IdentifierSystem.NCBI, value=" 900003 "
     )
-    assert (added.system, added.value) == ("ncbi", "1423")
+    assert (added.system, added.value) == ("ncbi", "900003")
     services.taxon_identifier_remove(identifier=added)
     assert not TaxonIdentifier.objects.exists()
     events = list(
@@ -268,46 +270,46 @@ def test_staff_add_and_remove_an_external_id(as_staff: AuditContext, subtilis: T
             "taxon_identifier_added",
             added.public_id,
             {
-                "taxon": [None, str(subtilis.public_id)],
+                "taxon": [None, str(exempli.public_id)],
                 "system": [None, "ncbi"],
-                "value": [None, "1423"],
+                "value": [None, "900003"],
             },
         ),
         (
             "taxon_identifier_removed",
             added.public_id,
             {
-                "taxon": [str(subtilis.public_id), None],
+                "taxon": [str(exempli.public_id), None],
                 "system": ["ncbi", None],
-                "value": ["1423", None],
+                "value": ["900003", None],
             },
         ),
     ]
 
 
 def test_an_id_of_another_taxon_and_a_second_id_per_system_are_field_errors(
-    as_staff: AuditContext, subtilis: Taxon, coli: Taxon
+    as_staff: AuditContext, exempli: Taxon, mockia: Taxon
 ) -> None:
-    services.taxon_identifier_add(taxon=subtilis, system=IdentifierSystem.NCBI, value="1423")
+    services.taxon_identifier_add(taxon=exempli, system=IdentifierSystem.NCBI, value="900003")
     refused(
         "unique",
         "value",
         lambda: services.taxon_identifier_add(
-            taxon=coli, system=IdentifierSystem.NCBI, value="1423"
+            taxon=mockia, system=IdentifierSystem.NCBI, value="900003"
         ),
     )
     refused(
         "unique",
         "system",
         lambda: services.taxon_identifier_add(
-            taxon=subtilis, system=IdentifierSystem.NCBI, value="1424"
+            taxon=exempli, system=IdentifierSystem.NCBI, value="900004"
         ),
     )
 
 
-def test_services_refuse_to_run_without_an_audit_context(bacillus: Taxon) -> None:
+def test_services_refuse_to_run_without_an_audit_context(testella: Taxon) -> None:
     with pytest.raises(MissingAuditContext):
         services.taxon_create(
-            fields=TaxonFields(name="Bacillus x", authority="", rank=Rank.SPECIES, parent=bacillus)
+            fields=TaxonFields(name="Testella x", authority="", rank=Rank.SPECIES, parent=testella)
         )
     assert Taxon.objects.count() == 1

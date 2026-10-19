@@ -11,11 +11,13 @@ import { CreateStrainForm } from './CreateStrainForm'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const PATH = '/api/v1/labs/{lab_public_id}/strains/'
-const subtilis = makeTaxon({ public_id: '00000000-0000-4000-8000-0000000000c1', name: 'Bacillus subtilis', authority: '(Ehrenberg 1835) Cohn 1872' })
-const vibrio = makeTaxon({ public_id: '00000000-0000-4000-8000-0000000000c2', name: 'Vibrio subtilis', status: 'synonym' })
+// Invented taxa: the tests pair them with restrictions and risk groups, which no real
+// organism should be shown with unless the facts hold.
+const exempli = makeTaxon({ public_id: '00000000-0000-4000-8000-0000000000c1', name: 'Testella exempli', authority: 'Doe 2001' })
+const fictivibrio = makeTaxon({ public_id: '00000000-0000-4000-8000-0000000000c2', name: 'Fictivibrio exempli', status: 'synonym' })
 
 async function setup() {
-  mockApi('get', '/api/v1/taxa/', page([subtilis, vibrio]))
+  mockApi('get', '/api/v1/taxa/', page([exempli, fictivibrio]))
   const onCreated = vi.fn<(strain: Strain) => void>()
   const view = await renderWithProviders(<CreateStrainForm labId={LAB_ID} onCreated={onCreated} />)
   const user = userEvent.setup()
@@ -26,16 +28,16 @@ const field = (name: string) => screen.getByRole('textbox', { name })
 const select = (name: string) => screen.getByRole('combobox', { name })
 
 /** The taxon by keyboard: type, ArrowDown to the first match, Enter. */
-async function pickTaxon(user: UserEvent, text = 'subt') {
+async function pickTaxon(user: UserEvent, text = 'exem') {
   await user.click(select('Taxon'))
   await user.keyboard(text)
-  await screen.findByRole('option', { name: /Bacillus subtilis/ }, { timeout: 4000 })
+  await screen.findByRole('option', { name: /Testella exempli/ }, { timeout: 4000 })
   await user.keyboard('{ArrowDown}{Enter}')
 }
 
 async function fillRequired(user: UserEvent) {
   await pickTaxon(user)
-  await user.type(field('Name as received'), 'B. subtilis 168')
+  await user.type(field('Name as received'), 'T. exempli T1')
   await user.clear(field('Identified on'))
   await user.type(field('Identified on'), '2026-01-10')
   await user.type(field('Identification method'), '16S rRNA gene sequence')
@@ -73,8 +75,8 @@ describe('CreateStrainForm', { timeout: 20_000 }, () => {
     expect(calls[0]?.url.pathname).toBe(`/api/v1/labs/${LAB_ID}/strains/`)
     expect(calls[0]?.headers.get('X-CSRFToken')).toBe('test-token')
     expect(calls[0]?.body).toEqual({
-      taxon: subtilis.public_id,
-      name_as_received: 'B. subtilis 168',
+      taxon: exempli.public_id,
+      name_as_received: 'T. exempli T1',
       identified_on: '2026-01-10',
       identification_method: '16S rRNA gene sequence',
       risk_group: 2,
@@ -96,16 +98,16 @@ describe('CreateStrainForm', { timeout: 20_000 }, () => {
     const { user } = await setup()
     const taxon = select('Taxon')
     await user.click(taxon)
-    await user.keyboard('subt')
+    await user.keyboard('exem')
     const listbox = await screen.findByRole('listbox', undefined, { timeout: 4000 })
     expect(within(listbox).getAllByRole('option').map((o) => o.textContent)).toEqual([
-      'Bacillus subtilis (Ehrenberg 1835) Cohn 1872 (species)',
-      'Vibrio subtilis  (synonym, species)',
+      'Testella exempli Doe 2001 (species)',
+      'Fictivibrio exempli  (synonym, species)',
     ])
     await user.keyboard('{ArrowDown}{ArrowDown}')
     expect(taxon).toHaveAttribute('aria-activedescendant', expect.stringMatching(/option-1$/))
     await user.keyboard('{Enter}')
-    expect(taxon).toHaveValue('Vibrio subtilis')
+    expect(taxon).toHaveValue('Fictivibrio exempli')
     expect(taxon).toHaveAttribute('aria-expanded', 'false')
   })
 

@@ -23,13 +23,13 @@ def test_the_runtime_role_accessions_and_changes_a_strain(
     as_curator: AuditContext,
     curator_access: Access,
     lab: Lab,
-    subtilis: Taxon,
+    exempli: Taxon,
     runtime_role: CursorWrapper,
 ) -> None:
     runtime_role.execute("SELECT current_user")
     assert runtime_role.fetchone() == (TEST_ROLES.runtime,)
     strain = services.strain_create(
-        access=curator_access, lab=lab, data=new_strain(subtilis, restrictions=[GMO])
+        access=curator_access, lab=lab, data=new_strain(exempli, restrictions=[GMO])
     )
     services.strain_set_risk_group(
         access=curator_access, strain=strain, risk_group=2, reason="reassessed"
@@ -60,12 +60,12 @@ def test_the_runtime_role_deletes_no_strain_history(
     as_curator: AuditContext,
     curator_access: Access,
     lab: Lab,
-    subtilis: Taxon,
+    exempli: Taxon,
     runtime_role: CursorWrapper,
     table: str,
 ) -> None:
     services.strain_create(
-        access=curator_access, lab=lab, data=new_strain(subtilis, restrictions=[GMO])
+        access=curator_access, lab=lab, data=new_strain(exempli, restrictions=[GMO])
     )
     delete = f"DELETE FROM {table}"  # noqa: S608 (a table name from the list above)
     refused(runtime_role, delete, f"permission denied for table {table}")
@@ -76,12 +76,10 @@ def test_the_guards_hold_for_the_runtime_role(
     as_curator: AuditContext,
     curator_access: Access,
     lab: Lab,
-    subtilis: Taxon,
+    exempli: Taxon,
     runtime_role: CursorWrapper,
 ) -> None:
-    services.strain_create(
-        access=curator_access, lab=lab, data=new_strain(subtilis)
-    )  # the only one
+    services.strain_create(access=curator_access, lab=lab, data=new_strain(exempli))  # the only one
     refused(
         runtime_role,
         "UPDATE strains_strain SET accession_number = 'MYC 99'",

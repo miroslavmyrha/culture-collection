@@ -11,8 +11,10 @@ import { StrainDetail } from './StrainDetail'
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const STRAIN_ID = '00000000-0000-4000-8000-0000000000d1'
 const DETAIL = '/api/v1/labs/{lab_public_id}/strains/{public_id}/'
-const coli = makeTaxon({ public_id: '00000000-0000-4000-8000-0000000000c3', name: 'Escherichia coli' })
-const subtilis = { public_id: '00000000-0000-4000-8000-0000000000c1', name: 'Bacillus subtilis', authority: 'Cohn 1872', rank: 'species' as const, status: 'accepted' as const }
+// Invented taxa: the tests pair them with restrictions and risk groups, which no real
+// organism should be shown with unless the facts hold.
+const mockia = makeTaxon({ public_id: '00000000-0000-4000-8000-0000000000c3', name: 'Mockia vulgaris' })
+const exempli = { public_id: '00000000-0000-4000-8000-0000000000c1', name: 'Testella exempli', authority: 'Roe 1999', rank: 'species' as const, status: 'accepted' as const }
 const GMO = {
   public_id: '00000000-0000-4000-8000-0000000000e1',
   kind: 'gmo' as const,
@@ -27,16 +29,16 @@ const GMO = {
 const strain = makeStrain({
   public_id: STRAIN_ID,
   accession_number: 'MYC 42',
-  name_as_received: 'B. subtilis 168',
-  taxon: subtilis,
+  name_as_received: 'T. exempli T1',
+  taxon: exempli,
   risk_group: 2,
   animal_pathogenicity: 'none_known',
   country_of_origin: 'CZ',
   isolation_date: '2019-05',
   created_at: '2026-01-10T23:30:00Z',
   identifications: [
-    { public_id: '00000000-0000-4000-8000-0000000000f2', taxon: subtilis, identified_on: '2026-03-01', method: 'MALDI-TOF MS', reason: 'confirmed', is_current: true, created_at: '2026-03-01T10:00:00Z' },
-    { public_id: '00000000-0000-4000-8000-0000000000f1', taxon: { ...subtilis, name: 'Bacillus sp.' }, identified_on: '2026-01-10', method: '16S', reason: 'Identification at accession', is_current: false, created_at: '2026-01-10T10:00:00Z' },
+    { public_id: '00000000-0000-4000-8000-0000000000f2', taxon: exempli, identified_on: '2026-03-01', method: 'MALDI-TOF MS', reason: 'confirmed', is_current: true, created_at: '2026-03-01T10:00:00Z' },
+    { public_id: '00000000-0000-4000-8000-0000000000f1', taxon: { ...exempli, name: 'Testella sp.' }, identified_on: '2026-01-10', method: '16S', reason: 'Identification at accession', is_current: false, created_at: '2026-01-10T10:00:00Z' },
   ],
   restriction_history: [
     GMO,
@@ -57,7 +59,7 @@ describe('StrainDetail', { timeout: 20_000 }, () => {
       [...document.querySelectorAll('dt')].map((dt) => [dt.textContent, dt.nextElementSibling?.textContent]),
     )
     expect(facts).toEqual({
-      'Name as received': 'B. subtilis 168',
+      'Name as received': 'T. exempli T1',
       Status: 'Active',
       'Risk group': '2',
       'Animal pathogenicity': 'No pathogenicity known',
@@ -77,8 +79,8 @@ describe('StrainDetail', { timeout: 20_000 }, () => {
     }
     const history = screen.getByRole('table', { name: 'Identification history' })
     expect(within(history).getAllByRole('row').slice(1).map((row) => row.textContent)).toEqual([
-      '2026-03-01 (current)Bacillus subtilis Cohn 1872MALDI-TOF MSconfirmed',
-      '2026-01-10Bacillus sp. Cohn 187216SIdentification at accession',
+      '2026-03-01 (current)Testella exempli Roe 1999MALDI-TOF MSconfirmed',
+      '2026-01-10Testella sp. Roe 199916SIdentification at accession',
     ])
   })
 
@@ -110,8 +112,8 @@ describe('StrainDetail', { timeout: 20_000 }, () => {
 
   it('reclassifies by keyboard, and the answer becomes the strain on screen', async () => {
     mockApi('get', DETAIL, strain)
-    mockApi('get', '/api/v1/taxa/', page([coli]))
-    const reclassified = { ...strain, taxon: { ...coli } }
+    mockApi('get', '/api/v1/taxa/', page([mockia]))
+    const reclassified = { ...strain, taxon: { ...mockia } }
     const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/reclassify/', reclassified)
     const { client } = await render()
     const user = userEvent.setup()
@@ -121,14 +123,14 @@ describe('StrainDetail', { timeout: 20_000 }, () => {
     const dialog = await screen.findByRole('dialog', { name: 'Reclassify MYC 42' })
     const taxon = within(dialog).getByRole('combobox', { name: 'Taxon' })
     await waitFor(() => expect(taxon).toHaveFocus())
-    await user.keyboard('coli')
-    await screen.findByRole('option', { name: /Escherichia coli/ }, { timeout: 4000 })
+    await user.keyboard('vulg')
+    await screen.findByRole('option', { name: /Mockia vulgaris/ }, { timeout: 4000 })
     await user.keyboard('{ArrowDown}{Enter}')
     await user.type(within(dialog).getByRole('textbox', { name: 'Method' }), 'MALDI-TOF MS')
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'the sequence differs')
     await user.click(within(dialog).getByRole('button', { name: 'Save identification' }))
     await waitFor(() => expect(dialog).not.toBeInTheDocument())
-    expect(calls[0]?.body).toEqual({ taxon: coli.public_id, identified_on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), method: 'MALDI-TOF MS', reason: 'the sequence differs' })
+    expect(calls[0]?.body).toEqual({ taxon: mockia.public_id, identified_on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), method: 'MALDI-TOF MS', reason: 'the sequence differs' })
     expect(client.getQueryData(strainKeys.detail(LAB_ID, STRAIN_ID))).toEqual(reclassified)
     await waitFor(() => expect(trigger).toHaveFocus())
   })
