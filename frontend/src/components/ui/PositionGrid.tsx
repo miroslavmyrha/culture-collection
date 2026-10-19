@@ -63,7 +63,10 @@ export function PositionGrid({ label, rows, cols, cell, onActivate, onEscape, on
   useLayoutEffect(() => {
     if (!pendingFocus.current) return
     pendingFocus.current = false
-    tableRef.current?.querySelector<HTMLElement>(`[data-pos="${gridLabel(active)}"]`)?.focus()
+    const target = tableRef.current?.querySelector<HTMLElement>(`[data-pos="${gridLabel(active)}"]`)
+    target?.focus()
+    // focus() scrolls only until part of the cell shows; a narrow screen needs all of it.
+    if (target && 'scrollIntoView' in target) target.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   })
 
   useImperativeHandle(ref, () => ({

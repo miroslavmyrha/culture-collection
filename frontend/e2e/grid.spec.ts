@@ -163,7 +163,7 @@ test('a viewer reads a grid without selection or bench work, and the API refuses
   await page.keyboard.press('Enter')
   await page.keyboard.press('ArrowRight')
   await page.keyboard.press('Space')
-  await expect(page.getByRole('status')).toHaveText('')
+  await expect(page.getByRole('main').getByRole('status')).toHaveCount(0)
   await expect(g.locator('[aria-selected]')).toHaveCount(0)
   // The server decides, not the missing controls.
   const vials = rows((await call(page, lab, 'vials/?limit=1')).json)
@@ -221,8 +221,23 @@ test('the box page fits 320 px: the grid scrolls inside its own container, posit
   // The last position scrolls into view when the arrows reach it, inside the container only.
   await cell(page, name, /^A1,/).focus()
   await page.keyboard.press('End')
-  await expect(cell(page, name, 'A9, empty')).toBeFocused()
+  const a9 = cell(page, name, 'A9, empty')
+  await expect(a9).toBeFocused()
   expect(await scroller.evaluate((e) => e.scrollLeft)).toBeGreaterThan(0)
+  // The whole focused position shows, not only its edge.
+  const inside = async (target: Locator) => {
+    const [rect, frame] = await Promise.all([target.boundingBox(), scroller.boundingBox()])
+    return rect !== null && frame !== null && rect.x >= frame.x - 0.5 && rect.x + rect.width <= frame.x + frame.width + 0.5
+  }
+  expect(await inside(a9)).toBe(true)
+  await page.keyboard.press('ArrowLeft')
+  await page.keyboard.press('ArrowLeft')
+  await page.keyboard.press('Home')
+  expect(await inside(cell(page, name, /^A1,/))).toBe(true)
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('ArrowRight')
+  expect(await inside(cell(page, name, 'A4, empty'))).toBe(true)
   expect(await fitsWidth(page)).toBeLessThanOrEqual(320)
   expect(await axe(page, 'body')).toEqual([])
   await page.keyboard.press('Home')

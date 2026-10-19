@@ -173,17 +173,19 @@ export function BoxPositions({ labId, boxId, boxName, canHandle }: Props) {
             ? 'Arrow keys move between positions. Enter, Space or a click picks a vial, then the same on an empty position puts it there. Escape cancels.'
             : 'Arrow keys move between positions.'}
         </Typography>
-        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', minHeight: '2.25rem' }}>
-          {/* The one live region of the grid (output is role status, polite): selection, results, refusals. */}
-          <Typography component="output" sx={{ display: 'block', overflowWrap: 'anywhere' }}>
-            {message}
-          </Typography>
-          {moving && (
-            <Button size="small" variant="outlined" onClick={cancel}>
-              Cancel move
-            </Button>
-          )}
-        </Stack>
+        {canHandle && (
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', minHeight: '2rem' }}>
+            {/* The one live region of the grid (output is role status, polite): selection, results, refusals. */}
+            <Typography component="output" sx={{ display: 'block', overflowWrap: 'anywhere' }}>
+              {message}
+            </Typography>
+            {moving && (
+              <Button size="small" variant="outlined" onClick={cancel}>
+                Cancel move
+              </Button>
+            )}
+          </Stack>
+        )}
         {grid.isPending ? (
           <Typography>Loading the positions…</Typography>
         ) : grid.isError ? (

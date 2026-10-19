@@ -80,7 +80,7 @@ describe('BoxPositions', { timeout: 20_000 }, () => {
     expect(cell(/^B3,/)).toHaveFocus()
     await user.click(cell(/^B3,/))
     await user.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}{Enter}')
-    expect(status()).toHaveTextContent(/^$/)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument() // nothing to announce to a reader
     expect(posts).toHaveLength(0)
   })
 
