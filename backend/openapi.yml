@@ -2751,8 +2751,9 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-          description: Invalid input, an unknown taxon, or a risk group 4 agent (on
-            risk_group)
+          description: Invalid input, an unknown taxon, a risk group 4 agent, or a
+            group above the cap of a box holding the strain's vials (risk_group_above_box_cap),
+            on risk_group
         '422':
           content:
             application/problem+json:
@@ -2825,8 +2826,9 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-          description: Invalid input, an unknown taxon, or a risk group 4 agent (on
-            risk_group)
+          description: Invalid input, an unknown taxon, a risk group 4 agent, or a
+            group above the cap of a box holding the strain's vials (risk_group_above_box_cap),
+            on risk_group
         '422':
           content:
             application/problem+json:
@@ -2984,8 +2986,9 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-          description: Invalid input, an unknown taxon, or a risk group 4 agent (on
-            risk_group)
+          description: Invalid input, an unknown taxon, a risk group 4 agent, or a
+            group above the cap of a box holding the strain's vials (risk_group_above_box_cap),
+            on risk_group
         '422':
           content:
             application/problem+json:

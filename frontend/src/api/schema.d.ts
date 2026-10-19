@@ -4911,7 +4911,7 @@ export interface operations {
                     "application/json": components["schemas"]["StrainDetailOutput"];
                 };
             };
-            /** @description Invalid input, an unknown taxon, or a risk group 4 agent (on risk_group) */
+            /** @description Invalid input, an unknown taxon, a risk group 4 agent, or a group above the cap of a box holding the strain's vials (risk_group_above_box_cap), on risk_group */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -4988,7 +4988,7 @@ export interface operations {
                     "application/json": components["schemas"]["StrainDetailOutput"];
                 };
             };
-            /** @description Invalid input, an unknown taxon, or a risk group 4 agent (on risk_group) */
+            /** @description Invalid input, an unknown taxon, a risk group 4 agent, or a group above the cap of a box holding the strain's vials (risk_group_above_box_cap), on risk_group */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -5151,7 +5151,7 @@ export interface operations {
                     "application/json": components["schemas"]["StrainDetailOutput"];
                 };
             };
-            /** @description Invalid input, an unknown taxon, or a risk group 4 agent (on risk_group) */
+            /** @description Invalid input, an unknown taxon, a risk group 4 agent, or a group above the cap of a box holding the strain's vials (risk_group_above_box_cap), on risk_group */
             400: {
                 headers: {
                     [name: string]: unknown;

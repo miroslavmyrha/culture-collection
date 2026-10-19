@@ -25,7 +25,7 @@ import {
   type RiskGroupValues,
   type Strain,
 } from '../schemas'
-import { PERMIT_REFUSED_BY_KIND, RISK_GROUP_4_REFUSED, strainError } from '../strainErrors'
+import { PERMIT_REFUSED_BY_KIND, RISK_GROUP_4_REFUSED, RISK_GROUP_ABOVE_BOX_CAP, strainError } from '../strainErrors'
 import { TaxonField } from './TaxonField'
 
 type Common = { labId: string; strain: Strain; open: boolean; onClose: () => void; onExited: () => void }
@@ -113,6 +113,10 @@ export function RiskGroupDialog({ labId, strain, open, onClose, onExited }: Comm
       onError: (error) => {
         if (isApiError(error) && error.code === 'risk_group_4_refused') {
           setError('risk_group', { type: 'server', message: RISK_GROUP_4_REFUSED }, { shouldFocus: true })
+          return
+        }
+        if (isApiError(error) && error.code === 'risk_group_above_box_cap') {
+          setError('risk_group', { type: 'server', message: RISK_GROUP_ABOVE_BOX_CAP }, { shouldFocus: true })
           return
         }
         setFailure(placeError(error, ['risk_group', 'reason'], setError, () => setError('reason', missing, { shouldFocus: true })))

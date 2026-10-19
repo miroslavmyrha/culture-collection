@@ -426,7 +426,11 @@ position: lab, vial, box, row, col, `placed_at` and `placed_by`, `removed_at` an
 - `storage.services.box_occupied` counts open placements, so an occupied box keeps its size
   and is not retired. As announced with storage, lowering a unit's cap below the risk group
   of a strain stored in it or below it is refused, and so is moving a unit under a parent
-  whose cap is lower than what it holds.
+  whose cap is lower than what it holds. The other side holds too: a strain's risk group is
+  not raised above the effective cap of a box that holds one of its vials
+  (`risk_group_above_box_cap`, on the risk group, naming no box, so a regulated strain's place
+  stays masked). The strain service locks the lab, the strain, then those boxes; a lower
+  group always fits.
 
 **Who does what.** Viewers and up see passages, batches and vials (`strains.view`).
 Technicians and up preserve, subculture, revive, place, move and change a vial's state
