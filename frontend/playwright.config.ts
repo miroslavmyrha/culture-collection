@@ -10,7 +10,12 @@ export default defineConfig({
   // failing the run. Locally a failure stays a failure.
   retries: process.env.CI ? 1 : 0,
   use: { baseURL: `http://localhost:${port}`, trace: 'retain-on-failure' },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // setup signs each e2e user in once (e2e/auth.setup.ts), so the run stays under the login
+  // throttle; every spec runs after it and reuses those sessions.
+  projects: [
+    { name: 'setup', testMatch: /auth\.setup\.ts/ },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, dependencies: ['setup'] },
+  ],
   webServer: {
     command: `npm run build && npx vite preview --port ${port} --strictPort`,
     url: `http://localhost:${port}`,

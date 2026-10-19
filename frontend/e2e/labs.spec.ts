@@ -1,17 +1,16 @@
 import { expect, type Page, test } from '@playwright/test'
-import { axe, contrast, password, username, watchCsp } from './support.js'
+import { axe, contrast, signedInAs, username, watchCsp } from './support.js'
+
+test.use({ storageState: signedInAs(username) })
 
 async function signIn(page: Page) {
-  await page.goto('/login')
-  await page.getByLabel('Username').fill(username)
-  await page.getByLabel('Password').fill(password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.goto('/')
   await expect(page.getByText(`Signed in as ${username}`)).toBeVisible()
 }
 
 // Needs the seed: `python manage.py seed_e2e` (the CI workflow runs it before the tests).
 // The test ends where it started (the colleague in no lab), so it can run again; after a failed
-// run, seed again. One sign-in per test: the login throttle allows 10 a minute per client.
+// run, seed again. It works as the session auth.setup.ts signed in.
 test('a manager sees their lab and role, then adds, changes and removes a member under the production CSP', async ({ page }) => {
   const violations = await watchCsp(page)
   await signIn(page)

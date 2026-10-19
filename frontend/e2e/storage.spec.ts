@@ -1,34 +1,15 @@
-import { type Browser, type BrowserContext, expect, type Page, test } from '@playwright/test'
-import { axe, password, username, watchCsp } from './support.js'
+import { type Browser, expect, type Page, test } from '@playwright/test'
+import { axe, signedInAs, username, watchCsp } from './support.js'
 
 // The storage tree against the real API (seed_e2e: the e2e user manages "E2E lab", e2e-viewer
 // views it, and two box types exist). Units are never deleted, so each run builds its own
-// freezer, named uniquely per run, and finds it by that name. One sign-in per role for the
-// whole file: the login throttle allows 10 a minute.
+// freezer, named uniquely per run, and finds it by that name. It works as the sessions
+// auth.setup.ts signed in.
 
-type State = Awaited<ReturnType<BrowserContext['storageState']>>
-const signedIn: Record<string, State> = {}
 const RUN = Date.now().toString(36)
 
-async function signIn(browser: Browser, name: string) {
-  const context = await browser.newContext()
-  const page = await context.newPage()
-  await page.goto('/login')
-  await page.getByLabel('Username').fill(name)
-  await page.getByLabel('Password').fill(password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
-  signedIn[name] = await context.storageState()
-  await context.close()
-}
-
-test.beforeAll(async ({ browser }) => {
-  await signIn(browser, username)
-  await signIn(browser, 'e2e-viewer')
-})
-
 async function as(browser: Browser, name: string, width = 1280) {
-  const context = await browser.newContext({ storageState: signedIn[name], viewport: { width, height: width === 320 ? 640 : 900 } })
+  const context = await browser.newContext({ storageState: signedInAs(name), viewport: { width, height: width === 320 ? 640 : 900 } })
   const page = await context.newPage()
   return { page, close: () => context.close() }
 }

@@ -1,29 +1,14 @@
-import { type Browser, type BrowserContext, expect, type Locator, type Page, test } from '@playwright/test'
-import { axe, password, ratio, ring, surfaceOf, tabTo, username, watchCsp } from './support.js'
+import { type Browser, expect, type Locator, type Page, test } from '@playwright/test'
+import { axe, ratio, ring, signedInAs, surfaceOf, tabTo, username, watchCsp } from './support.js'
 
 // Checks that need a browser: reflow at 320 px (WCAG 1.4.10), the focus ring and its contrast
 // (2.4.7, 1.4.11; axe does not test focus rings), titles and focus after navigation (2.4.2,
 // 2.4.3), and a keyboard walk through every page. Nothing here changes data, so it runs next to
-// labs.spec.ts. One sign-in for the whole file: the login throttle allows 10 a minute.
-
-type State = Awaited<ReturnType<BrowserContext['storageState']>>
-let signedIn: State
-
-test.beforeAll(async ({ browser }) => {
-  const context = await browser.newContext()
-  const page = await context.newPage()
-  await page.goto('/login')
-  await page.getByLabel('Username').fill(username)
-  await page.getByLabel('Password').fill(password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
-  signedIn = await context.storageState()
-  await context.close()
-})
+// labs.spec.ts. It works as the session auth.setup.ts signed in.
 
 async function open(browser: Browser, options: { width?: number; colorScheme?: 'light' | 'dark'; anonymous?: boolean } = {}) {
   const context = await browser.newContext({
-    storageState: options.anonymous ? undefined : signedIn,
+    storageState: options.anonymous ? undefined : signedInAs(username),
     viewport: { width: options.width ?? 1280, height: options.width ? 640 : 720 },
     colorScheme: options.colorScheme ?? 'light',
   })

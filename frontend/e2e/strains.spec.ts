@@ -1,33 +1,14 @@
-import { type Browser, type BrowserContext, expect, type Page, test } from '@playwright/test'
-import { axe, password, watchCsp } from './support.js'
+import { type Browser, expect, type Page, test } from '@playwright/test'
+import { axe, signedInAs, watchCsp } from './support.js'
 
 // The strain registry against the real API (seed_e2e: e2e-curator and e2e-viewer in "E2E lab",
 // a few taxa, no permits, and one strain from an accepted deposit, B. subtilis, risk group 1).
 // Strains come from accepted deposits: deposits.spec.ts adds them. These tests change no data.
-// One sign-in per role for the whole file: the login throttle allows 10 a minute.
+// It works as the sessions auth.setup.ts signed in.
 
-type State = Awaited<ReturnType<BrowserContext['storageState']>>
-const signedIn: Record<string, State> = {}
-
-async function signIn(browser: Browser, username: string) {
-  const context = await browser.newContext()
-  const page = await context.newPage()
-  await page.goto('/login')
-  await page.getByLabel('Username').fill(username)
-  await page.getByLabel('Password').fill(password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
-  signedIn[username] = await context.storageState()
-  await context.close()
-}
-
-test.beforeAll(async ({ browser }) => {
-  await signIn(browser, 'e2e-curator')
-  await signIn(browser, 'e2e-viewer')
-})
 
 async function as(browser: Browser, username: string, width = 1280) {
-  const context = await browser.newContext({ storageState: signedIn[username], viewport: { width, height: width === 320 ? 640 : 900 } })
+  const context = await browser.newContext({ storageState: signedInAs(username), viewport: { width, height: width === 320 ? 640 : 900 } })
   const page = await context.newPage()
   return { page, close: () => context.close() }
 }
