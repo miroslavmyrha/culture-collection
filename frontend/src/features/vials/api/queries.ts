@@ -53,3 +53,15 @@ export function useVials(labId: string, strainId: string) {
 export function useBoxes(labId: string, enabled: boolean) {
   return useQuery({ ...boxesOptions(labId), enabled })
 }
+
+/** A box with its taken positions; a regulated vial's position is masked and names no vial. */
+export const boxGridOptions = (labId: string, boxId: string) =>
+  queryOptions({
+    queryKey: vialKeys.box(labId, boxId),
+    queryFn: ({ signal }) =>
+      unwrap(api.GET('/api/v1/labs/{lab_public_id}/boxes/{public_id}/', { signal, params: { path: { lab_public_id: labId, public_id: boxId } } })),
+  })
+
+export function useBoxGrid(labId: string, boxId: string) {
+  return useQuery(boxGridOptions(labId, boxId))
+}

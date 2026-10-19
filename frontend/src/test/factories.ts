@@ -291,3 +291,33 @@ export function makeLocationGrant(overrides: Partial<LocationGrant> = {}): Locat
   const n = next()
   return { public_id: uuid(n), member: uuid(9003), username: 'bob', reason: 'keeps the register', created_at: '2026-10-01T10:00:00Z', ...overrides }
 }
+
+export type BoxGrid = Schemas['BoxGridOutput']
+export type BoxPosition = Schemas['BoxPosition']
+export type BoxVial = Schemas['BoxVial']
+
+/** An available vial of MYC 42 in a box. */
+export function makeBoxVial(overrides: Partial<BoxVial> = {}): BoxVial {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    label: `MYC 42 / 1 / ${n}`,
+    status: 'available',
+    barcode: null,
+    strain: uuid(9001),
+    accession_number: 'MYC 42',
+    ...overrides,
+  }
+}
+
+/** A taken position by its label ("B3"). 'masked' is what the API sends for a regulated strain: no vial. */
+export function makePosition(label: string, vial: BoxVial | 'masked'): BoxPosition {
+  const row = (label.codePointAt(0) ?? 64) - 64
+  const col = Number(label.slice(1))
+  return vial === 'masked' ? { row, col, label, masked: true, vial: null } : { row, col, label, masked: false, vial }
+}
+
+export function makeBoxGrid(overrides: Partial<BoxGrid> = {}): BoxGrid {
+  const n = next()
+  return { public_id: uuid(n), name: 'Box 1', rows: 9, cols: 9, positions: [], ...overrides }
+}

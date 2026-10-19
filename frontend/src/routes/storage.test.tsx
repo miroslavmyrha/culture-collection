@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { makeLab, makeMe, makeUnit, makeUnitRow } from '@/test/factories'
+import { makeBoxGrid, makeLab, makeMe, makeUnit, makeUnitRow } from '@/test/factories'
 import { mockApi } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
@@ -9,7 +9,7 @@ const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const TREE = '/api/v1/labs/{lab_public_id}/storage-units/'
 const UNIT = '/api/v1/labs/{lab_public_id}/storage-units/{public_id}/'
 const signedIn = () => mockApi('get', '/api/v1/auth/me/', makeMe())
-const lab = (role: 'viewer' | 'curator' | 'manager') => mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: role }))
+const lab = (role: 'viewer' | 'technician' | 'curator' | 'manager') => mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: role }))
 const freezer = makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000f1', name: 'Freezer A', temperature_c: -80 })
 
 describe('/labs/$labId/storage route', { timeout: 20_000 }, () => {
@@ -68,5 +68,34 @@ describe('/labs/$labId/storage route', { timeout: 20_000 }, () => {
     await waitFor(() => expect(router.state.location.pathname).toBe(`/labs/${LAB_ID}/storage/${created.public_id}`))
     expect(calls[0]?.body).toEqual({ kind: 'freezer', parent: null, slot: null, name: 'Freezer C', barcode: '', temperature_c: -80, max_risk_group: 2, box_type: null })
     expect(await screen.findByRole('heading', { level: 1, name: 'Freezer C' })).toBeInTheDocument()
+  })
+
+  // The page composes the storage unit with the vials' grid: who may move vials is decided here.
+  it.each([
+    ['viewer', true, false],
+    ['technician', true, true],
+    ['manager', true, true],
+    ['technician', false, false],
+  ] as const)('a box for a %s (active %s) shows its positions, with bench work: %s', async (role, active, bench) => {
+    signedIn()
+    lab(role)
+    const box = makeUnit({ public_id: '00000000-0000-4000-8000-0000000000b1', kind: 'box', name: 'Box 1', rows: 9, cols: 9, path_active: active })
+    mockApi('get', UNIT, box)
+    mockApi('get', '/api/v1/labs/{lab_public_id}/boxes/{public_id}/', makeBoxGrid({ public_id: box.public_id }))
+    renderApp({ path: `/labs/${LAB_ID}/storage/${box.public_id}` })
+    const grid = await screen.findByRole('grid', { name: 'Positions of Box 1' }, { timeout: 5000 })
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(grid.hasAttribute('aria-readonly')).toBe(!bench)
+    expect(screen.queryByRole('form', { name: 'Place a vial' }) !== null).toBe(bench)
+  })
+
+  it('a unit that is no box has no positions and asks for none', async () => {
+    signedIn()
+    lab('manager')
+    mockApi('get', UNIT, makeUnit({ ...freezer }))
+    renderApp({ path: `/labs/${LAB_ID}/storage/${freezer.public_id}` })
+    expect(await screen.findByRole('heading', { level: 1, name: 'Freezer A' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.queryByRole('grid')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Positions' })).not.toBeInTheDocument()
   })
 })

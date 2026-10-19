@@ -14,13 +14,15 @@ type Props = {
   canManage: boolean
   /** After a unit is added inside this one: show it. */
   onCreated: (unit: Unit) => void
+  /** What the unit holds besides units (a box's positions), from the page: features do not import each other. */
+  renderContents?: (unit: Unit) => ReactNode
 }
 
 type Kind = 'add' | 'edit' | 'move' | 'out_of_service' | 'active' | 'retired'
 type Open = { kind: Kind; open: boolean } | null
 
 /** One storage unit: where it is (breadcrumbs), what it is, what it holds, and for curators the actions. */
-export function UnitDetail({ labId, labName, unitId, canManage, onCreated }: Props) {
+export function UnitDetail({ labId, labName, unitId, canManage, onCreated, renderContents }: Props) {
   const unit = useUnit(labId, unitId)
   const [open, setOpen] = useState<Open>(null)
   const spot = useRef<FocusReturn | null>(null)
@@ -178,6 +180,8 @@ export function UnitDetail({ labId, labName, unitId, canManage, onCreated }: Pro
           )}
         </Box>
       )}
+
+      {renderContents?.(u)}
 
       {/* Mounted until they have faded out, so onExited can place the focus. */}
       {open?.kind === 'add' && <CreateUnitDialog labId={labId} parent={u} open={open.open} onClose={close} onExited={exited} onCreated={onCreated} />}
