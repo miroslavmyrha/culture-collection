@@ -131,6 +131,17 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     expect(screen.queryByText('internal detail')).not.toBeInTheDocument()
   })
 
+  it('offers no depositor whose contact was erased', async () => {
+    mockApi('get', '/api/v1/labs/{lab_public_id}/depositors/', page([jana, makeDepositor({ name: '', institution: 'Vzor Institute', erased: true })]))
+    mockApi('get', '/api/v1/labs/{lab_public_id}/mta-templates/', page([std]))
+    await renderWithProviders(<ReceiveDepositForm labId={LAB_ID} onReceived={vi.fn<(deposit: Deposit) => void>()} />)
+    const user = userEvent.setup()
+    await user.click(select('Depositor'))
+    await user.keyboard('vzor')
+    const listbox = await screen.findByRole('listbox', undefined, { timeout: 10_000 })
+    expect(within(listbox).getAllByRole('option').map((o) => o.textContent)).toEqual(['Jana Vzorová, Example University'])
+  })
+
   it('adds a new depositor in a dialog and chooses them, focus back on the button', async () => {
     const petr = makeDepositor({ name: 'Petr Příklad', institution: '' })
     mockApi('post', '/api/v1/labs/{lab_public_id}/depositors/', petr)
@@ -155,6 +166,8 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     expect(button).toHaveFocus()
     await user.click(button)
     expect(held.calls).toHaveLength(1)
+    // No MTA chosen: the API gets null, never an empty id.
+    expect(held.calls[0]?.body).toMatchObject({ terms: { mta: null } })
     held.release(201, makeDeposit())
     await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'false'), { timeout: 5000 })
   })
