@@ -2,7 +2,7 @@
 
 Date: 2026-10-18
 Status: accepted (#50). Open questions listed at the end.
-Amended 2026-10-19: location masking as built (#16).
+Amended 2026-10-19: location masking as built (#16). Amended 2026-10-20: the box grid (#15).
 Deciders: maintainer
 
 ## Context
@@ -260,3 +260,22 @@ these reads (each reveal logged before the data is returned).
 Migration impact: additive, `labs` 0003 and 0004 (the table, then its row audit and
 guard) and the reason check of `audit_auditevent` (audit 0018). Reversible with `migrate
 labs 0002` once the lineage tables of the same issue are gone.
+
+## Amendment 2026-10-20: the box grid (#15)
+
+The grid shows where vials are, so it masks the other way round: a box's position that holds a
+vial of a regulated strain says `masked: true` and carries no vial, no strain and no label, in
+every answer and for every reader, a holder of the location grant too. The grid has no reveal:
+a holder reveals one vial at a time from its strain page, as before, and each reveal stays an
+audited request. A masked position cannot be picked in the grid, so a regulated vial is moved
+from its strain page. A vial found by its code and placed from the grid is announced without
+its position when its strain is regulated, and the grid then shows that position as taken
+only, so the place is not kept on screen.
+
+Known limit, the same as for a refused position: the grid tells that some regulated vial is in
+C4, not which. Someone who knows that a strain has one placed vial, and sees one masked
+position, can guess. The masking keeps the place off the screen, not from the person at the
+freezer. Refused:
+leaving masked positions out (a technician would be sent to a taken position), and a reveal in
+the grid (a reveal names a vial, not a position, and one per look keeps the trail readable).
+

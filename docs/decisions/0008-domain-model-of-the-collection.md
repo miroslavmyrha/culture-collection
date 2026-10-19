@@ -3,7 +3,7 @@
 Date: 2026-10-18
 Status: accepted (#50)
 Amended 2026-10-19: terms, contacts and the intake (#10, #12); storage (#14);
-preservation, batches and vials (#16).
+preservation, batches and vials (#16). Amended 2026-10-20: the box grid (#15).
 Deciders: maintainer
 
 ## Context
@@ -451,3 +451,26 @@ table under its lock. Reversible while no vial exists: `migrate lineage 0002`, t
 Revisit when: a lab labels vials with its own scheme, a batch needs more than 200 vials,
 a protocol needs aliquots used in part (a quantity), or a vial must sit in two places (a
 straw in a goblet).
+
+## Amendment 2026-10-20: the box grid (#15)
+
+**D6 as built: the grid.** A box's page shows its positions as a grid, rows as letters and
+columns as numbers (D6). `GET /labs/<lab>/boxes/<box>/` answers the box with its taken
+positions, read in one query whatever the box holds; a position missing from the answer is
+empty. Reading needs `strains.view` on a box the reader sees through `storage.view` (both a
+viewer's). Technicians and up move a vial inside the box in two steps (pick it, then an empty
+position) and place a vial they scanned. Both go through the vial's place action, so the
+services, the locks and `may_store` are the ones of #16. Moving a vial to another box stays
+on the strain page.
+
+**D17 as built: scanning.** The vial list takes `code`: a barcode, matched exactly, or a label
+as printed ("MYC 42 / 1 / 3", the accession number without regard to case). A scanner that
+types like a keyboard needs nothing more: the box page has one field, and its Enter finds the
+vial. Generating and printing labels stays open.
+
+**Fill order.** Preserving into a box still fills row by row (A1, A2, ..., B1), and a scanned
+vial starts at the first empty position in that order. A fill order per box type (by column, or
+a lab's own numbering) is deferred until a lab asks.
+
+Migration impact: none. A new read endpoint and a filter; no table changes.
+
