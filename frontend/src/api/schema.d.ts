@@ -118,6 +118,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/batches/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        get: operations["labs_batches_list"];
+        put?: never;
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        post: operations["labs_batches_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/batches/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        get: operations["labs_batches_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/depositors/": {
         parameters: {
             query?: never;
@@ -246,6 +290,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/location-grants/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_location_grants_list"];
+        put?: never;
+        post: operations["labs_location_grants_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/location-grants/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_location_grants_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/location-grants/{public_id}/revoke/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_location_grants_revoke_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/members/": {
         parameters: {
             query?: never;
@@ -302,6 +394,50 @@ export interface paths {
             cookie?: never;
         };
         get: operations["labs_mta_templates_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/passages/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        get: operations["labs_passages_list"];
+        put?: never;
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        post: operations["labs_passages_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/passages/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        get: operations["labs_passages_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -486,6 +622,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/vials/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        get: operations["labs_vials_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/vials/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        get: operations["labs_vials_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/vials/{public_id}/barcode/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        post: operations["labs_vials_barcode_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/vials/{public_id}/place/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        post: operations["labs_vials_place_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/vials/{public_id}/reveal-location/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        post: operations["labs_vials_reveal_location_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/vials/{public_id}/revive/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        post: operations["labs_vials_revive_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/vials/{public_id}/status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        post: operations["labs_vials_status_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{public_id}/": {
         parameters: {
             query?: never;
@@ -546,6 +822,37 @@ export interface components {
          * @enum {string}
          */
         AbsScope: "not_in_scope" | "in_scope" | "unknown";
+        BarcodeInputRequest: {
+            barcode: string;
+        };
+        BatchOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            /** Format: uuid */
+            readonly strain: string;
+            readonly number: number;
+            /** Format: uuid */
+            readonly passage: string;
+            readonly passage_number: number;
+            readonly method: components["schemas"]["MethodEnum"];
+            readonly cryoprotectant: string;
+            /** Format: date */
+            readonly preserved_on: string;
+            readonly purpose: components["schemas"]["PurposeEnum"];
+            readonly status: components["schemas"]["BatchOutputStatusEnum"];
+            readonly vial_count_created: number;
+            readonly vials_available: number;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `pending_check` - Pending check
+         *     * `released` - Released
+         *     * `on_hold` - On hold
+         *     * `exhausted` - Exhausted
+         * @enum {string}
+         */
+        BatchOutputStatusEnum: "pending_check" | "released" | "on_hold" | "exhausted";
         /** @enum {unknown} */
         BlankEnum: "";
         BoxTypeOutput: {
@@ -933,6 +1240,36 @@ export interface components {
             readonly code: string;
             readonly my_role: components["schemas"]["Role"];
         };
+        Location: {
+            /** Format: uuid */
+            box: string;
+            box_name: string;
+            path: string[];
+            row: number;
+            col: number;
+            label: string;
+        };
+        LocationGrantInputRequest: {
+            /** Format: uuid */
+            member: string;
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
+        /** @description An open grant: who may see where the lab's regulated strains are (ADR 0009). */
+        LocationGrantOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            /** Format: uuid */
+            readonly member: string;
+            readonly username: string;
+            readonly reason: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        LocationRevokeInputRequest: {
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
         LoginInputRequest: {
             username: string;
             password: string;
@@ -968,6 +1305,13 @@ export interface components {
         MemberRoleInputRequest: {
             role: components["schemas"]["Role"];
         };
+        /**
+         * @description * `cryo_minus80` - Frozen at -80 °C
+         *     * `cryo_ln2` - Frozen in liquid nitrogen
+         *     * `lyophilised` - Freeze-dried
+         * @enum {string}
+         */
+        MethodEnum: "cryo_minus80" | "cryo_ln2" | "lyophilised";
         MtaTemplateBrief: {
             /** Format: uuid */
             readonly public_id: string;
@@ -1004,6 +1348,21 @@ export interface components {
         };
         /** @enum {unknown} */
         NullEnum: null;
+        PaginatedBatchOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["BatchOutput"][];
+        };
         PaginatedBoxTypeOutputList: {
             /** @example 123 */
             count: number;
@@ -1094,6 +1453,21 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["MtaTemplateListOutput"][];
         };
+        PaginatedPassageOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["PassageOutput"][];
+        };
         PaginatedStrainListOutputList: {
             /** @example 123 */
             count: number;
@@ -1124,6 +1498,35 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["TaxonOutput"][];
         };
+        PaginatedVialOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["VialOutput"][];
+        };
+        PassageOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            /** Format: uuid */
+            readonly strain: string;
+            readonly number: number;
+            readonly source_kind: components["schemas"]["SourceKindEnum"];
+            /** Format: uuid */
+            readonly source_passage: string | null;
+            /** Format: uuid */
+            readonly source_vial: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
         PatchedMemberRoleInputRequest: {
             role?: components["schemas"]["Role"];
         };
@@ -1134,6 +1537,25 @@ export interface components {
          * @enum {string}
          */
         Pathogenicity: "unknown" | "none_known" | "pathogenic";
+        PlaceInputRequest: {
+            /** Format: uuid */
+            box: string;
+            row: number;
+            col: number;
+        };
+        PreserveInputRequest: {
+            /** Format: uuid */
+            passage: string;
+            method: components["schemas"]["MethodEnum"];
+            purpose: components["schemas"]["PurposeEnum"];
+            /** @default  */
+            cryoprotectant: string;
+            /** Format: date */
+            preserved_on: string;
+            vial_count: number;
+            /** Format: uuid */
+            box?: string | null;
+        };
         /** @description The error body of every API response with status 400 and above. */
         Problem: {
             type: string;
@@ -1148,6 +1570,12 @@ export interface components {
             code: string;
             detail: string;
         };
+        /**
+         * @description * `seed` - Seed stock
+         *     * `distribution` - Distribution stock
+         * @enum {string}
+         */
+        PurposeEnum: "seed" | "distribution";
         /**
          * @description * `domain` - Domain
          *     * `kingdom` - Kingdom
@@ -1222,6 +1650,9 @@ export interface components {
             readonly ended_at: string | null;
             readonly end_reason: string;
         };
+        RevealOutput: {
+            location: components["schemas"]["Location"] | null;
+        };
         /**
          * @description * `1` - 1
          *     * `2` - 2
@@ -1243,6 +1674,13 @@ export interface components {
          * @enum {string}
          */
         Role: "viewer" | "technician" | "curator" | "manager";
+        /**
+         * @description * `deposit` - deposit
+         *     * `passage` - passage
+         *     * `vial` - vial
+         * @enum {string}
+         */
+        SourceKindEnum: "deposit" | "passage" | "vial";
         StrainBrief: {
             /** Format: uuid */
             readonly public_id: string;
@@ -1310,6 +1748,10 @@ export interface components {
          * @enum {string}
          */
         StrainStatus: "pending" | "active" | "restricted" | "deaccessioned";
+        SubcultureInputRequest: {
+            /** Format: uuid */
+            source_passage: string;
+        };
         /**
          * @description * `ncbi` - NCBI Taxonomy
          *     * `lpsn` - LPSN
@@ -1507,6 +1949,56 @@ export interface components {
          * @enum {string}
          */
         Use: "research_noncommercial" | "research_commercial" | "teaching" | "diagnostics" | "production" | "reference_qc" | "patent_deposit_related" | "redistribution";
+        /**
+         * @description Context: `paths`, the box paths of the rows shown (selectors.box_paths), and
+         *     `may_reveal`, whether the reader holds the lab's location grant.
+         */
+        VialOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly label: string;
+            /** Format: uuid */
+            readonly batch: string;
+            readonly batch_number: number;
+            readonly seq: number;
+            readonly barcode: string | null;
+            readonly status: components["schemas"]["VialOutputStatusEnum"];
+            /** Format: date-time */
+            readonly status_changed_at: string | null;
+            readonly placed: boolean;
+            readonly location: components["schemas"]["Location"] | null;
+            readonly location_masked: boolean;
+            readonly can_reveal: boolean;
+        };
+        /**
+         * @description * `available` - Available
+         *     * `reserved` - Reserved
+         *     * `consumed` - Consumed
+         *     * `quarantined` - Quarantined
+         *     * `to_destroy` - To destroy
+         *     * `destroyed` - Destroyed
+         *     * `lost` - Lost
+         *     * `distributed` - Distributed
+         *     * `entered_in_error` - Entered in error
+         * @enum {string}
+         */
+        VialOutputStatusEnum: "available" | "reserved" | "consumed" | "quarantined" | "to_destroy" | "destroyed" | "lost" | "distributed" | "entered_in_error";
+        VialStatusInputRequest: {
+            status: components["schemas"]["VialStatusInputStatusEnum"];
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
+        /**
+         * @description * `available` - Available
+         *     * `consumed` - Consumed
+         *     * `quarantined` - Quarantined
+         *     * `to_destroy` - To destroy
+         *     * `destroyed` - Destroyed
+         *     * `lost` - Lost
+         *     * `entered_in_error` - Entered in error
+         * @enum {string}
+         */
+        VialStatusInputStatusEnum: "available" | "consumed" | "quarantined" | "to_destroy" | "destroyed" | "lost" | "entered_in_error";
     };
     responses: never;
     parameters: never;
@@ -1818,6 +2310,195 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_batches_list: {
+        parameters: {
+            query?: {
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+                strain?: string;
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedBatchOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_batches_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreserveInputRequest"];
+                "multipart/form-data": components["schemas"]["PreserveInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchOutput"];
+                };
+            };
+            /** @description Invalid input on a field: an unknown passage or box, a box that may not take the strain (not_a_box, unit_not_active, risk_group_above_cap), a full box (box_full), a position outside the box (outside_box), a date in the future, a state that cannot follow */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description strain_not_active; position_taken; vial_not_in_collection; batch_number_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_batches_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2608,6 +3289,273 @@ export interface operations {
             };
         };
     };
+    labs_location_grants_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationGrantOutput"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_location_grants_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocationGrantInputRequest"];
+                "multipart/form-data": components["schemas"]["LocationGrantInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationGrantOutput"];
+                };
+            };
+            /** @description An unknown member, or one who holds the grant already (already_granted) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_location_grants_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationGrantOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_location_grants_revoke_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocationRevokeInputRequest"];
+                "multipart/form-data": components["schemas"]["LocationRevokeInputRequest"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description grant_revoked: revoked already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     labs_members_list: {
         parameters: {
             query?: {
@@ -3163,6 +4111,195 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MtaTemplateDetailOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_passages_list: {
+        parameters: {
+            query?: {
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+                strain?: string;
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedPassageOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_passages_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubcultureInputRequest"];
+                "multipart/form-data": components["schemas"]["SubcultureInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PassageOutput"];
+                };
+            };
+            /** @description Invalid input on a field: an unknown passage or box, a box that may not take the strain (not_a_box, unit_not_active, risk_group_above_cap), a full box (box_full), a position outside the box (outside_box), a date in the future, a state that cannot follow */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description strain_not_active; position_taken; vial_not_in_collection; batch_number_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_passages_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PassageOutput"];
                 };
             };
             401: {
@@ -4048,6 +5185,477 @@ export interface operations {
                 };
             };
             /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_vials_list: {
+        parameters: {
+            query?: {
+                batch?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+                strain?: string;
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedVialOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_vials_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VialOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_vials_barcode_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BarcodeInputRequest"];
+                "multipart/form-data": components["schemas"]["BarcodeInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VialOutput"];
+                };
+            };
+            /** @description Invalid input on a field: an unknown passage or box, a box that may not take the strain (not_a_box, unit_not_active, risk_group_above_cap), a full box (box_full), a position outside the box (outside_box), a date in the future, a state that cannot follow */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_vials_place_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceInputRequest"];
+                "multipart/form-data": components["schemas"]["PlaceInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VialOutput"];
+                };
+            };
+            /** @description Invalid input on a field: an unknown passage or box, a box that may not take the strain (not_a_box, unit_not_active, risk_group_above_cap), a full box (box_full), a position outside the box (outside_box), a date in the future, a state that cannot follow */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description strain_not_active; position_taken; vial_not_in_collection; batch_number_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_vials_reveal_location_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevealOutput"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description location_grant_required: the caller holds no location grant */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_vials_revive_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PassageOutput"];
+                };
+            };
+            /** @description Invalid input on a field: an unknown passage or box, a box that may not take the strain (not_a_box, unit_not_active, risk_group_above_cap), a full box (box_full), a position outside the box (outside_box), a date in the future, a state that cannot follow */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description strain_not_active; position_taken; vial_not_in_collection; batch_number_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_vials_status_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VialStatusInputRequest"];
+                "multipart/form-data": components["schemas"]["VialStatusInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VialOutput"];
+                };
+            };
+            /** @description Invalid input on a field: an unknown passage or box, a box that may not take the strain (not_a_box, unit_not_active, risk_group_above_cap), a full box (box_full), a position outside the box (outside_box), a date in the future, a state that cannot follow */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required */
             422: {
                 headers: {
                     [name: string]: unknown;

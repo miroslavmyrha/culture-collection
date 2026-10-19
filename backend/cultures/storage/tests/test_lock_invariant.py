@@ -54,7 +54,8 @@ SCENARIOS: dict[str, Scenario] = {
 EXEMPT: dict[str, str] = {
     "box_type_create": "a global box type: no lab to lock, staff only, in admin",
     "box_type_rename": "a global box type: no lab to lock, staff only, in admin",
-    "box_occupied": "a read the services call under their lock; no query before #16",
+    "box_occupied": "a read the services call under their lock",
+    "held_risk_group": "a read the services call under their lock",
     "normalised": "text normalisation, no query",
 }
 

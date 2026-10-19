@@ -313,7 +313,7 @@ def test_an_occupied_box_keeps_its_size(
     box_10x10: BoxType,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The hook #16 fills with its placements: an occupied box refuses a new size."""
+    """An occupied box refuses a new size (real placements: lineage/tests/test_services.py)."""
     asked: list[StorageUnit] = []
 
     def occupied(box: StorageUnit) -> bool:
@@ -341,8 +341,10 @@ def test_an_occupied_box_keeps_its_size(
     assert fresh(tree.box).name == "Box 1a"
 
 
-def test_no_position_is_occupied_before_vials_exist(tree: Tree) -> None:
+def test_an_empty_box_is_not_occupied(tree: Tree) -> None:
+    """Placements make it occupied: lineage/tests/test_services.py."""
     assert services.box_occupied(tree.box) is False
+    assert services.held_risk_group(tree.freezer) is None
 
 
 def test_a_root_keeps_its_cap(as_curator: AuditContext, curator_access: Access, tree: Tree) -> None:
@@ -570,7 +572,7 @@ SCENARIOS: dict[str, Callable[[Access, Lab, Tree, BoxType], object]] = {
     ),
 }
 # Box types are global and changed by staff in admin, without a lab or a role.
-NO_LAB = {"box_type_create", "box_type_rename", "box_occupied", "normalised"}
+NO_LAB = {"box_type_create", "box_type_rename", "box_occupied", "held_risk_group", "normalised"}
 
 
 def test_every_unit_service_has_a_scenario_here() -> None:

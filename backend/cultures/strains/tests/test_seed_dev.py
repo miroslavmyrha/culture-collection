@@ -23,8 +23,9 @@ from cultures.core.tests.test_settings import BACKEND, GOOD_ENV, production_valu
 from cultures.deposits.models import Contact, Deposit, Depositor, DepositTerms, MtaTemplate
 from cultures.labs import services as labs
 from cultures.labs.access import access_for
-from cultures.labs.models import Lab, Membership
+from cultures.labs.models import Lab, LocationGrant, Membership
 from cultures.labs.permissions import Role
+from cultures.lineage.models import Batch, Passage, Vial, VialPlacement
 from cultures.storage.models import KIND_SPEC, BoxType, StorageUnit, UnitKind, may_hold
 from cultures.storage.policy import may_store
 from cultures.strains import services as strains
@@ -110,6 +111,11 @@ def state() -> dict[str, Any]:
         "terms": rows(DepositTerms, "version", "is_active"),
         "box_types": rows(BoxType, "name", "rows", "cols"),
         "units": rows(StorageUnit, "lab__code", "name", "parent__name", "status", "updated_at"),
+        "passages": rows(Passage, "strain__name_as_received", "number"),
+        "batches": rows(Batch, "strain__name_as_received", "number", "status"),
+        "vials": rows(Vial, "batch__number", "seq", "status", "updated_at"),
+        "placements": rows(VialPlacement, "box__name", "row", "col", "removed_at"),
+        "grants": rows(LocationGrant, "user__username", "revoked_at"),
     }
 
 
@@ -645,3 +651,71 @@ def test_it_builds_a_storage_tree_per_lab_through_the_storage_services() -> None
     assert may_store(
         unit=StorageUnit.objects.get(lab__code="REG", name="Box 1"), risk_group=3
     ).allowed
+
+
+BATCHES: list[dict[str, Any]] = DATA["batches"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_it_preserves_batches_and_places_their_vials_through_the_lineage_services() -> None:
+    out = seed()
+    assert f"Batches: {len(BATCHES)} created, 0 found." in out
+    assert Batch.objects.count() == len(BATCHES)
+    assert Vial.objects.count() == sum(row["vial_count"] for row in BATCHES)
+    placed = VialPlacement.objects.filter(removed_at__isnull=True)
+    assert placed.count() == sum(row["vial_count"] for row in BATCHES if row["box"])
+    for row in BATCHES:
+        if not row["box"]:
+            continue
+        box = StorageUnit.objects.get(
+            lab__code=row["lab"], name=row["box"][-1], parent__name=row["box"][-2]
+        )
+        assert box.placements.filter(removed_at__isnull=True).exists(), row
+    # A batch of passage 1 comes from a subculture, made through its service.
+    assert Passage.objects.filter(number=1, source_passage__isnull=False).count() == 1
+    events = Counter(AuditEvent.objects.values_list("event_type", flat=True))
+    assert events["batch_created"] == len(BATCHES)
+    assert events["vial_created"] == Vial.objects.count()
+    assert events["vial_placed"] == placed.count()
+    from_deposits = set(Deposit.objects.filter(status="accepted").values_list("strain", flat=True))
+    assert set(Vial.objects.values_list("batch__strain", flat=True)) <= from_deposits
+    again = seed()
+    assert f"Batches: 0 created, {len(BATCHES)} found." in again
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_the_regulated_lab_has_masked_vials_and_one_holder_of_the_grant() -> None:
+    seed()
+    reg = Lab.objects.get(code="REG")
+    regulated = Vial.objects.filter(lab=reg, batch__strain__restrictions__ended_at__isnull=True)
+    assert regulated.exists()
+    (grant,) = LocationGrant.objects.filter(lab=reg, revoked_at__isnull=True)
+    assert grant.user.username == "reg-manager"
+    assert "(invented example)" in grant.reason
+    seed()
+    assert LocationGrant.objects.filter(lab=reg).count() == 1
+
+
+def test_every_batch_names_an_accepted_deposit_and_a_box_of_its_lab() -> None:
+    accepted = {(row["lab"], row["name_as_received"]) for row in ACCEPTED}
+    boxes = {(code, *path) for code, *path in _box_paths()}
+    for row in BATCHES:
+        assert (row["lab"], row["deposit"]) in accepted, row
+        assert row["box"] is None or (row["lab"], *row["box"]) in boxes, row
+
+
+def _box_paths() -> list[tuple[str, ...]]:
+    found: list[tuple[str, ...]] = []
+
+    def walk(code: str, units: list[dict[str, Any]], above: tuple[str, ...]) -> None:
+        for unit in units:
+            path = (*above, unit["name"])
+            if unit["kind"] == "box":
+                found.append((code, *path))
+            walk(code, unit.get("children", []), path)
+
+    for lab in DATA["labs"]:
+        walk(lab["code"], lab["storage"], ())
+    return found

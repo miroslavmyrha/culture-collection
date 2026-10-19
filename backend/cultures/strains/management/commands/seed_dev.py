@@ -29,7 +29,12 @@ depositors, MTA templates and deposits):
   makes their strains through the deposit services;
 - three box types and a storage tree per lab (freezers and LN2 tanks, racks,
   boxes), added through the storage services with the curator's role: REG has
-  a box capped lower than its freezer, ENV a freezer out of service.
+  a box capped lower than its freezer, ENV a freezer out of service;
+- batches of vials of the accepted deposits' strains, preserved by each lab's
+  technician through the lineage services, most placed into a box in fill order,
+  one from a subculture (passage 1); REG's strain from its deposit is regulated
+  (a RAT, invented taxon), so its vials' places are masked, and reg-manager holds
+  the lab's location grant to reveal them.
 Every user gets the same password. Every write goes through the services in one
 transaction, inside an audit context (channel command, actor kind system,
 label command:seed_dev). A second run finds what exists and changes nothing.
@@ -37,7 +42,8 @@ Strains are never deleted, so a strain is found by its lab and name as received.
 A depositor is found by its lab and contact name, an MTA version by its lab, code
 and version, and a deposit by its lab and name as received; a deposit found is
 never moved on. A storage unit is found by its lab, its parent and its name, and
-is never changed again.
+is never changed again. A strain that has as many batches as the file lists gets
+none, and an open location grant is kept as found.
 """
 
 import json
@@ -67,8 +73,10 @@ from cultures.deposits.models import (
 )
 from cultures.labs import services as labs
 from cultures.labs.access import Access, access_for
-from cultures.labs.models import Lab, Membership
+from cultures.labs.models import Lab, LocationGrant, Membership
 from cultures.labs.permissions import Role
+from cultures.lineage import services as lineage
+from cultures.lineage.models import Batch, Method, Passage, Purpose
 from cultures.storage import services as storage
 from cultures.storage.models import BoxType, StorageUnit, UnitKind, UnitStatus
 from cultures.strains import services as strains
@@ -187,6 +195,11 @@ class Command(BaseCommand):
                 self._intake(data, lab_by_code)
                 for row in data["labs"]:
                     self._storage(lab_by_code[row["code"]], row["storage"], parent=None)
+                self.batches = Counts()
+                for (code, deposit), rows in _by_deposit(data["batches"]).items():
+                    self._batches(lab_by_code[code], deposit, rows)
+                for row in data["location_grants"]:
+                    self._location_grant(lab_by_code[row["lab"]], row)
         self._report(data)
 
     # Taxa: created when missing, never changed, except a parent added where none is set
@@ -444,6 +457,7 @@ class Command(BaseCommand):
                 isolation_source=strain["isolation_source"],
                 country_of_origin=strain["country_of_origin"],
                 isolation_date=strain["isolation_date"],
+                restrictions=[restriction(r) for r in strain.get("restrictions", [])],
             ),
         )
 
@@ -486,12 +500,71 @@ class Command(BaseCommand):
                     access=access, unit=unit, status=UnitStatus(row["status"]), reason=row["reason"]
                 )
 
+    # Passages, batches and vials (#16), through the lineage services with the technician's role:
+    # the bench work. A strain's batches are created in the order of the file; a strain that
+    # has as many as the file lists gets no more.
+
+    def _batches(self, lab: Lab, deposit_name: str, rows: list[dict[str, Any]]) -> None:
+        technician = User.objects.get(username=lab_username(lab.code, Role.TECHNICIAN))
+        access = access_for(technician)
+        strain = Deposit.objects.get(lab=lab, name_as_received=deposit_name).strain
+        assert strain is not None  # noqa: S101 (the file lists accepted deposits only)
+        made = Batch.objects.filter(strain=strain).count()
+        self.batches.found += min(made, len(rows))
+        for row in rows[made:]:
+            passage = self._passage(access, strain, row["passage"])
+            box = None
+            if row["box"]:
+                box = self._unit_at(lab, row["box"])
+            lineage.batch_preserve(
+                access=access,
+                passage=passage,
+                data=lineage.NewBatch(
+                    method=Method(row["method"]),
+                    purpose=Purpose(row["purpose"]),
+                    preserved_on=date.fromisoformat(row["preserved_on"]),
+                    vial_count=row["vial_count"],
+                    cryoprotectant=row["cryoprotectant"],
+                    box=box,
+                ),
+            )
+            self.batches.created += 1
+
+    def _passage(self, access: Access, strain: Strain, number: int) -> Passage:
+        """The strain's passage with this number, grown by subculture from the one before."""
+        found = Passage.objects.filter(strain=strain, number=number).order_by("pk").first()
+        if found is not None:
+            return found
+        parent = self._passage(access, strain, number - 1)
+        return lineage.passage_subculture(access=access, parent=parent)
+
+    def _unit_at(self, lab: Lab, names: list[str]) -> StorageUnit:
+        unit = None
+        for name in names:
+            unit = StorageUnit.objects.get(lab=lab, parent=unit, name=name)
+        assert unit is not None  # noqa: S101 (a path names at least the box)
+        return unit
+
+    def _location_grant(self, lab: Lab, row: dict[str, Any]) -> None:
+        """ADR 0009: who may see where the lab's regulated strains are, granted by its manager."""
+        user = User.objects.get(username=row["user"])
+        if LocationGrant.objects.filter(lab=lab, user=user, revoked_at__isnull=True).exists():
+            return
+        manager = User.objects.get(username=lab_username(lab.code, Role.MANAGER))
+        labs.location_grant_add(
+            access=access_for(manager),
+            lab=lab,
+            membership=Membership.objects.get(lab=lab, user=user),
+            reason=row["reason"],
+        )
+
     def _report(self, data: dict[str, Any]) -> None:
         out = self.stdout.write
         out(f"Taxa: {self.taxa.created} created, {self.taxa.found} found.")
         out(f"Strains: {self.strains.created} created, {self.strains.found} found.")
         out(f"Deposits: {self.deposits.created} created, {self.deposits.found} found.")
         out(f"Storage units: {self.units.created} created, {self.units.found} found.")
+        out(f"Batches: {self.batches.created} created, {self.batches.found} found.")
         out("Logins, all with the password you gave:")
         out(f"  {ADMIN:<16} staff and superuser (Django admin), in no lab")
         for row in data["labs"]:
@@ -540,6 +613,14 @@ def strain_facts(row: dict[str, Any], taxa: list[dict[str, Any]]) -> StrainFacts
         Pathogenicity(entry.get("animal_pathogenicity", Pathogenicity.UNKNOWN)),
         Pathogenicity(entry.get("plant_pathogenicity", Pathogenicity.UNKNOWN)),
     )
+
+
+def _by_deposit(rows: list[dict[str, Any]]) -> dict[tuple[str, str], list[dict[str, Any]]]:
+    """Batch rows by lab and deposit, in the order of the file: that order is the batch order."""
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for row in rows:
+        groups.setdefault((row["lab"], row["deposit"]), []).append(row)
+    return groups
 
 
 def _grouped(rows: list[dict[str, Any]]) -> dict[tuple[str, str], list[dict[str, Any]]]:

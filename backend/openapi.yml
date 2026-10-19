@@ -266,6 +266,197 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/batches/:
+    get:
+      operationId: labs_batches_list
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      - in: query
+        name: strain
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBatchOutputList'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    post:
+      operationId: labs_batches_create
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreserveInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PreserveInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input on a field: an unknown passage or box, a box
+            that may not take the strain (not_a_box, unit_not_active, risk_group_above_cap),
+            a full box (box_full), a position outside the box (outside_box), a date
+            in the future, a state that cannot follow'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: strain_not_active; position_taken; vial_not_in_collection;
+            batch_number_taken
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/batches/{public_id}/:
+    get:
+      operationId: labs_batches_retrieve
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/depositors/:
     get:
       operationId: labs_depositors_list
@@ -998,6 +1189,243 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/location-grants/:
+    get:
+      operationId: labs_location_grants_list
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LocationGrantOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    post:
+      operationId: labs_location_grants_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationGrantInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LocationGrantInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationGrantOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: An unknown member, or one who holds the grant already (already_granted)
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: reason_required
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/location-grants/{public_id}/:
+    get:
+      operationId: labs_location_grants_retrieve
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationGrantOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/location-grants/{public_id}/revoke/:
+    post:
+      operationId: labs_location_grants_revoke_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationRevokeInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LocationRevokeInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'grant_revoked: revoked already'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: reason_required
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/members/:
     get:
       operationId: labs_members_list
@@ -1512,6 +1940,197 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MtaTemplateDetailOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/passages/:
+    get:
+      operationId: labs_passages_list
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      - in: query
+        name: strain
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPassageOutputList'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    post:
+      operationId: labs_passages_create
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubcultureInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SubcultureInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassageOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input on a field: an unknown passage or box, a box
+            that may not take the strain (not_a_box, unit_not_active, risk_group_above_cap),
+            a full box (box_full), a position outside the box (outside_box), a date
+            in the future, a state that cannot follow'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: strain_not_active; position_taken; vial_not_in_collection;
+            batch_number_taken
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/passages/{public_id}/:
+    get:
+      operationId: labs_passages_retrieve
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassageOutput'
           description: ''
         '401':
           content:
@@ -2398,6 +3017,489 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/vials/:
+    get:
+      operationId: labs_vials_list
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: query
+        name: batch
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      - in: query
+        name: strain
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVialOutputList'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/vials/{public_id}/:
+    get:
+      operationId: labs_vials_retrieve
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VialOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/vials/{public_id}/barcode/:
+    post:
+      operationId: labs_vials_barcode_create
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BarcodeInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BarcodeInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VialOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input on a field: an unknown passage or box, a box
+            that may not take the strain (not_a_box, unit_not_active, risk_group_above_cap),
+            a full box (box_full), a position outside the box (outside_box), a date
+            in the future, a state that cannot follow'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/vials/{public_id}/place/:
+    post:
+      operationId: labs_vials_place_create
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlaceInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VialOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input on a field: an unknown passage or box, a box
+            that may not take the strain (not_a_box, unit_not_active, risk_group_above_cap),
+            a full box (box_full), a position outside the box (outside_box), a date
+            in the future, a state that cannot follow'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: strain_not_active; position_taken; vial_not_in_collection;
+            batch_number_taken
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/vials/{public_id}/reveal-location/:
+    post:
+      operationId: labs_vials_reveal_location_create
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevealOutput'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'location_grant_required: the caller holds no location grant'
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/vials/{public_id}/revive/:
+    post:
+      operationId: labs_vials_revive_create
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassageOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input on a field: an unknown passage or box, a box
+            that may not take the strain (not_a_box, unit_not_active, risk_group_above_cap),
+            a full box (box_full), a position outside the box (outside_box), a date
+            in the future, a state that cannot follow'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: strain_not_active; position_taken; vial_not_in_collection;
+            batch_number_taken
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/vials/{public_id}/status/:
+    post:
+      operationId: labs_vials_status_create
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VialStatusInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VialStatusInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VialOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input on a field: an unknown passage or box, a box
+            that may not take the strain (not_a_box, unit_not_active, risk_group_above_cap),
+            a full box (box_full), a position outside the box (outside_box), a date
+            in the future, a state that cannot follow'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: reason_required
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{public_id}/:
     get:
       operationId: labs_retrieve
@@ -2550,6 +3652,90 @@ components:
         * `not_in_scope` - Not in scope
         * `in_scope` - In scope
         * `unknown` - Unknown
+    BarcodeInputRequest:
+      type: object
+      properties:
+        barcode:
+          type: string
+          maxLength: 64
+      required:
+      - barcode
+    BatchOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        strain:
+          type: string
+          format: uuid
+          readOnly: true
+        number:
+          type: integer
+          readOnly: true
+        passage:
+          type: string
+          format: uuid
+          readOnly: true
+        passage_number:
+          type: integer
+          readOnly: true
+        method:
+          allOf:
+          - $ref: '#/components/schemas/MethodEnum'
+          readOnly: true
+        cryoprotectant:
+          type: string
+          readOnly: true
+        preserved_on:
+          type: string
+          format: date
+          readOnly: true
+        purpose:
+          allOf:
+          - $ref: '#/components/schemas/PurposeEnum'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/BatchOutputStatusEnum'
+          readOnly: true
+        vial_count_created:
+          type: integer
+          readOnly: true
+        vials_available:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - cryoprotectant
+      - method
+      - number
+      - passage
+      - passage_number
+      - preserved_on
+      - public_id
+      - purpose
+      - status
+      - strain
+      - vial_count_created
+      - vials_available
+    BatchOutputStatusEnum:
+      enum:
+      - pending_check
+      - released
+      - on_hold
+      - exhausted
+      type: string
+      description: |-
+        * `pending_check` - Pending check
+        * `released` - Released
+        * `on_hold` - On hold
+        * `exhausted` - Exhausted
     BlankEnum:
       enum:
       - ''
@@ -3432,6 +4618,82 @@ components:
       - my_role
       - name
       - public_id
+    Location:
+      type: object
+      properties:
+        box:
+          type: string
+          format: uuid
+        box_name:
+          type: string
+        path:
+          type: array
+          items:
+            type: string
+        row:
+          type: integer
+        col:
+          type: integer
+        label:
+          type: string
+      required:
+      - box
+      - box_name
+      - col
+      - label
+      - path
+      - row
+    LocationGrantInputRequest:
+      type: object
+      properties:
+        member:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+      required:
+      - member
+      - reason
+    LocationGrantOutput:
+      type: object
+      description: 'An open grant: who may see where the lab''s regulated strains
+        are (ADR 0009).'
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        member:
+          type: string
+          format: uuid
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - member
+      - public_id
+      - reason
+      - username
+    LocationRevokeInputRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+      required:
+      - reason
     LoginInputRequest:
       type: object
       properties:
@@ -3526,6 +4788,16 @@ components:
           $ref: '#/components/schemas/Role'
       required:
       - role
+    MethodEnum:
+      enum:
+      - cryo_minus80
+      - cryo_ln2
+      - lyophilised
+      type: string
+      description: |-
+        * `cryo_minus80` - Frozen at -80 °C
+        * `cryo_ln2` - Frozen in liquid nitrogen
+        * `lyophilised` - Freeze-dried
     MtaTemplateBrief:
       type: object
       properties:
@@ -3637,6 +4909,29 @@ components:
     NullEnum:
       enum:
       - null
+    PaginatedBatchOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BatchOutput'
     PaginatedBoxTypeOutputList:
       type: object
       required:
@@ -3775,6 +5070,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MtaTemplateListOutput'
+    PaginatedPassageOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PassageOutput'
     PaginatedStrainListOutputList:
       type: object
       required:
@@ -3821,6 +5139,69 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TaxonOutput'
+    PaginatedVialOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/VialOutput'
+    PassageOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        strain:
+          type: string
+          format: uuid
+          readOnly: true
+        number:
+          type: integer
+          readOnly: true
+        source_kind:
+          allOf:
+          - $ref: '#/components/schemas/SourceKindEnum'
+          readOnly: true
+        source_passage:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        source_vial:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - number
+      - public_id
+      - source_kind
+      - source_passage
+      - source_vial
+      - strain
     PatchedMemberRoleInputRequest:
       type: object
       properties:
@@ -3836,6 +5217,55 @@ components:
         * `unknown` - Unknown
         * `none_known` - No pathogenicity known
         * `pathogenic` - Pathogenic
+    PlaceInputRequest:
+      type: object
+      properties:
+        box:
+          type: string
+          format: uuid
+        row:
+          type: integer
+          maximum: 26
+          minimum: 1
+        col:
+          type: integer
+          maximum: 26
+          minimum: 1
+      required:
+      - box
+      - col
+      - row
+    PreserveInputRequest:
+      type: object
+      properties:
+        passage:
+          type: string
+          format: uuid
+        method:
+          $ref: '#/components/schemas/MethodEnum'
+        purpose:
+          $ref: '#/components/schemas/PurposeEnum'
+        cryoprotectant:
+          type: string
+          default: ''
+          maxLength: 100
+        preserved_on:
+          type: string
+          format: date
+        vial_count:
+          type: integer
+          maximum: 200
+          minimum: 1
+        box:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - method
+      - passage
+      - preserved_on
+      - purpose
+      - vial_count
     Problem:
       type: object
       description: The error body of every API response with status 400 and above.
@@ -3875,6 +5305,14 @@ components:
       - attr
       - code
       - detail
+    PurposeEnum:
+      enum:
+      - seed
+      - distribution
+      type: string
+      description: |-
+        * `seed` - Seed stock
+        * `distribution` - Distribution stock
     RankEnum:
       enum:
       - domain
@@ -4058,6 +5496,15 @@ components:
       - kind
       - public_id
       - reference
+    RevealOutput:
+      type: object
+      properties:
+        location:
+          allOf:
+          - $ref: '#/components/schemas/Location'
+          nullable: true
+      required:
+      - location
     RiskGroup:
       enum:
       - 1
@@ -4094,6 +5541,16 @@ components:
         * `technician` - Technician
         * `curator` - Curator
         * `manager` - Manager
+    SourceKindEnum:
+      enum:
+      - deposit
+      - passage
+      - vial
+      type: string
+      description: |-
+        * `deposit` - deposit
+        * `passage` - passage
+        * `vial` - vial
     StrainBrief:
       type: object
       properties:
@@ -4290,6 +5747,14 @@ components:
         * `active` - Active
         * `restricted` - Restricted
         * `deaccessioned` - Deaccessioned
+    SubcultureInputRequest:
+      type: object
+      properties:
+        source_passage:
+          type: string
+          format: uuid
+      required:
+      - source_passage
     SystemEnum:
       enum:
       - ncbi
@@ -4871,6 +6336,121 @@ components:
         * `reference_qc` - Reference material and quality control
         * `patent_deposit_related` - Related to a patent deposit
         * `redistribution` - Redistribution to third parties
+    VialOutput:
+      type: object
+      description: |-
+        Context: `paths`, the box paths of the rows shown (selectors.box_paths), and
+        `may_reveal`, whether the reader holds the lab's location grant.
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        label:
+          type: string
+          readOnly: true
+        batch:
+          type: string
+          format: uuid
+          readOnly: true
+        batch_number:
+          type: integer
+          readOnly: true
+        seq:
+          type: integer
+          readOnly: true
+        barcode:
+          type: string
+          readOnly: true
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/VialOutputStatusEnum'
+          readOnly: true
+        status_changed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        placed:
+          type: boolean
+          readOnly: true
+        location:
+          allOf:
+          - $ref: '#/components/schemas/Location'
+          nullable: true
+          readOnly: true
+        location_masked:
+          type: boolean
+          readOnly: true
+        can_reveal:
+          type: boolean
+          readOnly: true
+      required:
+      - barcode
+      - batch
+      - batch_number
+      - can_reveal
+      - label
+      - location
+      - location_masked
+      - placed
+      - public_id
+      - seq
+      - status
+      - status_changed_at
+    VialOutputStatusEnum:
+      enum:
+      - available
+      - reserved
+      - consumed
+      - quarantined
+      - to_destroy
+      - destroyed
+      - lost
+      - distributed
+      - entered_in_error
+      type: string
+      description: |-
+        * `available` - Available
+        * `reserved` - Reserved
+        * `consumed` - Consumed
+        * `quarantined` - Quarantined
+        * `to_destroy` - To destroy
+        * `destroyed` - Destroyed
+        * `lost` - Lost
+        * `distributed` - Distributed
+        * `entered_in_error` - Entered in error
+    VialStatusInputRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/VialStatusInputStatusEnum'
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+      required:
+      - reason
+      - status
+    VialStatusInputStatusEnum:
+      enum:
+      - available
+      - consumed
+      - quarantined
+      - to_destroy
+      - destroyed
+      - lost
+      - entered_in_error
+      type: string
+      description: |-
+        * `available` - Available
+        * `consumed` - Consumed
+        * `quarantined` - Quarantined
+        * `to_destroy` - To destroy
+        * `destroyed` - Destroyed
+        * `lost` - Lost
+        * `entered_in_error` - Entered in error
   securitySchemes:
     cookieAuth:
       type: apiKey

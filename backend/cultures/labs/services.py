@@ -30,12 +30,15 @@ from collections.abc import Collection
 
 from django.db import IntegrityError, transaction
 from django.db.models import Model, Q
+from django.utils import timezone
 
-from cultures.audit.context import audited_atomic
+from cultures.audit.context import audited_atomic, current_context
 from cultures.audit.events import Change, record_event
 from cultures.audit.registry import (
     LAB_CREATED,
     LAB_UPDATED,
+    LOCATION_GRANT_ADDED,
+    LOCATION_GRANT_REVOKED,
     MEMBER_ADDED,
     MEMBER_REMOVED,
     MEMBER_ROLE_CHANGED,
@@ -44,11 +47,21 @@ from cultures.core.exceptions import DomainError, Forbidden, NotFound, RuleViola
 from cultures.users.models import User
 
 from .access import Access
-from .models import LAB_CODE_UNIQUE, LAB_NAME_UNIQUE, MEMBERSHIP_UNIQUE, Lab, Membership
+from .models import (
+    LAB_CODE_UNIQUE,
+    LAB_NAME_UNIQUE,
+    LOCATION_GRANT_OPEN_UNIQUE,
+    MEMBERSHIP_UNIQUE,
+    Lab,
+    LocationGrant,
+    Membership,
+)
 from .permissions import Perm, Role, may_grant, role_has
 
 LAB = "lab"
 MEMBERSHIP = "membership"
+LOCATION_GRANT = "location_grant"
+LEFT_THE_LAB = "The member left the lab."
 
 
 class DuplicateLab(DomainError):
@@ -195,6 +208,7 @@ def membership_delete(*, membership: Membership) -> None:
             _keep_a_manager(locked.lab_id, leaving=Q(pk=locked.pk))
         public_id, lab_id, role = locked.public_id, locked.lab_id, locked.role
         user = _user_id(locked.user)
+        _revoke_open_grant(lab_id, locked.user, LEFT_THE_LAB)
         locked.delete()
         record_event(
             MEMBER_REMOVED,
@@ -323,3 +337,132 @@ def _check_grant(grantor: Role, role: Role) -> None:
     """Grant only up to your own role, and touch nobody who outranks you."""
     if not may_grant(grantor, role):
         raise GrantAboveOwnRole
+
+
+# Location grants (ADR 0009, amendment of 2026-10-19): who may see where a lab's regulated
+# strains are stored. Granted and revoked by the lab's managers, part of no role.
+
+
+class GrantExists(DomainError):
+    """A field error: the form shows it on the member."""
+
+    default_code = "already_granted"
+    default_detail = "This member may see regulated locations already."
+
+    def __init__(self, detail: str | None = None, *, attr: str | None = "member") -> None:
+        super().__init__(detail, attr=attr)
+
+
+class UnknownMember(DomainError):
+    default_code = "does_not_exist"
+    default_detail = "Invalid membership."
+
+    def __init__(self, detail: str | None = None, *, attr: str | None = "member") -> None:
+        super().__init__(detail, attr=attr)
+
+
+class GrantRevoked(DomainError):
+    status_code = 409
+    default_code = "grant_revoked"
+    default_detail = "This grant has been revoked already."
+
+
+def _reason(reason: str) -> str:
+    text = reason.strip()
+    if not text:
+        raise RuleViolation("A reason is required.", code="reason_required", attr="reason")
+    return text
+
+
+def holds_location_grant(*, lab_id: int, user: User) -> bool:
+    """Whether the user may see where the lab's regulated strains are stored, as committed
+    now: an open grant, an active account and a membership of the lab. Callers that decide
+    on it hold the lab lock, so a revocation at the same moment is seen in full."""
+    return LocationGrant.objects.filter(
+        lab_id=lab_id,
+        user=user,
+        revoked_at__isnull=True,
+        user__is_active=True,
+        user__memberships__lab_id=lab_id,
+    ).exists()
+
+
+def location_grant_add(
+    *, access: Access, lab: Lab, membership: Membership, reason: str
+) -> LocationGrant:
+    """A manager lets a member of the lab see regulated locations, with a reason."""
+    reason = _reason(reason)
+    with audited_atomic():
+        _lock_lab(lab.pk)
+        _grantor_role(access, lab.pk)
+        member = (
+            Membership.objects.filter(pk=membership.pk, lab_id=lab.pk)
+            .select_related("user")
+            .first()
+        )
+        if member is None:
+            raise UnknownMember
+        grant = LocationGrant(
+            lab_id=lab.pk, user=member.user, granted_by=access.user, reason=reason
+        )
+        _save(grant, {LOCATION_GRANT_OPEN_UNIQUE: GrantExists()})
+        record_event(
+            LOCATION_GRANT_ADDED,
+            Change(
+                LOCATION_GRANT,
+                grant.public_id,
+                {"user": [None, _user_id(member.user)]},
+                lab_id=lab.pk,
+            ),
+            reason=reason,
+        )
+    return grant
+
+
+def location_grant_revoke(*, access: Access, grant: LocationGrant, reason: str) -> LocationGrant:
+    """A manager ends a grant, with a reason. The row stays."""
+    reason = _reason(reason)
+    with audited_atomic():
+        _lock_lab(grant.lab_id)
+        _grantor_role(access, grant.lab_id)
+        locked = (
+            LocationGrant.objects.select_for_update(of=("self",))
+            .select_related("user")
+            .filter(pk=grant.pk)
+            .first()
+        )
+        if locked is None:
+            raise NotFound
+        if locked.revoked_at is not None:
+            raise GrantRevoked
+        _end(locked, reason)
+    return locked
+
+
+def _revoke_open_grant(lab_id: int, user: User, reason: str) -> None:
+    """With the membership: caller holds the lab lock."""
+    open_grant = (
+        LocationGrant.objects.select_for_update(of=("self",))
+        .select_related("user")
+        .filter(lab_id=lab_id, user=user, revoked_at__isnull=True)
+        .first()
+    )
+    if open_grant is not None:
+        _end(open_grant, reason)
+
+
+def _end(grant: LocationGrant, reason: str) -> None:
+    grant.revoked_at = timezone.now()
+    grant.revoked_by = current_context().actor
+    grant.revoke_reason = reason
+    grant.save(update_fields=["revoked_at", "revoked_by", "revoke_reason", "updated_at"])
+    record_event(
+        LOCATION_GRANT_REVOKED,
+        Change(
+            LOCATION_GRANT,
+            grant.public_id,
+            {"user": [_user_id(grant.user), _user_id(grant.user)], "revoked": [False, True]},
+            lab_id=grant.lab_id,
+        ),
+        reason=reason,
+    )

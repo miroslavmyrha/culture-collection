@@ -11,8 +11,9 @@ from django.test import override_settings
 from cultures.audit.models import ActorKind, AuditEvent, Channel, RowChange
 from cultures.deposits.models import Deposit, MtaTemplate
 from cultures.labs.management.commands.seed_e2e import COLLEAGUE, CURATOR, LAB_CODE, VIEWER
-from cultures.labs.models import Lab, Membership
+from cultures.labs.models import Lab, LocationGrant, Membership
 from cultures.labs.permissions import Role
+from cultures.lineage.models import Vial
 from cultures.storage.models import BoxType, StorageUnit
 from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
@@ -39,7 +40,8 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
     assert seed() == (
         "e2e-user manages E2E lab; e2e-curator and e2e-viewer are its curator and viewer;"
         " e2e-colleague is in no lab; 8 taxa; a depositor, MTA STD and one accepted deposit;"
-        " 2 box types; E2E freezer > Rack 1 > Box 1\n"
+        " 2 box types; E2E freezer > Rack 1 > Box 1; a regulated strain with two vials in"
+        " Box R, revealed by e2e-user\n"
     )
     user = User.objects.get(username="e2e-user")
     lab = Lab.objects.get(code=LAB_CODE)
@@ -56,7 +58,7 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
     synonyms = dict(Taxon.objects.filter(status="synonym").values_list("name", "accepted__name"))
     assert synonyms == {"Vibrio subtilis": "Bacillus subtilis", "Bacillus coli": "Escherichia coli"}
     assert Taxon.objects.get(name="Bacillus subtilis").parent == Taxon.objects.get(name="Bacillus")
-    deposit = Deposit.objects.get(lab=lab)
+    deposit = Deposit.objects.get(lab=lab, name_as_received="B. subtilis e2e seed")
     assert (deposit.status, deposit.depositor.contact.email) == (
         "accepted",
         "e2e.depositor@example.org",
@@ -73,7 +75,20 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
         ("freezer", "E2E freezer", None),
         ("rack", "Rack 1", "E2E freezer"),
         ("box", "Box 1", "Rack 1"),
+        ("box", "Box R", "Rack 1"),
     ]
+    regulated = Deposit.objects.get(lab=lab, name_as_received="Testella exempli e2e regulated")
+    assert regulated.strain is not None
+    assert list(regulated.strain.restrictions.values_list("kind", "reference")) == [
+        ("cz_rat", "Příloha 2 (invented example)")
+    ]
+    vials = Vial.objects.filter(batch__strain=regulated.strain).order_by("seq")
+    assert [(p.box.name, p.row, p.col) for v in vials for p in v.placements.all()] == [
+        ("Box R", 1, 1),
+        ("Box R", 1, 2),
+    ]
+    grant = LocationGrant.objects.get(lab=lab, revoked_at__isnull=True)
+    assert grant.user == user
 
 
 @pytest.mark.usefixtures("env")
@@ -105,6 +120,18 @@ def test_its_writes_are_audited_as_the_command() -> None:
         "box_type_created",
         "box_type_created",
         *["storage_unit_created"] * 3,
+        "deposit_received",
+        "deposit_check_started",
+        "strain_created",
+        "deposit_accepted",
+        "passage_created",
+        "storage_unit_created",
+        "batch_created",
+        *["vial_created"] * 2,
+        "vials_created",
+        *["vial_placed"] * 2,
+        "vials_placed",
+        "location_grant_added",
     ]
     assert {(e.channel, e.actor_kind, e.actor_label, e.actor_id) for e in events} == {
         (Channel.COMMAND, ActorKind.SYSTEM, "command:seed_e2e", None)

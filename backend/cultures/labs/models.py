@@ -66,3 +66,53 @@ class Membership(PublicModel):
 
     def __str__(self) -> str:
         return f"{self.user_id} in {self.lab_id} as {self.role}"
+
+
+LOCATION_GRANT_OPEN_UNIQUE = "labs_locationgrant_one_open"
+
+
+class LocationGrant(PublicModel):
+    """A person may see where a lab's regulated strains are stored (ADR 0009, amendment of
+    2026-10-19). Per person and lab, granted by a manager with a reason; part of no role.
+
+    Counts only while open, the holder active and still a member. Revoked once, never
+    reopened, never deleted (a trigger): a new grant is a new row.
+    """
+
+    lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="+", db_index=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    reason = models.TextField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revoked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    revoke_reason = models.TextField(blank=True)
+
+    objects = LabScopedQuerySet["LocationGrant"].as_manager()
+
+    class Meta(PublicModel.Meta):
+        constraints = [
+            *PublicModel.Meta.constraints,
+            models.UniqueConstraint(
+                fields=["lab", "user"],
+                condition=Q(revoked_at__isnull=True),
+                name=LOCATION_GRANT_OPEN_UNIQUE,
+            ),
+            models.CheckConstraint(
+                condition=Q(reason__regex=r"\S"), name="labs_locationgrant_reason_given"
+            ),
+            # isnull=False spelled out: a CHECK passes when its condition is NULL. revoked_by
+            # stays null when the system revoked it with the membership (a command, admin).
+            models.CheckConstraint(
+                condition=Q(revoked_at__isnull=True, revoked_by__isnull=True, revoke_reason="")
+                | Q(revoked_at__isnull=False, revoke_reason__regex=r"\S"),
+                name="labs_locationgrant_revocation_complete",
+            ),
+        ]
+        indexes = [models.Index(fields=["lab", "user"], name="labs_locgrant_lab_user_idx")]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} sees locations in {self.lab_id}"

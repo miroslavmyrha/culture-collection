@@ -1846,6 +1846,13 @@
       "email": "",
       "postal_address": "",
       "institution": ""
+    },
+    {
+      "lab": "REG",
+      "name": "Karel Ukázka",
+      "email": "karel.ukazka@example.org",
+      "postal_address": "Ukázková 7\n612 00 Brno (invented example)",
+      "institution": "Example Institute"
     }
   ],
   "mta_templates": [
@@ -2042,6 +2049,125 @@
         }
       },
       "state": "received"
+    },
+    {
+      "lab": "REG",
+      "depositor": "Karel Ukázka",
+      "name_as_received": "Mockia vulgaris DEP-7",
+      "received_on": "2026-09-15",
+      "condition": "intact",
+      "mta": null,
+      "terms": {
+        "abs_scope": "not_in_scope",
+        "uses": {
+          "research_noncommercial": "permit",
+          "research_commercial": "permit",
+          "teaching": "permit",
+          "diagnostics": "permit",
+          "production": "deny",
+          "reference_qc": "permit",
+          "patent_deposit_related": "permit",
+          "redistribution": "deny"
+        }
+      },
+      "state": "accepted",
+      "strain": {
+        "taxon": "Mockia vulgaris",
+        "identified_on": "2026-09-20",
+        "method": "16S rRNA gene sequence",
+        "isolation_source": "Invented source",
+        "country_of_origin": "",
+        "isolation_date": "",
+        "risk_group": 2,
+        "animal_pathogenicity": "unknown",
+        "plant_pathogenicity": "unknown",
+        "restrictions": [
+          {
+            "kind": "cz_rat",
+            "reference": "Příloha 2 (invented example)"
+          }
+        ]
+      }
+    }
+  ],
+  "batches": [
+    {
+      "lab": "BAC",
+      "deposit": "Bacillus subtilis soil isolate DEP-1",
+      "passage": 0,
+      "method": "cryo_ln2",
+      "purpose": "seed",
+      "cryoprotectant": "10 % glycerol",
+      "preserved_on": "2026-09-12",
+      "vial_count": 5,
+      "box": [
+        "LN2 tank 1",
+        "Canister A",
+        "Seed stock 1"
+      ]
+    },
+    {
+      "lab": "BAC",
+      "deposit": "Bacillus subtilis soil isolate DEP-1",
+      "passage": 1,
+      "method": "cryo_minus80",
+      "purpose": "distribution",
+      "cryoprotectant": "10 % glycerol",
+      "preserved_on": "2026-09-19",
+      "vial_count": 12,
+      "box": [
+        "Freezer -80 A",
+        "Rack 1",
+        "Box 1"
+      ]
+    },
+    {
+      "lab": "BAC",
+      "deposit": "Bacillus subtilis soil isolate DEP-1",
+      "passage": 1,
+      "method": "lyophilised",
+      "purpose": "distribution",
+      "cryoprotectant": "skim milk",
+      "preserved_on": "2026-09-26",
+      "vial_count": 6,
+      "box": null
+    },
+    {
+      "lab": "MYC",
+      "deposit": "Testella cerea DEP-5",
+      "passage": 0,
+      "method": "cryo_minus80",
+      "purpose": "seed",
+      "cryoprotectant": "10 % glycerol",
+      "preserved_on": "2026-08-02",
+      "vial_count": 8,
+      "box": [
+        "Freezer -80 B",
+        "Rack 1",
+        "Box 1"
+      ]
+    },
+    {
+      "lab": "REG",
+      "deposit": "Mockia vulgaris DEP-7",
+      "passage": 0,
+      "method": "cryo_minus80",
+      "purpose": "seed",
+      "cryoprotectant": "10 % glycerol",
+      "preserved_on": "2026-09-25",
+      "vial_count": 4,
+      "box": [
+        "Locked freezer R1",
+        "Rack 1",
+        "Box 1"
+      ]
+    }
+  ],
+  "location_grants": [
+    {
+      "lab": "REG",
+      "user": "reg-manager",
+      "reason": "Keeps the SÚJB register (invented example)."
     }
   ]
 }

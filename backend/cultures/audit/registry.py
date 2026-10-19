@@ -170,6 +170,37 @@ STORAGE_UNIT_STATUS_CHANGED = register(
     )
 )
 
+# Location grants (ADR 0009, amendment of 2026-10-19): who may see where a lab's regulated
+# strains are stored. Per person, with a reason both ways.
+LOCATION_GRANT_ADDED = register(
+    EventType(
+        "location_grant_added", "{actor} let {user} see regulated locations", reason_required=True
+    )
+)
+LOCATION_GRANT_REVOKED = register(
+    EventType(
+        "location_grant_revoked",
+        "{actor} revoked the regulated locations of {user}",
+        reason_required=True,
+    )
+)
+# Preservation, batches and vials (#16, ADR 0008 amendment of 2026-10-19). Every event names
+# the strain. A placement event holds the box and position; the timeline (#19) masks them
+# for a regulated strain. A reveal holds no location at all.
+BATCH_CREATED = register(EventType("batch_created", "{actor} preserved batch {number}"))
+VIAL_CREATED = register(EventType("vial_created", "{actor} added vial {seq}"))
+VIALS_CREATED = register(EventType("vials_created", "{actor} added {count} vials"))
+VIAL_PLACED = register(EventType("vial_placed", "{actor} placed {subject}"))
+VIALS_PLACED = register(EventType("vials_placed", "{actor} placed {count} vials"))
+VIAL_MOVED = register(EventType("vial_moved", "{actor} moved {subject}"))
+VIAL_STATUS_CHANGED = register(
+    EventType("vial_status_changed", "{actor} set {subject} to {status}", reason_required=True)
+)
+VIAL_BARCODE_SET = register(EventType("vial_barcode_set", "{actor} set the barcode of {subject}"))
+VIAL_LOCATION_REVEALED = register(
+    EventType("vial_location_revealed", "{actor} revealed where {subject} is stored")
+)
+
 
 @dataclass(frozen=True)
 class RowAudit:
@@ -447,6 +478,79 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "number",
             "source_deposit_id",
             "source_passage_id",
+            "source_vial_id",
+        ),
+    ),
+    # #16. Free text (the protectant) names nobody; placed_by and removed_by are internal
+    # user ids, the person is reached only through users_user.
+    "lineage_batch": RowAudit(
+        label="lineage.batch",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "strain_id",
+            "passage_id",
+            "number",
+            "method",
+            "cryoprotectant",
+            "preserved_on",
+            "vial_count_created",
+            "purpose",
+            "status",
+        ),
+    ),
+    "lineage_vial": RowAudit(
+        label="lineage.vial",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "batch_id",
+            "seq",
+            "barcode",
+            "status",
+            "status_changed_at",
+        ),
+    ),
+    "lineage_vialplacement": RowAudit(
+        label="lineage.vialplacement",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "vial_id",
+            "box_id",
+            "row",
+            "col",
+            "placed_at",
+            "placed_by_id",
+            "removed_at",
+            "removed_by_id",
+            "removal_reason",
+        ),
+    ),
+    # ADR 0009: who may see regulated locations. Ids, times and reasons that name nobody.
+    "labs_locationgrant": RowAudit(
+        label="labs.locationgrant",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "user_id",
+            "granted_by_id",
+            "reason",
+            "revoked_at",
+            "revoked_by_id",
+            "revoke_reason",
         ),
     ),
 }

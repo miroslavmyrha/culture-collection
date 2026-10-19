@@ -5,8 +5,9 @@ from rest_framework import serializers
 from rest_framework.request import Request
 
 from cultures.core.api import ScopedRelatedField
-from cultures.labs.models import Lab, Membership
-from cultures.labs.permissions import Role
+from cultures.labs.access import access_of
+from cultures.labs.models import Lab, LocationGrant, Membership
+from cultures.labs.permissions import Perm, Role
 from cultures.users.models import User
 
 
@@ -52,3 +53,32 @@ class MemberRoleInputSerializer(serializers.Serializer[None]):
 
     def validate_role(self, value: Any) -> Role:
         return Role(value)
+
+
+REASON_HELP = "Why, in a sentence. Stored for good: name no person."
+
+
+class LocationGrantOutputSerializer(serializers.ModelSerializer[LocationGrant]):
+    """An open grant: who may see where the lab's regulated strains are (ADR 0009)."""
+
+    member = serializers.UUIDField(source="membership_public_id", read_only=True)
+    username = serializers.CharField(source="user.username", read_only=True)
+
+    class Meta:
+        model = LocationGrant
+        fields = ("public_id", "member", "username", "reason", "created_at")
+        read_only_fields = fields
+
+
+def lab_members(request: Request) -> QuerySet[Membership]:
+    """Members of any lab the caller manages: the view keeps the lab of the URL."""
+    return Membership.objects.for_access(access_of(request), Perm.MANAGE_MEMBERS)
+
+
+class LocationGrantInputSerializer(serializers.Serializer[None]):
+    member = ScopedRelatedField(model=Membership, scope=lab_members)
+    reason = serializers.CharField(help_text=REASON_HELP)
+
+
+class LocationRevokeInputSerializer(serializers.Serializer[None]):
+    reason = serializers.CharField(help_text=REASON_HELP)
