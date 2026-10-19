@@ -457,6 +457,120 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/boxes/:
+    get:
+      operationId: labs_boxes_list
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBoxOutputList'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/boxes/{public_id}/:
+    get:
+      operationId: labs_boxes_retrieve
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoxGridOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/depositors/:
     get:
       operationId: labs_depositors_list
@@ -3032,6 +3146,10 @@ paths:
         schema:
           type: string
           format: uuid
+      - in: query
+        name: code
+        schema:
+          type: string
       - in: path
         name: lab_public_id
         schema:
@@ -3742,6 +3860,84 @@ components:
     BlankEnum:
       enum:
       - ''
+    BoxGridOutput:
+      type: object
+      description: |-
+        A box with every taken position (context `positions`, selectors.box_positions). A
+        position missing from the list is empty.
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        rows:
+          type: integer
+          readOnly: true
+        cols:
+          type: integer
+          readOnly: true
+        positions:
+          type: array
+          items:
+            $ref: '#/components/schemas/BoxPosition'
+          readOnly: true
+      required:
+      - cols
+      - name
+      - positions
+      - public_id
+      - rows
+    BoxOutput:
+      type: object
+      description: 'A box in the list: its size, without its positions.'
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        rows:
+          type: integer
+          readOnly: true
+        cols:
+          type: integer
+          readOnly: true
+      required:
+      - cols
+      - name
+      - public_id
+      - rows
+    BoxPosition:
+      type: object
+      description: 'One taken position (selectors.box_positions): the vial, or `masked`
+        without it.'
+      properties:
+        row:
+          type: integer
+        col:
+          type: integer
+        label:
+          type: string
+          readOnly: true
+        masked:
+          type: boolean
+          readOnly: true
+        vial:
+          allOf:
+          - $ref: '#/components/schemas/BoxVial'
+          nullable: true
+          readOnly: true
+      required:
+      - col
+      - label
+      - masked
+      - row
+      - vial
     BoxTypeOutput:
       type: object
       properties:
@@ -3763,6 +3959,32 @@ components:
       - name
       - public_id
       - rows
+    BoxVial:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        label:
+          type: string
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/VialStatus'
+        barcode:
+          type: string
+          nullable: true
+        strain:
+          type: string
+          format: uuid
+        accession_number:
+          type: string
+      required:
+      - accession_number
+      - barcode
+      - label
+      - public_id
+      - status
+      - strain
     ChildOutput:
       type: object
       properties:
@@ -4935,6 +5157,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BatchOutput'
+    PaginatedBoxOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BoxOutput'
     PaginatedBoxTypeOutputList:
       type: object
       required:
@@ -6368,7 +6613,7 @@ components:
           nullable: true
         status:
           allOf:
-          - $ref: '#/components/schemas/VialOutputStatusEnum'
+          - $ref: '#/components/schemas/VialStatus'
           readOnly: true
         status_changed_at:
           type: string
@@ -6402,7 +6647,7 @@ components:
       - seq
       - status
       - status_changed_at
-    VialOutputStatusEnum:
+    VialStatus:
       enum:
       - available
       - reserved

@@ -66,6 +66,36 @@ def vial_list(*, access: Access, lab: Lab) -> QuerySet[Vial]:
     )
 
 
+def box_list(*, access: Access, lab: Lab) -> QuerySet[StorageUnit]:
+    """The boxes of one lab the user may view, retired ones included, in tree order."""
+    return (
+        StorageUnit.objects.for_access(access, Perm.VIEW_STORAGE)
+        .filter(lab=lab, kind=UnitKind.BOX)
+        .order_by("path")
+    )
+
+
+def box_positions(*, access: Access, box: StorageUnit) -> QuerySet[VialPlacement]:
+    """The open placements of one box, each with its vial, batch and strain, and `regulated`
+    (the strain has an active restriction), by row and column. One query for the whole grid.
+
+    The serializer leaves the vial out of every regulated row: a reader learns that the position
+    is taken, never by what (ADR 0009). The row is still read whole here, so a caller that
+    serialises it must go through BoxPositionSerializer.
+    """
+    return (
+        VialPlacement.objects.for_access(access, Perm.VIEW_STRAINS)
+        .filter(box=box, removed_at__isnull=True)
+        .select_related("vial__batch__strain")
+        .annotate(
+            regulated=Exists(
+                regulating_restrictions().filter(strain_id=OuterRef("vial__batch__strain_id"))
+            )
+        )
+        .order_by("row", "col", "pk")
+    )
+
+
 def box_paths(boxes: Iterable[StorageUnit]) -> dict[int, list[str]]:
     """The names from the root down to each box, in one query for all of them."""
     paths = {box.pk: list(box.path) for box in boxes}

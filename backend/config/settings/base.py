@@ -288,6 +288,7 @@ SPECTACULAR_SETTINGS = {
         "Decision": "cultures.deposits.models.Decision",
         "UnitKind": "cultures.storage.models.UnitKind",
         "UnitStatus": "cultures.storage.models.UnitStatus",
+        "VialStatus": "cultures.lineage.models.VialStatus",
     },
 }
 
