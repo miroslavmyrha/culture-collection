@@ -1,7 +1,6 @@
 import { LoadError } from '@/components/LoadError'
 import { Link, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { useMtaList } from '../api/queries'
-import { scrollable } from './scroll'
 
 /** Every version of every MTA of the lab, the newest of each code first. Texts are frozen. */
 export function MtaTemplateList({ labId }: { labId: string }) {
@@ -10,7 +9,7 @@ export function MtaTemplateList({ labId }: { labId: string }) {
   if (list.isError) return <LoadError what="the MTA templates" error={list.error} onRetry={() => void list.refetch()} />
   if (list.data.count === 0) return <Typography>The lab has no MTA template yet.</Typography>
   return (
-    <TableContainer component={Paper} variant="outlined" {...scrollable('MTA templates')}>
+    <TableContainer component={Paper} variant="outlined">
       <Table aria-label="MTA templates">
         <TableHead>
           <TableRow>
@@ -28,7 +27,7 @@ export function MtaTemplateList({ labId }: { labId: string }) {
                   {`${t.code} version ${t.version}`}
                 </Link>
               </TableCell>
-              <TableCell sx={{ overflowWrap: 'anywhere' }}>{t.title}</TableCell>
+              <TableCell sx={{ overflowWrap: 'break-word' }}>{t.title}</TableCell>
               <TableCell sx={{ fontFamily: 'monospace' }}>{t.text_sha256.slice(0, 12)}…</TableCell>
               <TableCell sx={{ whiteSpace: 'nowrap' }}>{new Date(t.created_at).toLocaleDateString('sv')}</TableCell>
             </TableRow>

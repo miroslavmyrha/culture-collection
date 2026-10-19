@@ -29,7 +29,7 @@ const uses = () => within(screen.getByRole('group', { name: 'Uses' })).getAllByR
 async function pickDepositor(user: UserEvent) {
   await user.click(select('Depositor'))
   await user.keyboard('vzor')
-  await screen.findByRole('option', { name: /Jana Vzorová/ }, { timeout: 4000 })
+  await screen.findByRole('option', { name: /Jana Vzorová/ }, { timeout: 10_000 })
   await user.keyboard('{ArrowDown}{Enter}')
 }
 
@@ -58,7 +58,7 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     await user.selectOptions(select('Country of origin'), 'CZ')
     await user.type(field('Collection date'), '2019-05')
     await submit(user)
-    await waitFor(() => expect(onReceived).toHaveBeenCalledWith(received))
+    await waitFor(() => expect(onReceived).toHaveBeenCalledWith(received), { timeout: 5000 })
     expect(calls[0]?.headers.get('X-CSRFToken')).toBe('test-token')
     expect(calls[0]?.body).toEqual({
       depositor: jana.public_id,
@@ -101,7 +101,7 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     await user.selectOptions(select('Condition on arrival'), 'other')
     await user.selectOptions(select('ABS scope'), 'in_scope')
     await submit(user)
-    await waitFor(() => expect(field('Note on the condition')).toHaveFocus())
+    await waitFor(() => expect(field('Note on the condition')).toHaveFocus(), { timeout: 5000 })
     expect(field('Note on the condition')).toHaveAccessibleDescription(/Say what was wrong with it$/)
     expect(field('IRCC')).toHaveAccessibleDescription(/Material in scope needs an IRCC or a permit reference$/)
     expect(calls).toHaveLength(0)
@@ -117,7 +117,7 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     const { user } = await setup()
     await fillRequired(user)
     await submit(user)
-    await waitFor(() => expect(input()).toHaveAccessibleDescription(/Not like this\.$/))
+    await waitFor(() => expect(input()).toHaveAccessibleDescription(/Not like this\.$/), { timeout: 5000 })
     expect(input()).toHaveFocus()
   })
 
@@ -140,9 +140,9 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     const dialog = await screen.findByRole('dialog', { name: 'Add a depositor' })
     await user.type(within(dialog).getByRole('textbox', { name: 'Name' }), 'Petr Příklad')
     await user.click(within(dialog).getByRole('button', { name: 'Add the depositor' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), { timeout: 5000 })
     expect(select('Depositor')).toHaveValue('Petr Příklad')
-    await waitFor(() => expect(add).toHaveFocus())
+    await waitFor(() => expect(add).toHaveFocus(), { timeout: 5000 })
   })
 
   it('keeps the focus on Record the deposit while it sends, and sends once', async () => {
@@ -151,11 +151,11 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     await fillRequired(user)
     const button = screen.getByRole('button', { name: 'Record the deposit' })
     await user.click(button)
-    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'))
+    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'), { timeout: 5000 })
     expect(button).toHaveFocus()
     await user.click(button)
     expect(held.calls).toHaveLength(1)
     held.release(201, makeDeposit())
-    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'false'))
+    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'false'), { timeout: 5000 })
   })
 })

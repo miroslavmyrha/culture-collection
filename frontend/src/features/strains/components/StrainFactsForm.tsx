@@ -144,7 +144,7 @@ export function StrainFactsForm({ label, submitLabel, nameAsReceived, submit, on
   return (
     <Box component="form" onSubmit={onSubmit} noValidate aria-label={label}>
       <Stack spacing={2} sx={{ maxWidth: 640 }}>
-        <Typography component="h2" variant="h6">
+        <Typography component="h3" variant="h6">
           Identity
         </Typography>
         <TaxonField
@@ -169,7 +169,7 @@ export function StrainFactsForm({ label, submitLabel, nameAsReceived, submit, on
           {...register('identification_method')}
         />
 
-        <Typography component="h2" variant="h6">
+        <Typography component="h3" variant="h6">
           Biosafety
         </Typography>
         <SelectField
@@ -182,7 +182,7 @@ export function StrainFactsForm({ label, submitLabel, nameAsReceived, submit, on
         <SelectField label="Animal pathogenicity" options={PATHOGENICITY} error={errors.animal_pathogenicity?.message} {...register('animal_pathogenicity')} />
         <SelectField label="Plant pathogenicity" options={PATHOGENICITY} error={errors.plant_pathogenicity?.message} {...register('plant_pathogenicity')} />
 
-        <Typography component="h2" variant="h6">
+        <Typography component="h3" variant="h6">
           Origin
         </Typography>
         <TextField
@@ -201,7 +201,7 @@ export function StrainFactsForm({ label, submitLabel, nameAsReceived, submit, on
           {...register('isolation_date')}
         />
 
-        <Typography component="h2" variant="h6" id="restrictions-heading">
+        <Typography component="h3" variant="h6" id="restrictions-heading">
           Restrictions
         </Typography>
         <Typography>Every regulatory list the agent is on. A strain on none needs nothing here.</Typography>

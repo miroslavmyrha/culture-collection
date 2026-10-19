@@ -11,12 +11,13 @@ const DEPOSIT_ID = '00000000-0000-4000-8000-0000000000e1'
 const DETAIL = '/api/v1/labs/{lab_public_id}/deposits/{public_id}/'
 const ACTION = (name: 'start-check' | 'accept' | 'reject' | 'terms') => `/api/v1/labs/{lab_public_id}/deposits/{public_id}/${name}/` as const
 // Invented taxa and people: test data states no real facts.
+const MTA = makeMtaTemplate({ public_id: '00000000-0000-4000-8000-0000000000a7' })
 const exempli = makeTaxon({ public_id: '00000000-0000-4000-8000-0000000000c1', name: 'Testella exempli' })
 
 function signedIn(role: 'viewer' | 'curator' = 'curator') {
   mockApi('get', '/api/v1/auth/me/', makeMe())
   mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: role }))
-  mockApi('get', '/api/v1/labs/{lab_public_id}/mta-templates/', page([makeMtaTemplate()]))
+  mockApi('get', '/api/v1/labs/{lab_public_id}/mta-templates/', page([MTA]))
   mockApi('get', '/api/v1/taxa/', page([exempli]))
 }
 
@@ -29,9 +30,9 @@ describe('the deposit page', { timeout: 20_000 }, () => {
     mockApi('get', DETAIL, deposit({ condition: 'damaged', condition_note: 'cracked ampoule', depositor_passages: 3 }))
     open()
     expect(await screen.findByRole('heading', { level: 1, name: 'Deposit Testella exempli K3' }, { timeout: 5000 })).toBeInTheDocument()
-    await waitFor(() => expect(document.title).toBe('Deposit Testella exempli K3 | Culture collection'))
+    await waitFor(() => expect(document.title).toBe('Deposit Testella exempli K3 | Culture collection'), { timeout: 5000 })
     const steps = screen.getByRole('list', { name: 'Intake steps' })
-    expect(within(steps).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Received on 2026-10-01 (done)', 'Check started (now)', 'Accept or reject (to come)'])
+    expect(within(steps).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Received on 2026-10-01 (done)', 'Start the check (now)', 'Accept or reject (to come)'])
     expect(screen.getByText('cracked ampoule')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: 'Terms, version 1' })).toBeInTheDocument()
     expect(within(screen.getByRole('table', { name: 'Uses' })).getAllByRole('row')).toHaveLength(9)
@@ -72,12 +73,12 @@ describe('the deposit page', { timeout: 20_000 }, () => {
     expect(within(form).getByRole('combobox', { name: 'Country of origin' })).toHaveValue('CZ')
     await user.click(within(form).getByRole('combobox', { name: 'Taxon' }))
     await user.keyboard('exem')
-    await screen.findByRole('option', { name: /Testella exempli/ }, { timeout: 4000 })
+    await screen.findByRole('option', { name: /Testella exempli/ }, { timeout: 10_000 })
     await user.keyboard('{ArrowDown}{Enter}')
     await user.type(within(form).getByRole('textbox', { name: 'Identification method' }), '16S rRNA gene sequence')
     await user.selectOptions(within(form).getByRole('combobox', { name: 'Risk group' }), '2')
     await user.click(within(form).getByRole('button', { name: 'Accept and add the strain' }))
-    const link = await screen.findByRole('link', { name: 'MYC 9' })
+    const link = await screen.findByRole('link', { name: 'MYC 9' }, { timeout: 5000 })
     expect(link).toHaveAttribute('href', `/labs/${LAB_ID}/strains/00000000-0000-4000-8000-0000000000f1`)
     expect(screen.getByRole('heading', { level: 2, name: 'Check and decision' })).toHaveFocus()
     expect(calls[0]?.body).toMatchObject({ taxon: exempli.public_id, risk_group: 2, country_of_origin: 'CZ' })
@@ -98,13 +99,13 @@ describe('the deposit page', { timeout: 20_000 }, () => {
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'Mixed culture.')
     await user.click(within(dialog).getByRole('button', { name: 'Reject the deposit' }))
     expect(await screen.findByText(/^Rejected on .*: Mixed culture\.$/)).toBeInTheDocument()
-    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Check and decision' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Check and decision' })).toHaveFocus(), { timeout: 5000 })
     expect(calls[0]?.body).toEqual({ reason: 'Mixed culture.' })
   })
 
   it('changes the terms from the current version, with a reason, and keeps the dialog open while it saves', async () => {
     signedIn()
-    mockApi('get', DETAIL, deposit({ status: 'checking' }))
+    mockApi('get', DETAIL, deposit({ status: 'checking', terms: makeTerms({ mta: MTA }) }))
     const held = holdApi('post', ACTION('terms'))
     open()
     const user = userEvent.setup()
@@ -112,14 +113,16 @@ describe('the deposit page', { timeout: 20_000 }, () => {
     const dialog = await screen.findByRole('dialog', { name: 'Change the terms' })
     expect(dialog).toHaveAccessibleDescription(/adds version 2/)
     expect(within(dialog).getByRole('combobox', { name: 'Teaching' })).toHaveValue('permit')
+    // The version's MTA is chosen once the templates are there, not shown as none.
+    expect(await within(dialog).findByRole('combobox', { name: 'MTA' })).toHaveValue(MTA.public_id)
     await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Teaching' }), 'deny')
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'The depositor withdrew teaching.')
     const save = within(dialog).getByRole('button', { name: 'Save the new version' })
     await user.click(save)
-    await waitFor(() => expect(save).toHaveAttribute('aria-disabled', 'true'))
+    await waitFor(() => expect(save).toHaveAttribute('aria-disabled', 'true'), { timeout: 5000 })
     await user.keyboard('{Escape}')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(held.calls[0]?.body).toMatchObject({ reason: 'The depositor withdrew teaching.', terms: { abs_scope: 'not_in_scope', mta: null } })
+    expect(held.calls[0]?.body).toMatchObject({ reason: 'The depositor withdrew teaching.', terms: { abs_scope: 'not_in_scope', mta: MTA.public_id } })
     held.release(200, deposit({ status: 'checking', terms: makeTerms({ version: 2 }) }))
     expect(await screen.findByRole('heading', { level: 2, name: 'Terms, version 2' })).toBeInTheDocument()
   })

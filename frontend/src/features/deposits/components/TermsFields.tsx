@@ -49,13 +49,19 @@ export function TermsFields({ labId }: { labId: string }) {
         </Stack>
         {errors?.uses?.message && <Typography color="error">{errors.uses.message}</Typography>}
       </Box>
-      <SelectField
-        label="MTA"
-        hint={mtas.isError ? 'The MTA templates could not be loaded.' : 'The agreement version the depositor signed, if any.'}
-        options={mtaOptions}
-        error={errors?.mta?.message}
-        {...register('terms.mta')}
-      />
+      {/* Mounted once the versions are loaded: a native select keeps its value only if the
+          option exists when it registers, so a version to start from would show as none. */}
+      {mtas.isPending ? (
+        <Typography>Loading the MTA templates…</Typography>
+      ) : (
+        <SelectField
+          label="MTA"
+          hint={mtas.isError ? 'The MTA templates could not be loaded.' : 'The agreement version the depositor signed, if any.'}
+          options={mtaOptions}
+          error={errors?.mta?.message}
+          {...register('terms.mta')}
+        />
+      )}
       <SelectField
         label="ABS scope"
         hint="Whether Regulation (EU) No 511/2014 applies to the material."

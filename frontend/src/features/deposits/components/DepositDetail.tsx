@@ -126,7 +126,7 @@ function Steps({ deposit }: { deposit: Deposit }) {
   const decided = deposit.status === 'accepted' || deposit.status === 'rejected'
   const steps: { label: string; state: 'done' | 'now' | 'to come' }[] = [
     { label: `Received on ${deposit.received_on}`, state: 'done' },
-    { label: 'Check started', state: deposit.status === 'received' ? 'now' : 'done' },
+    deposit.status === 'received' ? { label: 'Start the check', state: 'now' } : { label: 'Check started', state: 'done' },
     {
       label: decided ? STATUS_LABELS[deposit.status] : 'Accept or reject',
       state: decided ? 'done' : deposit.status === 'checking' ? 'now' : 'to come',

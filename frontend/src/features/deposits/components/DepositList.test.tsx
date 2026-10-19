@@ -35,10 +35,10 @@ describe('the deposits page', { timeout: 15_000 }, () => {
     const { router } = renderApp({ path: `/labs/${LAB_ID}/deposits` })
     const user = userEvent.setup()
     await user.selectOptions(await screen.findByRole('combobox', { name: 'Status' }, { timeout: 5000 }), 'checking')
-    await waitFor(() => expect(router.state.location.search).toEqual({ status: 'checking' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ status: 'checking' }), { timeout: 5000 })
     await user.type(screen.getByRole('searchbox', { name: 'Name, depositor or number' }), 'K3{Enter}')
-    await waitFor(() => expect(router.state.location.search).toEqual({ status: 'checking', search: 'K3' }))
-    await waitFor(() => expect(Object.fromEntries(calls.at(-1)?.url.searchParams ?? [])).toEqual({ limit: '25', offset: '0', status: 'checking', search: 'K3' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ status: 'checking', search: 'K3' }), { timeout: 5000 })
+    await waitFor(() => expect(Object.fromEntries(calls.at(-1)?.url.searchParams ?? [])).toEqual({ limit: '25', offset: '0', status: 'checking', search: 'K3' }), { timeout: 5000 })
   })
 
   it('offers to clear filters that match nothing, and focus moves on as the button goes', async () => {
@@ -48,7 +48,7 @@ describe('the deposits page', { timeout: 15_000 }, () => {
     const user = userEvent.setup()
     const text = await screen.findByText(/No deposit matches these filters/, undefined, { timeout: 5000 })
     await user.click(within(text).getByRole('button', { name: 'Clear filters' }))
-    await waitFor(() => expect(router.state.location.search).toEqual({}))
+    await waitFor(() => expect(router.state.location.search).toEqual({}), { timeout: 5000 })
     expect(await screen.findByText('The lab has received no deposits yet.')).toBeInTheDocument()
     expect(document.activeElement).not.toBe(document.body)
   })

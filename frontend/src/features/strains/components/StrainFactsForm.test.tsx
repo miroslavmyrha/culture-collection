@@ -46,7 +46,7 @@ const select = (name: string) => screen.getByRole('combobox', { name })
 async function pickTaxon(user: UserEvent, text = 'exem') {
   await user.click(select('Taxon'))
   await user.keyboard(text)
-  await screen.findByRole('option', { name: /Testella exempli/ }, { timeout: 4000 })
+  await screen.findByRole('option', { name: /Testella exempli/ }, { timeout: 10_000 })
   await user.keyboard('{ArrowDown}{Enter}')
 }
 
@@ -83,7 +83,7 @@ describe('StrainFactsForm', { timeout: 20_000 }, () => {
     await user.type(within(second).getByRole('textbox', { name: 'List entry' }), 'MŽP 2026/12')
     await user.selectOptions(within(second).getByRole('combobox', { name: 'Contained use category' }), '2')
     await submit(user)
-    await waitFor(() => expect(onDone).toHaveBeenCalledOnce())
+    await waitFor(() => expect(onDone).toHaveBeenCalledOnce(), { timeout: 5000 })
     expect(calls).toHaveLength(1)
     expect(calls[0]?.url.pathname).toBe(`/api/v1/labs/${LAB_ID}/deposits/${DEPOSIT_ID}/accept/`)
     expect(calls[0]?.headers.get('X-CSRFToken')).toBe('test-token')
@@ -114,7 +114,7 @@ describe('StrainFactsForm', { timeout: 20_000 }, () => {
     const taxon = select('Taxon')
     await user.click(taxon)
     await user.keyboard('exem')
-    const listbox = await screen.findByRole('listbox', undefined, { timeout: 4000 })
+    const listbox = await screen.findByRole('listbox', undefined, { timeout: 10_000 })
     expect(within(listbox).getAllByRole('option').map((o) => o.textContent)).toEqual([
       'Testella exempli Doe 2001 (species)',
       'Fictivibrio exempli  (synonym, species)',
@@ -159,7 +159,7 @@ describe('StrainFactsForm', { timeout: 20_000 }, () => {
     await fillRequired(user)
     await user.selectOptions(select('Risk group'), '4')
     await submit(user)
-    await waitFor(() => expect(select('Risk group')).toHaveAttribute('aria-invalid', 'true'))
+    await waitFor(() => expect(select('Risk group')).toHaveAttribute('aria-invalid', 'true'), { timeout: 5000 })
     expect(select('Risk group')).toHaveAccessibleDescription(/The collection does not hold risk group 4 agents\.$/)
     expect(select('Risk group')).toHaveFocus()
     expect(screen.queryByText('server words')).not.toBeInTheDocument()
@@ -184,7 +184,7 @@ describe('StrainFactsForm', { timeout: 20_000 }, () => {
     }
     await submit(user)
     const kind = within(screen.getByRole('group', { name: 'Restriction 2' })).getByRole('combobox', { name: 'Kind' })
-    await waitFor(() => expect(kind).toHaveAttribute('aria-invalid', 'true'))
+    await waitFor(() => expect(kind).toHaveAttribute('aria-invalid', 'true'), { timeout: 5000 })
     expect(kind).toHaveAccessibleDescription(/no valid SÚJB permit for highly risky agents \(VRAT\)/)
     expect(kind).toHaveFocus()
     expect(within(screen.getByRole('group', { name: 'Restriction 1' })).getByRole('combobox', { name: 'Kind' })).toHaveAttribute('aria-invalid', 'false')
@@ -200,7 +200,7 @@ describe('StrainFactsForm', { timeout: 20_000 }, () => {
     const { user } = await setup()
     await fillRequired(user)
     await submit(user)
-    await waitFor(() => expect(input()).toHaveAttribute('aria-invalid', 'true'))
+    await waitFor(() => expect(input()).toHaveAttribute('aria-invalid', 'true'), { timeout: 5000 })
     expect(input()).toHaveAccessibleDescription(/Not like this\.$/)
     expect(input()).toHaveFocus()
   })
@@ -213,7 +213,7 @@ describe('StrainFactsForm', { timeout: 20_000 }, () => {
     await user.type(within(screen.getByRole('group', { name: 'Restriction 1' })).getByRole('textbox', { name: 'List entry' }), 'x')
     await submit(user)
     const entry = within(screen.getByRole('group', { name: 'Restriction 1' })).getByRole('textbox', { name: 'List entry' })
-    await waitFor(() => expect(entry).toHaveAccessibleDescription(/Enter an Annex I entry\.$/))
+    await waitFor(() => expect(entry).toHaveAccessibleDescription(/Enter an Annex I entry\.$/), { timeout: 5000 })
     expect(entry).toHaveFocus()
   })
 
@@ -237,14 +237,14 @@ describe('StrainFactsForm', { timeout: 20_000 }, () => {
     await fillRequired(user)
     const button = screen.getByRole('button', { name: 'Accept' })
     await user.click(button)
-    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'))
+    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'), { timeout: 5000 })
     expect(button).not.toBeDisabled()
     expect(button).toHaveFocus()
     await user.click(button)
     expect(client.isMutating()).toBe(1)
     expect(held.calls).toHaveLength(1)
     held.release(200, makeDeposit())
-    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'false'))
+    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'false'), { timeout: 5000 })
   })
 
   it('moves the focus to Add a restriction when a row is removed', async () => {

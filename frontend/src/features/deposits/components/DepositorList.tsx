@@ -6,7 +6,6 @@ import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { useDepositorList } from '../api/queries'
 import { type Depositor, depositorName, type DepositorListParams } from '../schemas'
 import { DepositorDialog } from './DepositorDialog'
-import { scrollable } from './scroll'
 
 type Props = {
   labId: string
@@ -72,7 +71,7 @@ function Rows({
   if (results.length === 0) return <PastTheEnd onFirstPage={() => onOffsetChange(0)} />
   return (
     <section aria-label="Depositors" aria-busy={list.isPlaceholderData}>
-      <TableContainer component={Paper} variant="outlined" {...scrollable('Depositors')}>
+      <TableContainer component={Paper} variant="outlined">
         <Table aria-label="Depositors">
           <TableHead>
             <TableRow>
@@ -85,9 +84,9 @@ function Rows({
           <TableBody>
             {results.map((d) => (
               <TableRow key={d.public_id}>
-                <TableCell sx={{ overflowWrap: 'anywhere' }}>{depositorName(d)}</TableCell>
-                <TableCell sx={{ overflowWrap: 'anywhere' }}>{d.institution}</TableCell>
-                <TableCell sx={{ overflowWrap: 'anywhere' }}>{d.email}</TableCell>
+                <TableCell sx={{ overflowWrap: 'break-word' }}>{depositorName(d)}</TableCell>
+                <TableCell sx={{ overflowWrap: 'break-word' }}>{d.institution}</TableCell>
+                <TableCell sx={{ overflowWrap: 'break-word' }}>{d.email}</TableCell>
                 <TableCell>
                   {!d.erased && (
                     <Button onClick={onEdit(d)} aria-label={`Change ${d.name}`}>
