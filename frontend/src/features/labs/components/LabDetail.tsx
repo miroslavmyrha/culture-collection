@@ -6,7 +6,7 @@ import { MemberTable } from './MemberTable'
 
 type Props = { labId: string; params: PageParams; onOffsetChange: (offset: number) => void }
 
-/** One lab: its name, my role, its strains, its members, and for managers the controls to manage them. */
+/** One lab: its name, my role, its strains and storage, its members, and for managers the controls to manage them. */
 export function LabDetail({ labId, params, onOffsetChange }: Props) {
   return (
     <LabGate labId={labId}>
@@ -24,6 +24,9 @@ export function LabDetail({ labId, params, onOffsetChange }: Props) {
             <Stack direction="row" spacing={2} useFlexGap component="nav" aria-label="Lab sections" sx={{ flexWrap: 'wrap', mb: 3 }}>
               <Link to="/labs/$labId/strains" params={{ labId }}>
                 Strains
+              </Link>
+              <Link to="/labs/$labId/storage" params={{ labId }}>
+                Storage
               </Link>
               {canSeeDeposits(role) && (
                 <>

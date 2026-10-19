@@ -131,6 +131,96 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/box-types/:
+    get:
+      operationId: box_types_list
+      parameters:
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      tags:
+      - box-types
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBoxTypeOutputList'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/box-types/{public_id}/:
+    get:
+      operationId: box_types_retrieve
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - box-types
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoxTypeOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/:
     get:
       operationId: labs_list
@@ -1447,6 +1537,398 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/storage-units/:
+    get:
+      operationId: labs_storage_units_list
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UnitOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    post:
+      operationId: labs_storage_units_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnitCreateInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UnitCreateInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnitDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input on a field: a parent that may not hold the unit,
+            is inactive or is the unit itself or below it, a name, slot or barcode
+            taken, a box type on a unit that is no box, or a box whose positions are
+            occupied'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/storage-units/{public_id}/:
+    get:
+      operationId: labs_storage_units_retrieve
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnitDetailOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/storage-units/{public_id}/edit/:
+    post:
+      operationId: labs_storage_units_edit_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnitFieldsInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UnitFieldsInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnitDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input on a field: a parent that may not hold the unit,
+            is inactive or is the unit itself or below it, a name, slot or barcode
+            taken, a box type on a unit that is no box, or a box whose positions are
+            occupied'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The unit is retired and changes no more
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/storage-units/{public_id}/move/:
+    post:
+      operationId: labs_storage_units_move_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnitMoveInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UnitMoveInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnitDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input on a field: a parent that may not hold the unit,
+            is inactive or is the unit itself or below it, a name, slot or barcode
+            taken, a box type on a unit that is no box, or a box whose positions are
+            occupied'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The unit is retired and changes no more
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/storage-units/{public_id}/status/:
+    post:
+      operationId: labs_storage_units_status_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnitStatusInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UnitStatusInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnitDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input on a field: a parent that may not hold the unit,
+            is inactive or is the unit itself or below it, a name, slot or barcode
+            taken, a box type on a unit that is no box, or a box whose positions are
+            occupied'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The unit is retired and changes no more
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'reason_required; unit_not_empty: retire what the unit holds
+            first'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/strains/:
     get:
       operationId: labs_strains_list
@@ -2071,6 +2553,65 @@ components:
     BlankEnum:
       enum:
       - ''
+    BoxTypeOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        rows:
+          type: integer
+          readOnly: true
+        cols:
+          type: integer
+          readOnly: true
+      required:
+      - cols
+      - name
+      - public_id
+      - rows
+    ChildOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/UnitKind'
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        slot:
+          type: integer
+          readOnly: true
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/UnitStatus'
+          readOnly: true
+        rows:
+          type: integer
+          readOnly: true
+          nullable: true
+        cols:
+          type: integer
+          readOnly: true
+          nullable: true
+      required:
+      - cols
+      - kind
+      - name
+      - public_id
+      - rows
+      - slot
+      - status
     Condition:
       enum:
       - intact
@@ -3093,6 +3634,32 @@ components:
       - text_sha256
       - title
       - version
+    NullEnum:
+      enum:
+      - null
+    PaginatedBoxTypeOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BoxTypeOutput'
     PaginatedDepositListOutputList:
       type: object
       required:
@@ -3969,6 +4536,321 @@ components:
       required:
       - decision
       - use
+    UnitBrief:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/UnitKind'
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+      required:
+      - kind
+      - name
+      - public_id
+    UnitCreateInputRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        barcode:
+          type: string
+          default: ''
+          maxLength: 64
+        temperature_c:
+          type: integer
+          maximum: 100
+          minimum: -273
+          nullable: true
+        max_risk_group:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/RiskGroup'
+          - $ref: '#/components/schemas/NullEnum'
+        box_type:
+          type: string
+          format: uuid
+          nullable: true
+        kind:
+          $ref: '#/components/schemas/UnitKind'
+        parent:
+          type: string
+          format: uuid
+          nullable: true
+        slot:
+          type: integer
+          minimum: 1
+          nullable: true
+      required:
+      - kind
+      - name
+    UnitDetailOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/UnitKind'
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        parent:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        slot:
+          type: integer
+          readOnly: true
+          nullable: true
+        barcode:
+          type: string
+          readOnly: true
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/UnitStatus'
+          readOnly: true
+        box_type:
+          allOf:
+          - $ref: '#/components/schemas/BoxTypeOutput'
+          readOnly: true
+          nullable: true
+        rows:
+          type: integer
+          readOnly: true
+          nullable: true
+        cols:
+          type: integer
+          readOnly: true
+          nullable: true
+        temperature_c:
+          type: integer
+          readOnly: true
+          nullable: true
+        max_risk_group:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/RiskGroup'
+          - $ref: '#/components/schemas/NullEnum'
+        effective_max_risk_group:
+          allOf:
+          - $ref: '#/components/schemas/RiskGroup'
+          readOnly: true
+        path_active:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        retired_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        ancestors:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnitBrief'
+          readOnly: true
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChildOutput'
+          readOnly: true
+      required:
+      - ancestors
+      - barcode
+      - box_type
+      - children
+      - cols
+      - created_at
+      - effective_max_risk_group
+      - kind
+      - max_risk_group
+      - name
+      - parent
+      - path_active
+      - public_id
+      - retired_at
+      - rows
+      - slot
+      - status
+      - temperature_c
+    UnitFieldsInputRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        barcode:
+          type: string
+          default: ''
+          maxLength: 64
+        temperature_c:
+          type: integer
+          maximum: 100
+          minimum: -273
+          nullable: true
+        max_risk_group:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/RiskGroup'
+          - $ref: '#/components/schemas/NullEnum'
+        box_type:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - name
+    UnitKind:
+      enum:
+      - freezer
+      - ln2_tank
+      - rack
+      - box
+      type: string
+      description: |-
+        * `freezer` - Freezer
+        * `ln2_tank` - LN2 tank
+        * `rack` - Rack
+        * `box` - Box
+    UnitMoveInputRequest:
+      type: object
+      properties:
+        parent:
+          type: string
+          format: uuid
+        slot:
+          type: integer
+          minimum: 1
+          nullable: true
+      required:
+      - parent
+    UnitOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/UnitKind'
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        parent:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        slot:
+          type: integer
+          readOnly: true
+          nullable: true
+        barcode:
+          type: string
+          readOnly: true
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/UnitStatus'
+          readOnly: true
+        box_type:
+          allOf:
+          - $ref: '#/components/schemas/BoxTypeOutput'
+          readOnly: true
+          nullable: true
+        rows:
+          type: integer
+          readOnly: true
+          nullable: true
+        cols:
+          type: integer
+          readOnly: true
+          nullable: true
+        temperature_c:
+          type: integer
+          readOnly: true
+          nullable: true
+        max_risk_group:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/RiskGroup'
+          - $ref: '#/components/schemas/NullEnum'
+        effective_max_risk_group:
+          allOf:
+          - $ref: '#/components/schemas/RiskGroup'
+          readOnly: true
+        path_active:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        retired_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - barcode
+      - box_type
+      - cols
+      - created_at
+      - effective_max_risk_group
+      - kind
+      - max_risk_group
+      - name
+      - parent
+      - path_active
+      - public_id
+      - retired_at
+      - rows
+      - slot
+      - status
+      - temperature_c
+    UnitStatus:
+      enum:
+      - active
+      - out_of_service
+      - retired
+      type: string
+      description: |-
+        * `active` - Active
+        * `out_of_service` - Out of service
+        * `retired` - Retired
+    UnitStatusInputRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/UnitStatus'
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+      required:
+      - reason
+      - status
     Use:
       enum:
       - research_noncommercial

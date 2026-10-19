@@ -1,9 +1,96 @@
 {
+  "box_types": [
+    {
+      "name": "81-place cryobox (9 x 9)",
+      "rows": 9,
+      "cols": 9
+    },
+    {
+      "name": "100-place cryobox (10 x 10)",
+      "rows": 10,
+      "cols": 10
+    },
+    {
+      "name": "25-place cryobox (5 x 5)",
+      "rows": 5,
+      "cols": 5
+    }
+  ],
   "labs": [
     {
       "code": "BAC",
       "name": "Bacteriology",
-      "authorisations": []
+      "authorisations": [],
+      "storage": [
+        {
+          "kind": "freezer",
+          "name": "Freezer -80 A",
+          "temperature_c": -80,
+          "max_risk_group": 2,
+          "barcode": "BAC-F01",
+          "children": [
+            {
+              "kind": "rack",
+              "name": "Rack 1",
+              "slot": 1,
+              "children": [
+                {
+                  "kind": "box",
+                  "name": "Box 1",
+                  "slot": 1,
+                  "box_type": "81-place cryobox (9 x 9)"
+                },
+                {
+                  "kind": "box",
+                  "name": "Box 2",
+                  "slot": 2,
+                  "box_type": "81-place cryobox (9 x 9)"
+                }
+              ]
+            },
+            {
+              "kind": "rack",
+              "name": "Rack 2",
+              "slot": 2,
+              "children": [
+                {
+                  "kind": "box",
+                  "name": "Box 3",
+                  "slot": 1,
+                  "box_type": "100-place cryobox (10 x 10)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ln2_tank",
+          "name": "LN2 tank 1",
+          "temperature_c": -196,
+          "max_risk_group": 2,
+          "children": [
+            {
+              "kind": "rack",
+              "name": "Canister A",
+              "slot": 1,
+              "children": [
+                {
+                  "kind": "box",
+                  "name": "Seed stock 1",
+                  "slot": 1,
+                  "box_type": "100-place cryobox (10 x 10)"
+                },
+                {
+                  "kind": "box",
+                  "name": "Seed stock 2",
+                  "slot": 2,
+                  "box_type": "100-place cryobox (10 x 10)"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "code": "MYC",
@@ -23,6 +110,63 @@
           "valid_from": "2024-07-01",
           "expires_on": null
         }
+      ],
+      "storage": [
+        {
+          "kind": "freezer",
+          "name": "Freezer -80 B",
+          "temperature_c": -80,
+          "max_risk_group": 2,
+          "barcode": "MYC-F01",
+          "children": [
+            {
+              "kind": "rack",
+              "name": "Rack 1",
+              "slot": 1,
+              "children": [
+                {
+                  "kind": "box",
+                  "name": "Box 1",
+                  "slot": 1,
+                  "box_type": "81-place cryobox (9 x 9)"
+                },
+                {
+                  "kind": "box",
+                  "name": "Box 2",
+                  "slot": 2,
+                  "box_type": "81-place cryobox (9 x 9)"
+                },
+                {
+                  "kind": "box",
+                  "name": "Box 3",
+                  "slot": 3,
+                  "box_type": "25-place cryobox (5 x 5)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ln2_tank",
+          "name": "LN2 tank 2",
+          "temperature_c": -196,
+          "max_risk_group": 1,
+          "children": [
+            {
+              "kind": "rack",
+              "name": "Canister A",
+              "slot": 1,
+              "children": [
+                {
+                  "kind": "box",
+                  "name": "Seed stock 1",
+                  "slot": 1,
+                  "box_type": "100-place cryobox (10 x 10)"
+                }
+              ]
+            }
+          ]
+        }
       ]
     },
     {
@@ -35,6 +179,37 @@
           "valid_from": "2024-01-15",
           "expires_on": null
         }
+      ],
+      "storage": [
+        {
+          "kind": "freezer",
+          "name": "Locked freezer R1",
+          "temperature_c": -80,
+          "max_risk_group": 3,
+          "barcode": "REG-F01",
+          "children": [
+            {
+              "kind": "rack",
+              "name": "Rack 1",
+              "slot": 1,
+              "children": [
+                {
+                  "kind": "box",
+                  "name": "Box 1",
+                  "slot": 1,
+                  "box_type": "81-place cryobox (9 x 9)"
+                },
+                {
+                  "kind": "box",
+                  "name": "Box 2, group 2 at most",
+                  "slot": 2,
+                  "box_type": "81-place cryobox (9 x 9)",
+                  "max_risk_group": 2
+                }
+              ]
+            }
+          ]
+        }
       ]
     },
     {
@@ -46,6 +221,45 @@
           "permit_reference": "SÚJB/DEV/0002",
           "valid_from": "2019-03-01",
           "expires_on": "2023-12-31"
+        }
+      ],
+      "storage": [
+        {
+          "kind": "freezer",
+          "name": "Freezer -20 E",
+          "temperature_c": -20,
+          "max_risk_group": 1,
+          "children": [
+            {
+              "kind": "rack",
+              "name": "Rack 1",
+              "slot": 1,
+              "children": [
+                {
+                  "kind": "box",
+                  "name": "Box 1",
+                  "slot": 1,
+                  "box_type": "81-place cryobox (9 x 9)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "freezer",
+          "name": "Freezer -80 old",
+          "temperature_c": -80,
+          "max_risk_group": 1,
+          "status": "out_of_service",
+          "reason": "Compressor failure (invented example).",
+          "children": [
+            {
+              "kind": "rack",
+              "name": "Rack 1",
+              "slot": 1,
+              "children": []
+            }
+          ]
         }
       ]
     }

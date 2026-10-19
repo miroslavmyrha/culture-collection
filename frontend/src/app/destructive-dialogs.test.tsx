@@ -3,7 +3,8 @@ import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
 import { RejectDialog } from '@/features/deposits/components/DepositDialogs'
 import { RemoveMemberDialog } from '@/features/labs/components/RemoveMemberDialog'
-import { makeDeposit, makeMember } from '@/test/factories'
+import { UnitStatusDialog } from '@/features/storage/components/UnitDialogs'
+import { makeDeposit, makeMember, makeUnit } from '@/test/factories'
 import { renderWithProviders } from '@/test/render'
 
 /**
@@ -39,6 +40,20 @@ const DESTRUCTIVE: Record<string, { render: () => ReactElement; name: string; co
     ),
     name: 'Reject Testella exempli K3?',
     consequence: 'The deposit ends here and becomes no strain. The decision cannot be undone',
+  },
+  '/src/features/storage/components/UnitDialogs.tsx': {
+    render: () => (
+      <UnitStatusDialog
+        labId="00000000-0000-4000-8000-00000000000a"
+        unit={makeUnit({ name: 'Rack 1', kind: 'rack' })}
+        to="retired"
+        open
+        onClose={() => {}}
+        onExited={() => {}}
+      />
+    ),
+    name: 'Retire Rack 1?',
+    consequence: 'A retired unit stays in the history but changes no more and takes nothing. This cannot be undone.',
   },
 }
 

@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "cultures.strains",
     "cultures.deposits",
     "cultures.lineage",
+    "cultures.storage",
 ]
 
 MIDDLEWARE = [
@@ -285,6 +286,8 @@ SPECTACULAR_SETTINGS = {
         "AbsScope": "cultures.deposits.models.AbsScope",
         "Use": "cultures.deposits.models.Use",
         "Decision": "cultures.deposits.models.Decision",
+        "UnitKind": "cultures.storage.models.UnitKind",
+        "UnitStatus": "cultures.storage.models.UnitStatus",
     },
 }
 

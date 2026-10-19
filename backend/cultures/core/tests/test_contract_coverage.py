@@ -44,6 +44,11 @@ EXEMPT = {
         "taxon-list",
         "taxonomy/tests/test_api.py",
     ),
+    "cultures.storage.api.views.BoxTypeViewSet": Exemption(
+        "global reference data read by every signed-in user: no lab, so no outsider to hide from",
+        "box-type-list",
+        "storage/tests/test_api.py",
+    ),
 }
 
 

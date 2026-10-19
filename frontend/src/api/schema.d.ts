@@ -70,6 +70,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/box-types/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["box_types_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/box-types/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["box_types_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/": {
         parameters: {
             query?: never;
@@ -278,6 +310,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/storage-units/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_storage_units_list"];
+        put?: never;
+        post: operations["labs_storage_units_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/storage-units/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_storage_units_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/storage-units/{public_id}/edit/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_storage_units_edit_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/storage-units/{public_id}/move/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_storage_units_move_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/storage-units/{public_id}/status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_storage_units_status_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/strains/": {
         parameters: {
             query?: never;
@@ -436,6 +548,23 @@ export interface components {
         AbsScope: "not_in_scope" | "in_scope" | "unknown";
         /** @enum {unknown} */
         BlankEnum: "";
+        BoxTypeOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly name: string;
+            readonly rows: number;
+            readonly cols: number;
+        };
+        ChildOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly kind: components["schemas"]["UnitKind"];
+            readonly name: string;
+            readonly slot: number | null;
+            readonly status: components["schemas"]["UnitStatus"];
+            readonly rows: number | null;
+            readonly cols: number | null;
+        };
         /**
          * @description * `intact` - Intact
          *     * `damaged` - Container or packaging damaged
@@ -873,6 +1002,23 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        /** @enum {unknown} */
+        NullEnum: null;
+        PaginatedBoxTypeOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["BoxTypeOutput"][];
+        };
         PaginatedDepositListOutputList: {
             /** @example 123 */
             count: number;
@@ -1250,6 +1396,105 @@ export interface components {
             use: components["schemas"]["Use"];
             decision: components["schemas"]["Decision"];
         };
+        UnitBrief: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly kind: components["schemas"]["UnitKind"];
+            readonly name: string;
+        };
+        UnitCreateInputRequest: {
+            name: string;
+            /** @default  */
+            barcode: string;
+            temperature_c?: number | null;
+            max_risk_group?: (components["schemas"]["RiskGroup"] | components["schemas"]["NullEnum"]) | null;
+            /** Format: uuid */
+            box_type?: string | null;
+            kind: components["schemas"]["UnitKind"];
+            /** Format: uuid */
+            parent?: string | null;
+            slot?: number | null;
+        };
+        UnitDetailOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly kind: components["schemas"]["UnitKind"];
+            readonly name: string;
+            /** Format: uuid */
+            readonly parent: string | null;
+            readonly slot: number | null;
+            readonly barcode: string | null;
+            readonly status: components["schemas"]["UnitStatus"];
+            readonly box_type: components["schemas"]["BoxTypeOutput"] | null;
+            readonly rows: number | null;
+            readonly cols: number | null;
+            readonly temperature_c: number | null;
+            readonly max_risk_group: (components["schemas"]["RiskGroup"] | components["schemas"]["NullEnum"]) | null;
+            readonly effective_max_risk_group: components["schemas"]["RiskGroup"];
+            readonly path_active: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly retired_at: string | null;
+            readonly ancestors: components["schemas"]["UnitBrief"][];
+            readonly children: components["schemas"]["ChildOutput"][];
+        };
+        UnitFieldsInputRequest: {
+            name: string;
+            /** @default  */
+            barcode: string;
+            temperature_c?: number | null;
+            max_risk_group?: (components["schemas"]["RiskGroup"] | components["schemas"]["NullEnum"]) | null;
+            /** Format: uuid */
+            box_type?: string | null;
+        };
+        /**
+         * @description * `freezer` - Freezer
+         *     * `ln2_tank` - LN2 tank
+         *     * `rack` - Rack
+         *     * `box` - Box
+         * @enum {string}
+         */
+        UnitKind: "freezer" | "ln2_tank" | "rack" | "box";
+        UnitMoveInputRequest: {
+            /** Format: uuid */
+            parent: string;
+            slot?: number | null;
+        };
+        UnitOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly kind: components["schemas"]["UnitKind"];
+            readonly name: string;
+            /** Format: uuid */
+            readonly parent: string | null;
+            readonly slot: number | null;
+            readonly barcode: string | null;
+            readonly status: components["schemas"]["UnitStatus"];
+            readonly box_type: components["schemas"]["BoxTypeOutput"] | null;
+            readonly rows: number | null;
+            readonly cols: number | null;
+            readonly temperature_c: number | null;
+            readonly max_risk_group: (components["schemas"]["RiskGroup"] | components["schemas"]["NullEnum"]) | null;
+            readonly effective_max_risk_group: components["schemas"]["RiskGroup"];
+            readonly path_active: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly retired_at: string | null;
+        };
+        /**
+         * @description * `active` - Active
+         *     * `out_of_service` - Out of service
+         *     * `retired` - Retired
+         * @enum {string}
+         */
+        UnitStatus: "active" | "out_of_service" | "retired";
+        UnitStatusInputRequest: {
+            status: components["schemas"]["UnitStatus"];
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
         /**
          * @description * `research_noncommercial` - Non-commercial research
          *     * `research_commercial` - Commercial research
@@ -1424,6 +1669,107 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    box_types_list: {
+        parameters: {
+            query?: {
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedBoxTypeOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    box_types_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoxTypeOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2836,6 +3182,420 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_storage_units_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitOutput"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_storage_units_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitCreateInputRequest"];
+                "multipart/form-data": components["schemas"]["UnitCreateInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitDetailOutput"];
+                };
+            };
+            /** @description Invalid input on a field: a parent that may not hold the unit, is inactive or is the unit itself or below it, a name, slot or barcode taken, a box type on a unit that is no box, or a box whose positions are occupied */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_storage_units_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitDetailOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_storage_units_edit_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitFieldsInputRequest"];
+                "multipart/form-data": components["schemas"]["UnitFieldsInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitDetailOutput"];
+                };
+            };
+            /** @description Invalid input on a field: a parent that may not hold the unit, is inactive or is the unit itself or below it, a name, slot or barcode taken, a box type on a unit that is no box, or a box whose positions are occupied */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The unit is retired and changes no more */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_storage_units_move_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitMoveInputRequest"];
+                "multipart/form-data": components["schemas"]["UnitMoveInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitDetailOutput"];
+                };
+            };
+            /** @description Invalid input on a field: a parent that may not hold the unit, is inactive or is the unit itself or below it, a name, slot or barcode taken, a box type on a unit that is no box, or a box whose positions are occupied */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The unit is retired and changes no more */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_storage_units_status_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitStatusInputRequest"];
+                "multipart/form-data": components["schemas"]["UnitStatusInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitDetailOutput"];
+                };
+            };
+            /** @description Invalid input on a field: a parent that may not hold the unit, is inactive or is the unit itself or below it, a name, slot or barcode taken, a box type on a unit that is no box, or a box whose positions are occupied */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The unit is retired and changes no more */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required; unit_not_empty: retire what the unit holds first */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

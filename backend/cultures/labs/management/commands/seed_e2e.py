@@ -13,13 +13,17 @@ Brings the database to this state, whatever it was before:
 - a few taxa for the strain form: two genera, a species in each with its NCBI id, and a
   synonym of each species (its basionym), plus an invented genus and species (Testella
   exempli) for the tests of the restriction gates, so no real organism is entered with a
-  legal status it does not have. The lab holds no permit, so a VRAT strain is refused there.
+  legal status it does not have. The lab holds no permit, so a VRAT strain is refused there;
 - for the deposit tests: a depositor (an invented person at example.org), the lab's MTA
   "STD" version 1, and one deposit accepted as a Bacillus subtilis strain (risk group 1,
   as LPSN and the DSMZ catalogue state for the species), so the strain pages have a row
   before any test adds one. The depositor and the MTA are found by name and code, the
-  deposit by its name as received.
-Strains the tests created stay: numbers are never reused, and a strain is never deleted.
+  deposit by its name as received;
+- two box types, and a small storage tree that never changes (E2E freezer > Rack 1 > Box 1),
+  added by e2e-curator: the keyboard walk and the focus ring checks need a tree to stand on.
+  The storage tests build their own freezers, racks and boxes next to it.
+Strains and storage units the tests created stay: numbers are never reused, and neither a
+strain nor a unit is ever deleted.
 A second run changes nothing. Every user, lab and membership write goes
 through the services with their audit events (channel command, actor kind
 system).
@@ -48,6 +52,8 @@ from cultures.labs import services
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
+from cultures.storage import services as storage
+from cultures.storage.models import BoxType, StorageUnit, UnitKind
 from cultures.taxonomy import services as taxonomy
 from cultures.taxonomy.models import IdentifierSystem, Rank, Taxon
 from cultures.users import services as users
@@ -81,6 +87,9 @@ TAXA: tuple[tuple[str, str, Rank, str | None, str | None, str | None], ...] = (
     ("Testella", "", Rank.GENUS, None, None, None),
     ("Testella exempli", "", Rank.SPECIES, "Testella", None, None),
 )
+# (name, rows, cols), the names seed_dev uses too.
+BOX_TYPES = (("81-place cryobox (9 x 9)", 9, 9), ("100-place cryobox (10 x 10)", 10, 10))
+FREEZER = "E2E freezer"
 
 
 class Command(BaseCommand):
@@ -112,10 +121,14 @@ class Command(BaseCommand):
             for row in TAXA:
                 self._taxon(*row)
             self._deposit(lab, curator=User.objects.get(username=CURATOR), manager=user)
+            for name, rows, cols in BOX_TYPES:
+                if not BoxType.objects.filter(name__iexact=name).exists():
+                    storage.box_type_create(name=name, rows=rows, cols=cols)
+            self._storage(lab, User.objects.get(username=CURATOR))
         self.stdout.write(
             f"{username} manages {lab.name}; {CURATOR} and {VIEWER} are its curator and viewer;"
             f" {COLLEAGUE} is in no lab; {len(TAXA)} taxa; a depositor, MTA STD and"
-            f" one accepted deposit"
+            f" one accepted deposit; {len(BOX_TYPES)} box types; {FREEZER} > Rack 1 > Box 1"
         )
 
     def _taxon(  # noqa: PLR0917 (one row of TAXA, spread)
@@ -185,6 +198,23 @@ class Command(BaseCommand):
                 risk_group=1,
             ),
         )
+
+    def _storage(self, lab: Lab, curator: User) -> None:
+        """The fixed tree, created when missing and never changed."""
+        access = access_for(curator)
+
+        def unit(name: str, parent: StorageUnit | None, data: storage.NewUnit) -> StorageUnit:
+            found = StorageUnit.objects.filter(lab=lab, parent=parent, name=name).first()
+            return found or storage.unit_create(access=access, lab=lab, data=data)
+
+        freezer = unit(
+            FREEZER,
+            None,
+            storage.NewUnit(UnitKind.FREEZER, FREEZER, temperature_c=-20, max_risk_group=1),
+        )
+        rack = unit("Rack 1", freezer, storage.NewUnit(UnitKind.RACK, "Rack 1", freezer, slot=1))
+        box_type = BoxType.objects.get(name=BOX_TYPES[0][0])
+        unit("Box 1", rack, storage.NewUnit(UnitKind.BOX, "Box 1", rack, slot=1, box_type=box_type))
 
     def _user(self, username: str, password: str | None) -> User:
         """An active user with this password (None: no usable one), changed only where needed."""

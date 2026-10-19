@@ -95,9 +95,9 @@ the events that name a strain.
 **Decided elsewhere or later.** Each is settled in the ADR or issue named,
 before the tables it shapes:
 - D5 placement and move history of vials and storage units: with storage
-  (#14).
+  (#14). Decided 2026-10-19, see the storage amendment below.
 - D6 box coordinates, 1-based rows and columns with computed labels: with
-  the box grid (#15).
+  the box grid (#15). Decided 2026-10-19 with storage, see the storage amendment below.
 - D7 vial states and transitions: with preservation and batches (#16).
 - D9 terms model, versioned terms per deposit with frozen MTA versions:
   with depositors and terms (#10).
@@ -105,6 +105,7 @@ before the tables it shapes:
   with the curators.
 - D12 biosafety: ADR 0009.
 - D14 storage model, one unit table or one per level: with storage (#14).
+  Decided 2026-10-19, see the storage amendment below.
 - D15 seed and distribution stock: with preservation and batches (#16).
 - D16 identity, purity and viability checks: with viability checks (#17).
 - D17 vial barcodes, generated labels and pre-printed codes: with
@@ -255,3 +256,91 @@ Migration impact: new tables only (`deposits_*`, `lineage_passage`), each
 with its row audit (except the contact) and guard triggers, the new event
 types in the reason check of `audit_auditevent`. The strain tables do not
 change.
+
+## Amendment 2026-10-19: storage (#14)
+
+The storage tree is built before vials exist (#16), so the shape of the
+tree, its history and the box coordinates are settled now.
+
+**D14 Storage: one unit table, scoped by lab.**
+- `StorageUnit` holds every level: kind `freezer`, `ln2_tank`, `rack` or
+  `box`, a name, a parent (PROTECT), an optional `slot` (1-based position
+  in the parent), an optional barcode, an optional `temperature_c`, a
+  status, and for boxes a box type with rows and columns.
+- A kind spec in code (`storage.models.KIND_SPEC`) says which kind may hold
+  which: freezers and tanks are the roots and only they (a check
+  constraint), a rack sits in a freezer or a tank, a box in a rack, a
+  freezer or a tank. The path trigger refuses the same pairs, and a test
+  tries all sixteen against both.
+- The name is unique among the units of one parent, and among the roots of
+  one lab, without regard to case. A retired unit no longer blocks its name
+  or its slot. A barcode is unique per lab, retired units included, because
+  the label stays on the object.
+- Status is `active`, `out_of_service` or `retired`. Active and out of
+  service go both ways; retired is final and needs `retired_at`. A unit is
+  retired only once every unit in it is retired and no position of it is
+  occupied, and every status change has a reason. Units are never deleted
+  (a trigger, and no DELETE for the runtime role).
+- `BoxType` is global reference data managed by staff in admin, like taxa:
+  a name, rows and columns, at most 26 each (one letter per row). A box
+  copies rows and columns from its type when it is made. The type keeps its
+  size for good (a trigger), and a box gets a new size only by taking
+  another type while no position is occupied. `storage.services.box_occupied`
+  answers that; it is false until #16 counts placements in it, and every
+  service that resizes or retires a box asks it.
+- The path is a `bigint[]` of ids from the root down to the unit, written
+  only by a trigger. On every insert and move the trigger takes an
+  advisory lock per lab, reads the parent, refuses a parent that is the
+  unit or below it, a parent in another lab and a pair the kind spec does
+  not allow, and rewrites the path of everything below a moved unit. A unit
+  never leaves its lab, so a lab's units form one forest and one lock per
+  lab is the tree lock; the services take the lab row lock before it, so
+  for them it never waits. netbox keeps its tree in ltree with a lock per
+  root (read for the design, no code taken); an array needs no extension,
+  which the migration role would have to be allowed to create.
+- `max_risk_group` (1 to 4) caps what a unit and everything in it may
+  hold. Every root states one (a check constraint), a unit below may lower
+  it. The effective cap is the lowest along the path, one subquery per row
+  (`with_path_facts`). `storage.policy.may_store(unit, risk_group)` is the
+  gate of ADR 0009: only a box, only while it and every unit above it are
+  active, only up to the cap. It is written and tested now and called by
+  placements from #16. Lowering a cap below what a unit already holds is
+  refused from #16, when units hold something.
+- Who: viewers and up see the tree (`storage.view`), curators and managers
+  build it (`storage.manage`). The permission was granted to technicians
+  before; no code used it. The tree carries the biosafety caps of
+  ADR 0009, so it is the curators'. Technicians place vials in it
+  (`vials.handle`, #15 and #16).
+- The tree is read whole: the list endpoint returns every unit of the lab
+  in tree order, not paged, in one query.
+
+**D5 Location history: interval rows for vials, events for units.**
+Vials get placement rows with a start and an end (#16): "where was this
+vial on day X" is one query, and the freezer failure report needs it.
+Units move rarely. A unit's parent is its current location, and each move
+is a `storage_unit_moved` event that records the parent, the slot and the
+whole path before and after, as public ids. The location of a box on day X
+is its own latest move before X, then that of each unit above it, at most
+three steps. No source we read needs this as a single query. If a report
+does, a unit location table can be filled from these events alone.
+
+**D6 Coordinates: 1-based rows and columns, computed labels.** A position
+is a row and a column, both counted from 1. The label is computed: rows as
+letters, columns as numbers, so row 1, column 1 is "A1" and row 9,
+column 9 is "I9". This is the default for every lab. A lab that labels its
+boxes otherwise (numbered positions 1 to 81) is deferred until one asks.
+
+**Regulated locations (ADR 0009).** Units hold no strains yet, so nothing
+in #14 says where a regulated strain lies. The masking and the reveal come
+with placements (#16).
+
+Migration impact: additive. Storage migrations 0001 to 0003 create the two
+tables, attach the row audit and the triggers; audit 0017 replaces the
+reason-required check on `audit_auditevent` for the new status event, a
+scan of the audit table under its lock. `migrate storage zero` and
+`migrate audit 0016` reverse it while no other table points at units.
+
+Revisit when: a lab holds more than about 5 000 units (load the tree by
+level), a lab needs another kind (a shelf, a drawer, a canister of its
+own), a lab labels its positions otherwise, or a report needs past unit
+locations as one query.

@@ -1,35 +1,16 @@
-import { type Browser, type BrowserContext, expect, type Page, test } from '@playwright/test'
-import { axe, password, watchCsp } from './support.js'
+import { type Browser, expect, type Page, test } from '@playwright/test'
+import { axe, signedInAs, watchCsp } from './support.js'
 
 // Deposit intake against the real API (seed_e2e: e2e-curator and e2e-viewer in "E2E lab", the
 // depositor "E2E Depositor", MTA STD version 1, no permits). Each run adds deposits and strains:
 // numbers are never reused and nothing is deleted, so the tests find theirs by a name made
 // unique per run. B. subtilis is risk group 1 (LPSN, DSMZ); the permit gate is tried on the
-// invented Testella exempli. One sign-in per role: the login throttle allows 10 a minute.
+// invented Testella exempli. It works as the sessions auth.setup.ts signed in.
 
-type State = Awaited<ReturnType<BrowserContext['storageState']>>
-const signedIn: Record<string, State> = {}
 const RUN = Date.now().toString(36)
 
-async function signIn(browser: Browser, username: string) {
-  const context = await browser.newContext()
-  const page = await context.newPage()
-  await page.goto('/login')
-  await page.getByLabel('Username').fill(username)
-  await page.getByLabel('Password').fill(password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
-  signedIn[username] = await context.storageState()
-  await context.close()
-}
-
-test.beforeAll(async ({ browser }) => {
-  await signIn(browser, 'e2e-curator')
-  await signIn(browser, 'e2e-viewer')
-})
-
 async function as(browser: Browser, username: string, width = 1280) {
-  const context = await browser.newContext({ storageState: signedIn[username], viewport: { width, height: width === 320 ? 640 : 900 } })
+  const context = await browser.newContext({ storageState: signedInAs(username), viewport: { width, height: width === 320 ? 640 : 900 } })
   const page = await context.newPage()
   return { page, close: () => context.close() }
 }
