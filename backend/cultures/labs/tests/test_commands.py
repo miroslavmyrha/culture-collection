@@ -10,7 +10,13 @@ from django.test import override_settings
 
 from cultures.audit.models import ActorKind, AuditEvent, Channel, RowChange
 from cultures.deposits.models import Deposit, MtaTemplate
-from cultures.labs.management.commands.seed_e2e import COLLEAGUE, CURATOR, LAB_CODE, VIEWER
+from cultures.labs.management.commands.seed_e2e import (
+    COLLEAGUE,
+    CURATOR,
+    LAB_CODE,
+    TECHNICIAN,
+    VIEWER,
+)
 from cultures.labs.models import Lab, LocationGrant, Membership
 from cultures.labs.permissions import Role
 from cultures.lineage.models import Vial
@@ -38,7 +44,8 @@ def seed() -> str:
 @pytest.mark.usefixtures("env")
 def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
     assert seed() == (
-        "e2e-user manages E2E lab; e2e-curator and e2e-viewer are its curator and viewer;"
+        "e2e-user manages E2E lab; e2e-curator, e2e-technician and e2e-viewer are its curator,"
+        " technician and viewer;"
         " e2e-colleague is in no lab; 8 taxa; a depositor, MTA STD and one accepted deposit;"
         " 2 box types; E2E freezer > Rack 1 > Box 1; a regulated strain with two vials in"
         " Box R, revealed by e2e-user\n"
@@ -51,7 +58,11 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
     colleague = User.objects.get(username=COLLEAGUE)
     assert (colleague.is_active, colleague.has_usable_password()) == (True, False)
     assert not Membership.objects.filter(user=colleague).exists()
-    for name, role in ((CURATOR, Role.CURATOR), (VIEWER, Role.VIEWER)):
+    for name, role in (
+        (CURATOR, Role.CURATOR),
+        (TECHNICIAN, Role.TECHNICIAN),
+        (VIEWER, Role.VIEWER),
+    ):
         member = User.objects.get(username=name)
         assert member.check_password(PASSWORD)
         assert Membership.objects.get(user=member, lab=lab).role == role
@@ -99,6 +110,8 @@ def test_its_writes_are_audited_as_the_command() -> None:
         "user_created",
         "user_created",
         "lab_created",
+        "member_added",
+        "user_created",
         "member_added",
         "user_created",
         "member_added",
