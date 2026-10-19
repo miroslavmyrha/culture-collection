@@ -23,6 +23,34 @@ tools/up-with-runtime-role.sh        # idempotent, and how CI runs the e2e suite
 docker compose up -d backend         # back to the owner
 ```
 
+## Development data
+To click through the app with more than an empty lab, fill the local database:
+```bash
+docker compose exec -e DEV_PASSWORD='dev correct horse battery' backend python manage.py seed_dev
+```
+It creates, all through the services and the audit trail:
+- four labs: Bacteriology (BAC), Mycology (MYC), Regulated agents (REG) and
+  Environmental isolates (ENV), each with a manager, a curator, a technician and a
+  viewer (`bac-manager`, `bac-curator`, ...);
+- `dev-admin` (staff and superuser, for Django admin), `dev-two-labs` (curator of BAC,
+  viewer of MYC), `dev-no-lab` and `dev-inactive` (deactivated). Every user has the
+  password from `DEV_PASSWORD` (or `--password`), and the command prints the logins;
+- permits with invented references: MYC holds a valid ÚKZÚZ permit and an ended one, REG
+  a valid SÚJB permit, ENV only an expired SÚJB permit, so a VRAT strain is refused there;
+- taxa: real bacteria and fungi with their authorities, synonyms and NCBI ids, and the
+  invented Testella, Mockia and Fictivibrio;
+- 55 strains: some reclassified, some restricted. Restrictions and risk groups that
+  matter for the gates are on invented taxa only.
+
+`backend/cultures/strains/management/commands/seed_dev.json` holds the labs, taxa and
+strains, with the source of every fact about a real organism (LPSN, Index Fungorum, NCBI
+Taxonomy, nařízení vlády 361/2007 Sb. Příloha 7 and the DSMZ catalogue for risk groups).
+
+A second run finds what exists and changes nothing. It runs only with DEBUG on and the
+development settings (`config.settings.local`), so never in production. It also refuses a
+database that holds a lab neither it nor `seed_e2e` created. `--force` adds the data next
+to such labs. It can run before or after `seed_e2e`.
+
 ## Check
 ```bash
 tools/install-hooks.sh   # once per clone: secrets + ./check.sh, commit message and branch name checks

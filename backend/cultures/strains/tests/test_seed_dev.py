@@ -1,0 +1,538 @@
+"""seed_dev: development data written through the services, refused outside development."""
+
+import os
+import re
+import subprocess
+import sys
+from collections import Counter
+from datetime import UTC, date, datetime
+from io import StringIO
+from typing import Any
+
+import pytest
+from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.test import override_settings
+
+from cultures.audit.context import audit_context
+from cultures.audit.models import ActorKind, AuditEvent, Channel, RowChange
+from cultures.audit.reconcile import reconcile
+from cultures.biosafety.models import AuthorisationKind, LabAuthorisation, RestrictionKind
+from cultures.biosafety.policy import NEEDS_PERMIT, AuthorisationRequired, permit_today, valid_on
+from cultures.core.tests.test_settings import BACKEND, GOOD_ENV, production_value
+from cultures.labs import services as labs
+from cultures.labs.access import access_for
+from cultures.labs.models import Lab, Membership
+from cultures.labs.permissions import Role
+from cultures.strains import services as strains
+from cultures.strains.countries import COUNTRY_CODES
+from cultures.strains.management.commands.seed_dev import (
+    ADMIN,
+    EXTRA_MEMBERS,
+    INACTIVE,
+    LAB_ROLES,
+    NO_LAB,
+    TWO_LABS,
+    accepted_entry,
+    final_taxon,
+    lab_username,
+    load,
+)
+from cultures.strains.models import (
+    Strain,
+    StrainCounter,
+    StrainIdentification,
+    StrainRestriction,
+)
+from cultures.taxonomy.models import Taxon, TaxonIdentifier
+from cultures.users import services as users
+from cultures.users.models import User
+
+PASSWORD = "dev correct horse battery"  # noqa: S105 (a test value)
+DATA = load()
+TAXA: list[dict[str, Any]] = DATA["taxa"]
+STRAINS: list[dict[str, Any]] = DATA["strains"]
+LAB_CODES = [lab["code"] for lab in DATA["labs"]]
+INVENTED_GENERA = ("Testella", "Mockia", "Fictivibrio")
+EPOCH = datetime(2000, 1, 1, tzinfo=UTC)
+
+
+def seed(*args: str) -> str:
+    out = StringIO()
+    with override_settings(DEBUG=True, DEV_DATA_ALLOWED=True):
+        call_command("seed_dev", *args, stdout=out)
+    return out.getvalue()
+
+
+def entry(name: str) -> dict[str, Any]:
+    return next(t for t in TAXA if t["name"] == name)
+
+
+def names_of(row: dict[str, Any]) -> list[str]:
+    """Every taxon a strain row is ever identified as."""
+    later = [s["reclassify"]["taxon"] for s in row.get("history", []) if "reclassify" in s]
+    return [row["taxon"], *later]
+
+
+def restrictions_of(row: dict[str, Any]) -> list[dict[str, Any]]:
+    added = [s["restriction_add"] for s in row.get("history", []) if "restriction_add" in s]
+    return [*row.get("restrictions", []), *added]
+
+
+def rows(model: Any, *fields: str) -> list[tuple[Any, ...]]:
+    return list(model.objects.order_by("pk").values_list(*fields))
+
+
+def state() -> dict[str, Any]:
+    """Everything a run could change."""
+    return {
+        "events": AuditEvent.objects.count(),
+        "row_changes": RowChange.objects.count(),
+        "users": rows(User, "username", "is_active", "is_staff", "is_superuser", "password"),
+        "memberships": rows(Membership, "user__username", "lab__code", "role"),
+        "labs": rows(Lab, "code", "name"),
+        "taxa": rows(Taxon, "name", "rank", "parent__name", "accepted__name", "updated_at"),
+        "identifiers": rows(TaxonIdentifier, "system", "value"),
+        "authorisations": rows(LabAuthorisation, "permit_reference", "ended_on"),
+        "strains": rows(Strain, "accession_number", "taxon__name", "risk_group", "updated_at"),
+        "identifications": rows(StrainIdentification, "taxon__name", "is_current"),
+        "restrictions": rows(StrainRestriction, "reference", "ended_at"),
+        "counters": rows(StrainCounter, "lab__code", "last_seq"),
+    }
+
+
+@pytest.fixture
+def env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DEV_PASSWORD", PASSWORD)
+    monkeypatch.delenv("DEV_PASSWORD_FILE", raising=False)
+
+
+# The guard: development settings only.
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_it_refuses_without_debug() -> None:
+    with (
+        override_settings(DEBUG=False, DEV_DATA_ALLOWED=True),
+        pytest.raises(CommandError, match="only with DEBUG on"),
+    ):
+        call_command("seed_dev", stdout=StringIO())
+    assert not User.objects.exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+@pytest.mark.parametrize("marker", [None, False, "yes"])
+def test_it_refuses_settings_that_are_not_the_development_ones(marker: object) -> None:
+    """The test settings themselves set no marker: only config.settings.local does."""
+    overrides: dict[str, Any] = {"DEBUG": True}
+    if marker is not None:
+        overrides["DEV_DATA_ALLOWED"] = marker
+    with (
+        override_settings(**overrides),
+        pytest.raises(CommandError, match="only with the development settings"),
+    ):
+        call_command("seed_dev", stdout=StringIO())
+    assert not User.objects.exists()
+
+
+def test_production_settings_refuse_it_in_a_fresh_process() -> None:
+    """DEBUG asked for in the environment and a password given: refused before any query
+    (the database address is unreachable, so a query would fail with another message)."""
+    result = subprocess.run(
+        [sys.executable, "manage.py", "seed_dev"],
+        cwd=BACKEND,
+        env={
+            "PATH": os.environ["PATH"],
+            "PYTHONDONTWRITEBYTECODE": "1",
+            **GOOD_ENV,
+            "DJANGO_SETTINGS_MODULE": "config.settings.production",
+            "DJANGO_DEBUG": "true",
+            "DEV_PASSWORD": PASSWORD,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    assert result.returncode != 0
+    assert result.stderr.strip().splitlines()[-1] == (
+        "CommandError: seed_dev creates users with a known password: it runs only with DEBUG on."
+    )
+
+
+def test_only_the_development_settings_allow_it() -> None:
+    assert production_value({**GOOD_ENV, "DJANGO_DEBUG": "true"}, "s.DEV_DATA_ALLOWED") == "False"
+    local = subprocess.run(
+        [sys.executable, "-c", "import config.settings.local as s; print(s.DEV_DATA_ALLOWED)"],
+        cwd=BACKEND,
+        env={
+            "PATH": os.environ["PATH"],
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "DATABASE_URL": GOOD_ENV["DATABASE_URL"],
+        },
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert local.stdout.strip() == "True"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("value", [None, " "])
+def test_it_refuses_without_a_password(monkeypatch: pytest.MonkeyPatch, value: str | None) -> None:
+    monkeypatch.delenv("DEV_PASSWORD_FILE", raising=False)
+    if value is None:
+        monkeypatch.delenv("DEV_PASSWORD", raising=False)
+    else:
+        monkeypatch.setenv("DEV_PASSWORD", value)
+    with pytest.raises(CommandError, match="DEV_PASSWORD"):
+        seed()
+    assert not User.objects.exists()
+
+
+@pytest.mark.django_db
+def test_the_password_can_come_from_the_option(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DEV_PASSWORD", raising=False)
+    monkeypatch.delenv("DEV_PASSWORD_FILE", raising=False)
+    seed("--password", "from the option")
+    assert User.objects.get(username="bac-viewer").check_password("from the option")
+
+
+# Someone's data.
+
+
+def _lab_by_someone_else() -> Lab:
+    with audit_context(
+        channel=Channel.COMMAND, actor_kind=ActorKind.SYSTEM, actor_label="command:other"
+    ):
+        return labs.lab_create(name="Someone's lab", code="OWN")
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_it_refuses_a_database_with_labs_it_did_not_create() -> None:
+    _lab_by_someone_else()
+    before = state()
+    with pytest.raises(CommandError, match=r"labs no seed command created \(OWN\)"):
+        seed()
+    assert state() == before
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_force_adds_the_data_next_to_them() -> None:
+    own = _lab_by_someone_else()
+    seed("--force")
+    assert Strain.objects.count() == len(STRAINS)
+    assert not Membership.objects.filter(lab=own).exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_the_e2e_seed_is_not_someone_elses_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("E2E_PASSWORD", PASSWORD)
+    with override_settings(DEBUG=True):
+        call_command("seed_e2e", stdout=StringIO())
+    seed()
+    # seed_e2e makes its genera roots. The tree puts them under their domain.
+    assert Taxon.objects.get(name="Bacillus").parent == Taxon.objects.get(name="Bacteria")
+    before = state()
+    seed()
+    with override_settings(DEBUG=True):
+        call_command("seed_e2e", stdout=StringIO())
+    assert state() == before
+
+
+# What it creates.
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_it_creates_every_role_with_the_password() -> None:
+    out = seed()
+    for code in LAB_CODES:
+        for role in LAB_ROLES:
+            username = lab_username(code, role)
+            assert Membership.objects.get(lab__code=code, user__username=username).role == role
+            assert username in out
+    memberships = Counter(Membership.objects.values_list("user__username", "lab__code", "role"))
+    assert memberships[TWO_LABS, "BAC", "curator"] == memberships[TWO_LABS, "MYC", "viewer"] == 1
+    assert Membership.objects.filter(user__username=TWO_LABS).count() == 2
+    assert not Membership.objects.filter(user__username__in=[NO_LAB, ADMIN]).exists()
+    admin = User.objects.get(username=ADMIN)
+    assert (admin.is_staff, admin.is_superuser, admin.is_active) == (True, True, True)
+    inactive = User.objects.get(username=INACTIVE)
+    assert not inactive.is_active
+    assert Membership.objects.get(user=inactive).role == Role.TECHNICIAN
+    assert all(u.check_password(PASSWORD) for u in User.objects.all())
+    assert User.objects.filter(is_superuser=True).count() == 1
+    # The admin came through the superuser path, each privilege with the reason.
+    granted = AuditEvent.objects.filter(subject_id=admin.public_id).order_by("pk")
+    assert [(e.event_type, e.reason) for e in granted] == [
+        ("user_created", "development data"),
+        ("user_staff_changed", "development data"),
+        ("user_superuser_changed", "development data"),
+    ]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_lab_roles_are_exact() -> None:
+    seed()
+    for code in LAB_CODES:
+        by_role = Counter(Membership.objects.filter(lab__code=code).values_list("role", flat=True))
+        extra = Counter(role for user, lab, role in _extra() if lab == code)
+        assert by_role == Counter(LAB_ROLES) + extra, code
+
+
+def _extra() -> list[tuple[str, str, str]]:
+    return [(u, lab, str(role)) for u, lab, role in EXTRA_MEMBERS]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_it_creates_the_labs_permits_taxa_and_strains() -> None:
+    out = seed()
+    assert sorted(Lab.objects.values_list("code", flat=True)) == sorted(LAB_CODES)
+    assert Taxon.objects.count() == len(TAXA)
+    assert Strain.objects.count() == len(STRAINS)
+    assert f"Strains: {len(STRAINS)} created, 0 found." in out
+    per_lab = Counter(Strain.objects.values_list("lab__code", flat=True))
+    assert per_lab == Counter(row["lab"] for row in STRAINS)
+    assert max(per_lab.values()) > 25  # more than one page of the strain list
+    reclassified = Counter(
+        StrainIdentification.objects.values_list("strain_id", flat=True)
+    ).most_common(1)
+    assert reclassified[0][1] == 3
+    today = permit_today()
+    valid = {
+        (code, kind)
+        for code, kind in LabAuthorisation.objects.filter(valid_on(today)).values_list(
+            "lab__code", "kind"
+        )
+    }
+    assert valid == {("MYC", "quarantine_pest"), ("REG", "cz_vrat")}
+    assert LabAuthorisation.objects.filter(lab__code="ENV", expires_on__lt=today).exists()
+    assert LabAuthorisation.objects.filter(lab__code="MYC", ended_on__isnull=False).exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_a_second_run_changes_nothing() -> None:
+    seed()
+    before = state()
+    out = seed()
+    assert state() == before
+    assert "Strains: 0 created" in out
+    assert "Taxa: 0 created" in out
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_a_second_run_restores_users_changed_by_hand() -> None:
+    seed()
+    with audit_context(channel=Channel.COMMAND, actor_kind=ActorKind.SYSTEM, reason="test"):
+        viewer = User.objects.get(username="bac-viewer")
+        users.user_set_password(user=viewer, raw_password="changed")
+        users.user_deactivate(user=viewer)
+        users.user_activate(user=User.objects.get(username=INACTIVE))
+    seed()
+    viewer.refresh_from_db()
+    assert (viewer.is_active, viewer.check_password(PASSWORD)) == (True, True)
+    assert not User.objects.get(username=INACTIVE).is_active
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_its_writes_are_audited_as_the_command() -> None:
+    seed()
+    events = list(AuditEvent.objects.order_by("pk"))
+    assert {(e.channel, e.actor_kind, e.actor_label, e.actor_id) for e in events} == {
+        (Channel.COMMAND, ActorKind.SYSTEM, "command:seed_dev", None)
+    }
+    assert set(RowChange.objects.values_list("request_id", flat=True)) == {events[0].request_id}
+    assert [f for f in reconcile(EPOCH) if f.alarm] == []
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_every_strain_row_comes_from_a_strain_service() -> None:
+    """A row written past the services has no event that explains it, and takes no number
+    from the lab's counter."""
+    seed()
+    events = Counter(AuditEvent.objects.values_list("event_type", flat=True))
+    created = AuditEvent.objects.filter(event_type="strain_created")
+    assert set(created.values_list("strain_id", flat=True)) == set(
+        Strain.objects.values_list("public_id", flat=True)
+    )
+    assert created.count() == Strain.objects.count()
+    assert (
+        StrainIdentification.objects.count()
+        == events["strain_created"] + events["strain_reclassified"]
+    )
+    at_accession = sum(len(e.changes["restrictions"][1]) for e in created)
+    assert StrainRestriction.objects.count() == at_accession + events["strain_restriction_added"]
+    assert (
+        StrainRestriction.objects.filter(ended_at__isnull=False).count()
+        == events["strain_restriction_ended"]
+    )
+    assert events["strain_risk_group_changed"] == sum(
+        1 for row in STRAINS for s in row.get("history", []) if "risk_group" in s
+    )
+    assert LabAuthorisation.objects.count() == events["lab_authorisation_added"]
+    for counter in StrainCounter.objects.all():
+        assert counter.last_seq == Strain.objects.filter(lab_id=counter.lab_id).count()
+    assert events["taxon_created"] == Taxon.objects.count()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_every_regulated_strain_lies_in_a_lab_that_holds_the_permit() -> None:
+    seed()
+    today = permit_today()
+    regulated = StrainRestriction.objects.filter(ended_at__isnull=True, kind__in=NEEDS_PERMIT)
+    assert regulated.filter(kind=RestrictionKind.CZ_VRAT).exists()
+    assert regulated.filter(kind=RestrictionKind.QUARANTINE_PEST).exists()
+    for restriction in regulated:
+        held = LabAuthorisation.objects.filter(
+            valid_on(today), lab_id=restriction.lab_id, kind=restriction.kind
+        )
+        assert held.exists(), restriction
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_the_lab_with_the_expired_permit_refuses_a_vrat_strain() -> None:
+    seed()
+    env_lab = Lab.objects.get(code="ENV")
+    curator = access_for(User.objects.get(username="env-curator"))
+    data = strains.NewStrain(
+        name_as_received="Testella exempli",
+        taxon=Taxon.objects.get(name="Testella exempli"),
+        identified_on=date(2025, 1, 1),
+        identification_method="Morphology",
+        risk_group=3,
+        restrictions=[strains.RestrictionInput(RestrictionKind.CZ_VRAT, "Příloha 1")],
+    )
+    with (
+        audit_context(channel=Channel.COMMAND, actor_kind=ActorKind.SYSTEM),
+        pytest.raises(AuthorisationRequired) as refused,
+    ):
+        strains.strain_create(access=curator, lab=env_lab, data=data)
+    assert refused.value.kind == AuthorisationKind.CZ_VRAT
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_strains_of_real_taxa_carry_the_verified_facts() -> None:
+    seed()
+    for strain in Strain.objects.select_related("taxon", "lab"):
+        found = accepted_entry(strain.taxon.name, TAXA)
+        if found.get("invented"):
+            continue
+        assert strain.risk_group == found["risk_group"], strain
+        assert (
+            not StrainRestriction.objects.filter(strain=strain)
+            .exclude(kind=RestrictionKind.GMO, gmo_category=1)
+            .exists()
+        ), strain
+
+
+def test_help_builds() -> None:
+    with pytest.raises(SystemExit):
+        call_command("seed_dev", "--help", stdout=StringIO())
+
+
+# The data file, checked without a database: the facts it states about real organisms.
+
+REAL = [t for t in TAXA if not t.get("invented")]
+SOURCE = re.compile(r"^https://(lpsn\.dsmz\.de|www\.indexfungorum\.org)/")
+
+
+@pytest.mark.parametrize("taxon", REAL, ids=lambda t: t["name"])
+def test_every_real_taxon_names_its_source(taxon: dict[str, Any]) -> None:
+    sources = taxon["source"]
+    assert any(SOURCE.match(s) for s in sources), sources
+    if taxon["ncbi"]:
+        assert f"https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id={taxon['ncbi']}" in (
+            sources
+        )
+    assert not taxon["name"].startswith(INVENTED_GENERA)
+
+
+def test_invented_taxa_are_the_invented_genera_and_claim_no_source() -> None:
+    invented = [t for t in TAXA if t.get("invented")]
+    assert invented
+    for taxon in invented:
+        assert taxon["name"].startswith(INVENTED_GENERA)
+        assert (taxon["ncbi"], taxon.get("source"), taxon["authority"]) == (None, None, "")
+
+
+def test_every_identified_real_species_has_a_verified_risk_group() -> None:
+    for row in STRAINS:
+        found = accepted_entry(final_taxon(row), TAXA)
+        if found.get("invented"):
+            assert row["risk_group"] in (1, 2, 3)
+            continue
+        assert found["risk_group"] in (1, 2), found["name"]
+        rg_source = " ".join(found["risk_group_source"])
+        assert "361/2007" in rg_source
+        assert "DSMZ" in rg_source
+        annex = found["risk_group_source"][0]
+        # Not listed, or listed with its non-pathogenic strains excepted (E. coli K-12).
+        if annex.endswith(("not listed", "except non-pathogenic strains")):
+            assert found["risk_group"] == 1, found["name"]
+        else:
+            assert annex == f"NV 361/2007 Sb., Příloha 7: {found['name']}, group 2", annex
+            assert found["risk_group"] == 2, found["name"]
+        dsmz = next(s for s in found["risk_group_source"] if "DSMZ DSM" in s)
+        assert f"risk group {found['risk_group']}" in dsmz, found["name"]
+        if found.get("plant_pathogenicity") or found.get("animal_pathogenicity"):
+            assert found["pathogenicity_source"]
+
+
+def test_a_real_taxon_is_never_paired_with_a_restriction() -> None:
+    """Only a GMO lab strain (category 1) of a real taxon. Every list entry, risk group
+    and pathogenicity a row states itself is on an invented taxon."""
+    for row in STRAINS:
+        real = [n for n in names_of(row) if not accepted_entry(n, TAXA).get("invented")]
+        if not real:
+            continue
+        assert len(real) == len(names_of(row)), row["name_as_received"]
+        for restriction in restrictions_of(row):
+            assert (restriction["kind"], restriction.get("gmo_category")) == ("gmo", 1), row
+        assert not {"risk_group", "animal_pathogenicity", "plant_pathogenicity"} & set(row)
+        assert not any("risk_group" in step for step in row.get("history", []))
+        rule = accepted_entry(final_taxon(row), TAXA).get("strain_name_contains")
+        if rule:
+            assert rule in row["name_as_received"]
+
+
+def test_references_and_permits_are_clearly_invented() -> None:
+    for lab in DATA["labs"]:
+        for permit in lab["authorisations"]:
+            assert "/DEV/" in permit["permit_reference"]
+            if permit.get("end_reason"):
+                assert "invented example" in permit["end_reason"]
+    for row in STRAINS:
+        for restriction in restrictions_of(row):
+            if restriction["kind"] == "dual_use":
+                continue  # a format only: the entry is checked by its pattern
+            assert re.search(r"invented example|/DEV/", restriction["reference"]), restriction
+
+
+def test_the_strain_rows_are_valid() -> None:
+    names = {t["name"] for t in TAXA}
+    seen: set[tuple[str, str]] = set()
+    for row in STRAINS:
+        assert row["lab"] in LAB_CODES
+        assert set(names_of(row)) <= names
+        assert row["country_of_origin"] in COUNTRY_CODES | {""}
+        assert date.fromisoformat(row["identified_on"]) <= date(2026, 10, 1)
+        key = (row["lab"], row["name_as_received"])
+        assert key not in seen, key
+        seen.add(key)
+    assert 30 <= len(STRAINS) <= 60
+    assert 20 <= len([t for t in REAL if t["rank"] == "species" and not t["accepted"]]) <= 40
