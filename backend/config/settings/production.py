@@ -44,6 +44,8 @@ if ADMIN_PATH.strip("/") in {DEFAULT_ADMIN_PATH.strip("/"), "admin"}:
     raise ImproperlyConfigured("Set DJANGO_ADMIN_PATH to a non-default path such as 'ops-x7k2/'.")
 
 DEBUG = False
+# manage.py seed_dev refuses to run (config/settings/local.py sets it on).
+DEV_DATA_ALLOWED = False
 
 # The app must connect as the runtime role (ADR 0005): /readyz fails otherwise.
 # Turn it off only where the host gives the app no second role.
