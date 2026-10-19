@@ -1,6 +1,6 @@
 import { createRoute, lazyRouteComponent, stripSearchParams } from '@tanstack/react-router'
-import { depositorListOptions, mtaDetailOptions, mtaListOptions } from '@/features/deposits/api/queries'
-import { depositorListDefaults, depositorListSearch, mtaNewSearch } from '@/features/deposits/schemas'
+import { depositDetailOptions, depositListOptions, depositorListOptions, mtaDetailOptions, mtaListOptions } from '@/features/deposits/api/queries'
+import { depositListDefaults, depositListSearch, depositorListDefaults, depositorListSearch, mtaNewSearch } from '@/features/deposits/schemas'
 import { labDetailOptions } from '@/features/labs/api/queries'
 import { authenticatedRoute } from './authenticated'
 
@@ -52,4 +52,37 @@ export const mtaDetailRoute = createRoute({
       context.queryClient.prefetchQuery(mtaDetailOptions(params.labId, params.templateId)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/MtaTemplateDetailPage'), 'MtaTemplateDetailPage'),
+})
+
+export const depositListRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: 'labs/$labId/deposits',
+  validateSearch: depositListSearch,
+  search: { middlewares: [stripSearchParams(depositListDefaults)] },
+  loaderDeps: ({ search }) => search,
+  loader: ({ context, params, deps }) =>
+    Promise.all([
+      context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
+      context.queryClient.prefetchQuery(depositListOptions(params.labId, deps)),
+    ]),
+  component: lazyRouteComponent(() => import('@/pages/DepositListPage'), 'DepositListPage'),
+})
+
+export const depositReceiveRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: 'labs/$labId/deposits/new',
+  loader: ({ context, params }) =>
+    Promise.all([context.queryClient.prefetchQuery(labDetailOptions(params.labId)), context.queryClient.prefetchQuery(mtaListOptions(params.labId))]),
+  component: lazyRouteComponent(() => import('@/pages/DepositReceivePage'), 'DepositReceivePage'),
+})
+
+export const depositDetailRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: 'labs/$labId/deposits/$depositId',
+  loader: ({ context, params }) =>
+    Promise.all([
+      context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
+      context.queryClient.prefetchQuery(depositDetailOptions(params.labId, params.depositId)),
+    ]),
+  component: lazyRouteComponent(() => import('@/pages/DepositDetailPage'), 'DepositDetailPage'),
 })

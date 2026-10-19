@@ -210,6 +210,7 @@ export const rejectSchema = z.object({ reason: reasonSchema })
 export type RejectForm = z.input<typeof rejectSchema>
 export const replaceTermsSchema = z.object({ terms: termsSchema, reason: reasonSchema })
 export type ReplaceTermsForm = z.input<typeof replaceTermsSchema>
+export type ReplaceTermsValues = z.output<typeof replaceTermsSchema>
 
 /** A terms version as the form shows it, to start a new version from. */
 export function termsForm(terms: Terms): TermsForm {

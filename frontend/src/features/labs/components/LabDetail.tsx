@@ -27,6 +27,9 @@ export function LabDetail({ labId, params, onOffsetChange }: Props) {
               </Link>
               {canSeeDeposits(role) && (
                 <>
+                  <Link to="/labs/$labId/deposits" params={{ labId }}>
+                    Deposits
+                  </Link>
                   <Link to="/labs/$labId/depositors" params={{ labId }}>
                     Depositors
                   </Link>

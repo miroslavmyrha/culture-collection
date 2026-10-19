@@ -26,12 +26,13 @@ function mockLab(role: Role) {
 const render = () => renderWithProviders(<LabDetail labId={LAB_ID} params={PARAMS} onOffsetChange={vi.fn<(offset: number) => void>()} />)
 
 describe('LabDetail', () => {
-  it('leads a curator to the depositors and the MTA templates', async () => {
+  it('leads a curator to the deposits, the depositors and the MTA templates', async () => {
     mockLab('curator')
     await render()
     const sections = await screen.findByRole('navigation', { name: 'Lab sections' })
     expect(within(sections).getAllByRole('link').map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
       ['Strains', `/labs/${LAB_ID}/strains`],
+      ['Deposits', `/labs/${LAB_ID}/deposits`],
       ['Depositors', `/labs/${LAB_ID}/depositors`],
       ['MTA templates', `/labs/${LAB_ID}/mta-templates`],
     ])

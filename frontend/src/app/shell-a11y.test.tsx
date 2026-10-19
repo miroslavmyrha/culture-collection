@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { allowConsole } from '@/test/console'
-import { makeLab, makeMe, makeMember, makeMtaTemplate, makeStrain, makeStrainRow, page, problem } from '@/test/factories'
+import { makeDeposit, makeLab, makeMe, makeMember, makeMtaTemplate, makeStrain, makeStrainRow, page, problem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
@@ -13,6 +13,8 @@ const STRAIN = '/api/v1/labs/{lab_public_id}/strains/{public_id}/'
 const DEPOSITORS = '/api/v1/labs/{lab_public_id}/depositors/'
 const MTAS = '/api/v1/labs/{lab_public_id}/mta-templates/'
 const MTA = '/api/v1/labs/{lab_public_id}/mta-templates/{public_id}/'
+const DEPOSITS = '/api/v1/labs/{lab_public_id}/deposits/'
+const DEPOSIT = '/api/v1/labs/{lab_public_id}/deposits/{public_id}/'
 const signedIn = (username = 'lab-tech') => void mockApi('get', '/api/v1/auth/me/', makeMe({ username }))
 const lab = (overrides = {}) => mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', ...overrides }))
 const members = (count = 1) => mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([makeMember()], { count }))
@@ -56,6 +58,12 @@ describe('page titles (WCAG 2.4.2)', () => {
     [`/labs/${LAB_ID}/mta-templates/${STRAIN_ID}`, 'STD version 1', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', MTA, makeMtaTemplate()))],
     [`/labs/${LAB_ID}/mta-templates/${STRAIN_ID}`, 'MTA not found', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', MTA, 404, problem(404)))],
     [`/labs/${LAB_ID}/mta-templates/${STRAIN_ID}`, 'MTA template', () => (signedIn(), lab({ my_role: 'viewer' }), mockApiError('get', MTA, 404, problem(404)))],
+    [`/labs/${LAB_ID}/deposits`, 'Deposits of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', DEPOSITS, page([])))],
+    [`/labs/${LAB_ID}/deposits/new`, 'Receive a deposit in Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', MTAS, page([])))],
+    [`/labs/${LAB_ID}/deposits/${STRAIN_ID}`, 'Deposit Testella K3', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', DEPOSIT, makeDeposit({ name_as_received: 'Testella K3' })))],
+    [`/labs/${LAB_ID}/deposits/${STRAIN_ID}`, 'Deposit not found', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', DEPOSIT, 404, problem(404)))],
+    [`/labs/${LAB_ID}/deposits/${STRAIN_ID}`, 'Could not load the deposit', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', DEPOSIT, 500))],
+    [`/labs/${LAB_ID}/deposits/${STRAIN_ID}`, 'Deposit', () => (signedIn(), lab({ my_role: 'viewer' }), mockApiError('get', DEPOSIT, 404, problem(404)))],
     ['/no-such-page', 'Page not found', () => undefined],
   ])('%s shows "%s | Culture collection"', async (path, title, setup) => {
     allowConsole(/API error 500/)
