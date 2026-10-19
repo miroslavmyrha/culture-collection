@@ -1,4 +1,5 @@
-"""Development data to work with by hand: labs, users in every role, taxa, permits, strains.
+"""Development data to work with by hand: labs, users in every role, taxa, permits, strains
+and storage.
 
     DEV_PASSWORD=... python manage.py seed_dev [--password ...] [--force]
 
@@ -10,7 +11,8 @@ actor): that database holds someone's data. --force adds the development data
 next to it. Nothing the command did not create is changed, except that a lab
 with one of its codes is used as found.
 
-What it creates (seed_dev.json holds the labs, taxa and strains):
+What it creates (seed_dev.json holds the box types, labs, storage, taxa, strains,
+depositors, MTA templates and deposits):
 - four labs (BAC, MYC, REG, ENV) with a manager, a curator, a technician and a
   viewer each (`bac-manager` and so on);
 - dev-admin, staff and superuser, created through User.objects.create_superuser
@@ -24,14 +26,18 @@ What it creates (seed_dev.json holds the labs, taxa and strains):
   strain aside);
 - depositors (invented people at example.org), MTA versions (published by each
   lab's manager) and deposits in every intake state, two of them accepted, which
-  makes their strains through the deposit services.
+  makes their strains through the deposit services;
+- three box types and a storage tree per lab (freezers and LN2 tanks, racks,
+  boxes), added through the storage services with the curator's role: REG has
+  a box capped lower than its freezer, ENV a freezer out of service.
 Every user gets the same password. Every write goes through the services in one
 transaction, inside an audit context (channel command, actor kind system,
 label command:seed_dev). A second run finds what exists and changes nothing.
 Strains are never deleted, so a strain is found by its lab and name as received.
 A depositor is found by its lab and contact name, an MTA version by its lab, code
 and version, and a deposit by its lab and name as received; a deposit found is
-never moved on.
+never moved on. A storage unit is found by its lab, its parent and its name, and
+is never changed again.
 """
 
 import json
@@ -63,6 +69,8 @@ from cultures.labs import services as labs
 from cultures.labs.access import Access, access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
+from cultures.storage import services as storage
+from cultures.storage.models import BoxType, StorageUnit, UnitKind, UnitStatus
 from cultures.strains import services as strains
 from cultures.strains.models import Pathogenicity, Strain, StrainRestriction
 from cultures.taxonomy import services as taxonomy
@@ -131,7 +139,7 @@ class Counts:
 
 
 class Command(BaseCommand):
-    help = "Fill a development database with labs, users, taxa, permits and strains."
+    help = "Fill a development database with labs, users, taxa, permits, strains and storage."
 
     def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument(
@@ -165,6 +173,9 @@ class Command(BaseCommand):
             with audited_atomic():
                 self.taxa = Counts()
                 self.strains = Counts()
+                self.units = Counts()
+                for row in data["box_types"]:
+                    self._box_type(row)
                 for row in data["taxa"]:
                     self._taxon(row)
                 self._admin(password)
@@ -174,6 +185,8 @@ class Command(BaseCommand):
                     self._strain(row, lab_by_code[row["lab"]], data["taxa"])
                 self.deposits = Counts()
                 self._intake(data, lab_by_code)
+                for row in data["labs"]:
+                    self._storage(lab_by_code[row["code"]], row["storage"], parent=None)
         self._report(data)
 
     # Taxa: created when missing, never changed, except a parent added where none is set
@@ -434,11 +447,51 @@ class Command(BaseCommand):
             ),
         )
 
+    # Storage: box types and units created when missing, never changed afterwards.
+
+    def _box_type(self, row: dict[str, Any]) -> None:
+        if not BoxType.objects.filter(name__iexact=row["name"]).exists():
+            storage.box_type_create(name=row["name"], rows=row["rows"], cols=row["cols"])
+
+    def _storage(self, lab: Lab, rows: list[dict[str, Any]], parent: StorageUnit | None) -> None:
+        curator = User.objects.get(username=lab_username(lab.code, Role.CURATOR))
+        for row in rows:
+            unit = StorageUnit.objects.filter(lab=lab, parent=parent, name=row["name"]).first()
+            access = access_for(curator)
+            created = unit is None
+            if unit is None:
+                unit = storage.unit_create(
+                    access=access,
+                    lab=lab,
+                    data=storage.NewUnit(
+                        kind=UnitKind(row["kind"]),
+                        name=row["name"],
+                        parent=parent,
+                        slot=row.get("slot"),
+                        barcode=row.get("barcode", ""),
+                        temperature_c=row.get("temperature_c"),
+                        max_risk_group=row.get("max_risk_group"),
+                        box_type=BoxType.objects.get(name=row["box_type"])
+                        if "box_type" in row
+                        else None,
+                    ),
+                )
+                self.units.created += 1
+            else:
+                self.units.found += 1
+            self._storage(lab, row.get("children", []), parent=unit)
+            # After what it holds: nothing goes into a unit out of service.
+            if created and "status" in row:
+                storage.unit_set_status(
+                    access=access, unit=unit, status=UnitStatus(row["status"]), reason=row["reason"]
+                )
+
     def _report(self, data: dict[str, Any]) -> None:
         out = self.stdout.write
         out(f"Taxa: {self.taxa.created} created, {self.taxa.found} found.")
         out(f"Strains: {self.strains.created} created, {self.strains.found} found.")
         out(f"Deposits: {self.deposits.created} created, {self.deposits.found} found.")
+        out(f"Storage units: {self.units.created} created, {self.units.found} found.")
         out("Logins, all with the password you gave:")
         out(f"  {ADMIN:<16} staff and superuser (Django admin), in no lab")
         for row in data["labs"]:

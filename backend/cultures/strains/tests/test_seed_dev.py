@@ -25,6 +25,8 @@ from cultures.labs import services as labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
+from cultures.storage.models import KIND_SPEC, BoxType, StorageUnit, UnitKind, may_hold
+from cultures.storage.policy import may_store
 from cultures.strains import services as strains
 from cultures.strains.countries import COUNTRY_CODES
 from cultures.strains.management.commands.seed_dev import (
@@ -106,6 +108,8 @@ def state() -> dict[str, Any]:
         "mta": rows(MtaTemplate, "code", "version"),
         "deposits": rows(Deposit, "name_as_received", "status", "updated_at"),
         "terms": rows(DepositTerms, "version", "is_active"),
+        "box_types": rows(BoxType, "name", "rows", "cols"),
+        "units": rows(StorageUnit, "lab__code", "name", "parent__name", "status", "updated_at"),
     }
 
 
@@ -335,6 +339,7 @@ def test_a_second_run_changes_nothing() -> None:
     assert state() == before
     assert "Strains: 0 created" in out
     assert "Taxa: 0 created" in out
+    assert "Storage units: 0 created" in out
 
 
 @pytest.mark.django_db
@@ -589,3 +594,54 @@ def test_the_strain_rows_are_valid() -> None:
         seen.add(key)
     assert 30 <= len(STRAINS) <= 60
     assert 20 <= len([t for t in REAL if t["rank"] == "species" and not t["accepted"]]) <= 40
+
+
+# Storage.
+
+
+def walk(rows: list[dict[str, Any]], parent: dict[str, Any] | None = None) -> list[tuple[Any, ...]]:
+    """(parent row, row) for every unit of a lab's storage in seed_dev.json."""
+    found: list[tuple[Any, ...]] = []
+    for row in rows:
+        found.append((parent, row))
+        found += walk(row.get("children", []), row)
+    return found
+
+
+UNITS = [(lab["code"], parent, row) for lab in DATA["labs"] for parent, row in walk(lab["storage"])]
+
+
+def test_the_storage_data_keeps_the_kind_spec_and_names_known_box_types() -> None:
+    box_types = {t["name"] for t in DATA["box_types"]}
+    for code, parent, row in UNITS:
+        kind = UnitKind(row["kind"])
+        if parent is None:
+            assert not KIND_SPEC[kind].held_by and row["max_risk_group"] in (1, 2, 3), row
+        else:
+            assert may_hold(UnitKind(parent["kind"]), kind), (code, row)
+        assert (row.get("box_type") in box_types) == (kind == UnitKind.BOX), row
+    for lab in DATA["labs"]:  # every lab has a freezer or tank with a rack with a box
+        pairs = {(p["kind"], row["kind"]) for p, row in walk(lab["storage"]) if p}
+        assert ("rack", "box") in pairs, lab["code"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_it_builds_a_storage_tree_per_lab_through_the_storage_services() -> None:
+    out = seed()
+    assert StorageUnit.objects.count() == len(UNITS)
+    assert f"Storage units: {len(UNITS)} created, 0 found." in out
+    assert Counter(StorageUnit.objects.values_list("lab__code", flat=True)) == Counter(
+        code for code, _, _ in UNITS
+    )
+    events = Counter(AuditEvent.objects.values_list("event_type", flat=True))
+    assert events["storage_unit_created"] == StorageUnit.objects.count()
+    assert events["box_type_created"] == BoxType.objects.count() == len(DATA["box_types"])
+    assert events["storage_unit_status_changed"] == 1
+    old = StorageUnit.objects.get(name="Freezer -80 old")
+    assert old.status == "out_of_service"
+    capped = StorageUnit.objects.get(name="Box 2, group 2 at most")
+    assert may_store(unit=capped, risk_group=3).code == "risk_group_above_cap"
+    assert may_store(
+        unit=StorageUnit.objects.get(lab__code="REG", name="Box 1"), risk_group=3
+    ).allowed

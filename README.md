@@ -40,10 +40,12 @@ It creates, all through the services and the audit trail:
 - taxa: real bacteria and fungi with their authorities, synonyms and NCBI ids, and the
   invented Testella, Mockia and Fictivibrio;
 - 55 strains: some reclassified, some restricted. Restrictions and risk groups that
-  matter for the gates are on invented taxa only.
+  matter for the gates are on invented taxa only;
+- three box types and a storage tree per lab: freezers and LN2 tanks with racks and
+  boxes. REG has a box capped below its freezer's risk group, ENV a freezer out of service.
 
-`backend/cultures/strains/management/commands/seed_dev.json` holds the labs, taxa and
-strains, with the source of every fact about a real organism (LPSN, Index Fungorum, NCBI
+`backend/cultures/strains/management/commands/seed_dev.json` holds the box types, labs,
+storage, taxa and strains, with the source of every fact about a real organism (LPSN, Index Fungorum, NCBI
 Taxonomy, nařízení vlády 361/2007 Sb. Příloha 7 and the DSMZ catalogue for risk groups).
 
 A second run finds what exists and changes nothing. It runs only with DEBUG on and the
