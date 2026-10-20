@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
+import type { QueryClient } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { allowConsole } from '@/test/console'
@@ -267,6 +268,14 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
   })
 })
 
+const answer = { location: { box: '00000000-0000-4000-8000-000000000b01', box_name: 'Box R', path: ['Freezer A', 'Rack 1', 'Box R'], row: 1, col: 2, label: 'A2' } }
+/** Mutations that still hold an answer, a revealed location among them. */
+const revealed = (client: QueryClient) =>
+  client
+    .getMutationCache()
+    .getAll()
+    .filter((m) => m.state.data !== undefined)
+
 describe('the location of a regulated strain', { timeout: 20_000 }, () => {
   const masked = makeVial({ label: 'MYC 7 / 1 / 1', placed: true, location_masked: true })
 
@@ -302,6 +311,84 @@ describe('the location of a regulated strain', { timeout: 20_000 }, () => {
     await user.click(button)
     await screen.findByText('Freezer A / Rack 1 / Box R, A2')
     expect(held.calls).toHaveLength(2) // never from a cache
+  })
+
+  it('forgets a revealed location once the vial moved, and asks anew', async () => {
+    const vial = { ...masked, can_reveal: true }
+    mockMaterial([vial])
+    const reveals = mockApi('post', REVEAL, answer, { status: 200 })
+    mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/place/', vial, { status: 200 })
+    await render()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Reveal the location of vial MYC 7 / 1 / 1' }))
+    await screen.findByText('Freezer A / Rack 1 / Box R, A2')
+    await user.click(screen.getByRole('button', { name: 'Move vial MYC 7 / 1 / 1' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Move vial MYC 7 / 1 / 1' })
+    await user.selectOptions(await within(dialog).findByRole('combobox', { name: 'Box' }), box.public_id)
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Row' }), '1')
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Column' }), '1')
+    await user.click(within(dialog).getByRole('button', { name: 'Move vial' }))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    // The old answer is gone: the vial is hidden again and only a new reveal says where it is.
+    const vials = screen.getByRole('table', { name: 'Vials' })
+    expect(vials).not.toHaveTextContent('Box R')
+    expect(within(vials).getByText('Hidden: regulated strain')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reveal the location of vial MYC 7 / 1 / 1' })).toBeInTheDocument()
+    expect(reveals).toHaveLength(1)
+  })
+
+  it('keeps a revealed location while another vial moves', async () => {
+    const vial = { ...masked, can_reveal: true }
+    const other = makeVial({ label: 'MYC 7 / 1 / 2' })
+    mockMaterial([vial, other])
+    mockApi('post', REVEAL, answer, { status: 200 })
+    mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/place/', other, { status: 200 })
+    await render()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Reveal the location of vial MYC 7 / 1 / 1' }))
+    await screen.findByText('Freezer A / Rack 1 / Box R, A2')
+    await user.click(screen.getByRole('button', { name: 'Place vial MYC 7 / 1 / 2' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Place vial MYC 7 / 1 / 2' })
+    await user.selectOptions(await within(dialog).findByRole('combobox', { name: 'Box' }), box.public_id)
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Row' }), '1')
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Column' }), '1')
+    await user.click(within(dialog).getByRole('button', { name: 'Place vial' }))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    expect(screen.getByText('Freezer A / Rack 1 / Box R, A2')).toBeInTheDocument()
+  })
+
+  it('forgets a revealed location after a state change from elsewhere, and keeps the focus on the page', async () => {
+    const vial = { ...masked, can_reveal: true }
+    mockMaterial([vial])
+    mockApi('post', REVEAL, answer, { status: 200 })
+    const { client } = await render()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Reveal the location of vial MYC 7 / 1 / 1' }))
+    await screen.findByText('Freezer A / Rack 1 / Box R, A2')
+    mockApi('get', VIALS, page([{ ...vial, status: 'quarantined', status_changed_at: '2026-10-20T10:00:00Z' }]))
+    await client.refetchQueries({ queryKey: vialKeys.vials(LAB_ID, STRAIN_ID) })
+    await waitFor(() => expect(screen.queryByText(/Box R/)).not.toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'Reveal the location of vial MYC 7 / 1 / 1' })).toBeInTheDocument()
+    // The focused Hide button went with the old answer: focus goes to the section, not the body.
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Vials' })).toHaveFocus())
+  })
+
+  it('keeps no revealed location in the mutation cache after Hide or once the vial is gone', async () => {
+    const vial = { ...masked, can_reveal: true }
+    mockMaterial([vial])
+    mockApi('post', REVEAL, answer, { status: 200 })
+    const { client, unmount } = await render()
+    const user = userEvent.setup()
+    const button = await screen.findByRole('button', { name: 'Reveal the location of vial MYC 7 / 1 / 1' })
+    await user.click(button)
+    await screen.findByText('Freezer A / Rack 1 / Box R, A2')
+    expect(revealed(client)).toHaveLength(1)
+    await user.click(button) // Hide
+    expect(revealed(client)).toHaveLength(0)
+    await user.click(button)
+    await screen.findByText('Freezer A / Rack 1 / Box R, A2')
+    unmount()
+    await waitFor(() => expect(client.getMutationCache().getAll()).toHaveLength(0))
   })
 
   it('says why when the grant was revoked meanwhile', async () => {

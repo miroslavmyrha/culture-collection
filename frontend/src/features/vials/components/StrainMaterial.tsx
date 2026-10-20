@@ -37,6 +37,11 @@ export function StrainMaterial({ labId, strainId, accession, canHandle }: Props)
   const batches = useBatches(labId, strainId)
   const vials = useVials(labId, strainId)
   const [open, setOpen] = useState<Open>(null)
+  // How often this page moved each vial. A revealed location answers one request and is wrong
+  // once the vial moved, so the vial's location cell starts again (its key changes). A state
+  // change, which may take the vial out of its position, changes status_changed_at, also in the key.
+  const [moves, setMoves] = useState<Readonly<Record<string, number>>>({})
+  const moved = (vialId: string) => setMoves((current) => ({ ...current, [vialId]: (current[vialId] ?? 0) + 1 }))
   const boxes = useBoxes(labId, canHandle)
   const spot = useRef<FocusReturn | null>(null)
   const remember = (event: MouseEvent<HTMLButtonElement>) => {
@@ -177,7 +182,7 @@ export function StrainMaterial({ labId, strainId, accession, canHandle }: Props)
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{v.label}</TableCell>
                       <TableCell>{VIAL_STATUS_LABELS[v.status]}</TableCell>
                       <TableCell>
-                        <Where labId={labId} vial={v} />
+                        <Where key={`${v.status_changed_at ?? ''}:${moves[v.public_id] ?? 0}`} labId={labId} vial={v} />
                       </TableCell>
                       {canHandle && (
                         <TableCell>
@@ -199,7 +204,9 @@ export function StrainMaterial({ labId, strainId, accession, canHandle }: Props)
         <PreserveBatchDialog {...common} accession={accession} passages={passageRows} boxes={boxList} open={open.open} />
       )}
       {open?.kind === 'subculture' && <SubcultureDialog {...common} passage={open.passage} open={open.open} />}
-      {open?.kind === 'place' && <PlaceVialDialog {...common} vial={open.vial} boxes={boxList} open={open.open} />}
+      {open?.kind === 'place' && (
+        <PlaceVialDialog {...common} vial={open.vial} boxes={boxList} open={open.open} onPlaced={() => moved(open.vial.public_id)} />
+      )}
       {open?.kind === 'status' && <VialStatusDialog {...common} vial={open.vial} open={open.open} />}
       {open?.kind === 'revive' && <ReviveDialog {...common} vial={open.vial} open={open.open} />}
     </>
