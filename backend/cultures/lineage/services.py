@@ -568,8 +568,16 @@ def _transition(locked: Vial, status: VialStatus, reason: str, access: Access) -
     )
 
 
+class VialReserved(Conflict):
+    default_code = "vial_reserved"
+    default_detail = (
+        "This vial is reserved for a request. Cancel the request to free it, or ship it."
+    )
+
+
 def vial_transition(*, access: Access, vial: Vial, status: VialStatus, reason: str) -> Vial:
-    """One step along D7, with a reason. Reserved and distributed are distribution's (#18)."""
+    """One step along D7, with a reason. Reserved and distributed are distribution's (#18):
+    a reserved vial leaves its state only through its request."""
     reason = _check_reason(reason)
     if status not in MANUAL_TARGETS:
         raise EdgeNotAllowed("Reservation and dispatch are recorded by distribution.")
@@ -579,8 +587,28 @@ def vial_transition(*, access: Access, vial: Vial, status: VialStatus, reason: s
         locked = _locked_vial(vial)
         if locked.status == status:
             return locked
+        if locked.status == VialStatus.RESERVED:
+            raise VialReserved
         _transition(locked, status, reason, access)
     return locked
+
+
+# Distribution's steps (#18, D19). The caller holds the lab lock and the vial's row (locked by
+# select_for_update with batch__strain), and writes the reservation in the same transaction:
+# the deferred triggers of distribution 0003 hold a reserved vial and its open reservation
+# together.
+
+
+def vial_reserve_locked(*, access: Access, vial: Vial, reason: str) -> None:
+    if vial.status != VialStatus.AVAILABLE:
+        raise VialNotAvailable
+    _transition(vial, VialStatus.RESERVED, _check_reason(reason), access)
+
+
+def vial_release_locked(*, access: Access, vial: Vial, reason: str) -> None:
+    if vial.status != VialStatus.RESERVED:
+        raise VialNotAvailable("This vial is not reserved.")
+    _transition(vial, VialStatus.AVAILABLE, _check_reason(reason), access)
 
 
 def vial_set_barcode(*, access: Access, vial: Vial, barcode: str) -> Vial:

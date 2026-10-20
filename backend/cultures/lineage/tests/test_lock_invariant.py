@@ -86,6 +86,14 @@ EXEMPT: dict[str, str] = {
     "location_of": "a read the reveal calls after its commit, and the masked lists never",
     "normalised": "text normalisation, no query",
     "position_label": "a label from two numbers, no query",
+    "vial_reserve_locked": (
+        "distribution's step, called under its lab and vial locks"
+        " (distribution/tests/test_lock_invariant.py)"
+    ),
+    "vial_release_locked": (
+        "distribution's step, called under its lab and vial locks"
+        " (distribution/tests/test_lock_invariant.py)"
+    ),
 }
 # Services that write nothing to a lineage table (the reveal writes only its event).
 NO_LINEAGE_WRITE = {"vial_reveal_location"}

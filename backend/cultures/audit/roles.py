@@ -76,6 +76,19 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     "lineage_vialplacement": ("SELECT", "INSERT", "UPDATE"),
     # #17: a check is only added, and its one change is being entered in error (a trigger).
     "lineage_batchcheck": ("SELECT", "INSERT", "UPDATE"),
+    # #18: nothing of distribution is ever deleted (triggers refuse it as well). Requesters and
+    # the counter change; a permit is ended once; a request changes its status; a reservation
+    # ends once. Documents, lines, the permits a line was approved against and acceptances are
+    # only added (frozen by triggers).
+    "distribution_requester": ("SELECT", "INSERT", "UPDATE"),
+    "distribution_document": ("SELECT", "INSERT"),
+    "distribution_recipientpermit": ("SELECT", "INSERT", "UPDATE"),
+    "distribution_distributionrequest": ("SELECT", "INSERT", "UPDATE"),
+    "distribution_requestcounter": ("SELECT", "INSERT", "UPDATE"),
+    "distribution_requestline": ("SELECT", "INSERT"),
+    "distribution_linepermit": ("SELECT", "INSERT"),
+    "distribution_mtaacceptance": ("SELECT", "INSERT"),
+    "distribution_vialreservation": ("SELECT", "INSERT", "UPDATE"),
     # ADR 0009: a location grant is revoked, never deleted.
     "labs_locationgrant": ("SELECT", "INSERT", "UPDATE"),
     # Storage units are retired, never deleted: events and, from #16, placements point at

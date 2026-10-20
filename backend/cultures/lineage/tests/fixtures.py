@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from django.db import connection
 
 from cultures.audit.context import AuditContext, audit_context
 from cultures.audit.models import Channel
@@ -60,6 +61,18 @@ def make_batch(curator: User) -> MakeBatch:
             return preserve(actor, passage, **changes)
 
     return make
+
+
+@pytest.fixture
+def vial_edges_alone() -> None:
+    """For tests of the vial's edges on their own: a reserved vial pairs with an open
+    reservation of distribution (#18), held by a deferred trigger that fires when Django checks
+    the constraints at the end of a test. Here a vial passes through reserved without one, so
+    that trigger is off for the test's transaction only (rolled back with it)."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "ALTER TABLE lineage_vial DISABLE TRIGGER distribution_vial_reserved_by_request"
+        )
 
 
 @pytest.fixture

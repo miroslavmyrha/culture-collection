@@ -434,6 +434,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/documents/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_documents_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/location-grants/": {
         parameters: {
             query?: never;
@@ -584,6 +600,182 @@ export interface paths {
         get: operations["labs_passages_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/recipient-permits/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_recipient_permits_list"];
+        put?: never;
+        post: operations["labs_recipient_permits_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/recipient-permits/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_recipient_permits_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/recipient-permits/{public_id}/end/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_recipient_permits_end_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/requesters/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_requesters_list"];
+        put?: never;
+        post: operations["labs_requesters_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/requesters/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_requesters_retrieve"];
+        put: operations["labs_requesters_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/requests/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_requests_list"];
+        put?: never;
+        post: operations["labs_requests_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/requests/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_requests_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/requests/{public_id}/acceptances/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_requests_acceptances_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/requests/{public_id}/approve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_requests_approve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/requests/{public_id}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_requests_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/requests/{public_id}/reject/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_requests_reject_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -966,6 +1158,46 @@ export interface components {
          * @enum {string}
          */
         AbsScope: "not_in_scope" | "in_scope" | "unknown";
+        /** @description Sent as multipart/form-data with the signed copy. */
+        AcceptanceInputRequest: {
+            /** Format: uuid */
+            mta: string;
+            signer_name: string;
+            signer_email?: string;
+            signer_role: components["schemas"]["SignerRole"];
+            authorised_signatory: boolean;
+            /** Format: date */
+            accepted_on: string;
+            /** Format: binary */
+            file: string;
+        };
+        AcceptanceOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly mta: components["schemas"]["MtaBrief"];
+            /** @description Null for a caller who may not see people; empty once the signer was erased. */
+            readonly signer_name: string | null;
+            readonly signer_role: components["schemas"]["SignerRole"];
+            readonly authorised_signatory: boolean;
+            /** Format: date */
+            readonly accepted_on: string;
+            readonly document: components["schemas"]["DocumentOutput"] | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        ApproveInputRequest: {
+            /**
+             * @description Why, in a sentence. Stored for good: name no person.
+             * @default
+             */
+            reason: string;
+        };
+        ApprovedPermit: {
+            /** Format: uuid */
+            public_id: string;
+            kind: components["schemas"]["PermitKind"];
+            reference: string;
+        };
         BarcodeInputRequest: {
             barcode: string;
         };
@@ -1520,6 +1752,29 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        DocumentOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly content_type: components["schemas"]["DocumentType"];
+            readonly size_bytes: number;
+            readonly sha256: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `application/pdf` - PDF
+         *     * `image/png` - PNG image
+         *     * `image/jpeg` - JPEG image
+         * @enum {string}
+         */
+        DocumentType: "application/pdf" | "image/png" | "image/jpeg";
+        Finding: {
+            code: string;
+            severity: components["schemas"]["SeverityEnum"];
+            sentence: string;
+            /** Format: uuid */
+            line: string | null;
+        };
         IdentificationOutput: {
             /** Format: uuid */
             readonly public_id: string;
@@ -1548,6 +1803,34 @@ export interface components {
             identity: (components["schemas"]["CheckResult"] | components["schemas"]["NullEnum"]) | null;
             purity: (components["schemas"]["CheckResult"] | components["schemas"]["NullEnum"]) | null;
             viability: (components["schemas"]["CheckResult"] | components["schemas"]["NullEnum"]) | null;
+        };
+        /**
+         * @description * `legal_person` - Legal person (an institution or a company)
+         *     * `business` - Natural person licensed to do business
+         * @enum {string}
+         */
+        LegalForm: "legal_person" | "business";
+        LineInputRequest: {
+            /** Format: uuid */
+            strain: string;
+            quantity: number;
+        };
+        LineOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly strain: components["schemas"]["LineStrain"];
+            readonly quantity: number;
+            readonly terms_version: number;
+            readonly mta: components["schemas"]["MtaBrief"] | null;
+            readonly reserved: components["schemas"]["ReservedVial"][];
+            readonly permits: components["schemas"]["ApprovedPermit"][];
+        };
+        LineStrain: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly accession_number: string | null;
+            readonly taxon: string;
+            readonly risk_group: number;
         };
         Location: {
             /** Format: uuid */
@@ -1613,6 +1896,13 @@ export interface components {
         };
         MemberRoleInputRequest: {
             role: components["schemas"]["Role"];
+        };
+        MtaBrief: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly code: string;
+            readonly version: number;
+            readonly title: string;
         };
         MtaTemplateBrief: {
             /** Format: uuid */
@@ -1800,6 +2090,51 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["PassageOutput"][];
         };
+        PaginatedPermitOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["PermitOutput"][];
+        };
+        PaginatedRequestListOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["RequestListOutput"][];
+        };
+        PaginatedRequesterOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["RequesterOutput"][];
+        };
         PaginatedStrainListOutputList: {
             /** @example 123 */
             count: number;
@@ -1869,6 +2204,77 @@ export interface components {
          * @enum {string}
          */
         Pathogenicity: "unknown" | "none_known" | "pathogenic";
+        PermitEndInputRequest: {
+            /** Format: date */
+            ended_on: string;
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
+        /** @description Sent as multipart/form-data with the file. */
+        PermitInputRequest: {
+            /** Format: uuid */
+            requester: string;
+            kind: components["schemas"]["PermitKind"];
+            issuer: string;
+            issuer_country: components["schemas"]["CountryCode"];
+            reference: string;
+            /** Format: date */
+            valid_from: string;
+            /** Format: date */
+            expires_on?: string | null;
+            /** @default  */
+            covers: string;
+            quantity_allowed?: number | null;
+            sendings_allowed?: number | null;
+            /** @default  */
+            endorsement_reference: string;
+            /** Format: date */
+            endorsed_on?: string | null;
+            gmo_category?: number | null;
+            risk_group?: number | null;
+            /** Format: binary */
+            file: string;
+        };
+        /**
+         * @description * `sujb_vrat` - SÚJB permit to handle highly risky agents (VRAT)
+         *     * `sujb_rat_notice` - Notice to SÚJB of handling risky agents (RAT)
+         *     * `sujb_exception` - SÚJB decision allowing a VRAT to a non-holder
+         *     * `plant_health_loa` - Letter of Authority for a quarantine pest
+         *     * `gmo_contained_use` - Authorisation for contained use of GMOs
+         *     * `pathogen_work_permit` - Permit to work with pathogens
+         * @enum {string}
+         */
+        PermitKind: "sujb_vrat" | "sujb_rat_notice" | "sujb_exception" | "plant_health_loa" | "gmo_contained_use" | "pathogen_work_permit";
+        PermitOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            /** Format: uuid */
+            readonly requester: string;
+            readonly kind: components["schemas"]["PermitKind"];
+            readonly issuer: string;
+            readonly issuer_country: string;
+            readonly reference: string;
+            /** Format: date */
+            readonly valid_from: string;
+            /** Format: date */
+            readonly expires_on: string | null;
+            readonly covers: string;
+            readonly quantity_allowed: number | null;
+            readonly sendings_allowed: number | null;
+            readonly endorsement_reference: string;
+            /** Format: date */
+            readonly endorsed_on: string | null;
+            readonly gmo_category: number | null;
+            readonly risk_group: number | null;
+            readonly document: components["schemas"]["DocumentOutput"];
+            /** Format: date */
+            readonly ended_on: string | null;
+            readonly end_reason: string;
+            /** @description Valid on today's Czech day: started, not expired, not ended. */
+            readonly valid_today: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
         PlaceInputRequest: {
             /** Format: uuid */
             box: string;
@@ -1930,6 +2336,10 @@ export interface components {
          * @enum {string}
          */
         RankEnum: "domain" | "kingdom" | "phylum" | "class" | "order" | "family" | "genus" | "species" | "subspecies" | "variety" | "form";
+        ReasonInputRequest: {
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
         ReclassifyInputRequest: {
             /** Format: uuid */
             taxon: string;
@@ -1942,6 +2352,111 @@ export interface components {
         RejectInputRequest: {
             /** @description Why, in a sentence. Stored for good: name no person. */
             reason: string;
+        };
+        RequestDetailOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly number: string;
+            readonly requester: components["schemas"]["RequesterBrief"];
+            readonly destination_country: string;
+            readonly use: components["schemas"]["Use"];
+            readonly status: components["schemas"]["RequestStatus"];
+            readonly line_count: number;
+            readonly vial_count: number;
+            readonly regulated: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly decided_at: string | null;
+            readonly end_use: string;
+            readonly containment_level: number;
+            readonly submitted_by: string;
+            readonly decided_by: string | null;
+            readonly decision_reason: string;
+            readonly cancelled_by: string | null;
+            /** Format: date-time */
+            readonly cancelled_at: string | null;
+            readonly cancel_reason: string;
+            readonly lines: components["schemas"]["LineOutput"][];
+            readonly acceptances: components["schemas"]["AcceptanceOutput"][];
+            readonly findings: components["schemas"]["Finding"][];
+        };
+        RequestInputRequest: {
+            /** Format: uuid */
+            requester: string;
+            use: components["schemas"]["Use"];
+            /** @description Stored for good: name no person. */
+            end_use: string;
+            containment_level: number;
+            lines: components["schemas"]["LineInputRequest"][];
+        };
+        RequestListOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly number: string;
+            readonly requester: components["schemas"]["RequesterBrief"];
+            readonly destination_country: string;
+            readonly use: components["schemas"]["Use"];
+            readonly status: components["schemas"]["RequestStatus"];
+            readonly line_count: number;
+            readonly vial_count: number;
+            readonly regulated: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly decided_at: string | null;
+        };
+        /**
+         * @description * `submitted` - Submitted
+         *     * `approved` - Approved
+         *     * `rejected` - Rejected
+         *     * `cancelled` - Cancelled
+         * @enum {string}
+         */
+        RequestStatus: "submitted" | "approved" | "rejected" | "cancelled";
+        RequesterBrief: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly institution: string;
+            readonly country: string;
+        };
+        RequesterInputRequest: {
+            institution: string;
+            legal_form: components["schemas"]["LegalForm"];
+            /** @default  */
+            registration_number: string;
+            country: components["schemas"]["CountryCode"];
+            /** @description Stored for good: name no person. */
+            lab_evidence: string;
+            /** Format: date */
+            lab_confirmed_on: string;
+            name: string;
+            email?: string;
+            postal_address: string;
+        };
+        RequesterOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly institution: string;
+            readonly legal_form: components["schemas"]["LegalForm"];
+            readonly registration_number: string;
+            readonly country: string;
+            readonly lab_evidence: string;
+            /** Format: date */
+            readonly lab_confirmed_on: string;
+            readonly name: string;
+            readonly email: string;
+            readonly postal_address: string;
+            readonly erased: boolean;
+            readonly permits: components["schemas"]["PermitOutput"][];
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /** @description A reserved vial by its label only, never its place (ADR 0009). */
+        ReservedVial: {
+            /** Format: uuid */
+            public_id: string;
+            readonly label: string;
         };
         RestrictionAddInputRequest: {
             kind: components["schemas"]["RestrictionKind"];
@@ -2013,6 +2528,19 @@ export interface components {
          * @enum {string}
          */
         Role: "viewer" | "technician" | "curator" | "manager";
+        /**
+         * @description * `block` - block
+         *     * `manager` - manager
+         * @enum {string}
+         */
+        SeverityEnum: "block" | "manager";
+        /**
+         * @description * `responsible_scientist` - Responsible scientist
+         *     * `head_of_institution` - Head of the institution or department
+         *     * `authorised_representative` - Authorised representative
+         * @enum {string}
+         */
+        SignerRole: "responsible_scientist" | "head_of_institution" | "authorised_representative";
         /**
          * @description * `deposit` - deposit
          *     * `passage` - passage
@@ -4196,6 +4724,60 @@ export interface operations {
             };
         };
     };
+    labs_documents_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     labs_location_grants_list: {
         parameters: {
             query?: never;
@@ -5226,6 +5808,1068 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_recipient_permits_list: {
+        parameters: {
+            query?: {
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+                requester?: string;
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedPermitOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_recipient_permits_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["PermitInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermitOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_recipient_permits_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermitOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_recipient_permits_end_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PermitEndInputRequest"];
+                "multipart/form-data": components["schemas"]["PermitEndInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermitOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requesters_list: {
+        parameters: {
+            query?: {
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+                search?: string;
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedRequesterOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requesters_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequesterInputRequest"];
+                "multipart/form-data": components["schemas"]["RequesterInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequesterOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requesters_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequesterOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requesters_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequesterInputRequest"];
+                "multipart/form-data": components["schemas"]["RequesterInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequesterOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requests_list: {
+        parameters: {
+            query?: {
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+                requester?: string;
+                search?: string;
+                /**
+                 * @description * `submitted` - Submitted
+                 *     * `approved` - Approved
+                 *     * `rejected` - Rejected
+                 *     * `cancelled` - Cancelled
+                 */
+                status?: "approved" | "cancelled" | "rejected" | "submitted";
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedRequestListOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requests_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestInputRequest"];
+                "multipart/form-data": components["schemas"]["RequestInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestDetailOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description export_of_regulated_strain, export_not_supported: the requester is outside the EU */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requests_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestDetailOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requests_acceptances_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["AcceptanceInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestDetailOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requests_approve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ApproveInputRequest"];
+                "multipart/form-data": components["schemas"]["ApproveInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestDetailOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description request_blocked: a finding of the policy blocks the approval (the detail lists them); reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requests_cancel_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonInputRequest"];
+                "multipart/form-data": components["schemas"]["ReasonInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestDetailOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requests_reject_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonInputRequest"];
+                "multipart/form-data": components["schemas"]["ReasonInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestDetailOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

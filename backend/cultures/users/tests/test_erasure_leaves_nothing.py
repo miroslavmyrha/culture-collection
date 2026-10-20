@@ -236,3 +236,52 @@ def test_an_erased_depositor_contact_leaves_no_value_in_any_column() -> None:
     call_command("audit_reconcile", "--since", since.isoformat())
     shown = client.get(f"{base}/deposits/{received.json()['public_id']}/").json()["depositor"]
     assert (shown["name"], shown["institution"], shown["erased"]) == ("", "Example", True)
+
+
+def test_an_erased_requester_contact_leaves_no_value_in_any_column() -> None:
+    """A requester's responsible scientist and delivery address (#18): a contact like a
+    depositor's, created and changed through the API, then erased with erase_contact. The
+    requester row keeps the institution, an organisation; nothing else held the values."""
+    since = timezone.now()
+    with system():
+        staff = services.superuser_create(username="root", password=PASSWORD, reason="first admin")
+        curator = services.user_create(username="curator", password=None)
+        lab = labs.lab_create(name="Mycology", code="MYC")
+        labs.membership_create(lab=lab, user=curator, role=Role.CURATOR)
+    client = logged_in(curator)
+    base = f"/api/v1/labs/{lab.public_id}"
+    body = {
+        "institution": "Example Institute",
+        "legal_form": "legal_person",
+        "country": "CZ",
+        "lab_evidence": "The department page lists a microbiology laboratory.",
+        "lab_confirmed_on": "2026-10-01",
+        "name": f"{MARK} Petra",
+        "email": f"{MARK}@example.org",
+        "postal_address": f"{MARK} laboratory, Testovací 5\nBrno",
+    }
+    created = client.post(f"{base}/requesters/", body, content_type="application/json")
+    assert created.status_code == 201, created.content
+    requester = created.json()["public_id"]
+    changed = client.put(
+        f"{base}/requesters/{requester}/",
+        {**body, "name": f"{MARK} Petra U.", "postal_address": f"{MARK} laboratory 2"},
+        content_type="application/json",
+    )
+    assert changed.status_code == 200, changed.content
+    assert marker_hits() == [
+        "public.deposits_contact.email",
+        "public.deposits_contact.name",
+        "public.deposits_contact.postal_address",
+    ]
+
+    contact = Contact.objects.get(requester__public_id=requester)
+    call_command(
+        "erase_contact", str(contact.public_id), "--by", staff.username, "--reason", REASON
+    )
+
+    assert marker_hits() == []
+    assert [f for f in reconcile(since) if f.alarm] == []
+    shown = client.get(f"{base}/requesters/{requester}/").json()
+    assert (shown["name"], shown["postal_address"], shown["erased"]) == ("", "", True)
+    assert shown["institution"] == "Example Institute"

@@ -29,4 +29,5 @@ from .fixtures import (  # noqa: F401 (fixtures)
     passage0,
     regulated,
     strain,
+    vial_edges_alone,
 )

@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "cultures.deposits",
     "cultures.lineage",
     "cultures.storage",
+    "cultures.distribution",
 ]
 
 MIDDLEWARE = [
@@ -296,6 +297,11 @@ SPECTACULAR_SETTINGS = {
         "CheckResult": "cultures.lineage.models.CheckResult",
         "CheckUnit": "cultures.lineage.models.CheckUnit",
         "CheckStatus": "cultures.lineage.models.CheckStatus",
+        "LegalForm": "cultures.distribution.models.LegalForm",
+        "PermitKind": "cultures.distribution.models.PermitKind",
+        "RequestStatus": "cultures.distribution.models.RequestStatus",
+        "SignerRole": "cultures.distribution.models.SignerRole",
+        "DocumentType": "cultures.distribution.models.DocumentType",
     },
 }
 

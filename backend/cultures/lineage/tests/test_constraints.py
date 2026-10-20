@@ -336,6 +336,7 @@ def test_every_state_has_a_path() -> None:
     assert sorted(PATHS) == sorted(VialStatus.values)
 
 
+@pytest.mark.usefixtures("vial_edges_alone")
 @pytest.mark.parametrize("status", sorted(PATHS))
 def test_a_vial_out_of_the_collection_gets_no_open_placement(
     passage0: Passage, make_batch: MakeBatch, tree: Tree, curator: User, status: str
