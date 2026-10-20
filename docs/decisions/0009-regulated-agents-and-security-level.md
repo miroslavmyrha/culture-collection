@@ -2,7 +2,8 @@
 
 Date: 2026-10-18
 Status: accepted (#50). Open questions listed at the end.
-Amended 2026-10-19: location masking as built (#16). Amended 2026-10-20: the box grid (#15).
+Amended 2026-10-19: location masking as built (#16). Amended 2026-10-20: the box grid (#15);
+distribution of regulated strains (#18, part A).
 Deciders: maintainer
 
 ## Context
@@ -279,3 +280,26 @@ freezer. Refused:
 leaving masked positions out (a technician would be sent to a taken position), and a reveal in
 the grid (a reveal names a vial, not a position, and one per look keeps the trail readable).
 
+
+## Amendment 2026-10-20: distribution of regulated strains (#18, part A)
+
+Decided by the maintainer with the distribution study (s10):
+- **Scope.** Category B (UN 3373) and exempt shipments to member states of the EU only. A request
+  whose destination is outside the EU is refused when it is entered: for a regulated strain
+  because export needs an MPO licence and an end-user statement this app does not record, for
+  the others until export is built. Category A (UN 2814, UN 2900) is not shipped; a risk group 3
+  line needs a manager, and the shipper classifies in part B.
+- **Recipients.** Only institutions with a confirmed microbiology laboratory receive material,
+  never private persons (ADR 0008 amendment of the same day).
+- **Every legal gate blocks, with no override**: a VRAT only to a holder of a valid SÚJB permit
+  naming it, or under an SÚJB exception (§ 13 h)); a RAT only to a requester with a valid § 17a
+  notice (SÚJB asks senders to check; the maintainer chose to block); a quarantine pest only
+  with a valid Letter of Authority naming it, with quantity and a sending left; a GMO only to a
+  holder of a contained-use authorisation of its category or higher; ricin and saxitoxin entries
+  not at all. A **regulated line needs a manager's approval** with a reason.
+- **Two-person rule at shipment.** One person approves (`decided_by`, written once and held by
+  the request trigger), a different person confirms the shipment of a regulated line in part B,
+  and the confirmer runs the gates again on the ship day. Part B refuses a confirmation by the
+  approver. Approval alone moves nothing out of the collection.
+- **Masking.** Requests show reserved vials by their label only; no answer of distribution names
+  a box or a position.

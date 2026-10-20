@@ -4,7 +4,7 @@ Date: 2026-10-18
 Status: accepted (#50)
 Amended 2026-10-19: terms, contacts and the intake (#10, #12); storage (#14);
 preservation, batches and vials (#16). Amended 2026-10-20: the box grid (#15); checks of a
-batch and its release (#17).
+batch and its release (#17); requests and the reservation (#18, part A).
 Deciders: maintainer
 
 ## Context
@@ -117,8 +117,9 @@ before the tables it shapes:
   preservation and batches (#16). Decided 2026-10-19, see the preservation
   amendment below.
 - D18 requesters, records kept by curators or a portal: with distribution
-  (#18).
+  (#18). Decided 2026-10-20, see the requests amendment below.
 - D19 when vials are reserved for a request: with distribution (#18).
+  Decided 2026-10-20, see the requests amendment below.
 
 ## Migration impact
 
@@ -558,3 +559,122 @@ Revisit when: a lab needs a maximum age for checks before a release or a dispatc
 setting, the release rule then also reads `checked_on`), the curators want their own method
 list, a check needs more than one value (a count and a percentage), or the receipt check of a
 deposit should move into this table.
+
+## Amendment 2026-10-20: requests and the reservation (#18, part A)
+
+Distribution comes in two parts. Part A (this amendment) records who may receive material, the
+requests with their lines, the gates, the decision and the vials reserved at approval. Part B
+adds the shipment, its two-person confirmation, the register entry, the handover protocol and
+the delivery note. The design study is s10 (distribution, read against primary sources).
+
+**D18: requesters are institutions a curator enters** (recommendation a). A requester is an
+institution, never a private person: a legal person or a natural person licensed to do business
+(act 78/2004 Sb., § 16(1) allows only these to hold a GMO; DSMZ, CCM Brno and CECT supply only
+institutions or microbiology laboratories). It has a country, an optional company number (the
+register of part B asks for the IČO), and the evidence that it runs a microbiology laboratory,
+with the day it was confirmed: required, so no requester exists unconfirmed. Its responsible
+scientist is a `deposits.Contact`, and the contact's postal address is the delivery address of
+the laboratory (D11: postal addresses of requesters are contacts), so an erasure takes both and
+a request to an erased requester is blocked. A portal for requesters stays for later.
+- **Recipient permits** are the documents a requester holds: an SÚJB VRAT permit, a § 17a
+  notice, an SÚJB exception decision, a Letter of Authority for a quarantine pest (with the
+  quantity and sendings it allows and the endorsement of the state of origin), a contained-use
+  authorisation for GMOs (with its category) and a permit to work with pathogens (with the
+  highest risk group). Each is a row with its issuer, reference, validity in Czech days and its
+  file; never deleted, ended once with a day and a reason. Import permits, export
+  authorisations and end-use statements are out of part A: nothing leaves the EU.
+- **Files** are rows of `distribution.Document`: the bytes in the database, their type read from
+  the first bytes (PDF, PNG or JPEG), at most 10 MB, and a trigger that checks the SHA-256 and the
+  size against the content on insert and refuses any change. No file name is kept (names often
+  name people); the download answers an attachment named by the public id, not cached, to a
+  caller who may see requesters. Refused: files on disk, which need a storage root, path checks
+  and a serving rule of their own for a few documents per requester.
+
+**Requests.** A request has a number per lab and year from a counter row taken under the lab
+lock ("2026/7"), the requester, the destination copied from the requester when it is entered
+(not typed twice), the use (D10), the end use in words (2021/821 Art. 12(4) and 281/2002 § 14(8)
+ask for a concrete purpose), the containment level the requester declares, and who entered it.
+Its status is `submitted`, then `approved`, `rejected` or `cancelled`; an approved request may
+still be cancelled; part B adds `shipped`. `distribution.models.REQUEST_EDGES` and the request
+trigger hold the same pairs (a test tries all 16). Approval and rejection write `decided_by`
+and `decided_at` once; a rejection and a cancellation need a reason; an approval needs one when a
+manager approves over a finding. Requests, refused ones too, are never deleted (OECD 11.5).
+- **Lines** name a strain and 1 to 50 vials, one line per strain, and pin the terms version of
+  the strain's deposit in force when the request was entered and that version's MTA (BCCM MTA,
+  clause 14). A trigger refuses a line whose terms are not of its strain or whose MTA is not
+  the terms', and any change. A strain without terms (no deposit) cannot be asked for. When the
+  terms change after entry, the line keeps the old version and the policy blocks it: the request
+  is cancelled and entered again under the new terms.
+- **MTA acceptances** are recorded by a curator from the signed copy: per request and MTA version,
+  the signer (a contact), the signer's role, whether the signer may bind the institution, the
+  day and the file. Only an acceptance by someone who may bind the institution counts (ATCC:
+  persons with full authority to bind). Never changed.
+
+**MAT uses** (owner's default, recorded here). The uses by a subsequent user that the mutually
+agreed terms cover are data on the terms version (`DepositTerms.mat_uses`, D10 values), for
+material in scope of 511/2014 only (a check constraint). An in-scope line whose use the MAT does
+not cover is blocked. An empty list means the MAT lets nothing go to a third party, so it covers
+also the s10 row "third-party supply allowed by the original permits". Earlier in-scope versions
+have an empty list until a new version records the MAT.
+
+**The gates** are one function, `distribution.policy.evaluate(request, day)`, run at approval and,
+in part B, again at shipment. Each finding has a stable code, a severity and a sentence that names
+the strain. A blocker stops the approval with no override; a manager finding lets a manager
+approve with a reason. From s10 section 8, within part A's scope (EU only, no Category A):
+- request: the destination is outside the EU (`export_of_regulated_strain`, `export_not_supported`,
+  also refused when the request is entered), the requester's contact was erased;
+- line, the collection's own: fewer vials may go out than asked (`not_enough_vials`), the terms
+  changed, ABS scope unknown, an in-scope use the MAT does not cover, a use the depositor denies,
+  no MTA in the terms, no acceptance of the pinned MTA, a declared containment level below the
+  risk group; a use allowed only on request to the depositor needs a manager;
+- line, legal, each blocking: `cz_vrat` without a valid SÚJB permit or exception naming the taxon
+  (281/2002 § 13 h)), `cz_rat` without a valid § 17a notice (owner's decision), a quarantine pest
+  without a valid Letter of Authority naming it with quantity and a sending left (2019/829 Art. 6;
+  approved requests count against it until part B counts shipments), a GMO without a contained-use
+  authorisation of its category or higher (78/2004 § 3(1) c)), a dual-use entry 1C351.d.4 or d.5
+  (Annex IV Part II: a transfer licence this collection does not hold);
+- line, manager: risk group 2 or 3 without a work permit of that group (DSMZ A1), risk group 3
+  (its culture may be Category A, which is not shipped: the shipper classifies in part B), and
+  every regulated strain (ADR 0009).
+"Names the taxon" reads the permit's `covers` text for the current taxon or, for a synonym, its
+accepted name, as whole words without regard to case: a permit written with an older name
+blocks, the safe side. The permits a line passed with are written at approval as `LinePermit`
+rows, so the decision can be replayed.
+
+**D19: specific vials reserved at approval, no expiry** (recommendation). Approval picks, for
+each line, the available vials of `lineage.selectors.distributable()` of its strain (released
+distribution stock of a strain that still supplies), locked in pk order with
+`select_for_update(skip_locked=True)`, and raises before any write when fewer are free. Each
+vial is set reserved through `lineage.services.vial_reserve_locked` (its own event) and gets a
+`VialReservation` row: open while `ended_at` is null, one open per vial (a partial unique
+index), changed once when it ends, never deleted. Deferred constraint triggers hold an open
+reservation and the vial's reserved status together at commit, both ways. A reserved vial
+leaves its state only through its request (`vial_transition` answers `vial_reserved`):
+a cancellation ends its reservations (`cancelled`) and frees the vials; part B ends them as
+`shipped`, deaccession (#20) as `deaccessioned`. Stock stays a query: no counter.
+
+**Lock order:** lab, request, strain, batch, vial, box. The services lock the lab, then the
+request row, then the strains of its lines by pk, then the vials; `distribution/tests/
+test_lock_invariant.py` walks every public service.
+
+**Who does what.** Every member reads requests (`distribution.view`): they name an institution,
+never a person, and reserved vials by label, never a place (ADR 0009). Curators and managers
+read requesters, permits, signers and files (`distribution.view_requesters`) and enter and decide
+(`distribution.manage`); only managers approve over a manager finding
+(`distribution.approve_regulated`).
+
+**Events.** `requester_created`, `requester_changed`, `recipient_permit_added`,
+`recipient_permit_ended` (reason), `request_submitted`, `request_line_added`,
+`mta_acceptance_recorded`, `request_approved`, `request_line_reserved`, `request_rejected`
+(reason), `request_cancelled` (reason), `request_line_released`. A request spans strains, so its
+own events name none; each line event names its strain (D13), and so does each vial event.
+
+Migration impact: additive. `deposits` 0004 adds `mat_uses` (a database default, no rewrite) with
+two check constraints (a scan of the terms table, small). `distribution` 0001 to 0003 create the
+tables, their row audit and triggers, including a deferred trigger on `lineage_vial`; `audit`
+0020 extends the reason check of `audit_auditevent` (a scan under its lock). Reversible while no
+request exists: `migrate distribution zero`, `migrate audit 0019`, `migrate deposits 0003`.
+
+Revisit when: requesters ask for a portal, a lab ships outside the EU (export licences, end-use
+statements and import permits as permit kinds), a permit lists its agents in a form a person
+cannot match by name, or reservations must expire.
