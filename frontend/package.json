@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "walkthroughs": "playwright test -c playwright.walkthroughs.config.ts",
     "api:types": "openapi-typescript ../backend/openapi.yml -o src/api/schema.d.ts",
     "check": "npm run typecheck && npm run lint && npm run test"
   },

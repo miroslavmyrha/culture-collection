@@ -66,6 +66,14 @@ and again after a failed run (it resets what the tests change):
 docker compose exec -e E2E_PASSWORD='e2e correct horse battery' backend python manage.py seed_e2e
 ```
 
+Role walkthroughs (on demand, not part of `./check.sh`): each role's daily tasks performed in
+the browser and measured (steps, page loads, requests, time), against the data of `seed_dev`.
+The table per role lands in `frontend/test-results/walkthroughs/summary.md`. Findings:
+`docs/walkthroughs/`.
+```bash
+cd frontend && DEV_PASSWORD='dev correct horse battery' npm run walkthroughs
+```
+
 ## API contract
 After changing the backend API run `./sync-api.sh` (regenerates openapi.yml and the TypeScript types); `./check.sh` fails while they are stale.
 
