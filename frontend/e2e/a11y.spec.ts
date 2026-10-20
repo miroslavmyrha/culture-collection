@@ -362,6 +362,7 @@ test.describe('keyboard walk through every page', () => {
       'button:Sign out',
       'a:Strains',
       'a:Storage',
+      'a:Requests',
       'a:Deposits',
       'a:Depositors',
       'a:MTA templates',

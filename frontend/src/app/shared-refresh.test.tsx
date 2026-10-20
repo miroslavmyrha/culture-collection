@@ -17,6 +17,7 @@ import {
   makeUnit,
   makeUnitRow,
   makeVial,
+  makeRequest,
   page,
 } from '@/test/factories'
 import { mockApi } from '@/test/mockApi'
@@ -315,5 +316,26 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
     await router.navigate({ to: '/labs/$labId/strains', params: { labId: LAB_ID } })
     expect(await screen.findByRole('link', { name: 'MYC 42' }, { timeout: 5000 })).toBeInTheDocument()
     expect(strains).toHaveLength(1)
+  })
+
+  it.each([
+    ['approving', 'Approve and reserve the vials', 'Approve and reserve', 'approve', 'reserved'],
+    ['cancelling', 'Cancel the request', 'Cancel the request', 'cancel', 'available'],
+  ] as const)('%s a request refreshes the vials the strain page shows', async (_, trigger, confirm, action, status) => {
+    const { router, user } = await openStrainPage('curator', free, located())
+    const REQUEST_ID = '00000000-0000-4000-8000-0000000000a1'
+    const request = makeRequest({ public_id: REQUEST_ID, number: '2026/7', status: action === 'cancel' ? 'approved' : 'submitted' })
+    mockApi('get', '/api/v1/labs/{lab_public_id}/requests/{public_id}/', request)
+    await router.navigate({ to: '/labs/$labId/requests/$requestId', params: { labId: LAB_ID, requestId: REQUEST_ID } })
+    await user.click(await screen.findByRole('button', { name: trigger }, { timeout: 5000 }))
+    const dialog = await screen.findByRole(action === 'cancel' ? 'alertdialog' : 'dialog')
+    if (action === 'cancel') await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'withdrawn')
+    const done = mockApi('post', `/api/v1/labs/{lab_public_id}/requests/{public_id}/${action}/`, { ...request, status: action === 'cancel' ? 'cancelled' : 'approved' })
+    const vials = strainPage(free, { ...located(), status })
+    await user.click(within(dialog).getByRole('button', { name: confirm }))
+    await waitFor(() => expect(done).toHaveLength(1))
+    await router.navigate({ to: '/labs/$labId/strains/$strainId', params: { labId: LAB_ID, strainId: STRAIN_ID } })
+    // Within the stale time: only an invalidation makes the page ask again.
+    await waitFor(() => expect(vials).toHaveLength(1), { timeout: 5000 })
   })
 })

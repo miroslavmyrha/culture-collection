@@ -34,6 +34,7 @@ describe('LabDetail', () => {
     expect(within(sections).getAllByRole('link').map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
       ['Strains', `/labs/${LAB_ID}/strains`],
       ['Storage', `/labs/${LAB_ID}/storage`],
+      ['Requests', `/labs/${LAB_ID}/requests`],
       ['Deposits', `/labs/${LAB_ID}/deposits`],
       ['Depositors', `/labs/${LAB_ID}/depositors`],
       ['MTA templates', `/labs/${LAB_ID}/mta-templates`],
@@ -48,6 +49,8 @@ describe('LabDetail', () => {
     expect(screen.getByText('Code MYC. Your role: Viewer.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Strains' })).toHaveAttribute('href', `/labs/${LAB_ID}/strains`)
     expect(screen.getByRole('link', { name: 'Storage' })).toHaveAttribute('href', `/labs/${LAB_ID}/storage`)
+    // Requests name an institution, never a person: every member reads them.
+    expect(screen.getByRole('link', { name: 'Requests' })).toHaveAttribute('href', `/labs/${LAB_ID}/requests`)
     // Depositors hold personal contacts: a viewer is not led to them.
     expect(screen.queryByRole('link', { name: 'Depositors' })).not.toBeInTheDocument()
     const table = await screen.findByRole('table', { name: 'Members' })

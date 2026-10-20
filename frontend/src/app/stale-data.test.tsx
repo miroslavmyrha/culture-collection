@@ -22,6 +22,9 @@ import {
   makeUnit,
   makeUnitRow,
   makeVial,
+  makeRequest,
+  makeRequester,
+  makeRequestRow,
   page,
 } from '@/test/factories'
 import { holdApi, mockApi, mockApiError, type PathFor } from '@/test/mockApi'
@@ -246,6 +249,33 @@ const SCREENS: Screen[] = [
       mockApi('get', '/api/v1/labs/{lab_public_id}/location-grants/', [makeLocationGrant({ member: alice.public_id, username: 'alice' })])
     },
     type: (user) => dialogField(user, 'Revoke regulated locations for alice', 'Reason'),
+  },
+  {
+    name: 'RequestList, with a typed search',
+    role: 'curator',
+    path: `/labs/${LAB_ID}/requests`,
+    fails: '/api/v1/labs/{lab_public_id}/requests/',
+    what: 'the requests',
+    data: () => mockApi('get', '/api/v1/labs/{lab_public_id}/requests/', page([makeRequestRow()])),
+    type: (user) => formField(user, 'Number, requester or strain', 'searchbox'),
+  },
+  {
+    name: 'RequestDetail, with the approve dialog',
+    role: 'curator',
+    path: `/labs/${LAB_ID}/requests/${DEPOSIT_ID}`,
+    fails: '/api/v1/labs/{lab_public_id}/requests/{public_id}/',
+    what: 'the request',
+    data: () => mockApi('get', '/api/v1/labs/{lab_public_id}/requests/{public_id}/', makeRequest({ public_id: DEPOSIT_ID })),
+    type: (user) => dialogField(user, 'Approve and reserve the vials', 'Reason (optional)'),
+  },
+  {
+    name: 'RequesterList, with the change dialog',
+    role: 'curator',
+    path: `/labs/${LAB_ID}/requesters`,
+    fails: '/api/v1/labs/{lab_public_id}/requesters/',
+    what: 'the requesters',
+    data: () => mockApi('get', '/api/v1/labs/{lab_public_id}/requesters/', page([makeRequester({ institution: 'Example Institute' })])),
+    type: (user) => dialogField(user, 'Change Example Institute', 'Company number'),
   },
 ]
 

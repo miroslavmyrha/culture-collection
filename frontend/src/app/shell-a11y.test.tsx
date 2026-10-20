@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { allowConsole } from '@/test/console'
-import { makeDeposit, makeLab, makeMe, makeMember, makeMtaTemplate, makeStrain, makeStrainRow, makeUnit, makeUnitRow, page, problem } from '@/test/factories'
+import { makeDeposit, makeLab, makeMe, makeMember, makeMtaTemplate, makeRequest, makeStrain, makeStrainRow, makeUnit, makeUnitRow, page, problem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
@@ -18,6 +18,9 @@ const DEPOSIT = '/api/v1/labs/{lab_public_id}/deposits/{public_id}/'
 const UNITS = '/api/v1/labs/{lab_public_id}/storage-units/'
 const UNIT = '/api/v1/labs/{lab_public_id}/storage-units/{public_id}/'
 const UNIT_ID = '00000000-0000-4000-8000-0000000000b1'
+const REQUESTS = '/api/v1/labs/{lab_public_id}/requests/'
+const REQUEST = '/api/v1/labs/{lab_public_id}/requests/{public_id}/'
+const REQUESTERS = '/api/v1/labs/{lab_public_id}/requesters/'
 const signedIn = (username = 'lab-tech') => void mockApi('get', '/api/v1/auth/me/', makeMe({ username }))
 /** The strain page's passages, batches and vials, and the boxes for its forms: all empty. */
 const material = () => {
@@ -77,6 +80,12 @@ describe('page titles (WCAG 2.4.2)', () => {
     [`/labs/${LAB_ID}/storage/${UNIT_ID}`, 'Box 1 in Rack 1', () => (signedIn(), lab(), mockApi('get', UNIT, makeUnit({ public_id: UNIT_ID, name: 'Box 1', ancestors: [{ public_id: UNIT_ID.replace('b1', 'a1'), kind: 'rack', name: 'Rack 1' }] })))],
     [`/labs/${LAB_ID}/storage/${UNIT_ID}`, 'Unit not found', () => (signedIn(), lab(), mockApiError('get', UNIT, 404, problem(404)))],
     [`/labs/${LAB_ID}/storage/${UNIT_ID}`, 'Could not load the unit', () => (signedIn(), lab(), mockApiError('get', UNIT, 500))],
+    [`/labs/${LAB_ID}/requests`, 'Requests of Mycology', () => (signedIn(), lab({ my_role: 'viewer' }), mockApi('get', REQUESTS, page([])))],
+    [`/labs/${LAB_ID}/requests/new`, 'Enter a request in Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', REQUESTERS, page([])))],
+    [`/labs/${LAB_ID}/requests/${STRAIN_ID}`, 'Request 2026/7', () => (signedIn(), lab(), mockApi('get', REQUEST, makeRequest({ number: '2026/7' })))],
+    [`/labs/${LAB_ID}/requests/${STRAIN_ID}`, 'Request not found', () => (signedIn(), lab(), mockApiError('get', REQUEST, 404, problem(404)))],
+    [`/labs/${LAB_ID}/requests/${STRAIN_ID}`, 'Could not load the request', () => (signedIn(), lab(), mockApiError('get', REQUEST, 500))],
+    [`/labs/${LAB_ID}/requesters`, 'Requesters of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', REQUESTERS, page([])))],
     ['/no-such-page', 'Page not found', () => undefined],
   ])('%s shows "%s | Culture collection"', async (path, title, setup) => {
     allowConsole(/API error 500/)
