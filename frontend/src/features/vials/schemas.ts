@@ -6,13 +6,16 @@ export type Passage = Schemas['PassageOutput']
 export type Batch = Schemas['BatchOutput']
 export type Vial = Schemas['VialOutput']
 export type Location = Schemas['Location']
-export type VialStatus = Schemas['VialOutputStatusEnum']
+export type VialStatus = Schemas['VialStatus']
 export type ManualStatus = Schemas['VialStatusInputStatusEnum']
 export type Method = Schemas['MethodEnum']
 export type Purpose = Schemas['PurposeEnum']
 export type BatchStatus = Schemas['BatchOutputStatusEnum']
 export type Role = Schemas['Role']
 export type Unit = Schemas['UnitOutput']
+export type BoxGrid = Schemas['BoxGridOutput']
+export type BoxPosition = Schemas['BoxPosition']
+export type BoxVial = Schemas['BoxVial']
 
 /** Technicians and up do the bench work (vials.handle). The server decides; this only hides. */
 export const canHandleVials = (role: Role | undefined): boolean => role === 'technician' || role === 'curator' || role === 'manager'
@@ -136,3 +139,7 @@ export const statusSchema = z.object({
   reason: reasonSchema,
 })
 export type StatusForm = z.input<typeof statusSchema>
+
+/** What the scanner sends or a person types to find a vial: its barcode or its label. */
+export const findSchema = z.object({ code: required('Scan or type the label or barcode').max(200, 'Use at most 200 characters') })
+export type FindForm = z.input<typeof findSchema>

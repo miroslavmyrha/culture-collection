@@ -2,9 +2,10 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { allowConsole } from '@/test/console'
-import { makeBatch, makePassage, makeUnitRow, makeVial, page, problem, validationProblem } from '@/test/factories'
+import { makeBatch, makeBoxGrid, makePassage, makeUnitRow, makeVial, page, problem, validationProblem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { renderWithProviders } from '@/test/render'
+import { vialKeys } from '../api/keys'
 import { StrainMaterial } from './StrainMaterial'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
@@ -163,6 +164,37 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
     await user.click(within(dialog).getByRole('button', { name: 'Move vial' }))
     await waitFor(() => expect(dialog).not.toBeInTheDocument())
     expect(calls[0]?.body).toEqual({ box: box.public_id, row: 3, col: 4 })
+  })
+
+  // The box grids show where vials are: a write here may change any box (#64).
+  it.each([
+    ['move', 'Move vial MYC 42 / 1 / 1', 'Move vial', '/api/v1/labs/{lab_public_id}/vials/{public_id}/place/'],
+    ['state change', 'Change the state of vial MYC 42 / 1 / 1', 'Save state', '/api/v1/labs/{lab_public_id}/vials/{public_id}/status/'],
+  ] as const)('a %s marks every box grid of the lab stale, not other strains', async (_, open, confirm, path) => {
+    mockMaterial()
+    mockApi('post', path, placed, { status: 200 })
+    const { client } = await render()
+    const here = vialKeys.box(LAB_ID, box.public_id)
+    const elsewhere = vialKeys.box(LAB_ID, '00000000-0000-4000-8000-0000000000b9')
+    const otherStrain = vialKeys.vials(LAB_ID, '00000000-0000-4000-8000-0000000000d9')
+    client.setQueryData(here, makeBoxGrid())
+    client.setQueryData(elsewhere, makeBoxGrid())
+    client.setQueryData(otherStrain, page([]))
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: open }))
+    const dialog = await screen.findByRole('dialog', { name: open })
+    if (confirm === 'Save state') {
+      await user.selectOptions(within(dialog).getByRole('combobox', { name: 'New state' }), 'consumed')
+      await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'used up')
+    } else {
+      await within(dialog).findByRole('combobox', { name: 'Box' })
+      await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Row' }), '3')
+    }
+    await user.click(within(dialog).getByRole('button', { name: confirm }))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    expect(client.getQueryState(here)?.isInvalidated).toBe(true)
+    expect(client.getQueryState(elsewhere)?.isInvalidated).toBe(true)
+    expect(client.getQueryState(otherStrain)?.isInvalidated).toBe(false)
   })
 
   it('places a loose vial and says inside the dialog when the position is taken', async () => {

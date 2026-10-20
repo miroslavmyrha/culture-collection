@@ -21,10 +21,13 @@ from cultures.labs.services import holds_location_grant
 from cultures.lineage import selectors, services
 from cultures.lineage.filters import BatchFilter, PassageFilter, VialFilter
 from cultures.lineage.models import Batch, Method, Passage, Purpose, Vial, VialStatus
+from cultures.storage.models import StorageUnit
 
 from .serializers import (
     BarcodeInputSerializer,
     BatchOutputSerializer,
+    BoxGridOutputSerializer,
+    BoxOutputSerializer,
     LocationSerializer,
     PassageOutputSerializer,
     PlaceInputSerializer,
@@ -296,3 +299,28 @@ class VialViewSet(LabNested):
         response = Response(body)  # the shape of RevealOutputSerializer
         response["Cache-Control"] = "no-store"  # shown once, kept by no cache
         return response
+
+
+# The boxes of the lab with what their positions hold: the box grid (#15). Viewers and up read
+# (strains.view, on boxes they see through storage.view; both are a viewer's). A taken position
+# of a regulated strain's vial is `masked` and names no vial, to every reader (ADR 0009).
+# Vials are placed and moved through the vial's place action. The list is paged, by tree order;
+# a box's positions come in one query, never one per position.
+@extend_schema(parameters=[LAB_PARAMETER])
+class BoxViewSet(LabNested):
+    model = StorageUnit
+    action_perms = {
+        "list": Perm.VIEW_STRAINS,
+        "retrieve": Perm.VIEW_STRAINS,
+    }
+
+    def get_serializer_class(self) -> type[BoxOutputSerializer]:
+        return BoxOutputSerializer if self.action == "list" else BoxGridOutputSerializer
+
+    def scoped_queryset(self) -> QuerySet[Any]:
+        return selectors.box_list(access=access_of(self.request), lab=self.lab)
+
+    def retrieve(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        box: StorageUnit = self.get_object()
+        positions = selectors.box_positions(access=access_of(request), box=box)
+        return Response(BoxGridOutputSerializer(box, context={"positions": positions}).data)

@@ -26,6 +26,7 @@ export {
 export { AutocompleteField } from './AutocompleteField'
 export { ConfirmDialog } from './ConfirmDialog'
 export { Link } from './Link'
+export { gridLabel, type GridCell, PositionGrid, type PositionGridHandle } from './PositionGrid'
 export { SelectField } from './SelectField'
 export { SkipLink } from './SkipLink'
 export { TextField } from './TextField'

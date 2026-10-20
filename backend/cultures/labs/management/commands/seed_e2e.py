@@ -8,8 +8,9 @@ Brings the database to this state, whatever it was before:
 - e2e-colleague, active, without a usable password and in no lab: the e2e test
   adds it as a member, changes its role and removes it again;
 - the lab "E2E lab" (code E2E) with the e2e user as its manager;
-- e2e-curator and e2e-viewer, members of the lab in those roles, with the same password:
-  the strain tests create strains as the curator and check what a viewer may not do;
+- e2e-curator, e2e-technician and e2e-viewer, members of the lab in those roles, with the
+  same password: the strain tests create strains as the curator and check what a viewer may
+  not do, the box grid tests move vials as the technician;
 - a few taxa for the strain form: two genera, a species in each with its NCBI id, and a
   synonym of each species (its basionym), plus an invented genus and species (Testella
   exempli) for the tests of the restriction gates, so no real organism is entered with a
@@ -73,7 +74,7 @@ DEPOSITOR = deposits.ContactInput("E2E Depositor", "e2e.depositor@example.org", 
 SEEDED_DEPOSIT = "B. subtilis e2e seed"
 REGULATED_DEPOSIT = "Testella exempli e2e regulated"
 REGULATED_BOX = "Box R"
-CURATOR, VIEWER = "e2e-curator", "e2e-viewer"
+CURATOR, TECHNICIAN, VIEWER = "e2e-curator", "e2e-technician", "e2e-viewer"
 
 # (name, authority, rank, parent name, accepted name, NCBI Taxonomy id). Facts from LPSN and
 # NCBI Taxonomy: Bacillus Cohn 1872 (taxid 1386), B. subtilis (Ehrenberg 1835) Cohn 1872 (1423),
@@ -127,6 +128,7 @@ class Command(BaseCommand):
             for membership in Membership.objects.filter(lab=lab, user=colleague):
                 services.membership_delete(membership=membership)
             self._role(lab, self._user(CURATOR, password), Role.CURATOR)
+            self._role(lab, self._user(TECHNICIAN, password), Role.TECHNICIAN)
             self._role(lab, self._user(VIEWER, password), Role.VIEWER)
             for row in TAXA:
                 self._taxon(*row)
@@ -137,7 +139,8 @@ class Command(BaseCommand):
             self._storage(lab, User.objects.get(username=CURATOR))
             self._regulated(lab, curator=User.objects.get(username=CURATOR), manager=user)
         self.stdout.write(
-            f"{username} manages {lab.name}; {CURATOR} and {VIEWER} are its curator and viewer;"
+            f"{username} manages {lab.name}; {CURATOR}, {TECHNICIAN} and {VIEWER} are its"
+            " curator, technician and viewer;"
             f" {COLLEAGUE} is in no lab; {len(TAXA)} taxa; a depositor, MTA STD and"
             f" one accepted deposit; {len(BOX_TYPES)} box types; {FREEZER} > Rack 1 > Box 1;"
             f" a regulated strain with two vials in {REGULATED_BOX}, revealed by {username}"

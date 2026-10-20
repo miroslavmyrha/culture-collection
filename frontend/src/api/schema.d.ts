@@ -162,6 +162,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/boxes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        get: operations["labs_boxes_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/boxes/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        get: operations["labs_boxes_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/depositors/": {
         parameters: {
             query?: never;
@@ -855,12 +895,50 @@ export interface components {
         BatchOutputStatusEnum: "pending_check" | "released" | "on_hold" | "exhausted";
         /** @enum {unknown} */
         BlankEnum: "";
+        /**
+         * @description A box with every taken position (context `positions`, selectors.box_positions). A
+         *     position missing from the list is empty.
+         */
+        BoxGridOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly name: string;
+            readonly rows: number;
+            readonly cols: number;
+            readonly positions: components["schemas"]["BoxPosition"][];
+        };
+        /** @description A box in the list: its size, without its positions. */
+        BoxOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly name: string;
+            readonly rows: number;
+            readonly cols: number;
+        };
+        /** @description One taken position (selectors.box_positions): the vial, or `masked` without it. */
+        BoxPosition: {
+            row: number;
+            col: number;
+            readonly label: string;
+            readonly masked: boolean;
+            readonly vial: components["schemas"]["BoxVial"] | null;
+        };
         BoxTypeOutput: {
             /** Format: uuid */
             readonly public_id: string;
             readonly name: string;
             readonly rows: number;
             readonly cols: number;
+        };
+        BoxVial: {
+            /** Format: uuid */
+            public_id: string;
+            readonly label: string;
+            status: components["schemas"]["VialStatus"];
+            barcode: string | null;
+            /** Format: uuid */
+            strain: string;
+            accession_number: string;
         };
         ChildOutput: {
             /** Format: uuid */
@@ -1362,6 +1440,21 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["BatchOutput"][];
+        };
+        PaginatedBoxOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["BoxOutput"][];
         };
         PaginatedBoxTypeOutputList: {
             /** @example 123 */
@@ -1962,7 +2055,7 @@ export interface components {
             readonly batch_number: number;
             readonly seq: number;
             readonly barcode: string | null;
-            readonly status: components["schemas"]["VialOutputStatusEnum"];
+            readonly status: components["schemas"]["VialStatus"];
             /** Format: date-time */
             readonly status_changed_at: string | null;
             readonly placed: boolean;
@@ -1982,7 +2075,7 @@ export interface components {
          *     * `entered_in_error` - Entered in error
          * @enum {string}
          */
-        VialOutputStatusEnum: "available" | "reserved" | "consumed" | "quarantined" | "to_destroy" | "destroyed" | "lost" | "distributed" | "entered_in_error";
+        VialStatus: "available" | "reserved" | "consumed" | "quarantined" | "to_destroy" | "destroyed" | "lost" | "distributed" | "entered_in_error";
         VialStatusInputRequest: {
             status: components["schemas"]["VialStatusInputStatusEnum"];
             /** @description Why, in a sentence. Stored for good: name no person. */
@@ -2480,6 +2573,118 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BatchOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_boxes_list: {
+        parameters: {
+            query?: {
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedBoxOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_boxes_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoxGridOutput"];
                 };
             };
             401: {
@@ -5207,6 +5412,7 @@ export interface operations {
         parameters: {
             query?: {
                 batch?: string;
+                code?: string;
                 /** @description Number of results to return per page. */
                 limit?: number;
                 /** @description The initial index from which to return the results. */

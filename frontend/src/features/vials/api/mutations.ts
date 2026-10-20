@@ -6,8 +6,9 @@ import { vialKeys } from './keys'
 type Schemas = components['schemas']
 
 // Each dialog shows its own failure (meta.handlesError), so the global message stays quiet.
-// onSuccess returns the invalidation of the strain's material: the mutation stays pending until
-// the lists are fresh, so a dialog closes on data that already shows the change.
+// onSuccess returns the invalidation of the strain's material and of the box grids (a vial may
+// enter or leave a box): the mutation stays pending until the lists are fresh, so a dialog
+// closes on data that already shows the change.
 function useStrainWrite<T, R>(labId: string, strainId: string, write: (input: T) => Promise<R>) {
   const qc = useQueryClient()
   return useMutation({
@@ -16,7 +17,8 @@ function useStrainWrite<T, R>(labId: string, strainId: string, write: (input: T)
       return write(input)
     },
     meta: { handlesError: true },
-    onSuccess: () => qc.invalidateQueries({ queryKey: vialKeys.strain(labId, strainId) }),
+    onSuccess: () =>
+      Promise.all([qc.invalidateQueries({ queryKey: vialKeys.strain(labId, strainId) }), qc.invalidateQueries({ queryKey: vialKeys.boxGrids(labId) })]),
   })
 }
 
@@ -63,6 +65,36 @@ export function useRevealLocation(labId: string) {
       await ensureCsrf()
       return unwrap(api.POST('/api/v1/labs/{lab_public_id}/vials/{public_id}/reveal-location/', { params: vial(labId, vialId) }))
     },
+    meta: { handlesError: true },
+  })
+}
+
+/**
+ * Places or moves a vial from the box grid (the same place action as the strain page). Pending
+ * until the lab's vial data is fresh, so the grid shows the vial in its new position when the
+ * result is announced.
+ */
+export function useGridPlace(labId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ vialId, ...body }: Schemas['PlaceInputRequest'] & { vialId: string }) => {
+      await ensureCsrf()
+      return unwrap(api.POST('/api/v1/labs/{lab_public_id}/vials/{public_id}/place/', { params: vial(labId, vialId), body }))
+    },
+    meta: { handlesError: true },
+    onSuccess: () => qc.invalidateQueries({ queryKey: vialKeys.lab(labId) }),
+  })
+}
+
+/**
+ * Finds a vial of the lab by its barcode or its label, as a scanner (which types like a
+ * keyboard) or a person enters it. A lookup the person asked for, so a mutation: nothing is
+ * cached and each Find asks the server again.
+ */
+export function useFindVial(labId: string) {
+  return useMutation({
+    mutationFn: (code: string) =>
+      unwrap(api.GET('/api/v1/labs/{lab_public_id}/vials/', { params: { path: { lab_public_id: labId }, query: { code, limit: 2 } } })),
     meta: { handlesError: true },
   })
 }

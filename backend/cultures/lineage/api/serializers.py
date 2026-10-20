@@ -31,7 +31,7 @@ from cultures.lineage.models import (
     VialPlacement,
     VialStatus,
 )
-from cultures.lineage.services import MANUAL_TARGETS, Location
+from cultures.lineage.services import MANUAL_TARGETS, Location, position_label
 from cultures.storage.models import StorageUnit
 
 REASON_HELP = "Why, in a sentence. Stored for good: name no person."
@@ -219,3 +219,69 @@ class BarcodeInputSerializer(serializers.Serializer[None]):
 
 class RevealOutputSerializer(serializers.Serializer[None]):
     location = LocationSerializer(allow_null=True)
+
+
+# The box grid (#15). A position names its vial only when the vial's strain is not regulated:
+# a regulated vial's position says `masked` and nothing else, to every reader, a holder of the
+# location grant too (ADR 0009). The grid shows that the position is taken, never by what.
+
+
+class BoxVialSerializer(serializers.Serializer[Vial]):
+    public_id = serializers.UUIDField()
+    label = serializers.SerializerMethodField()  # type: ignore[assignment]  # see LocationSerializer
+    status = serializers.ChoiceField(choices=VialStatus.choices)
+    barcode = serializers.CharField(allow_null=True)
+    strain = serializers.UUIDField(source="batch.strain.public_id")
+    accession_number = serializers.CharField(source="batch.strain.accession_number")
+
+    def get_label(self, vial: Vial) -> str:
+        return f"{vial.batch.strain.accession_number} / {vial.batch.number} / {vial.seq}"
+
+
+class BoxPositionSerializer(serializers.Serializer[VialPlacement]):
+    """One taken position (selectors.box_positions): the vial, or `masked` without it."""
+
+    row = serializers.IntegerField()
+    col = serializers.IntegerField()
+    label = serializers.SerializerMethodField()  # type: ignore[assignment]
+    masked = serializers.SerializerMethodField()
+    vial = serializers.SerializerMethodField()
+
+    def get_label(self, placement: VialPlacement) -> str:
+        return position_label(placement.row, placement.col)
+
+    def get_masked(self, placement: VialPlacement) -> bool:
+        return bool(vars(placement)["regulated"])
+
+    @extend_schema_field(BoxVialSerializer(allow_null=True))
+    def get_vial(self, placement: VialPlacement) -> dict[str, Any] | None:
+        if vars(placement)["regulated"]:
+            return None
+        return BoxVialSerializer(placement.vial).data
+
+
+class BoxOutputSerializer(serializers.ModelSerializer[StorageUnit]):
+    """A box in the list: its size, without its positions."""
+
+    rows = serializers.IntegerField(read_only=True)  # a box always has a size
+    cols = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = StorageUnit
+        fields: tuple[str, ...] = ("public_id", "name", "rows", "cols")
+        read_only_fields: tuple[str, ...] = fields
+
+
+class BoxGridOutputSerializer(BoxOutputSerializer):
+    """A box with every taken position (context `positions`, selectors.box_positions). A
+    position missing from the list is empty."""
+
+    positions = serializers.SerializerMethodField()
+
+    class Meta(BoxOutputSerializer.Meta):
+        fields = (*BoxOutputSerializer.Meta.fields, "positions")
+        read_only_fields = fields
+
+    @extend_schema_field(BoxPositionSerializer(many=True))
+    def get_positions(self, box: StorageUnit) -> list[dict[str, Any]]:
+        return list(BoxPositionSerializer(self.context["positions"], many=True).data)

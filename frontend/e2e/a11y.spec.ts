@@ -388,6 +388,34 @@ test.describe('keyboard walk through every page', () => {
       'button:Add a freezer or tank',
       'li:E2E freezer, freezer, -20\u00a0°C',
     ])
+    // A box: the curator's actions, then the vial finder and the grid, one stop on its first
+    // position (seed_e2e's Box 1 holds nothing, so the details of A1 have no link).
+    const box1 = await page.evaluate(async () => {
+      const lab = location.pathname.split('/')[2] ?? ''
+      const units: { public_id: string; name: string; parent: string | null }[] = await (await fetch(`/api/v1/labs/${lab}/storage-units/`)).json()
+      const under = (parent: string | null | undefined, name: string) => units.find((u) => u.parent === parent && u.name === name)
+      const box = under(under(under(null, 'E2E freezer')?.public_id, 'Rack 1')?.public_id, 'Box 1')
+      return `/labs/${lab}/storage/${box?.public_id ?? ''}`
+    })
+    await page.goto(box1)
+    await expect(page.getByRole('grid', { name: 'Positions of Box 1' })).toBeVisible()
+    expect(await walk(page)).toEqual([
+      'a:Skip to content',
+      'a:Culture collection',
+      'a:Home',
+      'a:Labs',
+      'button:Sign out',
+      'a:Storage of E2E lab',
+      'a:E2E freezer',
+      'a:Rack 1',
+      'button:Change',
+      'button:Move',
+      'button:Put out of service',
+      'button:Retire',
+      'input:',
+      'button:Find',
+      'td:A1, empty',
+    ])
     await close()
   })
 })
