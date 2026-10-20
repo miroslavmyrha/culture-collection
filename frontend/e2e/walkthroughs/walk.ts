@@ -389,3 +389,50 @@ export async function openUnit(w: Walk, path: RegExp[]) {
   w.look()
   await w.click(unitAt(w, path).locator(':scope > div'))
 }
+
+// Distribution (#18): strains that may go out, and requests made through the API.
+
+/**
+ * A strain through intake whose terms name MTA STD version 2 (every use permitted), with a
+ * released batch of distribution stock of `count` vials: one of them is used up by the checks.
+ */
+export async function supplyStrain(page: Page, lab: string, name: string, taxon: string, restrictions: Row[] = [], count = 4) {
+  const depositor = rows(await api(page, lab, 'depositors/?search=Vzor'))[0]
+  const mta = rows(await api(page, lab, 'mta-templates/')).find((t) => t.code === 'STD' && t.version === 2)
+  const terms = { mta: field(mta, 'public_id'), abs_scope: 'not_in_scope', country_of_origin: 'CZ', uses: USES.map((use) => ({ use, decision: 'permit' })) }
+  const deposit = field(await api(page, lab, 'deposits/', { depositor: field(depositor, 'public_id'), received_on: today(), condition: 'intact', name_as_received: name, terms }), 'public_id')
+  await api(page, lab, `deposits/${deposit}/start-check/`, {})
+  const taxa = rows(await api(page, lab, `/api/v1/taxa/?search=${encodeURIComponent(taxon)}`))
+  const facts = { taxon: field(taxa.find((t) => t.name === taxon), 'public_id'), identified_on: today(), identification_method: '16S rRNA gene sequence', risk_group: 1, country_of_origin: 'CZ', restrictions }
+  await api(page, lab, `deposits/${deposit}/accept/`, facts)
+  const strain = rows(await api(page, lab, `strains/?search=${encodeURIComponent(name)}`))[0]
+  const passage = rows(await api(page, lab, `passages/?strain=${field(strain, 'public_id')}`)).find((p) => p.number === 0)
+  return { id: field(strain, 'public_id'), number: field(strain, 'accession_number'), passage: field(passage, 'public_id'), count }
+}
+
+/** Releases a checked batch: the curator's step after passAll. */
+export async function release(page: Page, lab: string, batchId: string) {
+  await api(page, lab, `batches/${batchId}/release/`, { reason: 'Identity, purity and viability passed.' })
+}
+
+/** A request of the seeded requester for the strain, with an accepted MTA (signed copy uploaded). */
+export async function requestFor(page: Page, lab: string, strain: string, quantity: number, endUse: string) {
+  const requester = rows(await api(page, lab, 'requesters/?search=Example%20Institute'))[0]
+  const made = await api(page, lab, 'requests/', { requester: field(requester, 'public_id'), use: 'research_noncommercial', end_use: endUse, containment_level: 2, lines: [{ strain, quantity }] })
+  const id = field(made, 'public_id')
+  const mta = rows(await api(page, lab, 'mta-templates/')).find((t) => t.code === 'STD' && t.version === 2)
+  const status = await page.evaluate(
+    async ([url, mtaId]) => {
+      await fetch('/api/v1/auth/csrf/')
+      const token = /(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
+      const data = new FormData()
+      for (const [k, v] of Object.entries({ mta: mtaId, signer_name: 'Walk Signatory', signer_role: 'head_of_institution', authorised_signatory: 'true', accepted_on: new Date().toLocaleDateString('sv') })) data.append(k, v)
+      data.append('file', new Blob(['%PDF-1.4\n% walkthrough\n'], { type: 'application/pdf' }), 'signed.pdf')
+      const response = await fetch(url, { method: 'POST', headers: { 'X-CSRFToken': decodeURIComponent(token) }, body: data })
+      return response.status
+    },
+    [`/api/v1/labs/${lab}/requests/${id}/acceptances/`, field(mta, 'public_id')] as const,
+  )
+  expect(status).toBe(201)
+  return { id, number: field(made, 'number') }
+}

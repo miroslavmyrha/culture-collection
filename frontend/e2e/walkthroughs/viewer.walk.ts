@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { Walk, expandUnit, openLab, openStrain, openUnit } from './walk.js'
+import { RUN, Walk, api, batchOf, expandUnit, labId, openLab, openStrain, openUnit, passAll, release, requestFor, setupAs, supplyStrain } from './walk.js'
 
 // A viewer of Bacteriology (seed_dev): someone who reads the catalogue and the stock, a student,
 // a colleague from another group or a quality officer, and changes nothing.
@@ -120,5 +120,34 @@ test('V9 look up how to grow a strain', async ({ browser }, info) => {
   w.look(2)
   await expect(w.page.getByText(/medium|°C/i)).toHaveCount(0)
   w.impossible('No growth conditions anywhere: the strain and its passages have no medium, temperature or atmosphere')
+  await w.done()
+})
+
+test('V10 see which vials are reserved for a request', async ({ browser }, info) => {
+  const setup = await setupAs(browser, 'bac-curator')
+  const lab = await labId(setup.page, LAB)
+  const strain = await supplyStrain(setup.page, lab, `Bacillus subtilis reserved ${RUN}`, 'Bacillus subtilis')
+  const made = await batchOf(setup.page, lab, strain.passage, 4)
+  await setup.close()
+  const bench = await setupAs(browser, 'bac-technician')
+  await passAll(bench.page, lab, made.id, made.vials[0]?.id ?? '')
+  await bench.close()
+  const curator = await setupAs(browser, 'bac-curator')
+  await release(curator.page, lab, made.id)
+  const request = await requestFor(curator.page, lab, strain.id, 1, `Reserved for walkthrough ${RUN}.`)
+  await api(curator.page, lab, `requests/${request.id}/approve/`, { reason: '' })
+  await curator.close()
+
+  const w = await Walk.as(browser, info, 'bac-viewer', viewer('V10', 'See which vials are reserved for a request'))
+  await w.start()
+  await openLab(w, LAB)
+  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Requests' }))
+  await w.type(w.page.getByRole('searchbox', { name: 'Number, requester or strain' }), strain.number)
+  await w.press('Enter')
+  await w.click(w.page.getByRole('table', { name: 'Requests' }).getByRole('link', { name: `Request ${request.number}` }))
+  const reserved = w.page.getByRole('table', { name: 'Strains' }).getByRole('row').nth(1).getByRole('cell').nth(4)
+  await expect(reserved).toHaveText(new RegExp(`^${strain.number} / 1 / \\d+$`))
+  await w.read(reserved)
+  w.note('Reserved vials are found request by request: no list of what the lab holds reserved, and the strain page says nothing of its reserved vials', '#69')
   await w.done()
 })
