@@ -289,6 +289,13 @@ SPECTACULAR_SETTINGS = {
         "UnitKind": "cultures.storage.models.UnitKind",
         "UnitStatus": "cultures.storage.models.UnitStatus",
         "VialStatus": "cultures.lineage.models.VialStatus",
+        "PreservationMethod": "cultures.lineage.models.Method",
+        "CheckKind": "cultures.lineage.models.CheckKind",
+        "CheckStage": "cultures.lineage.models.CheckStage",
+        "CheckMethod": "cultures.lineage.models.CheckMethod",
+        "CheckResult": "cultures.lineage.models.CheckResult",
+        "CheckUnit": "cultures.lineage.models.CheckUnit",
+        "CheckStatus": "cultures.lineage.models.CheckStatus",
     },
 }
 

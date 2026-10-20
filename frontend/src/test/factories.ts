@@ -231,6 +231,7 @@ export function makeUnit(overrides: Partial<Unit> = {}): Unit {
 export type PassageRow = Schemas['PassageOutput']
 export type BatchRow = Schemas['BatchOutput']
 export type VialRow = Schemas['VialOutput']
+export type CheckRow = Schemas['BatchCheckOutput']
 export type LocationGrant = Schemas['LocationGrantOutput']
 
 export function makePassage(overrides: Partial<PassageRow> = {}): PassageRow {
@@ -260,8 +261,39 @@ export function makeBatch(overrides: Partial<BatchRow> = {}): BatchRow {
     preserved_on: '2026-10-01',
     purpose: 'distribution',
     status: 'pending_check',
+    status_reason: '',
+    status_changed_at: null,
+    latest_checks: { identity: null, purity: null, viability: null },
     vial_count_created: 3,
     vials_available: 3,
+    vials_distributable: 0,
+    created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString(),
+    ...overrides,
+  }
+}
+
+/** A passed viability check after preservation, valid, without a vial. */
+export function makeCheck(overrides: Partial<CheckRow> = {}): CheckRow {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    batch: uuid(9003),
+    batch_number: 1,
+    kind: 'viability',
+    stage: 'after_preservation',
+    checked_on: '2026-10-02',
+    performed_by: 'technician',
+    method: 'growth',
+    method_detail: '',
+    result: 'pass',
+    value: null,
+    unit: '',
+    vial: null,
+    vial_label: null,
+    note: '',
+    status: 'valid',
+    supersedes: null,
+    reason: '',
     created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString(),
     ...overrides,
   }

@@ -6,16 +6,24 @@ proves what the lineage tables need."""
 import pytest
 from django.db.backends.utils import CursorWrapper
 
-from cultures.audit.context import AuditContext
-from cultures.audit.models import AuditEvent, RowChange
+from cultures.audit.context import AuditContext, audit_context
+from cultures.audit.models import AuditEvent, Channel, RowChange
 from cultures.audit.tests.conftest import TEST_ROLES, refused
 from cultures.labs.access import access_for
 from cultures.lineage import services
-from cultures.lineage.models import Passage, VialStatus
+from cultures.lineage.models import (
+    Batch,
+    BatchCheck,
+    BatchStatus,
+    CheckKind,
+    CheckStatus,
+    Passage,
+    VialStatus,
+)
 from cultures.storage.tests.conftest import Tree
 from cultures.users.models import User
 
-from .support import new_batch, open_place, vials_of
+from .support import new_batch, new_check, open_place, record, vials_of
 
 pytestmark = pytest.mark.django_db
 
@@ -43,8 +51,44 @@ def test_the_runtime_role_does_the_bench_work(
     assert {"lineage.batch", "lineage.vial", "lineage.vialplacement", "lineage.passage"} <= labels
 
 
+def test_the_runtime_role_records_checks_and_releases(
+    *,
+    as_technician: AuditContext,
+    technician: User,
+    curator: User,
+    passage0: Passage,
+    runtime_role: CursorWrapper,
+) -> None:
+    access = access_for(technician)
+    batch = services.batch_preserve(access=access, passage=passage0, data=new_batch(vial_count=2))
+    vial = vials_of(batch)[0]
+    wrong = record(technician, batch, CheckKind.IDENTITY, vial=vial)
+    services.check_record(
+        access=access,
+        batch=batch,
+        data=new_check(CheckKind.IDENTITY, vial=vial),
+        supersedes=wrong,
+        reason="the wrong method was chosen",
+    )
+    record(technician, batch, CheckKind.PURITY, vial=vial)
+    record(technician, batch, CheckKind.VIABILITY, vial=vial)
+    with audit_context(channel=Channel.API, actor=curator, request_id="req-c"):
+        services.batch_release(access=access_for(curator), batch=batch, reason="checks passed")
+    assert Batch.objects.get(pk=batch.pk).status == BatchStatus.RELEASED
+    assert BatchCheck.objects.filter(batch=batch, status=CheckStatus.VALID).count() == 3
+    labels = set(RowChange.objects.values_list("table_label", flat=True))
+    assert "lineage.batchcheck" in labels
+
+
 @pytest.mark.parametrize(
-    "table", ["lineage_batch", "lineage_vial", "lineage_vialplacement", "lineage_passage"]
+    "table",
+    [
+        "lineage_batch",
+        "lineage_vial",
+        "lineage_vialplacement",
+        "lineage_passage",
+        "lineage_batchcheck",
+    ],
 )
 def test_the_runtime_role_deletes_nothing(
     *,
@@ -55,7 +99,8 @@ def test_the_runtime_role_deletes_nothing(
     runtime_role: CursorWrapper,
     table: str,
 ) -> None:
-    services.batch_preserve(
+    batch = services.batch_preserve(
         access=access_for(technician), passage=passage0, data=new_batch(box=tree.box)
     )
+    record(technician, batch)
     refused(runtime_role, f"DELETE FROM {table}", "permission denied")  # noqa: S608 (a constant)

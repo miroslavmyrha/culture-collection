@@ -38,6 +38,7 @@ from cultures.strains.models import Strain, StrainStatus
 from cultures.users.models import User
 
 from .support import MakeBatch, new_batch, open_place, preserve, snapshot, vials_of
+from .test_checks import CHECK_SCENARIOS
 from .test_constraints import PATHS
 
 pytestmark = pytest.mark.django_db
@@ -673,15 +674,25 @@ SCENARIOS: dict[str, Callable[[Access, Passage, Vial, Tree], object]] = {
     "vial_reveal_location": lambda a, p, v, t: services.vial_reveal_location(access=a, vial=v),
 }
 # Reads and helpers: no lab to lock, nothing written.
-NOT_A_WRITE = {"is_regulated", "location_of", "normalised", "position_label"}
+NOT_A_WRITE = {
+    "is_regulated",
+    "kinds_text",
+    "latest_checks",
+    "location_of",
+    "normalised",
+    "not_passed",
+    "position_label",
+}
 # Viewers may reveal (strains.view): the grant decides, tested in test_masking.py.
 VIEWER_MAY = {"vial_reveal_location"}
 
 
 def test_every_service_has_a_scenario_here() -> None:
+    """The check services have theirs in test_checks.py (their setup needs a batch)."""
     found = public_services(services)
-    assert {"batch_preserve", "vial_place"} <= found  # the walk found the services
-    assert found - NOT_A_WRITE == set(SCENARIOS)
+    assert {"batch_preserve", "vial_place", "check_record"} <= found  # the walk found them
+    assert found - NOT_A_WRITE == set(SCENARIOS) | set(CHECK_SCENARIOS)
+    assert not set(SCENARIOS) & set(CHECK_SCENARIOS)
 
 
 @pytest.mark.parametrize("name", sorted(SCENARIOS))

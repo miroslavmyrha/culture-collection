@@ -1,4 +1,4 @@
-"""The shared role matrix (core.testing.ViewsetContract) for the passage, batch and vial
+"""The shared role matrix (core.testing.ViewsetContract) for the passage, batch, check and vial
 viewsets. core/tests/test_contract_coverage.py fails while a routed viewset has no such class.
 The writes here are the detail actions; create and every action per role are in
 test_api_permissions.py."""
@@ -7,13 +7,14 @@ from typing import Any, ClassVar
 
 import pytest
 
-from cultures.audit.models import AuditEvent
+from cultures.audit.context import audit_context
+from cultures.audit.models import AuditEvent, Channel
 from cultures.core.testing import ViewsetContract, Write, assert_problem, logged_in
-from cultures.lineage.api.views import BatchViewSet, PassageViewSet, VialViewSet
-from cultures.lineage.models import Batch, Passage, Vial
+from cultures.lineage.api.views import BatchCheckViewSet, BatchViewSet, PassageViewSet, VialViewSet
+from cultures.lineage.models import Batch, BatchCheck, Passage, Vial
 from cultures.users.models import User
 
-from .support import BATCHES_URL, PASSAGES_URL, VIALS_URL, MakeBatch, vials_of
+from .support import BATCHES_URL, CHECKS_URL, PASSAGES_URL, VIALS_URL, MakeBatch, record, vials_of
 
 pytestmark = pytest.mark.django_db
 
@@ -67,3 +68,39 @@ class TestVialContract(Readers, ViewsetContract):
     @pytest.fixture
     def obj(self, make_batch: MakeBatch, passage0: Passage) -> Vial:
         return vials_of(make_batch(passage0, vial_count=1))[0]
+
+
+class TestBatchDecisionContract(Readers, ViewsetContract):
+    """Holding a batch is the curators': a technician reads it and is refused (403)."""
+
+    viewset = BatchViewSet
+    url = BATCHES_URL
+    audit_model = AuditEvent
+    writes = (Write("hold/", {"reason": "a doubt about its purity"}, changes=Batch, status=200),)
+
+    @pytest.fixture
+    def obj(self, make_batch: MakeBatch, passage0: Passage) -> Batch:
+        return make_batch(passage0, vial_count=1)
+
+    @pytest.fixture
+    def reader(self, technician: User) -> User:
+        return technician
+
+    @pytest.fixture
+    def writer(self, curator: User) -> User:
+        return curator
+
+
+class TestBatchCheckContract(Readers, ViewsetContract):
+    viewset = BatchCheckViewSet
+    url = CHECKS_URL
+    audit_model = AuditEvent
+    writes = (
+        Write("enter-in-error/", {"reason": "the wrong batch"}, changes=BatchCheck, status=200),
+    )
+
+    @pytest.fixture
+    def obj(self, make_batch: MakeBatch, passage0: Passage, technician: User) -> BatchCheck:
+        batch = make_batch(passage0, vial_count=1)
+        with audit_context(channel=Channel.API, actor=technician, request_id="req-setup"):
+            return record(technician, batch)

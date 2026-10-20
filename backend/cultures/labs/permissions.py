@@ -6,8 +6,9 @@ construction: GRANTS lists only what a role adds.
 
 Enforced today: view the lab and its members, manage members (#9), view strains
 and manage them (#11), view and manage depositors and deposits, publish MTA
-versions (#10, #12), view and manage storage (#14). The others are named now so later
-features plug into the same map instead of inventing their own checks.
+versions (#10, #12), view and manage storage (#14), handle vials (#16), release
+and hold batches (#17). The others are named now so later features plug into the
+same map instead of inventing their own checks.
 """
 
 from enum import StrEnum
@@ -50,6 +51,9 @@ class Perm(StrEnum):
     # Publishing an MTA template version: a legal text the lab signs up to.
     MANAGE_MTA = "deposits.manage_mta"
     MANAGE_DISTRIBUTION = "distribution.manage"
+    # #17: releasing a batch for use, or holding it. Recording its checks is bench work
+    # (HANDLE_VIALS); deciding on them is the curators' (ADR 0008, D16).
+    RELEASE_BATCHES = "batches.release"
 
 
 # What each role adds to the roles below it.
@@ -65,6 +69,7 @@ GRANTS: dict[Role, frozenset[Perm]] = {
             Perm.VIEW_DEPOSITS,
             Perm.MANAGE_DEPOSITS,
             Perm.MANAGE_DISTRIBUTION,
+            Perm.RELEASE_BATCHES,
         }
     ),
     Role.MANAGER: frozenset({Perm.MANAGE_MEMBERS, Perm.MANAGE_MTA}),

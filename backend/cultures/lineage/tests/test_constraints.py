@@ -88,7 +88,10 @@ def batch_fields(passage: Passage, **changes: Any) -> dict[str, Any]:
         ({"number": 0}, "lineage_batch_number_positive"),
         ({"method": "dried"}, "lineage_batch_method_valid"),
         ({"purpose": "sale"}, "lineage_batch_purpose_valid"),
-        ({"status": "gone"}, "lineage_batch_status_valid"),
+        (
+            {"status": "gone", "status_reason": "why", "status_changed_at": timezone.now()},
+            "lineage_batch_status_valid",
+        ),
         ({"vial_count_created": 0}, "lineage_batch_vial_count_range"),
         ({"vial_count_created": 201}, "lineage_batch_vial_count_range"),
         ({"cryoprotectant": " glycerol"}, "lineage_batch_cryoprotectant_trimmed"),
@@ -112,6 +115,7 @@ def test_a_batch_number_is_unique_per_strain(passage0: Passage, make_batch: Make
     [
         ("UPDATE lineage_batch SET number = 7", "changes only its status"),
         ("UPDATE lineage_batch SET purpose = 'seed'", "changes only its status"),
+        ("UPDATE lineage_batch SET preserved_on = '2026-01-01'", "changes only its status"),
         ("DELETE FROM lineage_batch", "never deleted"),
     ],
 )
@@ -121,7 +125,10 @@ def test_a_batch_changes_only_its_status(
     make_batch(passage0)
     with pytest.raises(DB_ERRORS, match=message):
         sql(statement)
-    sql("UPDATE lineage_batch SET status = 'on_hold'")  # #17 brings the edges
+    sql(
+        "UPDATE lineage_batch SET status = 'on_hold', status_reason = 'contamination seen',"
+        " status_changed_at = now()"
+    )
     assert Batch.objects.get().status == "on_hold"
 
 

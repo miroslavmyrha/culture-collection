@@ -18,11 +18,11 @@ from cultures.audit.context import AuditContext
 from cultures.labs.access import Access, access_for
 from cultures.labs.tests.test_lock_invariant import first, locks, public_services
 from cultures.lineage import services
-from cultures.lineage.models import Passage, Vial, VialStatus
+from cultures.lineage.models import CheckKind, Passage, Vial, VialStatus
 from cultures.storage.tests.conftest import Tree
 from cultures.users.models import User
 
-from .support import MakeBatch, new_batch, vials_of
+from .support import MakeBatch, new_batch, new_check, vials_of
 
 pytestmark = pytest.mark.django_db
 
@@ -48,16 +48,49 @@ SCENARIOS: dict[str, Scenario] = {
     "vial_reveal_location": lambda a, p, v, t: (
         lambda: services.vial_reveal_location(access=a, vial=v)
     ),
+    "check_record": lambda a, p, v, t: _record(a, v),
+    "check_enter_in_error": lambda a, p, v, t: _enter_in_error(a, v),
+    "batch_release": lambda a, p, v, t: _decide(a, v, services.batch_release),
+    "batch_hold": lambda a, p, v, t: _decide(a, v, services.batch_hold),
 }
+
+
+# The batch is read before the call, as the view does: get_object, then the service.
+
+
+def _record(access: Access, vial: Vial) -> Callable[[], object]:
+    batch = vial.batch
+    return lambda: services.check_record(access=access, batch=batch, data=new_check(vial=vial))
+
+
+def _enter_in_error(access: Access, vial: Vial) -> Callable[[], object]:
+    check = services.check_record(access=access, batch=vial.batch, data=new_check())
+    return lambda: services.check_enter_in_error(access=access, check=check, reason="mix-up")
+
+
+def _decide(access: Access, vial: Vial, decide: Callable[..., object]) -> Callable[[], object]:
+    """Three passed checks recorded first, then the decision by the lab's curator (the user the
+    batch fixture preserved with)."""
+    for kind in CheckKind:
+        services.check_record(access=access, batch=vial.batch, data=new_check(kind))
+    curator = access_for(User.objects.get(username="curator"))
+    batch = vial.batch
+    return lambda: decide(access=curator, batch=batch, reason="decided")
+
 
 EXEMPT: dict[str, str] = {
     "is_regulated": "a read the reveal calls under its lock",
+    "kinds_text": "names of kinds joined, no query",
+    "latest_checks": "a read the check services call under their lock",
+    "not_passed": "a rule on rows already read, no query",
     "location_of": "a read the reveal calls after its commit, and the masked lists never",
     "normalised": "text normalisation, no query",
     "position_label": "a label from two numbers, no query",
 }
 # Services that write nothing to a lineage table (the reveal writes only its event).
 NO_LINEAGE_WRITE = {"vial_reveal_location"}
+# Services that move a batch, or may: they lock its row before any vial.
+CHECK_SERVICES = {"check_record", "check_enter_in_error", "batch_release", "batch_hold"}
 
 
 def test_every_public_service_has_a_scenario_or_a_reviewed_exemption() -> None:
@@ -97,6 +130,8 @@ def test_the_lab_lock_comes_first(
         reads("labs_membership"),
         reads("labs_locationgrant"),
         reads("strains_strain"),
+        reads("lineage_batch"),
+        reads("lineage_batchcheck"),
         reads("lineage_vial"),
         reads("lineage_vialplacement"),
         reads("storage_storageunit"),
@@ -105,12 +140,17 @@ def test_the_lab_lock_comes_first(
         found = first(statements, match)
         assert found is None or found > lock, f"{name}: statement {found} before the lab lock"
     assert (first(statements, writes) is None) == (name in NO_LINEAGE_WRITE), name
-    vial_lock, box_lock = (
+    batch_lock, vial_lock, box_lock = (
+        first(statements, locks("lineage_batch")),
         first(statements, locks("lineage_vial")),
         first(statements, locks("storage_storageunit")),
     )
     if vial_lock is not None and box_lock is not None:
         assert vial_lock < box_lock, f"{name} locks the box before the vial"
+    if batch_lock is not None and vial_lock is not None:
+        assert batch_lock < vial_lock, f"{name} locks the vial before the batch"
+    if name in CHECK_SERVICES:
+        assert batch_lock is not None, f"{name} decides on a batch it never locked"
     if name in ("vial_place", "vial_transition", "vial_set_barcode", "vial_revive"):
         assert vial_lock is not None, f"{name} changes a vial it never locked"
     if name in ("vial_place", "batch_preserve"):
