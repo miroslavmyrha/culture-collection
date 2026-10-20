@@ -1,11 +1,14 @@
-import { type MouseEvent, type ReactNode, useRef, useState } from 'react'
+import { Fragment, type MouseEvent, type ReactNode, useId, useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
 import { Box, Button, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
-import { type FocusReturn, rememberFocus } from '@/lib/focus'
+import { type FocusReturn, focusTarget, rememberFocus } from '@/lib/focus'
 import { useBatches, useBoxes, usePassages, useVials } from '../api/queries'
 import {
+  type Batch,
+  type BatchCheck,
   BATCH_STATUS_LABELS,
+  batchStatusReason,
   locationText,
   METHOD_LABELS,
   nextStates,
@@ -16,24 +19,30 @@ import {
   type Vial,
   VIAL_STATUS_LABELS,
 } from '../schemas'
+import { BatchChecks } from './BatchChecks'
+import { BatchDecisionDialog, CheckErrorDialog, RecordCheckDialog } from './CheckDialogs'
 import { RevealLocation } from './RevealLocation'
 import { PlaceVialDialog, PreserveBatchDialog, ReviveDialog, SubcultureDialog, VialStatusDialog } from './VialDialogs'
 
-type Props = { labId: string; strainId: string; accession: string; canHandle: boolean }
+type Props = { labId: string; strainId: string; accession: string; canHandle: boolean; canRelease: boolean }
 
 type Open =
   | { kind: 'preserve'; open: boolean }
   | { kind: 'subculture'; passage: Passage; open: boolean }
   | { kind: 'place' | 'status' | 'revive'; vial: Vial; open: boolean }
+  | { kind: 'check'; batch: Batch; checks: readonly BatchCheck[] | undefined; open: boolean }
+  | { kind: 'release' | 'hold'; batch: Batch; open: boolean }
+  | { kind: 'check-error'; check: BatchCheck; open: boolean }
   | null
 
 /**
  * A strain's material (ADR 0008, D1): its passages, its batches and their vials, with the
  * bench work for technicians and up. Where a vial is shows for strains without restrictions;
  * a regulated strain's places are masked, and only a holder of the lab's location grant
- * reveals one (ADR 0009).
+ * reveals one (ADR 0009). A batch's checks open in its row (D16): technicians record them,
+ * curators release and hold.
  */
-export function StrainMaterial({ labId, strainId, accession, canHandle }: Props) {
+export function StrainMaterial({ labId, strainId, accession, canHandle, canRelease }: Props) {
   const passages = usePassages(labId, strainId)
   const batches = useBatches(labId, strainId)
   const vials = useVials(labId, strainId)
@@ -50,6 +59,29 @@ export function StrainMaterial({ labId, strainId, accession, canHandle }: Props)
   }
   const show = (next: NonNullable<Open>) => (event: MouseEvent<HTMLButtonElement>) => {
     remember(event)
+    setOpen(next)
+  }
+  // The batches whose checks are open. A control in a panel that the action removes (Release
+  // once released) gives the focus to the panel's heading.
+  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set())
+  const toggle = (batchId: string) =>
+    setOpened((current) => {
+      const next = new Set(current)
+      if (!next.delete(batchId)) next.add(batchId)
+      return next
+    })
+  const panelId = useId()
+  const inPanel = (headingId: string, next: NonNullable<Open>) => (event: MouseEvent<HTMLButtonElement>) => {
+    const control = event.currentTarget
+    spot.current = {
+      restore: () => {
+        const heading = document.getElementById(headingId)
+        const target = control.isConnected ? control : heading
+        if (target === control) control.focus()
+        else if (target) focusTarget(target)
+        return target
+      },
+    }
     setOpen(next)
   }
   const close = () => setOpen((current) => current && { ...current, open: false })
@@ -120,39 +152,88 @@ export function StrainMaterial({ labId, strainId, accession, canHandle }: Props)
         ) : batches.data.count === 0 ? (
           <Typography>No batch preserved yet.</Typography>
         ) : (
-          <TableContainer {...scrollable('Batches')}>
-            <Table aria-label="Batches" size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Batch</TableCell>
-                  <TableCell>From passage</TableCell>
-                  <TableCell>Method</TableCell>
-                  <TableCell>Purpose</TableCell>
-                  <TableCell>Preserved on</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Vials available</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {batches.data.results.map((b) => (
-                  <TableRow key={b.public_id}>
-                    <TableCell>{b.number}</TableCell>
-                    <TableCell>{b.passage_number}</TableCell>
-                    <TableCell>
-                      {METHOD_LABELS[b.method]}
-                      {b.cryoprotectant && `, ${b.cryoprotectant}`}
-                    </TableCell>
-                    <TableCell>{PURPOSE_LABELS[b.purpose]}</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{b.preserved_on}</TableCell>
-                    <TableCell>{BATCH_STATUS_LABELS[b.status]}</TableCell>
-                    <TableCell>
-                      {b.vials_available} of {b.vial_count_created}
-                    </TableCell>
+          <>
+            <Typography>{supply(batches.data.results)}</Typography>
+            <TableContainer {...scrollable('Batches')} sx={{ ...scrollable('Batches').sx, containerType: 'inline-size' }}>
+              <Table aria-label="Batches" size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Batch</TableCell>
+                    <TableCell>From passage</TableCell>
+                    <TableCell>Method</TableCell>
+                    <TableCell>Purpose</TableCell>
+                    <TableCell>Preserved on</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Vials available</TableCell>
+                    <TableCell>Checks</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {batches.data.results.map((b) => {
+                    const expanded = opened.has(b.public_id)
+                    const panel = `${panelId}-${b.number}`
+                    const heading = `${panel}-heading`
+                    return (
+                      <Fragment key={b.public_id}>
+                        <TableRow>
+                          <TableCell>{b.number}</TableCell>
+                          <TableCell>{b.passage_number}</TableCell>
+                          <TableCell>
+                            {METHOD_LABELS[b.method]}
+                            {b.cryoprotectant && `, ${b.cryoprotectant}`}
+                          </TableCell>
+                          <TableCell>{PURPOSE_LABELS[b.purpose]}</TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>{b.preserved_on}</TableCell>
+                          <TableCell sx={{ minWidth: 160 }}>
+                            {BATCH_STATUS_LABELS[b.status]}
+                            {b.status !== 'released' && (
+                              <Typography component="span" variant="body2" color="text.secondary" sx={{ display: 'block' }}>
+                                {batchStatusReason(b)}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {b.vials_available} of {b.vial_count_created}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="small"
+                              aria-expanded={expanded}
+                              aria-controls={panel}
+                              aria-label={`Checks of batch ${b.number}`}
+                              onClick={() => toggle(b.public_id)}
+                            >
+                              Checks
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                        {expanded && (
+                          <TableRow>
+                            <TableCell colSpan={8} sx={{ p: 0 }}>
+                              {/* As wide as the visible part of the table, and kept in view when it scrolls sideways. */}
+                              <Box id={panel} sx={{ position: 'sticky', left: 0, width: '100cqi', boxSizing: 'border-box', p: 2 }}>
+                                <BatchChecks
+                                  labId={labId}
+                                  strainId={strainId}
+                                  batch={b}
+                                  headingId={heading}
+                                  canHandle={canHandle}
+                                  canRelease={canRelease}
+                                  onRecord={(event, checks) => inPanel(heading, { kind: 'check', batch: b, checks, open: true })(event)}
+                                  onDecide={(event, decision) => inPanel(heading, { kind: decision, batch: b, open: true })(event)}
+                                  onEnterInError={(event, check) => inPanel(heading, { kind: 'check-error', check, open: true })(event)}
+                                />
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
         )}
       </Section>
 
@@ -214,8 +295,22 @@ export function StrainMaterial({ labId, strainId, accession, canHandle }: Props)
       )}
       {open?.kind === 'status' && <VialStatusDialog {...common} vial={open.vial} open={open.open} />}
       {open?.kind === 'revive' && <ReviveDialog {...common} vial={open.vial} open={open.open} />}
+      {open?.kind === 'check' && (
+        <RecordCheckDialog {...common} batch={open.batch} vials={vials.data?.results ?? []} checks={open.checks} open={open.open} />
+      )}
+      {(open?.kind === 'release' || open?.kind === 'hold') && <BatchDecisionDialog {...common} batch={open.batch} decision={open.kind} open={open.open} />}
+      {open?.kind === 'check-error' && <CheckErrorDialog {...common} check={open.check} open={open.open} />}
     </>
   )
+}
+
+/** Can the collection supply the strain now: the vials of its released distribution batches. */
+function supply(batches: readonly Batch[]): string {
+  const ready = batches.filter((b) => b.vials_distributable > 0)
+  const vials = ready.reduce((sum, b) => sum + b.vials_distributable, 0)
+  if (vials === 0) return 'Available for distribution: none. No released batch of distribution stock has a vial left.'
+  const from = ready.length === 1 ? `batch ${ready[0]?.number ?? ''}` : `batches ${ready.map((b) => b.number).join(', ')}`
+  return `Available for distribution: ${vials} ${vials === 1 ? 'vial' : 'vials'}, from released ${from}.`
 }
 
 function Where({ labId, vial }: { labId: string; vial: Vial }) {

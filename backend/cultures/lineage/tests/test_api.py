@@ -51,8 +51,12 @@ def test_a_technician_preserves_into_a_box_and_reads_the_vials_back(
         "preserved_on": "2026-10-02",
         "purpose": "seed",
         "status": "pending_check",
+        "status_reason": "",
+        "status_changed_at": None,
+        "latest_checks": {"identity": None, "purity": None, "viability": None},
         "vial_count_created": 2,
         "vials_available": 2,
+        "vials_distributable": 0,
         "created_at": response.json()["created_at"],
     }
     vials = client.get(VIALS_URL, {"strain": str(strain.public_id)}).json()["results"]

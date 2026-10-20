@@ -55,6 +55,29 @@ export function useRevive(labId: string, strainId: string) {
   )
 }
 
+/** A check of a batch. It may consume a vial (out of its box) and move the batch, so it refreshes like the rest. */
+export function useRecordCheck(labId: string, strainId: string) {
+  return useStrainWrite(labId, strainId, (body: Schemas['CheckInputRequest']) =>
+    unwrap(api.POST('/api/v1/labs/{lab_public_id}/batch-checks/', { params: lab(labId), body })),
+  )
+}
+
+export function useEnterCheckInError(labId: string, strainId: string) {
+  return useStrainWrite(labId, strainId, ({ checkId, reason }: { checkId: string; reason: string }) =>
+    unwrap(api.POST('/api/v1/labs/{lab_public_id}/batch-checks/{public_id}/enter-in-error/', { params: { path: { lab_public_id: labId, public_id: checkId } }, body: { reason } })),
+  )
+}
+
+/** Releases or holds a batch (curators and up), with a reason. */
+export function useDecideBatch(labId: string, strainId: string) {
+  return useStrainWrite(labId, strainId, ({ batchId, decision, reason }: { batchId: string; decision: 'release' | 'hold'; reason: string }) => {
+    const params = { path: { lab_public_id: labId, public_id: batchId } }
+    return decision === 'release'
+      ? unwrap(api.POST('/api/v1/labs/{lab_public_id}/batches/{public_id}/release/', { params, body: { reason } }))
+      : unwrap(api.POST('/api/v1/labs/{lab_public_id}/batches/{public_id}/hold/', { params, body: { reason } }))
+  })
+}
+
 /**
  * Reveals where a vial of a regulated strain is (ADR 0009). Each call is a new request and a new
  * entry in the audit trail; the answer stays in the component that asked, never in the cache:

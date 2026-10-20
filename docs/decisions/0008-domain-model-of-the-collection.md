@@ -3,7 +3,8 @@
 Date: 2026-10-18
 Status: accepted (#50)
 Amended 2026-10-19: terms, contacts and the intake (#10, #12); storage (#14);
-preservation, batches and vials (#16). Amended 2026-10-20: the box grid (#15).
+preservation, batches and vials (#16). Amended 2026-10-20: the box grid (#15); checks of a
+batch and its release (#17).
 Deciders: maintainer
 
 ## Context
@@ -111,6 +112,7 @@ before the tables it shapes:
 - D15 seed and distribution stock: with preservation and batches (#16).
   Decided 2026-10-19, see the preservation amendment below.
 - D16 identity, purity and viability checks: with viability checks (#17).
+  Decided 2026-10-20, see the checks amendment below.
 - D17 vial barcodes, generated labels and pre-printed codes: with
   preservation and batches (#16). Decided 2026-10-19, see the preservation
   amendment below.
@@ -474,3 +476,85 @@ a lab's own numbering) is deferred until a lab asks.
 
 Migration impact: none. A new read endpoint and a filter; no table changes.
 
+
+## Amendment 2026-10-20: checks of a batch and its release (#17)
+
+**D16: one check table with a kind, and a stage.** `lineage.BatchCheck` is one check of one
+batch: lab, batch, `kind` (`identity`, `purity`, `viability`), `stage` (`after_preservation`,
+`periodic`, `before_dispatch`), `checked_on` (a Czech day, not before the batch was preserved,
+not in the future), `performed_by` (the user who records it), `method`, `method_detail`,
+`result` (`pass`, `reduced`, `fail`), `value` with `unit`, the `vial` checked, a `note`,
+`status` (`valid` or `entered_in_error`), `supersedes` and `reason`. OECD BRC guidelines,
+General 10.3, and the WFCC guidelines, 8.2 to 8.5, ask for identity after receipt, before and
+after preservation, at intervals and at dispatch, not viability alone, so one table holds all
+three kinds. The receipt check stays on the deposit (#12): a deposit has no batch yet.
+- Methods are a short list per kind, and `other` with the method described: identity by
+  morphology, a biochemical profile, MALDI-TOF or gene sequencing; purity by streak plate or
+  microscopy; viability by growth after revival, a plate count or live and dead staining. A
+  check constraint holds the pairs. `method_detail` takes the medium, the temperature or the
+  gene in words. To be confirmed with the curators before the first production data, like the
+  uses of D10.
+- A value is given with its unit or not at all: CFU/mL or a percentage (at most 100), stored
+  as a decimal with four places.
+- **Reduced counts as passed, with a note.** Reduced is a culture that grows and is pure but
+  less than expected (fewer colonies, a slow start). It does not stop a release, so a batch
+  of a slow but correct strain can be supplied; the check must say what was seen (a check
+  constraint), and the history shows it to whoever releases.
+- **Append-only.** A check is never changed or deleted (a guard trigger, and the runtime role
+  has no DELETE). Its one change is `valid` to `entered_in_error` with a reason. A correction
+  is a new check that `supersedes` the wrong one, of the same batch and kind, and enters it in
+  error in the same transaction; a check is superseded at most once. Both triggers and
+  services check that the vial and the superseded check belong to the batch.
+- **The vial checked is consumed through the vial service** (`vial_transition` to consumed,
+  with its own event and the placement closed). One vial may serve the checks of several
+  kinds, because one thawed vial on one plate shows growth and purity: a vial already
+  consumed by a check of the same batch may be named again. Any other vial that is not
+  available is refused.
+
+**The release rule.** A batch is released only while the latest valid check of each of the
+three kinds, by the day checked and then the order recorded, passed or was reduced. The
+latest is what counts: a pass after a failure clears the way, a failure recorded later but
+dated before a pass is history.
+- **A curator releases and holds, the checks only make it safer.** Recording a check is bench
+  work (`vials.handle`, technicians and up). Releasing and holding are a curator's decisions
+  with a reason (`batches.release`, curators and up), so the person who checks is not the only
+  one who decides. The checks move a batch on their own only towards safety: when the latest
+  valid check of a kind failed, a batch pending its checks or released goes on hold, with the
+  check's day as the reason; when a released batch loses a passed check it was released on (a
+  check entered in error), it waits for its checks again, or goes on hold when an older
+  failure becomes the latest. Nothing is ever released without a person. A hold is lifted only
+  by a release.
+- **Edges.** `pending_check` to `released`, `on_hold` or `exhausted`; `released` to `on_hold`,
+  `pending_check` or `exhausted`; `on_hold` to `released` or `exhausted`; `exhausted` is final.
+  `lineage.models.BATCH_EDGES` and the batch trigger hold the same pairs (a test tries all 16
+  against both), and the trigger refuses `released` while the latest checks do not pass. A
+  batch stores why it has its status (`status_reason`) and when it changed; a check
+  constraint asks for both from the first change on. No service sets `exhausted` yet:
+  distribution (#18) or the last vial leaving does, decided there.
+- Events: `batch_check_recorded`, `batch_check_entered_in_error` (reason required) and
+  `batch_status_changed` (reason required), each with the strain (D13).
+
+**What may be distributed.** `lineage.selectors.distributable()` is the one definition: a
+released batch of distribution stock (D15: seed stock never leaves) of a strain that still
+supplies (active or restricted, not pending or deaccessioned). `vials_for_distribution` reads
+the available vials of such batches for #18, and the batch list counts them per batch
+(`vials_distributable`), so the strain page answers "can we supply it" in one line.
+
+**Screens.** The batch table shows each status with why a batch is not released (what it
+waits for, or the recorded reason) and how many vials may go out. A batch's checks open in its
+row as a disclosure: the latest result of each kind, the history with the checks entered in
+error marked, and the actions (record, enter in error, release, hold). The history loads only
+when the row is opened. A check shows the label of the vial used, never a place, so a
+regulated strain's locations stay masked (ADR 0009).
+
+Migration impact: additive. `lineage` 0005 adds `status_reason` (with a database default,
+no rewrite) and `status_changed_at` to `lineage_batch` with a check constraint (a scan of the
+batch table) and creates `lineage_batchcheck`; 0006 attaches its row audit and guard, and
+replaces the batch guard (its body before is in 0004, restored on reverse). Audit 0019 extends
+the reason check of `audit_auditevent`, a scan of the audit table under its lock. Reversible
+while no check exists: `migrate lineage 0004` and `migrate audit 0018`.
+
+Revisit when: a lab needs a maximum age for checks before a release or a dispatch (a lab
+setting, the release rule then also reads `checked_on`), the curators want their own method
+list, a check needs more than one value (a count and a percentage), or the receipt check of a
+deposit should move into this table.

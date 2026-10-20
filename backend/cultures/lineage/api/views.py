@@ -19,15 +19,32 @@ from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
 from cultures.labs.services import holds_location_grant
 from cultures.lineage import selectors, services
-from cultures.lineage.filters import BatchFilter, PassageFilter, VialFilter
-from cultures.lineage.models import Batch, Method, Passage, Purpose, Vial, VialStatus
+from cultures.lineage.filters import BatchCheckFilter, BatchFilter, PassageFilter, VialFilter
+from cultures.lineage.models import (
+    Batch,
+    BatchCheck,
+    CheckKind,
+    CheckMethod,
+    CheckResult,
+    CheckStage,
+    CheckUnit,
+    Method,
+    Passage,
+    Purpose,
+    Vial,
+    VialStatus,
+)
 from cultures.storage.models import StorageUnit
 
 from .serializers import (
     BarcodeInputSerializer,
+    BatchCheckOutputSerializer,
+    BatchDecisionInputSerializer,
     BatchOutputSerializer,
     BoxGridOutputSerializer,
     BoxOutputSerializer,
+    CheckErrorInputSerializer,
+    CheckInputSerializer,
     LocationSerializer,
     PassageOutputSerializer,
     PlaceInputSerializer,
@@ -50,6 +67,22 @@ CONFLICT = OpenApiResponse(
     "strain_not_active; position_taken; vial_not_in_collection; batch_number_taken",
 )
 RULE = OpenApiResponse(ProblemSerializer, "reason_required")
+RELEASE_RULE = OpenApiResponse(
+    ProblemSerializer,
+    "reason_required; checks_not_passed: the latest identity, purity or viability check is"
+    " missing or failed",
+)
+DECISION_CONFLICT = OpenApiResponse(ProblemSerializer, "batch_exhausted")
+CHECK_INVALID = OpenApiResponse(
+    ProblemSerializer,
+    "Invalid input on a field: an unknown batch, vial or check to correct, a method that is not"
+    " of the kind, a value without its unit, a reduced result without a note, a date in the"
+    " future or before the batch was preserved",
+)
+CHECK_CONFLICT = OpenApiResponse(
+    ProblemSerializer,
+    "batch_exhausted; vial_not_available; check_entered_in_error; vial_not_in_collection",
+)
 LAB_PARAMETER = OpenApiParameter("lab_public_id", OpenApiTypes.UUID, OpenApiParameter.PATH)
 
 
@@ -111,7 +144,9 @@ class PassageViewSet(LabNested):
 
 # Batches of the lab's strains: one preservation of one passage each. Viewers and up read
 # (strains.view); technicians and up preserve (vials.handle), optionally into a box in fill
-# order. A batch is never deleted; its status follows the checks (#17).
+# order. Curators and up release a batch once its latest identity, purity and viability checks
+# passed, or hold it, each with a reason (batches.release). A failed check holds it on its own.
+# A batch is never deleted.
 @extend_schema(parameters=[LAB_PARAMETER])
 class BatchViewSet(LabNested):
     model = Batch
@@ -119,6 +154,8 @@ class BatchViewSet(LabNested):
         "list": Perm.VIEW_STRAINS,
         "retrieve": Perm.VIEW_STRAINS,
         "create": Perm.HANDLE_VIALS,
+        "release": Perm.RELEASE_BATCHES,
+        "hold": Perm.RELEASE_BATCHES,
     }
     serializer_class = BatchOutputSerializer
     filterset_class = BatchFilter
@@ -156,6 +193,123 @@ class BatchViewSet(LabNested):
         )
         fresh = self.scoped_queryset().get(pk=batch.pk)
         return Response(BatchOutputSerializer(fresh).data, status=status.HTTP_201_CREATED)
+
+    def _decided(self, batch: Batch) -> Response:
+        """The batch as committed now, with its checks, through the same scoped query."""
+        return Response(BatchOutputSerializer(self.scoped_queryset().get(pk=batch.pk)).data)
+
+    @extend_schema(
+        request=BatchDecisionInputSerializer,
+        responses={
+            200: BatchOutputSerializer,
+            (409, PROBLEM): DECISION_CONFLICT,
+            (422, PROBLEM): RELEASE_RULE,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="release")
+    def release(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        batch: Batch = self.get_object()  # first: 404 or 403 before the input is read
+        data = BatchDecisionInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.batch_release(
+            access=access_of(request), batch=batch, reason=data.validated_data["reason"]
+        )
+        return self._decided(batch)
+
+    @extend_schema(
+        request=BatchDecisionInputSerializer,
+        responses={
+            200: BatchOutputSerializer,
+            (409, PROBLEM): DECISION_CONFLICT,
+            (422, PROBLEM): RULE,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="hold")
+    def hold(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        batch: Batch = self.get_object()
+        data = BatchDecisionInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.batch_hold(
+            access=access_of(request), batch=batch, reason=data.validated_data["reason"]
+        )
+        return self._decided(batch)
+
+
+# The checks of the lab's batches (#17, ADR 0008, D16): identity, purity and viability, newest
+# first, entered in error included. Viewers and up read (strains.view); technicians and up
+# record a check, which may consume the vial checked and move the batch, and enter a wrong one
+# in error with a reason (vials.handle). A check is never changed otherwise or deleted.
+@extend_schema(parameters=[LAB_PARAMETER])
+class BatchCheckViewSet(LabNested):
+    model = BatchCheck
+    action_perms = {
+        "list": Perm.VIEW_STRAINS,
+        "retrieve": Perm.VIEW_STRAINS,
+        "create": Perm.HANDLE_VIALS,
+        "enter_in_error": Perm.HANDLE_VIALS,
+    }
+    serializer_class = BatchCheckOutputSerializer
+    filterset_class = BatchCheckFilter
+
+    def scoped_queryset(self) -> QuerySet[Any]:
+        return selectors.check_list(access=access_of(self.request), lab=self.lab)
+
+    @extend_schema(
+        request=CheckInputSerializer,
+        responses={
+            201: BatchCheckOutputSerializer,
+            (400, PROBLEM): CHECK_INVALID,
+            (409, PROBLEM): CHECK_CONFLICT,
+            (422, PROBLEM): RULE,
+        },
+    )
+    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        lab = self.lab  # first: an outsider gets 404, never a 400 that reveals the lab
+        data = CheckInputSerializer(data=request.data, context=self.get_serializer_context())
+        data.is_valid(raise_exception=True)
+        values = data.validated_data
+        batch: Batch = values["batch"]
+        if batch.lab_id != lab.pk:  # the same error as an unknown batch
+            raise services.InvalidCheck("Invalid batch.", code="does_not_exist", attr="batch")
+        unit = values["unit"]
+        check = services.check_record(
+            access=access_of(request),
+            batch=batch,
+            data=services.NewCheck(
+                kind=CheckKind(values["kind"]),
+                stage=CheckStage(values["stage"]),
+                checked_on=values["checked_on"],
+                method=CheckMethod(values["method"]),
+                result=CheckResult(values["result"]),
+                method_detail=values["method_detail"],
+                value=values["value"],
+                unit=None if unit is None else CheckUnit(unit),
+                vial=values["vial"],
+                note=values["note"],
+            ),
+            supersedes=values["supersedes"],
+            reason=values["reason"],
+        )
+        fresh = self.scoped_queryset().get(pk=check.pk)
+        return Response(BatchCheckOutputSerializer(fresh).data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        request=CheckErrorInputSerializer,
+        responses={
+            200: BatchCheckOutputSerializer,
+            (409, PROBLEM): CHECK_CONFLICT,
+            (422, PROBLEM): RULE,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="enter-in-error")
+    def enter_in_error(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        check: BatchCheck = self.get_object()
+        data = CheckErrorInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.check_enter_in_error(
+            access=access_of(request), check=check, reason=data.validated_data["reason"]
+        )
+        return Response(BatchCheckOutputSerializer(self.scoped_queryset().get(pk=check.pk)).data)
 
 
 # Vials of the lab's strains, paged, by strain, batch and number. Viewers and up read

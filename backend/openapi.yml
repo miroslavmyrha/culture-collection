@@ -266,6 +266,290 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/batch-checks/:
+    get:
+      operationId: labs_batch_checks_list
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: query
+        name: batch
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      - in: query
+        name: strain
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBatchCheckOutputList'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    post:
+      operationId: labs_batch_checks_create
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CheckInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchCheckOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input on a field: an unknown batch, vial or check
+            to correct, a method that is not of the kind, a value without its unit,
+            a reduced result without a note, a date in the future or before the batch
+            was preserved'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: batch_exhausted; vial_not_available; check_entered_in_error;
+            vial_not_in_collection
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: reason_required
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/batch-checks/{public_id}/:
+    get:
+      operationId: labs_batch_checks_retrieve
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchCheckOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/batch-checks/{public_id}/enter-in-error/:
+    post:
+      operationId: labs_batch_checks_enter_in_error_create
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckErrorInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CheckErrorInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchCheckOutput'
+          description: ''
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: batch_exhausted; vial_not_available; check_entered_in_error;
+            vial_not_in_collection
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: reason_required
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/batches/:
     get:
       operationId: labs_batches_list
@@ -432,6 +716,169 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BatchOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/batches/{public_id}/hold/:
+    post:
+      operationId: labs_batches_hold_create
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchDecisionInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BatchDecisionInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchOutput'
+          description: ''
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: batch_exhausted
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: reason_required
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/batches/{public_id}/release/:
+    post:
+      operationId: labs_batches_release_create
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchDecisionInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BatchDecisionInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchOutput'
+          description: ''
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: batch_exhausted
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'reason_required; checks_not_passed: the latest identity, purity
+            or viability check is missing or failed'
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
           description: ''
         '401':
           content:
@@ -3781,6 +4228,115 @@ components:
           maxLength: 64
       required:
       - barcode
+    BatchCheckOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        batch:
+          type: string
+          format: uuid
+          readOnly: true
+        batch_number:
+          type: integer
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/CheckKind'
+          readOnly: true
+        stage:
+          allOf:
+          - $ref: '#/components/schemas/CheckStage'
+          readOnly: true
+        checked_on:
+          type: string
+          format: date
+          readOnly: true
+        performed_by:
+          type: string
+          readOnly: true
+        method:
+          allOf:
+          - $ref: '#/components/schemas/CheckMethod'
+          readOnly: true
+        method_detail:
+          type: string
+          readOnly: true
+        result:
+          allOf:
+          - $ref: '#/components/schemas/CheckResult'
+          readOnly: true
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,4})?$
+          readOnly: true
+          nullable: true
+        unit:
+          readOnly: true
+          oneOf:
+          - $ref: '#/components/schemas/CheckUnit'
+          - $ref: '#/components/schemas/BlankEnum'
+        vial:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        vial_label:
+          type: string
+          nullable: true
+          readOnly: true
+        note:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CheckStatus'
+          readOnly: true
+        supersedes:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        reason:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - batch
+      - batch_number
+      - checked_on
+      - created_at
+      - kind
+      - method
+      - method_detail
+      - note
+      - performed_by
+      - public_id
+      - reason
+      - result
+      - stage
+      - status
+      - supersedes
+      - unit
+      - value
+      - vial
+      - vial_label
+    BatchDecisionInputRequest:
+      type: object
+      description: 'A release or a hold: why, in a sentence.'
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+      required:
+      - reason
     BatchOutput:
       type: object
       properties:
@@ -3804,7 +4360,7 @@ components:
           readOnly: true
         method:
           allOf:
-          - $ref: '#/components/schemas/MethodEnum'
+          - $ref: '#/components/schemas/PreservationMethod'
           readOnly: true
         cryoprotectant:
           type: string
@@ -3821,10 +4377,25 @@ components:
           allOf:
           - $ref: '#/components/schemas/BatchOutputStatusEnum'
           readOnly: true
+        status_reason:
+          type: string
+          readOnly: true
+        status_changed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        latest_checks:
+          allOf:
+          - $ref: '#/components/schemas/LatestChecks'
+          readOnly: true
         vial_count_created:
           type: integer
           readOnly: true
         vials_available:
+          type: integer
+          readOnly: true
+        vials_distributable:
           type: integer
           readOnly: true
         created_at:
@@ -3834,6 +4405,7 @@ components:
       required:
       - created_at
       - cryoprotectant
+      - latest_checks
       - method
       - number
       - passage
@@ -3842,9 +4414,12 @@ components:
       - public_id
       - purpose
       - status
+      - status_changed_at
+      - status_reason
       - strain
       - vial_count_created
       - vials_available
+      - vials_distributable
     BatchOutputStatusEnum:
       enum:
       - pending_check
@@ -3985,6 +4560,143 @@ components:
       - public_id
       - status
       - strain
+    CheckErrorInputRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+      required:
+      - reason
+    CheckInputRequest:
+      type: object
+      properties:
+        batch:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/CheckKind'
+        stage:
+          $ref: '#/components/schemas/CheckStage'
+        checked_on:
+          type: string
+          format: date
+        method:
+          $ref: '#/components/schemas/CheckMethod'
+        method_detail:
+          type: string
+          default: ''
+          maxLength: 200
+        result:
+          $ref: '#/components/schemas/CheckResult'
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,4})?$
+          nullable: true
+        unit:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/CheckUnit'
+          - $ref: '#/components/schemas/NullEnum'
+        vial:
+          type: string
+          format: uuid
+          nullable: true
+        note:
+          type: string
+          default: ''
+          description: What was seen, in a sentence. Required for a reduced result.
+            Name no person.
+          maxLength: 2000
+        supersedes:
+          type: string
+          format: uuid
+          nullable: true
+        reason:
+          type: string
+          default: ''
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+      required:
+      - batch
+      - checked_on
+      - kind
+      - method
+      - result
+      - stage
+    CheckKind:
+      enum:
+      - identity
+      - purity
+      - viability
+      type: string
+      description: |-
+        * `identity` - Identity
+        * `purity` - Purity
+        * `viability` - Viability
+    CheckMethod:
+      enum:
+      - morphology
+      - biochemical
+      - maldi_tof
+      - sequencing
+      - streak_plate
+      - microscopy
+      - growth
+      - plate_count
+      - live_dead_stain
+      - other
+      type: string
+      description: |-
+        * `morphology` - Colony and cell morphology
+        * `biochemical` - Biochemical profile
+        * `maldi_tof` - MALDI-TOF mass spectrometry
+        * `sequencing` - Gene sequencing
+        * `streak_plate` - Streak plate
+        * `microscopy` - Microscopy
+        * `growth` - Growth after revival
+        * `plate_count` - Plate count
+        * `live_dead_stain` - Live and dead staining
+        * `other` - Other
+    CheckResult:
+      enum:
+      - pass
+      - reduced
+      - fail
+      type: string
+      description: |-
+        * `pass` - Passed
+        * `reduced` - Reduced
+        * `fail` - Failed
+    CheckStage:
+      enum:
+      - after_preservation
+      - periodic
+      - before_dispatch
+      type: string
+      description: |-
+        * `after_preservation` - After preservation
+        * `periodic` - Periodic
+        * `before_dispatch` - Before dispatch
+    CheckStatus:
+      enum:
+      - valid
+      - entered_in_error
+      type: string
+      description: |-
+        * `valid` - Valid
+        * `entered_in_error` - Entered in error
+    CheckUnit:
+      enum:
+      - cfu_per_ml
+      - percent
+      type: string
+      description: |-
+        * `cfu_per_ml` - CFU/mL
+        * `percent` - %
     ChildOutput:
       type: object
       properties:
@@ -4843,6 +5555,31 @@ components:
       - my_role
       - name
       - public_id
+    LatestChecks:
+      type: object
+      description: |-
+        The result of the batch's latest valid check of each kind, null when there is none
+        (selectors.batch_list).
+      properties:
+        identity:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/CheckResult'
+          - $ref: '#/components/schemas/NullEnum'
+        purity:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/CheckResult'
+          - $ref: '#/components/schemas/NullEnum'
+        viability:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/CheckResult'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - identity
+      - purity
+      - viability
     Location:
       type: object
       properties:
@@ -5013,16 +5750,6 @@ components:
           $ref: '#/components/schemas/Role'
       required:
       - role
-    MethodEnum:
-      enum:
-      - cryo_minus80
-      - cryo_ln2
-      - lyophilised
-      type: string
-      description: |-
-        * `cryo_minus80` - Frozen at -80 °C
-        * `cryo_ln2` - Frozen in liquid nitrogen
-        * `lyophilised` - Freeze-dried
     MtaTemplateBrief:
       type: object
       properties:
@@ -5134,6 +5861,29 @@ components:
     NullEnum:
       enum:
       - null
+    PaginatedBatchCheckOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BatchCheckOutput'
     PaginatedBatchOutputList:
       type: object
       required:
@@ -5483,6 +6233,16 @@ components:
       - box
       - col
       - row
+    PreservationMethod:
+      enum:
+      - cryo_minus80
+      - cryo_ln2
+      - lyophilised
+      type: string
+      description: |-
+        * `cryo_minus80` - Frozen at -80 °C
+        * `cryo_ln2` - Frozen in liquid nitrogen
+        * `lyophilised` - Freeze-dried
     PreserveInputRequest:
       type: object
       properties:
@@ -5490,7 +6250,7 @@ components:
           type: string
           format: uuid
         method:
-          $ref: '#/components/schemas/MethodEnum'
+          $ref: '#/components/schemas/PreservationMethod'
         purpose:
           $ref: '#/components/schemas/PurposeEnum'
         cryoprotectant:

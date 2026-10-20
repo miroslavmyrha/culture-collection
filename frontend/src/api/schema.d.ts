@@ -118,6 +118,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/batch-checks/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        get: operations["labs_batch_checks_list"];
+        put?: never;
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        post: operations["labs_batch_checks_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/batch-checks/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        get: operations["labs_batch_checks_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/batch-checks/{public_id}/enter-in-error/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        post: operations["labs_batch_checks_enter_in_error_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/batches/": {
         parameters: {
             query?: never;
@@ -156,6 +220,46 @@ export interface paths {
         get: operations["labs_batches_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/batches/{public_id}/hold/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        post: operations["labs_batches_hold_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/batches/{public_id}/release/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        post: operations["labs_batches_release_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -865,6 +969,39 @@ export interface components {
         BarcodeInputRequest: {
             barcode: string;
         };
+        BatchCheckOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            /** Format: uuid */
+            readonly batch: string;
+            readonly batch_number: number;
+            readonly kind: components["schemas"]["CheckKind"];
+            readonly stage: components["schemas"]["CheckStage"];
+            /** Format: date */
+            readonly checked_on: string;
+            readonly performed_by: string;
+            readonly method: components["schemas"]["CheckMethod"];
+            readonly method_detail: string;
+            readonly result: components["schemas"]["CheckResult"];
+            /** Format: decimal */
+            readonly value: string | null;
+            readonly unit: components["schemas"]["CheckUnit"] | components["schemas"]["BlankEnum"];
+            /** Format: uuid */
+            readonly vial: string | null;
+            readonly vial_label: string | null;
+            readonly note: string;
+            readonly status: components["schemas"]["CheckStatus"];
+            /** Format: uuid */
+            readonly supersedes: string | null;
+            readonly reason: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /** @description A release or a hold: why, in a sentence. */
+        BatchDecisionInputRequest: {
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
         BatchOutput: {
             /** Format: uuid */
             readonly public_id: string;
@@ -874,14 +1011,19 @@ export interface components {
             /** Format: uuid */
             readonly passage: string;
             readonly passage_number: number;
-            readonly method: components["schemas"]["MethodEnum"];
+            readonly method: components["schemas"]["PreservationMethod"];
             readonly cryoprotectant: string;
             /** Format: date */
             readonly preserved_on: string;
             readonly purpose: components["schemas"]["PurposeEnum"];
             readonly status: components["schemas"]["BatchOutputStatusEnum"];
+            readonly status_reason: string;
+            /** Format: date-time */
+            readonly status_changed_at: string | null;
+            readonly latest_checks: components["schemas"]["LatestChecks"];
             readonly vial_count_created: number;
             readonly vials_available: number;
+            readonly vials_distributable: number;
             /** Format: date-time */
             readonly created_at: string;
         };
@@ -940,6 +1082,86 @@ export interface components {
             strain: string;
             accession_number: string;
         };
+        CheckErrorInputRequest: {
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
+        CheckInputRequest: {
+            /** Format: uuid */
+            batch: string;
+            kind: components["schemas"]["CheckKind"];
+            stage: components["schemas"]["CheckStage"];
+            /** Format: date */
+            checked_on: string;
+            method: components["schemas"]["CheckMethod"];
+            /** @default  */
+            method_detail: string;
+            result: components["schemas"]["CheckResult"];
+            /** Format: decimal */
+            value?: string | null;
+            unit?: (components["schemas"]["CheckUnit"] | components["schemas"]["NullEnum"]) | null;
+            /** Format: uuid */
+            vial?: string | null;
+            /**
+             * @description What was seen, in a sentence. Required for a reduced result. Name no person.
+             * @default
+             */
+            note: string;
+            /** Format: uuid */
+            supersedes?: string | null;
+            /**
+             * @description Why, in a sentence. Stored for good: name no person.
+             * @default
+             */
+            reason: string;
+        };
+        /**
+         * @description * `identity` - Identity
+         *     * `purity` - Purity
+         *     * `viability` - Viability
+         * @enum {string}
+         */
+        CheckKind: "identity" | "purity" | "viability";
+        /**
+         * @description * `morphology` - Colony and cell morphology
+         *     * `biochemical` - Biochemical profile
+         *     * `maldi_tof` - MALDI-TOF mass spectrometry
+         *     * `sequencing` - Gene sequencing
+         *     * `streak_plate` - Streak plate
+         *     * `microscopy` - Microscopy
+         *     * `growth` - Growth after revival
+         *     * `plate_count` - Plate count
+         *     * `live_dead_stain` - Live and dead staining
+         *     * `other` - Other
+         * @enum {string}
+         */
+        CheckMethod: "morphology" | "biochemical" | "maldi_tof" | "sequencing" | "streak_plate" | "microscopy" | "growth" | "plate_count" | "live_dead_stain" | "other";
+        /**
+         * @description * `pass` - Passed
+         *     * `reduced` - Reduced
+         *     * `fail` - Failed
+         * @enum {string}
+         */
+        CheckResult: "pass" | "reduced" | "fail";
+        /**
+         * @description * `after_preservation` - After preservation
+         *     * `periodic` - Periodic
+         *     * `before_dispatch` - Before dispatch
+         * @enum {string}
+         */
+        CheckStage: "after_preservation" | "periodic" | "before_dispatch";
+        /**
+         * @description * `valid` - Valid
+         *     * `entered_in_error` - Entered in error
+         * @enum {string}
+         */
+        CheckStatus: "valid" | "entered_in_error";
+        /**
+         * @description * `cfu_per_ml` - CFU/mL
+         *     * `percent` - %
+         * @enum {string}
+         */
+        CheckUnit: "cfu_per_ml" | "percent";
         ChildOutput: {
             /** Format: uuid */
             readonly public_id: string;
@@ -1318,6 +1540,15 @@ export interface components {
             readonly code: string;
             readonly my_role: components["schemas"]["Role"];
         };
+        /**
+         * @description The result of the batch's latest valid check of each kind, null when there is none
+         *     (selectors.batch_list).
+         */
+        LatestChecks: {
+            identity: (components["schemas"]["CheckResult"] | components["schemas"]["NullEnum"]) | null;
+            purity: (components["schemas"]["CheckResult"] | components["schemas"]["NullEnum"]) | null;
+            viability: (components["schemas"]["CheckResult"] | components["schemas"]["NullEnum"]) | null;
+        };
         Location: {
             /** Format: uuid */
             box: string;
@@ -1383,13 +1614,6 @@ export interface components {
         MemberRoleInputRequest: {
             role: components["schemas"]["Role"];
         };
-        /**
-         * @description * `cryo_minus80` - Frozen at -80 °C
-         *     * `cryo_ln2` - Frozen in liquid nitrogen
-         *     * `lyophilised` - Freeze-dried
-         * @enum {string}
-         */
-        MethodEnum: "cryo_minus80" | "cryo_ln2" | "lyophilised";
         MtaTemplateBrief: {
             /** Format: uuid */
             readonly public_id: string;
@@ -1426,6 +1650,21 @@ export interface components {
         };
         /** @enum {unknown} */
         NullEnum: null;
+        PaginatedBatchCheckOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["BatchCheckOutput"][];
+        };
         PaginatedBatchOutputList: {
             /** @example 123 */
             count: number;
@@ -1636,10 +1875,17 @@ export interface components {
             row: number;
             col: number;
         };
+        /**
+         * @description * `cryo_minus80` - Frozen at -80 °C
+         *     * `cryo_ln2` - Frozen in liquid nitrogen
+         *     * `lyophilised` - Freeze-dried
+         * @enum {string}
+         */
+        PreservationMethod: "cryo_minus80" | "cryo_ln2" | "lyophilised";
         PreserveInputRequest: {
             /** Format: uuid */
             passage: string;
-            method: components["schemas"]["MethodEnum"];
+            method: components["schemas"]["PreservationMethod"];
             purpose: components["schemas"]["PurposeEnum"];
             /** @default  */
             cryoprotectant: string;
@@ -2420,6 +2666,290 @@ export interface operations {
             };
         };
     };
+    labs_batch_checks_list: {
+        parameters: {
+            query?: {
+                batch?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+                strain?: string;
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedBatchCheckOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_batch_checks_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckInputRequest"];
+                "multipart/form-data": components["schemas"]["CheckInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchCheckOutput"];
+                };
+            };
+            /** @description Invalid input on a field: an unknown batch, vial or check to correct, a method that is not of the kind, a value without its unit, a reduced result without a note, a date in the future or before the batch was preserved */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description batch_exhausted; vial_not_available; check_entered_in_error; vial_not_in_collection */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_batch_checks_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchCheckOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_batch_checks_enter_in_error_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckErrorInputRequest"];
+                "multipart/form-data": components["schemas"]["CheckErrorInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchCheckOutput"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description batch_exhausted; vial_not_available; check_entered_in_error; vial_not_in_collection */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     labs_batches_list: {
         parameters: {
             query?: {
@@ -2592,6 +3122,176 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_batches_hold_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchDecisionInputRequest"];
+                "multipart/form-data": components["schemas"]["BatchDecisionInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchOutput"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description batch_exhausted */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_batches_release_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchDecisionInputRequest"];
+                "multipart/form-data": components["schemas"]["BatchDecisionInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchOutput"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description batch_exhausted */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required; checks_not_passed: the latest identity, purity or viability check is missing or failed */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

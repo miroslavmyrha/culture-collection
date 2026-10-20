@@ -200,6 +200,21 @@ VIAL_BARCODE_SET = register(EventType("vial_barcode_set", "{actor} set the barco
 VIAL_LOCATION_REVEALED = register(
     EventType("vial_location_revealed", "{actor} revealed where {subject} is stored")
 )
+# Checks of a batch and its release (#17, ADR 0008, D16). Every event names the strain. A batch
+# moved by a check records its status change with the check's words as the reason.
+BATCH_CHECK_RECORDED = register(
+    EventType("batch_check_recorded", "{actor} recorded a {kind} check of {subject}")
+)
+BATCH_CHECK_ENTERED_IN_ERROR = register(
+    EventType(
+        "batch_check_entered_in_error",
+        "{actor} entered a check of {subject} in error",
+        reason_required=True,
+    )
+)
+BATCH_STATUS_CHANGED = register(
+    EventType("batch_status_changed", "{actor} set {subject} to {status}", reason_required=True)
+)
 
 
 @dataclass(frozen=True)
@@ -500,6 +515,35 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "vial_count_created",
             "purpose",
             "status",
+            "status_reason",
+            "status_changed_at",
+        ),
+    ),
+    # #17. Method details, notes and reasons are free text that names nobody; performed_by is
+    # an internal user id, the person is reached only through users_user.
+    "lineage_batchcheck": RowAudit(
+        label="lineage.batchcheck",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "batch_id",
+            "kind",
+            "stage",
+            "checked_on",
+            "performed_by_id",
+            "method",
+            "method_detail",
+            "result",
+            "value",
+            "unit",
+            "vial_id",
+            "note",
+            "status",
+            "supersedes_id",
+            "reason",
         ),
     ),
     "lineage_vial": RowAudit(

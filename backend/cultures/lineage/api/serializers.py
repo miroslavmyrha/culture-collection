@@ -21,9 +21,18 @@ from cultures.core.api import ScopedRelatedField
 from cultures.labs.access import access_of
 from cultures.lineage import selectors
 from cultures.lineage.models import (
+    CHECK_VALUE_DIGITS,
+    CHECK_VALUE_PLACES,
     MAX_VIALS_PER_BATCH,
     Batch,
+    BatchCheck,
     BatchStatus,
+    CheckKind,
+    CheckMethod,
+    CheckResult,
+    CheckStage,
+    CheckStatus,
+    CheckUnit,
     Method,
     Passage,
     Purpose,
@@ -35,6 +44,7 @@ from cultures.lineage.services import MANUAL_TARGETS, Location, position_label
 from cultures.storage.models import StorageUnit
 
 REASON_HELP = "Why, in a sentence. Stored for good: name no person."
+NOTE_HELP = "What was seen, in a sentence. Required for a reduced result. Name no person."
 
 
 def passages_to_preserve(request: Request) -> QuerySet[Passage]:
@@ -82,6 +92,21 @@ class SubcultureInputSerializer(serializers.Serializer[None]):
     source_passage = ScopedRelatedField(model=Passage, scope=passages_to_preserve)
 
 
+class LatestChecksSerializer(serializers.Serializer[Batch]):
+    """The result of the batch's latest valid check of each kind, null when there is none
+    (selectors.batch_list)."""
+
+    identity = serializers.ChoiceField(
+        choices=CheckResult.choices, source="latest_identity", allow_null=True
+    )
+    purity = serializers.ChoiceField(
+        choices=CheckResult.choices, source="latest_purity", allow_null=True
+    )
+    viability = serializers.ChoiceField(
+        choices=CheckResult.choices, source="latest_viability", allow_null=True
+    )
+
+
 class BatchOutputSerializer(serializers.ModelSerializer[Batch]):
     strain = serializers.UUIDField(source="strain.public_id", read_only=True)
     passage = serializers.UUIDField(source="passage.public_id", read_only=True)
@@ -90,6 +115,9 @@ class BatchOutputSerializer(serializers.ModelSerializer[Batch]):
     purpose = serializers.ChoiceField(choices=Purpose.choices, read_only=True)
     status = serializers.ChoiceField(choices=BatchStatus.choices, read_only=True)
     vials_available = serializers.IntegerField(read_only=True)
+    # Available vials that may go out: of a released distribution batch, else 0.
+    vials_distributable = serializers.IntegerField(read_only=True)
+    latest_checks = LatestChecksSerializer(source="*", read_only=True)
 
     class Meta:
         model = Batch
@@ -104,11 +132,127 @@ class BatchOutputSerializer(serializers.ModelSerializer[Batch]):
             "preserved_on",
             "purpose",
             "status",
+            "status_reason",
+            "status_changed_at",
+            "latest_checks",
             "vial_count_created",
             "vials_available",
+            "vials_distributable",
             "created_at",
         )
         read_only_fields = fields
+
+
+class BatchDecisionInputSerializer(serializers.Serializer[None]):
+    """A release or a hold: why, in a sentence."""
+
+    reason = serializers.CharField(help_text=REASON_HELP)
+
+
+def batches_to_check(request: Request) -> QuerySet[Batch]:
+    return selectors.batches_to_check(access_of(request))
+
+
+def vials_to_check(request: Request) -> QuerySet[Vial]:
+    return selectors.vials_to_check(access_of(request))
+
+
+def checks_to_correct(request: Request) -> QuerySet[BatchCheck]:
+    return selectors.checks_to_correct(access_of(request))
+
+
+class BatchCheckOutputSerializer(serializers.ModelSerializer[BatchCheck]):
+    batch = serializers.UUIDField(source="batch.public_id", read_only=True)
+    batch_number = serializers.IntegerField(source="batch.number", read_only=True)
+    kind = serializers.ChoiceField(choices=CheckKind.choices, read_only=True)
+    stage = serializers.ChoiceField(choices=CheckStage.choices, read_only=True)
+    method = serializers.ChoiceField(choices=CheckMethod.choices, read_only=True)
+    result = serializers.ChoiceField(choices=CheckResult.choices, read_only=True)
+    unit = serializers.ChoiceField(choices=CheckUnit.choices, allow_blank=True, read_only=True)
+    status = serializers.ChoiceField(choices=CheckStatus.choices, read_only=True)
+    # The username of the person who made the check: shown to the lab's members, like the
+    # member list. The audit trail holds only the user's id.
+    performed_by = serializers.CharField(source="performed_by.username", read_only=True)
+    vial = serializers.UUIDField(
+        source="vial.public_id", read_only=True, allow_null=True, default=None
+    )
+    vial_label = serializers.SerializerMethodField()
+    supersedes = serializers.UUIDField(
+        source="supersedes.public_id", read_only=True, allow_null=True, default=None
+    )
+
+    class Meta:
+        model = BatchCheck
+        fields = (
+            "public_id",
+            "batch",
+            "batch_number",
+            "kind",
+            "stage",
+            "checked_on",
+            "performed_by",
+            "method",
+            "method_detail",
+            "result",
+            "value",
+            "unit",
+            "vial",
+            "vial_label",
+            "note",
+            "status",
+            "supersedes",
+            "reason",
+            "created_at",
+        )
+        read_only_fields = fields
+
+    def get_vial_label(self, check: BatchCheck) -> str | None:
+        if check.vial is None:
+            return None
+        return f"{check.batch.strain.accession_number} / {check.batch.number} / {check.vial.seq}"
+
+
+class CheckInputSerializer(serializers.Serializer[None]):
+    batch = ScopedRelatedField(model=Batch, scope=batches_to_check)
+    kind = serializers.ChoiceField(choices=CheckKind.choices)
+    stage = serializers.ChoiceField(choices=CheckStage.choices)
+    checked_on = serializers.DateField()
+    method = serializers.ChoiceField(choices=CheckMethod.choices)
+    method_detail = serializers.CharField(
+        max_length=200, required=False, allow_blank=True, default=""
+    )
+    result = serializers.ChoiceField(choices=CheckResult.choices)
+    value = serializers.DecimalField(
+        max_digits=CHECK_VALUE_DIGITS,
+        decimal_places=CHECK_VALUE_PLACES,
+        required=False,
+        allow_null=True,
+        default=None,
+    )
+    unit = serializers.ChoiceField(
+        choices=CheckUnit.choices, required=False, allow_null=True, default=None
+    )
+    vial = ScopedRelatedField(
+        model=Vial, scope=vials_to_check, required=False, allow_null=True, default=None
+    )
+    note = serializers.CharField(
+        max_length=2000, required=False, allow_blank=True, default="", help_text=NOTE_HELP
+    )
+    # A correction: the check this one replaces, entered in error with the reason.
+    supersedes = ScopedRelatedField(
+        model=BatchCheck,
+        scope=checks_to_correct,
+        required=False,
+        allow_null=True,
+        default=None,
+    )
+    reason = serializers.CharField(
+        max_length=2000, required=False, allow_blank=True, default="", help_text=REASON_HELP
+    )
+
+
+class CheckErrorInputSerializer(serializers.Serializer[None]):
+    reason = serializers.CharField(max_length=2000, help_text=REASON_HELP)
 
 
 class PreserveInputSerializer(serializers.Serializer[None]):

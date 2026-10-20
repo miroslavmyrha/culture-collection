@@ -4,8 +4,9 @@ import { describe, expect, it } from 'vitest'
 import { RejectDialog } from '@/features/deposits/components/DepositDialogs'
 import { RemoveMemberDialog } from '@/features/labs/components/RemoveMemberDialog'
 import { UnitStatusDialog } from '@/features/storage/components/UnitDialogs'
+import { CheckErrorDialog } from '@/features/vials/components/CheckDialogs'
 import { ReviveDialog } from '@/features/vials/components/VialDialogs'
-import { makeDeposit, makeMember, makeUnit, makeVial } from '@/test/factories'
+import { makeCheck, makeDeposit, makeMember, makeUnit, makeVial } from '@/test/factories'
 import { renderWithProviders } from '@/test/render'
 
 /**
@@ -69,6 +70,20 @@ const DESTRUCTIVE: Record<string, { render: () => ReactElement; name: string; co
     ),
     name: 'Revive vial MYC 42 / 1 / 3?',
     consequence: 'The vial is used up and leaves its position, and a new passage starts from it. This cannot be undone.',
+  },
+  '/src/features/vials/components/CheckDialogs.tsx': {
+    render: () => (
+      <CheckErrorDialog
+        labId="00000000-0000-4000-8000-00000000000a"
+        strainId="00000000-0000-4000-8000-0000000000d1"
+        check={makeCheck({ kind: 'purity', checked_on: '2026-10-02' })}
+        open
+        onClose={() => {}}
+        onExited={() => {}}
+      />
+    ),
+    name: 'Enter the purity check of 2026-10-02 in error?',
+    consequence: 'no longer counts for a release. A released batch that loses a passed check waits for its checks again. This cannot be undone.',
   },
 }
 

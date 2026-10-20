@@ -1,23 +1,27 @@
 """Every write on passages, batches, vials and placements (#16, ADR 0008 amendment of
-2026-10-19), and the reveal of a regulated location (ADR 0009 amendment of the same day).
+2026-10-19), the reveal of a regulated location (ADR 0009 amendment of the same day), and the
+checks of a batch with its release (#17, ADR 0008 amendment of 2026-10-20).
 
 Each service runs in audited_atomic() and records its events, each naming the strain
 (Change(strain_id=...), D13). Lock order, as everywhere: the lab row first
-(labs.locks.lock_lab), then the strain, then the vial, then the box. Under the lab lock each
-service re-reads the actor's role (vials.handle: technicians and up do the bench work), so a
-member demoted after the request built its access object is refused, and reads the strain's
-risk group, which changes only under the same lock. A refusal raises before anything is
-written, or rolls back what was, so it changes nothing and records nothing.
+(labs.locks.lock_lab), then the strain, then the batch, then the vial, then the box. Under
+the lab lock each service re-reads the actor's role (vials.handle: technicians and up do the
+bench work; batches.release: curators and up release and hold), so a member demoted after the
+request built its access object is refused, and reads the strain's risk group, which changes
+only under the same lock. A refusal raises before anything is written, or rolls back what
+was, so it changes nothing and records nothing.
 
-The database holds the same rules on its own (migration 0004): the vial's edges, the
-placement's box, lab and bounds, one open placement per vial and per position. The services
-check them first, so a person gets a message, not a server error.
+The database holds the same rules on its own (migrations 0004 and 0006): the vial's and the
+batch's edges, a release only after passed checks, the placement's box, lab and bounds, one
+open placement per vial and per position, checks that are only added. The services check
+them first, so a person gets a message, not a server error.
 """
 
 import unicodedata
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 from django.db import IntegrityError, transaction
@@ -27,7 +31,10 @@ from django.utils import timezone
 from cultures.audit.context import audited_atomic
 from cultures.audit.events import Change, record_batch, record_event
 from cultures.audit.registry import (
+    BATCH_CHECK_ENTERED_IN_ERROR,
+    BATCH_CHECK_RECORDED,
     BATCH_CREATED,
+    BATCH_STATUS_CHANGED,
     PASSAGE_CREATED,
     VIAL_BARCODE_SET,
     VIAL_CREATED,
@@ -51,14 +58,27 @@ from cultures.strains.models import Strain, StrainStatus
 from cultures.strains.selectors import regulating_restrictions
 
 from .models import (
+    BATCH_EDGES,
     BATCH_NUMBER_UNIQUE,
+    CHECK_VALUE_PLACES,
     EDGES,
+    MAX_PERCENT,
     MAX_VIALS_PER_BATCH,
+    METHODS_BY_KIND,
     NOT_IN_A_BOX,
     ONE_OPEN_PLACEMENT,
+    PASSING,
     POSITION_TAKEN,
     VIAL_BARCODE_UNIQUE,
     Batch,
+    BatchCheck,
+    BatchStatus,
+    CheckKind,
+    CheckMethod,
+    CheckResult,
+    CheckStage,
+    CheckStatus,
+    CheckUnit,
     Method,
     Passage,
     Purpose,
@@ -71,6 +91,7 @@ from .models import (
 PASSAGE = "passage"
 BATCH = "batch"
 VIAL = "vial"
+CHECK = "check"
 # The states a person sets through the vial form. Reserved and distributed belong to
 # distribution (#18, D19).
 MANUAL_TARGETS: frozenset[VialStatus] = frozenset(VialStatus) - {
@@ -594,6 +615,350 @@ def vial_set_barcode(*, access: Access, vial: Vial, barcode: str) -> Vial:
                 strain_id=locked.batch.strain.public_id,
             ),
         )
+    return locked
+
+
+# Checks of a batch and its release (#17, ADR 0008, D16, amendment of 2026-10-20).
+
+
+class InvalidCheck(DomainError):
+    """A field error (400 with the field): the form shows it there."""
+
+    default_code = "invalid"
+
+
+class BatchExhausted(Conflict):
+    default_code = "batch_exhausted"
+    default_detail = "This batch is exhausted: it is not checked, released or held any more."
+
+
+class BatchEdgeNotAllowed(Conflict):
+    default_code = "transition_not_allowed"
+
+
+class VialNotAvailable(Conflict):
+    default_code = "vial_not_available"
+    default_detail = "This vial is not available. Choose an available vial of the batch."
+
+
+class CheckEnteredInError(Conflict):
+    default_code = "check_entered_in_error"
+    default_detail = "This check was entered in error already."
+
+
+class ChecksNotPassed(RuleViolation):
+    default_code = "checks_not_passed"
+
+
+@dataclass(frozen=True)
+class NewCheck:
+    kind: CheckKind
+    stage: CheckStage
+    checked_on: date
+    method: CheckMethod
+    result: CheckResult
+    # The method in words: required for `other`.
+    method_detail: str = ""
+    value: Decimal | None = None
+    unit: CheckUnit | None = None
+    # The vial thawed or opened for the check: an available one is consumed by it.
+    vial: Vial | None = None
+    # What was seen: required for a reduced result.
+    note: str = ""
+
+
+VALUE_STEP = Decimal(1).scaleb(-CHECK_VALUE_PLACES)
+
+
+def kinds_text(kinds: list[CheckKind]) -> str:
+    """identity; identity and purity; identity, purity and viability."""
+    names = [kind.label.lower() for kind in kinds]
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+
+
+def _check_input(data: NewCheck) -> NewCheck:
+    detail = normalised(data.method_detail)
+    note = data.note.strip()
+    if data.method not in METHODS_BY_KIND[data.kind]:
+        raise InvalidCheck(
+            f"{data.method.label} is not a method of a {data.kind.label.lower()} check.",
+            attr="method",
+        )
+    if data.method == CheckMethod.OTHER and not detail:
+        raise InvalidCheck("Describe the method.", code="required", attr="method_detail")
+    if (data.value is None) != (data.unit is None):
+        missing = "unit" if data.unit is None else "value"
+        raise InvalidCheck(
+            "Give the value with its unit, or neither.", code="required", attr=missing
+        )
+    if data.value is not None and data.value < 0:
+        raise InvalidCheck("A value is 0 or more.", attr="value")
+    if data.unit == CheckUnit.PERCENT and data.value is not None and data.value > MAX_PERCENT:
+        raise InvalidCheck("A percentage is at most 100.", attr="value")
+    if data.result == CheckResult.REDUCED and not note:
+        raise InvalidCheck("Say what was reduced.", code="required", attr="note")
+    if data.checked_on > permit_today():
+        raise InvalidCheck("This date is in the future.", attr="checked_on")
+    return NewCheck(
+        kind=data.kind,
+        stage=data.stage,
+        checked_on=data.checked_on,
+        method=data.method,
+        result=data.result,
+        method_detail=detail,
+        # As the column stores it, so the event holds the stored value.
+        value=None if data.value is None else data.value.quantize(VALUE_STEP),
+        unit=data.unit,
+        vial=data.vial,
+        note=note,
+    )
+
+
+def _locked_batch(batch_id: int) -> Batch:
+    """The batch as committed now, locked: its status is decided under it."""
+    locked = (
+        Batch.objects.select_for_update(of=("self",))
+        .select_related("strain")
+        .filter(pk=batch_id)
+        .first()
+    )
+    if locked is None:
+        raise NotFound
+    return locked
+
+
+def latest_checks(batch: Batch) -> dict[CheckKind, BatchCheck]:
+    """The latest valid check of each kind of the batch: by the day checked, then the order
+    recorded. A kind never checked, or whose checks were all entered in error, is missing."""
+    rows = (
+        BatchCheck.objects.filter(batch=batch, status=CheckStatus.VALID)
+        .order_by("kind", "-checked_on", "-pk")
+        .distinct("kind")
+    )
+    return {CheckKind(row.kind): row for row in rows}
+
+
+def not_passed(latest: dict[CheckKind, BatchCheck]) -> list[CheckKind]:
+    """The kinds whose latest valid check did not pass (reduced counts as passed): the release
+    rule of ADR 0008, D16."""
+    return [k for k in CheckKind if k not in latest or latest[k].result not in PASSING]
+
+
+def _move_batch(locked: Batch, status: BatchStatus, reason: str) -> None:
+    """Caller holds the lab lock and the batch's row. One step along BATCH_EDGES, recorded."""
+    old = BatchStatus(locked.status)
+    if status not in BATCH_EDGES[old]:
+        raise BatchEdgeNotAllowed(
+            f"A batch cannot go from {old.label.lower()} to {status.label.lower()}."
+        )
+    locked.status, locked.status_reason, locked.status_changed_at = status, reason, timezone.now()
+    locked.save(update_fields=["status", "status_reason", "status_changed_at", "updated_at"])
+    record_event(
+        BATCH_STATUS_CHANGED,
+        Change(
+            BATCH,
+            locked.public_id,
+            {"status": [old, status]},
+            lab_id=locked.lab_id,
+            strain_id=locked.strain.public_id,
+        ),
+        reason=reason,
+    )
+
+
+def _settle(locked: Batch) -> None:
+    """After a check was recorded or entered in error, the moves the checks make on their own,
+    only towards safety: the latest valid check of a kind failed, so the batch is held; a
+    released batch lost a passed check it was released on, so it waits for its checks again.
+    Never a release: that is a curator's decision."""
+    latest = latest_checks(locked)
+    failed = [k for k in CheckKind if k in latest and latest[k].result == CheckResult.FAIL]
+    if failed and locked.status in {BatchStatus.PENDING_CHECK, BatchStatus.RELEASED}:
+        days = sorted({latest[k].checked_on.isoformat() for k in failed})
+        _move_batch(
+            locked,
+            BatchStatus.ON_HOLD,
+            f"The {kinds_text(failed)} check of {', '.join(days)} failed.",
+        )
+    elif not failed and locked.status == BatchStatus.RELEASED and not_passed(latest):
+        _move_batch(
+            locked,
+            BatchStatus.PENDING_CHECK,
+            f"No valid {kinds_text(not_passed(latest))} check is left after a correction.",
+        )
+
+
+def _enter_in_error(check: BatchCheck, reason: str, batch: Batch) -> None:
+    check.status, check.reason = CheckStatus.ENTERED_IN_ERROR, reason
+    check.save(update_fields=["status", "reason", "updated_at"])
+    record_event(
+        BATCH_CHECK_ENTERED_IN_ERROR,
+        Change(
+            CHECK,
+            check.public_id,
+            {"status": [CheckStatus.VALID, CheckStatus.ENTERED_IN_ERROR]},
+            lab_id=batch.lab_id,
+            strain_id=batch.strain.public_id,
+        ),
+        reason=reason,
+    )
+
+
+def check_record(
+    *,
+    access: Access,
+    batch: Batch,
+    data: NewCheck,
+    supersedes: BatchCheck | None = None,
+    reason: str = "",
+) -> BatchCheck:
+    """One check of a batch, by the person who made it. An available vial named as the one
+    checked is consumed; a vial another check of this batch consumed may serve again (one
+    plate shows growth and purity). A check that supersedes another enters that one in error
+    with the reason. Then the batch moves when the checks ask for it (_settle)."""
+    data = _check_input(data)
+    if supersedes is not None:
+        reason = _check_reason(reason)
+    with audited_atomic():
+        lock_lab(batch.lab_id)
+        _require(access, batch.lab_id)
+        locked = _locked_batch(batch.pk)
+        if locked.status == BatchStatus.EXHAUSTED:
+            raise BatchExhausted
+        if data.checked_on < locked.preserved_on:
+            raise InvalidCheck(
+                f"The batch was preserved on {locked.preserved_on.isoformat()}: a check is not"
+                " dated before.",
+                attr="checked_on",
+            )
+        old = None
+        if supersedes is not None:
+            old = BatchCheck.objects.select_for_update().filter(pk=supersedes.pk).first()
+            if old is None or old.batch_id != locked.pk or old.kind != data.kind:
+                raise InvalidCheck(
+                    "Invalid check: a check corrects one of the same batch and kind.",
+                    code="does_not_exist",
+                    attr="supersedes",
+                )
+            if old.status != CheckStatus.VALID:
+                raise CheckEnteredInError
+        vial = None
+        if data.vial is not None:
+            vial = _locked_vial(data.vial)
+            if vial.batch_id != locked.pk:
+                raise InvalidCheck("Invalid vial.", code="does_not_exist", attr="vial")
+            if vial.status == VialStatus.AVAILABLE:
+                _transition(
+                    vial,
+                    VialStatus.CONSUMED,
+                    f"Used for a {data.kind.label.lower()} check of batch {locked.number}.",
+                    access,
+                )
+            elif not (
+                vial.status == VialStatus.CONSUMED and BatchCheck.objects.filter(vial=vial).exists()
+            ):
+                raise VialNotAvailable
+        check = BatchCheck.objects.create(
+            lab_id=locked.lab_id,
+            batch=locked,
+            kind=data.kind,
+            stage=data.stage,
+            checked_on=data.checked_on,
+            performed_by=access.user,
+            method=data.method,
+            method_detail=data.method_detail,
+            result=data.result,
+            value=data.value,
+            unit=data.unit or "",
+            vial=vial,
+            note=data.note,
+            supersedes=old,
+        )
+        values: dict[str, Any] = {
+            "batch": str(locked.public_id),
+            "kind": check.kind,
+            "stage": check.stage,
+            "checked_on": check.checked_on.isoformat(),
+            "method": check.method,
+            "method_detail": check.method_detail,
+            "result": check.result,
+            "value": None if check.value is None else str(check.value),
+            "unit": check.unit,
+            "vial": _ref(vial),
+            "note": check.note,
+            "supersedes": _ref(old),
+        }
+        record_event(
+            BATCH_CHECK_RECORDED,
+            Change(
+                CHECK,
+                check.public_id,
+                {k: [None, v] for k, v in values.items()},
+                lab_id=locked.lab_id,
+                strain_id=locked.strain.public_id,
+            ),
+        )
+        if old is not None:
+            _enter_in_error(old, reason, locked)
+        _settle(locked)
+    return check
+
+
+def check_enter_in_error(*, access: Access, check: BatchCheck, reason: str) -> BatchCheck:
+    """A check that was wrong (the wrong batch, a typing error) leaves the release rule, with a
+    reason. The row stays. A released batch that lost a passed check waits for its checks again."""
+    reason = _check_reason(reason)
+    with audited_atomic():
+        lock_lab(check.lab_id)
+        _require(access, check.lab_id)
+        locked = _locked_batch(check.batch_id)
+        row = BatchCheck.objects.select_for_update().filter(pk=check.pk).first()
+        if row is None:
+            raise NotFound
+        if row.status != CheckStatus.VALID:
+            raise CheckEnteredInError
+        _enter_in_error(row, reason, locked)
+        if locked.status != BatchStatus.EXHAUSTED:
+            _settle(locked)
+    return row
+
+
+def batch_release(*, access: Access, batch: Batch, reason: str) -> Batch:
+    """A curator releases a batch for use: only while the latest valid identity, purity and
+    viability checks passed (reduced counts as passed, its check says why). Released again
+    changes nothing."""
+    reason = _check_reason(reason)
+    with audited_atomic():
+        lock_lab(batch.lab_id)
+        _require(access, batch.lab_id, Perm.RELEASE_BATCHES)
+        locked = _locked_batch(batch.pk)
+        if locked.status == BatchStatus.RELEASED:
+            return locked
+        if locked.status == BatchStatus.EXHAUSTED:
+            raise BatchExhausted
+        missing = not_passed(latest_checks(locked))
+        if missing:
+            raise ChecksNotPassed(
+                "A batch is released once its latest identity, purity and viability checks"
+                f" passed. Not passed yet: {kinds_text(missing)}."
+            )
+        _move_batch(locked, BatchStatus.RELEASED, reason)
+    return locked
+
+
+def batch_hold(*, access: Access, batch: Batch, reason: str) -> Batch:
+    """A curator holds a batch: nothing of it is distributed until a release. Held again
+    changes nothing."""
+    reason = _check_reason(reason)
+    with audited_atomic():
+        lock_lab(batch.lab_id)
+        _require(access, batch.lab_id, Perm.RELEASE_BATCHES)
+        locked = _locked_batch(batch.pk)
+        if locked.status == BatchStatus.ON_HOLD:
+            return locked
+        if locked.status == BatchStatus.EXHAUSTED:
+            raise BatchExhausted
+        _move_batch(locked, BatchStatus.ON_HOLD, reason)
     return locked
 
 

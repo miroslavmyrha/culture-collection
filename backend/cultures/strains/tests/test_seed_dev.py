@@ -25,7 +25,7 @@ from cultures.labs import services as labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, LocationGrant, Membership
 from cultures.labs.permissions import Role
-from cultures.lineage.models import Batch, Passage, Vial, VialPlacement
+from cultures.lineage.models import Batch, BatchCheck, BatchStatus, Passage, Vial, VialPlacement
 from cultures.storage.models import KIND_SPEC, BoxType, StorageUnit, UnitKind, may_hold
 from cultures.storage.policy import may_store
 from cultures.strains import services as strains
@@ -112,7 +112,8 @@ def state() -> dict[str, Any]:
         "box_types": rows(BoxType, "name", "rows", "cols"),
         "units": rows(StorageUnit, "lab__code", "name", "parent__name", "status", "updated_at"),
         "passages": rows(Passage, "strain__name_as_received", "number"),
-        "batches": rows(Batch, "strain__name_as_received", "number", "status"),
+        "batches": rows(Batch, "strain__name_as_received", "number", "status", "updated_at"),
+        "checks": rows(BatchCheck, "batch__number", "kind", "result", "status"),
         "vials": rows(Vial, "batch__number", "seq", "status", "updated_at"),
         "placements": rows(VialPlacement, "box__name", "row", "col", "removed_at"),
         "grants": rows(LocationGrant, "user__username", "revoked_at"),
@@ -663,8 +664,12 @@ def test_it_preserves_batches_and_places_their_vials_through_the_lineage_service
     assert f"Batches: {len(BATCHES)} created, 0 found." in out
     assert Batch.objects.count() == len(BATCHES)
     assert Vial.objects.count() == sum(row["vial_count"] for row in BATCHES)
-    placed = VialPlacement.objects.filter(removed_at__isnull=True)
+    # Every vial of a batch with a box was placed; the checks used some up since (closed).
+    placed = VialPlacement.objects.all()
     assert placed.count() == sum(row["vial_count"] for row in BATCHES if row["box"])
+    assert set(
+        placed.filter(removed_at__isnull=False).values_list("removal_reason", flat=True)
+    ) <= {"consumed"}
     for row in BATCHES:
         if not row["box"]:
             continue
@@ -682,6 +687,67 @@ def test_it_preserves_batches_and_places_their_vials_through_the_lineage_service
     assert set(Vial.objects.values_list("batch__strain", flat=True)) <= from_deposits
     again = seed()
     assert f"Batches: 0 created, {len(BATCHES)} found." in again
+
+
+CHECKS: list[dict[str, Any]] = DATA["checks"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_it_records_checks_and_releases_through_the_lineage_services() -> None:
+    out = seed()
+    assert f"Checks: {len(CHECKS)} created, 0 found." in out
+    assert BatchCheck.objects.count() == len(CHECKS)
+    assert set(BatchCheck.objects.values_list("performed_by__username", flat=True)) == {
+        "bac-technician",
+        "myc-technician",
+    }
+    statuses = {
+        (b.lab.code, b.number): b.status for b in Batch.objects.filter(lab__code__in=["BAC", "MYC"])
+    }
+    assert statuses == {
+        ("BAC", 1): BatchStatus.RELEASED,
+        ("BAC", 2): BatchStatus.RELEASED,
+        ("BAC", 3): BatchStatus.PENDING_CHECK,
+        ("MYC", 1): BatchStatus.ON_HOLD,
+    }
+    events = Counter(AuditEvent.objects.values_list("event_type", flat=True))
+    assert events["batch_check_recorded"] == len(CHECKS)
+    assert events["batch_status_changed"] == 3  # two releases and the hold by a failed check
+    named = {(row["lab"], row["batch"], row["vial"]) for row in CHECKS if row["vial"]}
+    used = set(
+        BatchCheck.objects.filter(vial__isnull=False).values_list(
+            "lab__code", "batch__number", "vial__seq"
+        )
+    )
+    assert used == named
+    assert set(Vial.objects.filter(checks__isnull=False).values_list("status", flat=True)) == {
+        "consumed"
+    }
+    again = seed()
+    assert f"Checks: 0 created, {len(CHECKS)} found." in again
+    assert (
+        Counter(AuditEvent.objects.values_list("event_type", flat=True))["batch_status_changed"]
+        == 3
+    )
+
+
+def test_every_check_names_a_listed_batch_and_a_vial_it_has() -> None:
+    batches: dict[tuple[str, str], list[dict[str, Any]]] = {
+        (row["lab"], row["deposit"]): [] for row in BATCHES
+    }
+    for row in BATCHES:
+        batches[(row["lab"], row["deposit"])].append(row)
+    for row in [*CHECKS, *DATA["releases"]]:
+        listed = batches[(row["lab"], row["deposit"])]
+        assert 1 <= row["batch"] <= len(listed), row
+    for row in CHECKS:
+        batch = batches[(row["lab"], row["deposit"])][row["batch"] - 1]
+        assert row["checked_on"] >= batch["preserved_on"], row
+        assert row["vial"] is None or 1 <= row["vial"] <= batch["vial_count"], row
+        # Checks name no real organism's results as facts: a failure only on invented taxa.
+        if row["result"] == "fail":
+            assert row["deposit"].startswith(("Testella", "Mockia", "Fictivibrio")), row
 
 
 @pytest.mark.django_db

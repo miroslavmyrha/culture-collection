@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, acceptedStrain, api, batch, freezerWithBoxes, labId, openLab, openStrain, openUnit, receivedDeposit, setupAs } from './walk.js'
+import { RUN, Walk, acceptedStrain, api, batch, batchOf, freezerWithBoxes, labId, openLab, openStrain, openUnit, passAll, receivedDeposit, setupAs } from './walk.js'
 
 // A curator of Bacteriology (seed_dev): intake, identification, storage and the strain's record.
 const LAB = 'Bacteriology'
@@ -165,15 +165,34 @@ test('C7 move the racks out of a failing freezer and put it out of service', asy
 })
 
 test('C8 release a batch after its checks', async ({ browser }, info) => {
+  // A batch of this run, its three checks recorded by the lab's technician.
+  const name = `Bacillus subtilis release ${RUN}`
+  const setup = await setupAs(browser, 'bac-curator')
+  const lab = await labId(setup.page, LAB)
+  const strain = await acceptedStrain(setup.page, lab, name, 'Bacillus subtilis')
+  const made = await batchOf(setup.page, lab, strain.passage, 3)
+  await setup.close()
+  const bench = await setupAs(browser, 'bac-technician')
+  await passAll(bench.page, lab, made.id, made.vials[0]?.id ?? '')
+  await bench.close()
+
   const w = await Walk.as(browser, info, 'bac-curator', curator('C8', 'Release a batch after its purity and viability checks'))
   await w.start()
   await openLab(w, LAB)
-  await openStrain(w, 'soil isolate DEP-1', /soil isolate DEP-1/)
+  await openStrain(w, name, new RegExp(name))
   const batches = w.page.getByRole('table', { name: 'Batches' })
-  await expect(batches.getByRole('row', { name: /Pending check/ }).first()).toBeVisible()
-  w.look()
-  await expect(batches.getByRole('button')).toHaveCount(0)
-  w.impossible('Every batch stays "Pending check": there is no check to record and no release', '#17')
+  await w.read(batches)
+  await expect(batches.getByRole('row', { name: /All checks passed\. A curator releases it\./ })).toBeVisible()
+  await w.click(batches.getByRole('button', { name: 'Checks of batch 1' }))
+  await expect(w.page.getByRole('list', { name: 'Checks of batch 1', exact: true }).getByRole('listitem')).toHaveCount(3)
+  w.look() // the latest result of each kind and the history
+  await w.click(w.page.getByRole('button', { name: 'Release' }))
+  const dialog = w.page.getByRole('dialog', { name: 'Release batch 1' })
+  await w.keys('Identity, purity and viability after preservation passed.')
+  await w.click(dialog.getByRole('button', { name: 'Release batch' }))
+  await expect(w.page.getByRole('heading', { level: 3, name: 'Batch 1: Released' })).toBeFocused()
+  await w.shot('released')
+  w.note('Nothing tells the curator that a batch waits for release: it is found strain by strain, and the reason is typed although the checks already say it', '#69')
   await w.done()
 })
 

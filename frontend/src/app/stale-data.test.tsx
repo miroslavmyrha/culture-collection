@@ -6,6 +6,7 @@ import { allowConsole } from '@/test/console'
 import {
   makeBatch,
   makeBoxGrid,
+  makeCheck,
   makeDeposit,
   makeDepositor,
   makeDepositRow,
@@ -181,6 +182,22 @@ const SCREENS: Screen[] = [
     what: 'the batches',
     data: strainPage,
     type: (user) => dialogField(user, 'Preserve a batch', 'Protectant'),
+  },
+  {
+    name: 'BatchChecks, with the record check dialog',
+    role: 'technician',
+    path: `/labs/${LAB_ID}/strains/${STRAIN_ID}`,
+    fails: '/api/v1/labs/{lab_public_id}/batch-checks/',
+    what: 'the checks',
+    data: () => {
+      strainPage()
+      mockApi('get', '/api/v1/labs/{lab_public_id}/batch-checks/', page([makeCheck()]))
+    },
+    type: async (user) => {
+      await user.click(await screen.findByRole('button', { name: 'Checks of batch 1' }, { timeout: 5000 }))
+      await screen.findByRole('list', { name: 'Checks of batch 1' })
+      return dialogField(user, 'Record a check', 'Note')
+    },
   },
   {
     name: 'StrainList, with a typed search',

@@ -2,6 +2,7 @@
   "batch_list": 6,
   "box_grid": 6,
   "box_list": 6,
+  "check_list": 6,
   "passage_list": 6,
   "vial_list": 9
 }

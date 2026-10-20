@@ -8,7 +8,7 @@ export type Vial = Schemas['VialOutput']
 export type Location = Schemas['Location']
 export type VialStatus = Schemas['VialStatus']
 export type ManualStatus = Schemas['VialStatusInputStatusEnum']
-export type Method = Schemas['MethodEnum']
+export type Method = Schemas['PreservationMethod']
 export type Purpose = Schemas['PurposeEnum']
 export type BatchStatus = Schemas['BatchOutputStatusEnum']
 export type Role = Schemas['Role']
@@ -16,9 +16,18 @@ export type Unit = Schemas['UnitOutput']
 export type BoxGrid = Schemas['BoxGridOutput']
 export type BoxPosition = Schemas['BoxPosition']
 export type BoxVial = Schemas['BoxVial']
+export type BatchCheck = Schemas['BatchCheckOutput']
+export type CheckKind = Schemas['CheckKind']
+export type CheckStage = Schemas['CheckStage']
+export type CheckMethod = Schemas['CheckMethod']
+export type CheckResult = Schemas['CheckResult']
+export type CheckUnit = Schemas['CheckUnit']
 
 /** Technicians and up do the bench work (vials.handle). The server decides; this only hides. */
 export const canHandleVials = (role: Role | undefined): boolean => role === 'technician' || role === 'curator' || role === 'manager'
+
+/** Curators and up release and hold batches (batches.release). The server decides; this only hides. */
+export const canReleaseBatches = (role: Role | undefined): boolean => role === 'curator' || role === 'manager'
 
 export const METHOD_LABELS: Record<Method, string> = {
   cryo_minus80: 'Frozen at -80 °C',
@@ -143,3 +152,120 @@ export type StatusForm = z.input<typeof statusSchema>
 /** What the scanner sends or a person types to find a vial: its barcode or its label. */
 export const findSchema = z.object({ code: required('Scan or type the label or barcode').max(200, 'Use at most 200 characters') })
 export type FindForm = z.input<typeof findSchema>
+
+// Checks of a batch (#17, ADR 0008, D16). The vocabularies mirror lineage.models; the server
+// checks every rule again.
+export const CHECK_KINDS: readonly CheckKind[] = ['identity', 'purity', 'viability']
+export const KIND_LABELS: Record<CheckKind, string> = { identity: 'Identity', purity: 'Purity', viability: 'Viability' }
+export const STAGE_LABELS: Record<CheckStage, string> = {
+  after_preservation: 'After preservation',
+  periodic: 'Periodic',
+  before_dispatch: 'Before dispatch',
+}
+export const RESULT_LABELS: Record<CheckResult, string> = { pass: 'Passed', reduced: 'Reduced', fail: 'Failed' }
+export const CHECK_METHOD_LABELS: Record<CheckMethod, string> = {
+  morphology: 'Colony and cell morphology',
+  biochemical: 'Biochemical profile',
+  maldi_tof: 'MALDI-TOF mass spectrometry',
+  sequencing: 'Gene sequencing',
+  streak_plate: 'Streak plate',
+  microscopy: 'Microscopy',
+  growth: 'Growth after revival',
+  plate_count: 'Plate count',
+  live_dead_stain: 'Live and dead staining',
+  other: 'Other',
+}
+export const METHODS_BY_KIND: Record<CheckKind, readonly CheckMethod[]> = {
+  identity: ['morphology', 'biochemical', 'maldi_tof', 'sequencing', 'other'],
+  purity: ['streak_plate', 'microscopy', 'other'],
+  viability: ['growth', 'plate_count', 'live_dead_stain', 'other'],
+}
+export const UNIT_LABELS: Record<CheckUnit, string> = { cfu_per_ml: 'CFU/mL', percent: '%' }
+
+/** Reduced counts as passed for a release; its check says what was seen. */
+const PASSING: readonly (CheckResult | null)[] = ['pass', 'reduced']
+
+/** The kinds whose latest valid check did not pass: what stands between the batch and a release. */
+export const notPassed = (batch: Batch): CheckKind[] => CHECK_KINDS.filter((kind) => !PASSING.includes(batch.latest_checks[kind]))
+
+/** identity; identity and purity; identity, purity and viability. */
+export function kindsText(kinds: readonly CheckKind[]): string {
+  const names = kinds.map((kind) => KIND_LABELS[kind].toLowerCase())
+  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names.at(-1) ?? ''}`
+}
+
+/** Why the batch has its status, in a sentence: what it waits for, or the recorded reason. */
+export function batchStatusReason(batch: Batch): string {
+  if (batch.status === 'pending_check') {
+    const missing = notPassed(batch)
+    if (missing.length === 0) return 'All checks passed. A curator releases it.'
+    return `Waiting for a passed ${kindsText(missing)} check.`
+  }
+  return batch.status_reason
+}
+
+/** A batch a curator may release now: pending or on hold, and its latest checks passed. */
+export const mayRelease = (batch: Batch): boolean => (batch.status === 'pending_check' || batch.status === 'on_hold') && notPassed(batch).length === 0
+/** A batch a curator may hold now. */
+export const mayHold = (batch: Batch): boolean => batch.status === 'pending_check' || batch.status === 'released'
+
+/** How a check reads in the history: method and detail, value and unit, the vial, the person. */
+export function checkDetails(check: BatchCheck): string {
+  const method = check.method_detail ? `${CHECK_METHOD_LABELS[check.method]} (${check.method_detail})` : CHECK_METHOD_LABELS[check.method]
+  const parts = [method]
+  if (check.value !== null && check.unit !== '') parts.push(`${formatValue(check.value)} ${UNIT_LABELS[check.unit]}`)
+  if (check.vial_label) parts.push(`vial ${check.vial_label}`)
+  parts.push(STAGE_LABELS[check.stage].toLowerCase(), `by ${check.performed_by}`)
+  return parts.join(', ')
+}
+
+/** A stored decimal without its trailing zeros: "250000000.0000" reads 250000000, "12.5000" 12.5. */
+export const formatValue = (value: string) => (value.includes('.') ? value.replace(/\.?0+$/, '') : value)
+
+const NUMBER = /^\d+(\.\d{1,4})?([eE]\d{1,2})?$/
+
+export const checkSchema = z
+  .object({
+    kind: z.enum(['identity', 'purity', 'viability'], 'Choose the kind'),
+    stage: z.enum(['after_preservation', 'periodic', 'before_dispatch'], 'Choose the stage'),
+    checked_on: z.iso.date('Enter a date as YYYY-MM-DD').refine((d) => d <= today(), 'This date is in the future'),
+    method: z.enum(['morphology', 'biochemical', 'maldi_tof', 'sequencing', 'streak_plate', 'microscopy', 'growth', 'plate_count', 'live_dead_stain', 'other'], 'Choose the method'),
+    method_detail: z.string().trim().max(200, 'Use at most 200 characters'),
+    result: z.enum(['pass', 'reduced', 'fail'], 'Choose the result'),
+    value: z.string().trim().refine((v) => v === '' || NUMBER.test(v), 'Enter a number, as 12.5 or 2.1e8'),
+    unit: z.enum(['', 'cfu_per_ml', 'percent']),
+    vial: z.string(),
+    note: z.string().trim().max(2000, 'Use at most 2000 characters'),
+  })
+  .superRefine((form, ctx) => {
+    if (!METHODS_BY_KIND[form.kind].includes(form.method)) ctx.addIssue({ code: 'custom', path: ['method'], message: 'Choose a method of this kind' })
+    if (form.method === 'other' && form.method_detail === '') ctx.addIssue({ code: 'custom', path: ['method_detail'], message: 'Describe the method' })
+    if (form.value !== '' && form.unit === '') ctx.addIssue({ code: 'custom', path: ['unit'], message: 'Choose the unit of the value' })
+    if (form.value === '' && form.unit !== '') ctx.addIssue({ code: 'custom', path: ['value'], message: 'Enter the value, or no unit' })
+    if (form.unit === 'percent' && NUMBER.test(form.value) && Number(form.value) > 100) ctx.addIssue({ code: 'custom', path: ['value'], message: 'A percentage is at most 100' })
+    if (form.result === 'reduced' && form.note === '') ctx.addIssue({ code: 'custom', path: ['note'], message: 'Say what was reduced' })
+  })
+export type CheckForm = z.input<typeof checkSchema>
+export type CheckValues = z.output<typeof checkSchema>
+
+/** A new check of the batch: the first kind it still waits for, after preservation if it has none yet. */
+export function emptyCheck(batch: Batch): CheckForm {
+  const kind = notPassed(batch)[0] ?? 'viability'
+  const checked = CHECK_KINDS.some((k) => batch.latest_checks[k] !== null)
+  return {
+    kind,
+    stage: checked ? 'periodic' : 'after_preservation',
+    checked_on: today(),
+    method: METHODS_BY_KIND[kind][0] ?? 'other',
+    method_detail: '',
+    result: 'pass',
+    value: '',
+    unit: '',
+    vial: '',
+    note: '',
+  }
+}
+
+/** A release, a hold or a check entered in error: why, in a sentence. */
+export const decisionSchema = z.object({ reason: reasonSchema })
+export type DecisionForm = z.input<typeof decisionSchema>

@@ -74,6 +74,8 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     "lineage_batch": ("SELECT", "INSERT", "UPDATE"),
     "lineage_vial": ("SELECT", "INSERT", "UPDATE"),
     "lineage_vialplacement": ("SELECT", "INSERT", "UPDATE"),
+    # #17: a check is only added, and its one change is being entered in error (a trigger).
+    "lineage_batchcheck": ("SELECT", "INSERT", "UPDATE"),
     # ADR 0009: a location grant is revoked, never deleted.
     "labs_locationgrant": ("SELECT", "INSERT", "UPDATE"),
     # Storage units are retired, never deleted: events and, from #16, placements point at

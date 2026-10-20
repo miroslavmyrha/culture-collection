@@ -35,6 +35,10 @@ depositors, MTA templates and deposits):
   one from a subculture (passage 1); REG's strain from its deposit is regulated
   (a RAT, invented taxon), so its vials' places are masked, and reg-manager holds
   the lab's location grant to reveal them.
+- checks of those batches, recorded by each lab's technician (some consume the
+  vial they name), and releases by the lab's curator: two BAC batches released,
+  one freeze-dried BAC batch with a reduced viability check and nothing else yet,
+  and MYC's batch (invented taxon) held by a failed purity check.
 Every user gets the same password. Every write goes through the services in one
 transaction, inside an audit context (channel command, actor kind system,
 label command:seed_dev). A second run finds what exists and changes nothing.
@@ -43,12 +47,15 @@ A depositor is found by its lab and contact name, an MTA version by its lab, cod
 and version, and a deposit by its lab and name as received; a deposit found is
 never moved on. A storage unit is found by its lab, its parent and its name, and
 is never changed again. A strain that has as many batches as the file lists gets
-none, and an open location grant is kept as found.
+none, a batch that has as many checks as the file lists gets none, a release is
+made only for a batch still pending its checks, and an open location grant is
+kept as found.
 """
 
 import json
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -76,7 +83,20 @@ from cultures.labs.access import Access, access_for
 from cultures.labs.models import Lab, LocationGrant, Membership
 from cultures.labs.permissions import Role
 from cultures.lineage import services as lineage
-from cultures.lineage.models import Batch, Method, Passage, Purpose
+from cultures.lineage.models import (
+    Batch,
+    BatchCheck,
+    BatchStatus,
+    CheckKind,
+    CheckMethod,
+    CheckResult,
+    CheckStage,
+    CheckUnit,
+    Method,
+    Passage,
+    Purpose,
+    Vial,
+)
 from cultures.storage import services as storage
 from cultures.storage.models import BoxType, StorageUnit, UnitKind, UnitStatus
 from cultures.strains import services as strains
@@ -198,6 +218,11 @@ class Command(BaseCommand):
                 self.batches = Counts()
                 for (code, deposit), rows in _by_deposit(data["batches"]).items():
                     self._batches(lab_by_code[code], deposit, rows)
+                self.checks = Counts()
+                for (code, deposit, number), rows in _by_batch(data["checks"]).items():
+                    self._checks(lab_by_code[code], deposit, number, rows)
+                for row in data["releases"]:
+                    self._release(lab_by_code[row["lab"]], row)
                 for row in data["location_grants"]:
                     self._location_grant(lab_by_code[row["lab"]], row)
         self._report(data)
@@ -530,6 +555,47 @@ class Command(BaseCommand):
             )
             self.batches.created += 1
 
+    # Checks of batches and their release (#17): checks by the technician (the bench work), in
+    # the order of the file; a release by the curator.
+
+    def _batch(self, lab: Lab, deposit_name: str, number: int) -> Batch:
+        return Batch.objects.get(
+            lab=lab, strain__deposit__name_as_received=deposit_name, number=number
+        )
+
+    def _checks(self, lab: Lab, deposit_name: str, number: int, rows: list[dict[str, Any]]) -> None:
+        technician = User.objects.get(username=lab_username(lab.code, Role.TECHNICIAN))
+        access = access_for(technician)
+        batch = self._batch(lab, deposit_name, number)
+        made = BatchCheck.objects.filter(batch=batch).count()
+        self.checks.found += min(made, len(rows))
+        for row in rows[made:]:
+            vial = Vial.objects.get(batch=batch, seq=row["vial"]) if row["vial"] else None
+            lineage.check_record(
+                access=access,
+                batch=batch,
+                data=lineage.NewCheck(
+                    kind=CheckKind(row["kind"]),
+                    stage=CheckStage(row["stage"]),
+                    checked_on=date.fromisoformat(row["checked_on"]),
+                    method=CheckMethod(row["method"]),
+                    result=CheckResult(row["result"]),
+                    method_detail=row["method_detail"],
+                    value=None if row["value"] is None else Decimal(row["value"]),
+                    unit=None if row["unit"] is None else CheckUnit(row["unit"]),
+                    vial=vial,
+                    note=row["note"],
+                ),
+            )
+            self.checks.created += 1
+
+    def _release(self, lab: Lab, row: dict[str, Any]) -> None:
+        batch = self._batch(lab, row["deposit"], row["batch"])
+        if batch.status != BatchStatus.PENDING_CHECK:
+            return
+        curator = User.objects.get(username=lab_username(lab.code, Role.CURATOR))
+        lineage.batch_release(access=access_for(curator), batch=batch, reason=row["reason"])
+
     def _passage(self, access: Access, strain: Strain, number: int) -> Passage:
         """The strain's passage with this number, grown by subculture from the one before."""
         found = Passage.objects.filter(strain=strain, number=number).order_by("pk").first()
@@ -565,6 +631,7 @@ class Command(BaseCommand):
         out(f"Deposits: {self.deposits.created} created, {self.deposits.found} found.")
         out(f"Storage units: {self.units.created} created, {self.units.found} found.")
         out(f"Batches: {self.batches.created} created, {self.batches.found} found.")
+        out(f"Checks: {self.checks.created} created, {self.checks.found} found.")
         out("Logins, all with the password you gave:")
         out(f"  {ADMIN:<16} staff and superuser (Django admin), in no lab")
         for row in data["labs"]:
@@ -620,6 +687,14 @@ def _by_deposit(rows: list[dict[str, Any]]) -> dict[tuple[str, str], list[dict[s
     groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for row in rows:
         groups.setdefault((row["lab"], row["deposit"]), []).append(row)
+    return groups
+
+
+def _by_batch(rows: list[dict[str, Any]]) -> dict[tuple[str, str, int], list[dict[str, Any]]]:
+    """Check rows by lab, deposit and batch number, in the order of the file."""
+    groups: dict[tuple[str, str, int], list[dict[str, Any]]] = {}
+    for row in rows:
+        groups.setdefault((row["lab"], row["deposit"], row["batch"]), []).append(row)
     return groups
 
 

@@ -19,7 +19,7 @@ from cultures.labs.management.commands.seed_e2e import (
 )
 from cultures.labs.models import Lab, LocationGrant, Membership
 from cultures.labs.permissions import Role
-from cultures.lineage.models import Vial
+from cultures.lineage.models import Batch, BatchStatus, Vial
 from cultures.storage.models import BoxType, StorageUnit
 from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
@@ -48,7 +48,7 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
         " technician and viewer;"
         " e2e-colleague is in no lab; 8 taxa; a depositor, MTA STD and one accepted deposit;"
         " 2 box types; E2E freezer > Rack 1 > Box 1; a regulated strain with two vials in"
-        " Box R, revealed by e2e-user\n"
+        " Box R, revealed by e2e-user; a released batch of the seeded strain\n"
     )
     user = User.objects.get(username="e2e-user")
     lab = Lab.objects.get(code=LAB_CODE)
@@ -100,6 +100,15 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
     ]
     grant = LocationGrant.objects.get(lab=lab, revoked_at__isnull=True)
     assert grant.user == user
+    (released,) = Batch.objects.filter(strain=deposit.strain, status=BatchStatus.RELEASED)
+    assert (released.purpose, released.vial_count_created) == ("distribution", 2)
+    assert sorted(
+        released.checks.values_list("kind", "result", "performed_by__username", "vial__seq")
+    ) == [
+        ("identity", "pass", TECHNICIAN, 1),
+        ("purity", "pass", TECHNICIAN, 1),
+        ("viability", "pass", TECHNICIAN, 1),
+    ]
 
 
 @pytest.mark.usefixtures("env")
@@ -145,6 +154,12 @@ def test_its_writes_are_audited_as_the_command() -> None:
         *["vial_placed"] * 2,
         "vials_placed",
         "location_grant_added",
+        "batch_created",
+        *["vial_created"] * 2,
+        "vials_created",
+        "vial_status_changed",  # the first vial, used for the checks
+        *["batch_check_recorded"] * 3,
+        "batch_status_changed",
     ]
     assert {(e.channel, e.actor_kind, e.actor_label, e.actor_id) for e in events} == {
         (Channel.COMMAND, ActorKind.SYSTEM, "command:seed_e2e", None)

@@ -2163,6 +2163,142 @@
       ]
     }
   ],
+  "checks": [
+    {
+      "lab": "BAC",
+      "deposit": "Bacillus subtilis soil isolate DEP-1",
+      "batch": 1,
+      "kind": "viability",
+      "stage": "after_preservation",
+      "checked_on": "2026-09-15",
+      "method": "growth",
+      "method_detail": "TSA, 30 °C, 24 h",
+      "result": "pass",
+      "value": null,
+      "unit": null,
+      "vial": 5,
+      "note": ""
+    },
+    {
+      "lab": "BAC",
+      "deposit": "Bacillus subtilis soil isolate DEP-1",
+      "batch": 1,
+      "kind": "purity",
+      "stage": "after_preservation",
+      "checked_on": "2026-09-15",
+      "method": "streak_plate",
+      "method_detail": "TSA, 30 °C, 48 h",
+      "result": "pass",
+      "value": null,
+      "unit": null,
+      "vial": 5,
+      "note": ""
+    },
+    {
+      "lab": "BAC",
+      "deposit": "Bacillus subtilis soil isolate DEP-1",
+      "batch": 1,
+      "kind": "identity",
+      "stage": "after_preservation",
+      "checked_on": "2026-09-18",
+      "method": "sequencing",
+      "method_detail": "16S rRNA gene, Sanger",
+      "result": "pass",
+      "value": null,
+      "unit": null,
+      "vial": 5,
+      "note": ""
+    },
+    {
+      "lab": "BAC",
+      "deposit": "Bacillus subtilis soil isolate DEP-1",
+      "batch": 2,
+      "kind": "viability",
+      "stage": "after_preservation",
+      "checked_on": "2026-09-22",
+      "method": "plate_count",
+      "method_detail": "TSA, 30 °C, 48 h",
+      "result": "pass",
+      "value": "210000000",
+      "unit": "cfu_per_ml",
+      "vial": 11,
+      "note": ""
+    },
+    {
+      "lab": "BAC",
+      "deposit": "Bacillus subtilis soil isolate DEP-1",
+      "batch": 2,
+      "kind": "purity",
+      "stage": "after_preservation",
+      "checked_on": "2026-09-22",
+      "method": "streak_plate",
+      "method_detail": "TSA, 30 °C, 48 h",
+      "result": "pass",
+      "value": null,
+      "unit": null,
+      "vial": 11,
+      "note": ""
+    },
+    {
+      "lab": "BAC",
+      "deposit": "Bacillus subtilis soil isolate DEP-1",
+      "batch": 2,
+      "kind": "identity",
+      "stage": "after_preservation",
+      "checked_on": "2026-09-23",
+      "method": "maldi_tof",
+      "method_detail": "",
+      "result": "pass",
+      "value": null,
+      "unit": null,
+      "vial": null,
+      "note": ""
+    },
+    {
+      "lab": "BAC",
+      "deposit": "Bacillus subtilis soil isolate DEP-1",
+      "batch": 3,
+      "kind": "viability",
+      "stage": "after_preservation",
+      "checked_on": "2026-09-30",
+      "method": "growth",
+      "method_detail": "TSA, 30 °C",
+      "result": "reduced",
+      "value": null,
+      "unit": null,
+      "vial": 6,
+      "note": "Colonies after 72 h instead of 24 h, few of them."
+    },
+    {
+      "lab": "MYC",
+      "deposit": "Testella cerea DEP-5",
+      "batch": 1,
+      "kind": "purity",
+      "stage": "after_preservation",
+      "checked_on": "2026-08-06",
+      "method": "streak_plate",
+      "method_detail": "MEA, 25 °C, 5 days",
+      "result": "fail",
+      "value": null,
+      "unit": null,
+      "vial": 8,
+      "note": "A second colony type on the plate."
+    }
+  ],
+  "releases": [
+    {
+      "lab": "BAC",
+      "deposit": "Bacillus subtilis soil isolate DEP-1",
+      "batch": 1,
+      "reason": "Identity, purity and viability after preservation passed."
+    },
+    {
+      "lab": "BAC",
+      "deposit": "Bacillus subtilis soil isolate DEP-1",
+      "batch": 2,
+      "reason": "Identity, purity and viability after preservation passed."
+    }
+  ],
   "location_grants": [
     {
       "lab": "REG",

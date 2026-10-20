@@ -27,6 +27,9 @@ Brings the database to this state, whatever it was before:
   restriction (invented reference), whose two vials lie in E2E freezer > Rack 1 > Box R, so
   their places are masked; the e2e user holds the lab's location grant and reveals them,
   e2e-curator does not. The batch is made once, found by its strain.
+- for the check tests (#17): a released batch of the seeded B. subtilis strain, two vials of
+  distribution stock, with a passed identity, purity and viability check recorded by
+  e2e-technician on its first vial and released by e2e-curator. Made once, found by its status.
 Strains and storage units the tests created stay: numbers are never reused, and neither a
 strain nor a unit is ever deleted.
 A second run changes nothing. Every user, lab and membership write goes
@@ -59,7 +62,18 @@ from cultures.labs.access import access_for
 from cultures.labs.models import Lab, LocationGrant, Membership
 from cultures.labs.permissions import Role
 from cultures.lineage import services as lineage
-from cultures.lineage.models import Batch, Method, Passage, Purpose
+from cultures.lineage.models import (
+    Batch,
+    BatchStatus,
+    CheckKind,
+    CheckMethod,
+    CheckResult,
+    CheckStage,
+    Method,
+    Passage,
+    Purpose,
+    Vial,
+)
 from cultures.storage import services as storage
 from cultures.storage.models import BoxType, StorageUnit, UnitKind
 from cultures.strains import services as strains
@@ -138,12 +152,18 @@ class Command(BaseCommand):
                     storage.box_type_create(name=name, rows=rows, cols=cols)
             self._storage(lab, User.objects.get(username=CURATOR))
             self._regulated(lab, curator=User.objects.get(username=CURATOR), manager=user)
+            self._released(
+                lab,
+                curator=User.objects.get(username=CURATOR),
+                technician=User.objects.get(username=TECHNICIAN),
+            )
         self.stdout.write(
             f"{username} manages {lab.name}; {CURATOR}, {TECHNICIAN} and {VIEWER} are its"
             " curator, technician and viewer;"
             f" {COLLEAGUE} is in no lab; {len(TAXA)} taxa; a depositor, MTA STD and"
             f" one accepted deposit; {len(BOX_TYPES)} box types; {FREEZER} > Rack 1 > Box 1;"
-            f" a regulated strain with two vials in {REGULATED_BOX}, revealed by {username}"
+            f" a regulated strain with two vials in {REGULATED_BOX}, revealed by {username};"
+            " a released batch of the seeded strain"
         )
 
     def _taxon(  # noqa: PLR0917 (one row of TAXA, spread)
@@ -303,6 +323,46 @@ class Command(BaseCommand):
                 membership=Membership.objects.get(lab=lab, user=manager),
                 reason="Keeps the register of the e2e lab (invented example).",
             )
+
+    def _released(self, lab: Lab, *, curator: User, technician: User) -> None:
+        """A batch of the seeded strain, checked by the technician and released by the curator."""
+        strain = Deposit.objects.get(lab=lab, name_as_received=SEEDED_DEPOSIT).strain
+        assert strain is not None  # noqa: S101 (accepted in _deposit)
+        if Batch.objects.filter(strain=strain, status=BatchStatus.RELEASED).exists():
+            return
+        bench = access_for(technician)
+        batch = lineage.batch_preserve(
+            access=bench,
+            passage=Passage.objects.get(strain=strain, number=0),
+            data=lineage.NewBatch(
+                method=Method.CRYO_MINUS80,
+                purpose=Purpose.DISTRIBUTION,
+                preserved_on=date(2026, 10, 3),
+                vial_count=2,
+                cryoprotectant="10 % glycerol",
+            ),
+        )
+        vial = Vial.objects.get(batch=batch, seq=1)
+        for kind, method in (
+            (CheckKind.IDENTITY, CheckMethod.SEQUENCING),
+            (CheckKind.PURITY, CheckMethod.STREAK_PLATE),
+            (CheckKind.VIABILITY, CheckMethod.GROWTH),
+        ):
+            lineage.check_record(
+                access=bench,
+                batch=batch,
+                data=lineage.NewCheck(
+                    kind=kind,
+                    stage=CheckStage.AFTER_PRESERVATION,
+                    checked_on=date(2026, 10, 5),
+                    method=method,
+                    result=CheckResult.PASS,
+                    vial=vial,
+                ),
+            )
+        lineage.batch_release(
+            access=access_for(curator), batch=batch, reason="All three checks passed."
+        )
 
     def _user(self, username: str, password: str | None) -> User:
         """An active user with this password (None: no usable one), changed only where needed."""

@@ -94,12 +94,27 @@ class Purpose(models.TextChoices):
 
 
 class BatchStatus(models.TextChoices):
-    """A batch starts pending its checks. Release and hold come with the checks (#17)."""
+    """A batch starts pending its checks (ADR 0008, D16, amendment of 2026-10-20)."""
 
     PENDING_CHECK = "pending_check", "Pending check"
     RELEASED = "released", "Released"
     ON_HOLD = "on_hold", "On hold"
     EXHAUSTED = "exhausted", "Exhausted"
+
+
+B = BatchStatus
+# Which batch status may follow which. The batch trigger (migration 0006) refuses every other
+# pair, and tests/test_batch_states.py tries all 16 against both. A curator releases from
+# pending_check or on_hold, and holds from pending_check or released. The checks move a batch
+# on their own only towards safety: to on_hold when the latest check of a kind failed, and from
+# released back to pending_check when a check it was released on is entered in error. Exhausted
+# is set by distribution or the last vial leaving (#18).
+BATCH_EDGES: dict[BatchStatus, frozenset[BatchStatus]] = {
+    B.PENDING_CHECK: frozenset({B.RELEASED, B.ON_HOLD, B.EXHAUSTED}),
+    B.RELEASED: frozenset({B.ON_HOLD, B.PENDING_CHECK, B.EXHAUSTED}),
+    B.ON_HOLD: frozenset({B.RELEASED, B.EXHAUSTED}),
+    B.EXHAUSTED: frozenset(),
+}
 
 
 class Batch(PublicModel):
@@ -119,6 +134,11 @@ class Batch(PublicModel):
     status = models.CharField(
         max_length=20, choices=BatchStatus.choices, default=BatchStatus.PENDING_CHECK
     )
+    # Why the batch has its status, from the first change on: the curator's reason for a release
+    # or a hold, or the check that moved it. Free text that names no person.
+    status_reason = models.TextField(blank=True, db_default="")
+    # Null until the first change of status.
+    status_changed_at = models.DateTimeField(null=True, blank=True)
 
     objects = LabScopedQuerySet["Batch"].as_manager()
 
@@ -145,6 +165,16 @@ class Batch(PublicModel):
             models.CheckConstraint(
                 condition=Q(cryoprotectant="") | Q(cryoprotectant__regex=TRIMMED),
                 name="lineage_batch_cryoprotectant_trimmed",
+            ),
+            # Pending its checks as made, without a reason; every later status has one.
+            models.CheckConstraint(
+                condition=Q(
+                    status=BatchStatus.PENDING_CHECK,
+                    status_changed_at__isnull=True,
+                    status_reason="",
+                )
+                | Q(status_changed_at__isnull=False, status_reason__regex=r"\S"),
+                name="lineage_batch_status_reason_once_changed",
             ),
         ]
 
@@ -302,3 +332,176 @@ class VialPlacement(PublicModel):
 
     def __str__(self) -> str:
         return f"{self.vial_id} in {self.box_id} at {self.row},{self.col}"
+
+
+# Checks of a batch (#17, ADR 0008, D16): identity, purity and viability, each an append-only
+# row. OECD BRC guidelines, General 10.3, and WFCC guidelines 8.2 to 8.5: identity is confirmed
+# after receipt, before and after preservation, at intervals and at dispatch, not viability alone.
+
+
+class CheckKind(models.TextChoices):
+    IDENTITY = "identity", "Identity"
+    PURITY = "purity", "Purity"
+    VIABILITY = "viability", "Viability"
+
+
+class CheckStage(models.TextChoices):
+    """When in the batch's life the check was made. Receipt is the deposit's check (#12)."""
+
+    AFTER_PRESERVATION = "after_preservation", "After preservation"
+    PERIODIC = "periodic", "Periodic"
+    BEFORE_DISPATCH = "before_dispatch", "Before dispatch"
+
+
+class CheckResult(models.TextChoices):
+    """Reduced: the culture grows and is pure, but less than expected (fewer colonies, a slower
+    start). It counts as passed for a release, and the check says what was seen (a note)."""
+
+    PASS = "pass", "Passed"
+    REDUCED = "reduced", "Reduced"
+    FAIL = "fail", "Failed"
+
+
+PASSING: frozenset[CheckResult] = frozenset({CheckResult.PASS, CheckResult.REDUCED})
+
+
+class CheckMethod(models.TextChoices):
+    """A short list per kind (METHODS_BY_KIND), and `other` with the method described."""
+
+    MORPHOLOGY = "morphology", "Colony and cell morphology"
+    BIOCHEMICAL = "biochemical", "Biochemical profile"
+    MALDI_TOF = "maldi_tof", "MALDI-TOF mass spectrometry"
+    SEQUENCING = "sequencing", "Gene sequencing"
+    STREAK_PLATE = "streak_plate", "Streak plate"
+    MICROSCOPY = "microscopy", "Microscopy"
+    GROWTH = "growth", "Growth after revival"
+    PLATE_COUNT = "plate_count", "Plate count"
+    LIVE_DEAD_STAIN = "live_dead_stain", "Live and dead staining"
+    OTHER = "other", "Other"
+
+
+M = CheckMethod
+METHODS_BY_KIND: dict[CheckKind, tuple[CheckMethod, ...]] = {
+    CheckKind.IDENTITY: (M.MORPHOLOGY, M.BIOCHEMICAL, M.MALDI_TOF, M.SEQUENCING, M.OTHER),
+    CheckKind.PURITY: (M.STREAK_PLATE, M.MICROSCOPY, M.OTHER),
+    CheckKind.VIABILITY: (M.GROWTH, M.PLATE_COUNT, M.LIVE_DEAD_STAIN, M.OTHER),
+}
+
+
+class CheckUnit(models.TextChoices):
+    CFU_PER_ML = "cfu_per_ml", "CFU/mL"
+    PERCENT = "percent", "%"
+
+
+class CheckStatus(models.TextChoices):
+    """A check is never changed or deleted. A wrong one is entered in error with a reason, and
+    a correction is a new row that supersedes it."""
+
+    VALID = "valid", "Valid"
+    ENTERED_IN_ERROR = "entered_in_error", "Entered in error"
+
+
+# The largest value: 10^12 CFU/mL is beyond any culture.
+CHECK_VALUE_DIGITS, CHECK_VALUE_PLACES = 16, 4
+MAX_PERCENT = 100
+
+
+class BatchCheck(PublicModel):
+    """One check of one batch. Rows are only added; the one change a row takes is being entered
+    in error (the guard trigger of migration 0006)."""
+
+    lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="+")
+    # No index of its own: lineage_batchcheck_latest_idx leads with it.
+    batch = models.ForeignKey(
+        Batch, on_delete=models.PROTECT, related_name="checks", db_index=False
+    )
+    kind = models.CharField(max_length=20, choices=CheckKind.choices)
+    stage = models.CharField(max_length=20, choices=CheckStage.choices)
+    checked_on = models.DateField()  # a Czech day, not before preservation, not in the future
+    performed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    method = models.CharField(max_length=20, choices=CheckMethod.choices)
+    # The method in words: required for `other`, else optional ("16S rRNA gene, Sanger").
+    method_detail = models.CharField(max_length=200, blank=True)
+    result = models.CharField(max_length=20, choices=CheckResult.choices)
+    value = models.DecimalField(
+        max_digits=CHECK_VALUE_DIGITS, decimal_places=CHECK_VALUE_PLACES, null=True, blank=True
+    )
+    unit = models.CharField(max_length=20, choices=CheckUnit.choices, blank=True)
+    # The vial thawed or opened for the check: consumed by it. One vial may serve the checks of
+    # several kinds (one plate shows growth and purity).
+    vial = models.ForeignKey(
+        Vial, on_delete=models.PROTECT, related_name="checks", null=True, blank=True
+    )
+    # What was seen, in a sentence: required for a reduced result. Names no person.
+    note = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=CheckStatus.choices, default=CheckStatus.VALID)
+    # The row this one corrects: that row is entered in error in the same transaction.
+    supersedes = models.OneToOneField(
+        "self", on_delete=models.PROTECT, related_name="superseded_by", null=True, blank=True
+    )
+    # Why the row was entered in error, set with that status. Names no person.
+    reason = models.TextField(blank=True)
+
+    objects = LabScopedQuerySet["BatchCheck"].as_manager()
+
+    class Meta(PublicModel.Meta):
+        constraints = [
+            *PublicModel.Meta.constraints,
+            models.CheckConstraint(
+                condition=Q(kind__in=CheckKind.values), name="lineage_batchcheck_kind_valid"
+            ),
+            models.CheckConstraint(
+                condition=Q(stage__in=CheckStage.values), name="lineage_batchcheck_stage_valid"
+            ),
+            models.CheckConstraint(
+                condition=Q(result__in=CheckResult.values),
+                name="lineage_batchcheck_result_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(kind=CheckKind.IDENTITY, method__in=METHODS_BY_KIND[CheckKind.IDENTITY])
+                | Q(kind=CheckKind.PURITY, method__in=METHODS_BY_KIND[CheckKind.PURITY])
+                | Q(kind=CheckKind.VIABILITY, method__in=METHODS_BY_KIND[CheckKind.VIABILITY]),
+                name="lineage_batchcheck_method_of_kind",
+            ),
+            models.CheckConstraint(
+                condition=Q(method_detail="") | Q(method_detail__regex=TRIMMED),
+                name="lineage_batchcheck_method_detail_trimmed",
+            ),
+            models.CheckConstraint(
+                condition=~Q(method=CheckMethod.OTHER) | ~Q(method_detail=""),
+                name="lineage_batchcheck_other_described",
+            ),
+            models.CheckConstraint(
+                condition=Q(value__isnull=True, unit="")
+                | Q(value__isnull=False, value__gte=0, unit__in=CheckUnit.values),
+                name="lineage_batchcheck_value_with_unit",
+            ),
+            # A missing value is lineage_batchcheck_value_with_unit's to refuse.
+            models.CheckConstraint(
+                condition=~Q(unit=CheckUnit.PERCENT)
+                | Q(value__isnull=True)
+                | Q(value__isnull=False, value__lte=MAX_PERCENT),
+                name="lineage_batchcheck_percent_range",
+            ),
+            models.CheckConstraint(
+                condition=~Q(result=CheckResult.REDUCED) | Q(note__regex=r"\S"),
+                name="lineage_batchcheck_reduced_has_note",
+            ),
+            # Also the only statuses there are: valid, or entered in error with a reason.
+            models.CheckConstraint(
+                condition=Q(status=CheckStatus.VALID, reason="")
+                | Q(status=CheckStatus.ENTERED_IN_ERROR, reason__regex=r"\S"),
+                name="lineage_batchcheck_reason_iff_in_error",
+            ),
+        ]
+        indexes = [
+            # The latest valid check of each kind of a batch (selectors.latest_checks).
+            models.Index(
+                fields=["batch", "kind", "-checked_on", "-id"], name="lineage_batchcheck_latest_idx"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.kind} check of {self.batch_id}"

@@ -3,7 +3,7 @@ import re
 import django_filters
 from django.db.models import Q, QuerySet
 
-from .models import Batch, Passage, Vial
+from .models import Batch, BatchCheck, Passage, Vial
 
 # A vial's label as printed: "<accession number> / <batch> / <seq>" ("MYC 42 / 1 / 3"). The
 # spaces around the slashes may be missing, as a person types it.
@@ -27,6 +27,15 @@ class BatchFilter(django_filters.FilterSet):  # type: ignore[misc]
     class Meta:
         model = Batch
         fields = ("strain",)
+
+
+class BatchCheckFilter(django_filters.FilterSet):  # type: ignore[misc]
+    batch = django_filters.UUIDFilter(field_name="batch__public_id")
+    strain = django_filters.UUIDFilter(field_name="batch__strain__public_id")
+
+    class Meta:
+        model = BatchCheck
+        fields = ("batch", "strain")
 
 
 class VialFilter(django_filters.FilterSet):  # type: ignore[misc]

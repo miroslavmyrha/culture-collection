@@ -4,7 +4,7 @@ import { LabGate } from '@/features/labs/components/LabGate'
 import { StrainDetail } from '@/features/strains/components/StrainDetail'
 import { canManageStrains } from '@/features/strains/schemas'
 import { StrainMaterial } from '@/features/vials/components/StrainMaterial'
-import { canHandleVials } from '@/features/vials/schemas'
+import { canHandleVials, canReleaseBatches } from '@/features/vials/schemas'
 
 const route = getRouteApi('/_authenticated/labs/$labId/strains/$strainId')
 
@@ -30,6 +30,7 @@ export function StrainDetailPage() {
                   strainId={strain.public_id}
                   accession={strain.accession_number ?? 'the strain'}
                   canHandle={canHandleVials(lab.my_role)}
+                  canRelease={canReleaseBatches(lab.my_role)}
                 />
               )}
             />

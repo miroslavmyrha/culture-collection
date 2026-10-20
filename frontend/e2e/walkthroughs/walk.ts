@@ -333,6 +333,22 @@ export async function batch(page: Page, lab: string, passage: string, options: {
   return vials.toSorted((a, b) => Number(a.seq) - Number(b.seq)).map((v) => field(v, 'label'))
 }
 
+/** A batch of distribution stock of the passage, not placed: its id and its vials in seq order. */
+export async function batchOf(page: Page, lab: string, passage: string, count: number) {
+  const body: Row = { passage, method: 'cryo_minus80', purpose: 'distribution', cryoprotectant: '10 % glycerol', preserved_on: today(), vial_count: count }
+  const id = field(await api(page, lab, 'batches/', body), 'public_id')
+  const vials = rows(await api(page, lab, `vials/?batch=${id}&limit=200`)).toSorted((a, b) => Number(a.seq) - Number(b.seq))
+  return { id, vials: vials.map((v) => ({ id: field(v, 'public_id'), label: field(v, 'label') })) }
+}
+
+/** A passed identity, purity and viability check of the batch, recorded by the page's user (#17). */
+export async function passAll(page: Page, lab: string, batchId: string, vial: string) {
+  const methods = { identity: 'sequencing', purity: 'streak_plate', viability: 'growth' }
+  for (const [kind, method] of Object.entries(methods)) {
+    await api(page, lab, 'batch-checks/', { batch: batchId, kind, stage: 'after_preservation', checked_on: today(), method, result: 'pass', vial })
+  }
+}
+
 /** From Home to a lab's page, the way every task starts: Labs, then the lab. */
 export async function openLab(w: Walk, lab: string) {
   await w.click(w.page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Labs' }))

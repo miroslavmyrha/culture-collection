@@ -10,6 +10,11 @@ export function vialError(error: unknown): string {
   if (isApiError(error, 409) && error.code === 'strain_not_active') return 'The strain is not active: nothing is grown or preserved from it.'
   if (isApiError(error, 409) && (error.code === 'batch_number_taken' || error.code === 'vial_placed_meanwhile'))
     return 'Someone changed this at the same moment. Reload and try again.'
+  if (isApiError(error, 409) && error.code === 'vial_not_available') return 'This vial is not available any more. Choose another one, or none.'
+  if (isApiError(error, 409) && error.code === 'batch_exhausted') return 'This batch is exhausted: it is not checked, released or held any more.'
+  if (isApiError(error, 409) && error.code === 'check_entered_in_error') return 'This check was entered in error already. Reload to see it.'
+  if (isApiError(error, 422) && error.code === 'checks_not_passed') return 'A batch is released once its latest identity, purity and viability checks passed. Reload to see its checks.'
+  if (isApiError(error, 409) && error.code === 'transition_not_allowed') return 'The batch changed meanwhile. Reload and try again.'
   if (isApiError(error, 403) && error.code === 'location_grant_required') return "Only people the lab's managers named may see where regulated strains are."
   return errorMessage(error)
 }
