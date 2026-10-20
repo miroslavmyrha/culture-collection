@@ -17,6 +17,20 @@ export const signedInUsers = [username, 'e2e-curator', 'e2e-technician', 'e2e-vi
 export const signedInAs = (user: string) => fileURLToPath(new URL(`./.auth/${user}.json`, import.meta.url))
 
 /**
+ * Signs a user in through the login form and keeps the session in signedInAs(user). The setup
+ * projects call it once per user and run (auth.setup.ts, walkthroughs/walk.setup.ts), so every
+ * spec and walkthrough reuses the session instead of signing in again.
+ */
+export async function signIn(page: Page, user: string, secret: string) {
+  await page.goto('/login')
+  await page.getByLabel('Username').fill(user)
+  await page.getByLabel('Password').fill(secret)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
+  await page.context().storageState({ path: signedInAs(user) })
+}
+
+/**
  * Collects CSP and Trusted Types violations from every document the page loads: console errors
  * and securitypolicyviolation events. The binding sends each event to the test at once, so a
  * reload or goto does not drop what an earlier document reported (a window variable read at

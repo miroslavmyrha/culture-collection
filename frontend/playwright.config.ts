@@ -6,6 +6,8 @@ const port = Number(process.env.E2E_PORT ?? 4173)
 // CSP header, proxying /api to a running backend (VITE_API_PROXY).
 export default defineConfig({
   testDir: './e2e',
+  // The role walkthroughs run on demand with their own config (npm run walkthroughs).
+  testIgnore: ['walkthroughs/**'],
   // One retry on CI only: a flaky test shows up as "flaky" in the report instead of
   // failing the run. Locally a failure stays a failure.
   retries: process.env.CI ? 1 : 0,
