@@ -1,6 +1,7 @@
 import { type QueryClient, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { components } from '@/api/schema'
 import { api, ensureCsrf, unwrap } from '@/lib/api'
+import { sharedKeys } from '@/lib/shared-keys'
 import { strainKeys } from './keys'
 
 type Schemas = components['schemas']
@@ -8,10 +9,16 @@ type Strain = Schemas['StrainDetailOutput']
 
 // Each form and dialog shows its own failure (meta.handlesError), so the global message stays
 // quiet. A write answers with the strain's detail: it goes into the cache as is, and the lab's
-// lists are invalidated; the returned promise keeps the mutation pending until they are fresh.
+// lists are invalidated. So are the strain's material and the lab's box grids (shared keys): a
+// restriction decides whether a vial's location shows, and the grids show the accession, the
+// taxon and masked positions. The returned promise keeps the mutation pending until all are fresh.
 function settle(qc: QueryClient, labId: string, strain: Strain) {
   qc.setQueryData(strainKeys.detail(labId, strain.public_id), strain)
-  return qc.invalidateQueries({ queryKey: strainKeys.lists(labId) })
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: strainKeys.lists(labId) }),
+    qc.invalidateQueries({ queryKey: sharedKeys.strainMaterial(labId, strain.public_id) }),
+    qc.invalidateQueries({ queryKey: sharedKeys.boxGrids(labId) }),
+  ])
 }
 
 const path = (labId: string, strainId: string) => ({ path: { lab_public_id: labId, public_id: strainId } })

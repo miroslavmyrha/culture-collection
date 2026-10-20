@@ -1,13 +1,15 @@
+import { sharedKeys } from '@/lib/shared-keys'
 import type { StrainListParams } from '../schemas'
 
 /**
  * Hierarchical, per lab: a write invalidates the lab's lists() and sets its detail. Every
- * filter and page value is in list(params), so two filters never share a cache entry.
+ * filter and page value is in list(params), so two filters never share a cache entry. The lab
+ * and its lists are shared roots (lib/shared-keys): accepting a deposit adds a strain.
  */
 export const strainKeys = {
   all: ['strains'] as const,
-  lab: (labId: string) => [...strainKeys.all, labId] as const,
-  lists: (labId: string) => [...strainKeys.lab(labId), 'list'] as const,
+  lab: sharedKeys.strains,
+  lists: sharedKeys.strainLists,
   list: (labId: string, params: StrainListParams) => [...strainKeys.lists(labId), params] as const,
   details: (labId: string) => [...strainKeys.lab(labId), 'detail'] as const,
   detail: (labId: string, strainId: string) => [...strainKeys.details(labId), strainId] as const,

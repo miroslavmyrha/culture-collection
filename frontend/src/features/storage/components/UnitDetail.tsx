@@ -1,5 +1,6 @@
 import { type MouseEvent, type ReactNode, useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
+import { StaleNotice } from '@/components/StaleNotice'
 import { Box, Button, Link, PageTitle, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { type FocusReturn, rememberFocus } from '@/lib/focus'
@@ -37,31 +38,32 @@ export function UnitDetail({ labId, labName, unitId, canManage, onCreated, rende
     setOpen(null)
   }
 
-  if (unit.isPending)
-    return (
-      <>
-        <PageTitle>Loading the unit</PageTitle>
-        <Typography>Loading the unit…</Typography>
-      </>
-    )
-  // 404 means "not in this lab" as much as "does not exist": the text says both.
-  if (isApiError(unit.error, 404))
-    return (
-      <>
-        <PageTitle>Unit not found</PageTitle>
-        <Typography component="h1" variant="h4" gutterBottom>
-          Unit not found
-        </Typography>
-        <Typography>The storage unit does not exist, or it is not in this lab.</Typography>
-      </>
-    )
-  if (unit.isError)
+  if (unit.data === undefined) {
+    if (unit.isPending)
+      return (
+        <>
+          <PageTitle>Loading the unit</PageTitle>
+          <Typography>Loading the unit…</Typography>
+        </>
+      )
+    // 404 means "not in this lab" as much as "does not exist": the text says both.
+    if (isApiError(unit.error, 404))
+      return (
+        <>
+          <PageTitle>Unit not found</PageTitle>
+          <Typography component="h1" variant="h4" gutterBottom>
+            Unit not found
+          </Typography>
+          <Typography>The storage unit does not exist, or it is not in this lab.</Typography>
+        </>
+      )
     return (
       <>
         <PageTitle>Could not load the unit</PageTitle>
         <LoadError what="the unit" error={unit.error} onRetry={() => void unit.refetch()} />
       </>
     )
+  }
   const u = unit.data
   const above = u.ancestors.at(-1)
   const holds = HOLDS[u.kind]
@@ -89,6 +91,7 @@ export function UnitDetail({ labId, labName, unitId, canManage, onCreated, rende
       <Typography component="h1" variant="h4" gutterBottom sx={{ overflowWrap: 'anywhere' }}>
         {u.name}
       </Typography>
+      <StaleNotice what="the unit" query={unit} />
 
       <Facts
         rows={[

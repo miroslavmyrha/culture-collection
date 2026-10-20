@@ -57,7 +57,8 @@ export function useRevive(labId: string, strainId: string) {
 
 /**
  * Reveals where a vial of a regulated strain is (ADR 0009). Each call is a new request and a new
- * entry in the audit trail; the answer stays in the component that asked, never in the cache.
+ * entry in the audit trail; the answer stays in the component that asked, never in the cache:
+ * gcTime 0 removes the mutation, and the location in its data, once that component is gone.
  */
 export function useRevealLocation(labId: string) {
   return useMutation({
@@ -65,6 +66,7 @@ export function useRevealLocation(labId: string) {
       await ensureCsrf()
       return unwrap(api.POST('/api/v1/labs/{lab_public_id}/vials/{public_id}/reveal-location/', { params: vial(labId, vialId) }))
     },
+    gcTime: 0,
     meta: { handlesError: true },
   })
 }

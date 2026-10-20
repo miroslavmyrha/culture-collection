@@ -1,5 +1,6 @@
 import { type MouseEvent, type ReactNode, useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
+import { StaleNotice } from '@/components/StaleNotice'
 import { Alert, Box, Button, Link, PageTitle, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { countryName } from '@/lib/countries'
 import { errorMessage, isApiError } from '@/lib/api'
@@ -51,30 +52,31 @@ export function DepositDetail({ labId, depositId, canManage, renderAccept }: Pro
     setOpen(null)
   }
 
-  if (deposit.isPending)
-    return (
-      <>
-        <PageTitle>Loading the deposit</PageTitle>
-        <Typography>Loading the deposit…</Typography>
-      </>
-    )
-  if (isApiError(deposit.error, 404))
-    return (
-      <>
-        <PageTitle>Deposit not found</PageTitle>
-        <Typography component="h1" variant="h4" gutterBottom>
-          Deposit not found
-        </Typography>
-        <Typography>The deposit does not exist, or it is not in this lab.</Typography>
-      </>
-    )
-  if (deposit.isError)
+  if (deposit.data === undefined) {
+    if (deposit.isPending)
+      return (
+        <>
+          <PageTitle>Loading the deposit</PageTitle>
+          <Typography>Loading the deposit…</Typography>
+        </>
+      )
+    if (isApiError(deposit.error, 404))
+      return (
+        <>
+          <PageTitle>Deposit not found</PageTitle>
+          <Typography component="h1" variant="h4" gutterBottom>
+            Deposit not found
+          </Typography>
+          <Typography>The deposit does not exist, or it is not in this lab.</Typography>
+        </>
+      )
     return (
       <>
         <PageTitle>Could not load the deposit</PageTitle>
         <LoadError what="the deposit" error={deposit.error} onRetry={() => void deposit.refetch()} />
       </>
     )
+  }
   const d = deposit.data
   const history = d.terms_history.filter((t) => !t.is_active)
   return (
@@ -83,6 +85,7 @@ export function DepositDetail({ labId, depositId, canManage, renderAccept }: Pro
       <Typography component="h1" variant="h4" gutterBottom sx={{ overflowWrap: 'anywhere' }}>
         Deposit {d.name_as_received}
       </Typography>
+      <StaleNotice what="the deposit" query={deposit} />
       <Typography sx={{ mb: 2 }}>Status: {STATUS_LABELS[d.status]}.</Typography>
       <Steps deposit={d} />
 

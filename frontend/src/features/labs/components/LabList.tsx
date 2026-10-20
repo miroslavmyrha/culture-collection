@@ -2,6 +2,7 @@ import { Link, Paper, Table, TableBody, TableCell, TableContainer, TableHead, Ta
 import { useLabList } from '../api/queries'
 import { type PageParams, ROLE_LABELS } from '../schemas'
 import { LoadError } from '@/components/LoadError'
+import { StaleNotice } from '@/components/StaleNotice'
 import { Pager, PastTheEnd } from '@/components/Pager'
 
 type Props = {
@@ -12,13 +13,17 @@ type Props = {
 
 export function LabList({ params, onOffsetChange }: Props) {
   const list = useLabList(params)
-  if (list.isPending) return <Typography>Loading your labs…</Typography>
-  if (list.isError) return <LoadError what="your labs" error={list.error} onRetry={() => void list.refetch()} />
+  if (list.data === undefined) {
+    if (list.isPending) return <Typography>Loading your labs…</Typography>
+    return <LoadError what="your labs" error={list.error} onRetry={() => void list.refetch()} />
+  }
+  const stale = <StaleNotice what="your labs" query={list} />
   const { count, results } = list.data
-  if (count === 0) return <Typography>You are not a member of any lab yet. Staff add new labs and their first manager.</Typography>
-  if (results.length === 0) return <PastTheEnd onFirstPage={() => onOffsetChange(0)} />
+  if (count === 0) return <>{stale}<Typography>You are not a member of any lab yet. Staff add new labs and their first manager.</Typography></>
+  if (results.length === 0) return <>{stale}<PastTheEnd onFirstPage={() => onOffsetChange(0)} /></>
   return (
     <section aria-label="Your labs" aria-busy={list.isPlaceholderData}>
+      {stale}
       <TableContainer component={Paper} variant="outlined">
         <Table aria-label="Your labs">
           <TableHead>

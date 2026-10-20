@@ -1,5 +1,6 @@
 import { queryOptions, useQuery } from '@tanstack/react-query'
 import { api, unwrap } from '@/lib/api'
+import { storageUnitsOptions } from '@/lib/shared-keys'
 import { boxChoices } from '../schemas'
 import { vialKeys } from './keys'
 
@@ -30,14 +31,6 @@ export const vialsOptions = (labId: string, strainId: string) =>
     queryFn: ({ signal }) => unwrap(api.GET('/api/v1/labs/{lab_public_id}/vials/', { signal, params: strainQuery(labId, strainId) })),
   })
 
-/** The lab's active boxes, named by their path, for the forms that place vials. */
-export const boxesOptions = (labId: string) =>
-  queryOptions({
-    queryKey: vialKeys.boxes(labId),
-    queryFn: async ({ signal }) =>
-      boxChoices(await unwrap(api.GET('/api/v1/labs/{lab_public_id}/storage-units/', { signal, params: { path: { lab_public_id: labId } } }))),
-  })
-
 export function usePassages(labId: string, strainId: string) {
   return useQuery(passagesOptions(labId, strainId))
 }
@@ -50,8 +43,13 @@ export function useVials(labId: string, strainId: string) {
   return useQuery(vialsOptions(labId, strainId))
 }
 
+/**
+ * The lab's active boxes, named by their path, for the forms that place vials: the storage tree's
+ * entry, so a storage write refreshes them. boxChoices is a module function, so select reruns only
+ * when the units change.
+ */
 export function useBoxes(labId: string, enabled: boolean) {
-  return useQuery({ ...boxesOptions(labId), enabled })
+  return useQuery({ ...storageUnitsOptions(labId), select: boxChoices, enabled })
 }
 
 /** A box with its taken positions; a regulated vial's position is masked and names no vial. */

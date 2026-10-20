@@ -39,7 +39,8 @@ type Props = {
   /** The deposit's name as received, which the strain takes unchanged. */
   nameAsReceived: string
   submit: Submit
-  onDone: () => void
+  /** After the server took it. */
+  onDone?: () => void
   /** The country of origin the deposit's terms state, offered as the strain's. */
   country?: CountryCode | ''
 }
@@ -119,7 +120,7 @@ export function StrainFactsForm({ label, submitLabel, nameAsReceived, submit, on
         restrictions: values.restrictions.map(restrictionBody),
       },
       {
-        onSuccess: onDone,
+        onSuccess: () => onDone?.(),
         onError: (error) => {
           // Refusals the form owns, on the field they are about, never in the server's words.
           if (isApiError(error) && error.code === 'risk_group_4_refused') {

@@ -56,7 +56,7 @@ export function TermsFields({ labId }: { labId: string }) {
       ) : (
         <SelectField
           label="MTA"
-          hint={mtas.isError ? 'The MTA templates could not be loaded.' : 'The agreement version the depositor signed, if any.'}
+          hint={mtas.data === undefined && mtas.isError ? 'The MTA templates could not be loaded.' : 'The agreement version the depositor signed, if any.'}
           options={mtaOptions}
           error={errors?.mta?.message}
           {...register('terms.mta')}

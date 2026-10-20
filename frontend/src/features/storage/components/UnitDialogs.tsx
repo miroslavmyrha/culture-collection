@@ -65,7 +65,8 @@ function BoxTypeField({ error, ...registered }: UseFormRegisterReturn & { error:
     { value: '', label: types.isPending ? 'Loading the box types…' : 'Choose' },
     ...(types.data?.results ?? []).map((t) => ({ value: t.public_id, label: t.name })),
   ]
-  const failed = types.isError ? 'The box types could not be loaded. Close and try again.' : undefined
+  // A failed refresh keeps the types already loaded: only a failed first load is an error.
+  const failed = types.data === undefined && types.isError ? 'The box types could not be loaded. Close and try again.' : undefined
   return <SelectField label="Box type" hint="Its rows and columns become the box's size." options={options} error={error ?? failed} {...registered} />
 }
 
@@ -223,7 +224,7 @@ export function MoveUnitDialog({ labId, unit, open, onClose, onExited }: UnitPro
       confirmLabel="Move"
       form={formId}
       pending={move.isPending}
-      error={failure ?? errors.root?.server?.message ?? (tree.isError ? storageError(tree.error) : undefined)}
+      error={failure ?? errors.root?.server?.message ?? (tree.data === undefined && tree.isError ? storageError(tree.error) : undefined)}
       onClose={onClose}
       onExited={onExited}
     >

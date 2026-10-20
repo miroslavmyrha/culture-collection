@@ -1,5 +1,6 @@
 import { type MouseEvent, type ReactNode, useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
+import { StaleNotice } from '@/components/StaleNotice'
 import { Box, Button, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { useBatches, useBoxes, usePassages, useVials } from '../api/queries'
@@ -37,6 +38,11 @@ export function StrainMaterial({ labId, strainId, accession, canHandle }: Props)
   const batches = useBatches(labId, strainId)
   const vials = useVials(labId, strainId)
   const [open, setOpen] = useState<Open>(null)
+  // How often this page moved each vial. A revealed location answers one request and is wrong
+  // once the vial moved, so the vial's location cell starts again (its key changes). A state
+  // change, which may take the vial out of its position, changes status_changed_at, also in the key.
+  const [moves, setMoves] = useState<Readonly<Record<string, number>>>({})
+  const moved = (vialId: string) => setMoves((current) => ({ ...current, [vialId]: (current[vialId] ?? 0) + 1 }))
   const boxes = useBoxes(labId, canHandle)
   const spot = useRef<FocusReturn | null>(null)
   const remember = (event: MouseEvent<HTMLButtonElement>) => {
@@ -55,14 +61,16 @@ export function StrainMaterial({ labId, strainId, accession, canHandle }: Props)
   const common = { labId, strainId, onClose: close, onExited: exited }
   const passageRows = passages.data?.results ?? []
   // Undefined while they load: the dialogs mount their box select only once the options exist.
-  const boxList = boxes.isError ? [] : boxes.data
+  // A failed refresh keeps the boxes already loaded.
+  const boxList = boxes.data ?? (boxes.isError ? [] : undefined)
 
   return (
     <>
       <Section title="Passages">
+        <StaleNotice what="the passages" query={passages} />
         {passages.isPending ? (
           <Typography>Loading the passages…</Typography>
-        ) : passages.isError ? (
+        ) : passages.data === undefined ? (
           <LoadError what="the passages" error={passages.error} onRetry={() => void passages.refetch()} />
         ) : passageRows.length === 0 ? (
           <Typography>No passage yet. A strain gets passage 0 when its deposit is accepted.</Typography>
@@ -104,9 +112,10 @@ export function StrainMaterial({ labId, strainId, accession, canHandle }: Props)
             </Button>
           </Box>
         )}
+        <StaleNotice what="the batches" query={batches} />
         {batches.isPending ? (
           <Typography>Loading the batches…</Typography>
-        ) : batches.isError ? (
+        ) : batches.data === undefined ? (
           <LoadError what="the batches" error={batches.error} onRetry={() => void batches.refetch()} />
         ) : batches.data.count === 0 ? (
           <Typography>No batch preserved yet.</Typography>
@@ -148,9 +157,10 @@ export function StrainMaterial({ labId, strainId, accession, canHandle }: Props)
       </Section>
 
       <Section title="Vials">
+        <StaleNotice what="the vials" query={vials} />
         {vials.isPending ? (
           <Typography>Loading the vials…</Typography>
-        ) : vials.isError ? (
+        ) : vials.data === undefined ? (
           <LoadError what="the vials" error={vials.error} onRetry={() => void vials.refetch()} />
         ) : vials.data.count === 0 ? (
           <Typography>No vial yet.</Typography>
@@ -177,7 +187,7 @@ export function StrainMaterial({ labId, strainId, accession, canHandle }: Props)
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{v.label}</TableCell>
                       <TableCell>{VIAL_STATUS_LABELS[v.status]}</TableCell>
                       <TableCell>
-                        <Where labId={labId} vial={v} />
+                        <Where key={`${v.status_changed_at ?? ''}:${moves[v.public_id] ?? 0}`} labId={labId} vial={v} />
                       </TableCell>
                       {canHandle && (
                         <TableCell>
@@ -199,7 +209,9 @@ export function StrainMaterial({ labId, strainId, accession, canHandle }: Props)
         <PreserveBatchDialog {...common} accession={accession} passages={passageRows} boxes={boxList} open={open.open} />
       )}
       {open?.kind === 'subculture' && <SubcultureDialog {...common} passage={open.passage} open={open.open} />}
-      {open?.kind === 'place' && <PlaceVialDialog {...common} vial={open.vial} boxes={boxList} open={open.open} />}
+      {open?.kind === 'place' && (
+        <PlaceVialDialog {...common} vial={open.vial} boxes={boxList} open={open.open} onPlaced={() => moved(open.vial.public_id)} />
+      )}
       {open?.kind === 'status' && <VialStatusDialog {...common} vial={open.vial} open={open.open} />}
       {open?.kind === 'revive' && <ReviveDialog {...common} vial={open.vial} open={open.open} />}
     </>

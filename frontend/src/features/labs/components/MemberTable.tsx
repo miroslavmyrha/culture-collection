@@ -6,6 +6,7 @@ import { type LocationGrant, type Member, type PageParams, ROLE_LABELS, type Rol
 import { ChangeRoleDialog } from './ChangeRoleDialog'
 import { LocationGrantDialog } from './LocationGrantDialog'
 import { LoadError } from '@/components/LoadError'
+import { StaleNotice } from '@/components/StaleNotice'
 import { Pager, PastTheEnd } from '@/components/Pager'
 import { RemoveMemberDialog } from './RemoveMemberDialog'
 
@@ -63,7 +64,7 @@ function Members({ labId, labName, grantable, params, onOffsetChange }: Props) {
       <MemberRows
         list={list}
         manage={manage}
-        grants={manage ? { loaded: grants.isSuccess, failed: grants.isError, of: grantOf } : undefined}
+        grants={manage ? { loaded: grants.data !== undefined, failed: grants.data === undefined && grants.isError, of: grantOf } : undefined}
         params={params}
         onOffsetChange={onOffsetChange}
         show={show}
@@ -93,13 +94,17 @@ type RowsProps = {
 }
 
 function MemberRows({ list, manage, grants, params, onOffsetChange, show }: RowsProps) {
-  if (list.isPending) return <Typography>Loading members…</Typography>
-  if (list.isError) return <LoadError what="the members" error={list.error} onRetry={() => void list.refetch()} />
+  if (list.data === undefined) {
+    if (list.isPending) return <Typography>Loading members…</Typography>
+    return <LoadError what="the members" error={list.error} onRetry={() => void list.refetch()} />
+  }
+  const stale = <StaleNotice what="the members" query={list} />
   const { count, results } = list.data
-  if (count === 0) return <Typography>This lab has no members yet.</Typography>
-  if (results.length === 0) return <PastTheEnd onFirstPage={() => onOffsetChange(0)} />
+  if (count === 0) return <>{stale}<Typography>This lab has no members yet.</Typography></>
+  if (results.length === 0) return <>{stale}<PastTheEnd onFirstPage={() => onOffsetChange(0)} /></>
   return (
     <div aria-busy={list.isPlaceholderData}>
+      {stale}
       <TableContainer component={Paper} variant="outlined">
         <Table aria-label="Members">
           <TableHead>

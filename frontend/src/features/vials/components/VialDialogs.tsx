@@ -136,7 +136,13 @@ export function PreserveBatchDialog({ labId, strainId, accession, passages, boxe
 
 type VialProps = Common & { vial: Vial }
 
-export function PlaceVialDialog({ labId, strainId, vial, boxes, open, onClose, onExited }: VialProps & { boxes: readonly BoxChoice[] | undefined }) {
+type PlaceProps = VialProps & {
+  boxes: readonly BoxChoice[] | undefined
+  /** After the server placed or moved the vial, before the dialog closes. */
+  onPlaced?: () => void
+}
+
+export function PlaceVialDialog({ labId, strainId, vial, boxes, open, onClose, onExited, onPlaced }: PlaceProps) {
   const place = usePlace(labId, strainId)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
@@ -154,7 +160,13 @@ export function PlaceVialDialog({ labId, strainId, vial, boxes, open, onClose, o
     setFailure(undefined)
     place.mutate(
       { vialId: vial.public_id, ...values },
-      { onSuccess: onClose, onError: (error) => setFailure(placeError(error, ['box', 'row', 'col'], setError)) },
+      {
+        onSuccess: () => {
+          onPlaced?.()
+          onClose()
+        },
+        onError: (error) => setFailure(placeError(error, ['box', 'row', 'col'], setError)),
+      },
     )
   })
   return (

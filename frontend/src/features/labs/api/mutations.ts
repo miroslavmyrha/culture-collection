@@ -1,10 +1,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ensureCsrf, unwrap } from '@/lib/api'
+import { sharedKeys } from '@/lib/shared-keys'
 import type { AddMemberInput, Role } from '../schemas'
 import { labKeys } from './keys'
 
 // Each form or dialog shows its own failure (meta.handlesError), so the global message stays
 // quiet. onSuccess returns the invalidation: the mutation stays pending until the data is fresh.
+// A location grant decides whether a vial offers "Reveal location" (can_reveal) to its holder,
+// and a manager may grant or revoke their own, so both also invalidate the lab's material (shared
+// keys). Removing a member ends their grant too, but they lose the lab with it: nothing of it
+// stays on their screen to refresh.
 
 export function useAddMember(labId: string) {
   const qc = useQueryClient()
@@ -59,7 +64,8 @@ export function useGrantLocation(labId: string) {
       return unwrap(api.POST('/api/v1/labs/{lab_public_id}/location-grants/', { params: { path: { lab_public_id: labId } }, body }))
     },
     meta: { handlesError: true },
-    onSuccess: () => qc.invalidateQueries({ queryKey: labKeys.locationGrants(labId) }),
+    onSuccess: () =>
+      Promise.all([qc.invalidateQueries({ queryKey: labKeys.locationGrants(labId) }), qc.invalidateQueries({ queryKey: sharedKeys.material(labId) })]),
   })
 }
 
@@ -76,6 +82,7 @@ export function useRevokeLocation(labId: string) {
       )
     },
     meta: { handlesError: true },
-    onSuccess: () => qc.invalidateQueries({ queryKey: labKeys.locationGrants(labId) }),
+    onSuccess: () =>
+      Promise.all([qc.invalidateQueries({ queryKey: labKeys.locationGrants(labId) }), qc.invalidateQueries({ queryKey: sharedKeys.material(labId) })]),
   })
 }

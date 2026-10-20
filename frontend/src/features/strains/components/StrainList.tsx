@@ -1,4 +1,5 @@
 import { LoadError } from '@/components/LoadError'
+import { StaleNotice } from '@/components/StaleNotice'
 import { Pager, PastTheEnd } from '@/components/Pager'
 import { Button, Link, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { useFocusReturnOnUnmount } from '@/lib/focus'
@@ -16,14 +17,18 @@ type Props = {
 /** The lab's strains by accession number, filtered by the URL, a page at a time. */
 export function StrainList({ labId, params, onOffsetChange, onClearFilters }: Props) {
   const list = useStrainList(labId, params)
-  if (list.isPending) return <Typography>Loading the strains…</Typography>
-  if (list.isError) return <LoadError what="the strains" error={list.error} onRetry={() => void list.refetch()} />
+  if (list.data === undefined) {
+    if (list.isPending) return <Typography>Loading the strains…</Typography>
+    return <LoadError what="the strains" error={list.error} onRetry={() => void list.refetch()} />
+  }
+  const stale = <StaleNotice what="the strains" query={list} />
   const { count, results } = list.data
-  if (count === 0 && hasFilters(params)) return <NoMatch onClearFilters={onClearFilters} />
-  if (count === 0) return <Typography>The lab has no strains yet.</Typography>
-  if (results.length === 0) return <PastTheEnd onFirstPage={() => onOffsetChange(0)} />
+  if (count === 0 && hasFilters(params)) return <>{stale}<NoMatch onClearFilters={onClearFilters} /></>
+  if (count === 0) return <>{stale}<Typography>The lab has no strains yet.</Typography></>
+  if (results.length === 0) return <>{stale}<PastTheEnd onFirstPage={() => onOffsetChange(0)} /></>
   return (
     <section aria-label="Strains" aria-busy={list.isPlaceholderData}>
+      {stale}
       <TableContainer component={Paper} variant="outlined">
         <Table aria-label="Strains">
           <TableHead>
