@@ -16,8 +16,17 @@ from cultures.labs.access import access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
 from cultures.labs.tests.conftest import member_of
-from cultures.lineage import services
-from cultures.lineage.models import Batch, BatchCheck, BatchStatus, Passage, Vial, VialStatus
+from cultures.lineage import selectors, services
+from cultures.lineage.models import (
+    Batch,
+    BatchCheck,
+    BatchStatus,
+    CheckKind,
+    CheckResult,
+    Passage,
+    Vial,
+    VialStatus,
+)
 from cultures.strains.models import Strain
 from cultures.users.models import User
 
@@ -402,3 +411,41 @@ def test_the_batch_list_with_checks_stays_flat(
     with query_baseline("batch_list"):
         rows = client.get(BATCHES_URL).json()["results"]
     assert {r["latest_checks"]["purity"] for r in rows} == {"pass"}
+
+
+def test_the_latest_result_shown_skips_checks_entered_in_error(
+    batch: Batch, check: BatchCheck, technician: User, viewer: User
+) -> None:
+    """The batch row shows the latest valid check of each kind: a newer one entered in error
+    leaves the older result in place."""
+    with audit_context(channel=Channel.API, actor=technician, request_id="req-setup"):
+        newer = record(technician, batch, CheckKind.PURITY, result=CheckResult.FAIL)
+        services.check_enter_in_error(access=access_for(technician), check=newer, reason="mix-up")
+    row = logged_in(viewer).get(BATCHES_URL).json()["results"][0]
+    assert row["latest_checks"]["purity"] == "pass"
+
+
+def test_a_technician_is_refused_a_decision_before_the_input_is_read(
+    batch: Batch, technician: User
+) -> None:
+    for decision in ("release", "hold"):
+        response = logged_in(technician).post(
+            f"{BATCHES_URL}{batch.public_id}/{decision}/", {}, content_type="application/json"
+        )
+        assert_problem(response, 403, "permission_denied")
+
+
+def test_the_check_fields_resolve_only_where_the_caller_handles_vials(
+    batch: Batch, check: BatchCheck, technician: User, other_lab: Lab, make_batch: MakeBatch
+) -> None:
+    """Defence in depth under the view's lab check: a lab where the caller only reads gives
+    no batch, vial or check to name."""
+    Membership.objects.filter(user=technician, lab=batch.lab).update(role=Role.VIEWER)
+    access = access_for(technician)
+    assert not selectors.batches_to_check(access).filter(pk=batch.pk).exists()
+    assert not selectors.vials_to_check(access).filter(batch=batch).exists()
+    assert not selectors.checks_to_correct(access).filter(pk=check.pk).exists()
+    Membership.objects.filter(user=technician, lab=batch.lab).update(role=Role.TECHNICIAN)
+    access = access_for(technician)
+    assert selectors.batches_to_check(access).filter(pk=batch.pk).exists()
+    assert selectors.checks_to_correct(access).filter(pk=check.pk).exists()

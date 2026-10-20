@@ -308,6 +308,15 @@ describe('the checks of a batch', { timeout: 20_000 }, () => {
     ).toBeInTheDocument()
   })
 
+  it('offers a technician no release or hold, also on a batch whose checks passed', async () => {
+    mockMaterial()
+    await render({ canHandle: true, canRelease: false })
+    await openChecks(2)
+    await screen.findByRole('list', { name: 'Checks of batch 2' })
+    expect(screen.getByRole('button', { name: 'Record a check' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^(Release|Hold)$/ })).not.toBeInTheDocument()
+  })
+
   it('offers a held batch with a failed kind neither release nor hold, a released one only hold', async () => {
     mockMaterial()
     await render({ canRelease: true })
