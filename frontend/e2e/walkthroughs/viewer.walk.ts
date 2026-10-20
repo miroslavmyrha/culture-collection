@@ -48,11 +48,11 @@ test('V4 can the collection supply this strain now', async ({ browser }, info) =
   await w.start()
   await openLab(w, LAB)
   await openStrain(w, 'BAC 29', /^BAC 29 /)
-  const batches = w.page.getByRole('table', { name: 'Batches' })
-  await w.read(batches)
-  await expect(batches.getByRole('row', { name: /Distribution stock .* Pending check/ }).first()).toBeVisible()
-  w.look(2) // purpose, status and vials per batch, then the sum in the head
-  w.note('The answer is read from three columns of the batch table and added up in the head: no "available for distribution" figure')
+  const answer = w.page.getByText(/^Available for distribution:/)
+  await w.read(answer)
+  // seed_dev: batch 2 is released distribution stock of 12 vials, one used up by its checks.
+  await expect(answer).toHaveText('Available for distribution: 11 vials, from released batch 2.')
+  w.note('The answer is one line above the batch table, but only on the strain page: four page loads from Home, and nothing says the terms allow the use asked for')
   await w.done()
 })
 

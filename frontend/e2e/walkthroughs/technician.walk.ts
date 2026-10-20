@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, acceptedStrain, batch, expandUnit, freezerWithBoxes, labId, openLab, openStrain, openUnit, setupAs } from './walk.js'
+import { RUN, Walk, acceptedStrain, batch, batchOf, expandUnit, freezerWithBoxes, labId, openLab, openStrain, openUnit, setupAs } from './walk.js'
 
 // A technician of Bacteriology (seed_dev): the bench work with batches, vials and boxes. The rows
 // each task needs are made first by the lab's curator, through the API, named for the run.
@@ -162,14 +162,33 @@ test('T7 record a cracked tube to be destroyed', async ({ browser }, info) => {
 })
 
 test('T8 record a viability check of a batch', async ({ browser }, info) => {
+  // A batch of this run, pending its checks, made by the curator.
+  const name = `Bacillus subtilis viability ${RUN}`
+  const setup = await setupAs(browser, 'bac-curator')
+  const lab = await labId(setup.page, LAB)
+  const strain = await acceptedStrain(setup.page, lab, name, 'Bacillus subtilis')
+  const made = await batchOf(setup.page, lab, strain.passage, 3)
+  await setup.close()
+
   const w = await Walk.as(browser, info, 'bac-technician', technician('T8', 'Record a viability check of a batch'))
   await w.start()
   await openLab(w, LAB)
-  await openStrain(w, 'soil isolate DEP-1', /soil isolate DEP-1/)
+  await openStrain(w, name, new RegExp(name))
   const batches = w.page.getByRole('table', { name: 'Batches' })
-  await w.read(batches)
-  await expect(batches.getByRole('button')).toHaveCount(0)
-  w.impossible('No viability check: a batch has no check to record, and its status never leaves "Pending check"', '#17')
+  await w.click(batches.getByRole('button', { name: 'Checks of batch 1' }))
+  await w.click(w.page.getByRole('button', { name: 'Record a check' }))
+  const dialog = w.page.getByRole('dialog', { name: 'Record a check of batch 1' })
+  await w.choose(dialog.getByRole('combobox', { name: 'Kind' }), 'Viability')
+  await w.choose(dialog.getByRole('combobox', { name: 'Vial checked' }), made.vials[0]?.label ?? '')
+  await w.shot('record-dialog')
+  await w.click(dialog.getByRole('button', { name: 'Record check' }))
+  await expect(dialog).toBeHidden()
+  const history = w.page.getByRole('list', { name: 'Checks of batch 1', exact: true })
+  await expect(history.getByRole('listitem')).toHaveCount(1)
+  await expect(history).toContainText(`Viability, Passed`)
+  w.look()
+  w.note('The vial is picked from a list of labels in the form: the tube in the hand cannot be scanned into it, as on the box page')
+  w.note('The form opens on the kind the batch waits for first (identity), so a viability check starts by changing it')
   await w.done()
 })
 
