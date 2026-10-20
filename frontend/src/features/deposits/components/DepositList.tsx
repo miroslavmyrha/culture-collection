@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
+import { StaleNotice } from '@/components/StaleNotice'
 import { Pager, PastTheEnd } from '@/components/Pager'
 import { Box, Button, Link, Paper, SelectField, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@/components/ui'
 import { useFocusReturnOnUnmount } from '@/lib/focus'
@@ -17,15 +18,19 @@ type Props = {
 /** The lab's deposits, newest receipt first, filtered by the URL, a page at a time. */
 export function DepositList({ labId, params, onOffsetChange, onClearFilters }: Props) {
   const list = useDepositList(labId, params)
-  if (list.isPending) return <Typography>Loading the deposits…</Typography>
-  if (list.isError) return <LoadError what="the deposits" error={list.error} onRetry={() => void list.refetch()} />
+  if (list.data === undefined) {
+    if (list.isPending) return <Typography>Loading the deposits…</Typography>
+    return <LoadError what="the deposits" error={list.error} onRetry={() => void list.refetch()} />
+  }
+  const stale = <StaleNotice what="the deposits" query={list} />
   const { count, results } = list.data
   const filtered = params.status !== undefined || Boolean(params.search)
-  if (count === 0 && filtered) return <NoMatch onClearFilters={onClearFilters} />
-  if (count === 0) return <Typography>The lab has received no deposits yet.</Typography>
-  if (results.length === 0) return <PastTheEnd onFirstPage={() => onOffsetChange(0)} />
+  if (count === 0 && filtered) return <>{stale}<NoMatch onClearFilters={onClearFilters} /></>
+  if (count === 0) return <>{stale}<Typography>The lab has received no deposits yet.</Typography></>
+  if (results.length === 0) return <>{stale}<PastTheEnd onFirstPage={() => onOffsetChange(0)} /></>
   return (
     <section aria-label="Deposits" aria-busy={list.isPlaceholderData}>
+      {stale}
       <TableContainer component={Paper} variant="outlined">
         <Table aria-label="Deposits">
           <TableHead>

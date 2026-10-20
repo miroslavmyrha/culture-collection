@@ -1,5 +1,6 @@
 import { type MouseEvent, type ReactNode, useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
+import { StaleNotice } from '@/components/StaleNotice'
 import { Box, Button, PageTitle, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { type FocusReturn, rememberFocus } from '@/lib/focus'
@@ -37,31 +38,32 @@ export function StrainDetail({ labId, strainId, canManage, renderMaterial }: Pro
     setOpen(null)
   }
 
-  if (strain.isPending)
-    return (
-      <>
-        <PageTitle>Loading the strain</PageTitle>
-        <Typography>Loading the strain…</Typography>
-      </>
-    )
-  // 404 means "not in this lab" as much as "does not exist": the text says both.
-  if (isApiError(strain.error, 404))
-    return (
-      <>
-        <PageTitle>Strain not found</PageTitle>
-        <Typography component="h1" variant="h4" gutterBottom>
-          Strain not found
-        </Typography>
-        <Typography>The strain does not exist, or it is not in this lab.</Typography>
-      </>
-    )
-  if (strain.isError)
+  if (strain.data === undefined) {
+    if (strain.isPending)
+      return (
+        <>
+          <PageTitle>Loading the strain</PageTitle>
+          <Typography>Loading the strain…</Typography>
+        </>
+      )
+    // 404 means "not in this lab" as much as "does not exist": the text says both.
+    if (isApiError(strain.error, 404))
+      return (
+        <>
+          <PageTitle>Strain not found</PageTitle>
+          <Typography component="h1" variant="h4" gutterBottom>
+            Strain not found
+          </Typography>
+          <Typography>The strain does not exist, or it is not in this lab.</Typography>
+        </>
+      )
     return (
       <>
         <PageTitle>Could not load the strain</PageTitle>
         <LoadError what="the strain" error={strain.error} onRetry={() => void strain.refetch()} />
       </>
     )
+  }
   const s = strain.data
   const number = s.accession_number ?? 'Pending strain'
   const active = s.restriction_history.filter((r) => r.ended_at === null)
@@ -72,6 +74,7 @@ export function StrainDetail({ labId, strainId, canManage, renderMaterial }: Pro
       <Typography component="h1" variant="h4" gutterBottom sx={{ overflowWrap: 'anywhere' }}>
         {number}
       </Typography>
+      <StaleNotice what="the strain" query={strain} />
       <Typography sx={{ mb: 3 }}>
         <i>{s.taxon.name}</i> {s.taxon.authority}
       </Typography>

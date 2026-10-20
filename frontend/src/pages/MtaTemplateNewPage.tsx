@@ -31,7 +31,7 @@ export function MtaTemplateNewPage() {
               <Typography>Only managers publish MTA versions.</Typography>
             ) : from && source.isPending ? (
               <Typography>Loading the version to start from…</Typography>
-            ) : from && source.isError ? (
+            ) : from && source.data === undefined ? (
               <LoadError what="the version to start from" error={source.error} onRetry={() => void source.refetch()} />
             ) : (
               <PublishMtaForm

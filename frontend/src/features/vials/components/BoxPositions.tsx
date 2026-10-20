@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { type ReactNode, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { LoadError } from '@/components/LoadError'
+import { StaleNotice } from '@/components/StaleNotice'
 import { Box, Button, type GridCell, gridLabel, Link, PositionGrid, type PositionGridHandle, Stack, TextField, Typography } from '@/components/ui'
 import type { GridPos } from '@/lib/grid'
 import { samePos } from '@/lib/grid'
@@ -186,9 +187,10 @@ export function BoxPositions({ labId, boxId, boxName, canHandle }: Props) {
             )}
           </Stack>
         )}
+        <StaleNotice what="the positions" query={grid} />
         {grid.isPending ? (
           <Typography>Loading the positions…</Typography>
-        ) : grid.isError ? (
+        ) : grid.data === undefined ? (
           <LoadError what="the positions" error={grid.error} onRetry={() => void grid.refetch()} />
         ) : (
           <>

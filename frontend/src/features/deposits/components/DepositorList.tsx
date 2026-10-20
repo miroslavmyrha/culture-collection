@@ -1,5 +1,6 @@
 import { type MouseEvent, useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
+import { StaleNotice } from '@/components/StaleNotice'
 import { Pager, PastTheEnd } from '@/components/Pager'
 import { Box, Button, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@/components/ui'
 import { type FocusReturn, rememberFocus } from '@/lib/focus'
@@ -64,13 +65,17 @@ function Rows({
   onOffsetChange: (offset: number) => void
   onEdit: (depositor: Depositor) => (event: MouseEvent<HTMLButtonElement>) => void
 }) {
-  if (list.isPending) return <Typography>Loading the depositors…</Typography>
-  if (list.isError) return <LoadError what="the depositors" error={list.error} onRetry={() => void list.refetch()} />
+  if (list.data === undefined) {
+    if (list.isPending) return <Typography>Loading the depositors…</Typography>
+    return <LoadError what="the depositors" error={list.error} onRetry={() => void list.refetch()} />
+  }
+  const stale = <StaleNotice what="the depositors" query={list} />
   const { count, results } = list.data
-  if (count === 0) return <Typography>{params.search ? 'No depositor matches this search.' : 'The lab has no depositors yet.'}</Typography>
-  if (results.length === 0) return <PastTheEnd onFirstPage={() => onOffsetChange(0)} />
+  if (count === 0) return <>{stale}<Typography>{params.search ? 'No depositor matches this search.' : 'The lab has no depositors yet.'}</Typography></>
+  if (results.length === 0) return <>{stale}<PastTheEnd onFirstPage={() => onOffsetChange(0)} /></>
   return (
     <section aria-label="Depositors" aria-busy={list.isPlaceholderData}>
+      {stale}
       <TableContainer component={Paper} variant="outlined">
         <Table aria-label="Depositors">
           <TableHead>
