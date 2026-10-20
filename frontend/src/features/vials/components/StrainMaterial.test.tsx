@@ -38,7 +38,7 @@ function mockMaterial(vials = [placed, loose, consumed]) {
 }
 
 const render = (canHandle = true) =>
-  renderWithProviders(<StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} />)
+  renderWithProviders(<StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} canRelease={canHandle} />)
 
 describe('StrainMaterial', { timeout: 20_000 }, () => {
   it('shows the passages, the batches and where each vial is', async () => {
@@ -53,7 +53,7 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
     const passages = screen.getByRole('table', { name: 'Passages' })
     expect(within(passages).getAllByRole('row').slice(1).map((row) => within(row).getAllByRole('cell')[1]?.textContent)).toEqual(['As received', 'Subculture of passage 0'])
     const batches = screen.getByRole('table', { name: 'Batches' })
-    expect(within(batches).getAllByRole('row')[1]).toHaveTextContent('10Frozen at -80 °C, 10 % glycerolDistribution stock2026-10-01Pending check2 of 3')
+    expect(within(batches).getAllByRole('row')[1]).toHaveTextContent('10Frozen at -80 °C, 10 % glycerolDistribution stock2026-10-01Pending checkWaiting for a passed identity, purity and viability check.2 of 3Checks')
     for (const name of ['Passages', 'Batches', 'Vials']) expect(screen.getByRole('region', { name: `${name} table` })).toHaveAttribute('tabindex', '0')
     // A consumed vial has no place and no next state: no actions.
     const last = within(vials).getAllByRole('row')[3]

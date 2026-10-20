@@ -17,6 +17,8 @@ export const vialKeys = {
   passages: (labId: string, strainId: string) => [...vialKeys.strain(labId, strainId), 'passages'] as const,
   batches: (labId: string, strainId: string) => [...vialKeys.strain(labId, strainId), 'batches'] as const,
   vials: (labId: string, strainId: string) => [...vialKeys.strain(labId, strainId), 'vials'] as const,
+  /** The checks of one batch, under its strain: a check, a release or a hold refreshes them with the rest. */
+  checks: (labId: string, strainId: string, batchId: string) => [...vialKeys.strain(labId, strainId), 'checks', batchId] as const,
   boxGrids: sharedKeys.boxGrids,
   box: (labId: string, boxId: string) => [...vialKeys.boxGrids(labId), boxId] as const,
 }

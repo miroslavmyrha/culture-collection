@@ -31,6 +31,19 @@ export const vialsOptions = (labId: string, strainId: string) =>
     queryFn: ({ signal }) => unwrap(api.GET('/api/v1/labs/{lab_public_id}/vials/', { signal, params: strainQuery(labId, strainId) })),
   })
 
+/** Every check of one batch, newest first, entered in error included: a batch has few. */
+export const checksOptions = (labId: string, strainId: string, batchId: string) =>
+  queryOptions({
+    queryKey: vialKeys.checks(labId, strainId, batchId),
+    queryFn: ({ signal }) =>
+      unwrap(api.GET('/api/v1/labs/{lab_public_id}/batch-checks/', { signal, params: { path: { lab_public_id: labId }, query: { batch: batchId, limit: MATERIAL_PAGE } } })),
+  })
+
+/** Loaded when the batch's checks are opened, not with the page. */
+export function useBatchChecks(labId: string, strainId: string, batchId: string) {
+  return useQuery(checksOptions(labId, strainId, batchId))
+}
+
 export function usePassages(labId: string, strainId: string) {
   return useQuery(passagesOptions(labId, strainId))
 }
