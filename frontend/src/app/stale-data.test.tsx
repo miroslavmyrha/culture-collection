@@ -267,6 +267,8 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     expect(input).toHaveValue(TYPED)
     expect(input).toHaveFocus()
     expect(line.closest('output')).not.toBeNull()
+    // The reason, mapped (never the server's words): a 5xx.
+    expect(line).toHaveTextContent(/out of date\. The server failed\. Try again in a moment\.$/)
     expect(screen.queryByText(/Could not load/)).not.toBeInTheDocument()
 
     // Retry: the data loads again and the notice goes. Behind an open dialog the notice is
@@ -293,6 +295,23 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     await notice(what)
     expect(before).toBeInTheDocument()
     expect(screen.queryByText(/Could not load/)).not.toBeInTheDocument()
+  })
+
+  // A 404 on a refresh: the row is gone or no longer this user's. The screen stays, and the
+  // notice says so in its own words.
+  it.each([
+    ['StrainDetail', `/labs/${LAB_ID}/strains/${STRAIN_ID}`, STRAIN, 'the strain', strainPage, () => screen.findByRole('heading', { level: 1, name: 'MYC 42' })],
+    ['StrainList', `/labs/${LAB_ID}/strains`, STRAINS, 'the strains', () => mockApi('get', STRAINS, page([makeStrainRow({ accession_number: 'MYC 42' })])), () => screen.findByRole('link', { name: 'MYC 42' })],
+  ] as const)('%s says a 404 on a refresh means it no longer exists', async (_, path, fails, what, data, shown) => {
+    signedIn('manager')
+    data()
+    const { client } = renderApp({ path })
+    const before = await shown()
+    mockApiError('get', fails as Get, 404)
+    await refreshAll(client)
+    const line = await notice(what)
+    expect(line).toHaveTextContent(/out of date\. It no longer exists\. Reload the page\.$/)
+    expect(before).toBeInTheDocument()
   })
 
   it('moves the focus to the heading when a retry from the notice works, never to the body', async () => {
