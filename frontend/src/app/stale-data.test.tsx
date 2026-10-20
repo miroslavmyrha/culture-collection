@@ -165,6 +165,24 @@ const SCREENS: Screen[] = [
     type: (user) => dialogField(user, 'Preserve a batch', 'Protectant'),
   },
   {
+    name: 'StrainMaterial passages, with the preserve dialog',
+    role: 'technician',
+    path: `/labs/${LAB_ID}/strains/${STRAIN_ID}`,
+    fails: '/api/v1/labs/{lab_public_id}/passages/',
+    what: 'the passages',
+    data: strainPage,
+    type: (user) => dialogField(user, 'Preserve a batch', 'Protectant'),
+  },
+  {
+    name: 'StrainMaterial batches, with the preserve dialog',
+    role: 'technician',
+    path: `/labs/${LAB_ID}/strains/${STRAIN_ID}`,
+    fails: '/api/v1/labs/{lab_public_id}/batches/',
+    what: 'the batches',
+    data: strainPage,
+    type: (user) => dialogField(user, 'Preserve a batch', 'Protectant'),
+  },
+  {
     name: 'StrainList, with a typed search',
     role: 'manager',
     path: `/labs/${LAB_ID}/strains`,
@@ -293,6 +311,22 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'MTA-A version 1' })))
   })
 
+  it("moves the focus to the notice's section heading when a retry works", async () => {
+    allowConsole(/API error 500/)
+    signedIn('technician')
+    strainPage()
+    const { client } = renderApp({ path: `/labs/${LAB_ID}/strains/${STRAIN_ID}` })
+    await screen.findByRole('table', { name: 'Vials' }, { timeout: 5000 })
+    mockApiError('get', VIALS, 500)
+    await refreshAll(client)
+    const line = await notice('the vials')
+    const retry = within(line.closest('output') ?? document.body).getByRole('button', { name: 'Try again' })
+    strainPage()
+    await userEvent.setup().click(retry)
+    await waitFor(() => expect(retry).not.toBeInTheDocument())
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2, name: 'Vials' })))
+  })
+
   it('keeps the retry focusable and sends one request while it runs', async () => {
     allowConsole(/API error 500/)
     signedIn('manager')
@@ -314,6 +348,77 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     await waitFor(() => expect(retry).toHaveAttribute('aria-disabled', 'false'))
     expect(held.calls).toHaveLength(1)
     expect(screen.getByText(template.text)).toBeInTheDocument()
+  })
+
+  // Data a dialog or a control reads besides the screen's own: a failed refresh keeps it too.
+  it('keeps the box choices of an open place dialog', async () => {
+    allowConsole(/API error 500/)
+    signedIn('technician')
+    strainPage()
+    const { client } = renderApp({ path: `/labs/${LAB_ID}/strains/${STRAIN_ID}` })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Place vial MYC 42 / 1 / 1' }, { timeout: 5000 }))
+    const dialog = await screen.findByRole('dialog')
+    const choices = await within(dialog).findByRole('combobox', { name: 'Box' })
+    await user.selectOptions(choices, box.public_id)
+    mockApiError('get', UNITS, 500)
+    await refreshAll(client)
+    await waitFor(() => expect(client.getQueryState(['storage', LAB_ID, 'tree'])?.status).toBe('error'))
+    expect(within(dialog).getByRole('combobox', { name: 'Box' })).toHaveValue(box.public_id)
+    expect(within(within(dialog).getByRole('combobox', { name: 'Box' })).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Freezer A / Box 1'])
+  })
+
+  it('keeps the grant buttons of the members when the grants fail to refresh', async () => {
+    allowConsole(/API error 500/)
+    signedIn('manager')
+    mockApi('get', MEMBERS, page([alice]))
+    const GRANTS = '/api/v1/labs/{lab_public_id}/location-grants/'
+    mockApi('get', GRANTS, [makeLocationGrant({ member: alice.public_id, username: 'alice' })])
+    const { client } = renderApp({ path: `/labs/${LAB_ID}` })
+    const revoke = await screen.findByRole('button', { name: 'Revoke regulated locations for alice' }, { timeout: 5000 })
+    const failed = mockApiError('get', GRANTS, 500)
+    await refreshAll(client)
+    await waitFor(() => expect(failed.length).toBeGreaterThan(0))
+    await waitFor(() => expect(client.isFetching()).toBe(0))
+    expect(revoke).toBeInTheDocument()
+    expect(screen.getByRole('row', { name: /alice/ })).toHaveTextContent('May see')
+  })
+
+  it('keeps the publish form and its text when the version it starts from fails to refresh', async () => {
+    allowConsole(/API error 500/)
+    signedIn('manager')
+    mockApi('get', MTA, template)
+    const { client } = renderApp({ path: `/labs/${LAB_ID}/mta-templates/new`, search: { from: template.public_id } })
+    const user = userEvent.setup()
+    const title = await screen.findByRole('textbox', { name: 'Title' }, { timeout: 5000 })
+    await user.clear(title)
+    await user.type(title, TYPED)
+    const failed = mockApiError('get', MTA, 500)
+    await refreshAll(client)
+    await waitFor(() => expect(failed.length).toBeGreaterThan(0))
+    await waitFor(() => expect(client.isFetching()).toBe(0))
+    expect(title).toBeInTheDocument()
+    expect(title).toHaveValue(TYPED)
+    expect(screen.queryByText(/Could not load/)).not.toBeInTheDocument()
+  })
+
+  it('shows no error in an open move dialog when the storage fails to refresh', async () => {
+    allowConsole(/API error 500/)
+    signedIn('manager')
+    const rack = makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000f2', kind: 'rack', name: 'Rack 1', parent: freezer.public_id })
+    mockApi('get', UNIT, makeUnit({ ...rack }))
+    mockApi('get', UNITS, [freezer, rack, makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000f4', name: 'Freezer B' })])
+    const { client } = renderApp({ path: `/labs/${LAB_ID}/storage/${rack.public_id}` })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Move' }, { timeout: 5000 }))
+    const dialog = await screen.findByRole('dialog', { name: 'Move Rack 1' })
+    await within(dialog).findByRole('option', { name: 'Freezer B' })
+    const failed = mockApiError('get', UNITS, 500)
+    await refreshAll(client)
+    await waitFor(() => expect(failed.length).toBeGreaterThan(0))
+    await waitFor(() => expect(client.isFetching()).toBe(0))
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('option', { name: 'Freezer B' })).toBeInTheDocument()
   })
 
   it('shows the full error, and no notice, when the first load fails', async () => {
