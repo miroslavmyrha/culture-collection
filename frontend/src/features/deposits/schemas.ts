@@ -148,6 +148,8 @@ export const termsSchema = z
     ircc: optionalText(100),
     permit_reference: optionalText(200),
     uses: z.array(z.object({ use: z.enum(USES), decision: choice(DECISIONS, 'Choose a decision') })).length(USES.length),
+    /** The uses by a recipient the mutually agreed terms cover: in scope only. */
+    mat_uses: z.array(z.enum(USES)),
   })
   .superRefine((value, ctx) => {
     // 511/2014, Art. 4(3): material in scope needs the IRCC or else the permit.
@@ -168,6 +170,7 @@ export const emptyTerms = (): TermsForm => ({
   ircc: '',
   permit_reference: '',
   uses: USES.map((use) => ({ use, decision: '' })),
+  mat_uses: [],
 })
 
 /** The terms as the API takes them: trimmed, the MTA by id or none. */
@@ -182,6 +185,8 @@ export function termsBody(values: TermsValues): TermsBody {
     ircc: values.ircc,
     permit_reference: values.permit_reference,
     uses: values.uses,
+    // Boxes ticked before the scope changed stay in the form, not in the request.
+    mat_uses: values.abs_scope === 'in_scope' ? USES.filter((use) => values.mat_uses.includes(use)) : [],
   }
 }
 
@@ -225,5 +230,6 @@ export function termsForm(terms: Terms): TermsForm {
     ircc: terms.ircc,
     permit_reference: terms.permit_reference,
     uses: USES.map((use) => ({ use, decision: decided.get(use) ?? '' })),
+    mat_uses: [...terms.mat_uses],
   }
 }

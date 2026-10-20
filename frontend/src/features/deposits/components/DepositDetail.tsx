@@ -236,6 +236,9 @@ function TermsFacts({ terms }: { terms: Terms }) {
           ['Permit reference', terms.permit_reference || 'None'],
           ['PIC reference', terms.pic_reference || 'None'],
           ['MAT reference', terms.mat_reference || 'None'],
+          ...(terms.abs_scope === 'in_scope'
+            ? ([['Uses the MAT covers', terms.mat_uses.length ? terms.mat_uses.map((use) => USE_LABELS[use]).join(', ') : 'None: nothing goes to a third party']] as [string, string][])
+            : []),
           ...(terms.reason ? ([['Why this version', terms.reason]] as [string, string][]) : []),
         ]}
       />

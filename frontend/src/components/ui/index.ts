@@ -24,6 +24,7 @@ export {
   Typography,
 } from '@mui/material'
 export { AutocompleteField } from './AutocompleteField'
+export { CheckboxField } from './CheckboxField'
 export { ConfirmDialog } from './ConfirmDialog'
 export { Link } from './Link'
 export { gridLabel, type GridCell, PositionGrid, type PositionGridHandle } from './PositionGrid'

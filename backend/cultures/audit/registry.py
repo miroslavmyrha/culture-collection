@@ -475,6 +475,7 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "mat_reference",
             "ircc",
             "permit_reference",
+            "mat_uses",
             "reason",
         ),
     ),

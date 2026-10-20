@@ -55,6 +55,8 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     await user.selectOptions(select('MTA'), std.public_id)
     await user.selectOptions(select('ABS scope'), 'in_scope')
     await user.type(field('Permit reference'), 'Permit DEV/1')
+    await user.click(screen.getByRole('checkbox', { name: 'Teaching' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Non-commercial research' }))
     await user.selectOptions(select('Country of origin'), 'CZ')
     await user.type(field('Collection date'), '2019-05')
     await submit(user)
@@ -77,6 +79,7 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
         ircc: '',
         permit_reference: 'Permit DEV/1',
         uses: USES.map((use) => ({ use, decision: use === 'redistribution' ? 'deny' : 'permit' })),
+        mat_uses: ['research_noncommercial', 'teaching'],
       },
     })
   })

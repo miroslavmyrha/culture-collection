@@ -2144,6 +2144,7 @@ export interface components {
             ircc: string;
             /** @default  */
             permit_reference: string;
+            mat_uses?: components["schemas"]["Use"][];
             uses: components["schemas"]["TermsUseRequest"][];
         };
         TermsOutput: {
@@ -2159,6 +2160,7 @@ export interface components {
             readonly mat_reference: string;
             readonly ircc: string;
             readonly permit_reference: string;
+            readonly mat_uses: components["schemas"]["Use"][];
             readonly reason: string;
             readonly uses: components["schemas"]["TermsUse"][];
             /** Format: date-time */

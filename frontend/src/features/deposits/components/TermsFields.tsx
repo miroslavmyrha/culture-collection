@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
+import { useId, useMemo } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
-import { Box, SelectField, Stack, TextField, Typography } from '@/components/ui'
+import { Box, CheckboxField, SelectField, Stack, TextField, Typography } from '@/components/ui'
 import { countryOptions } from '@/lib/countries'
 import { useMtaList } from '../api/queries'
 import { ABS_SCOPE_LABELS, ABS_SCOPES, DECISION_LABELS, DECISIONS, mtaLabel, options, type TermsForm, USE_LABELS, USES } from '../schemas'
@@ -17,6 +17,7 @@ export const TERMS_FIELDS = [
   'terms.permit_reference',
   'terms.uses',
   ...USES.map((_, i) => `terms.uses.${i}.decision` as const),
+  'terms.mat_uses',
 ] as const
 
 const CHOOSE = { value: '', label: 'Choose' }
@@ -34,6 +35,7 @@ export function TermsFields({ labId }: { labId: string }) {
   const mtas = useMtaList(labId)
   const scope = useWatch({ control, name: 'terms.abs_scope' })
   const countries = useMemo(() => countryOptions(), [])
+  const matHintId = useId()
   const mtaOptions = [{ value: '', label: 'No MTA' }, ...(mtas.data?.results ?? []).map((t) => ({ value: t.public_id, label: mtaLabel(t) }))]
   return (
     <Stack spacing={2}>
@@ -75,6 +77,22 @@ export function TermsFields({ labId }: { labId: string }) {
       <TextField label="Permit reference" hint="The access permit, when there is no IRCC." autoComplete="off" error={errors?.permit_reference?.message} {...register('terms.permit_reference')} />
       <TextField label="PIC reference" hint="Prior informed consent." autoComplete="off" error={errors?.pic_reference?.message} {...register('terms.pic_reference')} />
       <TextField label="MAT reference" hint="Mutually agreed terms." autoComplete="off" error={errors?.mat_reference?.message} {...register('terms.mat_reference')} />
+      {scope === 'in_scope' && (
+        <Box component="fieldset" aria-describedby={matHintId} sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2, m: 0, minWidth: 0 }}>
+          <Typography component="legend" sx={{ px: 1 }}>
+            Uses the MAT covers
+          </Typography>
+          <Typography id={matHintId}>
+            What a recipient may use the material for under the mutually agreed terms. None ticked: the MAT lets nothing go to a third party, and no request is approved.
+          </Typography>
+          <Stack>
+            {USES.map((use) => (
+              <CheckboxField key={use} label={USE_LABELS[use]} value={use} {...register('terms.mat_uses')} />
+            ))}
+          </Stack>
+          {errors?.mat_uses?.message && <Typography color="error">{errors.mat_uses.message}</Typography>}
+        </Box>
+      )}
     </Stack>
   )
 }

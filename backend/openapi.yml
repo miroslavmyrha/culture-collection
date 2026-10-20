@@ -6901,6 +6901,11 @@ components:
           type: string
           default: ''
           maxLength: 200
+        mat_uses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Use'
+          maxItems: 8
         uses:
           type: array
           items:
@@ -6949,6 +6954,11 @@ components:
         permit_reference:
           type: string
           readOnly: true
+        mat_uses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Use'
+          readOnly: true
         reason:
           type: string
           readOnly: true
@@ -6969,6 +6979,7 @@ components:
       - ircc
       - is_active
       - mat_reference
+      - mat_uses
       - mta
       - permit_reference
       - pic_reference

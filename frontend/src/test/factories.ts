@@ -152,6 +152,7 @@ export function makeTerms(overrides: Partial<Terms> = {}): Terms {
     mat_reference: '',
     ircc: '',
     permit_reference: '',
+    mat_uses: [],
     reason: '',
     uses: USES.map((use) => ({ use, decision: 'permit' as const })),
     created_at: at,

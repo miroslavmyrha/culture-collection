@@ -15,6 +15,7 @@ the strain and its passage 0 (deposits.services). Receipt facts never change,
 and neither does a decision: guard triggers hold both (migration 0003).
 """
 
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from django.db.models import Q
 
@@ -260,6 +261,12 @@ class DepositTerms(PublicModel):
     mat_reference = models.CharField(max_length=200, blank=True)
     ircc = models.CharField(max_length=100, blank=True)  # the IRCC's identifier in the ABSCH
     permit_reference = models.CharField(max_length=200, blank=True)
+    # The uses by a subsequent user that the mutually agreed terms cover (in scope only, ADR 0008
+    # amendment of 2026-10-20). Empty for material in scope: the MAT lets nothing go to a third
+    # party, so distribution refuses every use (#18).
+    mat_uses = ArrayField(
+        models.CharField(max_length=40, choices=Use.choices), default=list, db_default=[]
+    )
     # Why this version replaced the one before. Empty on version 1. Names no person.
     reason = models.TextField(blank=True)
 
@@ -285,6 +292,15 @@ class DepositTerms(PublicModel):
             models.CheckConstraint(
                 condition=~Q(abs_scope=AbsScope.IN_SCOPE) | ~Q(ircc="") | ~Q(permit_reference=""),
                 name="deposits_depositterms_in_scope_has_ircc_or_permit",
+            ),
+            models.CheckConstraint(
+                condition=Q(mat_uses__contained_by=Use.values),
+                name="deposits_depositterms_mat_uses_valid",
+            ),
+            # The MAT is a fact of material in scope of 511/2014 only.
+            models.CheckConstraint(
+                condition=Q(abs_scope=AbsScope.IN_SCOPE) | Q(mat_uses=[]),
+                name="deposits_depositterms_mat_uses_in_scope_only",
             ),
             models.CheckConstraint(
                 condition=Q(country_of_origin="") | Q(country_of_origin__in=sorted(COUNTRY_CODES)),
