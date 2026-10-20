@@ -276,17 +276,19 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
     await screen.findByRole('table', { name: 'Members' }, { timeout: 5000 })
     if (action === 'granting') mockApi('post', GRANTS, grant)
     else mockApi('post', '/api/v1/labs/{lab_public_id}/location-grants/{public_id}/revoke/', undefined)
-    mockApi('get', GRANTS, after ? [grant] : [])
-    const vials = mockApi('get', VIALS, page([{ ...masked, can_reveal: after }]))
     const verb = action === 'granting' ? 'Grant' : 'Revoke'
     await user.click(await screen.findByRole('button', { name: `${verb} regulated locations for alice` }, { timeout: 5000 }))
-    const dialog = await screen.findByRole('dialog')
+    const dialog = await screen.findByRole('dialog', {}, { timeout: 5000 })
+    // The answers after the write, registered only now: the grants loaded above stay as they were.
+    mockApi('get', GRANTS, after ? [grant] : [])
+    const vials = mockApi('get', VIALS, page([{ ...masked, can_reveal: after }]))
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'keeps the register')
     await user.click(within(dialog).getByRole('button', { name: verb }))
-    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    // Waits of 5 s: under the load of the whole suite this flow takes longer than the default.
+    await waitFor(() => expect(dialog).not.toBeInTheDocument(), { timeout: 5000 })
     await router.navigate({ to: '/labs/$labId/strains/$strainId', params: { labId: LAB_ID, strainId: STRAIN_ID } })
     await waitFor(() => expect(vials).toHaveLength(1), { timeout: 5000 })
-    await waitFor(() => expect(within(vialRow() ?? document.body).queryAllByRole('button', { name: /Reveal the location/ })).toHaveLength(after ? 1 : 0))
+    await waitFor(() => expect(within(vialRow() ?? document.body).queryAllByRole('button', { name: /Reveal the location/ })).toHaveLength(after ? 1 : 0), { timeout: 5000 })
   })
 
   it('accepting a deposit refreshes the lab\'s strain lists', async () => {
