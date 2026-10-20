@@ -1,11 +1,9 @@
-import { useQueryClient } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import { Link, PageTitle, Typography } from '@/components/ui'
 import { useAcceptDeposit } from '@/features/deposits/api/mutations'
 import { DepositDetail } from '@/features/deposits/components/DepositDetail'
 import { canHandleDeposits, type Deposit } from '@/features/deposits/schemas'
 import { LabGate } from '@/features/labs/components/LabGate'
-import { strainKeys } from '@/features/strains/api/keys'
 import { StrainFactsForm } from '@/features/strains/components/StrainFactsForm'
 import { isCountry } from '@/lib/countries'
 
@@ -41,7 +39,6 @@ export function DepositDetailPage() {
 
 function AcceptStep({ labId, deposit }: { labId: string; deposit: Deposit }) {
   const accept = useAcceptDeposit(labId, deposit.public_id)
-  const queryClient = useQueryClient()
   const country = deposit.terms.country_of_origin
   return (
     <StrainFactsForm
@@ -49,9 +46,8 @@ function AcceptStep({ labId, deposit }: { labId: string; deposit: Deposit }) {
       submitLabel="Accept and add the strain"
       nameAsReceived={deposit.name_as_received}
       country={isCountry(country) ? country : ''}
+      // The mutation also refreshes the lab's strain lists, which show the new strain.
       submit={accept}
-      // The new strain is in the lab's strain lists from now on.
-      onDone={() => void queryClient.invalidateQueries({ queryKey: strainKeys.lab(labId) })}
     />
   )
 }

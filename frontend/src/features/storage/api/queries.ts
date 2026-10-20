@@ -1,15 +1,13 @@
 import { queryOptions, useQuery } from '@tanstack/react-query'
 import { api, unwrap } from '@/lib/api'
+import { storageUnitsOptions } from '@/lib/shared-keys'
 import { boxTypeKeys, storageKeys } from './keys'
 
-/** One options object for the hook, the route loader and typed cache access in tests. */
-export const unitTreeOptions = (labId: string) =>
-  queryOptions({
-    queryKey: storageKeys.tree(labId),
-    // The whole tree of the lab in one response, in tree order (ADR 0008, D14).
-    queryFn: ({ signal }) =>
-      unwrap(api.GET('/api/v1/labs/{lab_public_id}/storage-units/', { signal, params: { path: { lab_public_id: labId } } })),
-  })
+/**
+ * One options object for the hook, the route loader and typed cache access in tests. The tree is
+ * the shared storage units entry: the vials' box choices read the same one.
+ */
+export const unitTreeOptions = storageUnitsOptions
 
 export const unitDetailOptions = (labId: string, unitId: string) =>
   queryOptions({

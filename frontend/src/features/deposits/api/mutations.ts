@@ -1,6 +1,7 @@
 import { type QueryClient, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { components } from '@/api/schema'
 import { api, ensureCsrf, unwrap } from '@/lib/api'
+import { sharedKeys } from '@/lib/shared-keys'
 import { depositKeys, depositorKeys, mtaKeys } from './keys'
 
 type Schemas = components['schemas']
@@ -93,7 +94,7 @@ export function useStartCheck(labId: string, depositId: string) {
   })
 }
 
-/** Acceptance creates the strain: the strain lists are stale from here (they refetch on mount). */
+/** Acceptance creates the strain: the lab's strain lists are invalidated too (shared keys). */
 export function useAcceptDeposit(labId: string, depositId: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -102,7 +103,7 @@ export function useAcceptDeposit(labId: string, depositId: string) {
       return unwrap(api.POST('/api/v1/labs/{lab_public_id}/deposits/{public_id}/accept/', { ...one(labId, depositId), body }))
     },
     meta: { handlesError: true },
-    onSuccess: (deposit) => settleDeposit(qc, labId, deposit),
+    onSuccess: (deposit) => Promise.all([settleDeposit(qc, labId, deposit), qc.invalidateQueries({ queryKey: sharedKeys.strainLists(labId) })]),
   })
 }
 
