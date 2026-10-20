@@ -39,6 +39,10 @@ depositors, MTA templates and deposits):
   vial they name), and releases by the lab's curator: two BAC batches released,
   one freeze-dried BAC batch with a reduced viability check and nothing else yet,
   and MYC's batch (invented taxon) held by a failed purity check.
+- requesters with their permits (invented institutions and references) and three requests
+  waiting for a decision (#18): in BAC one a curator may approve and one whose use is on
+  request to the depositor, so a manager approves it; in REG one blocked by a legal gate (a
+  RAT to a laboratory that never notified SÚJB, invented taxon).
 Every user gets the same password. Every write goes through the services in one
 transaction, inside an audit context (channel command, actor kind system,
 label command:seed_dev). A second run finds what exists and changes nothing.
@@ -78,6 +82,9 @@ from cultures.deposits.models import (
     MtaTemplate,
     Use,
 )
+from cultures.distribution import seeding
+from cultures.distribution import services as distribution
+from cultures.distribution.models import LegalForm, PermitKind
 from cultures.labs import services as labs
 from cultures.labs.access import Access, access_for
 from cultures.labs.models import Lab, LocationGrant, Membership
@@ -225,6 +232,7 @@ class Command(BaseCommand):
                     self._release(lab_by_code[row["lab"]], row)
                 for row in data["location_grants"]:
                     self._location_grant(lab_by_code[row["lab"]], row)
+                self._distribution(data, lab_by_code)
         self._report(data)
 
     # Taxa: created when missing, never changed, except a parent added where none is set
@@ -622,6 +630,66 @@ class Command(BaseCommand):
             lab=lab,
             membership=Membership.objects.get(lab=lab, user=user),
             reason=row["reason"],
+        )
+
+    def _distribution(self, data: dict[str, Any], lab_by_code: dict[str, Lab]) -> None:
+        for row in data["requesters"]:
+            self._requester(lab_by_code[row["lab"]], row)
+        for row in data["requests"]:
+            self._request(lab_by_code[row["lab"]], row)
+
+    def _requester(self, lab: Lab, row: dict[str, Any]) -> None:
+        """#18: an institution that may receive material, entered by the lab's curator."""
+        curator = access_for(User.objects.get(username=lab_username(lab.code, Role.CURATOR)))
+        scientist = row["scientist"]
+        seeding.requester(
+            curator,
+            lab,
+            seeding.SeedRequester(
+                institution=row["institution"],
+                country=row["country"],
+                lab_evidence=row["lab_evidence"],
+                scientist=distribution.ContactInput(
+                    scientist["name"], scientist["email"], scientist["postal_address"]
+                ),
+                legal_form=LegalForm(row["legal_form"]),
+                registration_number=row["registration_number"],
+                lab_confirmed_on=date.fromisoformat(row["lab_confirmed_on"]),
+                permits=tuple(
+                    seeding.SeedPermit(
+                        kind=PermitKind(permit["kind"]),
+                        issuer=permit["issuer"],
+                        issuer_country=permit["issuer_country"],
+                        reference=permit["reference"],
+                        valid_from=date.fromisoformat(permit["valid_from"]),
+                        covers=permit.get("covers", ""),
+                        risk_group=permit.get("risk_group"),
+                        gmo_category=permit.get("gmo_category"),
+                    )
+                    for permit in row["permits"]
+                ),
+            ),
+        )
+
+    def _request(self, lab: Lab, row: dict[str, Any]) -> None:
+        """#18: a request as entered by the lab's curator, waiting for a decision."""
+        curator = access_for(User.objects.get(username=lab_username(lab.code, Role.CURATOR)))
+        lines = []
+        for line in row["lines"]:
+            strain = Deposit.objects.get(lab=lab, name_as_received=line["deposit"]).strain
+            assert strain is not None  # noqa: S101 (an accepted deposit)
+            lines.append((strain, line["quantity"]))
+        seeding.request(
+            curator,
+            lab,
+            seeding.SeedRequest(
+                institution=row["requester"],
+                end_use=row["end_use"],
+                use=Use(row["use"]),
+                containment_level=row["containment_level"],
+                lines=tuple(lines),
+                accept=row["accept"],
+            ),
         )
 
     def _report(self, data: dict[str, Any]) -> None:

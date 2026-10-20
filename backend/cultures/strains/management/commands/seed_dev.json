@@ -1,2309 +1,2394 @@
 {
-  "box_types": [
+ "box_types": [
+  {
+   "name": "81-place cryobox (9 x 9)",
+   "rows": 9,
+   "cols": 9
+  },
+  {
+   "name": "100-place cryobox (10 x 10)",
+   "rows": 10,
+   "cols": 10
+  },
+  {
+   "name": "25-place cryobox (5 x 5)",
+   "rows": 5,
+   "cols": 5
+  }
+ ],
+ "labs": [
+  {
+   "code": "BAC",
+   "name": "Bacteriology",
+   "authorisations": [],
+   "storage": [
     {
-      "name": "81-place cryobox (9 x 9)",
-      "rows": 9,
-      "cols": 9
+     "kind": "freezer",
+     "name": "Freezer -80 A",
+     "temperature_c": -80,
+     "max_risk_group": 2,
+     "barcode": "BAC-F01",
+     "children": [
+      {
+       "kind": "rack",
+       "name": "Rack 1",
+       "slot": 1,
+       "children": [
+        {
+         "kind": "box",
+         "name": "Box 1",
+         "slot": 1,
+         "box_type": "81-place cryobox (9 x 9)"
+        },
+        {
+         "kind": "box",
+         "name": "Box 2",
+         "slot": 2,
+         "box_type": "81-place cryobox (9 x 9)"
+        }
+       ]
+      },
+      {
+       "kind": "rack",
+       "name": "Rack 2",
+       "slot": 2,
+       "children": [
+        {
+         "kind": "box",
+         "name": "Box 3",
+         "slot": 1,
+         "box_type": "100-place cryobox (10 x 10)"
+        }
+       ]
+      }
+     ]
     },
     {
-      "name": "100-place cryobox (10 x 10)",
-      "rows": 10,
-      "cols": 10
-    },
-    {
-      "name": "25-place cryobox (5 x 5)",
-      "rows": 5,
-      "cols": 5
+     "kind": "ln2_tank",
+     "name": "LN2 tank 1",
+     "temperature_c": -196,
+     "max_risk_group": 2,
+     "children": [
+      {
+       "kind": "rack",
+       "name": "Canister A",
+       "slot": 1,
+       "children": [
+        {
+         "kind": "box",
+         "name": "Seed stock 1",
+         "slot": 1,
+         "box_type": "100-place cryobox (10 x 10)"
+        },
+        {
+         "kind": "box",
+         "name": "Seed stock 2",
+         "slot": 2,
+         "box_type": "100-place cryobox (10 x 10)"
+        }
+       ]
+      }
+     ]
     }
-  ],
-  "labs": [
+   ]
+  },
+  {
+   "code": "MYC",
+   "name": "Mycology",
+   "authorisations": [
     {
-      "code": "BAC",
-      "name": "Bacteriology",
-      "authorisations": [],
-      "storage": [
-        {
-          "kind": "freezer",
-          "name": "Freezer -80 A",
-          "temperature_c": -80,
-          "max_risk_group": 2,
-          "barcode": "BAC-F01",
-          "children": [
-            {
-              "kind": "rack",
-              "name": "Rack 1",
-              "slot": 1,
-              "children": [
-                {
-                  "kind": "box",
-                  "name": "Box 1",
-                  "slot": 1,
-                  "box_type": "81-place cryobox (9 x 9)"
-                },
-                {
-                  "kind": "box",
-                  "name": "Box 2",
-                  "slot": 2,
-                  "box_type": "81-place cryobox (9 x 9)"
-                }
-              ]
-            },
-            {
-              "kind": "rack",
-              "name": "Rack 2",
-              "slot": 2,
-              "children": [
-                {
-                  "kind": "box",
-                  "name": "Box 3",
-                  "slot": 1,
-                  "box_type": "100-place cryobox (10 x 10)"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "kind": "ln2_tank",
-          "name": "LN2 tank 1",
-          "temperature_c": -196,
-          "max_risk_group": 2,
-          "children": [
-            {
-              "kind": "rack",
-              "name": "Canister A",
-              "slot": 1,
-              "children": [
-                {
-                  "kind": "box",
-                  "name": "Seed stock 1",
-                  "slot": 1,
-                  "box_type": "100-place cryobox (10 x 10)"
-                },
-                {
-                  "kind": "box",
-                  "name": "Seed stock 2",
-                  "slot": 2,
-                  "box_type": "100-place cryobox (10 x 10)"
-                }
-              ]
-            }
-          ]
-        }
-      ]
+     "kind": "quarantine_pest",
+     "permit_reference": "ÚKZÚZ/DEV/0001",
+     "valid_from": "2021-05-01",
+     "expires_on": null,
+     "ended_on": "2024-06-30",
+     "end_reason": "Replaced by a new permit (invented example)."
     },
     {
-      "code": "MYC",
-      "name": "Mycology",
-      "authorisations": [
-        {
-          "kind": "quarantine_pest",
-          "permit_reference": "ÚKZÚZ/DEV/0001",
-          "valid_from": "2021-05-01",
-          "expires_on": null,
-          "ended_on": "2024-06-30",
-          "end_reason": "Replaced by a new permit (invented example)."
-        },
-        {
-          "kind": "quarantine_pest",
-          "permit_reference": "ÚKZÚZ/DEV/0002",
-          "valid_from": "2024-07-01",
-          "expires_on": null
-        }
-      ],
-      "storage": [
-        {
-          "kind": "freezer",
-          "name": "Freezer -80 B",
-          "temperature_c": -80,
-          "max_risk_group": 2,
-          "barcode": "MYC-F01",
-          "children": [
-            {
-              "kind": "rack",
-              "name": "Rack 1",
-              "slot": 1,
-              "children": [
-                {
-                  "kind": "box",
-                  "name": "Box 1",
-                  "slot": 1,
-                  "box_type": "81-place cryobox (9 x 9)"
-                },
-                {
-                  "kind": "box",
-                  "name": "Box 2",
-                  "slot": 2,
-                  "box_type": "81-place cryobox (9 x 9)"
-                },
-                {
-                  "kind": "box",
-                  "name": "Box 3",
-                  "slot": 3,
-                  "box_type": "25-place cryobox (5 x 5)"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "kind": "ln2_tank",
-          "name": "LN2 tank 2",
-          "temperature_c": -196,
-          "max_risk_group": 1,
-          "children": [
-            {
-              "kind": "rack",
-              "name": "Canister A",
-              "slot": 1,
-              "children": [
-                {
-                  "kind": "box",
-                  "name": "Seed stock 1",
-                  "slot": 1,
-                  "box_type": "100-place cryobox (10 x 10)"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "code": "REG",
-      "name": "Regulated agents",
-      "authorisations": [
-        {
-          "kind": "cz_vrat",
-          "permit_reference": "SÚJB/DEV/0001",
-          "valid_from": "2024-01-15",
-          "expires_on": null
-        }
-      ],
-      "storage": [
-        {
-          "kind": "freezer",
-          "name": "Locked freezer R1",
-          "temperature_c": -80,
-          "max_risk_group": 3,
-          "barcode": "REG-F01",
-          "children": [
-            {
-              "kind": "rack",
-              "name": "Rack 1",
-              "slot": 1,
-              "children": [
-                {
-                  "kind": "box",
-                  "name": "Box 1",
-                  "slot": 1,
-                  "box_type": "81-place cryobox (9 x 9)"
-                },
-                {
-                  "kind": "box",
-                  "name": "Box 2, group 2 at most",
-                  "slot": 2,
-                  "box_type": "81-place cryobox (9 x 9)",
-                  "max_risk_group": 2
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "code": "ENV",
-      "name": "Environmental isolates",
-      "authorisations": [
-        {
-          "kind": "cz_vrat",
-          "permit_reference": "SÚJB/DEV/0002",
-          "valid_from": "2019-03-01",
-          "expires_on": "2023-12-31"
-        }
-      ],
-      "storage": [
-        {
-          "kind": "freezer",
-          "name": "Freezer -20 E",
-          "temperature_c": -20,
-          "max_risk_group": 1,
-          "children": [
-            {
-              "kind": "rack",
-              "name": "Rack 1",
-              "slot": 1,
-              "children": [
-                {
-                  "kind": "box",
-                  "name": "Box 1",
-                  "slot": 1,
-                  "box_type": "81-place cryobox (9 x 9)"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "kind": "freezer",
-          "name": "Freezer -80 old",
-          "temperature_c": -80,
-          "max_risk_group": 1,
-          "status": "out_of_service",
-          "reason": "Compressor failure (invented example).",
-          "children": [
-            {
-              "kind": "rack",
-              "name": "Rack 1",
-              "slot": 1,
-              "children": []
-            }
-          ]
-        }
-      ]
+     "kind": "quarantine_pest",
+     "permit_reference": "ÚKZÚZ/DEV/0002",
+     "valid_from": "2024-07-01",
+     "expires_on": null
     }
-  ],
-  "taxa": [
-    {
-      "name": "Bacteria",
-      "authority": "Woese et al. 2024",
-      "rank": "domain",
-      "parent": null,
-      "accepted": null,
-      "ncbi": "2",
-      "source": [
-        "https://lpsn.dsmz.de/domain/bacteria",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=2"
-      ]
-    },
-    {
-      "name": "Fungi",
-      "authority": "R.T. Moore 1980",
-      "rank": "kingdom",
-      "parent": null,
-      "accepted": null,
-      "ncbi": "4751",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=90154",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=4751"
-      ]
-    },
-    {
-      "name": "Bacillus",
-      "authority": "Cohn 1872",
-      "rank": "genus",
-      "parent": "Bacteria",
-      "accepted": null,
-      "ncbi": "1386",
-      "source": [
-        "https://lpsn.dsmz.de/genus/bacillus",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1386"
-      ]
-    },
-    {
-      "name": "Bacillus subtilis",
-      "authority": "(Ehrenberg 1835) Cohn 1872",
-      "rank": "species",
-      "parent": "Bacillus",
-      "accepted": null,
-      "ncbi": "1423",
-      "source": [
-        "https://lpsn.dsmz.de/species/bacillus-subtilis",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1423"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "LPSN: risk group 1",
-        "DSMZ DSM 10 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-10"
-      ]
-    },
-    {
-      "name": "Vibrio subtilis",
-      "authority": "Ehrenberg 1835",
-      "rank": "species",
-      "parent": null,
-      "accepted": "Bacillus subtilis",
-      "ncbi": null,
-      "source": [
-        "https://lpsn.dsmz.de/species/bacillus-subtilis (basonym, not validly published)"
-      ]
-    },
-    {
-      "name": "Bacillus licheniformis",
-      "authority": "(Weigmann 1898) Chester 1901",
-      "rank": "species",
-      "parent": "Bacillus",
-      "accepted": null,
-      "ncbi": "1402",
-      "source": [
-        "https://lpsn.dsmz.de/species/bacillus-licheniformis",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1402"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "LPSN: risk group 1",
-        "DSMZ DSM 13 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-13"
-      ]
-    },
-    {
-      "name": "Priestia",
-      "authority": "Gupta et al. 2020",
-      "rank": "genus",
-      "parent": "Bacteria",
-      "accepted": null,
-      "ncbi": "2800373",
-      "source": [
-        "https://lpsn.dsmz.de/genus/priestia",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=2800373"
-      ]
-    },
-    {
-      "name": "Priestia megaterium",
-      "authority": "(de Bary 1884) Gupta et al. 2020",
-      "rank": "species",
-      "parent": "Priestia",
-      "accepted": null,
-      "ncbi": "1404",
-      "source": [
-        "https://lpsn.dsmz.de/species/priestia-megaterium",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1404"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "LPSN: risk group 1",
-        "DSMZ DSM 32 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-32"
-      ]
-    },
-    {
-      "name": "Bacillus megaterium",
-      "authority": "de Bary 1884",
-      "rank": "species",
-      "parent": null,
-      "accepted": "Priestia megaterium",
-      "ncbi": null,
-      "source": [
-        "https://lpsn.dsmz.de/species/bacillus-megaterium"
-      ]
-    },
-    {
-      "name": "Escherichia",
-      "authority": "Castellani and Chalmers 1919",
-      "rank": "genus",
-      "parent": "Bacteria",
-      "accepted": null,
-      "ncbi": "561",
-      "source": [
-        "https://lpsn.dsmz.de/genus/escherichia",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=561"
-      ]
-    },
-    {
-      "name": "Escherichia coli",
-      "authority": "(Migula 1895) Castellani and Chalmers 1919",
-      "rank": "species",
-      "parent": "Escherichia",
-      "accepted": null,
-      "ncbi": "562",
-      "source": [
-        "https://lpsn.dsmz.de/species/escherichia-coli",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=562"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: Escherichia coli group 2, except non-pathogenic strains",
-        "Only K-12 strains here: DSMZ DSM 498 (K-12): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-498"
-      ],
-      "strain_name_contains": "K-12"
-    },
-    {
-      "name": "Bacillus coli",
-      "authority": "Migula 1895",
-      "rank": "species",
-      "parent": null,
-      "accepted": "Escherichia coli",
-      "ncbi": null,
-      "source": [
-        "https://lpsn.dsmz.de/species/escherichia-coli (basonym, not validly published)"
-      ]
-    },
-    {
-      "name": "Pseudomonas",
-      "authority": "Migula 1894",
-      "rank": "genus",
-      "parent": "Bacteria",
-      "accepted": null,
-      "ncbi": "286",
-      "source": [
-        "https://lpsn.dsmz.de/genus/pseudomonas",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=286"
-      ]
-    },
-    {
-      "name": "Pseudomonas aeruginosa",
-      "authority": "(Schroeter 1872) Migula 1900",
-      "rank": "species",
-      "parent": "Pseudomonas",
-      "accepted": null,
-      "ncbi": "287",
-      "source": [
-        "https://lpsn.dsmz.de/species/pseudomonas-aeruginosa",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=287"
-      ],
-      "risk_group": 2,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: Pseudomonas aeruginosa, group 2",
-        "DSMZ DSM 50071: risk group 2, https://www.dsmz.de/collection/catalogue/details/culture/DSM-50071"
-      ]
-    },
-    {
-      "name": "Staphylococcus",
-      "authority": "Rosenbach 1884",
-      "rank": "genus",
-      "parent": "Bacteria",
-      "accepted": null,
-      "ncbi": "1279",
-      "source": [
-        "https://lpsn.dsmz.de/genus/staphylococcus",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1279"
-      ]
-    },
-    {
-      "name": "Staphylococcus aureus",
-      "authority": "Rosenbach 1884",
-      "rank": "species",
-      "parent": "Staphylococcus",
-      "accepted": null,
-      "ncbi": "1280",
-      "source": [
-        "https://lpsn.dsmz.de/species/staphylococcus-aureus",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1280"
-      ],
-      "risk_group": 2,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: Staphylococcus aureus, group 2",
-        "DSMZ DSM 20231: risk group 2, https://www.dsmz.de/collection/catalogue/details/culture/DSM-20231"
-      ]
-    },
-    {
-      "name": "Lactiplantibacillus",
-      "authority": "Zheng et al. 2020",
-      "rank": "genus",
-      "parent": "Bacteria",
-      "accepted": null,
-      "ncbi": "2767842",
-      "source": [
-        "https://lpsn.dsmz.de/genus/lactiplantibacillus",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=2767842"
-      ]
-    },
-    {
-      "name": "Lactiplantibacillus plantarum",
-      "authority": "(Orla-Jensen 1919) Zheng et al. 2020",
-      "rank": "species",
-      "parent": "Lactiplantibacillus",
-      "accepted": null,
-      "ncbi": "1590",
-      "source": [
-        "https://lpsn.dsmz.de/species/lactiplantibacillus-plantarum",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1590"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "LPSN: risk group 1",
-        "DSMZ DSM 20174 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-20174"
-      ]
-    },
-    {
-      "name": "Lactobacillus plantarum",
-      "authority": "(Orla-Jensen 1919) Bergey et al. 1923",
-      "rank": "species",
-      "parent": null,
-      "accepted": "Lactiplantibacillus plantarum",
-      "ncbi": null,
-      "source": [
-        "https://lpsn.dsmz.de/species/lactobacillus-plantarum"
-      ]
-    },
-    {
-      "name": "Lactobacillus",
-      "authority": "Beijerinck 1901",
-      "rank": "genus",
-      "parent": "Bacteria",
-      "accepted": null,
-      "ncbi": "1578",
-      "source": [
-        "https://lpsn.dsmz.de/genus/lactobacillus",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1578"
-      ]
-    },
-    {
-      "name": "Lactobacillus delbrueckii",
-      "authority": "corrig. (Leichmann 1896) Beijerinck 1901",
-      "rank": "species",
-      "parent": "Lactobacillus",
-      "accepted": null,
-      "ncbi": "1584",
-      "source": [
-        "https://lpsn.dsmz.de/species/lactobacillus-delbrueckii",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1584"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "LPSN: risk group 1",
-        "DSMZ DSM 20074 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-20074"
-      ]
-    },
-    {
-      "name": "Lactococcus",
-      "authority": "Schleifer et al. 1986",
-      "rank": "genus",
-      "parent": "Bacteria",
-      "accepted": null,
-      "ncbi": "1357",
-      "source": [
-        "https://lpsn.dsmz.de/genus/lactococcus",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1357"
-      ]
-    },
-    {
-      "name": "Lactococcus lactis",
-      "authority": "(Lister 1873) Schleifer et al. 1986",
-      "rank": "species",
-      "parent": "Lactococcus",
-      "accepted": null,
-      "ncbi": "1358",
-      "source": [
-        "https://lpsn.dsmz.de/species/lactococcus-lactis",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1358"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "LPSN: risk group 1",
-        "DSMZ DSM 20481 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-20481"
-      ]
-    },
-    {
-      "name": "Streptomyces",
-      "authority": "Waksman and Henrici 1943",
-      "rank": "genus",
-      "parent": "Bacteria",
-      "accepted": null,
-      "ncbi": "1883",
-      "source": [
-        "https://lpsn.dsmz.de/genus/streptomyces",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1883"
-      ]
-    },
-    {
-      "name": "Streptomyces griseus",
-      "authority": "(Krainsky 1914) Waksman and Henrici 1948",
-      "rank": "species",
-      "parent": "Streptomyces",
-      "accepted": null,
-      "ncbi": "1911",
-      "source": [
-        "https://lpsn.dsmz.de/species/streptomyces-griseus",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1911"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "LPSN: risk group 1",
-        "DSMZ DSM 40236 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-40236"
-      ]
-    },
-    {
-      "name": "Micrococcus",
-      "authority": "Cohn 1872",
-      "rank": "genus",
-      "parent": "Bacteria",
-      "accepted": null,
-      "ncbi": "1269",
-      "source": [
-        "https://lpsn.dsmz.de/genus/micrococcus",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1269"
-      ]
-    },
-    {
-      "name": "Micrococcus luteus",
-      "authority": "(Schroeter 1872) Cohn 1872",
-      "rank": "species",
-      "parent": "Micrococcus",
-      "accepted": null,
-      "ncbi": "1270",
-      "source": [
-        "https://lpsn.dsmz.de/species/micrococcus-luteus",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1270"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "LPSN: risk group 1",
-        "DSMZ DSM 20030 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-20030"
-      ]
-    },
-    {
-      "name": "Acetobacter",
-      "authority": "Beijerinck 1898",
-      "rank": "genus",
-      "parent": "Bacteria",
-      "accepted": null,
-      "ncbi": "434",
-      "source": [
-        "https://lpsn.dsmz.de/genus/acetobacter",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=434"
-      ]
-    },
-    {
-      "name": "Acetobacter aceti",
-      "authority": "(Pasteur 1864) Beijerinck 1898",
-      "rank": "species",
-      "parent": "Acetobacter",
-      "accepted": null,
-      "ncbi": "435",
-      "source": [
-        "https://lpsn.dsmz.de/species/acetobacter-aceti",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=435"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "LPSN: risk group 1",
-        "DSMZ DSM 3508 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-3508"
-      ]
-    },
-    {
-      "name": "Zymomonas",
-      "authority": "Kluyver and van Niel 1936",
-      "rank": "genus",
-      "parent": "Bacteria",
-      "accepted": null,
-      "ncbi": "541",
-      "source": [
-        "https://lpsn.dsmz.de/genus/zymomonas",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=541"
-      ]
-    },
-    {
-      "name": "Zymomonas mobilis",
-      "authority": "corrig. (Lindner 1928) Kluyver and van Niel 1936",
-      "rank": "species",
-      "parent": "Zymomonas",
-      "accepted": null,
-      "ncbi": "542",
-      "source": [
-        "https://lpsn.dsmz.de/species/zymomonas-mobilis",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=542"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "LPSN: risk group 1",
-        "DSMZ DSM 424 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-424"
-      ]
-    },
-    {
-      "name": "Deinococcus",
-      "authority": "Brooks and Murray 1981",
-      "rank": "genus",
-      "parent": "Bacteria",
-      "accepted": null,
-      "ncbi": "1298",
-      "source": [
-        "https://lpsn.dsmz.de/genus/deinococcus",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1298"
-      ]
-    },
-    {
-      "name": "Deinococcus radiodurans",
-      "authority": "(ex Raj et al. 1960) Brooks and Murray 1981",
-      "rank": "species",
-      "parent": "Deinococcus",
-      "accepted": null,
-      "ncbi": "1299",
-      "source": [
-        "https://lpsn.dsmz.de/species/deinococcus-radiodurans",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1299"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "LPSN: risk group 1",
-        "DSMZ DSM 20539 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-20539"
-      ]
-    },
-    {
-      "name": "Ensifer",
-      "authority": "Casida 1982",
-      "rank": "genus",
-      "parent": "Bacteria",
-      "accepted": null,
-      "ncbi": "106591",
-      "source": [
-        "https://lpsn.dsmz.de/genus/ensifer",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=106591"
-      ]
-    },
-    {
-      "name": "Ensifer meliloti",
-      "authority": "(Dangeard 1926) Young 2003",
-      "rank": "species",
-      "parent": "Ensifer",
-      "accepted": null,
-      "ncbi": null,
-      "source": [
-        "https://lpsn.dsmz.de/species/ensifer-meliloti"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "LPSN: risk group 1",
-        "DSMZ DSM 30135 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-30135"
-      ]
-    },
-    {
-      "name": "Sinorhizobium meliloti",
-      "authority": "(Dangeard 1926) De Lajudie et al. 1994",
-      "rank": "species",
-      "parent": null,
-      "accepted": "Ensifer meliloti",
-      "ncbi": null,
-      "source": [
-        "https://lpsn.dsmz.de/species/sinorhizobium-meliloti"
-      ]
-    },
-    {
-      "name": "Aspergillus",
-      "authority": "P. Micheli ex Haller 1768",
-      "rank": "genus",
-      "parent": "Fungi",
-      "accepted": null,
-      "ncbi": "5052",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=7248",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5052"
-      ]
-    },
-    {
-      "name": "Aspergillus fumigatus",
-      "authority": "Fresen. 1863",
-      "rank": "species",
-      "parent": "Aspergillus",
-      "accepted": null,
-      "ncbi": "746128",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=211776",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=746128"
-      ],
-      "risk_group": 2,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: Aspergillus fumigatus, group 2",
-        "DSMZ DSM 819: risk group 2, https://www.dsmz.de/collection/catalogue/details/culture/DSM-819"
-      ]
-    },
-    {
-      "name": "Candida",
-      "authority": "Berkhout 1923",
-      "rank": "genus",
-      "parent": "Fungi",
-      "accepted": null,
-      "ncbi": "5475",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=7487",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5475"
-      ]
-    },
-    {
-      "name": "Candida albicans",
-      "authority": "(C.P. Robin) Berkhout 1923",
-      "rank": "species",
-      "parent": "Candida",
-      "accepted": null,
-      "ncbi": "5476",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=256187",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5476"
-      ],
-      "risk_group": 2,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: Candida albicans, group 2",
-        "DSMZ DSM 1386: risk group 2, https://www.dsmz.de/collection/catalogue/details/culture/DSM-1386"
-      ]
-    },
-    {
-      "name": "Schizosaccharomyces",
-      "authority": "Lindner 1893",
-      "rank": "genus",
-      "parent": "Fungi",
-      "accepted": null,
-      "ncbi": "4895",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=4905",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=4895"
-      ]
-    },
-    {
-      "name": "Schizosaccharomyces pombe",
-      "authority": "Lindner 1893",
-      "rank": "species",
-      "parent": "Schizosaccharomyces",
-      "accepted": null,
-      "ncbi": "4896",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=212377",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=4896"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "DSMZ DSM 70572: risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-70572"
-      ]
-    },
-    {
-      "name": "Penicillium",
-      "authority": "Link 1809",
-      "rank": "genus",
-      "parent": "Fungi",
-      "accepted": null,
-      "ncbi": "5073",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=9257",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5073"
-      ]
-    },
-    {
-      "name": "Penicillium rubens",
-      "authority": "Biourge 1923",
-      "rank": "species",
-      "parent": "Penicillium",
-      "accepted": null,
-      "ncbi": "1108849",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=276884",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1108849"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "DSMZ DSM 1075: risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-1075"
-      ]
-    },
-    {
-      "name": "Penicillium chrysogenum",
-      "authority": "Thom 1910",
-      "rank": "species",
-      "parent": "Penicillium",
-      "accepted": null,
-      "ncbi": "5076",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=165757",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5076"
-      ]
-    },
-    {
-      "name": "Penicillium notatum",
-      "authority": "Westling 1911",
-      "rank": "species",
-      "parent": null,
-      "accepted": "Penicillium chrysogenum",
-      "ncbi": null,
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=160571 (current name Penicillium chrysogenum)"
-      ]
-    },
-    {
-      "name": "Penicillium roqueforti",
-      "authority": "Thom 1906",
-      "rank": "species",
-      "parent": "Penicillium",
-      "accepted": null,
-      "ncbi": "5082",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=213525",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5082"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "DSMZ DSM 1079: risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-1079"
-      ]
-    },
-    {
-      "name": "Trichoderma",
-      "authority": "Pers. 1794",
-      "rank": "genus",
-      "parent": "Fungi",
-      "accepted": null,
-      "ncbi": "5543",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=10282",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5543"
-      ]
-    },
-    {
-      "name": "Trichoderma reesei",
-      "authority": "E.G. Simmons 1977",
-      "rank": "species",
-      "parent": "Trichoderma",
-      "accepted": null,
-      "ncbi": "51453",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=324906",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=51453"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "DSMZ DSM 768: risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-768"
-      ]
-    },
-    {
-      "name": "Botrytis",
-      "authority": "P. Micheli ex Pers. 1794",
-      "rank": "genus",
-      "parent": "Fungi",
-      "accepted": null,
-      "ncbi": "33196",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=7435",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=33196"
-      ]
-    },
-    {
-      "name": "Botrytis cinerea",
-      "authority": "Pers. 1801",
-      "rank": "species",
-      "parent": "Botrytis",
-      "accepted": null,
-      "ncbi": "40559",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=217312",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=40559"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "DSMZ DSM 4709: risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-4709"
-      ],
-      "plant_pathogenicity": "pathogenic",
-      "pathogenicity_source": [
-        "Dean R et al. The Top 10 fungal pathogens in molecular plant pathology. Mol Plant Pathol 2012; 13:414-430, https://doi.org/10.1111/j.1364-3703.2011.00783.x"
-      ]
-    },
-    {
-      "name": "Botryotinia fuckeliana",
-      "authority": "(de Bary) Whetzel 1945",
-      "rank": "species",
-      "parent": null,
-      "accepted": "Botrytis cinerea",
-      "ncbi": null,
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=284645 (current name Botrytis cinerea)"
-      ]
-    },
-    {
-      "name": "Neurospora",
-      "authority": "Shear & B.O. Dodge 1927",
-      "rank": "genus",
-      "parent": "Fungi",
-      "accepted": null,
-      "ncbi": "5140",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=3502",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5140"
-      ]
-    },
-    {
-      "name": "Neurospora crassa",
-      "authority": "Shear & B.O. Dodge 1927",
-      "rank": "species",
-      "parent": "Neurospora",
-      "accepted": null,
-      "ncbi": "5141",
-      "source": [
-        "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=262212",
-        "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5141"
-      ],
-      "risk_group": 1,
-      "risk_group_source": [
-        "NV 361/2007 Sb., Příloha 7: not listed",
-        "DSMZ DSM 1257: risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-1257"
-      ]
-    },
-    {
-      "name": "Testella",
-      "authority": "",
-      "rank": "genus",
-      "parent": null,
-      "accepted": null,
-      "ncbi": null,
-      "invented": true
-    },
-    {
-      "name": "Testella exempli",
-      "authority": "",
-      "rank": "species",
-      "parent": "Testella",
-      "accepted": null,
-      "ncbi": null,
-      "invented": true
-    },
-    {
-      "name": "Testella cerea",
-      "authority": "",
-      "rank": "species",
-      "parent": "Testella",
-      "accepted": null,
-      "ncbi": null,
-      "invented": true
-    },
-    {
-      "name": "Mockia",
-      "authority": "",
-      "rank": "genus",
-      "parent": null,
-      "accepted": null,
-      "ncbi": null,
-      "invented": true
-    },
-    {
-      "name": "Mockia vulgaris",
-      "authority": "",
-      "rank": "species",
-      "parent": "Mockia",
-      "accepted": null,
-      "ncbi": null,
-      "invented": true
-    },
-    {
-      "name": "Fictivibrio exempli",
-      "authority": "",
-      "rank": "species",
-      "parent": null,
-      "accepted": "Testella exempli",
-      "ncbi": null,
-      "invented": true
-    }
-  ],
-  "strains": [
-    {
-      "lab": "BAC",
-      "name_as_received": "Bacillus subtilis",
-      "taxon": "Bacillus subtilis",
-      "identified_on": "2016-06-02",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Garden soil",
-      "country_of_origin": "CZ",
-      "isolation_date": "2016-05"
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Bacillus subtilis hay isolate",
-      "taxon": "Bacillus subtilis",
-      "identified_on": "2019-03-11",
-      "method": "MALDI-TOF mass spectrometry",
-      "isolation_source": "Hay infusion",
-      "country_of_origin": "CZ",
-      "isolation_date": "2019"
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Bacillus subtilis from natto",
-      "taxon": "Bacillus subtilis",
-      "identified_on": "2012-12-05",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Fermented soybeans (natto)",
-      "country_of_origin": "JP",
-      "isolation_date": "2012-11-03"
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Bacillus licheniformis",
-      "taxon": "Bacillus licheniformis",
-      "identified_on": "2018-08-20",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Compost",
-      "country_of_origin": "AT",
-      "isolation_date": "2018-07"
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Bacillus licheniformis feather isolate",
-      "taxon": "Bacillus licheniformis",
-      "identified_on": "2020-10-01",
-      "method": "MALDI-TOF mass spectrometry",
-      "isolation_source": "Poultry feathers",
-      "country_of_origin": "PL",
-      "isolation_date": "2020"
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Bacillus megaterium",
-      "taxon": "Bacillus megaterium",
-      "identified_on": "2009-11-16",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Arable soil",
-      "country_of_origin": "DE",
-      "isolation_date": "2009",
-      "history": [
+   ],
+   "storage": [
+    {
+     "kind": "freezer",
+     "name": "Freezer -80 B",
+     "temperature_c": -80,
+     "max_risk_group": 2,
+     "barcode": "MYC-F01",
+     "children": [
+      {
+       "kind": "rack",
+       "name": "Rack 1",
+       "slot": 1,
+       "children": [
         {
-          "reclassify": {
-            "taxon": "Priestia megaterium",
-            "identified_on": "2021-03-01",
-            "method": "Nomenclature update",
-            "reason": "Gupta et al. 2020 moved the species to the genus Priestia."
-          }
+         "kind": "box",
+         "name": "Box 1",
+         "slot": 1,
+         "box_type": "81-place cryobox (9 x 9)"
+        },
+        {
+         "kind": "box",
+         "name": "Box 2",
+         "slot": 2,
+         "box_type": "81-place cryobox (9 x 9)"
+        },
+        {
+         "kind": "box",
+         "name": "Box 3",
+         "slot": 3,
+         "box_type": "25-place cryobox (5 x 5)"
         }
-      ]
+       ]
+      }
+     ]
     },
     {
-      "lab": "BAC",
-      "name_as_received": "Priestia megaterium",
+     "kind": "ln2_tank",
+     "name": "LN2 tank 2",
+     "temperature_c": -196,
+     "max_risk_group": 1,
+     "children": [
+      {
+       "kind": "rack",
+       "name": "Canister A",
+       "slot": 1,
+       "children": [
+        {
+         "kind": "box",
+         "name": "Seed stock 1",
+         "slot": 1,
+         "box_type": "100-place cryobox (10 x 10)"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "code": "REG",
+   "name": "Regulated agents",
+   "authorisations": [
+    {
+     "kind": "cz_vrat",
+     "permit_reference": "SÚJB/DEV/0001",
+     "valid_from": "2024-01-15",
+     "expires_on": null
+    }
+   ],
+   "storage": [
+    {
+     "kind": "freezer",
+     "name": "Locked freezer R1",
+     "temperature_c": -80,
+     "max_risk_group": 3,
+     "barcode": "REG-F01",
+     "children": [
+      {
+       "kind": "rack",
+       "name": "Rack 1",
+       "slot": 1,
+       "children": [
+        {
+         "kind": "box",
+         "name": "Box 1",
+         "slot": 1,
+         "box_type": "81-place cryobox (9 x 9)"
+        },
+        {
+         "kind": "box",
+         "name": "Box 2, group 2 at most",
+         "slot": 2,
+         "box_type": "81-place cryobox (9 x 9)",
+         "max_risk_group": 2
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "code": "ENV",
+   "name": "Environmental isolates",
+   "authorisations": [
+    {
+     "kind": "cz_vrat",
+     "permit_reference": "SÚJB/DEV/0002",
+     "valid_from": "2019-03-01",
+     "expires_on": "2023-12-31"
+    }
+   ],
+   "storage": [
+    {
+     "kind": "freezer",
+     "name": "Freezer -20 E",
+     "temperature_c": -20,
+     "max_risk_group": 1,
+     "children": [
+      {
+       "kind": "rack",
+       "name": "Rack 1",
+       "slot": 1,
+       "children": [
+        {
+         "kind": "box",
+         "name": "Box 1",
+         "slot": 1,
+         "box_type": "81-place cryobox (9 x 9)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "kind": "freezer",
+     "name": "Freezer -80 old",
+     "temperature_c": -80,
+     "max_risk_group": 1,
+     "status": "out_of_service",
+     "reason": "Compressor failure (invented example).",
+     "children": [
+      {
+       "kind": "rack",
+       "name": "Rack 1",
+       "slot": 1,
+       "children": []
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "taxa": [
+  {
+   "name": "Bacteria",
+   "authority": "Woese et al. 2024",
+   "rank": "domain",
+   "parent": null,
+   "accepted": null,
+   "ncbi": "2",
+   "source": [
+    "https://lpsn.dsmz.de/domain/bacteria",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=2"
+   ]
+  },
+  {
+   "name": "Fungi",
+   "authority": "R.T. Moore 1980",
+   "rank": "kingdom",
+   "parent": null,
+   "accepted": null,
+   "ncbi": "4751",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=90154",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=4751"
+   ]
+  },
+  {
+   "name": "Bacillus",
+   "authority": "Cohn 1872",
+   "rank": "genus",
+   "parent": "Bacteria",
+   "accepted": null,
+   "ncbi": "1386",
+   "source": [
+    "https://lpsn.dsmz.de/genus/bacillus",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1386"
+   ]
+  },
+  {
+   "name": "Bacillus subtilis",
+   "authority": "(Ehrenberg 1835) Cohn 1872",
+   "rank": "species",
+   "parent": "Bacillus",
+   "accepted": null,
+   "ncbi": "1423",
+   "source": [
+    "https://lpsn.dsmz.de/species/bacillus-subtilis",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1423"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "LPSN: risk group 1",
+    "DSMZ DSM 10 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-10"
+   ]
+  },
+  {
+   "name": "Vibrio subtilis",
+   "authority": "Ehrenberg 1835",
+   "rank": "species",
+   "parent": null,
+   "accepted": "Bacillus subtilis",
+   "ncbi": null,
+   "source": [
+    "https://lpsn.dsmz.de/species/bacillus-subtilis (basonym, not validly published)"
+   ]
+  },
+  {
+   "name": "Bacillus licheniformis",
+   "authority": "(Weigmann 1898) Chester 1901",
+   "rank": "species",
+   "parent": "Bacillus",
+   "accepted": null,
+   "ncbi": "1402",
+   "source": [
+    "https://lpsn.dsmz.de/species/bacillus-licheniformis",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1402"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "LPSN: risk group 1",
+    "DSMZ DSM 13 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-13"
+   ]
+  },
+  {
+   "name": "Priestia",
+   "authority": "Gupta et al. 2020",
+   "rank": "genus",
+   "parent": "Bacteria",
+   "accepted": null,
+   "ncbi": "2800373",
+   "source": [
+    "https://lpsn.dsmz.de/genus/priestia",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=2800373"
+   ]
+  },
+  {
+   "name": "Priestia megaterium",
+   "authority": "(de Bary 1884) Gupta et al. 2020",
+   "rank": "species",
+   "parent": "Priestia",
+   "accepted": null,
+   "ncbi": "1404",
+   "source": [
+    "https://lpsn.dsmz.de/species/priestia-megaterium",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1404"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "LPSN: risk group 1",
+    "DSMZ DSM 32 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-32"
+   ]
+  },
+  {
+   "name": "Bacillus megaterium",
+   "authority": "de Bary 1884",
+   "rank": "species",
+   "parent": null,
+   "accepted": "Priestia megaterium",
+   "ncbi": null,
+   "source": [
+    "https://lpsn.dsmz.de/species/bacillus-megaterium"
+   ]
+  },
+  {
+   "name": "Escherichia",
+   "authority": "Castellani and Chalmers 1919",
+   "rank": "genus",
+   "parent": "Bacteria",
+   "accepted": null,
+   "ncbi": "561",
+   "source": [
+    "https://lpsn.dsmz.de/genus/escherichia",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=561"
+   ]
+  },
+  {
+   "name": "Escherichia coli",
+   "authority": "(Migula 1895) Castellani and Chalmers 1919",
+   "rank": "species",
+   "parent": "Escherichia",
+   "accepted": null,
+   "ncbi": "562",
+   "source": [
+    "https://lpsn.dsmz.de/species/escherichia-coli",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=562"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: Escherichia coli group 2, except non-pathogenic strains",
+    "Only K-12 strains here: DSMZ DSM 498 (K-12): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-498"
+   ],
+   "strain_name_contains": "K-12"
+  },
+  {
+   "name": "Bacillus coli",
+   "authority": "Migula 1895",
+   "rank": "species",
+   "parent": null,
+   "accepted": "Escherichia coli",
+   "ncbi": null,
+   "source": [
+    "https://lpsn.dsmz.de/species/escherichia-coli (basonym, not validly published)"
+   ]
+  },
+  {
+   "name": "Pseudomonas",
+   "authority": "Migula 1894",
+   "rank": "genus",
+   "parent": "Bacteria",
+   "accepted": null,
+   "ncbi": "286",
+   "source": [
+    "https://lpsn.dsmz.de/genus/pseudomonas",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=286"
+   ]
+  },
+  {
+   "name": "Pseudomonas aeruginosa",
+   "authority": "(Schroeter 1872) Migula 1900",
+   "rank": "species",
+   "parent": "Pseudomonas",
+   "accepted": null,
+   "ncbi": "287",
+   "source": [
+    "https://lpsn.dsmz.de/species/pseudomonas-aeruginosa",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=287"
+   ],
+   "risk_group": 2,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: Pseudomonas aeruginosa, group 2",
+    "DSMZ DSM 50071: risk group 2, https://www.dsmz.de/collection/catalogue/details/culture/DSM-50071"
+   ]
+  },
+  {
+   "name": "Staphylococcus",
+   "authority": "Rosenbach 1884",
+   "rank": "genus",
+   "parent": "Bacteria",
+   "accepted": null,
+   "ncbi": "1279",
+   "source": [
+    "https://lpsn.dsmz.de/genus/staphylococcus",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1279"
+   ]
+  },
+  {
+   "name": "Staphylococcus aureus",
+   "authority": "Rosenbach 1884",
+   "rank": "species",
+   "parent": "Staphylococcus",
+   "accepted": null,
+   "ncbi": "1280",
+   "source": [
+    "https://lpsn.dsmz.de/species/staphylococcus-aureus",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1280"
+   ],
+   "risk_group": 2,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: Staphylococcus aureus, group 2",
+    "DSMZ DSM 20231: risk group 2, https://www.dsmz.de/collection/catalogue/details/culture/DSM-20231"
+   ]
+  },
+  {
+   "name": "Lactiplantibacillus",
+   "authority": "Zheng et al. 2020",
+   "rank": "genus",
+   "parent": "Bacteria",
+   "accepted": null,
+   "ncbi": "2767842",
+   "source": [
+    "https://lpsn.dsmz.de/genus/lactiplantibacillus",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=2767842"
+   ]
+  },
+  {
+   "name": "Lactiplantibacillus plantarum",
+   "authority": "(Orla-Jensen 1919) Zheng et al. 2020",
+   "rank": "species",
+   "parent": "Lactiplantibacillus",
+   "accepted": null,
+   "ncbi": "1590",
+   "source": [
+    "https://lpsn.dsmz.de/species/lactiplantibacillus-plantarum",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1590"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "LPSN: risk group 1",
+    "DSMZ DSM 20174 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-20174"
+   ]
+  },
+  {
+   "name": "Lactobacillus plantarum",
+   "authority": "(Orla-Jensen 1919) Bergey et al. 1923",
+   "rank": "species",
+   "parent": null,
+   "accepted": "Lactiplantibacillus plantarum",
+   "ncbi": null,
+   "source": [
+    "https://lpsn.dsmz.de/species/lactobacillus-plantarum"
+   ]
+  },
+  {
+   "name": "Lactobacillus",
+   "authority": "Beijerinck 1901",
+   "rank": "genus",
+   "parent": "Bacteria",
+   "accepted": null,
+   "ncbi": "1578",
+   "source": [
+    "https://lpsn.dsmz.de/genus/lactobacillus",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1578"
+   ]
+  },
+  {
+   "name": "Lactobacillus delbrueckii",
+   "authority": "corrig. (Leichmann 1896) Beijerinck 1901",
+   "rank": "species",
+   "parent": "Lactobacillus",
+   "accepted": null,
+   "ncbi": "1584",
+   "source": [
+    "https://lpsn.dsmz.de/species/lactobacillus-delbrueckii",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1584"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "LPSN: risk group 1",
+    "DSMZ DSM 20074 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-20074"
+   ]
+  },
+  {
+   "name": "Lactococcus",
+   "authority": "Schleifer et al. 1986",
+   "rank": "genus",
+   "parent": "Bacteria",
+   "accepted": null,
+   "ncbi": "1357",
+   "source": [
+    "https://lpsn.dsmz.de/genus/lactococcus",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1357"
+   ]
+  },
+  {
+   "name": "Lactococcus lactis",
+   "authority": "(Lister 1873) Schleifer et al. 1986",
+   "rank": "species",
+   "parent": "Lactococcus",
+   "accepted": null,
+   "ncbi": "1358",
+   "source": [
+    "https://lpsn.dsmz.de/species/lactococcus-lactis",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1358"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "LPSN: risk group 1",
+    "DSMZ DSM 20481 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-20481"
+   ]
+  },
+  {
+   "name": "Streptomyces",
+   "authority": "Waksman and Henrici 1943",
+   "rank": "genus",
+   "parent": "Bacteria",
+   "accepted": null,
+   "ncbi": "1883",
+   "source": [
+    "https://lpsn.dsmz.de/genus/streptomyces",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1883"
+   ]
+  },
+  {
+   "name": "Streptomyces griseus",
+   "authority": "(Krainsky 1914) Waksman and Henrici 1948",
+   "rank": "species",
+   "parent": "Streptomyces",
+   "accepted": null,
+   "ncbi": "1911",
+   "source": [
+    "https://lpsn.dsmz.de/species/streptomyces-griseus",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1911"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "LPSN: risk group 1",
+    "DSMZ DSM 40236 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-40236"
+   ]
+  },
+  {
+   "name": "Micrococcus",
+   "authority": "Cohn 1872",
+   "rank": "genus",
+   "parent": "Bacteria",
+   "accepted": null,
+   "ncbi": "1269",
+   "source": [
+    "https://lpsn.dsmz.de/genus/micrococcus",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1269"
+   ]
+  },
+  {
+   "name": "Micrococcus luteus",
+   "authority": "(Schroeter 1872) Cohn 1872",
+   "rank": "species",
+   "parent": "Micrococcus",
+   "accepted": null,
+   "ncbi": "1270",
+   "source": [
+    "https://lpsn.dsmz.de/species/micrococcus-luteus",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1270"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "LPSN: risk group 1",
+    "DSMZ DSM 20030 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-20030"
+   ]
+  },
+  {
+   "name": "Acetobacter",
+   "authority": "Beijerinck 1898",
+   "rank": "genus",
+   "parent": "Bacteria",
+   "accepted": null,
+   "ncbi": "434",
+   "source": [
+    "https://lpsn.dsmz.de/genus/acetobacter",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=434"
+   ]
+  },
+  {
+   "name": "Acetobacter aceti",
+   "authority": "(Pasteur 1864) Beijerinck 1898",
+   "rank": "species",
+   "parent": "Acetobacter",
+   "accepted": null,
+   "ncbi": "435",
+   "source": [
+    "https://lpsn.dsmz.de/species/acetobacter-aceti",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=435"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "LPSN: risk group 1",
+    "DSMZ DSM 3508 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-3508"
+   ]
+  },
+  {
+   "name": "Zymomonas",
+   "authority": "Kluyver and van Niel 1936",
+   "rank": "genus",
+   "parent": "Bacteria",
+   "accepted": null,
+   "ncbi": "541",
+   "source": [
+    "https://lpsn.dsmz.de/genus/zymomonas",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=541"
+   ]
+  },
+  {
+   "name": "Zymomonas mobilis",
+   "authority": "corrig. (Lindner 1928) Kluyver and van Niel 1936",
+   "rank": "species",
+   "parent": "Zymomonas",
+   "accepted": null,
+   "ncbi": "542",
+   "source": [
+    "https://lpsn.dsmz.de/species/zymomonas-mobilis",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=542"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "LPSN: risk group 1",
+    "DSMZ DSM 424 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-424"
+   ]
+  },
+  {
+   "name": "Deinococcus",
+   "authority": "Brooks and Murray 1981",
+   "rank": "genus",
+   "parent": "Bacteria",
+   "accepted": null,
+   "ncbi": "1298",
+   "source": [
+    "https://lpsn.dsmz.de/genus/deinococcus",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1298"
+   ]
+  },
+  {
+   "name": "Deinococcus radiodurans",
+   "authority": "(ex Raj et al. 1960) Brooks and Murray 1981",
+   "rank": "species",
+   "parent": "Deinococcus",
+   "accepted": null,
+   "ncbi": "1299",
+   "source": [
+    "https://lpsn.dsmz.de/species/deinococcus-radiodurans",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1299"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "LPSN: risk group 1",
+    "DSMZ DSM 20539 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-20539"
+   ]
+  },
+  {
+   "name": "Ensifer",
+   "authority": "Casida 1982",
+   "rank": "genus",
+   "parent": "Bacteria",
+   "accepted": null,
+   "ncbi": "106591",
+   "source": [
+    "https://lpsn.dsmz.de/genus/ensifer",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=106591"
+   ]
+  },
+  {
+   "name": "Ensifer meliloti",
+   "authority": "(Dangeard 1926) Young 2003",
+   "rank": "species",
+   "parent": "Ensifer",
+   "accepted": null,
+   "ncbi": null,
+   "source": [
+    "https://lpsn.dsmz.de/species/ensifer-meliloti"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "LPSN: risk group 1",
+    "DSMZ DSM 30135 (type strain): risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-30135"
+   ]
+  },
+  {
+   "name": "Sinorhizobium meliloti",
+   "authority": "(Dangeard 1926) De Lajudie et al. 1994",
+   "rank": "species",
+   "parent": null,
+   "accepted": "Ensifer meliloti",
+   "ncbi": null,
+   "source": [
+    "https://lpsn.dsmz.de/species/sinorhizobium-meliloti"
+   ]
+  },
+  {
+   "name": "Aspergillus",
+   "authority": "P. Micheli ex Haller 1768",
+   "rank": "genus",
+   "parent": "Fungi",
+   "accepted": null,
+   "ncbi": "5052",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=7248",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5052"
+   ]
+  },
+  {
+   "name": "Aspergillus fumigatus",
+   "authority": "Fresen. 1863",
+   "rank": "species",
+   "parent": "Aspergillus",
+   "accepted": null,
+   "ncbi": "746128",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=211776",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=746128"
+   ],
+   "risk_group": 2,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: Aspergillus fumigatus, group 2",
+    "DSMZ DSM 819: risk group 2, https://www.dsmz.de/collection/catalogue/details/culture/DSM-819"
+   ]
+  },
+  {
+   "name": "Candida",
+   "authority": "Berkhout 1923",
+   "rank": "genus",
+   "parent": "Fungi",
+   "accepted": null,
+   "ncbi": "5475",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=7487",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5475"
+   ]
+  },
+  {
+   "name": "Candida albicans",
+   "authority": "(C.P. Robin) Berkhout 1923",
+   "rank": "species",
+   "parent": "Candida",
+   "accepted": null,
+   "ncbi": "5476",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=256187",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5476"
+   ],
+   "risk_group": 2,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: Candida albicans, group 2",
+    "DSMZ DSM 1386: risk group 2, https://www.dsmz.de/collection/catalogue/details/culture/DSM-1386"
+   ]
+  },
+  {
+   "name": "Schizosaccharomyces",
+   "authority": "Lindner 1893",
+   "rank": "genus",
+   "parent": "Fungi",
+   "accepted": null,
+   "ncbi": "4895",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=4905",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=4895"
+   ]
+  },
+  {
+   "name": "Schizosaccharomyces pombe",
+   "authority": "Lindner 1893",
+   "rank": "species",
+   "parent": "Schizosaccharomyces",
+   "accepted": null,
+   "ncbi": "4896",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=212377",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=4896"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "DSMZ DSM 70572: risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-70572"
+   ]
+  },
+  {
+   "name": "Penicillium",
+   "authority": "Link 1809",
+   "rank": "genus",
+   "parent": "Fungi",
+   "accepted": null,
+   "ncbi": "5073",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=9257",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5073"
+   ]
+  },
+  {
+   "name": "Penicillium rubens",
+   "authority": "Biourge 1923",
+   "rank": "species",
+   "parent": "Penicillium",
+   "accepted": null,
+   "ncbi": "1108849",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=276884",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1108849"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "DSMZ DSM 1075: risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-1075"
+   ]
+  },
+  {
+   "name": "Penicillium chrysogenum",
+   "authority": "Thom 1910",
+   "rank": "species",
+   "parent": "Penicillium",
+   "accepted": null,
+   "ncbi": "5076",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=165757",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5076"
+   ]
+  },
+  {
+   "name": "Penicillium notatum",
+   "authority": "Westling 1911",
+   "rank": "species",
+   "parent": null,
+   "accepted": "Penicillium chrysogenum",
+   "ncbi": null,
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=160571 (current name Penicillium chrysogenum)"
+   ]
+  },
+  {
+   "name": "Penicillium roqueforti",
+   "authority": "Thom 1906",
+   "rank": "species",
+   "parent": "Penicillium",
+   "accepted": null,
+   "ncbi": "5082",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=213525",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5082"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "DSMZ DSM 1079: risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-1079"
+   ]
+  },
+  {
+   "name": "Trichoderma",
+   "authority": "Pers. 1794",
+   "rank": "genus",
+   "parent": "Fungi",
+   "accepted": null,
+   "ncbi": "5543",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=10282",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5543"
+   ]
+  },
+  {
+   "name": "Trichoderma reesei",
+   "authority": "E.G. Simmons 1977",
+   "rank": "species",
+   "parent": "Trichoderma",
+   "accepted": null,
+   "ncbi": "51453",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=324906",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=51453"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "DSMZ DSM 768: risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-768"
+   ]
+  },
+  {
+   "name": "Botrytis",
+   "authority": "P. Micheli ex Pers. 1794",
+   "rank": "genus",
+   "parent": "Fungi",
+   "accepted": null,
+   "ncbi": "33196",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=7435",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=33196"
+   ]
+  },
+  {
+   "name": "Botrytis cinerea",
+   "authority": "Pers. 1801",
+   "rank": "species",
+   "parent": "Botrytis",
+   "accepted": null,
+   "ncbi": "40559",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=217312",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=40559"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "DSMZ DSM 4709: risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-4709"
+   ],
+   "plant_pathogenicity": "pathogenic",
+   "pathogenicity_source": [
+    "Dean R et al. The Top 10 fungal pathogens in molecular plant pathology. Mol Plant Pathol 2012; 13:414-430, https://doi.org/10.1111/j.1364-3703.2011.00783.x"
+   ]
+  },
+  {
+   "name": "Botryotinia fuckeliana",
+   "authority": "(de Bary) Whetzel 1945",
+   "rank": "species",
+   "parent": null,
+   "accepted": "Botrytis cinerea",
+   "ncbi": null,
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=284645 (current name Botrytis cinerea)"
+   ]
+  },
+  {
+   "name": "Neurospora",
+   "authority": "Shear & B.O. Dodge 1927",
+   "rank": "genus",
+   "parent": "Fungi",
+   "accepted": null,
+   "ncbi": "5140",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=3502",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5140"
+   ]
+  },
+  {
+   "name": "Neurospora crassa",
+   "authority": "Shear & B.O. Dodge 1927",
+   "rank": "species",
+   "parent": "Neurospora",
+   "accepted": null,
+   "ncbi": "5141",
+   "source": [
+    "https://www.indexfungorum.org/names/NamesRecord.asp?RecordID=262212",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5141"
+   ],
+   "risk_group": 1,
+   "risk_group_source": [
+    "NV 361/2007 Sb., Příloha 7: not listed",
+    "DSMZ DSM 1257: risk group 1 (TRBA), https://www.dsmz.de/collection/catalogue/details/culture/DSM-1257"
+   ]
+  },
+  {
+   "name": "Testella",
+   "authority": "",
+   "rank": "genus",
+   "parent": null,
+   "accepted": null,
+   "ncbi": null,
+   "invented": true
+  },
+  {
+   "name": "Testella exempli",
+   "authority": "",
+   "rank": "species",
+   "parent": "Testella",
+   "accepted": null,
+   "ncbi": null,
+   "invented": true
+  },
+  {
+   "name": "Testella cerea",
+   "authority": "",
+   "rank": "species",
+   "parent": "Testella",
+   "accepted": null,
+   "ncbi": null,
+   "invented": true
+  },
+  {
+   "name": "Mockia",
+   "authority": "",
+   "rank": "genus",
+   "parent": null,
+   "accepted": null,
+   "ncbi": null,
+   "invented": true
+  },
+  {
+   "name": "Mockia vulgaris",
+   "authority": "",
+   "rank": "species",
+   "parent": "Mockia",
+   "accepted": null,
+   "ncbi": null,
+   "invented": true
+  },
+  {
+   "name": "Fictivibrio exempli",
+   "authority": "",
+   "rank": "species",
+   "parent": null,
+   "accepted": "Testella exempli",
+   "ncbi": null,
+   "invented": true
+  }
+ ],
+ "strains": [
+  {
+   "lab": "BAC",
+   "name_as_received": "Bacillus subtilis",
+   "taxon": "Bacillus subtilis",
+   "identified_on": "2016-06-02",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Garden soil",
+   "country_of_origin": "CZ",
+   "isolation_date": "2016-05"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Bacillus subtilis hay isolate",
+   "taxon": "Bacillus subtilis",
+   "identified_on": "2019-03-11",
+   "method": "MALDI-TOF mass spectrometry",
+   "isolation_source": "Hay infusion",
+   "country_of_origin": "CZ",
+   "isolation_date": "2019"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Bacillus subtilis from natto",
+   "taxon": "Bacillus subtilis",
+   "identified_on": "2012-12-05",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Fermented soybeans (natto)",
+   "country_of_origin": "JP",
+   "isolation_date": "2012-11-03"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Bacillus licheniformis",
+   "taxon": "Bacillus licheniformis",
+   "identified_on": "2018-08-20",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Compost",
+   "country_of_origin": "AT",
+   "isolation_date": "2018-07"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Bacillus licheniformis feather isolate",
+   "taxon": "Bacillus licheniformis",
+   "identified_on": "2020-10-01",
+   "method": "MALDI-TOF mass spectrometry",
+   "isolation_source": "Poultry feathers",
+   "country_of_origin": "PL",
+   "isolation_date": "2020"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Bacillus megaterium",
+   "taxon": "Bacillus megaterium",
+   "identified_on": "2009-11-16",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Arable soil",
+   "country_of_origin": "DE",
+   "isolation_date": "2009",
+   "history": [
+    {
+     "reclassify": {
       "taxon": "Priestia megaterium",
-      "identified_on": "2022-05-09",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "River sediment",
-      "country_of_origin": "CZ",
-      "isolation_date": "2022-04-12"
-    },
+      "identified_on": "2021-03-01",
+      "method": "Nomenclature update",
+      "reason": "Gupta et al. 2020 moved the species to the genus Priestia."
+     }
+    }
+   ]
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Priestia megaterium",
+   "taxon": "Priestia megaterium",
+   "identified_on": "2022-05-09",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "River sediment",
+   "country_of_origin": "CZ",
+   "isolation_date": "2022-04-12"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Escherichia coli K-12",
+   "taxon": "Escherichia coli",
+   "identified_on": "2008-01-14",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Laboratory stock",
+   "country_of_origin": "",
+   "isolation_date": ""
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Escherichia coli K-12 cloning host A",
+   "taxon": "Escherichia coli",
+   "identified_on": "2023-02-06",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Laboratory stock",
+   "country_of_origin": "",
+   "isolation_date": "",
+   "restrictions": [
     {
-      "lab": "BAC",
-      "name_as_received": "Escherichia coli K-12",
-      "taxon": "Escherichia coli",
-      "identified_on": "2008-01-14",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Laboratory stock",
-      "country_of_origin": "",
-      "isolation_date": ""
-    },
+     "kind": "gmo",
+     "reference": "MŽP/DEV/GMO/0001",
+     "gmo_category": 1
+    }
+   ]
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Escherichia coli K-12 cloning host B",
+   "taxon": "Escherichia coli",
+   "identified_on": "2024-09-23",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Laboratory stock",
+   "country_of_origin": "",
+   "isolation_date": "",
+   "restrictions": [
     {
-      "lab": "BAC",
-      "name_as_received": "Escherichia coli K-12 cloning host A",
-      "taxon": "Escherichia coli",
-      "identified_on": "2023-02-06",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Laboratory stock",
-      "country_of_origin": "",
-      "isolation_date": "",
-      "restrictions": [
-        {
-          "kind": "gmo",
-          "reference": "MŽP/DEV/GMO/0001",
-          "gmo_category": 1
-        }
-      ]
-    },
+     "kind": "gmo",
+     "reference": "MŽP/DEV/GMO/0001",
+     "gmo_category": 1
+    }
+   ]
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Lactobacillus plantarum",
+   "taxon": "Lactobacillus plantarum",
+   "identified_on": "2014-11-03",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Sauerkraut",
+   "country_of_origin": "CZ",
+   "isolation_date": "2014-10",
+   "history": [
     {
-      "lab": "BAC",
-      "name_as_received": "Escherichia coli K-12 cloning host B",
-      "taxon": "Escherichia coli",
-      "identified_on": "2024-09-23",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Laboratory stock",
-      "country_of_origin": "",
-      "isolation_date": "",
-      "restrictions": [
-        {
-          "kind": "gmo",
-          "reference": "MŽP/DEV/GMO/0001",
-          "gmo_category": 1
-        }
-      ]
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Lactobacillus plantarum",
-      "taxon": "Lactobacillus plantarum",
-      "identified_on": "2014-11-03",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Sauerkraut",
-      "country_of_origin": "CZ",
-      "isolation_date": "2014-10",
-      "history": [
-        {
-          "reclassify": {
-            "taxon": "Lactiplantibacillus plantarum",
-            "identified_on": "2020-09-14",
-            "method": "Nomenclature update",
-            "reason": "Zheng et al. 2020 moved the species to the genus Lactiplantibacillus."
-          }
-        }
-      ]
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Lactiplantibacillus plantarum silage isolate",
+     "reclassify": {
       "taxon": "Lactiplantibacillus plantarum",
-      "identified_on": "2021-10-18",
-      "method": "MALDI-TOF mass spectrometry",
-      "isolation_source": "Grass silage",
-      "country_of_origin": "SK",
-      "isolation_date": "2021-09"
+      "identified_on": "2020-09-14",
+      "method": "Nomenclature update",
+      "reason": "Zheng et al. 2020 moved the species to the genus Lactiplantibacillus."
+     }
+    }
+   ]
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Lactiplantibacillus plantarum silage isolate",
+   "taxon": "Lactiplantibacillus plantarum",
+   "identified_on": "2021-10-18",
+   "method": "MALDI-TOF mass spectrometry",
+   "isolation_source": "Grass silage",
+   "country_of_origin": "SK",
+   "isolation_date": "2021-09"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Lactiplantibacillus plantarum sourdough isolate",
+   "taxon": "Lactiplantibacillus plantarum",
+   "identified_on": "2017-06-26",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Sourdough",
+   "country_of_origin": "IT",
+   "isolation_date": "2017"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Lactobacillus delbrueckii",
+   "taxon": "Lactobacillus delbrueckii",
+   "identified_on": "2015-07-13",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Yoghurt",
+   "country_of_origin": "BG",
+   "isolation_date": "2015-06"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Lactobacillus delbrueckii cheese isolate",
+   "taxon": "Lactobacillus delbrueckii",
+   "identified_on": "2011-04-04",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Hard cheese",
+   "country_of_origin": "CH",
+   "isolation_date": "2011"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Lactococcus lactis",
+   "taxon": "Lactococcus lactis",
+   "identified_on": "2013-06-10",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Raw cow milk",
+   "country_of_origin": "CZ",
+   "isolation_date": "2013-05-21"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Lactococcus lactis starter isolate",
+   "taxon": "Lactococcus lactis",
+   "identified_on": "2016-02-15",
+   "method": "MALDI-TOF mass spectrometry",
+   "isolation_source": "Cheese starter culture",
+   "country_of_origin": "NL",
+   "isolation_date": ""
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Streptomyces griseus",
+   "taxon": "Streptomyces griseus",
+   "identified_on": "2001-03-19",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Garden soil",
+   "country_of_origin": "US",
+   "isolation_date": "1999"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Streptomyces griseus forest isolate",
+   "taxon": "Streptomyces griseus",
+   "identified_on": "2006-01-23",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Forest soil",
+   "country_of_origin": "CZ",
+   "isolation_date": "2005-08"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Micrococcus luteus",
+   "taxon": "Micrococcus luteus",
+   "identified_on": "2023-02-13",
+   "method": "MALDI-TOF mass spectrometry",
+   "isolation_source": "Indoor air",
+   "country_of_origin": "CZ",
+   "isolation_date": "2023-01-17"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Micrococcus luteus skin isolate",
+   "taxon": "Micrococcus luteus",
+   "identified_on": "2010-09-06",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Skin swab",
+   "country_of_origin": "DE",
+   "isolation_date": "2010"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Acetobacter aceti",
+   "taxon": "Acetobacter aceti",
+   "identified_on": "2016-10-24",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Cider vinegar",
+   "country_of_origin": "FR",
+   "isolation_date": "2016-09"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Zymomonas mobilis",
+   "taxon": "Zymomonas mobilis",
+   "identified_on": "2008-05-05",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Palm wine",
+   "country_of_origin": "NG",
+   "isolation_date": "2008"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Deinococcus radiodurans",
+   "taxon": "Deinococcus radiodurans",
+   "identified_on": "2003-11-10",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Irradiated food sample",
+   "country_of_origin": "",
+   "isolation_date": "2003"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Staphylococcus aureus",
+   "taxon": "Staphylococcus aureus",
+   "identified_on": "2019-12-02",
+   "method": "MALDI-TOF mass spectrometry",
+   "isolation_source": "Nasal swab",
+   "country_of_origin": "CZ",
+   "isolation_date": "2019-11"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Pseudomonas aeruginosa",
+   "taxon": "Pseudomonas aeruginosa",
+   "identified_on": "2020-03-09",
+   "method": "MALDI-TOF mass spectrometry",
+   "isolation_source": "Sink drain",
+   "country_of_origin": "CZ",
+   "isolation_date": "2020-02"
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Mockia vulgaris",
+   "taxon": "Mockia vulgaris",
+   "identified_on": "2022-01-10",
+   "method": "Colony and cell morphology",
+   "isolation_source": "Pond water",
+   "country_of_origin": "CZ",
+   "isolation_date": "2021-12",
+   "risk_group": 2,
+   "animal_pathogenicity": "unknown",
+   "plant_pathogenicity": "none_known",
+   "history": [
+    {
+     "restriction_add": {
+      "kind": "cz_rat",
+      "reference": "Příloha 2 (invented example)"
+     },
+     "reason": "Listed as a risky agent (invented example)."
     },
     {
-      "lab": "BAC",
-      "name_as_received": "Lactiplantibacillus plantarum sourdough isolate",
-      "taxon": "Lactiplantibacillus plantarum",
-      "identified_on": "2017-06-26",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Sourdough",
-      "country_of_origin": "IT",
-      "isolation_date": "2017"
+     "risk_group": 1,
+     "reason": "Reassessed after the list entry was checked (invented example)."
     },
     {
-      "lab": "BAC",
-      "name_as_received": "Lactobacillus delbrueckii",
-      "taxon": "Lactobacillus delbrueckii",
-      "identified_on": "2015-07-13",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Yoghurt",
-      "country_of_origin": "BG",
-      "isolation_date": "2015-06"
-    },
+     "restriction_end": {
+      "kind": "cz_rat",
+      "reference": "Příloha 2 (invented example)"
+     },
+     "reason": "The annex no longer lists the agent (invented example)."
+    }
+   ]
+  },
+  {
+   "lab": "BAC",
+   "name_as_received": "Fictivibrio exempli",
+   "taxon": "Fictivibrio exempli",
+   "identified_on": "2018-04-16",
+   "method": "Colony and cell morphology",
+   "isolation_source": "Brackish water",
+   "country_of_origin": "PT",
+   "isolation_date": "2018-03",
+   "risk_group": 2,
+   "animal_pathogenicity": "unknown",
+   "plant_pathogenicity": "unknown",
+   "history": [
     {
-      "lab": "BAC",
-      "name_as_received": "Lactobacillus delbrueckii cheese isolate",
-      "taxon": "Lactobacillus delbrueckii",
-      "identified_on": "2011-04-04",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Hard cheese",
-      "country_of_origin": "CH",
-      "isolation_date": "2011"
-    },
+     "reclassify": {
+      "taxon": "Testella exempli",
+      "identified_on": "2023-05-22",
+      "method": "Whole genome sequence (ANI)",
+      "reason": "The genome places it in Testella exempli (invented example)."
+     }
+    }
+   ]
+  },
+  {
+   "lab": "MYC",
+   "name_as_received": "Aspergillus fumigatus",
+   "taxon": "Aspergillus fumigatus",
+   "identified_on": "2018-04-09",
+   "method": "ITS region sequence",
+   "isolation_source": "Compost",
+   "country_of_origin": "CZ",
+   "isolation_date": "2018-03"
+  },
+  {
+   "lab": "MYC",
+   "name_as_received": "Aspergillus fumigatus soil isolate",
+   "taxon": "Aspergillus fumigatus",
+   "identified_on": "2021-11-22",
+   "method": "Beta-tubulin gene sequence",
+   "isolation_source": "Potting soil",
+   "country_of_origin": "NL",
+   "isolation_date": "2021"
+  },
+  {
+   "lab": "MYC",
+   "name_as_received": "Candida albicans",
+   "taxon": "Candida albicans",
+   "identified_on": "2022-07-11",
+   "method": "MALDI-TOF mass spectrometry",
+   "isolation_source": "Oral swab",
+   "country_of_origin": "CZ",
+   "isolation_date": "2022-06-30"
+  },
+  {
+   "lab": "MYC",
+   "name_as_received": "Schizosaccharomyces pombe",
+   "taxon": "Schizosaccharomyces pombe",
+   "identified_on": "1997-02-17",
+   "method": "ITS region sequence",
+   "isolation_source": "Millet beer",
+   "country_of_origin": "KE",
+   "isolation_date": "1996"
+  },
+  {
+   "lab": "MYC",
+   "name_as_received": "Penicillium sp.",
+   "taxon": "Penicillium",
+   "identified_on": "2020-01-13",
+   "method": "Colony and cell morphology",
+   "isolation_source": "Indoor air",
+   "country_of_origin": "CZ",
+   "isolation_date": "2019-12",
+   "history": [
     {
-      "lab": "BAC",
-      "name_as_received": "Lactococcus lactis",
-      "taxon": "Lactococcus lactis",
-      "identified_on": "2013-06-10",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Raw cow milk",
-      "country_of_origin": "CZ",
-      "isolation_date": "2013-05-21"
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Lactococcus lactis starter isolate",
-      "taxon": "Lactococcus lactis",
-      "identified_on": "2016-02-15",
-      "method": "MALDI-TOF mass spectrometry",
-      "isolation_source": "Cheese starter culture",
-      "country_of_origin": "NL",
-      "isolation_date": ""
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Streptomyces griseus",
-      "taxon": "Streptomyces griseus",
-      "identified_on": "2001-03-19",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Garden soil",
-      "country_of_origin": "US",
-      "isolation_date": "1999"
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Streptomyces griseus forest isolate",
-      "taxon": "Streptomyces griseus",
-      "identified_on": "2006-01-23",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Forest soil",
-      "country_of_origin": "CZ",
-      "isolation_date": "2005-08"
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Micrococcus luteus",
-      "taxon": "Micrococcus luteus",
-      "identified_on": "2023-02-13",
-      "method": "MALDI-TOF mass spectrometry",
-      "isolation_source": "Indoor air",
-      "country_of_origin": "CZ",
-      "isolation_date": "2023-01-17"
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Micrococcus luteus skin isolate",
-      "taxon": "Micrococcus luteus",
-      "identified_on": "2010-09-06",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Skin swab",
-      "country_of_origin": "DE",
-      "isolation_date": "2010"
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Acetobacter aceti",
-      "taxon": "Acetobacter aceti",
-      "identified_on": "2016-10-24",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Cider vinegar",
-      "country_of_origin": "FR",
-      "isolation_date": "2016-09"
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Zymomonas mobilis",
-      "taxon": "Zymomonas mobilis",
-      "identified_on": "2008-05-05",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Palm wine",
-      "country_of_origin": "NG",
-      "isolation_date": "2008"
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Deinococcus radiodurans",
-      "taxon": "Deinococcus radiodurans",
-      "identified_on": "2003-11-10",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Irradiated food sample",
-      "country_of_origin": "",
-      "isolation_date": "2003"
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Staphylococcus aureus",
-      "taxon": "Staphylococcus aureus",
-      "identified_on": "2019-12-02",
-      "method": "MALDI-TOF mass spectrometry",
-      "isolation_source": "Nasal swab",
-      "country_of_origin": "CZ",
-      "isolation_date": "2019-11"
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Pseudomonas aeruginosa",
-      "taxon": "Pseudomonas aeruginosa",
-      "identified_on": "2020-03-09",
-      "method": "MALDI-TOF mass spectrometry",
-      "isolation_source": "Sink drain",
-      "country_of_origin": "CZ",
-      "isolation_date": "2020-02"
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Mockia vulgaris",
-      "taxon": "Mockia vulgaris",
-      "identified_on": "2022-01-10",
-      "method": "Colony and cell morphology",
-      "isolation_source": "Pond water",
-      "country_of_origin": "CZ",
-      "isolation_date": "2021-12",
-      "risk_group": 2,
-      "animal_pathogenicity": "unknown",
-      "plant_pathogenicity": "none_known",
-      "history": [
-        {
-          "restriction_add": {
-            "kind": "cz_rat",
-            "reference": "Příloha 2 (invented example)"
-          },
-          "reason": "Listed as a risky agent (invented example)."
-        },
-        {
-          "risk_group": 1,
-          "reason": "Reassessed after the list entry was checked (invented example)."
-        },
-        {
-          "restriction_end": {
-            "kind": "cz_rat",
-            "reference": "Příloha 2 (invented example)"
-          },
-          "reason": "The annex no longer lists the agent (invented example)."
-        }
-      ]
-    },
-    {
-      "lab": "BAC",
-      "name_as_received": "Fictivibrio exempli",
-      "taxon": "Fictivibrio exempli",
-      "identified_on": "2018-04-16",
-      "method": "Colony and cell morphology",
-      "isolation_source": "Brackish water",
-      "country_of_origin": "PT",
-      "isolation_date": "2018-03",
-      "risk_group": 2,
-      "animal_pathogenicity": "unknown",
-      "plant_pathogenicity": "unknown",
-      "history": [
-        {
-          "reclassify": {
-            "taxon": "Testella exempli",
-            "identified_on": "2023-05-22",
-            "method": "Whole genome sequence (ANI)",
-            "reason": "The genome places it in Testella exempli (invented example)."
-          }
-        }
-      ]
-    },
-    {
-      "lab": "MYC",
-      "name_as_received": "Aspergillus fumigatus",
-      "taxon": "Aspergillus fumigatus",
-      "identified_on": "2018-04-09",
-      "method": "ITS region sequence",
-      "isolation_source": "Compost",
-      "country_of_origin": "CZ",
-      "isolation_date": "2018-03"
-    },
-    {
-      "lab": "MYC",
-      "name_as_received": "Aspergillus fumigatus soil isolate",
-      "taxon": "Aspergillus fumigatus",
-      "identified_on": "2021-11-22",
-      "method": "Beta-tubulin gene sequence",
-      "isolation_source": "Potting soil",
-      "country_of_origin": "NL",
-      "isolation_date": "2021"
-    },
-    {
-      "lab": "MYC",
-      "name_as_received": "Candida albicans",
-      "taxon": "Candida albicans",
-      "identified_on": "2022-07-11",
-      "method": "MALDI-TOF mass spectrometry",
-      "isolation_source": "Oral swab",
-      "country_of_origin": "CZ",
-      "isolation_date": "2022-06-30"
-    },
-    {
-      "lab": "MYC",
-      "name_as_received": "Schizosaccharomyces pombe",
-      "taxon": "Schizosaccharomyces pombe",
-      "identified_on": "1997-02-17",
-      "method": "ITS region sequence",
-      "isolation_source": "Millet beer",
-      "country_of_origin": "KE",
-      "isolation_date": "1996"
-    },
-    {
-      "lab": "MYC",
-      "name_as_received": "Penicillium sp.",
-      "taxon": "Penicillium",
-      "identified_on": "2020-01-13",
-      "method": "Colony and cell morphology",
-      "isolation_source": "Indoor air",
-      "country_of_origin": "CZ",
-      "isolation_date": "2019-12",
-      "history": [
-        {
-          "reclassify": {
-            "taxon": "Penicillium rubens",
-            "identified_on": "2020-03-02",
-            "method": "Beta-tubulin gene sequence",
-            "reason": "The beta-tubulin sequence matches Penicillium rubens."
-          }
-        }
-      ]
-    },
-    {
-      "lab": "MYC",
-      "name_as_received": "Penicillium rubens",
+     "reclassify": {
       "taxon": "Penicillium rubens",
-      "identified_on": "2015-05-18",
+      "identified_on": "2020-03-02",
       "method": "Beta-tubulin gene sequence",
-      "isolation_source": "House dust",
-      "country_of_origin": "GB",
-      "isolation_date": "2015"
-    },
+      "reason": "The beta-tubulin sequence matches Penicillium rubens."
+     }
+    }
+   ]
+  },
+  {
+   "lab": "MYC",
+   "name_as_received": "Penicillium rubens",
+   "taxon": "Penicillium rubens",
+   "identified_on": "2015-05-18",
+   "method": "Beta-tubulin gene sequence",
+   "isolation_source": "House dust",
+   "country_of_origin": "GB",
+   "isolation_date": "2015"
+  },
+  {
+   "lab": "MYC",
+   "name_as_received": "Penicillium roqueforti",
+   "taxon": "Penicillium roqueforti",
+   "identified_on": "2010-05-03",
+   "method": "ITS region sequence",
+   "isolation_source": "Blue cheese",
+   "country_of_origin": "FR",
+   "isolation_date": "2010-04"
+  },
+  {
+   "lab": "MYC",
+   "name_as_received": "Trichoderma reesei",
+   "taxon": "Trichoderma reesei",
+   "identified_on": "2012-08-27",
+   "method": "ITS region sequence",
+   "isolation_source": "Decaying cotton fabric",
+   "country_of_origin": "",
+   "isolation_date": ""
+  },
+  {
+   "lab": "MYC",
+   "name_as_received": "Botryotinia fuckeliana",
+   "taxon": "Botryotinia fuckeliana",
+   "identified_on": "2017-10-09",
+   "method": "Colony and cell morphology",
+   "isolation_source": "Grape berry",
+   "country_of_origin": "CZ",
+   "isolation_date": "2017-09-21",
+   "history": [
     {
-      "lab": "MYC",
-      "name_as_received": "Penicillium roqueforti",
-      "taxon": "Penicillium roqueforti",
-      "identified_on": "2010-05-03",
-      "method": "ITS region sequence",
-      "isolation_source": "Blue cheese",
-      "country_of_origin": "FR",
-      "isolation_date": "2010-04"
-    },
-    {
-      "lab": "MYC",
-      "name_as_received": "Trichoderma reesei",
-      "taxon": "Trichoderma reesei",
-      "identified_on": "2012-08-27",
-      "method": "ITS region sequence",
-      "isolation_source": "Decaying cotton fabric",
-      "country_of_origin": "",
-      "isolation_date": ""
-    },
-    {
-      "lab": "MYC",
-      "name_as_received": "Botryotinia fuckeliana",
-      "taxon": "Botryotinia fuckeliana",
-      "identified_on": "2017-10-09",
-      "method": "Colony and cell morphology",
-      "isolation_source": "Grape berry",
-      "country_of_origin": "CZ",
-      "isolation_date": "2017-09-21",
-      "history": [
-        {
-          "reclassify": {
-            "taxon": "Botrytis cinerea",
-            "identified_on": "2019-01-07",
-            "method": "Nomenclature update",
-            "reason": "One fungus, one name: Botrytis cinerea is the current name."
-          }
-        }
-      ]
-    },
-    {
-      "lab": "MYC",
-      "name_as_received": "Botrytis cinerea",
+     "reclassify": {
       "taxon": "Botrytis cinerea",
-      "identified_on": "2020-07-06",
-      "method": "ITS region sequence",
-      "isolation_source": "Strawberry fruit",
-      "country_of_origin": "PL",
-      "isolation_date": "2020-06"
+      "identified_on": "2019-01-07",
+      "method": "Nomenclature update",
+      "reason": "One fungus, one name: Botrytis cinerea is the current name."
+     }
+    }
+   ]
+  },
+  {
+   "lab": "MYC",
+   "name_as_received": "Botrytis cinerea",
+   "taxon": "Botrytis cinerea",
+   "identified_on": "2020-07-06",
+   "method": "ITS region sequence",
+   "isolation_source": "Strawberry fruit",
+   "country_of_origin": "PL",
+   "isolation_date": "2020-06"
+  },
+  {
+   "lab": "MYC",
+   "name_as_received": "Neurospora crassa",
+   "taxon": "Neurospora crassa",
+   "identified_on": "2004-09-13",
+   "method": "ITS region sequence",
+   "isolation_source": "Burnt vegetation",
+   "country_of_origin": "",
+   "isolation_date": "2004"
+  },
+  {
+   "lab": "MYC",
+   "name_as_received": "Testella cerea",
+   "taxon": "Testella cerea",
+   "identified_on": "2025-03-17",
+   "method": "Colony and cell morphology",
+   "isolation_source": "Leaf lesion",
+   "country_of_origin": "CZ",
+   "isolation_date": "2025-02",
+   "risk_group": 1,
+   "animal_pathogenicity": "none_known",
+   "plant_pathogenicity": "pathogenic",
+   "restrictions": [
+    {
+     "kind": "quarantine_pest",
+     "reference": "Annex II (invented example)"
+    }
+   ]
+  },
+  {
+   "lab": "REG",
+   "name_as_received": "Testella exempli",
+   "taxon": "Testella exempli",
+   "identified_on": "2024-05-06",
+   "method": "Whole genome sequence (ANI)",
+   "isolation_source": "Soil",
+   "country_of_origin": "CZ",
+   "isolation_date": "2024-04",
+   "risk_group": 3,
+   "animal_pathogenicity": "pathogenic",
+   "plant_pathogenicity": "unknown",
+   "restrictions": [
+    {
+     "kind": "cz_vrat",
+     "reference": "Příloha 1 (invented example)"
     },
     {
-      "lab": "MYC",
-      "name_as_received": "Neurospora crassa",
-      "taxon": "Neurospora crassa",
-      "identified_on": "2004-09-13",
-      "method": "ITS region sequence",
-      "isolation_source": "Burnt vegetation",
-      "country_of_origin": "",
-      "isolation_date": "2004"
-    },
+     "kind": "dual_use",
+     "reference": "1C351.a",
+     "act": "(EU) 2025/2003"
+    }
+   ]
+  },
+  {
+   "lab": "REG",
+   "name_as_received": "Testella exempli second isolate",
+   "taxon": "Testella exempli",
+   "identified_on": "2025-01-20",
+   "method": "Whole genome sequence (ANI)",
+   "isolation_source": "Animal tissue",
+   "country_of_origin": "SK",
+   "isolation_date": "2024-12",
+   "risk_group": 3,
+   "animal_pathogenicity": "pathogenic",
+   "plant_pathogenicity": "unknown",
+   "restrictions": [
     {
-      "lab": "MYC",
-      "name_as_received": "Testella cerea",
-      "taxon": "Testella cerea",
-      "identified_on": "2025-03-17",
-      "method": "Colony and cell morphology",
-      "isolation_source": "Leaf lesion",
-      "country_of_origin": "CZ",
-      "isolation_date": "2025-02",
-      "risk_group": 1,
-      "animal_pathogenicity": "none_known",
-      "plant_pathogenicity": "pathogenic",
-      "restrictions": [
-        {
-          "kind": "quarantine_pest",
-          "reference": "Annex II (invented example)"
-        }
-      ]
-    },
+     "kind": "cz_vrat",
+     "reference": "Příloha 1 (invented example)"
+    }
+   ]
+  },
+  {
+   "lab": "REG",
+   "name_as_received": "Mockia vulgaris",
+   "taxon": "Mockia vulgaris",
+   "identified_on": "2024-08-12",
+   "method": "Whole genome sequence (ANI)",
+   "isolation_source": "Surface water",
+   "country_of_origin": "CZ",
+   "isolation_date": "2024",
+   "risk_group": 2,
+   "animal_pathogenicity": "unknown",
+   "plant_pathogenicity": "unknown",
+   "restrictions": [
     {
-      "lab": "REG",
-      "name_as_received": "Testella exempli",
-      "taxon": "Testella exempli",
-      "identified_on": "2024-05-06",
-      "method": "Whole genome sequence (ANI)",
-      "isolation_source": "Soil",
-      "country_of_origin": "CZ",
-      "isolation_date": "2024-04",
-      "risk_group": 3,
-      "animal_pathogenicity": "pathogenic",
-      "plant_pathogenicity": "unknown",
-      "restrictions": [
-        {
-          "kind": "cz_vrat",
-          "reference": "Příloha 1 (invented example)"
-        },
-        {
-          "kind": "dual_use",
-          "reference": "1C351.a",
-          "act": "(EU) 2025/2003"
-        }
-      ]
-    },
+     "kind": "cz_rat",
+     "reference": "Příloha 2 (invented example)"
+    }
+   ]
+  },
+  {
+   "lab": "REG",
+   "name_as_received": "Fictivibrio exempli",
+   "taxon": "Fictivibrio exempli",
+   "identified_on": "2024-10-07",
+   "method": "Colony and cell morphology",
+   "isolation_source": "Sediment",
+   "country_of_origin": "AT",
+   "isolation_date": "2024-09",
+   "risk_group": 2,
+   "animal_pathogenicity": "unknown",
+   "plant_pathogenicity": "unknown",
+   "restrictions": [
     {
-      "lab": "REG",
-      "name_as_received": "Testella exempli second isolate",
-      "taxon": "Testella exempli",
-      "identified_on": "2025-01-20",
-      "method": "Whole genome sequence (ANI)",
-      "isolation_source": "Animal tissue",
-      "country_of_origin": "SK",
-      "isolation_date": "2024-12",
-      "risk_group": 3,
-      "animal_pathogenicity": "pathogenic",
-      "plant_pathogenicity": "unknown",
-      "restrictions": [
-        {
-          "kind": "cz_vrat",
-          "reference": "Příloha 1 (invented example)"
-        }
-      ]
-    },
+     "kind": "dual_use",
+     "reference": "1C351.c",
+     "act": "(EU) 2025/2003"
+    }
+   ]
+  },
+  {
+   "lab": "REG",
+   "name_as_received": "Testella cerea",
+   "taxon": "Testella cerea",
+   "identified_on": "2025-06-02",
+   "method": "Colony and cell morphology",
+   "isolation_source": "Soil",
+   "country_of_origin": "DE",
+   "isolation_date": "2025",
+   "risk_group": 2,
+   "animal_pathogenicity": "unknown",
+   "plant_pathogenicity": "unknown"
+  },
+  {
+   "lab": "REG",
+   "name_as_received": "Staphylococcus aureus",
+   "taxon": "Staphylococcus aureus",
+   "identified_on": "2024-02-26",
+   "method": "MALDI-TOF mass spectrometry",
+   "isolation_source": "Wound swab",
+   "country_of_origin": "CZ",
+   "isolation_date": "2024-02"
+  },
+  {
+   "lab": "REG",
+   "name_as_received": "Pseudomonas aeruginosa",
+   "taxon": "Pseudomonas aeruginosa",
+   "identified_on": "2024-03-25",
+   "method": "MALDI-TOF mass spectrometry",
+   "isolation_source": "Hospital tap water",
+   "country_of_origin": "CZ",
+   "isolation_date": "2024-03-04"
+  },
+  {
+   "lab": "ENV",
+   "name_as_received": "Sinorhizobium meliloti",
+   "taxon": "Sinorhizobium meliloti",
+   "identified_on": "2012-08-06",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Root nodules of Medicago sativa",
+   "country_of_origin": "CZ",
+   "isolation_date": "2012-07",
+   "history": [
     {
-      "lab": "REG",
-      "name_as_received": "Mockia vulgaris",
-      "taxon": "Mockia vulgaris",
-      "identified_on": "2024-08-12",
-      "method": "Whole genome sequence (ANI)",
-      "isolation_source": "Surface water",
-      "country_of_origin": "CZ",
-      "isolation_date": "2024",
-      "risk_group": 2,
-      "animal_pathogenicity": "unknown",
-      "plant_pathogenicity": "unknown",
-      "restrictions": [
-        {
-          "kind": "cz_rat",
-          "reference": "Příloha 2 (invented example)"
-        }
-      ]
-    },
-    {
-      "lab": "REG",
-      "name_as_received": "Fictivibrio exempli",
-      "taxon": "Fictivibrio exempli",
-      "identified_on": "2024-10-07",
-      "method": "Colony and cell morphology",
-      "isolation_source": "Sediment",
-      "country_of_origin": "AT",
-      "isolation_date": "2024-09",
-      "risk_group": 2,
-      "animal_pathogenicity": "unknown",
-      "plant_pathogenicity": "unknown",
-      "restrictions": [
-        {
-          "kind": "dual_use",
-          "reference": "1C351.c",
-          "act": "(EU) 2025/2003"
-        }
-      ]
-    },
-    {
-      "lab": "REG",
-      "name_as_received": "Testella cerea",
-      "taxon": "Testella cerea",
-      "identified_on": "2025-06-02",
-      "method": "Colony and cell morphology",
-      "isolation_source": "Soil",
-      "country_of_origin": "DE",
-      "isolation_date": "2025",
-      "risk_group": 2,
-      "animal_pathogenicity": "unknown",
-      "plant_pathogenicity": "unknown"
-    },
-    {
-      "lab": "REG",
-      "name_as_received": "Staphylococcus aureus",
-      "taxon": "Staphylococcus aureus",
-      "identified_on": "2024-02-26",
-      "method": "MALDI-TOF mass spectrometry",
-      "isolation_source": "Wound swab",
-      "country_of_origin": "CZ",
-      "isolation_date": "2024-02"
-    },
-    {
-      "lab": "REG",
-      "name_as_received": "Pseudomonas aeruginosa",
-      "taxon": "Pseudomonas aeruginosa",
-      "identified_on": "2024-03-25",
-      "method": "MALDI-TOF mass spectrometry",
-      "isolation_source": "Hospital tap water",
-      "country_of_origin": "CZ",
-      "isolation_date": "2024-03-04"
-    },
-    {
-      "lab": "ENV",
-      "name_as_received": "Sinorhizobium meliloti",
-      "taxon": "Sinorhizobium meliloti",
-      "identified_on": "2012-08-06",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Root nodules of Medicago sativa",
-      "country_of_origin": "CZ",
-      "isolation_date": "2012-07",
-      "history": [
-        {
-          "reclassify": {
-            "taxon": "Ensifer meliloti",
-            "identified_on": "2022-02-14",
-            "method": "Nomenclature update",
-            "reason": "LPSN lists Ensifer meliloti as the correct name."
-          }
-        }
-      ]
-    },
-    {
-      "lab": "ENV",
-      "name_as_received": "Ensifer meliloti",
+     "reclassify": {
       "taxon": "Ensifer meliloti",
-      "identified_on": "2016-09-19",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Alfalfa field soil",
-      "country_of_origin": "HU",
-      "isolation_date": "2016"
-    },
+      "identified_on": "2022-02-14",
+      "method": "Nomenclature update",
+      "reason": "LPSN lists Ensifer meliloti as the correct name."
+     }
+    }
+   ]
+  },
+  {
+   "lab": "ENV",
+   "name_as_received": "Ensifer meliloti",
+   "taxon": "Ensifer meliloti",
+   "identified_on": "2016-09-19",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Alfalfa field soil",
+   "country_of_origin": "HU",
+   "isolation_date": "2016"
+  },
+  {
+   "lab": "ENV",
+   "name_as_received": "Bacillus sp.",
+   "taxon": "Bacillus",
+   "identified_on": "2021-06-07",
+   "method": "Colony and cell morphology",
+   "isolation_source": "River water",
+   "country_of_origin": "CZ",
+   "isolation_date": "2021-05",
+   "history": [
     {
-      "lab": "ENV",
-      "name_as_received": "Bacillus sp.",
-      "taxon": "Bacillus",
-      "identified_on": "2021-06-07",
-      "method": "Colony and cell morphology",
-      "isolation_source": "River water",
-      "country_of_origin": "CZ",
-      "isolation_date": "2021-05",
-      "history": [
-        {
-          "reclassify": {
-            "taxon": "Bacillus subtilis",
-            "identified_on": "2021-06-21",
-            "method": "MALDI-TOF mass spectrometry",
-            "reason": "MALDI-TOF identified the species."
-          }
-        },
-        {
-          "reclassify": {
-            "taxon": "Bacillus licheniformis",
-            "identified_on": "2022-01-31",
-            "method": "Whole genome sequence (ANI)",
-            "reason": "Average nucleotide identity places it in Bacillus licheniformis."
-          }
-        }
-      ]
-    },
-    {
-      "lab": "ENV",
-      "name_as_received": "Acetobacter aceti",
-      "taxon": "Acetobacter aceti",
-      "identified_on": "2019-11-04",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Rotting fruit",
-      "country_of_origin": "ES",
-      "isolation_date": "2019"
-    },
-    {
-      "lab": "ENV",
-      "name_as_received": "Streptomyces griseus",
-      "taxon": "Streptomyces griseus",
-      "identified_on": "2014-09-15",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Lake sediment",
-      "country_of_origin": "FI",
-      "isolation_date": "2014-08"
-    },
-    {
-      "lab": "ENV",
-      "name_as_received": "Deinococcus radiodurans",
-      "taxon": "Deinococcus radiodurans",
-      "identified_on": "2018-05-14",
-      "method": "16S rRNA gene sequence",
-      "isolation_source": "Desert soil",
-      "country_of_origin": "MA",
-      "isolation_date": "2018"
-    },
-    {
-      "lab": "ENV",
-      "name_as_received": "Micrococcus luteus",
-      "taxon": "Micrococcus luteus",
-      "identified_on": "2022-11-28",
+     "reclassify": {
+      "taxon": "Bacillus subtilis",
+      "identified_on": "2021-06-21",
       "method": "MALDI-TOF mass spectrometry",
-      "isolation_source": "Cleanroom surface",
-      "country_of_origin": "DE",
-      "isolation_date": "2022"
+      "reason": "MALDI-TOF identified the species."
+     }
     },
     {
-      "lab": "ENV",
-      "name_as_received": "Mockia vulgaris",
-      "taxon": "Mockia vulgaris",
-      "identified_on": "2023-04-03",
-      "method": "Colony and cell morphology",
-      "isolation_source": "Wastewater",
-      "country_of_origin": "CZ",
-      "isolation_date": "2023-03",
-      "risk_group": 1,
-      "animal_pathogenicity": "unknown",
-      "plant_pathogenicity": "unknown",
-      "restrictions": [
-        {
-          "kind": "cz_rat",
-          "reference": "Příloha 2 (invented example)"
-        }
-      ]
+     "reclassify": {
+      "taxon": "Bacillus licheniformis",
+      "identified_on": "2022-01-31",
+      "method": "Whole genome sequence (ANI)",
+      "reason": "Average nucleotide identity places it in Bacillus licheniformis."
+     }
     }
-  ],
-  "depositors": [
+   ]
+  },
+  {
+   "lab": "ENV",
+   "name_as_received": "Acetobacter aceti",
+   "taxon": "Acetobacter aceti",
+   "identified_on": "2019-11-04",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Rotting fruit",
+   "country_of_origin": "ES",
+   "isolation_date": "2019"
+  },
+  {
+   "lab": "ENV",
+   "name_as_received": "Streptomyces griseus",
+   "taxon": "Streptomyces griseus",
+   "identified_on": "2014-09-15",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Lake sediment",
+   "country_of_origin": "FI",
+   "isolation_date": "2014-08"
+  },
+  {
+   "lab": "ENV",
+   "name_as_received": "Deinococcus radiodurans",
+   "taxon": "Deinococcus radiodurans",
+   "identified_on": "2018-05-14",
+   "method": "16S rRNA gene sequence",
+   "isolation_source": "Desert soil",
+   "country_of_origin": "MA",
+   "isolation_date": "2018"
+  },
+  {
+   "lab": "ENV",
+   "name_as_received": "Micrococcus luteus",
+   "taxon": "Micrococcus luteus",
+   "identified_on": "2022-11-28",
+   "method": "MALDI-TOF mass spectrometry",
+   "isolation_source": "Cleanroom surface",
+   "country_of_origin": "DE",
+   "isolation_date": "2022"
+  },
+  {
+   "lab": "ENV",
+   "name_as_received": "Mockia vulgaris",
+   "taxon": "Mockia vulgaris",
+   "identified_on": "2023-04-03",
+   "method": "Colony and cell morphology",
+   "isolation_source": "Wastewater",
+   "country_of_origin": "CZ",
+   "isolation_date": "2023-03",
+   "risk_group": 1,
+   "animal_pathogenicity": "unknown",
+   "plant_pathogenicity": "unknown",
+   "restrictions": [
     {
-      "lab": "BAC",
-      "name": "Jana Vzorová",
-      "email": "jana.vzorova@example.org",
-      "postal_address": "Vzorová 1\n602 00 Brno (invented example)",
-      "institution": "Example University"
-    },
-    {
-      "lab": "MYC",
-      "name": "Petr Příklad",
-      "email": "petr.priklad@example.org",
-      "postal_address": "Příkladná 2\n779 00 Olomouc (invented example)",
-      "institution": "Example Institute of Microbiology"
-    },
-    {
-      "lab": "MYC",
-      "name": "Eva Ukázková",
-      "email": "",
-      "postal_address": "",
-      "institution": ""
-    },
-    {
-      "lab": "REG",
-      "name": "Karel Ukázka",
-      "email": "karel.ukazka@example.org",
-      "postal_address": "Ukázková 7\n612 00 Brno (invented example)",
-      "institution": "Example Institute"
+     "kind": "cz_rat",
+     "reference": "Příloha 2 (invented example)"
     }
-  ],
-  "mta_templates": [
-    {
-      "lab": "BAC",
-      "code": "STD",
-      "title": "Standard MTA (invented example)",
-      "text": "The recipient uses the material for research and teaching only and passes it to nobody else. (Invented example.)"
-    },
-    {
-      "lab": "BAC",
-      "code": "STD",
-      "title": "Standard MTA (invented example)",
-      "text": "The recipient uses the material for research and teaching only, passes it to nobody else, and cites the collection number in publications. (Invented example, version 2.)"
-    },
-    {
-      "lab": "MYC",
-      "code": "STD",
-      "title": "Standard MTA (invented example)",
-      "text": "Research use only. (Invented example.)"
+   ]
+  }
+ ],
+ "depositors": [
+  {
+   "lab": "BAC",
+   "name": "Jana Vzorová",
+   "email": "jana.vzorova@example.org",
+   "postal_address": "Vzorová 1\n602 00 Brno (invented example)",
+   "institution": "Example University"
+  },
+  {
+   "lab": "MYC",
+   "name": "Petr Příklad",
+   "email": "petr.priklad@example.org",
+   "postal_address": "Příkladná 2\n779 00 Olomouc (invented example)",
+   "institution": "Example Institute of Microbiology"
+  },
+  {
+   "lab": "MYC",
+   "name": "Eva Ukázková",
+   "email": "",
+   "postal_address": "",
+   "institution": ""
+  },
+  {
+   "lab": "REG",
+   "name": "Karel Ukázka",
+   "email": "karel.ukazka@example.org",
+   "postal_address": "Ukázková 7\n612 00 Brno (invented example)",
+   "institution": "Example Institute"
+  }
+ ],
+ "mta_templates": [
+  {
+   "lab": "BAC",
+   "code": "STD",
+   "title": "Standard MTA (invented example)",
+   "text": "The recipient uses the material for research and teaching only and passes it to nobody else. (Invented example.)"
+  },
+  {
+   "lab": "BAC",
+   "code": "STD",
+   "title": "Standard MTA (invented example)",
+   "text": "The recipient uses the material for research and teaching only, passes it to nobody else, and cites the collection number in publications. (Invented example, version 2.)"
+  },
+  {
+   "lab": "MYC",
+   "code": "STD",
+   "title": "Standard MTA (invented example)",
+   "text": "Research use only. (Invented example.)"
+  }
+ ],
+ "deposits": [
+  {
+   "lab": "BAC",
+   "depositor": "Jana Vzorová",
+   "name_as_received": "Bacillus subtilis soil isolate DEP-1",
+   "received_on": "2026-09-02",
+   "condition": "intact",
+   "depositor_passages": 2,
+   "mta": [
+    "STD",
+    2
+   ],
+   "terms": {
+    "abs_scope": "not_in_scope",
+    "country_of_origin": "CZ",
+    "collection_date": "2026-06",
+    "uses": {
+     "research_noncommercial": "permit",
+     "research_commercial": "on_request",
+     "teaching": "permit",
+     "diagnostics": "deny",
+     "production": "deny",
+     "reference_qc": "permit",
+     "patent_deposit_related": "deny",
+     "redistribution": "deny"
     }
-  ],
-  "deposits": [
-    {
-      "lab": "BAC",
-      "depositor": "Jana Vzorová",
-      "name_as_received": "Bacillus subtilis soil isolate DEP-1",
-      "received_on": "2026-09-02",
-      "condition": "intact",
-      "depositor_passages": 2,
-      "mta": [
-        "STD",
-        2
-      ],
-      "terms": {
-        "abs_scope": "not_in_scope",
-        "country_of_origin": "CZ",
-        "collection_date": "2026-06",
-        "uses": {
-          "research_noncommercial": "permit",
-          "research_commercial": "on_request",
-          "teaching": "permit",
-          "diagnostics": "deny",
-          "production": "deny",
-          "reference_qc": "permit",
-          "patent_deposit_related": "deny",
-          "redistribution": "deny"
-        }
-      },
-      "state": "accepted",
-      "strain": {
-        "taxon": "Bacillus subtilis",
-        "identified_on": "2026-09-10",
-        "method": "16S rRNA gene sequence",
-        "isolation_source": "Garden soil",
-        "country_of_origin": "CZ",
-        "isolation_date": "2026-06"
-      }
-    },
-    {
-      "lab": "BAC",
-      "depositor": "Jana Vzorová",
-      "name_as_received": "Testella exempli DEP-2",
-      "received_on": "2026-09-20",
-      "condition": "intact",
-      "mta": [
-        "STD",
-        2
-      ],
-      "terms": {
-        "abs_scope": "unknown",
-        "uses": {
-          "research_noncommercial": "permit",
-          "research_commercial": "on_request",
-          "teaching": "permit",
-          "diagnostics": "deny",
-          "production": "deny",
-          "reference_qc": "permit",
-          "patent_deposit_related": "deny",
-          "redistribution": "deny"
-        }
-      },
-      "state": "checking"
-    },
-    {
-      "lab": "BAC",
-      "depositor": "Jana Vzorová",
-      "name_as_received": "Testella exempli DEP-3",
-      "received_on": "2026-10-05",
-      "condition": "damaged",
-      "condition_note": "Cracked ampoule, the material is dry. (Invented example.)",
-      "mta": [
-        "STD",
-        1
-      ],
-      "terms": {
-        "abs_scope": "unknown",
-        "uses": {
-          "research_noncommercial": "permit",
-          "research_commercial": "on_request",
-          "teaching": "permit",
-          "diagnostics": "deny",
-          "production": "deny",
-          "reference_qc": "permit",
-          "patent_deposit_related": "deny",
-          "redistribution": "deny"
-        }
-      },
-      "state": "received"
-    },
-    {
-      "lab": "BAC",
-      "depositor": "Jana Vzorová",
-      "name_as_received": "Mockia vulgaris DEP-4",
-      "received_on": "2026-08-11",
-      "condition": "intact",
-      "mta": null,
-      "terms": {
-        "abs_scope": "not_in_scope",
-        "uses": {
-          "research_noncommercial": "permit",
-          "research_commercial": "on_request",
-          "teaching": "permit",
-          "diagnostics": "deny",
-          "production": "deny",
-          "reference_qc": "permit",
-          "patent_deposit_related": "deny",
-          "redistribution": "deny"
-        }
-      },
-      "state": "rejected",
-      "rejection_reason": "Mixed culture on the purity plate. (Invented example.)"
-    },
-    {
-      "lab": "MYC",
-      "depositor": "Petr Příklad",
-      "name_as_received": "Testella cerea DEP-5",
-      "received_on": "2026-07-14",
-      "condition": "intact",
-      "mta": [
-        "STD",
-        1
-      ],
-      "terms": {
-        "abs_scope": "in_scope",
-        "country_of_origin": "PE",
-        "collection_date": "2025",
-        "pic_reference": "PIC/DEV/0001 (invented example)",
-        "mat_reference": "MAT/DEV/0001 (invented example)",
-        "permit_reference": "ABS/DEV/0001 (invented example)",
-        "uses": {
-          "research_noncommercial": "permit",
-          "research_commercial": "on_request",
-          "teaching": "permit",
-          "diagnostics": "deny",
-          "production": "deny",
-          "reference_qc": "permit",
-          "patent_deposit_related": "deny",
-          "redistribution": "deny"
-        }
-      },
-      "state": "accepted",
-      "strain": {
-        "taxon": "Testella cerea",
-        "identified_on": "2026-07-30",
-        "method": "ITS region sequence",
-        "isolation_source": "Leaf litter",
-        "country_of_origin": "PE",
-        "isolation_date": "2025",
-        "risk_group": 2,
-        "animal_pathogenicity": "unknown",
-        "plant_pathogenicity": "none_known"
-      }
-    },
-    {
-      "lab": "MYC",
-      "depositor": "Eva Ukázková",
-      "name_as_received": "Mockia vulgaris DEP-6",
-      "received_on": "2026-10-12",
-      "condition": "other",
-      "condition_note": "Arrived without the deposit form; the form followed by e-mail. (Invented example.)",
-      "mta": null,
-      "terms": {
-        "abs_scope": "unknown",
-        "uses": {
-          "research_noncommercial": "permit",
-          "research_commercial": "on_request",
-          "teaching": "permit",
-          "diagnostics": "deny",
-          "production": "deny",
-          "reference_qc": "permit",
-          "patent_deposit_related": "deny",
-          "redistribution": "deny"
-        }
-      },
-      "state": "received"
-    },
-    {
-      "lab": "REG",
-      "depositor": "Karel Ukázka",
-      "name_as_received": "Mockia vulgaris DEP-7",
-      "received_on": "2026-09-15",
-      "condition": "intact",
-      "mta": null,
-      "terms": {
-        "abs_scope": "not_in_scope",
-        "uses": {
-          "research_noncommercial": "permit",
-          "research_commercial": "permit",
-          "teaching": "permit",
-          "diagnostics": "permit",
-          "production": "deny",
-          "reference_qc": "permit",
-          "patent_deposit_related": "permit",
-          "redistribution": "deny"
-        }
-      },
-      "state": "accepted",
-      "strain": {
-        "taxon": "Mockia vulgaris",
-        "identified_on": "2026-09-20",
-        "method": "16S rRNA gene sequence",
-        "isolation_source": "Invented source",
-        "country_of_origin": "",
-        "isolation_date": "",
-        "risk_group": 2,
-        "animal_pathogenicity": "unknown",
-        "plant_pathogenicity": "unknown",
-        "restrictions": [
-          {
-            "kind": "cz_rat",
-            "reference": "Příloha 2 (invented example)"
-          }
-        ]
-      }
+   },
+   "state": "accepted",
+   "strain": {
+    "taxon": "Bacillus subtilis",
+    "identified_on": "2026-09-10",
+    "method": "16S rRNA gene sequence",
+    "isolation_source": "Garden soil",
+    "country_of_origin": "CZ",
+    "isolation_date": "2026-06"
+   }
+  },
+  {
+   "lab": "BAC",
+   "depositor": "Jana Vzorová",
+   "name_as_received": "Testella exempli DEP-2",
+   "received_on": "2026-09-20",
+   "condition": "intact",
+   "mta": [
+    "STD",
+    2
+   ],
+   "terms": {
+    "abs_scope": "unknown",
+    "uses": {
+     "research_noncommercial": "permit",
+     "research_commercial": "on_request",
+     "teaching": "permit",
+     "diagnostics": "deny",
+     "production": "deny",
+     "reference_qc": "permit",
+     "patent_deposit_related": "deny",
+     "redistribution": "deny"
     }
-  ],
-  "batches": [
-    {
-      "lab": "BAC",
-      "deposit": "Bacillus subtilis soil isolate DEP-1",
-      "passage": 0,
-      "method": "cryo_ln2",
-      "purpose": "seed",
-      "cryoprotectant": "10 % glycerol",
-      "preserved_on": "2026-09-12",
-      "vial_count": 5,
-      "box": [
-        "LN2 tank 1",
-        "Canister A",
-        "Seed stock 1"
-      ]
-    },
-    {
-      "lab": "BAC",
-      "deposit": "Bacillus subtilis soil isolate DEP-1",
-      "passage": 1,
-      "method": "cryo_minus80",
-      "purpose": "distribution",
-      "cryoprotectant": "10 % glycerol",
-      "preserved_on": "2026-09-19",
-      "vial_count": 12,
-      "box": [
-        "Freezer -80 A",
-        "Rack 1",
-        "Box 1"
-      ]
-    },
-    {
-      "lab": "BAC",
-      "deposit": "Bacillus subtilis soil isolate DEP-1",
-      "passage": 1,
-      "method": "lyophilised",
-      "purpose": "distribution",
-      "cryoprotectant": "skim milk",
-      "preserved_on": "2026-09-26",
-      "vial_count": 6,
-      "box": null
-    },
-    {
-      "lab": "MYC",
-      "deposit": "Testella cerea DEP-5",
-      "passage": 0,
-      "method": "cryo_minus80",
-      "purpose": "seed",
-      "cryoprotectant": "10 % glycerol",
-      "preserved_on": "2026-08-02",
-      "vial_count": 8,
-      "box": [
-        "Freezer -80 B",
-        "Rack 1",
-        "Box 1"
-      ]
-    },
-    {
-      "lab": "REG",
-      "deposit": "Mockia vulgaris DEP-7",
-      "passage": 0,
-      "method": "cryo_minus80",
-      "purpose": "seed",
-      "cryoprotectant": "10 % glycerol",
-      "preserved_on": "2026-09-25",
-      "vial_count": 4,
-      "box": [
-        "Locked freezer R1",
-        "Rack 1",
-        "Box 1"
-      ]
+   },
+   "state": "checking"
+  },
+  {
+   "lab": "BAC",
+   "depositor": "Jana Vzorová",
+   "name_as_received": "Testella exempli DEP-3",
+   "received_on": "2026-10-05",
+   "condition": "damaged",
+   "condition_note": "Cracked ampoule, the material is dry. (Invented example.)",
+   "mta": [
+    "STD",
+    1
+   ],
+   "terms": {
+    "abs_scope": "unknown",
+    "uses": {
+     "research_noncommercial": "permit",
+     "research_commercial": "on_request",
+     "teaching": "permit",
+     "diagnostics": "deny",
+     "production": "deny",
+     "reference_qc": "permit",
+     "patent_deposit_related": "deny",
+     "redistribution": "deny"
     }
-  ],
-  "checks": [
-    {
-      "lab": "BAC",
-      "deposit": "Bacillus subtilis soil isolate DEP-1",
-      "batch": 1,
-      "kind": "viability",
-      "stage": "after_preservation",
-      "checked_on": "2026-09-15",
-      "method": "growth",
-      "method_detail": "TSA, 30 °C, 24 h",
-      "result": "pass",
-      "value": null,
-      "unit": null,
-      "vial": 5,
-      "note": ""
-    },
-    {
-      "lab": "BAC",
-      "deposit": "Bacillus subtilis soil isolate DEP-1",
-      "batch": 1,
-      "kind": "purity",
-      "stage": "after_preservation",
-      "checked_on": "2026-09-15",
-      "method": "streak_plate",
-      "method_detail": "TSA, 30 °C, 48 h",
-      "result": "pass",
-      "value": null,
-      "unit": null,
-      "vial": 5,
-      "note": ""
-    },
-    {
-      "lab": "BAC",
-      "deposit": "Bacillus subtilis soil isolate DEP-1",
-      "batch": 1,
-      "kind": "identity",
-      "stage": "after_preservation",
-      "checked_on": "2026-09-18",
-      "method": "sequencing",
-      "method_detail": "16S rRNA gene, Sanger",
-      "result": "pass",
-      "value": null,
-      "unit": null,
-      "vial": 5,
-      "note": ""
-    },
-    {
-      "lab": "BAC",
-      "deposit": "Bacillus subtilis soil isolate DEP-1",
-      "batch": 2,
-      "kind": "viability",
-      "stage": "after_preservation",
-      "checked_on": "2026-09-22",
-      "method": "plate_count",
-      "method_detail": "TSA, 30 °C, 48 h",
-      "result": "pass",
-      "value": "210000000",
-      "unit": "cfu_per_ml",
-      "vial": 11,
-      "note": ""
-    },
-    {
-      "lab": "BAC",
-      "deposit": "Bacillus subtilis soil isolate DEP-1",
-      "batch": 2,
-      "kind": "purity",
-      "stage": "after_preservation",
-      "checked_on": "2026-09-22",
-      "method": "streak_plate",
-      "method_detail": "TSA, 30 °C, 48 h",
-      "result": "pass",
-      "value": null,
-      "unit": null,
-      "vial": 11,
-      "note": ""
-    },
-    {
-      "lab": "BAC",
-      "deposit": "Bacillus subtilis soil isolate DEP-1",
-      "batch": 2,
-      "kind": "identity",
-      "stage": "after_preservation",
-      "checked_on": "2026-09-23",
-      "method": "maldi_tof",
-      "method_detail": "",
-      "result": "pass",
-      "value": null,
-      "unit": null,
-      "vial": null,
-      "note": ""
-    },
-    {
-      "lab": "BAC",
-      "deposit": "Bacillus subtilis soil isolate DEP-1",
-      "batch": 3,
-      "kind": "viability",
-      "stage": "after_preservation",
-      "checked_on": "2026-09-30",
-      "method": "growth",
-      "method_detail": "TSA, 30 °C",
-      "result": "reduced",
-      "value": null,
-      "unit": null,
-      "vial": 6,
-      "note": "Colonies after 72 h instead of 24 h, few of them."
-    },
-    {
-      "lab": "MYC",
-      "deposit": "Testella cerea DEP-5",
-      "batch": 1,
-      "kind": "purity",
-      "stage": "after_preservation",
-      "checked_on": "2026-08-06",
-      "method": "streak_plate",
-      "method_detail": "MEA, 25 °C, 5 days",
-      "result": "fail",
-      "value": null,
-      "unit": null,
-      "vial": 8,
-      "note": "A second colony type on the plate."
+   },
+   "state": "received"
+  },
+  {
+   "lab": "BAC",
+   "depositor": "Jana Vzorová",
+   "name_as_received": "Mockia vulgaris DEP-4",
+   "received_on": "2026-08-11",
+   "condition": "intact",
+   "mta": null,
+   "terms": {
+    "abs_scope": "not_in_scope",
+    "uses": {
+     "research_noncommercial": "permit",
+     "research_commercial": "on_request",
+     "teaching": "permit",
+     "diagnostics": "deny",
+     "production": "deny",
+     "reference_qc": "permit",
+     "patent_deposit_related": "deny",
+     "redistribution": "deny"
     }
-  ],
-  "releases": [
-    {
-      "lab": "BAC",
-      "deposit": "Bacillus subtilis soil isolate DEP-1",
-      "batch": 1,
-      "reason": "Identity, purity and viability after preservation passed."
-    },
-    {
-      "lab": "BAC",
-      "deposit": "Bacillus subtilis soil isolate DEP-1",
-      "batch": 2,
-      "reason": "Identity, purity and viability after preservation passed."
+   },
+   "state": "rejected",
+   "rejection_reason": "Mixed culture on the purity plate. (Invented example.)"
+  },
+  {
+   "lab": "MYC",
+   "depositor": "Petr Příklad",
+   "name_as_received": "Testella cerea DEP-5",
+   "received_on": "2026-07-14",
+   "condition": "intact",
+   "mta": [
+    "STD",
+    1
+   ],
+   "terms": {
+    "abs_scope": "in_scope",
+    "country_of_origin": "PE",
+    "collection_date": "2025",
+    "pic_reference": "PIC/DEV/0001 (invented example)",
+    "mat_reference": "MAT/DEV/0001 (invented example)",
+    "permit_reference": "ABS/DEV/0001 (invented example)",
+    "uses": {
+     "research_noncommercial": "permit",
+     "research_commercial": "on_request",
+     "teaching": "permit",
+     "diagnostics": "deny",
+     "production": "deny",
+     "reference_qc": "permit",
+     "patent_deposit_related": "deny",
+     "redistribution": "deny"
     }
-  ],
-  "location_grants": [
-    {
-      "lab": "REG",
-      "user": "reg-manager",
-      "reason": "Keeps the SÚJB register (invented example)."
+   },
+   "state": "accepted",
+   "strain": {
+    "taxon": "Testella cerea",
+    "identified_on": "2026-07-30",
+    "method": "ITS region sequence",
+    "isolation_source": "Leaf litter",
+    "country_of_origin": "PE",
+    "isolation_date": "2025",
+    "risk_group": 2,
+    "animal_pathogenicity": "unknown",
+    "plant_pathogenicity": "none_known"
+   }
+  },
+  {
+   "lab": "MYC",
+   "depositor": "Eva Ukázková",
+   "name_as_received": "Mockia vulgaris DEP-6",
+   "received_on": "2026-10-12",
+   "condition": "other",
+   "condition_note": "Arrived without the deposit form; the form followed by e-mail. (Invented example.)",
+   "mta": null,
+   "terms": {
+    "abs_scope": "unknown",
+    "uses": {
+     "research_noncommercial": "permit",
+     "research_commercial": "on_request",
+     "teaching": "permit",
+     "diagnostics": "deny",
+     "production": "deny",
+     "reference_qc": "permit",
+     "patent_deposit_related": "deny",
+     "redistribution": "deny"
     }
-  ]
+   },
+   "state": "received"
+  },
+  {
+   "lab": "REG",
+   "depositor": "Karel Ukázka",
+   "name_as_received": "Mockia vulgaris DEP-7",
+   "received_on": "2026-09-15",
+   "condition": "intact",
+   "mta": null,
+   "terms": {
+    "abs_scope": "not_in_scope",
+    "uses": {
+     "research_noncommercial": "permit",
+     "research_commercial": "permit",
+     "teaching": "permit",
+     "diagnostics": "permit",
+     "production": "deny",
+     "reference_qc": "permit",
+     "patent_deposit_related": "permit",
+     "redistribution": "deny"
+    }
+   },
+   "state": "accepted",
+   "strain": {
+    "taxon": "Mockia vulgaris",
+    "identified_on": "2026-09-20",
+    "method": "16S rRNA gene sequence",
+    "isolation_source": "Invented source",
+    "country_of_origin": "",
+    "isolation_date": "",
+    "risk_group": 2,
+    "animal_pathogenicity": "unknown",
+    "plant_pathogenicity": "unknown",
+    "restrictions": [
+     {
+      "kind": "cz_rat",
+      "reference": "Příloha 2 (invented example)"
+     }
+    ]
+   }
+  }
+ ],
+ "batches": [
+  {
+   "lab": "BAC",
+   "deposit": "Bacillus subtilis soil isolate DEP-1",
+   "passage": 0,
+   "method": "cryo_ln2",
+   "purpose": "seed",
+   "cryoprotectant": "10 % glycerol",
+   "preserved_on": "2026-09-12",
+   "vial_count": 5,
+   "box": [
+    "LN2 tank 1",
+    "Canister A",
+    "Seed stock 1"
+   ]
+  },
+  {
+   "lab": "BAC",
+   "deposit": "Bacillus subtilis soil isolate DEP-1",
+   "passage": 1,
+   "method": "cryo_minus80",
+   "purpose": "distribution",
+   "cryoprotectant": "10 % glycerol",
+   "preserved_on": "2026-09-19",
+   "vial_count": 12,
+   "box": [
+    "Freezer -80 A",
+    "Rack 1",
+    "Box 1"
+   ]
+  },
+  {
+   "lab": "BAC",
+   "deposit": "Bacillus subtilis soil isolate DEP-1",
+   "passage": 1,
+   "method": "lyophilised",
+   "purpose": "distribution",
+   "cryoprotectant": "skim milk",
+   "preserved_on": "2026-09-26",
+   "vial_count": 6,
+   "box": null
+  },
+  {
+   "lab": "MYC",
+   "deposit": "Testella cerea DEP-5",
+   "passage": 0,
+   "method": "cryo_minus80",
+   "purpose": "seed",
+   "cryoprotectant": "10 % glycerol",
+   "preserved_on": "2026-08-02",
+   "vial_count": 8,
+   "box": [
+    "Freezer -80 B",
+    "Rack 1",
+    "Box 1"
+   ]
+  },
+  {
+   "lab": "REG",
+   "deposit": "Mockia vulgaris DEP-7",
+   "passage": 0,
+   "method": "cryo_minus80",
+   "purpose": "seed",
+   "cryoprotectant": "10 % glycerol",
+   "preserved_on": "2026-09-25",
+   "vial_count": 4,
+   "box": [
+    "Locked freezer R1",
+    "Rack 1",
+    "Box 1"
+   ]
+  }
+ ],
+ "checks": [
+  {
+   "lab": "BAC",
+   "deposit": "Bacillus subtilis soil isolate DEP-1",
+   "batch": 1,
+   "kind": "viability",
+   "stage": "after_preservation",
+   "checked_on": "2026-09-15",
+   "method": "growth",
+   "method_detail": "TSA, 30 °C, 24 h",
+   "result": "pass",
+   "value": null,
+   "unit": null,
+   "vial": 5,
+   "note": ""
+  },
+  {
+   "lab": "BAC",
+   "deposit": "Bacillus subtilis soil isolate DEP-1",
+   "batch": 1,
+   "kind": "purity",
+   "stage": "after_preservation",
+   "checked_on": "2026-09-15",
+   "method": "streak_plate",
+   "method_detail": "TSA, 30 °C, 48 h",
+   "result": "pass",
+   "value": null,
+   "unit": null,
+   "vial": 5,
+   "note": ""
+  },
+  {
+   "lab": "BAC",
+   "deposit": "Bacillus subtilis soil isolate DEP-1",
+   "batch": 1,
+   "kind": "identity",
+   "stage": "after_preservation",
+   "checked_on": "2026-09-18",
+   "method": "sequencing",
+   "method_detail": "16S rRNA gene, Sanger",
+   "result": "pass",
+   "value": null,
+   "unit": null,
+   "vial": 5,
+   "note": ""
+  },
+  {
+   "lab": "BAC",
+   "deposit": "Bacillus subtilis soil isolate DEP-1",
+   "batch": 2,
+   "kind": "viability",
+   "stage": "after_preservation",
+   "checked_on": "2026-09-22",
+   "method": "plate_count",
+   "method_detail": "TSA, 30 °C, 48 h",
+   "result": "pass",
+   "value": "210000000",
+   "unit": "cfu_per_ml",
+   "vial": 11,
+   "note": ""
+  },
+  {
+   "lab": "BAC",
+   "deposit": "Bacillus subtilis soil isolate DEP-1",
+   "batch": 2,
+   "kind": "purity",
+   "stage": "after_preservation",
+   "checked_on": "2026-09-22",
+   "method": "streak_plate",
+   "method_detail": "TSA, 30 °C, 48 h",
+   "result": "pass",
+   "value": null,
+   "unit": null,
+   "vial": 11,
+   "note": ""
+  },
+  {
+   "lab": "BAC",
+   "deposit": "Bacillus subtilis soil isolate DEP-1",
+   "batch": 2,
+   "kind": "identity",
+   "stage": "after_preservation",
+   "checked_on": "2026-09-23",
+   "method": "maldi_tof",
+   "method_detail": "",
+   "result": "pass",
+   "value": null,
+   "unit": null,
+   "vial": null,
+   "note": ""
+  },
+  {
+   "lab": "BAC",
+   "deposit": "Bacillus subtilis soil isolate DEP-1",
+   "batch": 3,
+   "kind": "viability",
+   "stage": "after_preservation",
+   "checked_on": "2026-09-30",
+   "method": "growth",
+   "method_detail": "TSA, 30 °C",
+   "result": "reduced",
+   "value": null,
+   "unit": null,
+   "vial": 6,
+   "note": "Colonies after 72 h instead of 24 h, few of them."
+  },
+  {
+   "lab": "MYC",
+   "deposit": "Testella cerea DEP-5",
+   "batch": 1,
+   "kind": "purity",
+   "stage": "after_preservation",
+   "checked_on": "2026-08-06",
+   "method": "streak_plate",
+   "method_detail": "MEA, 25 °C, 5 days",
+   "result": "fail",
+   "value": null,
+   "unit": null,
+   "vial": 8,
+   "note": "A second colony type on the plate."
+  }
+ ],
+ "releases": [
+  {
+   "lab": "BAC",
+   "deposit": "Bacillus subtilis soil isolate DEP-1",
+   "batch": 1,
+   "reason": "Identity, purity and viability after preservation passed."
+  },
+  {
+   "lab": "BAC",
+   "deposit": "Bacillus subtilis soil isolate DEP-1",
+   "batch": 2,
+   "reason": "Identity, purity and viability after preservation passed."
+  }
+ ],
+ "location_grants": [
+  {
+   "lab": "REG",
+   "user": "reg-manager",
+   "reason": "Keeps the SÚJB register (invented example)."
+  }
+ ],
+ "requesters": [
+  {
+   "lab": "BAC",
+   "institution": "Example Institute of Microbiology",
+   "legal_form": "legal_person",
+   "registration_number": "00000000",
+   "country": "CZ",
+   "lab_evidence": "The institute's department page lists a BSL-2 microbiology laboratory (invented example).",
+   "lab_confirmed_on": "2026-10-01",
+   "scientist": {
+    "name": "Petra Ukázková",
+    "email": "petra.ukazkova@example.org",
+    "postal_address": "Microbiology laboratory\nTestovací 5\n602 00 Brno (invented example)"
+   },
+   "permits": [
+    {
+     "kind": "pathogen_work_permit",
+     "issuer": "KHS JMK",
+     "issuer_country": "CZ",
+     "reference": "KHS/DEV/41/1 (invented example)",
+     "valid_from": "2026-01-01",
+     "risk_group": 2
+    }
+   ]
+  },
+  {
+   "lab": "REG",
+   "institution": "Example Unnotified Laboratory",
+   "legal_form": "legal_person",
+   "registration_number": "",
+   "country": "SK",
+   "lab_evidence": "A letter of the faculty names its microbiology laboratory (invented example).",
+   "lab_confirmed_on": "2026-10-02",
+   "scientist": {
+    "name": "Karol Príkladný",
+    "email": "karol.prikladny@example.org",
+    "postal_address": "Laboratory 3\nVzorová 3\n811 01 Bratislava (invented example)"
+   },
+   "permits": []
+  }
+ ],
+ "requests": [
+  {
+   "lab": "BAC",
+   "requester": "Example Institute of Microbiology",
+   "end_use": "Practical classes in microbiology (development data, approvable).",
+   "use": "teaching",
+   "containment_level": 1,
+   "lines": [
+    {
+     "deposit": "Bacillus subtilis soil isolate DEP-1",
+     "quantity": 2
+    }
+   ],
+   "accept": true
+  },
+  {
+   "lab": "BAC",
+   "requester": "Example Institute of Microbiology",
+   "end_use": "Enzyme screening for a company (development data, the use is on request).",
+   "use": "research_commercial",
+   "containment_level": 1,
+   "lines": [
+    {
+     "deposit": "Bacillus subtilis soil isolate DEP-1",
+     "quantity": 1
+    }
+   ],
+   "accept": true
+  },
+  {
+   "lab": "REG",
+   "requester": "Example Unnotified Laboratory",
+   "end_use": "Research on a risky agent (development data, blocked: no notice to SÚJB).",
+   "use": "research_noncommercial",
+   "containment_level": 2,
+   "lines": [
+    {
+     "deposit": "Mockia vulgaris DEP-7",
+     "quantity": 1
+    }
+   ],
+   "accept": false
+  }
+ ]
 }
