@@ -389,3 +389,36 @@ def test_findings_are_request_wide_first_then_by_line(
     assert found[0].code == "export_not_supported" and found[0].line is None
     lines = [f.line.strain_id for f in found if f.line is not None]
     assert lines == sorted(lines, key=[first.pk, second.pk].index)
+
+
+def test_only_a_section_17a_notice_lets_a_rat_go_out(
+    *, ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User
+) -> None:
+    """Other documents of the requester (a VRAT permit, a work permit) are no notice to SÚJB."""
+    strain = supply(mockia, restrictions=[RAT])
+    add_permit(curator, requester, PermitKind.SUJB_VRAT, covers="Mockia vulgaris")
+    add_permit(curator, requester, PermitKind.PATHOGEN_WORK_PERMIT, risk_group=2)
+    assert "rat_notice_missing" in codes(ask(strain))
+
+
+def test_two_lines_of_one_request_draw_on_one_letter_together(
+    *,
+    as_curator: AuditContext,
+    curator: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+    mockia: Taxon,
+) -> None:
+    """2019/829 Art. 6: the quantity a letter allows is for the whole sending, not per line."""
+    first = supply(mockia, restrictions=[QUARANTINE])
+    second = supply(mockia, restrictions=[QUARANTINE])
+    add_permit(
+        curator, requester, PermitKind.PLANT_HEALTH_LOA, quantity_allowed=3, sendings_allowed=1
+    )
+    request = submit(curator, lab, requester, [(first, 2), (second, 2)])
+    accept_mtas(curator, request)
+    found = evaluate(request, permit_today()).findings
+    assert [
+        (f.code, f.line.strain_id if f.line else None) for f in found if f.code.startswith("loa")
+    ] == [("loa_exhausted", second.pk)]

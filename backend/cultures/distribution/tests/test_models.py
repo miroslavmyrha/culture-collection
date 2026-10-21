@@ -479,6 +479,20 @@ def test_an_acceptance_is_frozen_and_only_of_a_pinned_version(
 def test_a_reservation_changes_once_when_it_ends_and_is_never_deleted(approved: Any) -> None:
     refused_by("never deleted", "DELETE FROM distribution_vialreservation")
     refused_by("changes once", "UPDATE distribution_vialreservation SET reserved_at = now()")
+    held = VialReservation.objects.filter(line__request=approved).first()
+    assert held is not None
+    sql(
+        "UPDATE distribution_vialreservation SET ended_at = clock_timestamp(),"
+        " ended_by_id = reserved_by_id, end_reason = 'cancelled' WHERE id = %s",
+        [held.pk],
+    )
+    # The vial follows, or the deferred check refuses the pair at the end of the test.
+    sql("UPDATE lineage_vial SET status = 'available' WHERE id = %s", [held.vial_id])
+    refused_by(
+        "changes once",
+        "UPDATE distribution_vialreservation SET end_reason = 'shipped' WHERE id = %s",
+        [held.pk],
+    )
 
 
 def test_one_open_reservation_per_vial(approved: Any, curator: User) -> None:

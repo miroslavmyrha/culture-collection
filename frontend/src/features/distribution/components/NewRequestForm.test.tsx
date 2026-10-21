@@ -87,4 +87,13 @@ describe('entering a request', { timeout: 30_000 }, () => {
     await user.click(screen.getByRole('button', { name: 'Remove strain 2' }))
     expect(screen.queryByRole('combobox', { name: 'Strain 2' })).not.toBeInTheDocument()
   })
+  it('offers no requester whose contact was erased', async () => {
+    mockApi('get', '/api/v1/auth/me/', makeMe())
+    mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: 'curator' }))
+    mockApi('get', '/api/v1/labs/{lab_public_id}/requesters/', page([requester, makeRequester({ institution: 'Erased Institute', erased: true, name: '' })]))
+    renderApp({ path: `/labs/${LAB_ID}/requests/new` })
+    const select = await screen.findByRole('combobox', { name: 'Requester' }, { timeout: 5000 })
+    expect([...select.querySelectorAll('option')].map((o) => o.textContent)).toEqual(['Choose', 'Example Institute (CZ)'])
+  })
+
 })

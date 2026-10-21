@@ -11,6 +11,7 @@ import pytest
 
 from cultures.audit.context import AuditContext, MissingAuditContext
 from cultures.audit.models import AuditEvent
+from cultures.audit.registry import EVENT_TYPES
 from cultures.biosafety.policy import permit_today
 from cultures.core.exceptions import DomainError, Forbidden, RuleViolation
 from cultures.deposits import services as deposits
@@ -33,7 +34,7 @@ from cultures.labs.permissions import Role
 from cultures.labs.tests.test_lock_invariant import public_services
 from cultures.lineage import services as lineage
 from cultures.lineage.models import Vial, VialStatus
-from cultures.lineage.tests.support import preserve
+from cultures.lineage.tests.support import pass_all, preserve
 from cultures.strains import services as strains
 from cultures.strains.models import Strain
 from cultures.strains.tests.conftest import new_strain
@@ -798,3 +799,52 @@ def test_the_deposit_terms_replaced_after_entry_stay_pinned_on_the_line(
     line = RequestLine.objects.get(request=request)
     assert line.terms.version == 1
     assert DepositTerms.objects.get(deposit=deposit, is_active=True).version == 2
+
+
+def test_approval_never_takes_seed_stock_even_when_it_is_older(
+    *, as_curator: AuditContext, curator: User, lab: Lab, requester: Requester, supply: Supply
+) -> None:
+    """Seed vials have the lowest pks here, and pk order is the pick order: only
+    distributable() keeps them in the freezer (D15, OECD 11.2)."""
+    strain = supply(vials=3, purpose="seed", release=False)
+    passage0 = strain.passages.get(number=0)
+    stock = preserve(curator, passage0, vial_count=3)
+    pass_all(curator, stock)
+    lineage.batch_release(access=access_for(curator), batch=stock, reason="checks passed")
+    request = submit(curator, lab, requester, [(strain, 2)])
+    accept_mtas(curator, request)
+    approve(curator, request)
+    assert {v.batch_id for v in reserved(request)} == {stock.pk}
+
+
+def test_the_service_refuses_a_requester_of_another_lab(
+    *,
+    as_curator: AuditContext,
+    curator: User,
+    lab: Lab,
+    other_lab: Lab,
+    outsider: User,
+    make_requester: MakeRequester,
+    supply: Supply,
+) -> None:
+    """The API resolves the requester in the URL's lab; the service holds the rule on its own
+    for commands and seeds."""
+    foreign = make_requester(lab=other_lab, actor=outsider)
+    strain = supply()
+    refused(
+        services.InvalidDistribution,
+        "invalid",
+        lambda: services.request_submit(
+            access=access_for(curator), lab=lab, data=new_request(foreign, [(strain, 1)])
+        ),
+        "requester",
+    )
+
+
+def test_the_cancellation_and_rejection_events_require_their_reason() -> None:
+    required = {
+        "request_rejected",
+        "request_cancelled",
+        "recipient_permit_ended",
+    }
+    assert {c for c in required if EVENT_TYPES[c].reason_required} == required

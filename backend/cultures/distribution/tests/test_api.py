@@ -415,3 +415,14 @@ def test_the_requester_and_permit_lists_are_exact_and_flat(
     with query_baseline("permit_list") as captured:
         assert client.get(PERMITS_URL).json()["count"] == rows
     assert scoped(captured.captured_queries, "distribution_recipientpermit")
+
+
+def test_a_cancelled_request_shows_no_vial_as_reserved(
+    as_curator: AuditContext, curator: User, lab: Lab, requester: Requester, supply: Supply
+) -> None:
+    request = submit(curator, lab, requester, [(supply(), 2)])
+    accept_mtas(curator, request)
+    approve(curator, request)
+    response = post(curator, f"{detail(request)}cancel/", {"reason": "withdrawn"})
+    assert response.json()["lines"][0]["reserved"] == []
+    assert logged_in(curator).get(detail(request)).json()["lines"][0]["reserved"] == []

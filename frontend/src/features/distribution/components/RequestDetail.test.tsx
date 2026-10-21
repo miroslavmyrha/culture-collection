@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { api } from '@/lib/api'
 import { allowConsole } from '@/test/console'
 import { makeAcceptance, makeFinding, makeLab, makeMe, makeRequest, makeRequestLine, problem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
@@ -127,4 +128,52 @@ describe('the request page', { timeout: 20_000 }, () => {
     open()
     await waitFor(() => expect(document.title).toBe('Could not load the request | Culture collection'), { timeout: 5000 })
   })
+  it('offers a curator no approval while a finding blocks it, only reject and cancel', async () => {
+    signedIn('curator')
+    mockApi('get', DETAIL, request({ findings: blocked }))
+    open()
+    expect(await screen.findByText('It cannot be approved while something blocks it. Reject it, or wait for what is missing.', {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Approve and reserve the vials' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reject the request' })).toBeInTheDocument()
+  })
+
+  it('keeps the strains in a named region that scrolls sideways at 320 px', async () => {
+    signedIn('viewer')
+    mockApi('get', DETAIL, request())
+    open()
+    const region = await screen.findByRole('region', { name: 'Strains table' }, { timeout: 5000 })
+    expect(region).toHaveAttribute('tabindex', '0')
+    expect(within(region).getByRole('table', { name: 'Strains' })).toBeInTheDocument()
+  })
+
+  // jsdom's File inside Node's fetch fails (undici content-length), so the request is caught at
+  // the client and its form data read; the real upload runs in e2e (distribution.spec.ts).
+  it('records an acceptance with what the curator ticked: a signer who may not bind is sent as such', async () => {
+    signedIn('curator')
+    mockApi('get', DETAIL, request())
+    open()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Record an acceptance' }, { timeout: 5000 }))
+    const dialog = await screen.findByRole('dialog', { name: 'Record an acceptance of the MTA' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Signed by' }), 'Karel Podpisový')
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: "Signer's role" }), 'responsible_scientist')
+    await user.upload(within(dialog).getByLabelText('Signed copy'), new File(['%PDF-1.4'], 'signed.pdf', { type: 'application/pdf' }))
+    const post = vi.spyOn(api, 'POST').mockResolvedValue({ data: request(), response: new Response('{}', { status: 201 }) })
+    await user.click(within(dialog).getByRole('button', { name: 'Record the acceptance' }))
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
+    const [, init]: unknown[] = post.mock.calls[0] ?? []
+    const serializer: unknown = typeof init === 'object' && init !== null ? Reflect.get(init, 'bodySerializer') : undefined
+    if (typeof serializer !== 'function') throw new Error('the acceptance is sent without its form data')
+    const sent: unknown = Reflect.apply(serializer, undefined, [])
+    if (!(sent instanceof FormData)) throw new Error('not form data')
+    expect(Object.fromEntries([...sent.entries()].filter(([k]) => k !== 'file'))).toEqual({
+      mta: line.mta?.public_id,
+      signer_name: 'Karel Podpisový',
+      signer_email: '',
+      signer_role: 'responsible_scientist',
+      authorised_signatory: 'false',
+      accepted_on: new Date().toLocaleDateString('sv'),
+    })
+  })
+
 })

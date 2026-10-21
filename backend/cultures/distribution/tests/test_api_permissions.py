@@ -210,7 +210,9 @@ def test_a_role_without_the_permission_is_refused_before_its_input_is_read(
 ) -> None:
     """Invalid input from a viewer is a 403 or 404, never a 400 that tells them what the form
     wants."""
-    payload = {"reason": "", "requester": "x", "lines": "x", "kind": "x", "ended_on": "x"}
+    # Each body is invalid for its action (an approval's reason is optional, but not this long):
+    # a check of the input before the role would answer 400.
+    payload = {"reason": "x" * 2001, "requester": "x", "lines": "x", "kind": "x", "ended_on": "x"}
     assert_problem(send(team[role], call, world, payload), *call.refusal())
 
 
