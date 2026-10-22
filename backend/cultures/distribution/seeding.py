@@ -1,5 +1,6 @@
 """What seed_dev and seed_e2e make of distribution, through the services: requesters with their
-permits, and requests, each with the acceptance of its MTA versions where the data asks for it.
+permits, and requests, each with the acceptance of its MTA versions where the data asks for it,
+and approved where it asks for that (a request ready to ship, #88).
 
 Found again by natural keys, so a second run changes nothing: a requester by its lab and
 institution, a permit by its requester, kind and reference, a request by its lab and end use
@@ -63,6 +64,8 @@ class SeedRequest:
     containment_level: int
     lines: tuple[tuple[Strain, int], ...]
     accept: bool = True
+    # Approved by the same person, which reserves its vials: a request ready to ship.
+    approve: bool = False
 
 
 def requester(access: Access, lab: Lab, data: SeedRequester) -> Requester:
@@ -136,4 +139,6 @@ def request(access: Access, lab: Lab, data: SeedRequest) -> DistributionRequest:
                     document=services.DocumentInput(INVENTED_PDF),
                 ),
             )
+    if data.approve:
+        made = services.request_approve(access=access, request=made)
     return made

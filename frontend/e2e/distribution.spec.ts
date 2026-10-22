@@ -6,7 +6,9 @@ import { axe, signedInAs, username, watchCsp } from './support.js'
 // dual-use restriction so a manager approves it), the requesters E2E Institute of Microbiology
 // and E2E Unnotified Laboratory, and a request blocked by a legal gate. The request of the
 // first test names the run in its end use; it is cancelled at the end, which frees its vial
-// for the next run. It works as the sessions auth.setup.ts signed in.
+// for the next run. The shipment test (#88) enters, approves and ships a request of its own:
+// one vial of the supply leaves per run, and seed_e2e tops the supply up. It works as the
+// sessions auth.setup.ts signed in.
 
 const RUN = Date.now().toString(36)
 const PDF = Buffer.from('%PDF-1.4\n% an invented signed copy of an e2e run\n%%EOF\n')
@@ -137,5 +139,95 @@ test('a viewer reads the requests and what is reserved, at 320 px, and the API r
   }
   const requesters = await viewer.page.evaluate(async (path) => (await fetch(`/api/v1${path}/requesters/`)).status, lab)
   expect(requesters).toBe(403)
+  await viewer.close()
+})
+
+test('a curator ships an approved request by keyboard and its vial shows as distributed', async ({ browser }) => {
+  // Entered, accepted and approved here (Testella exempli e2e supply: no finding needs a
+  // manager), so every run ships a request of its own.
+  const curator = await as(browser, 'e2e-curator')
+  const violations = await watchCsp(curator.page)
+  const page = curator.page
+  const lab = await labPath(page)
+  await page.goto(`${lab}/requests/new`)
+  const form = page.getByRole('form', { name: 'New request' })
+  await form.getByRole('combobox', { name: 'Requester' }).selectOption({ label: 'E2E Institute of Microbiology (CZ)' })
+  await form.getByRole('combobox', { name: 'Use' }).selectOption('teaching')
+  await form.getByRole('textbox', { name: 'End use' }).fill(`Shipped in run ${RUN}.`)
+  await form.getByRole('combobox', { name: 'Declared containment level' }).selectOption('1')
+  // The full name: 'Testella exempli e2e' also finds the regulated strain of the vial tests.
+  await form.getByRole('combobox', { name: 'Strain 1' }).fill('Testella exempli e2e supply')
+  const choices = page.getByRole('listbox').getByRole('option')
+  await expect(choices).toHaveCount(1)
+  await choices.click()
+  await form.getByRole('button', { name: 'Enter the request' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: /^Request \d{4}\/\d+$/ })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Record an acceptance' }).click()
+  const acceptance = page.getByRole('dialog', { name: 'Record an acceptance of the MTA' })
+  await acceptance.getByRole('textbox', { name: 'Signed by' }).fill('E2E Signatory')
+  await acceptance.getByRole('combobox', { name: "Signer's role" }).selectOption('head_of_institution')
+  await acceptance.getByRole('checkbox', { name: 'The signer may bind the institution' }).check()
+  await acceptance.getByLabel('Signed copy').setInputFiles({ name: 'signed.pdf', mimeType: 'application/pdf', buffer: PDF })
+  await acceptance.getByRole('button', { name: 'Record the acceptance' }).click()
+  await expect(acceptance).toBeHidden()
+  await page.getByRole('button', { name: 'Approve and reserve the vials' }).click()
+  const approve = page.getByRole('dialog', { name: /^Approve request/ })
+  await approve.getByRole('button', { name: 'Approve and reserve' }).click()
+  await expect(approve).toBeHidden()
+  const vialCell = page.getByRole('table', { name: 'Strains' }).getByRole('row').nth(1).getByRole('cell').nth(4)
+  await expect(vialCell).toHaveText(/^\S+ \d+ \/ \d+ \/ \d+$/)
+  const label = (await vialCell.textContent()) ?? ''
+
+  // The dialog by keyboard: it opens on the transport class, Tab walks the fields in order.
+  const ship = page.getByRole('button', { name: 'Ship the vials' })
+  await ship.focus()
+  await page.keyboard.press('Enter')
+  const dialog = page.getByRole('dialog', { name: /^Ship request/ })
+  const transport = dialog.getByRole('combobox', { name: 'Transport class' })
+  await expect(transport).toBeFocused()
+  expect(await axe(page, '[role="dialog"]')).toEqual([])
+  await transport.selectOption('un3373')
+  await expect(dialog.getByRole('combobox', { name: 'Packing' })).toHaveValue('p650')
+  await page.keyboard.press('Tab')
+  await expect(dialog.getByRole('combobox', { name: 'Basis of the classification' })).toBeFocused()
+  await dialog.getByRole('combobox', { name: 'Basis of the classification' }).selectOption('indicative_list')
+  await dialog.getByRole('textbox', { name: 'Responsible person', exact: true }).focus()
+  await page.keyboard.type('E2E Responsible')
+  await page.keyboard.press('Tab')
+  await page.keyboard.type('+420 555 000 111')
+  await page.keyboard.press('Tab')
+  await page.keyboard.type('E2E Courier')
+  await page.keyboard.press('Tab')
+  await page.keyboard.type(`E2E${RUN}`)
+  await dialog.getByRole('button', { name: 'Ship', exact: true }).focus()
+  await page.keyboard.press('Enter')
+  await expect(dialog).toBeHidden()
+  await expect(page.getByText(/Shipped by e2e-curator on /)).toBeVisible()
+  const shipment = page.getByRole('region', { name: 'Shipment' })
+  await expect(shipment).toContainText('UN 3373, Biological substance, Category B')
+  await expect(shipment).toContainText('E2E Responsible, +420 555 000 111')
+  await expect(page.getByRole('table', { name: 'Strains' }).getByRole('columnheader', { name: 'Shipped vials' })).toBeVisible()
+  await expect(vialCell).toHaveText(label)
+  await expect(page.getByRole('button', { name: 'Cancel the request' })).toHaveCount(0)
+  const requestUrl = page.url()
+
+  // The strain page lists the vial as distributed, with no place.
+  const accession = label.split(' / ')[0] ?? ''
+  await page.goto(`${lab}/strains?search=${encodeURIComponent(accession)}`)
+  await page.getByRole('link', { name: accession, exact: true }).click()
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  await expect(page.getByRole('table', { name: 'Vials' }).getByRole('row', { name: new RegExp(`^${escaped} Distributed Left the collection`) })).toBeVisible()
+  expect(violations()).toEqual([])
+  await curator.close()
+
+  // A viewer at 320 px reads the shipment, without the person who answers for it.
+  const viewer = await as(browser, 'e2e-viewer', 320)
+  await viewer.page.goto(requestUrl)
+  const seen = viewer.page.getByRole('region', { name: 'Shipment' })
+  await expect(seen).toContainText('E2E Courier')
+  await expect(seen).not.toContainText('E2E Responsible')
+  expect(await viewer.page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
+  expect(await axe(viewer.page, 'main')).toEqual([])
   await viewer.close()
 })

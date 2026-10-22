@@ -2389,6 +2389,21 @@
     }
    ],
    "accept": false
+  },
+  {
+   "lab": "BAC",
+   "requester": "Example Institute of Microbiology",
+   "end_use": "Practical classes in a second term (development data, approved, ready to ship).",
+   "use": "teaching",
+   "containment_level": 1,
+   "lines": [
+    {
+     "deposit": "Bacillus subtilis soil isolate DEP-1",
+     "quantity": 1
+    }
+   ],
+   "accept": true,
+   "approve": true
   }
  ]
 }

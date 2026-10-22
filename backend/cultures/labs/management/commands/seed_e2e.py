@@ -35,9 +35,10 @@ Brings the database to this state, whatever it was before:
   batch when fewer than ten vials are free): Testella exempli e2e supply (risk group 1, no
   restriction) and Mockia vulgaris e2e supply (invented, a dual-use restriction, so a manager
   approves it). Two requesters, invented institutions: E2E Institute of Microbiology, which
-  holds an invented § 17a notice, and E2E Unnotified Laboratory, which holds none. Three
-  requests, found by their end use: one a curator may approve, one a manager must approve, and
-  one blocked by a legal gate (a RAT to the unnotified laboratory).
+  holds an invented § 17a notice, and E2E Unnotified Laboratory, which holds none. Four
+  requests, found by their end use: one a curator may approve, one a manager must approve, one
+  blocked by a legal gate (a RAT to the unnotified laboratory), and one approved, ready to ship
+  (#88; shipped once, it stays shipped).
 Strains and storage units the tests created stay: numbers are never reused, and neither a
 strain nor a unit is ever deleted.
 A second run changes nothing. Every user, lab and membership write goes
@@ -189,7 +190,7 @@ class Command(BaseCommand):
             f" one accepted deposit; {len(BOX_TYPES)} box types; {FREEZER} > Rack 1 > Box 1;"
             f" a regulated strain with two vials in {REGULATED_BOX}, revealed by {username};"
             " a released batch of the seeded strain; two strains that may go out, two"
-            " requesters and three requests"
+            " requesters and four requests, one approved"
         )
 
     def _taxon(  # noqa: PLR0917 (one row of TAXA, spread)
@@ -391,7 +392,7 @@ class Command(BaseCommand):
         )
 
     def _distribution(self, lab: Lab, *, curator: User, technician: User) -> None:
-        """Strains that may go out, the requesters and the three requests (#18)."""
+        """Strains that may go out, the requesters and the four requests (#18, #88)."""
         access = access_for(curator)
         mta = MtaTemplate.objects.get(lab=lab, code="STD", version=1)
         supply = self._supply(lab, SUPPLY, "Testella exempli", (), mta, curator, technician)
@@ -458,6 +459,14 @@ class Command(BaseCommand):
                 Use.RESEARCH_NONCOMMERCIAL,
                 2,
                 ((rat, 1),),
+            ),
+            seeding.SeedRequest(
+                INSTITUTE,
+                "E2E seed: teaching, approved and ready to ship.",
+                Use.TEACHING,
+                1,
+                ((supply, 1),),
+                approve=True,
             ),
         ):
             seeding.request(access, lab, request)
