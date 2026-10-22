@@ -29,7 +29,7 @@ function settleRequest(qc: QueryClient, labId: string, request: Request) {
 }
 
 /**
- * Approving, cancelling and shipping change vials (reserved, available again, distributed and
+ * Approving, cancelling, shipping and confirming a prepared shipment change vials (reserved, available again, distributed and
  * out of their boxes, a batch exhausted): the strain pages and box grids show them, so the
  * material of the lab is invalidated too (lib/shared-keys).
  */
@@ -94,6 +94,44 @@ export function useShipRequest(labId: string, requestId: string) {
     },
     meta: { handlesError: true },
     onSuccess: (request) => settleVials(qc, labId, request),
+  })
+}
+
+/** Step 1 of a regulated request's shipment (#89): nothing leaves, the vials stay reserved. */
+export function usePrepareShipment(labId: string, requestId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: Schemas['ShipInputRequest']) => {
+      await ensureCsrf()
+      return unwrap(api.POST('/api/v1/labs/{lab_public_id}/requests/{public_id}/prepare-shipment/', { ...one(labId, requestId), body }))
+    },
+    meta: { handlesError: true },
+    onSuccess: (request) => settleRequest(qc, labId, request),
+  })
+}
+
+/** Step 2: a second person confirms, and the vials leave as with a shipment in one step. */
+export function useConfirmShipment(labId: string, requestId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: Schemas['ConfirmInputRequest']) => {
+      await ensureCsrf()
+      return unwrap(api.POST('/api/v1/labs/{lab_public_id}/requests/{public_id}/confirm-shipment/', { ...one(labId, requestId), body }))
+    },
+    meta: { handlesError: true },
+    onSuccess: (request) => settleVials(qc, labId, request),
+  })
+}
+
+export function useWithdrawShipment(labId: string, requestId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: Schemas['ReasonInputRequest']) => {
+      await ensureCsrf()
+      return unwrap(api.POST('/api/v1/labs/{lab_public_id}/requests/{public_id}/withdraw-shipment/', { ...one(labId, requestId), body }))
+    },
+    meta: { handlesError: true },
+    onSuccess: (request) => settleRequest(qc, labId, request),
   })
 }
 

@@ -4,7 +4,16 @@ import { type UseFormRegisterReturn, useForm, useWatch } from 'react-hook-form'
 import { CheckboxField, ConfirmDialog, SelectField, Stack, TextField, Typography } from '@/components/ui'
 import { errorMessage, isApiError, readProblem } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
-import { useApproveRequest, useCancelRequest, useRecordAcceptance, useRejectRequest, useShipRequest } from '../api/mutations'
+import {
+  useApproveRequest,
+  useCancelRequest,
+  useConfirmShipment,
+  usePrepareShipment,
+  useRecordAcceptance,
+  useRejectRequest,
+  useShipRequest,
+  useWithdrawShipment,
+} from '../api/mutations'
 import {
   type AcceptanceForm,
   acceptanceSchema,
@@ -17,6 +26,7 @@ import {
   COOLANTS,
   type DecisionForm,
   decisionSchema,
+  type Preparation,
   isTransportClass,
   options,
   PACKING_INSTRUCTIONS,
@@ -45,12 +55,17 @@ function stateError(error: unknown): string | undefined {
   if (isApiError(error, 422) && error.code === 'request_blocked') return 'Something blocks the approval now. Close this and read what stands in the way.'
   if (isApiError(error, 403) && error.code === 'manager_approval_required') return 'A manager approves this request.'
   if (isApiError(error, 422) && error.code === 'second_person_required') return SECOND_PERSON
+  if (isApiError(error, 422) && error.code === 'ship_in_one_step') return 'No strain of this request is regulated: close this and ship it in one step.'
   if (isApiError(error, 422) && error.code === 'shipment_blocked') return `Nothing is shipped. ${readProblem(error.body)?.detail ?? ''}`.trim()
+  if (isApiError(error, 403) && error.code === 'confirm_own_approval') return 'You approved this request, so a different person confirms its shipment.'
+  if (isApiError(error, 403) && error.code === 'confirm_own_preparation') return 'You prepared this shipment, so a different person confirms it.'
+  if (isApiError(error, 409) && error.code === 'preparation_changed') return 'The prepared shipment changed meanwhile. Close this and read it again.'
+  if (isApiError(error, 409) && error.code === 'preparation_exists') return 'Someone prepared this shipment at the same moment. Close this and look at it again.'
   return undefined
 }
 
-/** Why a regulated request is not shipped here (ADR 0009, the two-person rule). */
-export const SECOND_PERSON = 'A regulated strain is shipped only when a second person confirms it. That step comes with a later version, so this request is not shipped here.'
+/** How a regulated request leaves (ADR 0009, the two-person rule). */
+export const SECOND_PERSON = 'A regulated strain leaves in two steps: one person prepares the shipment, and a second person, neither the approver nor the preparer, confirms it.'
 
 
 export function ApproveDialog({ labId, request, open, onClose, onExited }: Common) {
@@ -289,9 +304,13 @@ const SHIP_FIELDS = [
  * The shipper's record of the package (WHO transport guidance, 2.1: the shipper classifies):
  * the class with its basis, the packing (P650 for UN 3373, filled when it is chosen), the
  * coolant, who answers the phone about it, and the carrier. Every reserved vial goes at once.
+ * With `prepare` the same record is step 1 of a regulated request (#89): nothing leaves until a
+ * second person confirms it.
  */
-export function ShipDialog({ labId, request, open, onClose, onExited }: Common) {
-  const ship = useShipRequest(labId, request.public_id)
+export function ShipDialog({ labId, request, open, onClose, onExited, prepare = false }: Common & { prepare?: boolean }) {
+  const shipNow = useShipRequest(labId, request.public_id)
+  const prepared = usePrepareShipment(labId, request.public_id)
+  const ship = prepare ? prepared : shipNow
   const formId = useId()
   const [failure, setFailure] = useState<string>()
   const { register, handleSubmit, formState, setError, setValue, control } = useForm<ShipForm, unknown, ShipValues>({
@@ -344,16 +363,20 @@ export function ShipDialog({ labId, request, open, onClose, onExited }: Common) 
   return (
     <ConfirmDialog
       open={open}
-      title={`Ship request ${request.number}?`}
-      description={`${vials === 1 ? 'Its reserved vial leaves' : `All ${vials} reserved vials leave`} the collection today: recorded as distributed and out of their boxes. A shipment cannot be undone. The gates are checked again on today’s date.`}
-      confirmLabel="Ship"
+      title={prepare ? `Prepare the shipment of request ${request.number}?` : `Ship request ${request.number}?`}
+      description={
+        prepare
+          ? `Nothing leaves yet: ${vials === 1 ? 'its reserved vial stays' : `its ${vials} reserved vials stay`} reserved until a second person, neither the approver nor you, confirms the shipment. The gates are checked today and again on the day it is confirmed.`
+          : `${vials === 1 ? 'Its reserved vial leaves' : `All ${vials} reserved vials leave`} the collection today: recorded as distributed and out of their boxes. A shipment cannot be undone. The gates are checked again on today’s date.`
+      }
+      confirmLabel={prepare ? 'Prepare' : 'Ship'}
       form={formId}
       pending={ship.isPending}
       error={failure}
       onClose={onClose}
       onExited={onExited}
     >
-      <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Shipment" spacing={2} sx={{ mt: 2 }}>
+      <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label={prepare ? 'Prepared shipment' : 'Shipment'} spacing={2} sx={{ mt: 2 }}>
         {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
         <SelectField label="Transport class" autoFocus options={options(TRANSPORT_CLASS_LABELS, TRANSPORT_CLASSES)} error={errors.transport_class?.message} {...transportClass} />
         <SelectField
@@ -372,5 +395,61 @@ export function ShipDialog({ labId, request, open, onClose, onExited }: Common) 
         <TextField label="Tracking number" autoComplete="off" error={errors.tracking_number?.message} {...register('tracking_number')} />
       </Stack>
     </ConfirmDialog>
+  )
+}
+
+/**
+ * Step 2 (#89): a second person confirms the prepared shipment as it is shown here, the facts
+ * that will be recorded, and the vials leave. The server refuses the approver and the
+ * preparer, and a preparation other than the one shown.
+ */
+export function ConfirmShipmentDialog({ labId, request, preparation, open, onClose, onExited, children }: Common & { preparation: Preparation; children: React.ReactNode }) {
+  const confirm = useConfirmShipment(labId, request.public_id)
+  const [failure, setFailure] = useState<string>()
+  const vials = request.lines.reduce((sum, line) => sum + line.reserved.length, 0)
+  const run = () => {
+    if (confirm.isPending) return
+    setFailure(undefined)
+    confirm.mutate(
+      { preparation: preparation.public_id },
+      {
+        onSuccess: onClose,
+        // A risk group raised since the preparation: the culture is no longer exempt (not_exempt).
+        onError: (error) => setFailure(stateError(error) ?? (isApiError(error, 400) ? readProblem(error.body)?.errors?.[0]?.detail : undefined) ?? errorMessage(error)),
+      },
+    )
+  }
+  return (
+    <ConfirmDialog
+      open={open}
+      destructive
+      title={`Confirm the shipment of request ${request.number}?`}
+      description={`${vials === 1 ? 'Its reserved vial leaves' : `All ${vials} reserved vials leave`} the collection today, as prepared by ${preparation.prepared_by}: recorded as distributed and out of their boxes. A shipment cannot be undone. The gates are checked again on today’s date.`}
+      confirmLabel="Confirm and ship"
+      pending={confirm.isPending}
+      error={failure}
+      onConfirm={run}
+      onClose={onClose}
+      onExited={onExited}
+    >
+      {children}
+    </ConfirmDialog>
+  )
+}
+
+export function WithdrawShipmentDialog({ labId, request, open, onClose, onExited }: Common) {
+  const withdraw = useWithdrawShipment(labId, request.public_id)
+  return (
+    <ReasonDialog
+      open={open}
+      title={`Withdraw the prepared shipment of request ${request.number}?`}
+      description="The request is approved again and its vials stay reserved. The prepared shipment is kept with the reason, and a new one can be prepared."
+      confirmLabel="Withdraw the shipment"
+      label="Withdrawal"
+      pending={withdraw.isPending}
+      mutate={(reason, callbacks) => withdraw.mutate({ reason }, callbacks)}
+      onClose={onClose}
+      onExited={onExited}
+    />
   )
 }

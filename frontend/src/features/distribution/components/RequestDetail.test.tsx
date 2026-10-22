@@ -3,14 +3,14 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { api } from '@/lib/api'
 import { allowConsole } from '@/test/console'
-import { makeAcceptance, makeFinding, makeLab, makeMe, makeRequest, makeRequestLine, makeShipment, problem, validationProblem } from '@/test/factories'
+import { makeAcceptance, makeFinding, makeLab, makeMe, makePreparation, makeRequest, makeRequestLine, makeShipment, problem, validationProblem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const REQUEST_ID = '00000000-0000-4000-8000-0000000000a1'
 const DETAIL = '/api/v1/labs/{lab_public_id}/requests/{public_id}/'
-const ACTION = (name: 'approve' | 'reject' | 'cancel' | 'ship') => `/api/v1/labs/{lab_public_id}/requests/{public_id}/${name}/` as const
+const ACTION = (name: 'approve' | 'reject' | 'cancel' | 'ship' | 'prepare-shipment' | 'confirm-shipment' | 'withdraw-shipment') => `/api/v1/labs/{lab_public_id}/requests/{public_id}/${name}/` as const
 
 function signedIn(role: 'viewer' | 'technician' | 'curator' | 'manager' = 'curator') {
   mockApi('get', '/api/v1/auth/me/', makeMe())
@@ -22,6 +22,7 @@ const request = (overrides = {}) => makeRequest({ public_id: REQUEST_ID, number:
 const open = () => renderApp({ path: `/labs/${LAB_ID}/requests/${REQUEST_ID}` })
 const blocked = [makeFinding({ code: 'loa_missing', sentence: 'MYC 3 is a quarantine pest: the requester shows no valid Letter of Authority that names Mockia vulgaris.', line: line.public_id })]
 const regulated = [makeFinding({ code: 'regulated', severity: 'manager', sentence: 'MYC 3 is regulated (dual_use): a manager approves it.', line: line.public_id })]
+const preparation = (overrides = {}) => makePreparation({ public_id: '00000000-0000-4000-8000-0000000000f1', prepared_at: '2026-10-21T08:00:00Z', ...overrides })
 
 async function openShipDialog() {
   const user = userEvent.setup()
@@ -254,12 +255,13 @@ describe('the request page', { timeout: 20_000 }, () => {
       expect(screen.queryByRole('button', { name: 'Ship the vials' })).not.toBeInTheDocument()
     })
 
-    it('says why a regulated request is not shipped here, and offers no shipment', async () => {
+    it('offers a regulated request the preparation, not the shipment in one step, and says why', async () => {
       signedIn('manager')
       mockApi('get', DETAIL, approved({ regulated: true }))
       open()
-      expect(await screen.findByText(/shipped only when a second person confirms it/, {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText(/leaves in two steps/, {}, { timeout: 5000 })).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Ship the vials' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Prepare the shipment' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Cancel the request' })).toBeInTheDocument()
     })
 
@@ -280,7 +282,7 @@ describe('the request page', { timeout: 20_000 }, () => {
       expect(await within(dialog).findByText('Nothing is shipped. MYC 3: 0 of its 1 reserved vials may still go out.')).toBeInTheDocument()
       mockApiError('post', ACTION('ship'), 422, problem(422, { code: 'second_person_required', detail: 'A second person confirms it.' }))
       await user.click(within(dialog).getByRole('button', { name: 'Ship' }))
-      expect(await within(dialog).findByText(/shipped only when a second person confirms it/)).toBeInTheDocument()
+      expect(await within(dialog).findByText(/leaves in two steps/)).toBeInTheDocument()
       mockApiError(
         'post',
         ACTION('ship'),
@@ -289,6 +291,130 @@ describe('the request page', { timeout: 20_000 }, () => {
       )
       await user.click(within(dialog).getByRole('button', { name: 'Ship' }))
       expect(await within(dialog).findByRole('combobox', { name: 'Basis of the classification', description: /risk group 2 or higher is pathogenic/ })).toBeInTheDocument()
+    })
+
+    describe('in two steps (#89)', () => {
+      const vialLine = makeRequestLine({ ...line, reserved: [vial] })
+      const awaiting = (overrides = {}) =>
+        approved({ status: 'awaiting_confirmation', regulated: true, decided_by: 'approver', lines: [vialLine], preparations: [preparation(overrides)] })
+
+      it('a curator prepares the shipment, nothing leaves, and the page says it waits for someone else', async () => {
+        signedIn('curator')
+        mockApi('get', DETAIL, approved({ regulated: true, decided_by: 'approver' }))
+        open()
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: 'Prepare the shipment' }, { timeout: 5000 }))
+        const dialog = await screen.findByRole('dialog', { name: 'Prepare the shipment of request 2026/7?' })
+        expect(dialog).toHaveAccessibleDescription(/Nothing leaves yet: its reserved vial stays reserved until a second person/)
+        expect(within(dialog).getByRole('combobox', { name: 'Transport class' })).toHaveFocus()
+        await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Basis of the classification' }), 'exempt_non_pathogenic')
+        await fillPerson(user, dialog)
+        const calls = mockApi('post', ACTION('prepare-shipment'), awaiting({ confirm_refusal: 'confirm_own_preparation' }))
+        await user.click(within(dialog).getByRole('button', { name: 'Prepare' }))
+        await waitFor(() => expect(calls).toHaveLength(1))
+        expect(calls[0]?.body).toEqual({
+          transport_class: 'not_subject',
+          classification_basis: 'exempt_non_pathogenic',
+          basis_note: '',
+          packing_instruction: 'triple_packaging',
+          coolant: '',
+          coolant_kg: null,
+          responsible_name: 'Jan Odpovědný',
+          responsible_phone: '+420 555 000 111',
+          carrier: 'Example Courier',
+          tracking_number: '',
+        })
+        expect(await screen.findByText(/The shipment was prepared by curator on 2026-10-21 and waits for a second person/, {}, { timeout: 5000 })).toBeInTheDocument()
+        expect(screen.getByText('You prepared this shipment, so a different person confirms it.')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Confirm the shipment' })).not.toBeInTheDocument()
+        const prepared = await screen.findByRole('region', { name: 'Prepared shipment' }, { timeout: 5000 })
+        expect(prepared).toHaveTextContent('Prepared bycurator on 2026-10-21')
+        expect(within(screen.getByRole('table', { name: 'Strains' })).getByRole('cell', { name: 'MYC 3 / 1 / 1' })).toBeInTheDocument()
+      })
+
+      it('tells the approver why they may not confirm', async () => {
+        signedIn('manager')
+        mockApi('get', DETAIL, awaiting({ confirm_refusal: 'confirm_own_approval' }))
+        open()
+        expect(await screen.findByText('You approved this request, so a different person confirms its shipment.', {}, { timeout: 5000 })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Confirm the shipment' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Withdraw the prepared shipment' })).toBeInTheDocument()
+      })
+
+      it('a second person confirms what was prepared, in an alertdialog that stays open while it runs', async () => {
+        signedIn('manager')
+        mockApi('get', DETAIL, awaiting())
+        open()
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: 'Confirm the shipment' }, { timeout: 5000 }))
+        const dialog = await screen.findByRole('alertdialog', { name: 'Confirm the shipment of request 2026/7?' })
+        expect(dialog).toHaveAccessibleDescription(/Its reserved vial leaves the collection today, as prepared by curator/)
+        expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+        // What will be recorded is shown, not the current screen.
+        expect(dialog).toHaveTextContent('Example Courier')
+        expect(dialog).toHaveTextContent('Jan Odpovědný, +420 555 000 111')
+        allowConsole(/API error (403|409)/)
+        const held = holdApi('post', ACTION('confirm-shipment'))
+        await user.click(within(dialog).getByRole('button', { name: 'Confirm and ship' }))
+        await waitFor(() => expect(held.calls).toHaveLength(1))
+        expect(held.calls[0]?.body).toEqual({ preparation: '00000000-0000-4000-8000-0000000000f1' })
+        await user.keyboard('{Escape}')
+        expect(dialog).toBeInTheDocument()
+        held.release(409, problem(409, { code: 'preparation_changed' }))
+        expect(await within(dialog).findByText('The prepared shipment changed meanwhile. Close this and read it again.')).toBeInTheDocument()
+        mockApiError('post', ACTION('confirm-shipment'), 403, problem(403, { code: 'confirm_own_preparation' }))
+        await user.click(within(dialog).getByRole('button', { name: 'Confirm and ship' }))
+        expect(await within(dialog).findByText('You prepared this shipment, so a different person confirms it.')).toBeInTheDocument()
+        mockApi(
+          'post',
+          ACTION('confirm-shipment'),
+          request({
+            status: 'shipped',
+            decided_by: 'approver',
+            decided_at: '2026-10-20T10:00:00Z',
+            regulated: true,
+            lines: [makeRequestLine({ ...line, reserved: [], shipped: [vial] })],
+            preparations: [preparation()],
+            shipment: makeShipment({ classified_by: 'curator', classified_at: '2026-10-21T08:00:00Z', shipped_by: 'manager', shipped_at: '2026-10-22T09:00:00Z', preparation: '00000000-0000-4000-8000-0000000000f1' }),
+          }),
+        )
+        await user.click(within(dialog).getByRole('button', { name: 'Confirm and ship' }))
+        expect(await screen.findByText(/Prepared by curator on 2026-10-21, confirmed and shipped by manager on 2026-10-22\./, {}, { timeout: 5000 })).toBeInTheDocument()
+        const shipment = await screen.findByRole('region', { name: 'Shipment' }, { timeout: 5000 })
+        expect(shipment).toHaveTextContent('Prepared and classified bycurator on 2026-10-21')
+        expect(shipment).toHaveTextContent('Confirmed bymanager on 2026-10-22')
+        expect(screen.queryByRole('region', { name: 'Prepared shipment' })).not.toBeInTheDocument()
+      })
+
+      it('withdraws the preparation with a reason and lists it as withdrawn', async () => {
+        signedIn('curator')
+        mockApi('get', DETAIL, awaiting({ confirm_refusal: 'confirm_own_preparation' }))
+        open()
+        const user = userEvent.setup()
+        await user.click(await screen.findByRole('button', { name: 'Withdraw the prepared shipment' }, { timeout: 5000 }))
+        const dialog = await screen.findByRole('alertdialog', { name: 'Withdraw the prepared shipment of request 2026/7?' })
+        expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+        const withdrawn = preparation({ withdrawn_by: 'curator', withdrawn_at: '2026-10-22T07:00:00Z', withdraw_reason: 'The courier cannot come.' })
+        const calls = mockApi('post', ACTION('withdraw-shipment'), approved({ regulated: true, decided_by: 'approver', preparations: [withdrawn] }))
+        await user.click(within(dialog).getByRole('button', { name: 'Withdraw the shipment' }))
+        expect(calls).toHaveLength(0)
+        await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'The courier cannot come.')
+        await user.click(within(dialog).getByRole('button', { name: 'Withdraw the shipment' }))
+        await waitFor(() => expect(calls[0]?.body).toEqual({ reason: 'The courier cannot come.' }))
+        const list = await screen.findByRole('region', { name: 'Withdrawn preparations' }, { timeout: 5000 })
+        expect(list).toHaveTextContent('Prepared by curator on 2026-10-21, withdrawn by curator on 2026-10-22: The courier cannot come.')
+        expect(screen.getByRole('button', { name: 'Prepare the shipment' })).toBeInTheDocument()
+      })
+
+      it('shows a viewer the prepared shipment without the person who answers for it, and no action', async () => {
+        signedIn('viewer')
+        mockApi('get', DETAIL, awaiting({ responsible_name: null, responsible_phone: null }))
+        open()
+        const prepared = await screen.findByRole('region', { name: 'Prepared shipment' }, { timeout: 5000 })
+        expect(prepared).toHaveTextContent('Example Courier')
+        expect(prepared).not.toHaveTextContent('Responsible person')
+        expect(within(screen.getByRole('main')).queryByRole('button')).not.toBeInTheDocument()
+      })
     })
 
     it('shows a viewer the shipment without the person who answers for it', async () => {

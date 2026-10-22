@@ -20,6 +20,7 @@ export type CountryCode = Schemas['CountryCode']
 export type Role = Schemas['Role']
 export type StrainChoice = Schemas['StrainListOutput']
 export type Shipment = Schemas['ShipmentOutput']
+export type Preparation = Schemas['PreparationOutput']
 export type TransportClass = Schemas['TransportClass']
 export type ClassificationBasis = Schemas['ClassificationBasis']
 export type PackingInstruction = Schemas['PackingInstruction']
@@ -32,11 +33,22 @@ export const canManageRequests = (role: Role | undefined): boolean => role === '
 /** Only managers approve over a finding that needs one (distribution.approve_regulated). */
 export const canApproveRegulated = (role: Role | undefined): boolean => role === 'manager'
 /**
- * Curators and managers ship an approved request. A regulated one waits for a second person
- * (ADR 0009), which is not built yet: the server refuses it with second_person_required.
+ * Curators and managers ship an approved request in one step. A regulated one leaves in two
+ * (ADR 0009): one of them prepares the shipment, and another, neither the approver nor the
+ * preparer, confirms it. The server refuses the one-step shipment with second_person_required.
  */
 export const canShip = (request: Pick<RequestRow, 'status' | 'regulated'>, role: Role | undefined): boolean =>
   canManageRequests(role) && request.status === 'approved' && !request.regulated
+export const canPrepare = (request: Pick<RequestRow, 'status' | 'regulated'>, role: Role | undefined): boolean =>
+  canManageRequests(role) && request.status === 'approved' && request.regulated
+/** The preparation a second person may confirm: the one not withdrawn, while the request waits. */
+export const openPreparation = (request: Pick<Request, 'status' | 'preparations'>): Preparation | undefined =>
+  request.status === 'awaiting_confirmation' ? request.preparations.find((p) => p.withdrawn_at === null) : undefined
+/** Why the signed-in person may not confirm (the server says it; it refuses anyway). */
+export const CONFIRM_REFUSALS: Record<NonNullable<Preparation['confirm_refusal']>, string> = {
+  confirm_own_approval: 'You approved this request, so a different person confirms its shipment.',
+  confirm_own_preparation: 'You prepared this shipment, so a different person confirms it.',
+}
 
 export const STATUSES = ['submitted', 'approved', 'awaiting_confirmation', 'shipped', 'rejected', 'cancelled'] as const satisfies readonly RequestStatus[]
 export const STATUS_LABELS: Record<RequestStatus, string> = {
