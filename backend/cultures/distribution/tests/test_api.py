@@ -606,6 +606,25 @@ def test_a_withdrawal_needs_its_reason_and_keeps_the_preparation(
     assert_problem(post(manager, url, {"reason": "again"}), 409, "request_state")
 
 
+def test_the_preparations_come_newest_first_so_the_open_one_leads(
+    *, curator: User, manager: User, regulated: Regulated
+) -> None:
+    request = regulated(prepared_by=curator)
+    post(manager, f"{detail(request)}withdraw-shipment/", {"reason": "Wrong carrier."})
+    body = post(curator, f"{detail(request)}prepare-shipment/", SHIP_BODY).json()
+    assert [p["withdrawn_at"] is None for p in body["preparations"]] == [True, False]
+    assert body["preparations"][0]["prepared_at"] > body["preparations"][1]["prepared_at"]
+
+
+def test_an_approver_who_prepared_is_told_the_approval_bars_them(
+    *, approver: User, regulated: Regulated
+) -> None:
+    """The service refuses the approval first (confirm_own_approval); the page says the same."""
+    request = regulated(prepared_by=approver)
+    seen = logged_in(approver).get(detail(request)).json()["preparations"][0]
+    assert seen["confirm_refusal"] == "confirm_own_approval"
+
+
 def test_preparing_an_unregulated_request_is_refused_with_its_code(
     *, as_curator: AuditContext, curator: User, lab: Lab, requester: Requester, supply: Supply
 ) -> None:

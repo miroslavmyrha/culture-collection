@@ -332,6 +332,26 @@ describe('the request page', { timeout: 20_000 }, () => {
         expect(within(screen.getByRole('table', { name: 'Strains' })).getByRole('cell', { name: 'MYC 3 / 1 / 1' })).toBeInTheDocument()
       })
 
+      it('offers an unregulated request only the shipment in one step', async () => {
+        signedIn('curator')
+        mockApi('get', DETAIL, approved({ regulated: false }))
+        open()
+        expect(await screen.findByRole('button', { name: 'Ship the vials' }, { timeout: 5000 })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Prepare the shipment' })).not.toBeInTheDocument()
+        expect(screen.queryByText(/leaves in two steps/)).not.toBeInTheDocument()
+      })
+
+      it('shows the preparation not withdrawn as the one waiting, whatever the order of the list', async () => {
+        signedIn('manager')
+        const withdrawn = preparation({ public_id: '00000000-0000-4000-8000-0000000000f9', carrier: 'Withdrawn Courier', withdrawn_by: 'curator', withdrawn_at: '2026-10-21T09:00:00Z', withdraw_reason: 'Wrong carrier.' })
+        mockApi('get', DETAIL, approved({ status: 'awaiting_confirmation', regulated: true, decided_by: 'approver', lines: [vialLine], preparations: [withdrawn, preparation()] }))
+        open()
+        const prepared = await screen.findByRole('region', { name: 'Prepared shipment' }, { timeout: 5000 })
+        expect(prepared).toHaveTextContent('Example Courier')
+        expect(prepared).not.toHaveTextContent('Withdrawn Courier')
+        expect(screen.getByRole('region', { name: 'Withdrawn preparations' })).toHaveTextContent('Wrong carrier.')
+      })
+
       it('tells the approver why they may not confirm', async () => {
         signedIn('manager')
         mockApi('get', DETAIL, awaiting({ confirm_refusal: 'confirm_own_approval' }))
