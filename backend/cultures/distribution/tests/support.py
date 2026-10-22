@@ -16,22 +16,27 @@ from cultures.audit.models import AuditEvent, Channel, RowChange
 from cultures.deposits.models import Contact, Use
 from cultures.distribution import services
 from cultures.distribution.models import (
+    ClassificationBasis,
     DistributionRequest,
     Document,
     LegalForm,
     LinePermit,
     MtaAcceptance,
+    PackingInstruction,
     PermitKind,
     RecipientPermit,
     RequestCounter,
     Requester,
     RequestLine,
+    Shipment,
+    ShipmentVial,
     SignerRole,
+    TransportClass,
     VialReservation,
 )
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab
-from cultures.lineage.models import Vial
+from cultures.lineage.models import Batch, Vial, VialPlacement
 from cultures.strains.models import Strain
 from cultures.strains.tests.conftest import LAB_ID
 from cultures.users.models import User
@@ -156,6 +161,27 @@ def approve(actor: User, request: DistributionRequest, reason: str = "") -> Dist
         return services.request_approve(access=access_for(actor), request=request, reason=reason)
 
 
+def shipment_input(**changes: Any) -> services.ShipmentInput:
+    """An exempt shipment of a culture not pathogenic to humans or animals, by courier."""
+    values: dict[str, Any] = {
+        "transport_class": TransportClass.NOT_SUBJECT,
+        "classification_basis": ClassificationBasis.EXEMPT_NON_PATHOGENIC,
+        "packing_instruction": PackingInstruction.TRIPLE,
+        "responsible": services.ContactInput("Jan Odpovědný", phone="+420 555 000 111"),
+        "carrier": "Example Courier (invented example)",
+        "tracking_number": "EX123456789CZ",
+        **changes,
+    }
+    return services.ShipmentInput(**values)
+
+
+def ship(actor: User, request: DistributionRequest, **changes: Any) -> DistributionRequest:
+    with as_actor(actor):
+        return services.request_ship(
+            access=access_for(actor), request=request, data=shipment_input(**changes)
+        )
+
+
 def reserved(request: DistributionRequest) -> list[Vial]:
     return list(
         Vial.objects.filter(
@@ -176,6 +202,10 @@ TABLES = (
     MtaAcceptance,
     VialReservation,
     Vial,
+    Shipment,
+    ShipmentVial,
+    Batch,
+    VialPlacement,
 )
 
 

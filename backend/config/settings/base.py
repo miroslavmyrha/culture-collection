@@ -302,6 +302,10 @@ SPECTACULAR_SETTINGS = {
         "RequestStatus": "cultures.distribution.models.RequestStatus",
         "SignerRole": "cultures.distribution.models.SignerRole",
         "DocumentType": "cultures.distribution.models.DocumentType",
+        "TransportClass": "cultures.distribution.models.TransportClass",
+        "ClassificationBasis": "cultures.distribution.models.ClassificationBasis",
+        "PackingInstruction": "cultures.distribution.models.PackingInstruction",
+        "Coolant": "cultures.distribution.models.Coolant",
     },
 }
 

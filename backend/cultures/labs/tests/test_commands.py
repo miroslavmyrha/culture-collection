@@ -49,7 +49,7 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
         " e2e-colleague is in no lab; 10 taxa; a depositor, MTA STD and one accepted deposit;"
         " 2 box types; E2E freezer > Rack 1 > Box 1; a regulated strain with two vials in"
         " Box R, revealed by e2e-user; a released batch of the seeded strain; two strains that"
-        " may go out, two requesters and three requests\n"
+        " may go out, two requesters and four requests, one approved\n"
     )
     user = User.objects.get(username="e2e-user")
     lab = Lab.objects.get(code=LAB_CODE)
@@ -114,7 +114,8 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
 
 # Two strains that may go out (#18), each received, accepted and preserved into 21 vials of
 # distribution stock, checked on its first vial and released; two requesters, the first with a
-# § 17a notice; three requests, the first two with an accepted MTA.
+# § 17a notice; four requests, all but the third with an accepted MTA, the last approved with
+# its vial reserved (#88).
 SUPPLY_STRAIN = [
     "deposit_received",
     "deposit_check_started",
@@ -137,6 +138,12 @@ DISTRIBUTION = [
     *["request_submitted", "request_line_added", "mta_acceptance_recorded"] * 2,
     "request_submitted",
     "request_line_added",
+    "request_submitted",
+    "request_line_added",
+    "mta_acceptance_recorded",
+    "vial_status_changed",
+    "request_line_reserved",
+    "request_approved",
 ]
 
 

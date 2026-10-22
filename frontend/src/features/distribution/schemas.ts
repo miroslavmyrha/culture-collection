@@ -19,6 +19,11 @@ export type Use = Schemas['Use']
 export type CountryCode = Schemas['CountryCode']
 export type Role = Schemas['Role']
 export type StrainChoice = Schemas['StrainListOutput']
+export type Shipment = Schemas['ShipmentOutput']
+export type TransportClass = Schemas['TransportClass']
+export type ClassificationBasis = Schemas['ClassificationBasis']
+export type PackingInstruction = Schemas['PackingInstruction']
+export type Coolant = Schemas['Coolant']
 
 /** Everyone in the lab reads requests (distribution.view): what is asked and what is reserved. */
 export const canSeeRequests = (role: Role | undefined): boolean => role !== undefined
@@ -26,11 +31,18 @@ export const canSeeRequests = (role: Role | undefined): boolean => role !== unde
 export const canManageRequests = (role: Role | undefined): boolean => role === 'curator' || role === 'manager'
 /** Only managers approve over a finding that needs one (distribution.approve_regulated). */
 export const canApproveRegulated = (role: Role | undefined): boolean => role === 'manager'
+/**
+ * Curators and managers ship an approved request. A regulated one waits for a second person
+ * (ADR 0009), which is not built yet: the server refuses it with second_person_required.
+ */
+export const canShip = (request: Pick<RequestRow, 'status' | 'regulated'>, role: Role | undefined): boolean =>
+  canManageRequests(role) && request.status === 'approved' && !request.regulated
 
-export const STATUSES = ['submitted', 'approved', 'rejected', 'cancelled'] as const satisfies readonly RequestStatus[]
+export const STATUSES = ['submitted', 'approved', 'shipped', 'rejected', 'cancelled'] as const satisfies readonly RequestStatus[]
 export const STATUS_LABELS: Record<RequestStatus, string> = {
   submitted: 'Waiting for a decision',
   approved: 'Approved, vials reserved',
+  shipped: 'Shipped',
   rejected: 'Rejected',
   cancelled: 'Cancelled',
 }
@@ -83,6 +95,34 @@ export const SIGNER_ROLE_LABELS: Record<SignerRole, string> = {
   responsible_scientist: 'Responsible scientist',
   head_of_institution: 'Head of the institution or department',
   authorised_representative: 'Authorised representative',
+}
+
+/** The two classes this collection ships (ADR 0009): Category A and UN 3245 are refused. */
+export const TRANSPORT_CLASSES = ['not_subject', 'un3373'] as const satisfies readonly TransportClass[]
+export const TRANSPORT_CLASS_LABELS: Record<TransportClass, string> = {
+  not_subject: 'Not subject to the dangerous goods rules (exempt)',
+  un3373: 'UN 3373, Biological substance, Category B',
+}
+export const CLASSIFICATION_BASES = ['exempt_non_pathogenic', 'exempt_inactivated', 'indicative_list', 'professional_judgement'] as const satisfies readonly ClassificationBasis[]
+export const BASIS_LABELS: Record<ClassificationBasis, string> = {
+  exempt_non_pathogenic: 'Exempt: not pathogenic to humans or animals',
+  exempt_inactivated: 'Exempt: neutralised or inactivated',
+  indicative_list: 'Not on the indicative list of Category A',
+  professional_judgement: 'Professional judgement',
+}
+/** The bases each class may rest on, as the server holds them (distribution.models.BASES). */
+export const BASES: Record<TransportClass, readonly ClassificationBasis[]> = {
+  not_subject: ['exempt_non_pathogenic', 'exempt_inactivated'],
+  un3373: ['indicative_list', 'professional_judgement'],
+}
+export const PACKING_INSTRUCTIONS = ['p650', 'triple_packaging'] as const satisfies readonly PackingInstruction[]
+export const PACKING_LABELS: Record<PackingInstruction, string> = { p650: 'P650', triple_packaging: 'Basic triple packaging' }
+export const isTransportClass = (value: string): value is TransportClass => TRANSPORT_CLASSES.some((c) => c === value)
+export const COOLANTS = ['dry_ice', 'cold_packs', 'liquid_nitrogen'] as const satisfies readonly Coolant[]
+export const COOLANT_LABELS: Record<Coolant, string> = {
+  dry_ice: 'Dry ice (UN 1845)',
+  cold_packs: 'Ice or cold packs',
+  liquid_nitrogen: 'Liquid nitrogen in a dry shipper',
 }
 
 export const options = <T extends string>(labels: Record<T, string>, values: readonly T[]) => values.map((value) => ({ value, label: labels[value] }))
@@ -201,6 +241,34 @@ export const acceptanceSchema = z.object({
 })
 export type AcceptanceForm = z.input<typeof acceptanceSchema>
 export type AcceptanceValues = z.output<typeof acceptanceSchema>
+
+/** As the server takes it: a digit or + first, then digits, spaces, ( ) and -, a digit last. */
+const PHONE = /^[+0-9][0-9 ()-]{4,38}[0-9]$/
+export const shipSchema = z
+  .object({
+    transport_class: choice(TRANSPORT_CLASSES, 'Choose the transport class'),
+    classification_basis: choice(CLASSIFICATION_BASES, 'Choose the basis of the classification'),
+    basis_note: optionalText(2000),
+    packing_instruction: choice(PACKING_INSTRUCTIONS, 'Choose the packing'),
+    coolant: z.union([z.literal(''), choice(COOLANTS, 'Choose the coolant')]),
+    coolant_kg: z.union([z.literal(''), z.string().trim().regex(/^\d{1,4}([.,]\d{1,2})?$/, 'Enter kilograms, for example 2.5')]),
+    responsible_name: required('Enter the responsible person').max(200, 'Use at most 200 characters'),
+    responsible_phone: z.string().trim().max(40, 'Use at most 40 characters').regex(PHONE, 'Enter a phone number: digits, spaces, + ( ) and -'),
+    carrier: required('Enter the carrier').max(200, 'Use at most 200 characters'),
+    tracking_number: optionalText(100),
+  })
+  .superRefine((v, ctx) => {
+    if (!BASES[v.transport_class].some((b) => b === v.classification_basis))
+      ctx.addIssue({ code: 'custom', path: ['classification_basis'], message: 'Choose the basis of the classification' })
+    if (v.classification_basis === 'professional_judgement' && !v.basis_note)
+      ctx.addIssue({ code: 'custom', path: ['basis_note'], message: 'Say what the judgement rests on' })
+    if (v.transport_class === 'un3373' && v.packing_instruction !== 'p650') ctx.addIssue({ code: 'custom', path: ['packing_instruction'], message: 'UN 3373 is packed to P650' })
+    if (v.coolant === 'dry_ice' && !v.coolant_kg) ctx.addIssue({ code: 'custom', path: ['coolant_kg'], message: 'Give the quantity of dry ice: it is marked on the package' })
+    if (v.coolant === '' && v.coolant_kg) ctx.addIssue({ code: 'custom', path: ['coolant'], message: 'Choose the coolant of this quantity' })
+    if (v.coolant_kg && Number(v.coolant_kg.replace(',', '.')) <= 0) ctx.addIssue({ code: 'custom', path: ['coolant_kg'], message: 'Give more than 0 kg' })
+  })
+export type ShipForm = z.input<typeof shipSchema>
+export type ShipValues = z.output<typeof shipSchema>
 
 const lineSchema = z.object({
   strain: z.custom<StrainChoice | null>().refine((v) => v !== null && v !== undefined, 'Choose the strain'),

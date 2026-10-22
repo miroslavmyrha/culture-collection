@@ -349,10 +349,13 @@ def contact_erase(*, contact: Contact, reason: str) -> Contact:
         locked = _locked(Contact, contact.pk)
         if locked.erased_at is not None:
             return locked
-        changed = [name for name, value in _contact_values(_as_input(locked)).items() if value]
-        locked.name, locked.email, locked.postal_address = "", "", ""
+        values = {**_contact_values(_as_input(locked)), "phone": locked.phone}
+        changed = [name for name, value in values.items() if value]
+        locked.name, locked.email, locked.postal_address, locked.phone = "", "", "", ""
         locked.erased_at = timezone.now()
-        locked.save(update_fields=["name", "email", "postal_address", "erased_at", "updated_at"])
+        locked.save(
+            update_fields=["name", "email", "postal_address", "phone", "erased_at", "updated_at"]
+        )
         record_event(
             CONTACT_ERASED,
             Change(

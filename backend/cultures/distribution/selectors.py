@@ -21,6 +21,7 @@ from .models import (
     RecipientPermit,
     Requester,
     RequestLine,
+    ShipmentVial,
     VialReservation,
 )
 
@@ -106,7 +107,8 @@ def request_matching(
 
 def request_detail(*, access: Access, lab: Lab) -> QuerySet[DistributionRequest]:
     """The same rows with their lines (strain, terms and MTA version, open reservations with
-    their vials, the permits approved against) and the MTA acceptances."""
+    their vials, the vials shipped, the permits approved against), the MTA acceptances and the
+    shipment with its responsible person."""
     lines: QuerySet[RequestLine] = RequestLine.objects.select_related(
         "strain__taxon", "terms", "mta"
     ).prefetch_related(
@@ -122,10 +124,25 @@ def request_detail(*, access: Access, lab: Lab) -> QuerySet[DistributionRequest]
             queryset=LinePermit.objects.select_related("permit").order_by("pk"),
             to_attr="approved_permits",
         ),
+        Prefetch(
+            "shipped_vials",
+            queryset=ShipmentVial.objects.select_related("vial__batch__strain").order_by(
+                "vial__batch__number", "vial__seq", "pk"
+            ),
+            to_attr="shipped_vial_list",
+        ),
     )
     return (
         request_list(access=access, lab=lab)
-        .select_related("requester__contact", "submitted_by", "decided_by", "cancelled_by")
+        .select_related(
+            "requester__contact",
+            "submitted_by",
+            "decided_by",
+            "cancelled_by",
+            "shipment__responsible",
+            "shipment__classified_by",
+            "shipment__shipped_by",
+        )
         .prefetch_related(
             Prefetch("lines", queryset=lines.order_by("pk"), to_attr="line_list"),
             Prefetch(

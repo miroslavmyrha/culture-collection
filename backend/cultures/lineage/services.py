@@ -611,6 +611,28 @@ def vial_release_locked(*, access: Access, vial: Vial, reason: str) -> None:
     _transition(vial, VialStatus.AVAILABLE, _check_reason(reason), access)
 
 
+def vial_ship_locked(*, access: Access, vial: Vial, reason: str) -> None:
+    """The reserved vial leaves with its shipment (#88): distributed, its placement closed."""
+    if vial.status != VialStatus.RESERVED:
+        raise VialNotAvailable("This vial is not reserved.")
+    _transition(vial, VialStatus.DISTRIBUTED, _check_reason(reason), access)
+
+
+def batch_exhaust_if_emptied_locked(*, batch: Batch, reason: str) -> bool:
+    """After a shipment (#88): a distribution batch with no vial left available or reserved
+    becomes exhausted, with the reason. A vial in quarantine or lost does not keep it open (ADR
+    0008 amendment of 2026-10-22). The caller holds the lab lock and the batch's row (locked
+    before its vials) and has written the vials' new states. True when it moved."""
+    if batch.purpose != Purpose.DISTRIBUTION or batch.status == BatchStatus.EXHAUSTED:
+        return False
+    if Vial.objects.filter(
+        batch=batch, status__in=(VialStatus.AVAILABLE, VialStatus.RESERVED)
+    ).exists():
+        return False
+    _move_batch(batch, BatchStatus.EXHAUSTED, _check_reason(reason))
+    return True
+
+
 def vial_set_barcode(*, access: Access, vial: Vial, barcode: str) -> Vial:
     """A pre-printed or scanned code (D17), or none. Unique in the lab, also after the vial
     left: the code stays printed on the tube. The same value again changes nothing."""

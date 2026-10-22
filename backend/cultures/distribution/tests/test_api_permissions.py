@@ -25,7 +25,7 @@ from cultures.labs.permissions import Role
 from cultures.labs.tests.conftest import member_of
 from cultures.users.models import User
 
-from .support import LAB_URL, PDF, Supply, accept_mtas, add_permit, snapshot, submit
+from .support import LAB_URL, PDF, Supply, accept_mtas, add_permit, approve, snapshot, submit
 
 pytestmark = pytest.mark.django_db
 
@@ -72,6 +72,7 @@ CALLS = [
     Call("request_approve", "post", "requests/{accepted}/approve/", CURATORS, events=3),
     Call("request_reject", "post", "requests/{request}/reject/", CURATORS),
     Call("request_cancel", "post", "requests/{request}/cancel/", CURATORS),
+    Call("request_ship", "post", "requests/{approved}/ship/", CURATORS, events=3),
     Call(
         "request_acceptances",
         "post",
@@ -89,6 +90,7 @@ class World:
     permit: RecipientPermit
     request: DistributionRequest
     accepted: DistributionRequest
+    approved: DistributionRequest
     strain_id: str
     mta_id: str
 
@@ -102,9 +104,14 @@ def world(
     request = submit(curator, lab, requester, [(strain, 1)])
     accepted = submit(curator, lab, requester, [(strain, 1)])
     accept_mtas(curator, accepted)
+    approved = submit(curator, lab, requester, [(strain, 1)])
+    accept_mtas(curator, approved)
+    approve(curator, approved)
     mta = request.lines.get().mta
     assert mta is not None
-    return World(requester, permit, request, accepted, str(strain.public_id), str(mta.public_id))
+    return World(
+        requester, permit, request, accepted, approved, str(strain.public_id), str(mta.public_id)
+    )
 
 
 def url(call: Call, w: World) -> str:
@@ -114,6 +121,7 @@ def url(call: Call, w: World) -> str:
         document=w.permit.document.public_id,
         request=w.request.public_id,
         accepted=w.accepted.public_id,
+        approved=w.approved.public_id,
     )
     return f"{LAB_URL}/{path}"
 
@@ -151,6 +159,14 @@ def body(call: Call, w: World) -> dict[str, Any]:
         "request_approve": {"reason": ""},
         "request_reject": {"reason": "no laboratory"},
         "request_cancel": {"reason": "withdrawn"},
+        "request_ship": {
+            "transport_class": "not_subject",
+            "classification_basis": "exempt_non_pathogenic",
+            "packing_instruction": "triple_packaging",
+            "responsible_name": "Jan Odpovědný",
+            "responsible_phone": "+420 555 000 111",
+            "carrier": "Example Courier (invented example)",
+        },
         "request_acceptances": {
             "mta": w.mta_id,
             "signer_name": "Karel Podpisový",
@@ -212,7 +228,14 @@ def test_a_role_without_the_permission_is_refused_before_its_input_is_read(
     wants."""
     # Each body is invalid for its action (an approval's reason is optional, but not this long):
     # a check of the input before the role would answer 400.
-    payload = {"reason": "x" * 2001, "requester": "x", "lines": "x", "kind": "x", "ended_on": "x"}
+    payload = {
+        "reason": "x" * 2001,
+        "requester": "x",
+        "lines": "x",
+        "kind": "x",
+        "ended_on": "x",
+        "transport_class": "un2814",
+    }
     assert_problem(send(team[role], call, world, payload), *call.refusal())
 
 

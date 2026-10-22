@@ -672,7 +672,8 @@ class Command(BaseCommand):
         )
 
     def _request(self, lab: Lab, row: dict[str, Any]) -> None:
-        """#18: a request as entered by the lab's curator, waiting for a decision."""
+        """#18: a request as entered by the lab's curator, waiting for a decision, or approved by
+        the curator and ready to ship (#88)."""
         curator = access_for(User.objects.get(username=lab_username(lab.code, Role.CURATOR)))
         lines = []
         for line in row["lines"]:
@@ -689,6 +690,7 @@ class Command(BaseCommand):
                 containment_level=row["containment_level"],
                 lines=tuple(lines),
                 accept=row["accept"],
+                approve=row.get("approve", False),
             ),
         )
 

@@ -245,6 +245,12 @@ REQUEST_CANCELLED = register(
 REQUEST_LINE_RELEASED = register(
     EventType("request_line_released", "{actor} released the vials of a request")
 )
+# #88: the shipment's facts are on the request's event (the responsible person as "changed"),
+# the vials it sent on each line's.
+REQUEST_SHIPPED = register(EventType("request_shipped", "{actor} shipped {subject}"))
+REQUEST_LINE_SHIPPED = register(
+    EventType("request_line_shipped", "{actor} shipped the vials of a request")
+)
 
 
 @dataclass(frozen=True)
@@ -772,11 +778,40 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "end_reason",
         ),
     ),
+    # #88. The responsible person and the phone are its contact (NOT_ROW_AUDITED); the basis
+    # note is free text that names nobody; carrier and tracking number name no person.
+    "distribution_shipment": RowAudit(
+        label="distribution.shipment",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "request_id",
+            "transport_class",
+            "classification_basis",
+            "basis_note",
+            "classified_by_id",
+            "classified_at",
+            "packing_instruction",
+            "coolant",
+            "coolant_kg",
+            "responsible_id",
+            "carrier",
+            "tracking_number",
+            "shipped_by_id",
+            "shipped_at",
+        ),
+    ),
+    "distribution_shipmentvial": RowAudit(
+        label="distribution.shipmentvial", audited=("id", "shipment_id", "line_id", "vial_id")
+    ),
 }
 
 
 # The columns of deposits_contact: all of them name or reach a person.
-CONTACT_PERSONAL = ("name", "email", "postal_address")
+CONTACT_PERSONAL = ("name", "email", "postal_address", "phone")
 # What a service event records for a personal field that was set or changed, never the value.
 PERSONAL_CHANGED = "changed"
 # The personal fields of each event subject type. record_event() and record_batch() write
@@ -786,9 +821,11 @@ PERSONAL_FIELDS: dict[str, tuple[str, ...]] = {
     # A contact's values, also in the events of the depositor that holds it (ADR 0008, D11).
     "contact": CONTACT_PERSONAL,
     "depositor": CONTACT_PERSONAL,
-    # A requester's responsible scientist and delivery address, an MTA's signer (#18).
+    # A requester's responsible scientist and delivery address, an MTA's signer (#18), the
+    # responsible person of a shipment (#88).
     "requester": CONTACT_PERSONAL,
     "mta_acceptance": ("signer",),
+    "distribution_request": ("responsible",),
 }
 
 

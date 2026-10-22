@@ -6,8 +6,9 @@ strains and MTA versions are referenced by public id through ScopedRelatedField,
 lab in the URL: another lab's id, an unknown id and a malformed one give the same error.
 
 A request's detail is read by viewers too: it names the requester's institution, never a person.
-The signer of an MTA acceptance and the documents reach a person, so they are serialised only
-for a caller who may view requesters (`show_people` in the context).
+The signer of an MTA acceptance, the responsible person of a shipment and the documents reach a
+person, so they are serialised only for a caller who may view requesters (`show_people` in the
+context).
 """
 
 from typing import Any
@@ -23,17 +24,22 @@ from cultures.deposits.models import MtaTemplate, Use
 from cultures.distribution import selectors
 from cultures.distribution.models import (
     MAX_VIALS_PER_LINE,
+    ClassificationBasis,
+    Coolant,
     DistributionRequest,
     Document,
     DocumentType,
     LegalForm,
     MtaAcceptance,
+    PackingInstruction,
     PermitKind,
     RecipientPermit,
     Requester,
     RequestLine,
     RequestStatus,
+    Shipment,
     SignerRole,
+    TransportClass,
 )
 from cultures.distribution.policy import Severity
 from cultures.labs.access import access_of
@@ -250,13 +256,14 @@ class MtaBriefSerializer(serializers.ModelSerializer[MtaTemplate]):
 
 
 class ReservedVialSerializer(serializers.Serializer[None]):
-    """A reserved vial by its label only, never its place (ADR 0009)."""
+    """A reserved or shipped vial by its label only, never its place (ADR 0009). Reads a row
+    with a `vial`: a reservation or a shipment's vial."""
 
     public_id = serializers.UUIDField(source="vial.public_id")
     label = serializers.SerializerMethodField()  # type: ignore[assignment]  # shadows Field.label
 
-    def get_label(self, reservation: Any) -> str:
-        vial = reservation.vial
+    def get_label(self, row: Any) -> str:
+        vial = row.vial
         return f"{vial.batch.strain.accession_number} / {vial.batch.number} / {vial.seq}"
 
 
@@ -271,6 +278,7 @@ class LineOutputSerializer(serializers.ModelSerializer[RequestLine]):
     terms_version = serializers.IntegerField(source="terms.version", read_only=True)
     mta = MtaBriefSerializer(read_only=True, allow_null=True)
     reserved = ReservedVialSerializer(source="open_reservations", many=True, read_only=True)
+    shipped = ReservedVialSerializer(source="shipped_vial_list", many=True, read_only=True)
     permits = ApprovedPermitSerializer(source="approved_permits", many=True, read_only=True)
 
     class Meta:
@@ -282,6 +290,7 @@ class LineOutputSerializer(serializers.ModelSerializer[RequestLine]):
             "terms_version",
             "mta",
             "reserved",
+            "shipped",
             "permits",
         )
         read_only_fields = fields
@@ -321,6 +330,52 @@ class AcceptanceOutputSerializer(serializers.ModelSerializer[MtaAcceptance]):
         return dict(DocumentOutputSerializer(acceptance.document).data)
 
 
+class ShipmentOutputSerializer(serializers.ModelSerializer[Shipment]):
+    transport_class = serializers.ChoiceField(choices=TransportClass.choices, read_only=True)
+    classification_basis = serializers.ChoiceField(
+        choices=ClassificationBasis.choices, read_only=True
+    )
+    packing_instruction = serializers.ChoiceField(
+        choices=PackingInstruction.choices, read_only=True
+    )
+    coolant = serializers.ChoiceField(choices=Coolant.choices, read_only=True)
+    classified_by = serializers.CharField(source="classified_by.username", read_only=True)
+    shipped_by = serializers.CharField(source="shipped_by.username", read_only=True)
+    responsible_name = serializers.SerializerMethodField()
+    responsible_phone = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Shipment
+        fields = (
+            "public_id",
+            "transport_class",
+            "classification_basis",
+            "basis_note",
+            "classified_by",
+            "classified_at",
+            "packing_instruction",
+            "coolant",
+            "coolant_kg",
+            "responsible_name",
+            "responsible_phone",
+            "carrier",
+            "tracking_number",
+            "shipped_by",
+            "shipped_at",
+        )
+        read_only_fields = fields
+
+    def _people(self) -> bool:
+        return bool(self.context.get("show_people"))
+
+    def get_responsible_name(self, shipment: Shipment) -> str | None:
+        """Null for a caller who may not see people; empty once the person was erased."""
+        return shipment.responsible.name if self._people() else None
+
+    def get_responsible_phone(self, shipment: Shipment) -> str | None:
+        return shipment.responsible.phone if self._people() else None
+
+
 class FindingSerializer(serializers.Serializer[None]):
     code = serializers.CharField()
     severity = serializers.ChoiceField(choices=[(s.value, s.value) for s in Severity])
@@ -339,6 +394,7 @@ class RequestDetailOutputSerializer(RequestListOutputSerializer):
         source="cancelled_by.username", read_only=True, allow_null=True
     )
     findings = serializers.SerializerMethodField()
+    shipment = serializers.SerializerMethodField()
 
     class Meta(RequestListOutputSerializer.Meta):
         fields = (
@@ -354,8 +410,16 @@ class RequestDetailOutputSerializer(RequestListOutputSerializer):
             "lines",
             "acceptances",
             "findings",
+            "shipment",
         )
         read_only_fields = fields
+
+    @extend_schema_field(ShipmentOutputSerializer(allow_null=True))
+    def get_shipment(self, request: DistributionRequest) -> dict[str, Any] | None:
+        shipment = getattr(request, "shipment", None)  # a reverse one-to-one: absent raises
+        if shipment is None:
+            return None
+        return dict(ShipmentOutputSerializer(shipment, context=self.context).data)
 
     @extend_schema_field(FindingSerializer(many=True))
     def get_findings(self, request: DistributionRequest) -> list[dict[str, Any]]:
@@ -394,6 +458,30 @@ class ApproveInputSerializer(serializers.Serializer[None]):
 
 class ReasonInputSerializer(serializers.Serializer[None]):
     reason = serializers.CharField(max_length=2000, help_text=REASON_HELP)
+
+
+class ShipInputSerializer(serializers.Serializer[None]):
+    """What the shipper decided and who answers for the package. Only the two classes this
+    collection ships are accepted (ADR 0009): Category A and UN 3245 are not choices."""
+
+    transport_class = serializers.ChoiceField(choices=TransportClass.choices)
+    classification_basis = serializers.ChoiceField(choices=ClassificationBasis.choices)
+    basis_note = serializers.CharField(
+        max_length=2000, required=False, allow_blank=True, default="", help_text=TEXT_HELP
+    )
+    packing_instruction = serializers.ChoiceField(choices=PackingInstruction.choices)
+    coolant = serializers.ChoiceField(
+        choices=Coolant.choices, required=False, allow_blank=True, default=""
+    )
+    coolant_kg = serializers.DecimalField(
+        max_digits=6, decimal_places=2, required=False, allow_null=True, default=None
+    )
+    responsible_name = serializers.CharField(max_length=200)
+    responsible_phone = serializers.CharField(max_length=40)
+    carrier = serializers.CharField(max_length=200)
+    tracking_number = serializers.CharField(
+        max_length=100, required=False, allow_blank=True, default=""
+    )
 
 
 class AcceptanceInputSerializer(serializers.Serializer[None]):

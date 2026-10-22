@@ -21,14 +21,18 @@ from cultures.distribution import policy, selectors, services
 from cultures.distribution.filters import PermitFilter, RequesterFilter, RequestFilter
 from cultures.distribution.models import (
     MAX_DOCUMENT_BYTES,
+    ClassificationBasis,
+    Coolant,
     DistributionRequest,
     Document,
     LegalForm,
+    PackingInstruction,
     PermitKind,
     RecipientPermit,
     Requester,
     RequestStatus,
     SignerRole,
+    TransportClass,
 )
 from cultures.labs import selectors as labs
 from cultures.labs.access import access_of
@@ -47,13 +51,15 @@ from .serializers import (
     RequesterOutputSerializer,
     RequestInputSerializer,
     RequestListOutputSerializer,
+    ShipInputSerializer,
 )
 
 # 401, 403, 404 and 429 with the Problem body are added to every operation by core.schema.
 INVALID = OpenApiResponse(
     ProblemSerializer,
     "Invalid input, named by its field: an unknown requester, strain or MTA version, a strain"
-    " without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG",
+    " without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a"
+    " shipment field (not_exempt: a pathogen is not exempt as non-pathogenic)",
 )
 STATE = OpenApiResponse(
     ProblemSerializer,
@@ -71,6 +77,11 @@ DESTINATION = OpenApiResponse(
     "export_of_regulated_strain, export_not_supported: the requester is outside the EU",
 )
 RULE = OpenApiResponse(ProblemSerializer, "reason_required")
+SHIP_REFUSED = OpenApiResponse(
+    ProblemSerializer,
+    "shipment_blocked: a gate of the policy blocks the shipment on the ship day (the detail"
+    " lists them); second_person_required: a regulated line waits for a second person",
+)
 LAB_PARAMETER = OpenApiParameter("lab_public_id", OpenApiTypes.UUID, OpenApiParameter.PATH)
 
 
@@ -261,7 +272,7 @@ class DocumentViewSet(LabScoped, mixins.RetrieveModelMixin):
 
 
 # Requests: what a requester asks for, with its lines. Viewers and up read (no person, no
-# place); curators enter, approve, reject and cancel them; an approval over a finding that
+# place); curators enter, approve, reject, cancel and ship them; an approval over a finding that
 # needs a manager (a regulated line above all) needs a manager and a reason.
 @extend_schema(parameters=[LAB_PARAMETER])
 class RequestViewSet(LabNested):
@@ -273,6 +284,7 @@ class RequestViewSet(LabNested):
         "reject": Perm.MANAGE_DISTRIBUTION,
         "cancel": Perm.MANAGE_DISTRIBUTION,
         "acceptances": Perm.MANAGE_DISTRIBUTION,
+        "ship": Perm.MANAGE_DISTRIBUTION,
     }
     filterset_class = RequestFilter
 
@@ -411,3 +423,35 @@ class RequestViewSet(LabNested):
             ),
         )
         return self._detail(target, status.HTTP_201_CREATED)
+
+    @extend_schema(
+        request=ShipInputSerializer,
+        responses={
+            200: RequestDetailOutputSerializer,
+            (400, PROBLEM): INVALID,
+            (409, PROBLEM): STATE,
+            (422, PROBLEM): SHIP_REFUSED,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="ship")
+    def ship(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        target: DistributionRequest = self.get_object()
+        values = _input(ShipInputSerializer, self, request)
+        services.request_ship(
+            access=access_of(request),
+            request=target,
+            data=services.ShipmentInput(
+                transport_class=TransportClass(values["transport_class"]),
+                classification_basis=ClassificationBasis(values["classification_basis"]),
+                packing_instruction=PackingInstruction(values["packing_instruction"]),
+                responsible=services.ContactInput(
+                    name=values["responsible_name"], phone=values["responsible_phone"]
+                ),
+                carrier=values["carrier"],
+                basis_note=values["basis_note"],
+                coolant=Coolant(values["coolant"]),
+                coolant_kg=values["coolant_kg"],
+                tracking_number=values["tracking_number"],
+            ),
+        )
+        return self._detail(target)

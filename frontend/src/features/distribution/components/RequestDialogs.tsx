@@ -1,22 +1,34 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useId, useState } from 'react'
-import { type UseFormRegisterReturn, useForm } from 'react-hook-form'
+import { type UseFormRegisterReturn, useForm, useWatch } from 'react-hook-form'
 import { CheckboxField, ConfirmDialog, SelectField, Stack, TextField, Typography } from '@/components/ui'
-import { errorMessage, isApiError } from '@/lib/api'
+import { errorMessage, isApiError, readProblem } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
-import { useApproveRequest, useCancelRequest, useRecordAcceptance, useRejectRequest } from '../api/mutations'
+import { useApproveRequest, useCancelRequest, useRecordAcceptance, useRejectRequest, useShipRequest } from '../api/mutations'
 import {
   type AcceptanceForm,
   acceptanceSchema,
   type AcceptanceValues,
   type ApproveForm,
   approveSchema,
+  BASES,
+  BASIS_LABELS,
+  COOLANT_LABELS,
+  COOLANTS,
   type DecisionForm,
   decisionSchema,
+  isTransportClass,
   options,
+  PACKING_INSTRUCTIONS,
+  PACKING_LABELS,
   type Request,
   SIGNER_ROLE_LABELS,
   SIGNER_ROLES,
+  type ShipForm,
+  shipSchema,
+  type ShipValues,
+  TRANSPORT_CLASS_LABELS,
+  TRANSPORT_CLASSES,
 } from '../schemas'
 
 type Common = { labId: string; request: Request; open: boolean; onClose: () => void; onExited: () => void }
@@ -32,8 +44,14 @@ function stateError(error: unknown): string | undefined {
   if (isApiError(error, 409) && error.code === 'vial_reserved_meanwhile') return 'A vial was reserved at the same moment. Try again.'
   if (isApiError(error, 422) && error.code === 'request_blocked') return 'Something blocks the approval now. Close this and read what stands in the way.'
   if (isApiError(error, 403) && error.code === 'manager_approval_required') return 'A manager approves this request.'
+  if (isApiError(error, 422) && error.code === 'second_person_required') return SECOND_PERSON
+  if (isApiError(error, 422) && error.code === 'shipment_blocked') return `Nothing is shipped. ${readProblem(error.body)?.detail ?? ''}`.trim()
   return undefined
 }
+
+/** Why a regulated request is not shipped here (ADR 0009, the two-person rule). */
+export const SECOND_PERSON = 'A regulated strain is shipped only when a second person confirms it. That step comes with a later version, so this request is not shipped here.'
+
 
 export function ApproveDialog({ labId, request, open, onClose, onExited }: Common) {
   const approve = useApproveRequest(labId, request.public_id)
@@ -251,5 +269,108 @@ export function FileField({ label, error, ref, ...props }: { label: string; erro
         {['PDF, PNG or JPEG, at most 10 MB.', error].filter(Boolean).join(' ')}
       </Typography>
     </Stack>
+  )
+}
+
+const SHIP_FIELDS = [
+  'transport_class',
+  'classification_basis',
+  'basis_note',
+  'packing_instruction',
+  'coolant',
+  'coolant_kg',
+  'responsible_name',
+  'responsible_phone',
+  'carrier',
+  'tracking_number',
+] as const
+
+/**
+ * The shipper's record of the package (WHO transport guidance, 2.1: the shipper classifies):
+ * the class with its basis, the packing (P650 for UN 3373, filled when it is chosen), the
+ * coolant, who answers the phone about it, and the carrier. Every reserved vial goes at once.
+ */
+export function ShipDialog({ labId, request, open, onClose, onExited }: Common) {
+  const ship = useShipRequest(labId, request.public_id)
+  const formId = useId()
+  const [failure, setFailure] = useState<string>()
+  const { register, handleSubmit, formState, setError, setValue, control } = useForm<ShipForm, unknown, ShipValues>({
+    resolver: zodResolver(shipSchema),
+    defaultValues: {
+      transport_class: 'not_subject',
+      classification_basis: '',
+      basis_note: '',
+      packing_instruction: 'triple_packaging',
+      coolant: '',
+      coolant_kg: '',
+      responsible_name: '',
+      responsible_phone: '',
+      carrier: '',
+      tracking_number: '',
+    },
+  })
+  const errors = formState.errors
+  const chosen = useWatch({ control, name: 'transport_class' })
+  const bases = isTransportClass(chosen) ? BASES[chosen] : []
+  const transportClass = register('transport_class', {
+    onChange: (event: { target: { value: string } }) => {
+      setValue('classification_basis', '')
+      if (event.target.value === 'un3373') setValue('packing_instruction', 'p650')
+    },
+  })
+  const onSubmit = handleSubmit((values) => {
+    if (ship.isPending) return
+    setFailure(undefined)
+    ship.mutate(
+      {
+        transport_class: values.transport_class,
+        classification_basis: values.classification_basis,
+        basis_note: values.basis_note,
+        packing_instruction: values.packing_instruction,
+        coolant: values.coolant,
+        coolant_kg: values.coolant_kg ? values.coolant_kg.replace(',', '.') : null,
+        responsible_name: values.responsible_name,
+        responsible_phone: values.responsible_phone.trim(),
+        carrier: values.carrier,
+        tracking_number: values.tracking_number,
+      },
+      {
+        onSuccess: onClose,
+        onError: (error) => setFailure(stateError(error) ?? (applyServerErrors(error, SHIP_FIELDS, setError) ? undefined : errorMessage(error))),
+      },
+    )
+  })
+  const vials = request.lines.reduce((sum, line) => sum + line.reserved.length, 0)
+  return (
+    <ConfirmDialog
+      open={open}
+      title={`Ship request ${request.number}?`}
+      description={`${vials === 1 ? 'Its reserved vial leaves' : `All ${vials} reserved vials leave`} the collection today: recorded as distributed and out of their boxes. A shipment cannot be undone. The gates are checked again on today’s date.`}
+      confirmLabel="Ship"
+      form={formId}
+      pending={ship.isPending}
+      error={failure}
+      onClose={onClose}
+      onExited={onExited}
+    >
+      <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Shipment" spacing={2} sx={{ mt: 2 }}>
+        {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
+        <SelectField label="Transport class" autoFocus options={options(TRANSPORT_CLASS_LABELS, TRANSPORT_CLASSES)} error={errors.transport_class?.message} {...transportClass} />
+        <SelectField
+          label="Basis of the classification"
+          options={[{ value: '', label: 'Choose' }, ...options(BASIS_LABELS, bases)]}
+          error={errors.classification_basis?.message}
+          {...register('classification_basis')}
+        />
+        <TextField label="What the classification rests on" hint={`${REASON_HINT} Required for a professional judgement.`} multiline minRows={2} error={errors.basis_note?.message} {...register('basis_note')} />
+        <SelectField label="Packing" options={options(PACKING_LABELS, PACKING_INSTRUCTIONS)} error={errors.packing_instruction?.message} {...register('packing_instruction')} />
+        <SelectField label="Coolant" options={[{ value: '', label: 'None' }, ...options(COOLANT_LABELS, COOLANTS)]} error={errors.coolant?.message} {...register('coolant')} />
+        <TextField label="Coolant in kg" hint="Required for dry ice: it is marked on the package." autoComplete="off" inputMode="decimal" error={errors.coolant_kg?.message} {...register('coolant_kg')} />
+        <TextField label="Responsible person" hint="Answers the phone about the package at all times." autoComplete="off" error={errors.responsible_name?.message} {...register('responsible_name')} />
+        <TextField label="Phone of the responsible person" type="tel" autoComplete="off" error={errors.responsible_phone?.message} {...register('responsible_phone')} />
+        <TextField label="Carrier" autoComplete="off" error={errors.carrier?.message} {...register('carrier')} />
+        <TextField label="Tracking number" autoComplete="off" error={errors.tracking_number?.message} {...register('tracking_number')} />
+      </Stack>
+    </ConfirmDialog>
   )
 }

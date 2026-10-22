@@ -41,7 +41,7 @@ REASON = "erasure request 2026-115, checked by the data protection office"
 TEXT_TYPES = ("text", "varchar", "bpchar", "json", "jsonb", "_text", "_varchar")
 
 
-def marker_hits() -> list[str]:
+def marker_hits(mark: str = MARK) -> list[str]:
     """schema.table.column for every column that holds the marker, in any letter case."""
     with connection.cursor() as cursor:
         cursor.execute(
@@ -61,7 +61,7 @@ def marker_hits() -> list[str]:
             cursor.execute(
                 f'SELECT count(*) FROM "{schema}"."{table}"'  # noqa: S608 (names from the catalogue)
                 f' WHERE strpos(lower("{column}"::text), lower(%s)) > 0',
-                [MARK],
+                [mark],
             )
             ((count,),) = cursor.fetchall()
             if count:

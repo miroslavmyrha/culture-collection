@@ -1,4 +1,4 @@
-"""As the runtime role (ADR 0005): the whole of part A works, deletes do not, and the guard
+"""As the runtime role (ADR 0005): the whole of distribution works, deletes do not, and the guard
 triggers hold for it as for everybody. Grants come from audit.roles.APP_ROLE_GRANTS;
 audit/tests/test_roles.py compares every table with it, this proves what distribution needs."""
 
@@ -9,12 +9,18 @@ from cultures.audit.context import AuditContext
 from cultures.audit.models import RowChange
 from cultures.audit.tests.conftest import TEST_ROLES, refused
 from cultures.distribution import services
-from cultures.distribution.models import PermitKind, Requester
+from cultures.distribution.models import (
+    ClassificationBasis,
+    PackingInstruction,
+    PermitKind,
+    Requester,
+    TransportClass,
+)
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab
 from cultures.users.models import User
 
-from .support import Supply, accept_mtas, add_permit, approve, submit
+from .support import Supply, accept_mtas, add_permit, approve, shipment_input, submit
 
 pytestmark = pytest.mark.django_db
 TABLES = (
@@ -27,10 +33,12 @@ TABLES = (
     "distribution_linepermit",
     "distribution_mtaacceptance",
     "distribution_vialreservation",
+    "distribution_shipment",
+    "distribution_shipmentvial",
 )
 
 
-def test_the_runtime_role_enters_approves_and_cancels(
+def test_the_runtime_role_enters_approves_ships_and_cancels(
     *,
     as_curator: AuditContext,
     curator: User,
@@ -47,6 +55,18 @@ def test_the_runtime_role_enters_approves_and_cancels(
     accept_mtas(curator, request)
     approve(curator, request)
     services.request_cancel(access=access_for(curator), request=request, reason="withdrawn")
+    shipped = submit(curator, lab, requester, [(strain, 1)])
+    accept_mtas(curator, shipped)
+    approve(curator, shipped)
+    services.request_ship(
+        access=access_for(curator),
+        request=shipped,
+        data=shipment_input(
+            transport_class=TransportClass.UN3373,
+            classification_basis=ClassificationBasis.INDICATIVE_LIST,
+            packing_instruction=PackingInstruction.P650,
+        ),
+    )
     services.permit_end(
         access=access_for(curator), permit=permit, ended_on=permit.valid_from, reason="revoked"
     )
@@ -66,6 +86,8 @@ def test_the_runtime_role_deletes_nothing(table: str, runtime_role: CursorWrappe
         "distribution_requestline",
         "distribution_linepermit",
         "distribution_mtaacceptance",
+        "distribution_shipment",
+        "distribution_shipmentvial",
     ],
 )
 def test_frozen_tables_take_no_update_from_the_runtime_role(

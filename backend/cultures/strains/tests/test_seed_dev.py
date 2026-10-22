@@ -510,17 +510,25 @@ def test_requesters_and_their_permits_are_clearly_invented() -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("env")
-def test_the_requests_wait_one_approvable_one_for_a_manager_one_blocked_by_a_legal_gate() -> None:
+def test_the_requests_one_approvable_one_for_a_manager_one_blocked_one_ready_to_ship() -> None:
     seed()
     found = {
         r.end_use: {f.code: f.severity for f in evaluate(r, permit_today()).findings}
         for r in DistributionRequest.objects.all()
     }
-    approvable, on_request, blocked = (row["end_use"] for row in DATA["requests"])
+    approvable, on_request, blocked, ready = (row["end_use"] for row in DATA["requests"])
     assert found[approvable] == {}
     assert found[on_request] == {"use_on_request": "manager"}
     assert found[blocked]["rat_notice_missing"] == "block"
-    assert set(DistributionRequest.objects.values_list("status", flat=True)) == {"submitted"}
+    # Approved, its vial reserved: the gates on the ship day find nothing, it is not regulated.
+    assert found[ready] == {}
+    statuses = dict(DistributionRequest.objects.values_list("end_use", "status"))
+    assert statuses == {
+        approvable: "submitted",
+        on_request: "submitted",
+        blocked: "submitted",
+        ready: "approved",
+    }
 
 
 def test_contacts_and_references_of_the_intake_are_clearly_invented() -> None:

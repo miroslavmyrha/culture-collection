@@ -3,14 +3,14 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { api } from '@/lib/api'
 import { allowConsole } from '@/test/console'
-import { makeAcceptance, makeFinding, makeLab, makeMe, makeRequest, makeRequestLine, problem } from '@/test/factories'
+import { makeAcceptance, makeFinding, makeLab, makeMe, makeRequest, makeRequestLine, makeShipment, problem, validationProblem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const REQUEST_ID = '00000000-0000-4000-8000-0000000000a1'
 const DETAIL = '/api/v1/labs/{lab_public_id}/requests/{public_id}/'
-const ACTION = (name: 'approve' | 'reject' | 'cancel') => `/api/v1/labs/{lab_public_id}/requests/{public_id}/${name}/` as const
+const ACTION = (name: 'approve' | 'reject' | 'cancel' | 'ship') => `/api/v1/labs/{lab_public_id}/requests/{public_id}/${name}/` as const
 
 function signedIn(role: 'viewer' | 'technician' | 'curator' | 'manager' = 'curator') {
   mockApi('get', '/api/v1/auth/me/', makeMe())
@@ -22,6 +22,18 @@ const request = (overrides = {}) => makeRequest({ public_id: REQUEST_ID, number:
 const open = () => renderApp({ path: `/labs/${LAB_ID}/requests/${REQUEST_ID}` })
 const blocked = [makeFinding({ code: 'loa_missing', sentence: 'MYC 3 is a quarantine pest: the requester shows no valid Letter of Authority that names Mockia vulgaris.', line: line.public_id })]
 const regulated = [makeFinding({ code: 'regulated', severity: 'manager', sentence: 'MYC 3 is regulated (dual_use): a manager approves it.', line: line.public_id })]
+
+async function openShipDialog() {
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('button', { name: 'Ship the vials' }, { timeout: 5000 }))
+  return { user, dialog: await screen.findByRole('dialog', { name: 'Ship request 2026/7?' }) }
+}
+
+async function fillPerson(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement) {
+  await user.type(within(dialog).getByRole('textbox', { name: 'Responsible person' }), 'Jan Odpovědný')
+  await user.type(within(dialog).getByRole('textbox', { name: 'Phone of the responsible person' }), '+420 555 000 111')
+  await user.type(within(dialog).getByRole('textbox', { name: 'Carrier' }), 'Example Courier')
+}
 
 describe('the request page', { timeout: 20_000 }, () => {
   it('shows what is asked, the strains with their pinned terms and the findings by severity', async () => {
@@ -173,6 +185,120 @@ describe('the request page', { timeout: 20_000 }, () => {
       signer_role: 'responsible_scientist',
       authorised_signatory: 'false',
       accepted_on: new Date().toLocaleDateString('sv'),
+    })
+  })
+
+
+  describe('the shipment', () => {
+    const vial = { public_id: '00000000-0000-4000-8000-0000000000e1', label: 'MYC 3 / 1 / 1' }
+    const approved = (overrides = {}) =>
+      request({ status: 'approved', decided_by: 'curator', decided_at: '2026-10-20T10:00:00Z', lines: [makeRequestLine({ ...line, reserved: [vial] })], ...overrides })
+    const shipped = (shipment = {}) =>
+      request({
+        status: 'shipped',
+        decided_by: 'curator',
+        decided_at: '2026-10-20T10:00:00Z',
+        lines: [makeRequestLine({ ...line, reserved: [], shipped: [vial] })],
+        shipment: makeShipment({ shipped_at: '2026-10-22T09:00:00Z', ...shipment }),
+      })
+
+    it('fills P650 for UN 3373, offers only its bases, and then shows the shipment and the vials sent', async () => {
+      signedIn('curator')
+      mockApi('get', DETAIL, approved())
+      open()
+      const { user, dialog } = await openShipDialog()
+      expect(dialog).toHaveAccessibleDescription(/Its reserved vial leaves the collection today/)
+      const transport = within(dialog).getByRole('combobox', { name: 'Transport class' })
+      expect(transport).toHaveFocus()
+      await user.selectOptions(transport, 'un3373')
+      expect(within(dialog).getByRole('combobox', { name: 'Packing' })).toHaveValue('p650')
+      const basis = within(dialog).getByRole('combobox', { name: 'Basis of the classification' })
+      expect(within(basis).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Not on the indicative list of Category A', 'Professional judgement'])
+      await user.selectOptions(basis, 'professional_judgement')
+      await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Coolant' }), 'dry_ice')
+      const calls = mockApi('post', ACTION('ship'), shipped({ transport_class: 'un3373', classification_basis: 'professional_judgement', basis_note: 'Category B.', packing_instruction: 'p650', coolant: 'dry_ice', coolant_kg: '2.50' }))
+      await user.click(within(dialog).getByRole('button', { name: 'Ship' }))
+      // The first field in the form's order that is wrong gets the focus; nothing is sent.
+      const note = within(dialog).getByRole('textbox', { name: 'What the classification rests on' })
+      expect(note).toHaveFocus()
+      expect(note).toHaveAccessibleDescription(/Say what the judgement rests on/)
+      expect(within(dialog).getByRole('textbox', { name: 'Coolant in kg' })).toHaveAccessibleDescription(/Give the quantity of dry ice/)
+      expect(calls).toHaveLength(0)
+      await user.type(note, 'Category B.')
+      await user.type(within(dialog).getByRole('textbox', { name: 'Coolant in kg' }), '2,5')
+      await fillPerson(user, dialog)
+      await user.click(within(dialog).getByRole('button', { name: 'Ship' }))
+      await waitFor(() => expect(calls).toHaveLength(1))
+      expect(calls[0]?.body).toEqual({
+        transport_class: 'un3373',
+        classification_basis: 'professional_judgement',
+        basis_note: 'Category B.',
+        packing_instruction: 'p650',
+        coolant: 'dry_ice',
+        coolant_kg: '2.5',
+        responsible_name: 'Jan Odpovědný',
+        responsible_phone: '+420 555 000 111',
+        carrier: 'Example Courier',
+        tracking_number: '',
+      })
+      expect(await screen.findByText(/Shipped by curator on 2026-10-22\./, {}, { timeout: 5000 })).toBeInTheDocument()
+      // Found once the dialog has faded out and the page is no longer hidden behind it.
+      const shipment = await screen.findByRole('region', { name: 'Shipment' }, { timeout: 5000 })
+      expect(shipment).toHaveTextContent('UN 3373, Biological substance, Category B')
+      expect(shipment).toHaveTextContent('Professional judgement: Category B.')
+      expect(shipment).toHaveTextContent('Dry ice (UN 1845), 2.50 kg')
+      expect(shipment).toHaveTextContent('Jan Odpovědný, +420 555 000 111')
+      const strains = screen.getByRole('table', { name: 'Strains' })
+      expect(within(strains).getByRole('columnheader', { name: 'Shipped vials' })).toBeInTheDocument()
+      expect(within(strains).getByRole('cell', { name: 'MYC 3 / 1 / 1' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Ship the vials' })).not.toBeInTheDocument()
+    })
+
+    it('says why a regulated request is not shipped here, and offers no shipment', async () => {
+      signedIn('manager')
+      mockApi('get', DETAIL, approved({ regulated: true }))
+      open()
+      expect(await screen.findByText(/shipped only when a second person confirms it/, {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Ship the vials' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Cancel the request' })).toBeInTheDocument()
+    })
+
+    it('stays open while it runs and shows the refusals of the server in the dialog or on the field', async () => {
+      signedIn('curator')
+      mockApi('get', DETAIL, approved())
+      open()
+      const { user, dialog } = await openShipDialog()
+      await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Basis of the classification' }), 'exempt_non_pathogenic')
+      await fillPerson(user, dialog)
+      allowConsole(/API error (400|422)/)
+      const held = holdApi('post', ACTION('ship'))
+      await user.click(within(dialog).getByRole('button', { name: 'Ship' }))
+      await waitFor(() => expect(held.calls).toHaveLength(1))
+      await user.keyboard('{Escape}')
+      expect(dialog).toBeInTheDocument()
+      held.release(422, problem(422, { code: 'shipment_blocked', detail: 'MYC 3: 0 of its 1 reserved vials may still go out.' }))
+      expect(await within(dialog).findByText('Nothing is shipped. MYC 3: 0 of its 1 reserved vials may still go out.')).toBeInTheDocument()
+      mockApiError('post', ACTION('ship'), 422, problem(422, { code: 'second_person_required', detail: 'A second person confirms it.' }))
+      await user.click(within(dialog).getByRole('button', { name: 'Ship' }))
+      expect(await within(dialog).findByText(/shipped only when a second person confirms it/)).toBeInTheDocument()
+      mockApiError(
+        'post',
+        ACTION('ship'),
+        400,
+        validationProblem([{ attr: 'classification_basis', code: 'not_exempt', detail: 'MYC 3: risk group 2 or higher is pathogenic.' }]),
+      )
+      await user.click(within(dialog).getByRole('button', { name: 'Ship' }))
+      expect(await within(dialog).findByRole('combobox', { name: 'Basis of the classification', description: /risk group 2 or higher is pathogenic/ })).toBeInTheDocument()
+    })
+
+    it('shows a viewer the shipment without the person who answers for it', async () => {
+      signedIn('viewer')
+      mockApi('get', DETAIL, shipped({ responsible_name: null, responsible_phone: null }))
+      open()
+      const shipment = await screen.findByRole('region', { name: 'Shipment' }, { timeout: 5000 })
+      expect(shipment).toHaveTextContent('Example Courier')
+      expect(shipment).not.toHaveTextContent('Responsible person')
+      expect(within(screen.getByRole('main')).queryByRole('button')).not.toBeInTheDocument()
     })
   })
 

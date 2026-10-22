@@ -1,5 +1,6 @@
 """Distribution changes only through its services: requesters and their permits, requests with
-pinned lines, MTA acceptances, approval with its reservation, rejection and cancellation. Each
+pinned lines, MTA acceptances, approval with its reservation, rejection, cancellation and the
+shipment (its own tests: test_shipment.py). Each
 records its events (the line and vial ones with their strain), contacts stay out of every
 event, and a refusal changes nothing and records nothing."""
 
@@ -55,6 +56,7 @@ from .support import (
     permit_input,
     requester_input,
     reserved,
+    shipment_input,
     snapshot,
     submit,
 )
@@ -739,6 +741,9 @@ SCENARIOS: dict[str, Callable[..., object]] = {
     "request_cancel": lambda a, f: services.request_cancel(
         access=a, request=f["approved"], reason="r"
     ),
+    "request_ship": lambda a, f: services.request_ship(
+        access=a, request=f["approved"], data=shipment_input()
+    ),
 }
 NOT_A_WRITE = {"document_type", "normalised"}
 
@@ -759,7 +764,7 @@ def test_every_line_event_names_its_strain_and_every_event_its_lab(
     assert recorded, name
     assert {e.lab_id for e in recorded} == {world["lab"].pk}, name  # type: ignore[attr-defined]
     for event in recorded:
-        about_material = event.subject_type in ("request_line", "vial")
+        about_material = event.subject_type in ("request_line", "vial", "batch")
         assert (event.strain_id is not None) == about_material, (name, event.event_type)
 
 

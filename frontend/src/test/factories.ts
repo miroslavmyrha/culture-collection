@@ -363,6 +363,7 @@ type Requester = components['schemas']['RequesterOutput']
 type Permit = components['schemas']['PermitOutput']
 type Finding = components['schemas']['Finding']
 type Acceptance = components['schemas']['AcceptanceOutput']
+type Shipment = components['schemas']['ShipmentOutput']
 
 export function makeRequestRow(overrides: Partial<RequestRow> = {}): RequestRow {
   const n = next()
@@ -392,6 +393,7 @@ export function makeRequestLine(overrides: Partial<RequestLine> = {}): RequestLi
     terms_version: 1,
     mta: { public_id: uuid(n + 3000), code: 'STD', version: 1, title: 'Standard MTA' },
     reserved: [],
+    shipped: [],
     permits: [],
     ...overrides,
   }
@@ -431,6 +433,30 @@ export function makeRequest(overrides: Partial<RequestDetail> = {}): RequestDeta
     lines: [makeRequestLine()],
     acceptances: [],
     findings: [],
+    shipment: null,
+    ...overrides,
+  }
+}
+
+export function makeShipment(overrides: Partial<Shipment> = {}): Shipment {
+  const n = next()
+  const at = new Date(Date.UTC(2026, 9, 22, 8, 0, n)).toISOString()
+  return {
+    public_id: uuid(n),
+    transport_class: 'not_subject',
+    classification_basis: 'exempt_non_pathogenic',
+    basis_note: '',
+    classified_by: 'curator',
+    classified_at: at,
+    packing_instruction: 'triple_packaging',
+    coolant: '',
+    coolant_kg: null,
+    responsible_name: 'Jan Odpovědný',
+    responsible_phone: '+420 555 000 111',
+    carrier: 'Example Courier',
+    tracking_number: 'EX123456789CZ',
+    shipped_by: 'curator',
+    shipped_at: at,
     ...overrides,
   }
 }

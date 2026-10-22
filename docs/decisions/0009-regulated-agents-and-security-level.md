@@ -303,3 +303,19 @@ Decided by the maintainer with the distribution study (s10):
   approver. Approval alone moves nothing out of the collection.
 - **Masking.** Requests show reserved vials by their label only; no answer of distribution names
   a box or a position.
+
+## Amendment 2026-10-22: the shipment before the second person (#88)
+
+- **A regulated request is not shipped yet.** Until the confirmation by a second person exists
+  (#89), the shipment of a request with any line of a regulated strain
+  (`strains.selectors.regulating_restrictions()`) is refused with `second_person_required`, and
+  the request page says so instead of offering the shipment. Unregulated requests ship with one
+  person holding `distribution.manage`.
+- **The gates first.** The shipment runs the gates again on the ship day before it asks for a
+  second person: a regulated request whose permit expired since the approval answers
+  `shipment_blocked` with the sentence, so nobody is asked to confirm what may not go.
+- **Only two classes.** The shipment records `not_subject` or `un3373` and nothing else;
+  Category A (UN 2814, UN 2900) and UN 3245 are not choices, in the API, the model's check and
+  the form.
+- **Masking.** The shipped vials are shown by their label only, like reserved ones; a shipped
+  vial has no place (its placement is closed).

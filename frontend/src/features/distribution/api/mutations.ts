@@ -29,8 +29,9 @@ function settleRequest(qc: QueryClient, labId: string, request: Request) {
 }
 
 /**
- * Approving and cancelling change vials (reserved, available again): the strain pages and box
- * grids show them, so the material of the lab is invalidated too (lib/shared-keys).
+ * Approving, cancelling and shipping change vials (reserved, available again, distributed and
+ * out of their boxes, a batch exhausted): the strain pages and box grids show them, so the
+ * material of the lab is invalidated too (lib/shared-keys).
  */
 function settleVials(qc: QueryClient, labId: string, request: Request) {
   return Promise.all([settleRequest(qc, labId, request), qc.invalidateQueries({ queryKey: sharedKeys.material(labId) })])
@@ -78,6 +79,18 @@ export function useCancelRequest(labId: string, requestId: string) {
     mutationFn: async (body: Schemas['ReasonInputRequest']) => {
       await ensureCsrf()
       return unwrap(api.POST('/api/v1/labs/{lab_public_id}/requests/{public_id}/cancel/', { ...one(labId, requestId), body }))
+    },
+    meta: { handlesError: true },
+    onSuccess: (request) => settleVials(qc, labId, request),
+  })
+}
+
+export function useShipRequest(labId: string, requestId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: Schemas['ShipInputRequest']) => {
+      await ensureCsrf()
+      return unwrap(api.POST('/api/v1/labs/{lab_public_id}/requests/{public_id}/ship/', { ...one(labId, requestId), body }))
     },
     meta: { handlesError: true },
     onSuccess: (request) => settleVials(qc, labId, request),

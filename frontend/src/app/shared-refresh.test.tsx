@@ -321,16 +321,24 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
   it.each([
     ['approving', 'Approve and reserve the vials', 'Approve and reserve', 'approve', 'reserved'],
     ['cancelling', 'Cancel the request', 'Cancel the request', 'cancel', 'available'],
+    ['shipping', 'Ship the vials', 'Ship', 'ship', 'distributed'],
   ] as const)('%s a request refreshes the vials the strain page shows', async (_, trigger, confirm, action, status) => {
     const { router, user } = await openStrainPage('curator', free, located())
     const REQUEST_ID = '00000000-0000-4000-8000-0000000000a1'
-    const request = makeRequest({ public_id: REQUEST_ID, number: '2026/7', status: action === 'cancel' ? 'approved' : 'submitted' })
+    const request = makeRequest({ public_id: REQUEST_ID, number: '2026/7', status: action === 'approve' ? 'submitted' : 'approved' })
     mockApi('get', '/api/v1/labs/{lab_public_id}/requests/{public_id}/', request)
     await router.navigate({ to: '/labs/$labId/requests/$requestId', params: { labId: LAB_ID, requestId: REQUEST_ID } })
     await user.click(await screen.findByRole('button', { name: trigger }, { timeout: 5000 }))
     const dialog = await screen.findByRole(action === 'cancel' ? 'alertdialog' : 'dialog')
     if (action === 'cancel') await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'withdrawn')
-    const done = mockApi('post', `/api/v1/labs/{lab_public_id}/requests/{public_id}/${action}/`, { ...request, status: action === 'cancel' ? 'cancelled' : 'approved' })
+    if (action === 'ship') {
+      await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Basis of the classification' }), 'exempt_non_pathogenic')
+      await user.type(within(dialog).getByRole('textbox', { name: 'Responsible person' }), 'Jan Odpovědný')
+      await user.type(within(dialog).getByRole('textbox', { name: 'Phone of the responsible person' }), '+420 555 000 111')
+      await user.type(within(dialog).getByRole('textbox', { name: 'Carrier' }), 'Example Courier')
+    }
+    const after = { approve: 'approved', cancel: 'cancelled', ship: 'shipped' } as const
+    const done = mockApi('post', `/api/v1/labs/{lab_public_id}/requests/{public_id}/${action}/`, { ...request, status: after[action] })
     const vials = strainPage(free, { ...located(), status })
     await user.click(within(dialog).getByRole('button', { name: confirm }))
     await waitFor(() => expect(done).toHaveLength(1))

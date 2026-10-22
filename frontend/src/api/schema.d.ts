@@ -782,6 +782,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/requests/{public_id}/ship/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_requests_ship_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/storage-units/": {
         parameters: {
             query?: never;
@@ -1405,12 +1421,28 @@ export interface components {
             readonly cols: number | null;
         };
         /**
+         * @description * `exempt_non_pathogenic` - Exempt: not pathogenic to humans or animals
+         *     * `exempt_inactivated` - Exempt: neutralised or inactivated
+         *     * `indicative_list` - Not on the indicative list of Category A
+         *     * `professional_judgement` - Professional judgement
+         * @enum {string}
+         */
+        ClassificationBasis: "exempt_non_pathogenic" | "exempt_inactivated" | "indicative_list" | "professional_judgement";
+        /**
          * @description * `intact` - Intact
          *     * `damaged` - Container or packaging damaged
          *     * `other` - Other, see the note
          * @enum {string}
          */
         Condition: "intact" | "damaged" | "other";
+        /**
+         * @description * `` - None
+         *     * `dry_ice` - Dry ice (UN 1845)
+         *     * `cold_packs` - Ice or cold packs
+         *     * `liquid_nitrogen` - Liquid nitrogen in a dry shipper
+         * @enum {string}
+         */
+        Coolant: "dry_ice" | "cold_packs" | "liquid_nitrogen";
         /**
          * @description * `AD` - AD
          *     * `AE` - AE
@@ -1823,6 +1855,7 @@ export interface components {
             readonly terms_version: number;
             readonly mta: components["schemas"]["MtaBrief"] | null;
             readonly reserved: components["schemas"]["ReservedVial"][];
+            readonly shipped: components["schemas"]["ReservedVial"][];
             readonly permits: components["schemas"]["ApprovedPermit"][];
         };
         LineStrain: {
@@ -1940,6 +1973,12 @@ export interface components {
         };
         /** @enum {unknown} */
         NullEnum: null;
+        /**
+         * @description * `p650` - P650
+         *     * `triple_packaging` - Basic triple packaging
+         * @enum {string}
+         */
+        PackingInstruction: "p650" | "triple_packaging";
         PaginatedBatchCheckOutputList: {
             /** @example 123 */
             count: number;
@@ -2380,6 +2419,7 @@ export interface components {
             readonly lines: components["schemas"]["LineOutput"][];
             readonly acceptances: components["schemas"]["AcceptanceOutput"][];
             readonly findings: components["schemas"]["Finding"][];
+            readonly shipment: components["schemas"]["ShipmentOutput"] | null;
         };
         RequestInputRequest: {
             /** Format: uuid */
@@ -2411,9 +2451,10 @@ export interface components {
          *     * `approved` - Approved
          *     * `rejected` - Rejected
          *     * `cancelled` - Cancelled
+         *     * `shipped` - Shipped
          * @enum {string}
          */
-        RequestStatus: "submitted" | "approved" | "rejected" | "cancelled";
+        RequestStatus: "submitted" | "approved" | "rejected" | "cancelled" | "shipped";
         RequesterBrief: {
             /** Format: uuid */
             readonly public_id: string;
@@ -2452,7 +2493,10 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
-        /** @description A reserved vial by its label only, never its place (ADR 0009). */
+        /**
+         * @description A reserved or shipped vial by its label only, never its place (ADR 0009). Reads a row
+         *     with a `vial`: a reservation or a shipment's vial.
+         */
         ReservedVial: {
             /** Format: uuid */
             public_id: string;
@@ -2534,6 +2578,51 @@ export interface components {
          * @enum {string}
          */
         SeverityEnum: "block" | "manager";
+        /**
+         * @description What the shipper decided and who answers for the package. Only the two classes this
+         *     collection ships are accepted (ADR 0009): Category A and UN 3245 are not choices.
+         */
+        ShipInputRequest: {
+            transport_class: components["schemas"]["TransportClass"];
+            classification_basis: components["schemas"]["ClassificationBasis"];
+            /**
+             * @description Stored for good: name no person.
+             * @default
+             */
+            basis_note: string;
+            packing_instruction: components["schemas"]["PackingInstruction"];
+            /** @default  */
+            coolant: components["schemas"]["Coolant"] | components["schemas"]["BlankEnum"];
+            /** Format: decimal */
+            coolant_kg?: string | null;
+            responsible_name: string;
+            responsible_phone: string;
+            carrier: string;
+            /** @default  */
+            tracking_number: string;
+        };
+        ShipmentOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly transport_class: components["schemas"]["TransportClass"];
+            readonly classification_basis: components["schemas"]["ClassificationBasis"];
+            readonly basis_note: string;
+            readonly classified_by: string;
+            /** Format: date-time */
+            readonly classified_at: string;
+            readonly packing_instruction: components["schemas"]["PackingInstruction"];
+            readonly coolant: components["schemas"]["Coolant"] | components["schemas"]["BlankEnum"];
+            /** Format: decimal */
+            readonly coolant_kg: string | null;
+            /** @description Null for a caller who may not see people; empty once the person was erased. */
+            readonly responsible_name: string | null;
+            readonly responsible_phone: string | null;
+            readonly carrier: string;
+            readonly tracking_number: string;
+            readonly shipped_by: string;
+            /** Format: date-time */
+            readonly shipped_at: string;
+        };
         /**
          * @description * `responsible_scientist` - Responsible scientist
          *     * `head_of_institution` - Head of the institution or department
@@ -2707,6 +2796,12 @@ export interface components {
             use: components["schemas"]["Use"];
             decision: components["schemas"]["Decision"];
         };
+        /**
+         * @description * `not_subject` - Not subject to the dangerous goods rules (exempt)
+         *     * `un3373` - UN 3373, Biological substance, Category B
+         * @enum {string}
+         */
+        TransportClass: "not_subject" | "un3373";
         UnitBrief: {
             /** Format: uuid */
             readonly public_id: string;
@@ -5907,7 +6002,7 @@ export interface operations {
                     "application/json": components["schemas"]["PermitOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -6029,7 +6124,7 @@ export interface operations {
                     "application/json": components["schemas"]["PermitOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -6173,7 +6268,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequesterOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -6295,7 +6390,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequesterOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -6361,8 +6456,9 @@ export interface operations {
                  *     * `approved` - Approved
                  *     * `rejected` - Rejected
                  *     * `cancelled` - Cancelled
+                 *     * `shipped` - Shipped
                  */
-                status?: "approved" | "cancelled" | "rejected" | "submitted";
+                status?: "approved" | "cancelled" | "rejected" | "shipped" | "submitted";
             };
             header?: never;
             path: {
@@ -6438,7 +6534,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequestDetailOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -6577,7 +6673,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequestDetailOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -6654,7 +6750,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequestDetailOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -6740,7 +6836,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequestDetailOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -6826,7 +6922,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequestDetailOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -6869,6 +6965,92 @@ export interface operations {
                 };
             };
             /** @description reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requests_ship_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShipInputRequest"];
+                "multipart/form-data": components["schemas"]["ShipInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestDetailOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description shipment_blocked: a gate of the policy blocks the shipment on the ship day (the detail lists them); second_person_required: a regulated line waits for a second person */
             422: {
                 headers: {
                     [name: string]: unknown;

@@ -1,5 +1,6 @@
 """The gates on a request (s10, section 8, limited to part A's scope): one function, run at
-approval and, in part B, again at shipment on the ship day, because permits expire in between.
+approval and again at shipment on the ship day (#88), because permits expire in between. At
+shipment the stock gate reads the vials the approval reserved, not the free ones.
 
 Scope (decided by the owner, ADR 0009 amendment of 2026-10-20): Category B (UN 3373) and exempt
 shipments to member states of the EU. Nothing leaves the EU: a destination outside it is
@@ -41,6 +42,7 @@ from .models import (
     RecipientPermit,
     RequestLine,
     RequestStatus,
+    VialReservation,
 )
 
 # The member states of the European Union, ISO 3166-1 alpha-2 (27, read on
@@ -55,8 +57,8 @@ EU_MEMBER_STATES: frozenset[str] = frozenset(
 )  # fmt: skip
 # Annex IV Part II of 2021/821: within the EU only ricin and saxitoxin need a transfer licence.
 TRANSFER_LICENCE_ENTRIES = ("1C351.d.4", "1C351.d.5")
-# Requests whose approval counts against a Letter of Authority (part B adds shipped).
-COUNTING = (RequestStatus.APPROVED,)
+# Requests whose approval counts against a Letter of Authority, also once shipped.
+COUNTING = (RequestStatus.APPROVED, RequestStatus.SHIPPED)
 
 
 class Severity(StrEnum):
@@ -134,6 +136,8 @@ class _Facts:
     permits: list[RecipientPermit]
     loa_used: dict[int, tuple[int, int]]
     available: dict[int, int]
+    # At shipment: per line, its open reservations whose vial may still go out.
+    reserved: dict[int, int]
 
 
 def _facts(request: DistributionRequest, lines: list[RequestLine], day: date) -> _Facts:
@@ -185,7 +189,22 @@ def _facts(request: DistributionRequest, lines: list[RequestLine], day: date) ->
         permits=permits,
         loa_used={row["permit_id"]: (row["quantity"], row["sendings"]) for row in usage},
         available={row["batch__strain_id"]: row["n"] for row in available},
+        reserved=_reserved(request) if request.status == RequestStatus.APPROVED else {},
     )
+
+
+def _reserved(request: DistributionRequest) -> dict[int, int]:
+    rows = (
+        VialReservation.objects.filter(
+            distributable("vial__batch__"),
+            line__request=request,
+            ended_at__isnull=True,
+            vial__status=VialStatus.RESERVED,
+        )
+        .values("line_id")
+        .annotate(n=Count("pk"))
+    )
+    return {row["line_id"]: row["n"] for row in rows}
 
 
 def _naming(
@@ -258,6 +277,15 @@ class _LineCheck:
             self.restriction(restriction)
 
     def stock(self) -> None:
+        if self.request.status == RequestStatus.APPROVED:
+            held = self.facts.reserved.get(self.line.pk, 0)
+            if held < self.line.quantity:
+                self.block(
+                    "reserved_vials_not_distributable",
+                    f"{self.name}: {held} of its {self.line.quantity} reserved vials may still go"
+                    " out. A batch was held or exhausted, or the strain stopped supplying.",
+                )
+            return
         available = self.facts.available.get(self.strain.pk, 0)
         if available < self.line.quantity:
             self.block(
@@ -435,6 +463,7 @@ GATES: tuple[tuple[str, Severity], ...] = (
     ("export_not_supported", Severity.BLOCK),
     ("contact_erased", Severity.BLOCK),
     ("not_enough_vials", Severity.BLOCK),
+    ("reserved_vials_not_distributable", Severity.BLOCK),
     ("terms_replaced", Severity.BLOCK),
     ("abs_scope_unknown", Severity.BLOCK),
     ("abs_use_not_covered", Severity.BLOCK),

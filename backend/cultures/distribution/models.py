@@ -19,8 +19,11 @@ the terms and MTA version the request was entered under (pinned). The policy (po
 on them; approval writes the permits each line was approved against and reserves one vial per
 row, only from lineage.selectors.distributable(). Stock stays a query: there is no counter.
 
-Shipment, its two-person confirmation, the register entry, the handover protocol and the
-delivery note are part B: approved > shipped, a reservation ended as shipped.
+A shipment (#88) sends all the vials an approved request reserved, at once: the transport class
+a person decided with its basis, the packing, the coolant, the responsible person (a contact),
+the carrier, who shipped it and when. Approved > shipped, each reservation ended as shipped, each
+vial distributed, all in one transaction. Never changed or deleted. The two-person confirmation
+of a regulated line (#89), the register entry and the delivery documents (#90) come later.
 """
 
 from django.conf import settings
@@ -284,16 +287,18 @@ class RequestStatus(models.TextChoices):
     APPROVED = "approved", "Approved"
     REJECTED = "rejected", "Rejected"
     CANCELLED = "cancelled", "Cancelled"
+    SHIPPED = "shipped", "Shipped"
 
 
 R = RequestStatus
-# Which status may follow which. The request trigger (migration 0003) refuses every other pair,
-# and tests/test_request_states.py tries all 16 against both. Part B adds approved > shipped.
+# Which status may follow which. The request trigger (migration 0005) refuses every other pair,
+# and tests/test_request_states.py tries all 25 against both. A shipped request is final.
 REQUEST_EDGES: dict[RequestStatus, frozenset[RequestStatus]] = {
     R.SUBMITTED: frozenset({R.APPROVED, R.REJECTED, R.CANCELLED}),
-    R.APPROVED: frozenset({R.CANCELLED}),
+    R.APPROVED: frozenset({R.CANCELLED, R.SHIPPED}),
     R.REJECTED: frozenset(),
     R.CANCELLED: frozenset(),
+    R.SHIPPED: frozenset(),
 }
 
 
@@ -317,8 +322,8 @@ class DistributionRequest(PublicModel):
     submitted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )
-    # Who approved or rejected it, and when. Part B refuses a shipment of a regulated line
-    # confirmed by the person who approved it (ADR 0009, two-person rule).
+    # Who approved or rejected it, and when; kept once it is shipped. #89 refuses a shipment of a
+    # regulated line confirmed by the person who approved it (ADR 0009, two-person rule).
     decided_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", null=True, blank=True
     )
@@ -391,6 +396,14 @@ class DistributionRequest(PublicModel):
                     cancelled_by__isnull=False,
                     cancelled_at__isnull=False,
                     cancel_reason__regex=r"\S",
+                )
+                | Q(
+                    status=R.SHIPPED,
+                    decided_by__isnull=False,
+                    decided_at__isnull=False,
+                    cancelled_by__isnull=True,
+                    cancelled_at__isnull=True,
+                    cancel_reason="",
                 ),
                 name="distribution_request_facts_of_status",
             ),
@@ -517,8 +530,8 @@ class MtaAcceptance(PublicModel):
 
 
 class ReservationEnd(models.TextChoices):
-    """Why a vial stopped being reserved. Part A ends reservations only on a cancellation;
-    shipped comes with part B, deaccessioned with #20."""
+    """Why a vial stopped being reserved: its request was cancelled or shipped (#88);
+    deaccessioned comes with #20."""
 
     CANCELLED = "cancelled", "Request cancelled"
     SHIPPED = "shipped", "Shipped"
@@ -568,3 +581,142 @@ class VialReservation(PublicModel):
 
     def __str__(self) -> str:
         return f"{self.vial_id} for {self.line_id}"
+
+
+class TransportClass(models.TextChoices):
+    """What the shipper decided the package is (WHO transport guidance 2025-2026, 4 and 5; RID
+    and ADR 2.2.62). This collection ships only these two (ADR 0009 amendment of 2026-10-20):
+    Category A (UN 2814, UN 2900) and GMOs as UN 3245 are refused, never recorded."""
+
+    NOT_SUBJECT = "not_subject", "Not subject to the dangerous goods rules (exempt)"
+    UN3373 = "un3373", "UN 3373, Biological substance, Category B"
+
+
+class ClassificationBasis(models.TextChoices):
+    """Why the shipper chose the class. The shipper classifies (WHO 2.1), so a person states it."""
+
+    EXEMPT_NON_PATHOGENIC = "exempt_non_pathogenic", "Exempt: not pathogenic to humans or animals"
+    EXEMPT_INACTIVATED = "exempt_inactivated", "Exempt: neutralised or inactivated"
+    INDICATIVE_LIST = "indicative_list", "Not on the indicative list of Category A"
+    PROFESSIONAL_JUDGEMENT = "professional_judgement", "Professional judgement"
+
+
+# The bases each class may rest on: an exemption is never Category B, and the reasons for
+# Category B never make a package exempt. The check constraint and the service read this.
+BASES: dict[TransportClass, frozenset[ClassificationBasis]] = {
+    TransportClass.NOT_SUBJECT: frozenset(
+        {ClassificationBasis.EXEMPT_NON_PATHOGENIC, ClassificationBasis.EXEMPT_INACTIVATED}
+    ),
+    TransportClass.UN3373: frozenset(
+        {ClassificationBasis.INDICATIVE_LIST, ClassificationBasis.PROFESSIONAL_JUDGEMENT}
+    ),
+}
+
+
+class PackingInstruction(models.TextChoices):
+    """UN 3373 travels in P650 (RID and ADR 4.1.4.1, IATA PI 650); an exempt culture by air in a
+    basic triple packaging (WHO 4.6), which P650 packaging also is."""
+
+    P650 = "p650", "P650"
+    TRIPLE = "triple_packaging", "Basic triple packaging"
+
+
+class Coolant(models.TextChoices):
+    NONE = "", "None"
+    DRY_ICE = "dry_ice", "Dry ice (UN 1845)"
+    COLD_PACKS = "cold_packs", "Ice or cold packs"
+    LIQUID_NITROGEN = "liquid_nitrogen", "Liquid nitrogen in a dry shipper"
+
+
+class Shipment(PublicModel):
+    """All the vials an approved request reserved, sent at once (#88). Inserted once with its
+    vials, never changed or deleted (the trigger and the grants). The responsible person, who
+    answers the phone about the package at all times (WHO 8.1), is a contact: personal data,
+    erased with an erasure request (D11)."""
+
+    lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="+")
+    request = models.OneToOneField(
+        DistributionRequest, on_delete=models.PROTECT, related_name="shipment"
+    )
+    transport_class = models.CharField(max_length=20, choices=TransportClass.choices)
+    classification_basis = models.CharField(max_length=30, choices=ClassificationBasis.choices)
+    # Why, in words: required for professional judgement. Names no person.
+    basis_note = models.TextField(blank=True)
+    classified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    classified_at = models.DateTimeField()
+    packing_instruction = models.CharField(max_length=20, choices=PackingInstruction.choices)
+    coolant = models.CharField(max_length=20, choices=Coolant.choices, blank=True)
+    # In kilograms; required for dry ice, whose quantity is marked on the package.
+    coolant_kg = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    responsible = models.OneToOneField(Contact, on_delete=models.PROTECT, related_name="+")
+    carrier = models.CharField(max_length=200)
+    tracking_number = models.CharField(max_length=100, blank=True)
+    shipped_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    shipped_at = models.DateTimeField()
+
+    objects = LabScopedQuerySet["Shipment"].as_manager()
+
+    class Meta(PublicModel.Meta):
+        constraints = [
+            *PublicModel.Meta.constraints,
+            models.CheckConstraint(
+                condition=Q(
+                    transport_class=TransportClass.NOT_SUBJECT,
+                    classification_basis__in=BASES[TransportClass.NOT_SUBJECT],
+                )
+                | Q(
+                    transport_class=TransportClass.UN3373,
+                    classification_basis__in=BASES[TransportClass.UN3373],
+                ),
+                name="distribution_shipment_class_and_basis",
+            ),
+            models.CheckConstraint(
+                condition=~Q(classification_basis=ClassificationBasis.PROFESSIONAL_JUDGEMENT)
+                | Q(basis_note__regex=r"\S"),
+                name="distribution_shipment_judgement_has_note",
+            ),
+            models.CheckConstraint(
+                condition=Q(packing_instruction__in=PackingInstruction.values)
+                & (
+                    ~Q(transport_class=TransportClass.UN3373)
+                    | Q(packing_instruction=PackingInstruction.P650)
+                ),
+                name="distribution_shipment_un3373_in_p650",
+            ),
+            models.CheckConstraint(
+                condition=Q(coolant=Coolant.NONE, coolant_kg__isnull=True)
+                | Q(coolant=Coolant.DRY_ICE, coolant_kg__isnull=False, coolant_kg__gt=0)
+                | (
+                    Q(coolant__in=[Coolant.COLD_PACKS, Coolant.LIQUID_NITROGEN])
+                    & (Q(coolant_kg__isnull=True) | Q(coolant_kg__gt=0))
+                ),
+                name="distribution_shipment_coolant_quantity",
+            ),
+            models.CheckConstraint(
+                condition=Q(carrier__regex=TRIMMED), name="distribution_shipment_carrier_trimmed"
+            ),
+            models.CheckConstraint(
+                condition=trimmed_or_empty("tracking_number"),
+                name="distribution_shipment_tracking_trimmed",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"shipment {self.public_id}"
+
+
+class ShipmentVial(models.Model):
+    """One vial of a shipment, of one of its request's lines: a vial goes out once (unique).
+    Inserted while the vial's reservation for the line is open, never changed (the trigger);
+    at commit the shipment holds exactly the vials its request reserved."""
+
+    shipment = models.ForeignKey(Shipment, on_delete=models.PROTECT, related_name="vials")
+    line = models.ForeignKey(RequestLine, on_delete=models.PROTECT, related_name="shipped_vials")
+    vial = models.OneToOneField(Vial, on_delete=models.PROTECT, related_name="shipment_vial")
+
+    def __str__(self) -> str:
+        return f"{self.vial_id} in {self.shipment_id}"

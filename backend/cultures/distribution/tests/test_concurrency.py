@@ -1,4 +1,4 @@
-"""Reservations and request numbers under concurrency.
+"""Reservations, request numbers and shipments under concurrency.
 
 Two approvals of requests for the same few vials run as real transactions at once: the lab
 lock makes the second wait and then see what the first reserved, so it is blocked, never given
@@ -20,13 +20,19 @@ from cultures.audit.models import AuditEvent, Channel
 from cultures.biosafety.policy import permit_today
 from cultures.core.testing import run_before
 from cultures.distribution import services
-from cultures.distribution.models import DistributionRequest, RequestCounter, VialReservation
+from cultures.distribution.models import (
+    DistributionRequest,
+    RequestCounter,
+    Shipment,
+    ShipmentVial,
+    VialReservation,
+)
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab
 from cultures.lineage.models import Vial
 from cultures.users.models import User
 
-from .support import Supply, accept_mtas, approve, new_request, reserved, submit
+from .support import Supply, accept_mtas, approve, new_request, reserved, shipment_input, submit
 
 pytestmark = pytest.mark.django_db
 
@@ -181,3 +187,46 @@ def test_two_requests_entered_at_once_get_two_numbers(
     for thread in threads:
         thread.join(timeout=30)
     assert sorted(numbers) == [1, 2]
+
+
+@pytest.mark.slow
+@pytest.mark.django_db(transaction=True)
+def test_two_shipments_of_one_request_one_ships(
+    curator: User, manager: User, lab: Lab, requester: Any, supply: Supply
+) -> None:
+    """Both read an approved request; the lab lock makes the second wait, and it then finds
+    the request shipped: one shipment, each vial distributed once."""
+    strain = supply(vials=4)
+    with audit_context(channel=Channel.API, actor=curator, request_id="req-setup"):
+        request = submit(curator, lab, requester, [(strain, 2)])
+        accept_mtas(curator, request)
+        approve(curator, request)
+    barrier = threading.Barrier(2)
+    outcomes: dict[str, str] = {}
+
+    def run(name: str, actor: User) -> None:
+        try:
+            with audit_context(channel=Channel.API, actor=actor, request_id=f"req-{name}"):
+                barrier.wait(timeout=5)
+                services.request_ship(
+                    access=access_for(actor), request=request, data=shipment_input()
+                )
+            outcomes[name] = "shipped"
+        except services.WrongState:
+            outcomes[name] = "state"
+        finally:
+            connection.close()
+
+    threads = [
+        threading.Thread(target=run, args=("a", curator)),
+        threading.Thread(target=run, args=("b", manager)),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+    assert sorted(outcomes.values()) == ["shipped", "state"]
+    assert Shipment.objects.count() == 1
+    assert ShipmentVial.objects.count() == 2
+    assert Vial.objects.filter(status="distributed").count() == 2
+    assert AuditEvent.objects.filter(event_type="request_shipped").count() == 1
