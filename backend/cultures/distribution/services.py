@@ -1244,6 +1244,7 @@ def request_ship(
                     "packing_instruction": [None, shipment.packing_instruction],
                     "coolant": [None, shipment.coolant],
                     "coolant_kg": [None, None if data.coolant_kg is None else str(data.coolant_kg)],
+                    # Masked again by record_event (audit.registry.PERSONAL_FIELDS).
                     "responsible": PERSONAL_CHANGED,
                     "carrier": [None, shipment.carrier],
                     "tracking_number": [None, shipment.tracking_number],

@@ -14,12 +14,14 @@ from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
 
 from cultures.audit.context import AuditContext
+from cultures.audit.events import Change, record_event
 from cultures.audit.models import AuditEvent
+from cultures.audit.registry import REQUEST_SHIPPED
 from cultures.biosafety.models import RestrictionKind
 from cultures.biosafety.policy import permit_today
 from cultures.core.testing import logged_in
 from cultures.deposits.models import Contact
-from cultures.deposits.tests.support import DUAL_USE
+from cultures.deposits.tests.support import DUAL_USE, QUARANTINE
 from cultures.distribution import services
 from cultures.distribution.models import (
     ClassificationBasis,
@@ -35,18 +37,21 @@ from cultures.distribution.models import (
     TransportClass,
     VialReservation,
 )
+from cultures.distribution.policy import evaluate
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab
 from cultures.lineage import services as lineage
 from cultures.lineage.models import (
     Batch,
     BatchStatus,
+    Passage,
     Purpose,
     RemovalReason,
     Vial,
     VialPlacement,
     VialStatus,
 )
+from cultures.lineage.tests.support import preserve
 from cultures.storage.tests.conftest import Tree
 from cultures.strains.models import Strain
 from cultures.strains.services import RestrictionInput
@@ -405,6 +410,26 @@ def test_a_quarantined_or_lost_vial_does_not_keep_the_batch_open(
     assert batch_of(strain).status == BatchStatus.EXHAUSTED
 
 
+def test_a_seed_batch_is_never_exhausted_by_a_shipment(*, curator: User, supply: Supply) -> None:
+    """The seed stock never leaves (D15), so a shipment never empties it: the rule refuses a
+    seed batch even with no vial left, whoever calls it."""
+    strain = supply(vials=6)
+    with as_actor(curator):
+        seed = preserve(
+            curator,
+            Passage.objects.get(strain=strain, number=0),
+            vial_count=1,
+            purpose=Purpose.SEED,
+        )
+        for vial in Vial.objects.filter(batch=seed):
+            lineage.vial_transition(
+                access=access_for(curator), vial=vial, status=VialStatus.CONSUMED, reason="Revived."
+            )
+        locked = Batch.objects.select_related("strain").get(pk=seed.pk)
+        assert lineage.batch_exhaust_if_emptied_locked(batch=locked, reason="r") is False
+    assert Batch.objects.get(pk=seed.pk).status == BatchStatus.PENDING_CHECK
+
+
 # The database: a shipment frozen and complete, whoever writes.
 
 
@@ -590,10 +615,94 @@ def test_at_commit_a_shipment_holds_every_vial_its_request_reserved(
 
 
 def test_at_commit_a_shipment_is_of_a_shipped_request(*, supply: Supply, approved: Any) -> None:
+    """Every vial sent and distributed, every reservation ended as shipped: the request must
+    still say shipped."""
     request = approved(supply(vials=6))
-    shipment_row(request)
+    shipment = shipment_row(request)
+    [vial] = reserved(request)
+    ShipmentVial.objects.create(shipment=shipment, line=request.lines.get(), vial=vial)
+    sql(
+        "UPDATE distribution_vialreservation SET ended_at = reserved_at,"
+        " ended_by_id = reserved_by_id, end_reason = 'shipped' WHERE vial_id = %s",
+        [vial.pk],
+    )
+    sql(
+        "UPDATE lineage_vial SET status = 'distributed', status_changed_at = now() WHERE id = %s",
+        [vial.pk],
+    )
     with pytest.raises(IntegrityError, match="sends every vial its request reserved"):
         at_commit()
+
+
+def test_at_commit_the_reservation_of_a_shipped_vial_ended_as_shipped(
+    *, supply: Supply, approved: Any
+) -> None:
+    """The vial sent and distributed, the request shipped, but its reservation ended as if the
+    request had been cancelled."""
+    request = approved(supply(vials=6))
+    shipment = shipment_row(request)
+    [vial] = reserved(request)
+    ShipmentVial.objects.create(shipment=shipment, line=request.lines.get(), vial=vial)
+    sql(
+        "UPDATE distribution_vialreservation SET ended_at = reserved_at,"
+        " ended_by_id = reserved_by_id, end_reason = 'cancelled' WHERE vial_id = %s",
+        [vial.pk],
+    )
+    sql(
+        "UPDATE lineage_vial SET status = 'distributed', status_changed_at = now() WHERE id = %s",
+        [vial.pk],
+    )
+    sql(
+        "UPDATE distribution_distributionrequest SET status = 'shipped' WHERE id = %s", [request.pk]
+    )
+    with pytest.raises(IntegrityError, match="sends every vial its request reserved"):
+        at_commit()
+
+
+def test_the_request_event_never_holds_the_responsible_person(
+    *, as_curator: AuditContext, supply: Supply, approved: Any
+) -> None:
+    """Whatever a service passes: the registry masks the field (PERSONAL_FIELDS)."""
+    request = approved(supply(vials=6))
+    record_event(
+        REQUEST_SHIPPED,
+        Change(
+            "distribution_request",
+            request.public_id,
+            {"responsible": "Jan Odpovědný"},
+            lab_id=request.lab_id,
+        ),
+    )
+    assert AuditEvent.objects.order_by("-pk").first().changes == {"responsible": "changed"}  # type: ignore[union-attr]
+
+
+def test_a_shipped_request_still_counts_against_its_letter_of_authority(
+    *,
+    manager: User,
+    curator: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+    mockia: Taxon,
+    approved: Any,
+) -> None:
+    """A letter that allows one sending: once the first request is shipped, a second one is
+    blocked. The shipment is written past the service (a quarantine pest is regulated, so the
+    service waits for #89) and rolled back with the test's own savepoint."""
+    strain = supply(mockia, restrictions=[QUARANTINE], vials=6)
+    add_permit(curator, requester, PermitKind.PLANT_HEALTH_LOA, sendings_allowed=1)
+    first = approved(strain, by=manager, reason="The letter allows it.")
+    with transaction.atomic():
+        shipment_row(first)
+        sql(
+            "UPDATE distribution_distributionrequest SET status = 'shipped' WHERE id = %s",
+            [first.pk],
+        )
+        second = submit(curator, lab, requester, [(strain, 1)])
+        accept_mtas(curator, second)
+        found = {f.code for f in evaluate(second, permit_today()).blockers}
+        transaction.set_rollback(True)
+    assert found == {"loa_exhausted"}
 
 
 def test_a_shipment_through_the_service_passes_the_checks_at_commit(
