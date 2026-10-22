@@ -152,6 +152,7 @@ export function makeTerms(overrides: Partial<Terms> = {}): Terms {
     mat_reference: '',
     ircc: '',
     permit_reference: '',
+    mat_uses: [],
     reason: '',
     uses: USES.map((use) => ({ use, decision: 'permit' as const })),
     created_at: at,
@@ -352,4 +353,132 @@ export function makePosition(label: string, vial: BoxVial | 'masked'): BoxPositi
 export function makeBoxGrid(overrides: Partial<BoxGrid> = {}): BoxGrid {
   const n = next()
   return { public_id: uuid(n), name: 'Box 1', rows: 9, cols: 9, positions: [], ...overrides }
+}
+
+// Distribution (#18). Invented institutions and people at example.org.
+type RequestRow = components['schemas']['RequestListOutput']
+type RequestDetail = components['schemas']['RequestDetailOutput']
+type RequestLine = components['schemas']['LineOutput']
+type Requester = components['schemas']['RequesterOutput']
+type Permit = components['schemas']['PermitOutput']
+type Finding = components['schemas']['Finding']
+type Acceptance = components['schemas']['AcceptanceOutput']
+
+export function makeRequestRow(overrides: Partial<RequestRow> = {}): RequestRow {
+  const n = next()
+  const at = new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString()
+  return {
+    public_id: uuid(n),
+    number: `2026/${n}`,
+    requester: { public_id: uuid(n + 1000), institution: 'Example Institute of Microbiology', country: 'CZ' },
+    destination_country: 'CZ',
+    use: 'research_noncommercial',
+    status: 'submitted',
+    line_count: 1,
+    vial_count: 2,
+    regulated: false,
+    created_at: at,
+    decided_at: null,
+    ...overrides,
+  }
+}
+
+export function makeRequestLine(overrides: Partial<RequestLine> = {}): RequestLine {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    strain: { public_id: uuid(n + 2000), accession_number: `MYC ${n}`, taxon: 'Testella exempli', risk_group: 1 },
+    quantity: 2,
+    terms_version: 1,
+    mta: { public_id: uuid(n + 3000), code: 'STD', version: 1, title: 'Standard MTA' },
+    reserved: [],
+    permits: [],
+    ...overrides,
+  }
+}
+
+export function makeFinding(overrides: Partial<Finding> = {}): Finding {
+  return { code: 'mta_not_accepted', severity: 'block', sentence: 'MYC 1: no acceptance of MTA STD version 1 is recorded.', line: null, ...overrides }
+}
+
+export function makeAcceptance(overrides: Partial<Acceptance> = {}): Acceptance {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    mta: { public_id: uuid(n + 3000), code: 'STD', version: 1, title: 'Standard MTA' },
+    signer_name: 'Karel Podpisový',
+    signer_role: 'head_of_institution',
+    authorised_signatory: true,
+    accepted_on: '2026-10-02',
+    document: null,
+    created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString(),
+    ...overrides,
+  }
+}
+
+export function makeRequest(overrides: Partial<RequestDetail> = {}): RequestDetail {
+  const row = makeRequestRow()
+  return {
+    ...row,
+    end_use: 'Teaching of antibiotic testing.',
+    containment_level: 2,
+    submitted_by: 'curator',
+    decided_by: null,
+    decision_reason: '',
+    cancelled_by: null,
+    cancelled_at: null,
+    cancel_reason: '',
+    lines: [makeRequestLine()],
+    acceptances: [],
+    findings: [],
+    ...overrides,
+  }
+}
+
+export function makePermit(overrides: Partial<Permit> = {}): Permit {
+  const n = next()
+  const at = new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString()
+  return {
+    public_id: uuid(n),
+    requester: uuid(n + 1000),
+    kind: 'sujb_rat_notice',
+    issuer: 'SÚJB',
+    issuer_country: 'CZ',
+    reference: `DEV/${n} (invented example)`,
+    valid_from: '2026-01-01',
+    expires_on: null,
+    covers: '',
+    quantity_allowed: null,
+    sendings_allowed: null,
+    endorsement_reference: '',
+    endorsed_on: null,
+    gmo_category: null,
+    risk_group: null,
+    document: { public_id: uuid(n + 4000), content_type: 'application/pdf', size_bytes: 40, sha256: '0'.repeat(64), created_at: at },
+    ended_on: null,
+    end_reason: '',
+    valid_today: true,
+    created_at: at,
+    ...overrides,
+  }
+}
+
+export function makeRequester(overrides: Partial<Requester> = {}): Requester {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    institution: `Example Institute ${n}`,
+    legal_form: 'legal_person',
+    registration_number: '',
+    country: 'CZ',
+    lab_evidence: 'The department page lists a microbiology laboratory.',
+    lab_confirmed_on: '2026-10-01',
+    name: 'Petra Ukázková',
+    email: 'petra@example.org',
+    postal_address: 'Testovací 5, Brno',
+    erased: false,
+    permits: [],
+    created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString(),
+    ...overrides,
+  }
 }

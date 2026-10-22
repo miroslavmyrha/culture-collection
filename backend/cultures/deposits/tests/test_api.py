@@ -117,6 +117,7 @@ def test_a_curator_takes_a_deposit_from_receipt_to_a_strain(
                 "mat_reference": "",
                 "ircc": "",
                 "permit_reference": "Permit DEV/1 (invented example)",
+                "mat_uses": [],
                 "reason": "",
                 "uses": body["terms_history"][0]["uses"],
                 "created_at": body["terms_history"][0]["created_at"],

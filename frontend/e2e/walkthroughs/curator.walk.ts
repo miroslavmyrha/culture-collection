@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, acceptedStrain, api, batch, batchOf, freezerWithBoxes, labId, openLab, openStrain, openUnit, passAll, receivedDeposit, setupAs } from './walk.js'
+import { RUN, Walk, acceptedStrain, api, batch, batchOf, freezerWithBoxes, labId, openLab, openStrain, openUnit, passAll, receivedDeposit, release, setupAs, supplyStrain } from './walk.js'
 
 // A curator of Bacteriology (seed_dev): intake, identification, storage and the strain's record.
 const LAB = 'Bacteriology'
@@ -197,24 +197,69 @@ test('C8 release a batch after its checks', async ({ browser }, info) => {
 })
 
 test('C9 answer a request: may the strain go out for commercial research, then send it', async ({ browser }, info) => {
+  // seed_dev holds the request: Example Institute of Microbiology asks for BAC 29 (soil isolate
+  // DEP-1) for commercial research, which the depositor's terms allow only on request.
   const w = await Walk.as(browser, info, 'bac-curator', curator('C9', 'Answer a request for commercial research and send vials'))
   await w.start()
   await openLab(w, LAB)
-  await openStrain(w, 'soil isolate DEP-1', /soil isolate DEP-1/)
-  w.look()
-  await expect(w.page.getByRole('heading', { name: /Terms/ })).toHaveCount(0)
-  w.note('The strain page shows no terms of use: they live on the deposit, which it does not link')
-  // The person copies the name as received and looks the deposit up.
-  await w.click(w.page.getByRole('link', { name: `Strains of ${LAB}` }))
-  await w.click(w.page.getByRole('link', { name: `Back to ${LAB}` }))
-  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Deposits' }))
-  await w.type(w.page.getByRole('searchbox', { name: 'Name, depositor or number' }), 'soil isolate DEP-1')
-  await w.press('Enter')
-  await w.click(w.page.getByRole('table', { name: 'Deposits' }).getByRole('link', { name: /soil isolate DEP-1/ }))
-  const uses = w.page.getByRole('table', { name: 'Uses' })
-  await expect(uses.getByRole('row', { name: /Commercial research/ })).toBeVisible()
-  w.look(2)
-  w.impossible('No requests, approvals or shipments: the vials cannot be reserved or sent', '#18')
+  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Requests' }))
+  const row = w.page.getByRole('table', { name: 'Requests' }).getByRole('row', { name: /Commercial research/ }).first()
+  await w.read(row)
+  await w.click(row.getByRole('link').first())
+  const manager = w.page.getByRole('list', { name: 'Needs a manager’s approval' })
+  await expect(manager).toContainText('only on request to the depositor')
+  await w.read(manager)
+  await expect(w.page.getByText('A manager approves this request.')).toBeVisible()
+  w.impossible('The curator may only reject it or wait: the use is on request to the depositor, so a manager approves, and nothing records the depositor\'s answer but the reason. Sending is part B', '#18')
+  await w.done()
+})
+
+test('C11 record a request that came by e-mail, with the signed MTA', async ({ browser }, info) => {
+  const name = `Bacillus subtilis supply ${RUN}`
+  const setup = await setupAs(browser, 'bac-curator')
+  const lab = await labId(setup.page, LAB)
+  const strain = await supplyStrain(setup.page, lab, name, 'Bacillus subtilis')
+  const made = await batchOf(setup.page, lab, strain.passage, 4)
+  await setup.close()
+  const bench = await setupAs(browser, 'bac-technician')
+  await passAll(bench.page, lab, made.id, made.vials[0]?.id ?? '')
+  await bench.close()
+  const releaser = await setupAs(browser, 'bac-curator')
+  await release(releaser.page, lab, made.id)
+  await releaser.close()
+
+  const w = await Walk.as(browser, info, 'bac-curator', curator('C11', 'Record a request that came by e-mail, with the signed MTA'))
+  await w.start()
+  await openLab(w, LAB)
+  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Requests' }))
+  await w.click(w.page.getByRole('link', { name: 'Enter a request' }))
+  const form = w.page.getByRole('form', { name: 'New request' })
+  await w.choose(form.getByRole('combobox', { name: 'Requester' }), /Example Institute of Microbiology/)
+  await w.choose(form.getByRole('combobox', { name: 'Use' }), 'Teaching')
+  await w.type(form.getByRole('textbox', { name: 'End use' }), 'Practical classes in microbiology.')
+  await w.choose(form.getByRole('combobox', { name: 'Declared containment level' }), '1')
+  await w.type(form.getByRole('combobox', { name: 'Strain 1' }), strain.number)
+  await w.click(w.page.getByRole('option', { name: new RegExp(`^${strain.number},`) }))
+  // The field holds 1 already: typed into, 2 becomes 12. The person selects it first.
+  await w.click(form.getByRole('textbox', { name: 'Vials of strain 1' }))
+  await w.press('Control+a')
+  await w.keys('2')
+  await w.click(form.getByRole('button', { name: 'Enter the request' }))
+  await expect(w.page.getByRole('heading', { level: 1, name: /^Request \d{4}\/\d+$/ })).toBeVisible()
+  await w.read(w.page.getByRole('list', { name: 'Blocks the approval' }))
+  await w.click(w.page.getByRole('button', { name: 'Record an acceptance' }))
+  const dialog = w.page.getByRole('dialog', { name: 'Record an acceptance of the MTA' })
+  await w.type(dialog.getByRole('textbox', { name: 'Signed by' }), 'Petra Ukázková')
+  await w.choose(dialog.getByRole('combobox', { name: "Signer's role" }), 'Responsible scientist')
+  await w.click(dialog.getByRole('checkbox', { name: 'The signer may bind the institution' }))
+  const chooser = w.page.waitForEvent('filechooser')
+  await w.click(dialog.getByLabel('Signed copy'))
+  await (await chooser).setFiles({ name: 'signed-mta.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n% walkthrough\n') })
+  await w.click(dialog.getByRole('button', { name: 'Record the acceptance' }))
+  await expect(w.page.getByText('Nothing stands in the way: a curator may approve it.')).toBeVisible()
+  await w.shot('entered')
+  w.note('The signed copy is chosen in the file picker of the system, a step a person also needs to find the file (counted as one click)')
+  w.note('The vials field already holds 1: typing 2 into it gives 12, and the request then says 12 vials are asked for. The person must select the 1 first')
   await w.done()
 })
 

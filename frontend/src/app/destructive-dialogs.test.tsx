@@ -2,11 +2,13 @@ import { screen } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
 import { RejectDialog } from '@/features/deposits/components/DepositDialogs'
+import { CancelDialog } from '@/features/distribution/components/RequestDialogs'
+import { EndPermitDialog } from '@/features/distribution/components/RequesterDialogs'
 import { RemoveMemberDialog } from '@/features/labs/components/RemoveMemberDialog'
 import { UnitStatusDialog } from '@/features/storage/components/UnitDialogs'
 import { CheckErrorDialog } from '@/features/vials/components/CheckDialogs'
 import { ReviveDialog } from '@/features/vials/components/VialDialogs'
-import { makeCheck, makeDeposit, makeMember, makeUnit, makeVial } from '@/test/factories'
+import { makeCheck, makeDeposit, makeMember, makePermit, makeRequest, makeRequestLine, makeUnit, makeVial } from '@/test/factories'
 import { renderWithProviders } from '@/test/render'
 
 /**
@@ -84,6 +86,26 @@ const DESTRUCTIVE: Record<string, { render: () => ReactElement; name: string; co
     ),
     name: 'Enter the purity check of 2026-10-02 in error?',
     consequence: 'no longer counts for a release. A released batch that loses a passed check waits for its checks again. This cannot be undone.',
+  },
+  '/src/features/distribution/components/RequestDialogs.tsx': {
+    render: () => (
+      <CancelDialog
+        labId="00000000-0000-4000-8000-00000000000a"
+        request={makeRequest({ number: '2026/7', status: 'approved', lines: [makeRequestLine({ reserved: [{ public_id: '00000000-0000-4000-8000-0000000000e1', label: 'MYC 1 / 1 / 1' }, { public_id: '00000000-0000-4000-8000-0000000000e2', label: 'MYC 1 / 1 / 2' }] })] })}
+        open
+        onClose={() => {}}
+        onExited={() => {}}
+      />
+    ),
+    name: 'Cancel request 2026/7?',
+    consequence: 'The request is withdrawn and its 2 reserved vials are available again. It cannot be undone.',
+  },
+  '/src/features/distribution/components/RequesterDialogs.tsx': {
+    render: () => (
+      <EndPermitDialog labId="00000000-0000-4000-8000-00000000000a" permit={makePermit({ reference: 'DEV/9' })} open onClose={() => {}} onExited={() => {}} />
+    ),
+    name: 'End DEV/9?',
+    consequence: 'From that day the permit no longer counts for a request. It cannot be undone',
   },
 }
 

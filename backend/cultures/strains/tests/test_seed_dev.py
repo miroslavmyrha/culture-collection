@@ -21,6 +21,13 @@ from cultures.biosafety.models import AuthorisationKind, LabAuthorisation, Restr
 from cultures.biosafety.policy import NEEDS_PERMIT, AuthorisationRequired, permit_today, valid_on
 from cultures.core.tests.test_settings import BACKEND, GOOD_ENV, production_value
 from cultures.deposits.models import Contact, Deposit, Depositor, DepositTerms, MtaTemplate
+from cultures.distribution.models import (
+    DistributionRequest,
+    MtaAcceptance,
+    RecipientPermit,
+    Requester,
+)
+from cultures.distribution.policy import evaluate
 from cultures.labs import services as labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, LocationGrant, Membership
@@ -117,6 +124,10 @@ def state() -> dict[str, Any]:
         "vials": rows(Vial, "batch__number", "seq", "status", "updated_at"),
         "placements": rows(VialPlacement, "box__name", "row", "col", "removed_at"),
         "grants": rows(LocationGrant, "user__username", "revoked_at"),
+        "requesters": rows(Requester, "institution", "updated_at"),
+        "permits": rows(RecipientPermit, "reference", "ended_on"),
+        "requests": rows(DistributionRequest, "end_use", "status", "updated_at"),
+        "acceptances": rows(MtaAcceptance, "request__end_use", "mta__version"),
     }
 
 
@@ -485,6 +496,31 @@ def test_it_creates_depositors_mta_versions_and_deposits_in_every_state() -> Non
     assert out.count("Deposits:") == 1
     again = seed()
     assert f"Deposits: 0 created, {len(DEPOSITS)} found." in again
+
+
+def test_requesters_and_their_permits_are_clearly_invented() -> None:
+    for row in DATA["requesters"]:
+        assert "(invented example)" in row["lab_evidence"], row["institution"]
+        scientist = row["scientist"]
+        assert scientist["email"].endswith("@example.org"), row["institution"]
+        assert "(invented example)" in scientist["postal_address"], row["institution"]
+        for permit in row["permits"]:
+            assert re.search(r"invented example|/DEV/", permit["reference"]), permit
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_the_requests_wait_one_approvable_one_for_a_manager_one_blocked_by_a_legal_gate() -> None:
+    seed()
+    found = {
+        r.end_use: {f.code: f.severity for f in evaluate(r, permit_today()).findings}
+        for r in DistributionRequest.objects.all()
+    }
+    approvable, on_request, blocked = (row["end_use"] for row in DATA["requests"])
+    assert found[approvable] == {}
+    assert found[on_request] == {"use_on_request": "manager"}
+    assert found[blocked]["rat_notice_missing"] == "block"
+    assert set(DistributionRequest.objects.values_list("status", flat=True)) == {"submitted"}
 
 
 def test_contacts_and_references_of_the_intake_are_clearly_invented() -> None:

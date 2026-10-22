@@ -15,7 +15,7 @@ from cultures.users.models import User
 from .support import MakeBatch, vials_of
 from .test_constraints import PATHS
 
-pytestmark = pytest.mark.django_db
+pytestmark = [pytest.mark.django_db, pytest.mark.usefixtures("vial_edges_alone")]
 STATES = sorted(VialStatus)
 
 
@@ -71,8 +71,11 @@ def test_the_service_allows_exactly_the_edges_a_person_may_take(
         except services.EdgeNotAllowed as error:
             assert error.code == "transition_not_allowed", (old, new)
             done = False
-        # Reserved and distributed are distribution's (#18), also as the same state again.
-        expected = allowed(old, new) and new in MANUAL_TARGETS
+        except services.VialReserved:
+            done = False
+        # Reserved and distributed are distribution's (#18), also as the same state again, and
+        # a reserved vial leaves its state only through its request.
+        expected = allowed(old, new) and new in MANUAL_TARGETS and old != VialStatus.RESERVED
         assert done == expected, (old, new)
         assert Vial.objects.get(pk=vial.pk).status == (new if done else old)
         moved = done and new != old

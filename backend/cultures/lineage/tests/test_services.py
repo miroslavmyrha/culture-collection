@@ -683,6 +683,8 @@ NOT_A_WRITE = {
     "not_passed",
     "position_label",
 }
+# Distribution's steps: written under its locks, walked by distribution/tests/test_services.py.
+DISTRIBUTION_STEPS = {"vial_reserve_locked", "vial_release_locked"}
 # Viewers may reveal (strains.view): the grant decides, tested in test_masking.py.
 VIEWER_MAY = {"vial_reveal_location"}
 
@@ -691,7 +693,7 @@ def test_every_service_has_a_scenario_here() -> None:
     """The check services have theirs in test_checks.py (their setup needs a batch)."""
     found = public_services(services)
     assert {"batch_preserve", "vial_place", "check_record"} <= found  # the walk found them
-    assert found - NOT_A_WRITE == set(SCENARIOS) | set(CHECK_SCENARIOS)
+    assert found - NOT_A_WRITE - DISTRIBUTION_STEPS == set(SCENARIOS) | set(CHECK_SCENARIOS)
     assert not set(SCENARIOS) & set(CHECK_SCENARIOS)
 
 

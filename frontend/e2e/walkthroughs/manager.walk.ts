@@ -1,5 +1,5 @@
 import { type Page, expect, test } from '@playwright/test'
-import { RUN, Walk, api, field, labId, openLab, rows, setupAs } from './walk.js'
+import { RUN, Walk, api, batchOf, field, labId, openLab, passAll, release, requestFor, rows, setupAs, supplyStrain } from './walk.js'
 
 // A manager of Bacteriology and of Regulated agents (seed_dev): people, rights and the lab's
 // legal texts. dev-no-lab is a user in no lab, reg-technician works in Regulated agents.
@@ -152,5 +152,40 @@ test('M10 review who has access to the regulated lab and what they may see', asy
   await w.read(w.page.getByRole('table', { name: 'Members' }))
   await expect(w.page.getByRole('columnheader', { name: 'Regulated locations' })).toBeVisible()
   w.note('Names are empty for every seeded member: the table shows usernames only')
+  await w.done()
+})
+
+test('M11 approve a request for a regulated strain', async ({ browser }, info) => {
+  // A strain of an invented taxon with a dual-use restriction, released stock, and a request of
+  // the seeded requester with its MTA accepted: only a manager may approve it.
+  const setup = await setupAs(browser, 'bac-curator')
+  const lab = await labId(setup.page, BAC)
+  const strain = await supplyStrain(setup.page, lab, `Testella cerea supply ${RUN}`, 'Testella cerea', [{ kind: 'dual_use', reference: '1C351.c', act: '(EU) 2025/2003' }])
+  const made = await batchOf(setup.page, lab, strain.passage, 4)
+  await setup.close()
+  const bench = await setupAs(browser, 'bac-technician')
+  await passAll(bench.page, lab, made.id, made.vials[0]?.id ?? '')
+  await bench.close()
+  const curator = await setupAs(browser, 'bac-curator')
+  await release(curator.page, lab, made.id)
+  const request = await requestFor(curator.page, lab, strain.id, 2, `Growth curves, walkthrough ${RUN}.`)
+  await curator.close()
+
+  const w = await Walk.as(browser, info, 'bac-manager', manager('M11', 'Approve a request for a regulated strain'))
+  await w.start()
+  await openLab(w, BAC)
+  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Requests' }))
+  await w.type(w.page.getByRole('searchbox', { name: 'Number, requester or strain' }), strain.number)
+  await w.press('Enter')
+  await w.click(w.page.getByRole('table', { name: 'Requests' }).getByRole('link', { name: `Request ${request.number}` }))
+  await w.read(w.page.getByRole('list', { name: 'Needs a manager’s approval' }))
+  await w.click(w.page.getByRole('button', { name: 'Approve and reserve the vials' }))
+  await w.keys('Dual-use inside the EU: no licence is needed for the transfer.')
+  await w.click(w.page.getByRole('dialog').getByRole('button', { name: 'Approve and reserve' }))
+  const reserved = w.page.getByRole('table', { name: 'Strains' }).getByRole('row').nth(1).getByRole('cell').nth(4)
+  await expect(reserved).toHaveText(new RegExp(`^${strain.number} / 1 / \\d+; ${strain.number} / 1 / \\d+$`))
+  w.look()
+  await w.shot('approved')
+  w.note('The finding says that the strain is regulated, not which permits were checked: the reason repeats what the manager looked up elsewhere')
   await w.done()
 })

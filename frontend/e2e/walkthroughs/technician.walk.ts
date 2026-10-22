@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, acceptedStrain, batch, batchOf, expandUnit, freezerWithBoxes, labId, openLab, openStrain, openUnit, setupAs } from './walk.js'
+import { RUN, Walk, acceptedStrain, api, batch, batchOf, expandUnit, freezerWithBoxes, labId, openLab, openStrain, openUnit, passAll, release, requestFor, setupAs, supplyStrain } from './walk.js'
 
 // A technician of Bacteriology (seed_dev): the bench work with batches, vials and boxes. The rows
 // each task needs are made first by the lab's curator, through the API, named for the run.
@@ -193,16 +193,31 @@ test('T8 record a viability check of a batch', async ({ browser }, info) => {
 })
 
 test('T9 pull vials for an outgoing shipment', async ({ browser }, info) => {
+  // An approved request of this run: two vials of a strain of its own are reserved for it.
+  const setup = await setupAs(browser, 'bac-curator')
+  const lab = await labId(setup.page, LAB)
+  const strain = await supplyStrain(setup.page, lab, `Bacillus subtilis pull ${RUN}`, 'Bacillus subtilis')
+  const made = await batchOf(setup.page, lab, strain.passage, 4)
+  await setup.close()
+  const checker = await setupAs(browser, 'bac-technician')
+  await passAll(checker.page, lab, made.id, made.vials[0]?.id ?? '')
+  await checker.close()
+  const curator = await setupAs(browser, 'bac-curator')
+  await release(curator.page, lab, made.id)
+  const request = await requestFor(curator.page, lab, strain.id, 2, `Pull for walkthrough ${RUN}.`)
+  await api(curator.page, lab, `requests/${request.id}/approve/`, { reason: '' })
+  await curator.close()
+
   const w = await Walk.as(browser, info, 'bac-technician', technician('T9', 'Pull two vials for an outgoing shipment'))
   await w.start()
   await openLab(w, LAB)
-  await openStrain(w, 'soil isolate DEP-1', /soil isolate DEP-1/)
-  await w.click(w.page.getByRole('button', { name: 'Change the state of vial BAC 29 / 2 / 12' }))
-  const states = w.page.getByRole('dialog').getByRole('combobox', { name: 'New state' })
-  w.look()
-  await expect(states.locator('option', { hasText: /Reserved|Distributed/ })).toHaveCount(0)
-  await w.click(w.page.getByRole('dialog').getByRole('button', { name: 'Cancel' }))
-  w.impossible('No shipment: a vial cannot be reserved or sent, and nothing lists what to pull', '#18')
+  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Requests' }))
+  await w.choose(w.page.getByRole('combobox', { name: 'Status' }), 'Approved, vials reserved')
+  await w.click(w.page.getByRole('table', { name: 'Requests' }).getByRole('link', { name: `Request ${request.number}` }))
+  const reserved = w.page.getByRole('table', { name: 'Strains' }).getByRole('row').nth(1).getByRole('cell').nth(4)
+  await expect(reserved).toHaveText(/ \/ 1 \/ \d+; /)
+  await w.read(reserved)
+  w.impossible('No shipment yet (#18 part B), and the request lists the reserved vials by label only: where each lies is found on the strain page, vial by vial', '#18')
   await w.done()
 })
 
@@ -211,7 +226,7 @@ test('T10 see what waits for me today', async ({ browser }, info) => {
   await w.start()
   w.look()
   await openLab(w, LAB)
-  await expect(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link')).toHaveCount(2)
+  await expect(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link')).toHaveCount(3)
   w.look()
   w.impossible('No overview of vials to destroy, unplaced vials or batches to check: each is only on its own strain page', '#69')
   await w.done()

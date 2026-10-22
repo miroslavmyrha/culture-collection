@@ -46,9 +46,10 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
     assert seed() == (
         "e2e-user manages E2E lab; e2e-curator, e2e-technician and e2e-viewer are its curator,"
         " technician and viewer;"
-        " e2e-colleague is in no lab; 8 taxa; a depositor, MTA STD and one accepted deposit;"
+        " e2e-colleague is in no lab; 10 taxa; a depositor, MTA STD and one accepted deposit;"
         " 2 box types; E2E freezer > Rack 1 > Box 1; a regulated strain with two vials in"
-        " Box R, revealed by e2e-user; a released batch of the seeded strain\n"
+        " Box R, revealed by e2e-user; a released batch of the seeded strain; two strains that"
+        " may go out, two requesters and three requests\n"
     )
     user = User.objects.get(username="e2e-user")
     lab = Lab.objects.get(code=LAB_CODE)
@@ -111,6 +112,34 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
     ]
 
 
+# Two strains that may go out (#18), each received, accepted and preserved into 21 vials of
+# distribution stock, checked on its first vial and released; two requesters, the first with a
+# § 17a notice; three requests, the first two with an accepted MTA.
+SUPPLY_STRAIN = [
+    "deposit_received",
+    "deposit_check_started",
+    "strain_created",
+    "deposit_accepted",
+    "passage_created",
+    "batch_created",
+    *["vial_created"] * 21,
+    "vials_created",
+    "vial_status_changed",
+    *["batch_check_recorded"] * 3,
+    "batch_status_changed",
+]
+DISTRIBUTION = [
+    *SUPPLY_STRAIN,
+    *SUPPLY_STRAIN,
+    "requester_created",
+    "recipient_permit_added",
+    "requester_created",
+    *["request_submitted", "request_line_added", "mta_acceptance_recorded"] * 2,
+    "request_submitted",
+    "request_line_added",
+]
+
+
 @pytest.mark.usefixtures("env")
 def test_its_writes_are_audited_as_the_command() -> None:
     seed()
@@ -130,8 +159,7 @@ def test_its_writes_are_audited_as_the_command() -> None:
         "taxon_created",
         *["taxon_created", "taxon_identifier_added"] * 2,
         "taxon_created",
-        "taxon_created",
-        "taxon_created",
+        *["taxon_created"] * 4,  # Testella and Mockia, invented
         "depositor_created",
         "mta_template_published",
         "deposit_received",
@@ -160,6 +188,7 @@ def test_its_writes_are_audited_as_the_command() -> None:
         "vial_status_changed",  # the first vial, used for the checks
         *["batch_check_recorded"] * 3,
         "batch_status_changed",
+        *DISTRIBUTION,
     ]
     assert {(e.channel, e.actor_kind, e.actor_label, e.actor_id) for e in events} == {
         (Channel.COMMAND, ActorKind.SYSTEM, "command:seed_e2e", None)

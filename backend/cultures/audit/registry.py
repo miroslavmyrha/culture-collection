@@ -216,6 +216,36 @@ BATCH_STATUS_CHANGED = register(
     EventType("batch_status_changed", "{actor} set {subject} to {status}", reason_required=True)
 )
 
+# Distribution (#18, part A). A requester's and a signer's personal fields are recorded as
+# "changed" (PERSONAL_FIELDS). A request spans strains, so its own events name none; each line
+# event names its strain (ADR 0008, D13), and so does every vial event it causes.
+REQUESTER_CREATED = register(EventType("requester_created", "{actor} added a requester"))
+REQUESTER_CHANGED = register(EventType("requester_changed", "{actor} changed a requester"))
+RECIPIENT_PERMIT_ADDED = register(
+    EventType("recipient_permit_added", "{actor} recorded a recipient's {kind} {reference}")
+)
+RECIPIENT_PERMIT_ENDED = register(
+    EventType("recipient_permit_ended", "{actor} ended a recipient's permit", reason_required=True)
+)
+REQUEST_SUBMITTED = register(EventType("request_submitted", "{actor} entered request {number}"))
+REQUEST_LINE_ADDED = register(EventType("request_line_added", "{actor} asked for {quantity} vials"))
+MTA_ACCEPTANCE_RECORDED = register(
+    EventType("mta_acceptance_recorded", "{actor} recorded an acceptance of the MTA")
+)
+REQUEST_APPROVED = register(EventType("request_approved", "{actor} approved {subject}"))
+REQUEST_LINE_RESERVED = register(
+    EventType("request_line_reserved", "{actor} reserved vials for a request")
+)
+REQUEST_REJECTED = register(
+    EventType("request_rejected", "{actor} rejected {subject}", reason_required=True)
+)
+REQUEST_CANCELLED = register(
+    EventType("request_cancelled", "{actor} cancelled {subject}", reason_required=True)
+)
+REQUEST_LINE_RELEASED = register(
+    EventType("request_line_released", "{actor} released the vials of a request")
+)
+
 
 @dataclass(frozen=True)
 class RowAudit:
@@ -475,6 +505,7 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "mat_reference",
             "ircc",
             "permit_reference",
+            "mat_uses",
             "reason",
         ),
     ),
@@ -597,6 +628,150 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "revoke_reason",
         ),
     ),
+    # #18. The requester holds ids and its institution, an organisation; the responsible
+    # scientist and the delivery address are its contact (NOT_ROW_AUDITED). Evidence, end use,
+    # covers and reasons are free text that names nobody; user ids reach people only through
+    # users_user.
+    "distribution_requester": RowAudit(
+        label="distribution.requester",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "contact_id",
+            "institution",
+            "legal_form",
+            "registration_number",
+            "country",
+            "lab_evidence",
+            "lab_confirmed_on",
+        ),
+    ),
+    "distribution_document": RowAudit(
+        label="distribution.document",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "content_type",
+            "size_bytes",
+            "sha256",
+        ),
+        # The file itself: its SHA-256 is audited, the bytes would flood the trail.
+        exclude=("content",),
+    ),
+    "distribution_recipientpermit": RowAudit(
+        label="distribution.recipientpermit",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "requester_id",
+            "kind",
+            "issuer",
+            "issuer_country",
+            "reference",
+            "valid_from",
+            "expires_on",
+            "covers",
+            "quantity_allowed",
+            "sendings_allowed",
+            "endorsement_reference",
+            "endorsed_on",
+            "gmo_category",
+            "risk_group",
+            "document_id",
+            "ended_on",
+            "end_reason",
+        ),
+    ),
+    "distribution_distributionrequest": RowAudit(
+        label="distribution.distributionrequest",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "year",
+            "number",
+            "requester_id",
+            "destination_country",
+            "use",
+            "end_use",
+            "containment_level",
+            "status",
+            "submitted_by_id",
+            "decided_by_id",
+            "decided_at",
+            "decision_reason",
+            "cancelled_by_id",
+            "cancelled_at",
+            "cancel_reason",
+        ),
+    ),
+    # A counter changed outside the services would hand out a request number twice.
+    "distribution_requestcounter": RowAudit(
+        label="distribution.requestcounter", audited=("id", "lab_id", "year", "last_number")
+    ),
+    "distribution_requestline": RowAudit(
+        label="distribution.requestline",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "request_id",
+            "strain_id",
+            "quantity",
+            "terms_id",
+            "mta_id",
+        ),
+    ),
+    "distribution_linepermit": RowAudit(
+        label="distribution.linepermit", audited=("id", "line_id", "permit_id")
+    ),
+    "distribution_mtaacceptance": RowAudit(
+        label="distribution.mtaacceptance",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "request_id",
+            "mta_id",
+            "signer_id",
+            "signer_role",
+            "authorised_signatory",
+            "accepted_on",
+            "document_id",
+        ),
+    ),
+    "distribution_vialreservation": RowAudit(
+        label="distribution.vialreservation",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "line_id",
+            "vial_id",
+            "reserved_at",
+            "reserved_by_id",
+            "ended_at",
+            "ended_by_id",
+            "end_reason",
+        ),
+    ),
 }
 
 
@@ -611,6 +786,9 @@ PERSONAL_FIELDS: dict[str, tuple[str, ...]] = {
     # A contact's values, also in the events of the depositor that holds it (ADR 0008, D11).
     "contact": CONTACT_PERSONAL,
     "depositor": CONTACT_PERSONAL,
+    # A requester's responsible scientist and delivery address, an MTA's signer (#18).
+    "requester": CONTACT_PERSONAL,
+    "mta_acceptance": ("signer",),
 }
 
 

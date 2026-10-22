@@ -39,6 +39,17 @@ describe('the deposit page', { timeout: 20_000 }, () => {
     expect(screen.getByRole('button', { name: 'Start checking' })).toBeInTheDocument()
   })
 
+  it('lists the uses the MAT covers for material in scope, and says when it covers none', async () => {
+    signedIn()
+    mockApi('get', DETAIL, deposit({ terms: makeTerms({ abs_scope: 'in_scope', ircc: 'ABSCH-IRCC-XX-1', mat_uses: ['research_noncommercial', 'teaching'] }) }))
+    const { unmount } = open()
+    expect(await screen.findByText('Non-commercial research, Teaching', {}, { timeout: 5000 })).toBeInTheDocument()
+    unmount()
+    mockApi('get', DETAIL, deposit({ terms: makeTerms({ abs_scope: 'in_scope', ircc: 'ABSCH-IRCC-XX-1' }) }))
+    open()
+    expect(await screen.findByText('None: nothing goes to a third party', {}, { timeout: 5000 })).toBeInTheDocument()
+  })
+
   it('starts the check and moves the focus to the section, as the button goes', async () => {
     signedIn()
     mockApi('get', DETAIL, deposit())

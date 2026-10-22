@@ -30,6 +30,14 @@ Brings the database to this state, whatever it was before:
 - for the check tests (#17): a released batch of the seeded B. subtilis strain, two vials of
   distribution stock, with a passed identity, purity and viability check recorded by
   e2e-technician on its first vial and released by e2e-curator. Made once, found by its status.
+- for the distribution tests (#18): two invented strains that may go out, each from a deposit
+  whose terms name MTA STD, with a released batch of distribution stock (topped up with a new
+  batch when fewer than ten vials are free): Testella exempli e2e supply (risk group 1, no
+  restriction) and Mockia vulgaris e2e supply (invented, a dual-use restriction, so a manager
+  approves it). Two requesters, invented institutions: E2E Institute of Microbiology, which
+  holds an invented § 17a notice, and E2E Unnotified Laboratory, which holds none. Three
+  requests, found by their end use: one a curator may approve, one a manager must approve, and
+  one blocked by a legal gate (a RAT to the unnotified laboratory).
 Strains and storage units the tests created stay: numbers are never reused, and neither a
 strain nor a unit is ever deleted.
 A second run changes nothing. Every user, lab and membership write goes
@@ -57,6 +65,9 @@ from cultures.deposits.models import (
     MtaTemplate,
     Use,
 )
+from cultures.distribution import seeding
+from cultures.distribution import services as distribution
+from cultures.distribution.models import PermitKind
 from cultures.labs import services
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, LocationGrant, Membership
@@ -74,9 +85,11 @@ from cultures.lineage.models import (
     Purpose,
     Vial,
 )
+from cultures.lineage.selectors import distributable
 from cultures.storage import services as storage
 from cultures.storage.models import BoxType, StorageUnit, UnitKind
 from cultures.strains import services as strains
+from cultures.strains.models import Strain
 from cultures.taxonomy import services as taxonomy
 from cultures.taxonomy.models import IdentifierSystem, Rank, Taxon
 from cultures.users import services as users
@@ -89,6 +102,11 @@ SEEDED_DEPOSIT = "B. subtilis e2e seed"
 REGULATED_DEPOSIT = "Testella exempli e2e regulated"
 REGULATED_BOX = "Box R"
 CURATOR, TECHNICIAN, VIEWER = "e2e-curator", "e2e-technician", "e2e-viewer"
+SUPPLY = "Testella exempli e2e supply"
+REGULATED_SUPPLY = "Mockia vulgaris e2e supply"
+INSTITUTE, UNNOTIFIED = "E2E Institute of Microbiology", "E2E Unnotified Laboratory"
+# Fewer free vials than this, and the next run releases another batch: the tests reserve some.
+MIN_FREE = 10
 
 # (name, authority, rank, parent name, accepted name, NCBI Taxonomy id). Facts from LPSN and
 # NCBI Taxonomy: Bacillus Cohn 1872 (taxid 1386), B. subtilis (Ehrenberg 1835) Cohn 1872 (1423),
@@ -111,6 +129,8 @@ TAXA: tuple[tuple[str, str, Rank, str | None, str | None, str | None], ...] = (
     # Invented: the e2e tests pair it with restrictions to exercise the gates.
     ("Testella", "", Rank.GENUS, None, None, None),
     ("Testella exempli", "", Rank.SPECIES, "Testella", None, None),
+    ("Mockia", "", Rank.GENUS, None, None, None),
+    ("Mockia vulgaris", "", Rank.SPECIES, "Mockia", None, None),
 )
 # (name, rows, cols), the names seed_dev uses too.
 BOX_TYPES = (("81-place cryobox (9 x 9)", 9, 9), ("100-place cryobox (10 x 10)", 10, 10))
@@ -157,13 +177,19 @@ class Command(BaseCommand):
                 curator=User.objects.get(username=CURATOR),
                 technician=User.objects.get(username=TECHNICIAN),
             )
+            self._distribution(
+                lab,
+                curator=User.objects.get(username=CURATOR),
+                technician=User.objects.get(username=TECHNICIAN),
+            )
         self.stdout.write(
             f"{username} manages {lab.name}; {CURATOR}, {TECHNICIAN} and {VIEWER} are its"
             " curator, technician and viewer;"
             f" {COLLEAGUE} is in no lab; {len(TAXA)} taxa; a depositor, MTA STD and"
             f" one accepted deposit; {len(BOX_TYPES)} box types; {FREEZER} > Rack 1 > Box 1;"
             f" a regulated strain with two vials in {REGULATED_BOX}, revealed by {username};"
-            " a released batch of the seeded strain"
+            " a released batch of the seeded strain; two strains that may go out, two"
+            " requesters and three requests"
         )
 
     def _taxon(  # noqa: PLR0917 (one row of TAXA, spread)
@@ -355,6 +381,162 @@ class Command(BaseCommand):
                     kind=kind,
                     stage=CheckStage.AFTER_PRESERVATION,
                     checked_on=date(2026, 10, 5),
+                    method=method,
+                    result=CheckResult.PASS,
+                    vial=vial,
+                ),
+            )
+        lineage.batch_release(
+            access=access_for(curator), batch=batch, reason="All three checks passed."
+        )
+
+    def _distribution(self, lab: Lab, *, curator: User, technician: User) -> None:
+        """Strains that may go out, the requesters and the three requests (#18)."""
+        access = access_for(curator)
+        mta = MtaTemplate.objects.get(lab=lab, code="STD", version=1)
+        supply = self._supply(lab, SUPPLY, "Testella exempli", (), mta, curator, technician)
+        regulated = self._supply(
+            lab,
+            REGULATED_SUPPLY,
+            "Mockia vulgaris",
+            (strains.RestrictionInput(RestrictionKind.DUAL_USE, "1C351.c", act="(EU) 2025/2003"),),
+            mta,
+            curator,
+            technician,
+        )
+        rat = Deposit.objects.get(lab=lab, name_as_received=REGULATED_DEPOSIT).strain
+        assert rat is not None  # noqa: S101 (accepted in _regulated)
+        scientist = distribution.ContactInput(
+            "E2E Scientist", "e2e.scientist@example.org", "Microbiology laboratory\nE2E street 2"
+        )
+        seeding.requester(
+            access,
+            lab,
+            seeding.SeedRequester(
+                institution=INSTITUTE,
+                country="CZ",
+                lab_evidence="The institute's page lists a BSL-2 microbiology laboratory"
+                " (invented example).",
+                scientist=scientist,
+                permits=(
+                    seeding.SeedPermit(
+                        PermitKind.SUJB_RAT_NOTICE,
+                        "SÚJB",
+                        "SÚJB/DEV/17a/1 (invented example)",
+                        date(2026, 1, 1),
+                    ),
+                ),
+            ),
+        )
+        seeding.requester(
+            access,
+            lab,
+            seeding.SeedRequester(
+                institution=UNNOTIFIED,
+                country="SK",
+                lab_evidence="A letter of the faculty names its microbiology laboratory"
+                " (invented example).",
+                scientist=distribution.ContactInput(
+                    "E2E Second Scientist", "", "Laboratory 3\nE2E street 3"
+                ),
+            ),
+        )
+        for request in (
+            seeding.SeedRequest(
+                INSTITUTE, "E2E seed: teaching, approvable.", Use.TEACHING, 1, ((supply, 1),)
+            ),
+            seeding.SeedRequest(
+                INSTITUTE,
+                "E2E seed: research on a dual-use strain.",
+                Use.RESEARCH_NONCOMMERCIAL,
+                2,
+                ((regulated, 1),),
+            ),
+            seeding.SeedRequest(
+                UNNOTIFIED,
+                "E2E seed: a risky agent to an unnotified laboratory.",
+                Use.RESEARCH_NONCOMMERCIAL,
+                2,
+                ((rat, 1),),
+            ),
+        ):
+            seeding.request(access, lab, request)
+
+    def _supply(  # noqa: PLR0917 (one strain of the seed, spread)
+        self,
+        lab: Lab,
+        name: str,
+        taxon: str,
+        restrictions: tuple[strains.RestrictionInput, ...],
+        mta: MtaTemplate,
+        curator: User,
+        technician: User,
+    ) -> Strain:
+        """An accepted deposit whose terms name the MTA, with released distribution stock."""
+        access = access_for(curator)
+        deposit = Deposit.objects.filter(lab=lab, name_as_received=name).first()
+        if deposit is None:
+            received = deposits.deposit_receive(
+                access=access,
+                lab=lab,
+                data=deposits.NewDeposit(
+                    depositor=Depositor.objects.get(lab=lab, contact__name=DEPOSITOR.name),
+                    received_on=date(2026, 10, 3),
+                    condition=Condition.INTACT,
+                    name_as_received=name,
+                    terms=deposits.TermsInput(
+                        abs_scope=AbsScope.NOT_IN_SCOPE,
+                        uses=[(Use(use), Decision.PERMIT) for use in Use.values],
+                        mta=mta,
+                    ),
+                ),
+            )
+            deposit = deposits.deposit_accept(
+                access=access,
+                deposit=deposits.deposit_start_check(access=access, deposit=received),
+                facts=deposits.StrainFacts(
+                    taxon=Taxon.objects.get(name=taxon),
+                    identified_on=date(2026, 10, 4),
+                    identification_method="16S rRNA gene sequence",
+                    risk_group=1,
+                    restrictions=list(restrictions),
+                ),
+            )
+        strain = deposit.strain
+        assert strain is not None  # noqa: S101 (accepted above)
+        free = Vial.objects.filter(
+            distributable("batch__"), batch__strain=strain, status="available"
+        ).count()
+        if free < MIN_FREE:
+            self._release_stock(strain, curator, technician)
+        return strain
+
+    def _release_stock(self, strain: Strain, curator: User, technician: User) -> None:
+        bench = access_for(technician)
+        batch = lineage.batch_preserve(
+            access=bench,
+            passage=Passage.objects.get(strain=strain, number=0),
+            data=lineage.NewBatch(
+                method=Method.CRYO_MINUS80,
+                purpose=Purpose.DISTRIBUTION,
+                preserved_on=date(2026, 10, 5),
+                vial_count=21,
+                cryoprotectant="10 % glycerol",
+            ),
+        )
+        vial = Vial.objects.get(batch=batch, seq=1)
+        for kind, method in (
+            (CheckKind.IDENTITY, CheckMethod.SEQUENCING),
+            (CheckKind.PURITY, CheckMethod.STREAK_PLATE),
+            (CheckKind.VIABILITY, CheckMethod.GROWTH),
+        ):
+            lineage.check_record(
+                access=bench,
+                batch=batch,
+                data=lineage.NewCheck(
+                    kind=kind,
+                    stage=CheckStage.AFTER_PRESERVATION,
+                    checked_on=date(2026, 10, 6),
                     method=method,
                     result=CheckResult.PASS,
                     vial=vial,

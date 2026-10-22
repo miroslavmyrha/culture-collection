@@ -131,6 +131,8 @@ class TermsInput:
     mat_reference: str = ""
     ircc: str = ""
     permit_reference: str = ""
+    # The uses by a subsequent user the MAT covers: in scope only.
+    mat_uses: Sequence[Use] = ()
 
 
 @dataclass(frozen=True)
@@ -192,6 +194,12 @@ def _checked_terms(terms: TermsInput, prefix: str = "terms.") -> TermsInput:
             "Material in scope of the ABS regulation needs an IRCC or a permit reference.",
             attr=f"{prefix}ircc",
         )
+    mat = set(terms.mat_uses)
+    if mat and terms.abs_scope != AbsScope.IN_SCOPE:
+        raise InvalidDeposit(
+            "Only material in scope of the ABS regulation has mutually agreed terms to cover uses.",
+            attr=f"{prefix}mat_uses",
+        )
     seen: set[str] = set()
     for i, (use, _) in enumerate(terms.uses):
         if use in seen:
@@ -205,6 +213,8 @@ def _checked_terms(terms: TermsInput, prefix: str = "terms.") -> TermsInput:
     return TermsInput(
         abs_scope=terms.abs_scope,
         uses=tuple(terms.uses),
+        # One order, the vocabulary's, so equal sets are equal lists in the row and the event.
+        mat_uses=tuple(Use(use) for use in Use.values if use in mat),
         mta=terms.mta,
         country_of_origin=terms.country_of_origin,
         collection_date=terms.collection_date,
@@ -423,6 +433,7 @@ def _terms_values(terms: TermsInput) -> dict[str, Any]:
         "mat_reference": terms.mat_reference,
         "ircc": terms.ircc,
         "permit_reference": terms.permit_reference,
+        "mat_uses": list(terms.mat_uses),
         "uses": dict(terms.uses),
     }
 
@@ -443,6 +454,7 @@ def _add_terms(deposit: Deposit, terms: TermsInput, version: int, reason: str) -
         mat_reference=terms.mat_reference,
         ircc=terms.ircc,
         permit_reference=terms.permit_reference,
+        mat_uses=list(terms.mat_uses),
         reason=reason,
     )
     _save(row, {TERMS_VERSION_UNIQUE: TermsChanged(), ONE_ACTIVE_TERMS: TermsChanged()})

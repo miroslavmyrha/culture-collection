@@ -7,8 +7,8 @@ construction: GRANTS lists only what a role adds.
 Enforced today: view the lab and its members, manage members (#9), view strains
 and manage them (#11), view and manage depositors and deposits, publish MTA
 versions (#10, #12), view and manage storage (#14), handle vials (#16), release
-and hold batches (#17). The others are named now so later features plug into the
-same map instead of inventing their own checks.
+and hold batches (#17), read, enter and decide requests (#18). The others are named now so
+later features plug into the same map instead of inventing their own checks.
 """
 
 from enum import StrEnum
@@ -50,7 +50,14 @@ class Perm(StrEnum):
     MANAGE_DEPOSITS = "deposits.manage"
     # Publishing an MTA template version: a legal text the lab signs up to.
     MANAGE_MTA = "deposits.manage_mta"
+    # #18: requests, their lines, findings and reserved vials (no place, no person); the
+    # requesters with their contacts, permits and documents (they reach people); entering
+    # requests and requesters and deciding on them; approving over a finding that needs a
+    # manager, a regulated line above all (ADR 0009).
+    VIEW_DISTRIBUTION = "distribution.view"
+    VIEW_REQUESTERS = "distribution.view_requesters"
     MANAGE_DISTRIBUTION = "distribution.manage"
+    APPROVE_REGULATED = "distribution.approve_regulated"
     # #17: releasing a batch for use, or holding it. Recording its checks is bench work
     # (HANDLE_VIALS); deciding on them is the curators' (ADR 0008, D16).
     RELEASE_BATCHES = "batches.release"
@@ -59,7 +66,13 @@ class Perm(StrEnum):
 # What each role adds to the roles below it.
 GRANTS: dict[Role, frozenset[Perm]] = {
     Role.VIEWER: frozenset(
-        {Perm.VIEW_LAB, Perm.VIEW_MEMBERS, Perm.VIEW_STRAINS, Perm.VIEW_STORAGE}
+        {
+            Perm.VIEW_LAB,
+            Perm.VIEW_MEMBERS,
+            Perm.VIEW_STRAINS,
+            Perm.VIEW_STORAGE,
+            Perm.VIEW_DISTRIBUTION,
+        }
     ),
     Role.TECHNICIAN: frozenset({Perm.HANDLE_VIALS}),
     Role.CURATOR: frozenset(
@@ -68,11 +81,12 @@ GRANTS: dict[Role, frozenset[Perm]] = {
             Perm.MANAGE_STORAGE,
             Perm.VIEW_DEPOSITS,
             Perm.MANAGE_DEPOSITS,
+            Perm.VIEW_REQUESTERS,
             Perm.MANAGE_DISTRIBUTION,
             Perm.RELEASE_BATCHES,
         }
     ),
-    Role.MANAGER: frozenset({Perm.MANAGE_MEMBERS, Perm.MANAGE_MTA}),
+    Role.MANAGER: frozenset({Perm.MANAGE_MEMBERS, Perm.MANAGE_MTA, Perm.APPROVE_REGULATED}),
 }
 
 

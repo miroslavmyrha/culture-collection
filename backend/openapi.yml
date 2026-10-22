@@ -1750,6 +1750,58 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/documents/{public_id}/:
+    get:
+      operationId: labs_documents_retrieve
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/location-grants/:
     get:
       operationId: labs_location_grants_list
@@ -2693,6 +2745,1033 @@ paths:
               schema:
                 $ref: '#/components/schemas/PassageOutput'
           description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/recipient-permits/:
+    get:
+      operationId: labs_recipient_permits_list
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      - in: query
+        name: requester
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPermitOutputList'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    post:
+      operationId: labs_recipient_permits_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PermitInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermitOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input, named by its field: an unknown requester, strain
+            or MTA version, a strain without terms (no_terms), a file that is empty,
+            too large or not a PDF, PNG or JPEG'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/recipient-permits/{public_id}/:
+    get:
+      operationId: labs_recipient_permits_retrieve
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermitOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/recipient-permits/{public_id}/end/:
+    post:
+      operationId: labs_recipient_permits_end_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PermitEndInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PermitEndInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermitOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input, named by its field: an unknown requester, strain
+            or MTA version, a strain without terms (no_terms), a file that is empty,
+            too large or not a PDF, PNG or JPEG'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'request_state: the request is no longer in the state the action
+            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
+            vial_reserved_meanwhile; request_number_taken'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: reason_required
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/requesters/:
+    get:
+      operationId: labs_requesters_list
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      - in: query
+        name: search
+        schema:
+          type: string
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRequesterOutputList'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    post:
+      operationId: labs_requesters_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequesterInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RequesterInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequesterOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input, named by its field: an unknown requester, strain
+            or MTA version, a strain without terms (no_terms), a file that is empty,
+            too large or not a PDF, PNG or JPEG'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/requesters/{public_id}/:
+    get:
+      operationId: labs_requesters_retrieve
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequesterOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    put:
+      operationId: labs_requesters_update
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequesterInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RequesterInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequesterOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input, named by its field: an unknown requester, strain
+            or MTA version, a strain without terms (no_terms), a file that is empty,
+            too large or not a PDF, PNG or JPEG'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'request_state: the request is no longer in the state the action
+            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
+            vial_reserved_meanwhile; request_number_taken'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/requests/:
+    get:
+      operationId: labs_requests_list
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      - in: query
+        name: requester
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: search
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - approved
+          - cancelled
+          - rejected
+          - submitted
+        description: |-
+          * `submitted` - Submitted
+          * `approved` - Approved
+          * `rejected` - Rejected
+          * `cancelled` - Cancelled
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRequestListOutputList'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    post:
+      operationId: labs_requests_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RequestInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input, named by its field: an unknown requester, strain
+            or MTA version, a strain without terms (no_terms), a file that is empty,
+            too large or not a PDF, PNG or JPEG'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'request_state: the request is no longer in the state the action
+            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
+            vial_reserved_meanwhile; request_number_taken'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'export_of_regulated_strain, export_not_supported: the requester
+            is outside the EU'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/requests/{public_id}/:
+    get:
+      operationId: labs_requests_retrieve
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestDetailOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/requests/{public_id}/acceptances/:
+    post:
+      operationId: labs_requests_acceptances_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AcceptanceInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input, named by its field: an unknown requester, strain
+            or MTA version, a strain without terms (no_terms), a file that is empty,
+            too large or not a PDF, PNG or JPEG'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'request_state: the request is no longer in the state the action
+            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
+            vial_reserved_meanwhile; request_number_taken'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/requests/{public_id}/approve/:
+    post:
+      operationId: labs_requests_approve_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ApproveInputRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input, named by its field: an unknown requester, strain
+            or MTA version, a strain without terms (no_terms), a file that is empty,
+            too large or not a PDF, PNG or JPEG'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'request_state: the request is no longer in the state the action
+            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
+            vial_reserved_meanwhile; request_number_taken'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'request_blocked: a finding of the policy blocks the approval
+            (the detail lists them); reason_required'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/requests/{public_id}/cancel/:
+    post:
+      operationId: labs_requests_cancel_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReasonInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input, named by its field: an unknown requester, strain
+            or MTA version, a strain without terms (no_terms), a file that is empty,
+            too large or not a PDF, PNG or JPEG'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'request_state: the request is no longer in the state the action
+            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
+            vial_reserved_meanwhile; request_number_taken'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: reason_required
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/requests/{public_id}/reject/:
+    post:
+      operationId: labs_requests_reject_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReasonInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input, named by its field: an unknown requester, strain
+            or MTA version, a strain without terms (no_terms), a file that is empty,
+            too large or not a PDF, PNG or JPEG'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'request_state: the request is no longer in the state the action
+            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
+            vial_reserved_meanwhile; request_number_taken'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: reason_required
         '401':
           content:
             application/problem+json:
@@ -4220,6 +5299,110 @@ components:
         * `not_in_scope` - Not in scope
         * `in_scope` - In scope
         * `unknown` - Unknown
+    AcceptanceInputRequest:
+      type: object
+      description: Sent as multipart/form-data with the signed copy.
+      properties:
+        mta:
+          type: string
+          format: uuid
+        signer_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        signer_email:
+          oneOf:
+          - type: string
+            format: email
+            default: ''
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        signer_role:
+          $ref: '#/components/schemas/SignerRole'
+        authorised_signatory:
+          type: boolean
+        accepted_on:
+          type: string
+          format: date
+        file:
+          type: string
+          format: binary
+      required:
+      - accepted_on
+      - authorised_signatory
+      - file
+      - mta
+      - signer_name
+      - signer_role
+    AcceptanceOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        mta:
+          allOf:
+          - $ref: '#/components/schemas/MtaBrief'
+          readOnly: true
+        signer_name:
+          type: string
+          nullable: true
+          description: Null for a caller who may not see people; empty once the signer
+            was erased.
+          readOnly: true
+        signer_role:
+          allOf:
+          - $ref: '#/components/schemas/SignerRole'
+          readOnly: true
+        authorised_signatory:
+          type: boolean
+          readOnly: true
+        accepted_on:
+          type: string
+          format: date
+          readOnly: true
+        document:
+          allOf:
+          - $ref: '#/components/schemas/DocumentOutput'
+          nullable: true
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - accepted_on
+      - authorised_signatory
+      - created_at
+      - document
+      - mta
+      - public_id
+      - signer_name
+      - signer_role
+    ApproveInputRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          default: ''
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+    ApprovedPermit:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/PermitKind'
+        reference:
+          type: string
+      required:
+      - kind
+      - public_id
+      - reference
     BarcodeInputRequest:
       type: object
       properties:
@@ -5495,6 +6678,61 @@ components:
       - name
       - postal_address
       - public_id
+    DocumentOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        content_type:
+          allOf:
+          - $ref: '#/components/schemas/DocumentType'
+          readOnly: true
+        size_bytes:
+          type: integer
+          readOnly: true
+        sha256:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - content_type
+      - created_at
+      - public_id
+      - sha256
+      - size_bytes
+    DocumentType:
+      enum:
+      - application/pdf
+      - image/png
+      - image/jpeg
+      type: string
+      description: |-
+        * `application/pdf` - PDF
+        * `image/png` - PNG image
+        * `image/jpeg` - JPEG image
+    Finding:
+      type: object
+      properties:
+        code:
+          type: string
+        severity:
+          $ref: '#/components/schemas/SeverityEnum'
+        sentence:
+          type: string
+        line:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - code
+      - line
+      - sentence
+      - severity
     IdentificationOutput:
       type: object
       properties:
@@ -5580,6 +6818,89 @@ components:
       - identity
       - purity
       - viability
+    LegalForm:
+      enum:
+      - legal_person
+      - business
+      type: string
+      description: |-
+        * `legal_person` - Legal person (an institution or a company)
+        * `business` - Natural person licensed to do business
+    LineInputRequest:
+      type: object
+      properties:
+        strain:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          maximum: 50
+          minimum: 1
+      required:
+      - quantity
+      - strain
+    LineOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        strain:
+          allOf:
+          - $ref: '#/components/schemas/LineStrain'
+          readOnly: true
+        quantity:
+          type: integer
+          readOnly: true
+        terms_version:
+          type: integer
+          readOnly: true
+        mta:
+          allOf:
+          - $ref: '#/components/schemas/MtaBrief'
+          readOnly: true
+          nullable: true
+        reserved:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReservedVial'
+          readOnly: true
+        permits:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApprovedPermit'
+          readOnly: true
+      required:
+      - mta
+      - permits
+      - public_id
+      - quantity
+      - reserved
+      - strain
+      - terms_version
+    LineStrain:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        accession_number:
+          type: string
+          readOnly: true
+          nullable: true
+        taxon:
+          type: string
+          readOnly: true
+        risk_group:
+          type: integer
+          readOnly: true
+      required:
+      - accession_number
+      - public_id
+      - risk_group
+      - taxon
     Location:
       type: object
       properties:
@@ -5750,6 +7071,27 @@ components:
           $ref: '#/components/schemas/Role'
       required:
       - role
+    MtaBrief:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        version:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+      required:
+      - code
+      - public_id
+      - title
+      - version
     MtaTemplateBrief:
       type: object
       properties:
@@ -6091,6 +7433,75 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PassageOutput'
+    PaginatedPermitOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermitOutput'
+    PaginatedRequestListOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequestListOutput'
+    PaginatedRequesterOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequesterOutput'
     PaginatedStrainListOutputList:
       type: object
       required:
@@ -6215,6 +7626,206 @@ components:
         * `unknown` - Unknown
         * `none_known` - No pathogenicity known
         * `pathogenic` - Pathogenic
+    PermitEndInputRequest:
+      type: object
+      properties:
+        ended_on:
+          type: string
+          format: date
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+      required:
+      - ended_on
+      - reason
+    PermitInputRequest:
+      type: object
+      description: Sent as multipart/form-data with the file.
+      properties:
+        requester:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/PermitKind'
+        issuer:
+          type: string
+          minLength: 1
+          maxLength: 200
+        issuer_country:
+          $ref: '#/components/schemas/CountryCode'
+        reference:
+          type: string
+          minLength: 1
+          maxLength: 200
+        valid_from:
+          type: string
+          format: date
+        expires_on:
+          type: string
+          format: date
+          nullable: true
+        covers:
+          type: string
+          default: ''
+          maxLength: 2000
+        quantity_allowed:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          nullable: true
+        sendings_allowed:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          nullable: true
+        endorsement_reference:
+          type: string
+          default: ''
+          maxLength: 200
+        endorsed_on:
+          type: string
+          format: date
+          nullable: true
+        gmo_category:
+          type: integer
+          maximum: 4
+          minimum: 1
+          nullable: true
+        risk_group:
+          type: integer
+          maximum: 4
+          minimum: 1
+          nullable: true
+        file:
+          type: string
+          format: binary
+      required:
+      - file
+      - issuer
+      - issuer_country
+      - kind
+      - reference
+      - requester
+      - valid_from
+    PermitKind:
+      enum:
+      - sujb_vrat
+      - sujb_rat_notice
+      - sujb_exception
+      - plant_health_loa
+      - gmo_contained_use
+      - pathogen_work_permit
+      type: string
+      description: |-
+        * `sujb_vrat` - SÚJB permit to handle highly risky agents (VRAT)
+        * `sujb_rat_notice` - Notice to SÚJB of handling risky agents (RAT)
+        * `sujb_exception` - SÚJB decision allowing a VRAT to a non-holder
+        * `plant_health_loa` - Letter of Authority for a quarantine pest
+        * `gmo_contained_use` - Authorisation for contained use of GMOs
+        * `pathogen_work_permit` - Permit to work with pathogens
+    PermitOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        requester:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/PermitKind'
+          readOnly: true
+        issuer:
+          type: string
+          readOnly: true
+        issuer_country:
+          type: string
+          readOnly: true
+        reference:
+          type: string
+          readOnly: true
+        valid_from:
+          type: string
+          format: date
+          readOnly: true
+        expires_on:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        covers:
+          type: string
+          readOnly: true
+        quantity_allowed:
+          type: integer
+          readOnly: true
+          nullable: true
+        sendings_allowed:
+          type: integer
+          readOnly: true
+          nullable: true
+        endorsement_reference:
+          type: string
+          readOnly: true
+        endorsed_on:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        gmo_category:
+          type: integer
+          readOnly: true
+          nullable: true
+        risk_group:
+          type: integer
+          readOnly: true
+          nullable: true
+        document:
+          allOf:
+          - $ref: '#/components/schemas/DocumentOutput'
+          readOnly: true
+        ended_on:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        end_reason:
+          type: string
+          readOnly: true
+        valid_today:
+          type: boolean
+          description: 'Valid on today''s Czech day: started, not expired, not ended.'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - covers
+      - created_at
+      - document
+      - end_reason
+      - ended_on
+      - endorsed_on
+      - endorsement_reference
+      - expires_on
+      - gmo_category
+      - issuer
+      - issuer_country
+      - kind
+      - public_id
+      - quantity_allowed
+      - reference
+      - requester
+      - risk_group
+      - sendings_allowed
+      - valid_from
+      - valid_today
     PlaceInputRequest:
       type: object
       properties:
@@ -6347,6 +7958,16 @@ components:
         * `subspecies` - Subspecies
         * `variety` - Variety
         * `form` - Form
+    ReasonInputRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+      required:
+      - reason
     ReclassifyInputRequest:
       type: object
       properties:
@@ -6379,6 +8000,348 @@ components:
           maxLength: 2000
       required:
       - reason
+    RequestDetailOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        number:
+          type: string
+          readOnly: true
+        requester:
+          allOf:
+          - $ref: '#/components/schemas/RequesterBrief'
+          readOnly: true
+        destination_country:
+          type: string
+          readOnly: true
+        use:
+          allOf:
+          - $ref: '#/components/schemas/Use'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/RequestStatus'
+          readOnly: true
+        line_count:
+          type: integer
+          readOnly: true
+        vial_count:
+          type: integer
+          readOnly: true
+        regulated:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        decided_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        end_use:
+          type: string
+          readOnly: true
+        containment_level:
+          type: integer
+          readOnly: true
+        submitted_by:
+          type: string
+          readOnly: true
+        decided_by:
+          type: string
+          readOnly: true
+          nullable: true
+        decision_reason:
+          type: string
+          readOnly: true
+        cancelled_by:
+          type: string
+          readOnly: true
+          nullable: true
+        cancelled_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        cancel_reason:
+          type: string
+          readOnly: true
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineOutput'
+          readOnly: true
+        acceptances:
+          type: array
+          items:
+            $ref: '#/components/schemas/AcceptanceOutput'
+          readOnly: true
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Finding'
+          readOnly: true
+      required:
+      - acceptances
+      - cancel_reason
+      - cancelled_at
+      - cancelled_by
+      - containment_level
+      - created_at
+      - decided_at
+      - decided_by
+      - decision_reason
+      - destination_country
+      - end_use
+      - findings
+      - line_count
+      - lines
+      - number
+      - public_id
+      - regulated
+      - requester
+      - status
+      - submitted_by
+      - use
+      - vial_count
+    RequestInputRequest:
+      type: object
+      properties:
+        requester:
+          type: string
+          format: uuid
+        use:
+          $ref: '#/components/schemas/Use'
+        end_use:
+          type: string
+          minLength: 1
+          description: 'Stored for good: name no person.'
+          maxLength: 2000
+        containment_level:
+          type: integer
+          maximum: 4
+          minimum: 1
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineInputRequest'
+      required:
+      - containment_level
+      - end_use
+      - lines
+      - requester
+      - use
+    RequestListOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        number:
+          type: string
+          readOnly: true
+        requester:
+          allOf:
+          - $ref: '#/components/schemas/RequesterBrief'
+          readOnly: true
+        destination_country:
+          type: string
+          readOnly: true
+        use:
+          allOf:
+          - $ref: '#/components/schemas/Use'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/RequestStatus'
+          readOnly: true
+        line_count:
+          type: integer
+          readOnly: true
+        vial_count:
+          type: integer
+          readOnly: true
+        regulated:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        decided_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - created_at
+      - decided_at
+      - destination_country
+      - line_count
+      - number
+      - public_id
+      - regulated
+      - requester
+      - status
+      - use
+      - vial_count
+    RequestStatus:
+      enum:
+      - submitted
+      - approved
+      - rejected
+      - cancelled
+      type: string
+      description: |-
+        * `submitted` - Submitted
+        * `approved` - Approved
+        * `rejected` - Rejected
+        * `cancelled` - Cancelled
+    RequesterBrief:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        institution:
+          type: string
+          readOnly: true
+        country:
+          type: string
+          readOnly: true
+      required:
+      - country
+      - institution
+      - public_id
+    RequesterInputRequest:
+      type: object
+      properties:
+        institution:
+          type: string
+          minLength: 1
+          maxLength: 200
+        legal_form:
+          $ref: '#/components/schemas/LegalForm'
+        registration_number:
+          type: string
+          default: ''
+          maxLength: 40
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        lab_evidence:
+          type: string
+          minLength: 1
+          description: 'Stored for good: name no person.'
+          maxLength: 2000
+        lab_confirmed_on:
+          type: string
+          format: date
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        email:
+          oneOf:
+          - type: string
+            format: email
+            default: ''
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        postal_address:
+          type: string
+          minLength: 1
+          maxLength: 1000
+      required:
+      - country
+      - institution
+      - lab_confirmed_on
+      - lab_evidence
+      - legal_form
+      - name
+      - postal_address
+    RequesterOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        institution:
+          type: string
+          readOnly: true
+        legal_form:
+          allOf:
+          - $ref: '#/components/schemas/LegalForm'
+          readOnly: true
+        registration_number:
+          type: string
+          readOnly: true
+        country:
+          type: string
+          readOnly: true
+        lab_evidence:
+          type: string
+          readOnly: true
+        lab_confirmed_on:
+          type: string
+          format: date
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          readOnly: true
+        postal_address:
+          type: string
+          readOnly: true
+        erased:
+          type: boolean
+          readOnly: true
+        permits:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermitOutput'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - country
+      - created_at
+      - email
+      - erased
+      - institution
+      - lab_confirmed_on
+      - lab_evidence
+      - legal_form
+      - name
+      - permits
+      - postal_address
+      - public_id
+      - registration_number
+    ReservedVial:
+      type: object
+      description: A reserved vial by its label only, never its place (ADR 0009).
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        label:
+          type: string
+          readOnly: true
+      required:
+      - label
+      - public_id
     RestrictionAddInputRequest:
       type: object
       properties:
@@ -6549,6 +8512,24 @@ components:
         * `technician` - Technician
         * `curator` - Curator
         * `manager` - Manager
+    SeverityEnum:
+      enum:
+      - block
+      - manager
+      type: string
+      description: |-
+        * `block` - block
+        * `manager` - manager
+    SignerRole:
+      enum:
+      - responsible_scientist
+      - head_of_institution
+      - authorised_representative
+      type: string
+      description: |-
+        * `responsible_scientist` - Responsible scientist
+        * `head_of_institution` - Head of the institution or department
+        * `authorised_representative` - Authorised representative
     SourceKindEnum:
       enum:
       - deposit
@@ -6901,6 +8882,11 @@ components:
           type: string
           default: ''
           maxLength: 200
+        mat_uses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Use'
+          maxItems: 8
         uses:
           type: array
           items:
@@ -6949,6 +8935,11 @@ components:
         permit_reference:
           type: string
           readOnly: true
+        mat_uses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Use'
+          readOnly: true
         reason:
           type: string
           readOnly: true
@@ -6969,6 +8960,7 @@ components:
       - ircc
       - is_active
       - mat_reference
+      - mat_uses
       - mta
       - permit_reference
       - pic_reference

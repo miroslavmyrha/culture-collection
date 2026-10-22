@@ -119,6 +119,9 @@ class TermsUseSerializer(serializers.ModelSerializer[TermsUse]):
 class TermsOutputSerializer(serializers.ModelSerializer[DepositTerms]):
     mta = MtaTemplateBriefSerializer(read_only=True, allow_null=True)
     abs_scope = serializers.ChoiceField(choices=AbsScope.choices, read_only=True)
+    mat_uses = serializers.ListField(
+        child=serializers.ChoiceField(choices=Use.choices), read_only=True
+    )
     uses = TermsUseSerializer(many=True, read_only=True)
 
     class Meta:
@@ -135,6 +138,7 @@ class TermsOutputSerializer(serializers.ModelSerializer[DepositTerms]):
             "mat_reference",
             "ircc",
             "permit_reference",
+            "mat_uses",
             "reason",
             "uses",
             "created_at",
@@ -212,6 +216,13 @@ class TermsInputSerializer(serializers.Serializer[None]):
     ircc = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
     permit_reference = serializers.CharField(
         max_length=200, required=False, allow_blank=True, default=""
+    )
+    # The uses by a subsequent user the MAT covers: in scope only.
+    mat_uses = serializers.ListField(
+        child=serializers.ChoiceField(choices=Use.choices),
+        required=False,
+        default=list,
+        max_length=len(Use.values),
     )
     # max_length on a many=True serializer is DRF's (ListSerializer, 3.14+); the stubs lack it.
     uses = TermsUseSerializer(many=True, max_length=20)  # type: ignore[call-arg]

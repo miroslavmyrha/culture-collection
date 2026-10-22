@@ -75,6 +75,7 @@ def _terms(values: dict[str, Any]) -> services.TermsInput:
         mat_reference=values["mat_reference"],
         ircc=values["ircc"],
         permit_reference=values["permit_reference"],
+        mat_uses=[Use(use) for use in values["mat_uses"]],
     )
 
 
