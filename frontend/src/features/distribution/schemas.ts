@@ -38,10 +38,11 @@ export const canApproveRegulated = (role: Role | undefined): boolean => role ===
 export const canShip = (request: Pick<RequestRow, 'status' | 'regulated'>, role: Role | undefined): boolean =>
   canManageRequests(role) && request.status === 'approved' && !request.regulated
 
-export const STATUSES = ['submitted', 'approved', 'shipped', 'rejected', 'cancelled'] as const satisfies readonly RequestStatus[]
+export const STATUSES = ['submitted', 'approved', 'awaiting_confirmation', 'shipped', 'rejected', 'cancelled'] as const satisfies readonly RequestStatus[]
 export const STATUS_LABELS: Record<RequestStatus, string> = {
   submitted: 'Waiting for a decision',
   approved: 'Approved, vials reserved',
+  awaiting_confirmation: 'Shipment prepared, waiting for a second person',
   shipped: 'Shipped',
   rejected: 'Rejected',
   cancelled: 'Cancelled',

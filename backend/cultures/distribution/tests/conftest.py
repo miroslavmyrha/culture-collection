@@ -22,4 +22,11 @@ from cultures.strains.tests.conftest import (  # noqa: F401 (fixtures)
     viewer,
 )
 
-from .fixtures import make_requester, requester, supply, world  # noqa: F401 (fixtures)
+from .fixtures import (  # noqa: F401 (fixtures)
+    approver,
+    make_requester,
+    regulated,
+    requester,
+    supply,
+    world,
+)

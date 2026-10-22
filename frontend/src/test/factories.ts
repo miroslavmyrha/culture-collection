@@ -434,6 +434,7 @@ export function makeRequest(overrides: Partial<RequestDetail> = {}): RequestDeta
     acceptances: [],
     findings: [],
     shipment: null,
+    preparations: [],
     ...overrides,
   }
 }
@@ -457,6 +458,7 @@ export function makeShipment(overrides: Partial<Shipment> = {}): Shipment {
     tracking_number: 'EX123456789CZ',
     shipped_by: 'curator',
     shipped_at: at,
+    preparation: null,
     ...overrides,
   }
 }

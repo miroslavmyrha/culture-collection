@@ -21,6 +21,7 @@ from .models import (
     RecipientPermit,
     Requester,
     RequestLine,
+    ShipmentPreparation,
     ShipmentVial,
     VialReservation,
 )
@@ -107,8 +108,8 @@ def request_matching(
 
 def request_detail(*, access: Access, lab: Lab) -> QuerySet[DistributionRequest]:
     """The same rows with their lines (strain, terms and MTA version, open reservations with
-    their vials, the vials shipped, the permits approved against), the MTA acceptances and the
-    shipment with its responsible person."""
+    their vials, the vials shipped, the permits approved against), the MTA acceptances, the
+    shipment with its responsible person and the prepared shipments, newest first (#89)."""
     lines: QuerySet[RequestLine] = RequestLine.objects.select_related(
         "strain__taxon", "terms", "mta"
     ).prefetch_related(
@@ -142,6 +143,7 @@ def request_detail(*, access: Access, lab: Lab) -> QuerySet[DistributionRequest]
             "shipment__responsible",
             "shipment__classified_by",
             "shipment__shipped_by",
+            "shipment__preparation",
         )
         .prefetch_related(
             Prefetch("lines", queryset=lines.order_by("pk"), to_attr="line_list"),
@@ -149,6 +151,13 @@ def request_detail(*, access: Access, lab: Lab) -> QuerySet[DistributionRequest]
                 "acceptances",
                 queryset=MtaAcceptance.objects.select_related("mta", "signer").order_by("pk"),
                 to_attr="acceptance_list",
+            ),
+            Prefetch(
+                "preparations",
+                queryset=ShipmentPreparation.objects.select_related(
+                    "responsible", "prepared_by", "withdrawn_by"
+                ).order_by("-prepared_at", "-pk"),
+                to_attr="preparation_list",
             ),
         )
     )

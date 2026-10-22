@@ -42,6 +42,7 @@ from cultures.labs.permissions import Perm
 from .serializers import (
     AcceptanceInputSerializer,
     ApproveInputSerializer,
+    ConfirmInputSerializer,
     PermitEndInputSerializer,
     PermitInputSerializer,
     PermitOutputSerializer,
@@ -65,7 +66,8 @@ STATE = OpenApiResponse(
     ProblemSerializer,
     "request_state: the request is no longer in the state the action starts from;"
     " acceptance_exists; permit_ended; contact_erased; not_enough_vials;"
-    " vial_reserved_meanwhile; request_number_taken",
+    " vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared"
+    " shipment is open than the one confirmed; preparation_exists",
 )
 BLOCKED = OpenApiResponse(
     ProblemSerializer,
@@ -80,7 +82,13 @@ RULE = OpenApiResponse(ProblemSerializer, "reason_required")
 SHIP_REFUSED = OpenApiResponse(
     ProblemSerializer,
     "shipment_blocked: a gate of the policy blocks the shipment on the ship day (the detail"
-    " lists them); second_person_required: a regulated line waits for a second person",
+    " lists them); second_person_required: a regulated line is prepared and confirmed by a"
+    " second person; ship_in_one_step: no line is regulated, so nothing is prepared",
+)
+NOT_YOURS = OpenApiResponse(
+    ProblemSerializer,
+    "confirm_own_approval, confirm_own_preparation: a different person confirms (ADR 0009);"
+    " permission_denied",
 )
 LAB_PARAMETER = OpenApiParameter("lab_public_id", OpenApiTypes.UUID, OpenApiParameter.PATH)
 
@@ -111,6 +119,22 @@ def _requester(values: dict[str, Any]) -> services.RequesterInput:
         lab_evidence=values["lab_evidence"],
         lab_confirmed_on=values["lab_confirmed_on"],
         registration_number=values["registration_number"],
+    )
+
+
+def _shipment(values: dict[str, Any]) -> services.ShipmentInput:
+    return services.ShipmentInput(
+        transport_class=TransportClass(values["transport_class"]),
+        classification_basis=ClassificationBasis(values["classification_basis"]),
+        packing_instruction=PackingInstruction(values["packing_instruction"]),
+        responsible=services.ContactInput(
+            name=values["responsible_name"], phone=values["responsible_phone"]
+        ),
+        carrier=values["carrier"],
+        basis_note=values["basis_note"],
+        coolant=Coolant(values["coolant"]),
+        coolant_kg=values["coolant_kg"],
+        tracking_number=values["tracking_number"],
     )
 
 
@@ -285,6 +309,9 @@ class RequestViewSet(LabNested):
         "cancel": Perm.MANAGE_DISTRIBUTION,
         "acceptances": Perm.MANAGE_DISTRIBUTION,
         "ship": Perm.MANAGE_DISTRIBUTION,
+        "prepare_shipment": Perm.MANAGE_DISTRIBUTION,
+        "confirm_shipment": Perm.MANAGE_DISTRIBUTION,
+        "withdraw_shipment": Perm.MANAGE_DISTRIBUTION,
     }
     filterset_class = RequestFilter
 
@@ -436,22 +463,59 @@ class RequestViewSet(LabNested):
     @action(detail=True, methods=["post"], url_path="ship")
     def ship(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         target: DistributionRequest = self.get_object()
-        values = _input(ShipInputSerializer, self, request)
-        services.request_ship(
-            access=access_of(request),
-            request=target,
-            data=services.ShipmentInput(
-                transport_class=TransportClass(values["transport_class"]),
-                classification_basis=ClassificationBasis(values["classification_basis"]),
-                packing_instruction=PackingInstruction(values["packing_instruction"]),
-                responsible=services.ContactInput(
-                    name=values["responsible_name"], phone=values["responsible_phone"]
-                ),
-                carrier=values["carrier"],
-                basis_note=values["basis_note"],
-                coolant=Coolant(values["coolant"]),
-                coolant_kg=values["coolant_kg"],
-                tracking_number=values["tracking_number"],
-            ),
+        data = _shipment(_input(ShipInputSerializer, self, request))
+        services.request_ship(access=access_of(request), request=target, data=data)
+        return self._detail(target)
+
+    @extend_schema(
+        request=ShipInputSerializer,
+        responses={
+            200: RequestDetailOutputSerializer,
+            (400, PROBLEM): INVALID,
+            (409, PROBLEM): STATE,
+            (422, PROBLEM): SHIP_REFUSED,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="prepare-shipment")
+    def prepare_shipment(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        target: DistributionRequest = self.get_object()
+        data = _shipment(_input(ShipInputSerializer, self, request))
+        services.request_prepare_shipment(access=access_of(request), request=target, data=data)
+        return self._detail(target)
+
+    @extend_schema(
+        request=ConfirmInputSerializer,
+        responses={
+            200: RequestDetailOutputSerializer,
+            (400, PROBLEM): INVALID,
+            (403, PROBLEM): NOT_YOURS,
+            (409, PROBLEM): STATE,
+            (422, PROBLEM): SHIP_REFUSED,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="confirm-shipment")
+    def confirm_shipment(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        target: DistributionRequest = self.get_object()
+        values = _input(ConfirmInputSerializer, self, request)
+        services.request_confirm_shipment(
+            access=access_of(request), request=target, preparation=values["preparation"]
+        )
+        return self._detail(target)
+
+    @extend_schema(
+        request=ReasonInputSerializer,
+        responses={
+            200: RequestDetailOutputSerializer,
+            (400, PROBLEM): INVALID,
+            (409, PROBLEM): STATE,
+            (422, PROBLEM): RULE,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="withdraw-shipment")
+    def withdraw_shipment(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        target: DistributionRequest = self.get_object()
+        values = _input(ReasonInputSerializer, self, request)
+        services.request_withdraw_shipment(
+            access=access_of(request), request=target, reason=values["reason"]
         )
         return self._detail(target)

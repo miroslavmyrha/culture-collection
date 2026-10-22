@@ -1,8 +1,9 @@
 {
   "permit_list": 6,
-  "request_detail": 18,
-  "request_detail_approved": 11,
-  "request_detail_shipped": 11,
+  "request_detail": 19,
+  "request_detail_approved": 12,
+  "request_detail_awaiting": 12,
+  "request_detail_shipped": 12,
   "request_list": 6,
   "requester_list": 7
 }

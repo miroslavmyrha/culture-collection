@@ -25,7 +25,17 @@ from cultures.labs.permissions import Role
 from cultures.labs.tests.conftest import member_of
 from cultures.users.models import User
 
-from .support import LAB_URL, PDF, Supply, accept_mtas, add_permit, approve, snapshot, submit
+from .support import (
+    LAB_URL,
+    PDF,
+    Regulated,
+    Supply,
+    accept_mtas,
+    add_permit,
+    approve,
+    snapshot,
+    submit,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -73,6 +83,15 @@ CALLS = [
     Call("request_reject", "post", "requests/{request}/reject/", CURATORS),
     Call("request_cancel", "post", "requests/{request}/cancel/", CURATORS),
     Call("request_ship", "post", "requests/{approved}/ship/", CURATORS, events=3),
+    Call("request_prepare_shipment", "post", "requests/{regulated}/prepare-shipment/", CURATORS),
+    Call(
+        "request_confirm_shipment",
+        "post",
+        "requests/{awaiting}/confirm-shipment/",
+        CURATORS,
+        events=3,
+    ),
+    Call("request_withdraw_shipment", "post", "requests/{awaiting}/withdraw-shipment/", CURATORS),
     Call(
         "request_acceptances",
         "post",
@@ -93,11 +112,21 @@ class World:
     approved: DistributionRequest
     strain_id: str
     mta_id: str
+    # #89: approved and prepared by `approver`, so the curator and the manager may confirm.
+    regulated: DistributionRequest
+    awaiting: DistributionRequest
 
 
 @pytest.fixture
 def world(
-    as_curator: AuditContext, curator: User, lab: Lab, requester: Requester, supply: Supply
+    *,
+    as_curator: AuditContext,
+    curator: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+    approver: User,
+    regulated: Regulated,
 ) -> World:
     strain = supply()
     permit = add_permit(curator, requester, PermitKind.SUJB_RAT_NOTICE)
@@ -110,7 +139,15 @@ def world(
     mta = request.lines.get().mta
     assert mta is not None
     return World(
-        requester, permit, request, accepted, approved, str(strain.public_id), str(mta.public_id)
+        requester,
+        permit,
+        request,
+        accepted,
+        approved,
+        str(strain.public_id),
+        str(mta.public_id),
+        regulated(),
+        regulated(prepared_by=approver),
     )
 
 
@@ -122,6 +159,8 @@ def url(call: Call, w: World) -> str:
         request=w.request.public_id,
         accepted=w.accepted.public_id,
         approved=w.approved.public_id,
+        regulated=w.regulated.public_id,
+        awaiting=w.awaiting.public_id,
     )
     return f"{LAB_URL}/{path}"
 
@@ -135,6 +174,14 @@ def body(call: Call, w: World) -> dict[str, Any]:
         "lab_confirmed_on": "2026-10-01",
         "name": "Petra Ukázková",
         "postal_address": "Testovací 5, Brno",
+    }
+    ship = {
+        "transport_class": "not_subject",
+        "classification_basis": "exempt_non_pathogenic",
+        "packing_instruction": "triple_packaging",
+        "responsible_name": "Jan Odpovědný",
+        "responsible_phone": "+420 555 000 111",
+        "carrier": "Example Courier (invented example)",
     }
     bodies: dict[str, dict[str, Any]] = {
         "requester_create": requester,
@@ -159,14 +206,10 @@ def body(call: Call, w: World) -> dict[str, Any]:
         "request_approve": {"reason": ""},
         "request_reject": {"reason": "no laboratory"},
         "request_cancel": {"reason": "withdrawn"},
-        "request_ship": {
-            "transport_class": "not_subject",
-            "classification_basis": "exempt_non_pathogenic",
-            "packing_instruction": "triple_packaging",
-            "responsible_name": "Jan Odpovědný",
-            "responsible_phone": "+420 555 000 111",
-            "carrier": "Example Courier (invented example)",
-        },
+        "request_ship": ship,
+        "request_prepare_shipment": ship,
+        "request_confirm_shipment": {"preparation": str(w.awaiting.preparations.get().public_id)},
+        "request_withdraw_shipment": {"reason": "The courier cannot come."},
         "request_acceptances": {
             "mta": w.mta_id,
             "signer_name": "Karel Podpisový",

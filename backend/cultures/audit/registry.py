@@ -251,6 +251,19 @@ REQUEST_SHIPPED = register(EventType("request_shipped", "{actor} shipped {subjec
 REQUEST_LINE_SHIPPED = register(
     EventType("request_line_shipped", "{actor} shipped the vials of a request")
 )
+# #89: a regulated request leaves in two steps. The preparation's facts are on its event (the
+# responsible person as "changed"); the confirmation is request_shipped with both people and
+# both times.
+REQUEST_SHIPMENT_PREPARED = register(
+    EventType("request_shipment_prepared", "{actor} prepared the shipment of {subject}")
+)
+REQUEST_SHIPMENT_WITHDRAWN = register(
+    EventType(
+        "request_shipment_withdrawn",
+        "{actor} withdrew the prepared shipment of {subject}",
+        reason_required=True,
+    )
+)
 
 
 @dataclass(frozen=True)
@@ -802,6 +815,34 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "tracking_number",
             "shipped_by_id",
             "shipped_at",
+            "preparation_id",
+        ),
+    ),
+    # #89. The responsible person is its contact (NOT_ROW_AUDITED); the basis note and the
+    # withdrawal reason are free text that names nobody.
+    "distribution_shipmentpreparation": RowAudit(
+        label="distribution.shipmentpreparation",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "request_id",
+            "transport_class",
+            "classification_basis",
+            "basis_note",
+            "packing_instruction",
+            "coolant",
+            "coolant_kg",
+            "responsible_id",
+            "carrier",
+            "tracking_number",
+            "prepared_by_id",
+            "prepared_at",
+            "withdrawn_by_id",
+            "withdrawn_at",
+            "withdraw_reason",
         ),
     ),
     "distribution_shipmentvial": RowAudit(
@@ -822,7 +863,7 @@ PERSONAL_FIELDS: dict[str, tuple[str, ...]] = {
     "contact": CONTACT_PERSONAL,
     "depositor": CONTACT_PERSONAL,
     # A requester's responsible scientist and delivery address, an MTA's signer (#18), the
-    # responsible person of a shipment (#88).
+    # responsible person of a shipment (#88) and of a prepared one (#89).
     "requester": CONTACT_PERSONAL,
     "mta_acceptance": ("signer",),
     "distribution_request": ("responsible",),

@@ -744,6 +744,17 @@ SCENARIOS: dict[str, Callable[..., object]] = {
     "request_ship": lambda a, f: services.request_ship(
         access=a, request=f["approved"], data=shipment_input()
     ),
+    "request_prepare_shipment": lambda a, f: services.request_prepare_shipment(
+        access=a, request=f["regulated_approved"], data=shipment_input()
+    ),
+    "request_confirm_shipment": lambda a, f: services.request_confirm_shipment(
+        access=a,
+        request=f["awaiting"],
+        preparation=f["awaiting_preparation"],
+    ),
+    "request_withdraw_shipment": lambda a, f: services.request_withdraw_shipment(
+        access=a, request=f["awaiting"], reason="r"
+    ),
 }
 NOT_A_WRITE = {"document_type", "normalised"}
 
@@ -851,5 +862,6 @@ def test_the_cancellation_and_rejection_events_require_their_reason() -> None:
         "request_rejected",
         "request_cancelled",
         "recipient_permit_ended",
+        "request_shipment_withdrawn",
     }
     assert {c for c in required if EVENT_TYPES[c].reason_required} == required

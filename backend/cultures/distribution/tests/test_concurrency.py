@@ -1,4 +1,4 @@
-"""Reservations, request numbers and shipments under concurrency.
+"""Reservations, request numbers, shipments and their confirmations under concurrency.
 
 Two approvals of requests for the same few vials run as real transactions at once: the lab
 lock makes the second wait and then see what the first reserved, so it is blocked, never given
@@ -32,7 +32,16 @@ from cultures.labs.models import Lab
 from cultures.lineage.models import Vial
 from cultures.users.models import User
 
-from .support import Supply, accept_mtas, approve, new_request, reserved, shipment_input, submit
+from .support import (
+    Regulated,
+    Supply,
+    accept_mtas,
+    approve,
+    new_request,
+    reserved,
+    shipment_input,
+    submit,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -228,5 +237,46 @@ def test_two_shipments_of_one_request_one_ships(
     assert sorted(outcomes.values()) == ["shipped", "state"]
     assert Shipment.objects.count() == 1
     assert ShipmentVial.objects.count() == 2
+    assert Vial.objects.filter(status="distributed").count() == 2
+    assert AuditEvent.objects.filter(event_type="request_shipped").count() == 1
+
+
+@pytest.mark.slow
+@pytest.mark.django_db(transaction=True)
+def test_two_confirmations_of_one_preparation_one_ships(
+    curator: User, manager: User, approver: User, regulated: Regulated
+) -> None:
+    """Two people, neither the approver nor the preparer, confirm the same prepared shipment at
+    once: the lab lock makes the second wait, and it then finds the request shipped. One
+    shipment, each vial distributed once, one event."""
+    request = regulated(2, prepared_by=approver)
+    preparation = request.preparations.get().public_id
+    barrier = threading.Barrier(2)
+    outcomes: dict[str, str] = {}
+
+    def run(name: str, actor: User) -> None:
+        try:
+            with audit_context(channel=Channel.API, actor=actor, request_id=f"req-{name}"):
+                barrier.wait(timeout=5)
+                services.request_confirm_shipment(
+                    access=access_for(actor), request=request, preparation=preparation
+                )
+            outcomes[name] = "shipped"
+        except services.WrongState:
+            outcomes[name] = "state"
+        finally:
+            connection.close()
+
+    threads = [
+        threading.Thread(target=run, args=("a", curator)),
+        threading.Thread(target=run, args=("b", manager)),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+    assert sorted(outcomes.values()) == ["shipped", "state"]
+    assert Shipment.objects.filter(request=request).count() == 1
+    assert ShipmentVial.objects.filter(shipment__request=request).count() == 2
     assert Vial.objects.filter(status="distributed").count() == 2
     assert AuditEvent.objects.filter(event_type="request_shipped").count() == 1
