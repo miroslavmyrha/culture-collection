@@ -401,6 +401,15 @@ def test_only_a_section_17a_notice_lets_a_rat_go_out(
     assert "rat_notice_missing" in codes(ask(strain))
 
 
+def test_a_rat_notice_that_names_a_highly_risky_agent_does_not_let_it_go_out(
+    *, ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User
+) -> None:
+    """The notice covers a RAT only: a VRAT needs a permit or an exception, whatever it names."""
+    strain = supply(mockia, restrictions=[VRAT])
+    add_permit(curator, requester, PermitKind.SUJB_RAT_NOTICE, covers="Mockia vulgaris")
+    assert "vrat_permit_missing" in codes(ask(strain))
+
+
 def test_two_lines_of_one_request_draw_on_one_letter_together(
     *,
     as_curator: AuditContext,
