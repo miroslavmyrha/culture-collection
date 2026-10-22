@@ -678,3 +678,73 @@ request exists: `migrate distribution zero`, `migrate audit 0019`, `migrate depo
 Revisit when: requesters ask for a portal, a lab ships outside the EU (export licences, end-use
 statements and import permits as permit kinds), a permit lists its agents in a form a person
 cannot match by name, or reservations must expire.
+
+## Amendment 2026-10-22: the shipment (#88)
+
+An approved request is shipped once, all its reserved vials at once, by one person holding
+`distribution.manage`. The two-person confirmation of a regulated line (#89) and the documents
+that travel with the package (#90) come later; the design input is s10, section 8, "Shipment".
+
+**Status.** `approved > shipped` joins `REQUEST_EDGES` and the request trigger (a test compares
+all 25 pairs). A shipped request is final: it is not cancelled. The approval's `decided_by`,
+`decided_at` and reason stay as given; the request trigger lets a request become shipped only
+once its shipment row exists.
+
+**The shipment record** (`distribution.Shipment`, one per request, `distribution.ShipmentVial`,
+unique per vial):
+- the transport class the shipper decided, `not_subject` or `un3373` only (ADR 0009: Category A
+  and UN 3245 are refused, never recorded), with its basis: an exemption (`exempt_non_pathogenic`,
+  `exempt_inactivated`) for `not_subject`, `indicative_list` or `professional_judgement` for UN
+  3373, and a note required for a judgement; who classified and when. The shipper classifies
+  (WHO transport guidance 2025-2026, 2.1), so the app never computes the class. It refuses one
+  thing it can know: a strain of risk group 2 or higher is pathogenic, so it is not exempt as
+  non-pathogenic (`not_exempt`);
+- the packing instruction, P650 required for UN 3373, and the coolant with its quantity in
+  kilograms, required for dry ice (UN 1845, marked on the package);
+- the responsible person who answers the phone about the package at all times (WHO 8.1): a
+  `deposits.Contact` with a new `phone` column, so the name and the number stay out of every
+  append-only row and go with an erasure (D11). The shipment row holds the contact's id;
+- the carrier and the tracking number, who shipped and when. The ship day is today's Czech day
+  (`permit_today()`): the shipper cannot name another day, so a permit that expired cannot be
+  passed by backdating.
+Both tables are insert-only: a trigger refuses UPDATE and DELETE, and the runtime role has
+SELECT and INSERT only. A shipment vial is inserted only while its reservation for that line is
+open; a reservation ends as `shipped` only for a vial a shipment holds; a vial is `distributed`
+only when a shipment holds it; and a deferred trigger checks at commit that the request is
+shipped, every one of its reservations ended as shipped, and the shipment holds exactly those
+vials, each distributed.
+
+**The service** `request_ship` locks lab, request, strains, batches, reservations, vials (the
+lock invariant asserts strain before batch before vial). It runs the gates again on the ship
+day; any blocker refuses (`shipment_blocked`, the sentences in the detail). Manager findings
+were decided at approval and are not asked again. At shipment the stock gate counts the line's
+open reservations whose vial is still in a distributable batch
+(`reserved_vials_not_distributable`): a batch held after the approval stops the shipment until
+it is released again. The gates come before the two-person rule: what may not go at all is said
+first. Then a request with a regulated line (`regulating_restrictions()`) is refused with
+`second_person_required` until #89. Otherwise the reservations end as shipped, each vial moves
+to `distributed` through `lineage.services.vial_ship_locked` (its placement closed, its event),
+the shipment and its vials are written, the request becomes shipped. Events: one
+`vial_status_changed` per vial, one `request_line_shipped` per line (with the strain), one
+`request_shipped` with the shipment's facts (the responsible person as "changed"), and one
+`batch_status_changed` per batch that became exhausted. A Letter of Authority counts shipped
+requests as it counted approved ones.
+
+**Emptied.** After the shipment each distribution batch it drew from becomes `exhausted`, with
+the reason "No vial is left to distribute after request <n> was shipped.", when none of its
+vials is `available` or `reserved` (`lineage.services.batch_exhaust_if_emptied_locked`; the
+batch trigger already allowed the edge). A vial in quarantine or lost does not keep the batch
+open: it was not counted as stock, and a lost vial found later stays in an exhausted batch,
+which distribution never reads; a new batch is preserved instead. A seed batch is never
+exhausted by a shipment.
+
+Migration impact: additive. `deposits` 0005 adds `phone` with a database default and replaces
+the erased-contact check (a scan of the contacts table, small). `distribution` 0004 adds the two
+tables and `shipped` to the request's status check; 0005 attaches their row audit and triggers
+and replaces the request, reservation and vial-reservation trigger functions from 0003 (the
+reverse restores the 0003 bodies). Reversible while no shipment exists: `migrate distribution
+0003`, `migrate deposits 0004`.
+
+Revisit when: #89 adds the second person (the regulated refusal becomes a confirmation step),
+#90 adds the transport documents and the delivery note, a lab ships Category A or outside the
+EU, or a request must ship in parts.
