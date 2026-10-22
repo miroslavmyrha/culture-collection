@@ -1,6 +1,6 @@
 # culture-collection
 
-A project for learning React, built as a real application ready for production deployment: security, audit trail, tests and deployment are part of the scope, not an afterthought. The domain is a culture collection: microbial strains, their storage, preservation and distribution, with a Django + DRF API (`backend/`) and a React + TypeScript SPA (`frontend/`).
+A simulation, not a production application: no collection runs it, the data is invented, and nobody from a real collection or an authority has reviewed it. It is built to the quality of one that would run in production: security, audit trail, tests and deployment are part of the scope, not an afterthought. It started as a project for learning React. The domain is a culture collection: microbial strains, their storage, preservation and distribution, with a Django + DRF API (`backend/`) and a React + TypeScript SPA (`frontend/`).
 
 ## Contributing
 Git flow, branch names, commit messages and releases: [CONTRIBUTING.md](CONTRIBUTING.md).
