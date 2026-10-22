@@ -8,12 +8,17 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import override_settings
 
+from cultures.audit.context import audit_context
 from cultures.audit.models import ActorKind, AuditEvent, Channel, RowChange
 from cultures.deposits.models import Deposit, MtaTemplate
+from cultures.distribution import services as distribution
+from cultures.distribution.models import DistributionRequest
+from cultures.labs.access import access_for
 from cultures.labs.management.commands.seed_e2e import (
     COLLEAGUE,
     CURATOR,
     LAB_CODE,
+    READY_TO_PREPARE,
     TECHNICIAN,
     VIEWER,
 )
@@ -49,7 +54,8 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
         " e2e-colleague is in no lab; 10 taxa; a depositor, MTA STD and one accepted deposit;"
         " 2 box types; E2E freezer > Rack 1 > Box 1; a regulated strain with two vials in"
         " Box R, revealed by e2e-user; a released batch of the seeded strain; two strains that"
-        " may go out, two requesters and four requests, one approved\n"
+        " may go out, two requesters and five requests, two approved, one of them regulated and"
+        " approved by e2e-manager, who is in no lab\n"
     )
     user = User.objects.get(username="e2e-user")
     lab = Lab.objects.get(code=LAB_CODE)
@@ -67,6 +73,11 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
         member = User.objects.get(username=name)
         assert member.check_password(PASSWORD)
         assert Membership.objects.get(user=member, lab=lab).role == role
+    # The second manager approved the regulated request and left: nobody signs in as it, and
+    # the e2e user stays the lab's only manager.
+    approver = User.objects.get(username="e2e-manager")
+    assert (approver.is_active, approver.has_usable_password()) == (True, False)
+    assert not Membership.objects.filter(user=approver).exists()
     synonyms = dict(Taxon.objects.filter(status="synonym").values_list("name", "accepted__name"))
     assert synonyms == {"Vibrio subtilis": "Bacillus subtilis", "Bacillus coli": "Escherichia coli"}
     assert Taxon.objects.get(name="Bacillus subtilis").parent == Taxon.objects.get(name="Bacillus")
@@ -114,8 +125,8 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
 
 # Two strains that may go out (#18), each received, accepted and preserved into 21 vials of
 # distribution stock, checked on its first vial and released; two requesters, the first with a
-# § 17a notice; four requests, all but the third with an accepted MTA, the last approved with
-# its vial reserved (#88).
+# § 17a notice; five requests, all but the third with an accepted MTA, the fourth approved with
+# its vial reserved (#88), the fifth, of the dual-use strain, approved by e2e-manager (#89).
 SUPPLY_STRAIN = [
     "deposit_received",
     "deposit_check_started",
@@ -144,6 +155,14 @@ DISTRIBUTION = [
     "vial_status_changed",
     "request_line_reserved",
     "request_approved",
+    "member_added",  # e2e-manager, for the approval of the regulated request
+    "request_submitted",
+    "request_line_added",
+    "mta_acceptance_recorded",
+    "vial_status_changed",
+    "request_line_reserved",
+    "request_approved",
+    "member_removed",  # e2e-manager, once it approved
 ]
 
 
@@ -162,6 +181,7 @@ def test_its_writes_are_audited_as_the_command() -> None:
         "member_added",
         "user_created",
         "member_added",
+        "user_created",  # e2e-manager, in no lab until it approves
         *["taxon_created", "taxon_identifier_added"] * 2,
         "taxon_created",
         *["taxon_created", "taxon_identifier_added"] * 2,
@@ -236,6 +256,23 @@ def test_it_resets_what_a_failed_e2e_run_left_behind() -> None:
     ]
     assert Membership.objects.get(user=user).role == Role.MANAGER
     assert not Membership.objects.filter(user=colleague).exists()
+
+
+@pytest.mark.usefixtures("env")
+def test_a_regulated_request_ready_to_prepare_is_entered_again_once_it_left_approved() -> None:
+    """The e2e test prepares and confirms it each run: the next run finds none approved and
+    enters a new one, approved by e2e-manager, never by the e2e user who confirms."""
+    seed()
+    ready = DistributionRequest.objects.get(end_use=READY_TO_PREPARE)
+    assert ready.decided_by is not None
+    assert (ready.status, ready.decided_by.username) == ("approved", "e2e-manager")
+    assert ready.lines.get().strain.restrictions.filter(ended_at__isnull=True).exists()
+    manager = User.objects.get(username="e2e-user")
+    with audit_context(channel=Channel.API, actor=manager, request_id="req-test"):
+        distribution.request_cancel(access=access_for(manager), request=ready, reason="test")
+    seed()
+    statuses = DistributionRequest.objects.filter(end_use=READY_TO_PREPARE).order_by("pk")
+    assert list(statuses.values_list("status", flat=True)) == ["cancelled", "approved"]
 
 
 @pytest.mark.usefixtures("env")

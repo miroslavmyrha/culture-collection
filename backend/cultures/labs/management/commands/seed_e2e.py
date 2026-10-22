@@ -11,6 +11,10 @@ Brings the database to this state, whatever it was before:
 - e2e-curator, e2e-technician and e2e-viewer, members of the lab in those roles, with the
   same password: the strain tests create strains as the curator and check what a viewer may
   not do, the box grid tests move vials as the technician;
+- e2e-manager, active, without a usable password and in no lab: made a manager of the lab
+  only for the moment it approves the regulated request below, then removed again, so the e2e
+  user, who did not approve it, may confirm its shipment (#89), and stays the lab's only
+  manager (labs.spec.ts refuses to remove the last one);
 - a few taxa for the strain form: two genera, a species in each with its NCBI id, and a
   synonym of each species (its basionym), plus an invented genus and species (Testella
   exempli) for the tests of the restriction gates, so no real organism is entered with a
@@ -38,7 +42,9 @@ Brings the database to this state, whatever it was before:
   holds an invented § 17a notice, and E2E Unnotified Laboratory, which holds none. Four
   requests, found by their end use: one a curator may approve, one a manager must approve, one
   blocked by a legal gate (a RAT to the unnotified laboratory), and one approved, ready to ship
-  (#88; shipped once, it stays shipped).
+  (#88; shipped once, it stays shipped). A fifth, of the dual-use strain, approved by
+  e2e-manager and ready to prepare (#89): entered again by a run that finds none approved, as
+  the test prepares and confirms it each run.
 Strains and storage units the tests created stay: numbers are never reused, and neither a
 strain nor a unit is ever deleted.
 A second run changes nothing. Every user, lab and membership write goes
@@ -68,7 +74,7 @@ from cultures.deposits.models import (
 )
 from cultures.distribution import seeding
 from cultures.distribution import services as distribution
-from cultures.distribution.models import PermitKind
+from cultures.distribution.models import DistributionRequest, PermitKind, RequestStatus
 from cultures.labs import services
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, LocationGrant, Membership
@@ -103,9 +109,11 @@ SEEDED_DEPOSIT = "B. subtilis e2e seed"
 REGULATED_DEPOSIT = "Testella exempli e2e regulated"
 REGULATED_BOX = "Box R"
 CURATOR, TECHNICIAN, VIEWER = "e2e-curator", "e2e-technician", "e2e-viewer"
+APPROVER = "e2e-manager"
 SUPPLY = "Testella exempli e2e supply"
 REGULATED_SUPPLY = "Mockia vulgaris e2e supply"
 INSTITUTE, UNNOTIFIED = "E2E Institute of Microbiology", "E2E Unnotified Laboratory"
+READY_TO_PREPARE = "E2E seed: research on a dual-use strain, approved and ready to prepare."
 # Fewer free vials than this, and the next run releases another batch: the tests reserve some.
 MIN_FREE = 10
 
@@ -165,6 +173,9 @@ class Command(BaseCommand):
             self._role(lab, self._user(CURATOR, password), Role.CURATOR)
             self._role(lab, self._user(TECHNICIAN, password), Role.TECHNICIAN)
             self._role(lab, self._user(VIEWER, password), Role.VIEWER)
+            approver = self._user(APPROVER, None)
+            for membership in Membership.objects.filter(lab=lab, user=approver):
+                services.membership_delete(membership=membership)
             for row in TAXA:
                 self._taxon(*row)
             self._deposit(lab, curator=User.objects.get(username=CURATOR), manager=user)
@@ -182,6 +193,7 @@ class Command(BaseCommand):
                 lab,
                 curator=User.objects.get(username=CURATOR),
                 technician=User.objects.get(username=TECHNICIAN),
+                approver=approver,
             )
         self.stdout.write(
             f"{username} manages {lab.name}; {CURATOR}, {TECHNICIAN} and {VIEWER} are its"
@@ -190,7 +202,8 @@ class Command(BaseCommand):
             f" one accepted deposit; {len(BOX_TYPES)} box types; {FREEZER} > Rack 1 > Box 1;"
             f" a regulated strain with two vials in {REGULATED_BOX}, revealed by {username};"
             " a released batch of the seeded strain; two strains that may go out, two"
-            " requesters and four requests, one approved"
+            f" requesters and five requests, two approved, one of them regulated and approved"
+            f" by {APPROVER}, who is in no lab"
         )
 
     def _taxon(  # noqa: PLR0917 (one row of TAXA, spread)
@@ -391,8 +404,8 @@ class Command(BaseCommand):
             access=access_for(curator), batch=batch, reason="All three checks passed."
         )
 
-    def _distribution(self, lab: Lab, *, curator: User, technician: User) -> None:
-        """Strains that may go out, the requesters and the four requests (#18, #88)."""
+    def _distribution(self, lab: Lab, *, curator: User, technician: User, approver: User) -> None:
+        """Strains that may go out, the requesters and the five requests (#18, #88, #89)."""
         access = access_for(curator)
         mta = MtaTemplate.objects.get(lab=lab, code="STD", version=1)
         supply = self._supply(lab, SUPPLY, "Testella exempli", (), mta, curator, technician)
@@ -470,6 +483,28 @@ class Command(BaseCommand):
             ),
         ):
             seeding.request(access, lab, request)
+        if DistributionRequest.objects.filter(
+            lab=lab, end_use=READY_TO_PREPARE, status=RequestStatus.APPROVED
+        ).exists():
+            return
+        # A manager for this one approval: the lab keeps the e2e user as its only manager.
+        self._role(lab, approver, Role.MANAGER)
+        seeding.request(
+            access,
+            lab,
+            seeding.SeedRequest(
+                INSTITUTE,
+                READY_TO_PREPARE,
+                Use.RESEARCH_NONCOMMERCIAL,
+                2,
+                ((regulated, 1),),
+                approve=True,
+                reason="Dual-use inside the EU needs no licence (invented example).",
+                renew=True,
+            ),
+            approver=access_for(approver),
+        )
+        services.membership_delete(membership=Membership.objects.get(lab=lab, user=approver))
 
     def _supply(  # noqa: PLR0917 (one strain of the seed, spread)
         self,

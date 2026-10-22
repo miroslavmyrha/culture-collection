@@ -2088,6 +2088,49 @@
      }
     ]
    }
+  },
+  {
+   "lab": "BAC",
+   "depositor": "Jana Vzorová",
+   "name_as_received": "Mockia vulgaris DEP-8",
+   "received_on": "2026-09-05",
+   "condition": "intact",
+   "mta": [
+    "STD",
+    2
+   ],
+   "terms": {
+    "abs_scope": "not_in_scope",
+    "uses": {
+     "research_noncommercial": "permit",
+     "research_commercial": "on_request",
+     "teaching": "permit",
+     "diagnostics": "deny",
+     "production": "deny",
+     "reference_qc": "permit",
+     "patent_deposit_related": "deny",
+     "redistribution": "deny"
+    }
+   },
+   "state": "accepted",
+   "strain": {
+    "taxon": "Mockia vulgaris",
+    "identified_on": "2026-09-08",
+    "method": "16S rRNA gene sequence",
+    "isolation_source": "Invented source",
+    "country_of_origin": "",
+    "isolation_date": "",
+    "risk_group": 1,
+    "animal_pathogenicity": "unknown",
+    "plant_pathogenicity": "unknown",
+    "restrictions": [
+     {
+      "kind": "dual_use",
+      "reference": "1C351.c",
+      "act": "(EU) 2025/2003"
+     }
+    ]
+   }
   }
  ],
  "batches": [
@@ -2161,6 +2204,17 @@
     "Rack 1",
     "Box 1"
    ]
+  },
+  {
+   "lab": "BAC",
+   "deposit": "Mockia vulgaris DEP-8",
+   "passage": 0,
+   "method": "lyophilised",
+   "purpose": "distribution",
+   "cryoprotectant": "skim milk",
+   "preserved_on": "2026-09-12",
+   "vial_count": 4,
+   "box": null
   }
  ],
  "checks": [
@@ -2283,6 +2337,51 @@
    "unit": null,
    "vial": 8,
    "note": "A second colony type on the plate."
+  },
+  {
+   "lab": "BAC",
+   "deposit": "Mockia vulgaris DEP-8",
+   "batch": 1,
+   "kind": "viability",
+   "stage": "after_preservation",
+   "checked_on": "2026-09-15",
+   "method": "growth",
+   "method_detail": "TSA, 30 °C, 24 h",
+   "result": "pass",
+   "value": null,
+   "unit": null,
+   "vial": 1,
+   "note": ""
+  },
+  {
+   "lab": "BAC",
+   "deposit": "Mockia vulgaris DEP-8",
+   "batch": 1,
+   "kind": "purity",
+   "stage": "after_preservation",
+   "checked_on": "2026-09-15",
+   "method": "streak_plate",
+   "method_detail": "TSA, 30 °C, 48 h",
+   "result": "pass",
+   "value": null,
+   "unit": null,
+   "vial": 1,
+   "note": ""
+  },
+  {
+   "lab": "BAC",
+   "deposit": "Mockia vulgaris DEP-8",
+   "batch": 1,
+   "kind": "identity",
+   "stage": "after_preservation",
+   "checked_on": "2026-09-15",
+   "method": "sequencing",
+   "method_detail": "16S rRNA gene, Sanger",
+   "result": "pass",
+   "value": null,
+   "unit": null,
+   "vial": 1,
+   "note": ""
   }
  ],
  "releases": [
@@ -2296,6 +2395,12 @@
    "lab": "BAC",
    "deposit": "Bacillus subtilis soil isolate DEP-1",
    "batch": 2,
+   "reason": "Identity, purity and viability after preservation passed."
+  },
+  {
+   "lab": "BAC",
+   "deposit": "Mockia vulgaris DEP-8",
+   "batch": 1,
    "reason": "Identity, purity and viability after preservation passed."
   }
  ],
@@ -2404,6 +2509,23 @@
    ],
    "accept": true,
    "approve": true
+  },
+  {
+   "lab": "BAC",
+   "requester": "Example Institute of Microbiology",
+   "end_use": "Research on a dual-use strain (development data, approved by the manager, ready to prepare its shipment).",
+   "use": "research_noncommercial",
+   "containment_level": 1,
+   "lines": [
+    {
+     "deposit": "Mockia vulgaris DEP-8",
+     "quantity": 1
+    }
+   ],
+   "accept": true,
+   "approve": true,
+   "approved_by": "manager",
+   "reason": "Dual-use inside the EU needs no licence (development data)."
   }
  ]
 }

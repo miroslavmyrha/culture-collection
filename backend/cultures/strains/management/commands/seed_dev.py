@@ -25,8 +25,9 @@ depositors, MTA templates and deposits):
   curator, some reclassified, some restricted (invented taxa only, a GMO lab
   strain aside);
 - depositors (invented people at example.org), MTA versions (published by each
-  lab's manager) and deposits in every intake state, two of them accepted, which
-  makes their strains through the deposit services;
+  lab's manager) and deposits in every intake state, three of them accepted, which
+  makes their strains through the deposit services (the third, in BAC, an invented
+  dual-use strain that goes out in two steps, #89);
 - three box types and a storage tree per lab (freezers and LN2 tanks, racks,
   boxes), added through the storage services with the curator's role: REG has
   a box capped lower than its freezer, ENV a freezer out of service;
@@ -38,11 +39,14 @@ depositors, MTA templates and deposits):
 - checks of those batches, recorded by each lab's technician (some consume the
   vial they name), and releases by the lab's curator: two BAC batches released,
   one freeze-dried BAC batch with a reduced viability check and nothing else yet,
-  and MYC's batch (invented taxon) held by a failed purity check.
+  the dual-use strain's batch released, and MYC's batch (invented taxon) held by a
+  failed purity check.
 - requesters with their permits (invented institutions and references) and three requests
   waiting for a decision (#18): in BAC one a curator may approve and one whose use is on
   request to the depositor, so a manager approves it; in REG one blocked by a legal gate (a
-  RAT to a laboratory that never notified SÚJB, invented taxon).
+  RAT to a laboratory that never notified SÚJB, invented taxon). In BAC also one approved
+  by the curator, ready to ship (#88), and one of the dual-use strain approved by
+  bac-manager, ready for one person to prepare its shipment and another to confirm it (#89).
 Every user gets the same password. Every write goes through the services in one
 transaction, inside an audit context (channel command, actor kind system,
 label command:seed_dev). A second run finds what exists and changes nothing.
@@ -673,8 +677,14 @@ class Command(BaseCommand):
 
     def _request(self, lab: Lab, row: dict[str, Any]) -> None:
         """#18: a request as entered by the lab's curator, waiting for a decision, or approved by
-        the curator and ready to ship (#88)."""
+        the curator and ready to ship (#88), or, regulated, approved by the manager with a reason
+        and ready to prepare for a second person (#89)."""
         curator = access_for(User.objects.get(username=lab_username(lab.code, Role.CURATOR)))
+        approver = None
+        if row.get("approved_by"):
+            approver = access_for(
+                User.objects.get(username=lab_username(lab.code, Role(row["approved_by"])))
+            )
         lines = []
         for line in row["lines"]:
             strain = Deposit.objects.get(lab=lab, name_as_received=line["deposit"]).strain
@@ -691,7 +701,9 @@ class Command(BaseCommand):
                 lines=tuple(lines),
                 accept=row["accept"],
                 approve=row.get("approve", False),
+                reason=row.get("reason", ""),
             ),
+            approver=approver,
         )
 
     def _report(self, data: dict[str, Any]) -> None:

@@ -7,8 +7,9 @@ import { axe, signedInAs, username, watchCsp } from './support.js'
 // and E2E Unnotified Laboratory, and a request blocked by a legal gate. The request of the
 // first test names the run in its end use; it is cancelled at the end, which frees its vial
 // for the next run. The shipment test (#88) enters, approves and ships a request of its own:
-// one vial of the supply leaves per run, and seed_e2e tops the supply up. It works as the
-// sessions auth.setup.ts signed in.
+// one vial of the supply leaves per run, and seed_e2e tops the supply up. The two-person test
+// (#89) takes the regulated request seed_e2e approved as e2e-manager, which it enters again on
+// each run. It works as the sessions auth.setup.ts signed in.
 
 const RUN = Date.now().toString(36)
 const PDF = Buffer.from('%PDF-1.4\n% an invented signed copy of an e2e run\n%%EOF\n')
@@ -230,4 +231,89 @@ test('a curator ships an approved request by keyboard and its vial shows as dist
   expect(await viewer.page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
   expect(await axe(viewer.page, 'main')).toEqual([])
   await viewer.close()
+})
+
+test('a curator prepares a regulated shipment, and a manager who did not approve it confirms it', async ({ browser }) => {
+  // Approved by e2e-manager in seed_e2e, found by its end use among the approved requests.
+  const curator = await as(browser, 'e2e-curator', 320)
+  const violations = await watchCsp(curator.page)
+  const page = curator.page
+  const lab = await labPath(page)
+  const id = await page.evaluate(async (path) => {
+    const list: unknown = await (await fetch(`/api/v1${path}/requests/?status=approved&limit=200`)).json()
+    const rows: unknown = typeof list === 'object' && list !== null ? Reflect.get(list, 'results') : []
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const rowId: unknown = Reflect.get(row, 'public_id')
+      const detail: unknown = await (await fetch(`/api/v1${path}/requests/${String(rowId)}/`)).json()
+      if (typeof detail === 'object' && detail !== null && Reflect.get(detail, 'end_use') === 'E2E seed: research on a dual-use strain, approved and ready to prepare.') return String(rowId)
+    }
+    return ''
+  }, lab)
+  expect(id, 'seed_e2e made an approved regulated request').not.toBe('')
+  const requestUrl = `${lab}/requests/${id}`
+  await page.goto(requestUrl)
+  await expect(page.getByText(/leaves in two steps/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Ship the vials' })).toHaveCount(0)
+  const vialCell = page.getByRole('table', { name: 'Strains' }).getByRole('row').nth(1).getByRole('cell').nth(4)
+  const label = (await vialCell.textContent()) ?? ''
+  expect(label).toMatch(/^\S+ \d+ \/ \d+ \/ \d+$/)
+
+  // Prepared by keyboard at 320 px: the dialog opens on the transport class.
+  await page.getByRole('button', { name: 'Prepare the shipment' }).focus()
+  await page.keyboard.press('Enter')
+  const dialog = page.getByRole('dialog', { name: /^Prepare the shipment of request/ })
+  await expect(dialog.getByRole('combobox', { name: 'Transport class' })).toBeFocused()
+  expect(await axe(page, '[role="dialog"]')).toEqual([])
+  await page.keyboard.press('Tab')
+  await dialog.getByRole('combobox', { name: 'Basis of the classification' }).selectOption('exempt_non_pathogenic')
+  await dialog.getByRole('textbox', { name: 'Responsible person', exact: true }).focus()
+  await page.keyboard.type('E2E Responsible')
+  await page.keyboard.press('Tab')
+  await page.keyboard.type('+420 555 000 222')
+  await page.keyboard.press('Tab')
+  await page.keyboard.type('E2E Courier')
+  await dialog.getByRole('button', { name: 'Prepare', exact: true }).focus()
+  await page.keyboard.press('Enter')
+  await expect(dialog).toBeHidden()
+  await expect(page.getByText(/The shipment was prepared by e2e-curator on .* and waits for a second person/)).toBeVisible()
+  await expect(page.getByText('You prepared this shipment, so a different person confirms it.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Confirm the shipment' })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: 'Prepared shipment' })).toContainText('E2E Courier')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
+  expect(await axe(page, 'main')).toEqual([])
+  // The server refuses the preparer too, for the very preparation shown.
+  const preparation = await page.evaluate(async (url) => {
+    const body: unknown = await (await fetch(`/api/v1${url}/`)).json()
+    const list: unknown = typeof body === 'object' && body !== null ? Reflect.get(body, 'preparations') : []
+    const first: unknown = Array.isArray(list) ? list[0] : undefined
+    return typeof first === 'object' && first !== null ? String(Reflect.get(first, 'public_id')) : ''
+  }, requestUrl)
+  const own = await post(page, `/api/v1${requestUrl}/confirm-shipment/`, { preparation })
+  expect(own.status).toBe(403)
+  expect(own.body).toContain('confirm_own_preparation')
+  expect(violations()).toEqual([])
+  await curator.close()
+
+  // The e2e user, a manager who did not approve it, confirms what was prepared.
+  const manager = await as(browser, username)
+  const mpage = manager.page
+  await mpage.goto(requestUrl)
+  await mpage.getByRole('button', { name: 'Confirm the shipment' }).click()
+  const confirm = mpage.getByRole('alertdialog', { name: /^Confirm the shipment of request/ })
+  await expect(confirm.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused()
+  await expect(confirm).toContainText('E2E Courier')
+  expect(await axe(mpage, '[role="alertdialog"]')).toEqual([])
+  await confirm.getByRole('button', { name: 'Confirm and ship' }).click()
+  await expect(confirm).toBeHidden()
+  await expect(mpage.getByText(new RegExp(`Prepared by e2e-curator on .*, confirmed and shipped by ${username} on `))).toBeVisible()
+  await expect(mpage.getByRole('region', { name: 'Shipment' })).toContainText('Confirmed by')
+  await expect(mpage.getByRole('table', { name: 'Strains' }).getByRole('columnheader', { name: 'Shipped vials' })).toBeVisible()
+
+  // The strain page lists the vial as distributed, with no place.
+  const accession = label.split(' / ')[0] ?? ''
+  await mpage.goto(`${lab}/strains?search=${encodeURIComponent(accession)}`)
+  await mpage.getByRole('link', { name: accession, exact: true }).click()
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  await expect(mpage.getByRole('table', { name: 'Vials' }).getByRole('row', { name: new RegExp(`^${escaped} Distributed Left the collection`) })).toBeVisible()
+  await manager.close()
 })
