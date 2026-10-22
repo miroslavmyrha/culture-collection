@@ -6,19 +6,36 @@ import { isApiError } from '@/lib/api'
 import { countryName } from '@/lib/countries'
 import { type FocusReturn, rememberFocus, useFocusReturnOnUnmount } from '@/lib/focus'
 import { useRequest } from '../api/queries'
-import { canApproveRegulated, type Finding, type Line, type Request, type Role, SIGNER_ROLE_LABELS, STATUS_LABELS, USE_LABELS } from '../schemas'
-import { AcceptanceDialog, ApproveDialog, CancelDialog, RejectDialog } from './RequestDialogs'
+import {
+  BASIS_LABELS,
+  canApproveRegulated,
+  canShip,
+  COOLANT_LABELS,
+  type Finding,
+  type Line,
+  PACKING_LABELS,
+  type Request,
+  type Role,
+  type Shipment,
+  SIGNER_ROLE_LABELS,
+  STATUS_LABELS,
+  TRANSPORT_CLASS_LABELS,
+  USE_LABELS,
+} from '../schemas'
+import { AcceptanceDialog, ApproveDialog, CancelDialog, RejectDialog, SECOND_PERSON, ShipDialog } from './RequestDialogs'
 import { scrollable } from './scroll'
 
 type Props = { labId: string; requestId: string; role: Role }
-type Open = { kind: 'approve' | 'reject' | 'cancel' | 'acceptance'; open: boolean } | null
+type Open = { kind: 'approve' | 'reject' | 'cancel' | 'acceptance' | 'ship'; open: boolean } | null
 
 const day = (iso: string) => new Date(iso).toLocaleDateString('sv')
 
 /**
  * One request: who asks for what and why, each strain with the terms and MTA it was entered
  * under, what the policy finds while it waits, the MTA acceptances, and the decision. After an
- * approval each line lists the vials reserved for it, by label only: no place (ADR 0009).
+ * approval each line lists the vials reserved for it, after the shipment the vials sent, by label
+ * only: no place (ADR 0009). A shipped request shows the shipment's facts; its responsible person
+ * only to those who may see people.
  */
 export function RequestDetail({ labId, requestId, role }: Props) {
   const request = useRequest(labId, requestId)
@@ -85,7 +102,7 @@ export function RequestDetail({ labId, requestId, role }: Props) {
       </Section>
 
       <Section title="Strains">
-        <Lines lines={r.lines} />
+        <Lines lines={r.lines} shipped={r.status === 'shipped'} />
       </Section>
 
       {r.status === 'submitted' && (
@@ -109,16 +126,23 @@ export function RequestDetail({ labId, requestId, role }: Props) {
         <Decision request={r} role={role} onShow={show} />
       </Section>
 
+      {r.shipment && (
+        <Section title="Shipment">
+          <ShipmentFacts shipment={r.shipment} />
+        </Section>
+      )}
+
       {/* Mounted until they have faded out, so onExited can place the focus. */}
       {open?.kind === 'approve' && <ApproveDialog labId={labId} request={r} open={open.open} onClose={close} onExited={exited} />}
       {open?.kind === 'reject' && <RejectDialog labId={labId} request={r} open={open.open} onClose={close} onExited={exited} />}
       {open?.kind === 'cancel' && <CancelDialog labId={labId} request={r} open={open.open} onClose={close} onExited={exited} />}
+      {open?.kind === 'ship' && <ShipDialog labId={labId} request={r} open={open.open} onClose={close} onExited={exited} />}
       {open?.kind === 'acceptance' && <AcceptanceDialog labId={labId} request={r} open={open.open} onClose={close} onExited={exited} />}
     </>
   )
 }
 
-function Lines({ lines }: { lines: Line[] }) {
+function Lines({ lines, shipped }: { lines: Line[]; shipped: boolean }) {
   return (
     <TableContainer component={Paper} variant="outlined" {...scrollable('Strains')}>
       <Table aria-label="Strains" size="small">
@@ -128,7 +152,7 @@ function Lines({ lines }: { lines: Line[] }) {
             <TableCell>Risk group</TableCell>
             <TableCell>Vials</TableCell>
             <TableCell>Terms and MTA</TableCell>
-            <TableCell>Reserved vials</TableCell>
+            <TableCell>{shipped ? 'Shipped vials' : 'Reserved vials'}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -142,7 +166,7 @@ function Lines({ lines }: { lines: Line[] }) {
               <TableCell sx={{ overflowWrap: 'anywhere' }}>
                 Terms version {line.terms_version}, {line.mta ? `MTA ${line.mta.code} version ${line.mta.version}` : 'no MTA'}
               </TableCell>
-              <TableCell sx={{ overflowWrap: 'anywhere' }}>{line.reserved.length ? line.reserved.map((v) => v.label).join('; ') : 'None'}</TableCell>
+              <TableCell sx={{ overflowWrap: 'anywhere' }}>{vialLabels(shipped ? line.shipped : line.reserved)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -150,6 +174,8 @@ function Lines({ lines }: { lines: Line[] }) {
     </TableContainer>
   )
 }
+
+const vialLabels = (vials: { label: string }[]) => (vials.length ? vials.map((v) => v.label).join('; ') : 'None')
 
 function findingItem(f: Finding) {
   return (
@@ -205,7 +231,7 @@ function Acceptances({ request }: { request: Request }) {
 
 const reason = (text: string) => (text ? `: ${text}` : '.')
 
-type DecisionProps = { request: Request; role: Role; onShow: (kind: 'approve' | 'reject' | 'cancel') => (event: MouseEvent<HTMLButtonElement>) => void }
+type DecisionProps = { request: Request; role: Role; onShow: (kind: 'approve' | 'reject' | 'cancel' | 'ship') => (event: MouseEvent<HTMLButtonElement>) => void }
 
 function Decision({ request, role, onShow }: DecisionProps) {
   const manage = role === 'curator' || role === 'manager'
@@ -213,18 +239,29 @@ function Decision({ request, role, onShow }: DecisionProps) {
     return <Typography sx={{ overflowWrap: 'anywhere' }}>Rejected by {request.decided_by} on {day(request.decided_at ?? request.created_at)}{reason(request.decision_reason)}</Typography>
   if (request.status === 'cancelled')
     return <Typography sx={{ overflowWrap: 'anywhere' }}>Cancelled by {request.cancelled_by} on {day(request.cancelled_at ?? request.created_at)}{reason(request.cancel_reason)}</Typography>
+  const approval = `Approved by ${request.decided_by ?? ''} on ${day(request.decided_at ?? request.created_at)}${reason(request.decision_reason)}`
+  if (request.status === 'shipped')
+    return (
+      <Typography sx={{ overflowWrap: 'anywhere' }}>
+        {approval} Shipped by {request.shipment?.shipped_by} on {day(request.shipment?.shipped_at ?? request.created_at)}.
+      </Typography>
+    )
   if (request.status === 'approved')
     return (
       <KeepsFocus>
-        <Typography sx={{ overflowWrap: 'anywhere' }}>
-          Approved by {request.decided_by} on {day(request.decided_at ?? request.created_at)}{reason(request.decision_reason)} The vials stay reserved until the shipment or a cancellation.
-        </Typography>
+        <Typography sx={{ overflowWrap: 'anywhere' }}>{approval} The vials stay reserved until the shipment or a cancellation.</Typography>
+        {manage && request.regulated && <Alert severity="info">{SECOND_PERSON}</Alert>}
         {manage && (
-          <Box>
+          <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap' }}>
+            {canShip(request, role) && (
+              <Button variant="contained" onClick={onShow('ship')}>
+                Ship the vials
+              </Button>
+            )}
             <Button color="error" variant="outlined" onClick={onShow('cancel')}>
               Cancel the request
             </Button>
-          </Box>
+          </Stack>
         )}
       </KeepsFocus>
     )
@@ -250,6 +287,20 @@ function Decision({ request, role, onShow }: DecisionProps) {
       </Stack>
     </KeepsFocus>
   )
+}
+
+function ShipmentFacts({ shipment: s }: { shipment: Shipment }) {
+  const rows: [string, string][] = [
+    ['Transport class', TRANSPORT_CLASS_LABELS[s.transport_class]],
+    ['Basis', s.basis_note ? `${BASIS_LABELS[s.classification_basis]}: ${s.basis_note}` : BASIS_LABELS[s.classification_basis]],
+    ['Classified by', `${s.classified_by} on ${day(s.classified_at)}`],
+    ['Packing', PACKING_LABELS[s.packing_instruction]],
+    ['Coolant', s.coolant ? `${COOLANT_LABELS[s.coolant]}${s.coolant_kg ? `, ${s.coolant_kg} kg` : ''}` : 'None'],
+  ]
+  // Null for a role that may not see people; empty once the person was erased.
+  if (s.responsible_name !== null) rows.push(['Responsible person', s.responsible_name ? `${s.responsible_name}, ${s.responsible_phone ?? ''}` : 'Erased contact'])
+  rows.push(['Carrier', s.carrier], ['Tracking number', s.tracking_number || 'None'])
+  return <Facts rows={rows} />
 }
 
 /** The decision buttons go away with the decision: focus then moves to the section's heading. */
