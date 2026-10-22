@@ -66,9 +66,10 @@ def make_batch(curator: User) -> MakeBatch:
 @pytest.fixture
 def vial_edges_alone() -> None:
     """For tests of the vial's edges on their own: a reserved vial pairs with an open
-    reservation of distribution (#18), held by a deferred trigger that fires when Django checks
-    the constraints at the end of a test. Here a vial passes through reserved without one, so
-    that trigger is off for the test's transaction only (rolled back with it)."""
+    reservation of distribution (#18) and a distributed one with a shipment (#88), held by a
+    deferred trigger that fires when Django checks the constraints at the end of a test. Here a
+    vial passes through those states without them, so that trigger is off for the test's
+    transaction only (rolled back with it)."""
     with connection.cursor() as cursor:
         cursor.execute(
             "ALTER TABLE lineage_vial DISABLE TRIGGER distribution_vial_reserved_by_request"

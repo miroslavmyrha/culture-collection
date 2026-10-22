@@ -1,24 +1,28 @@
 """Every write of distribution (#18, part A): requesters and their permits, requests with their
-lines, MTA acceptances, and the decisions on a request with the vials reserved at approval.
+lines, MTA acceptances, and the decisions on a request with the vials reserved at approval; the
+shipment of an approved request (#88).
 
 Each service runs in audited_atomic() and records its events in the same transaction. Lock
 order, as everywhere: the lab row first (labs.locks.lock_lab), then the request, then the
-strains of its lines by pk, then the vials (lineage keeps lab, strain, batch, vial, box; a
-request sits between the lab and its strains). Under the lab lock each service re-reads the
-actor's role, so a member demoted after the request built its access object is refused. A
-refusal raises before anything is written, or rolls back what was, so it changes nothing and
-records nothing.
+strains of its lines by pk, then their batches, then the vials (lineage keeps lab, strain,
+batch, vial, box; a request sits between the lab and its strains). Under the lab lock each
+service re-reads the actor's role, so a member demoted after the request built its access
+object is refused. A refusal raises before anything is written, or rolls back what was, so it
+changes nothing and records nothing.
 
-Personal data (D11): the responsible scientist and an MTA's signer are contacts; events record
-their fields as "changed", never the value. Events about a line or its vials carry the strain
-(D13); a request spans strains, so its own events carry none and each line has its own.
+Personal data (D11): the responsible scientist, an MTA's signer and a shipment's responsible
+person are contacts; events record their fields as "changed", never the value. Events about a
+line or its vials carry the strain (D13); a request spans strains, so its own events carry none
+and each line has its own.
 """
 
 import hashlib
+import re
 import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from typing import Any
 
 from django.db import IntegrityError, connection, transaction
@@ -37,7 +41,9 @@ from cultures.audit.registry import (
     REQUEST_LINE_ADDED,
     REQUEST_LINE_RELEASED,
     REQUEST_LINE_RESERVED,
+    REQUEST_LINE_SHIPPED,
     REQUEST_REJECTED,
+    REQUEST_SHIPPED,
     REQUEST_SUBMITTED,
     REQUESTER_CHANGED,
     REQUESTER_CREATED,
@@ -50,7 +56,7 @@ from cultures.labs.locks import lock_lab
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Perm, Role, role_has
 from cultures.lineage import services as lineage
-from cultures.lineage.models import Vial, VialStatus
+from cultures.lineage.models import Batch, Vial, VialStatus
 from cultures.lineage.selectors import distributable
 from cultures.strains.countries import COUNTRY_CODES
 from cultures.strains.models import Strain
@@ -59,6 +65,7 @@ from cultures.strains.selectors import regulating_restrictions
 from . import policy
 from .models import (
     ACCEPTANCE_UNIQUE,
+    BASES,
     COUNTER_UNIQUE,
     MAX_DOCUMENT_BYTES,
     MAX_VIALS_PER_LINE,
@@ -66,12 +73,15 @@ from .models import (
     ONE_OPEN_RESERVATION,
     REQUEST_EDGES,
     REQUEST_NUMBER_UNIQUE,
+    ClassificationBasis,
+    Coolant,
     DistributionRequest,
     Document,
     DocumentType,
     LegalForm,
     LinePermit,
     MtaAcceptance,
+    PackingInstruction,
     PermitKind,
     RecipientPermit,
     RequestCounter,
@@ -79,7 +89,10 @@ from .models import (
     RequestLine,
     RequestStatus,
     ReservationEnd,
+    Shipment,
+    ShipmentVial,
     SignerRole,
+    TransportClass,
     VialReservation,
 )
 
@@ -156,11 +169,26 @@ class ReservedMeanwhile(Conflict):
     default_detail = "A vial was reserved at the same moment: try again."
 
 
+class ShipmentBlocked(RuleViolation):
+    default_code = "shipment_blocked"
+
+
+class SecondPersonRequired(RuleViolation):
+    """ADR 0009: a regulated line leaves only once a second person confirmed it (#89)."""
+
+    default_code = "second_person_required"
+    default_detail = (
+        "A regulated strain is shipped only when a second person confirms it. That step is not"
+        " built yet, so this request cannot be shipped here."
+    )
+
+
 @dataclass(frozen=True)
 class ContactInput:
     name: str
     email: str = ""
     postal_address: str = ""
+    phone: str = ""
 
 
 @dataclass(frozen=True)
@@ -220,6 +248,19 @@ class AcceptanceInput:
     authorised_signatory: bool
     accepted_on: date
     document: DocumentInput
+
+
+@dataclass(frozen=True)
+class ShipmentInput:
+    transport_class: TransportClass
+    classification_basis: ClassificationBasis
+    packing_instruction: PackingInstruction
+    responsible: ContactInput  # name and phone of the person who answers for the package
+    carrier: str
+    basis_note: str = ""
+    coolant: Coolant = Coolant.NONE
+    coolant_kg: Decimal | None = None
+    tracking_number: str = ""
 
 
 def normalised(text: str) -> str:
@@ -795,13 +836,16 @@ def acceptance_record(
     return acceptance
 
 
-def _defer_reservation_checks() -> None:
-    """A vial and its reservation change one after the other: the triggers that hold them
-    together check at commit, also in a session that set its constraints immediate."""
+def _defer_reservation_checks(*, shipment: bool = False) -> None:
+    """A vial and its reservation change one after the other, and a shipment is written before
+    its vials: the triggers that hold them together check at commit, also in a session that
+    set its constraints immediate."""
     with connection.cursor() as cursor:
         cursor.execute(
             "SET CONSTRAINTS distribution_vial_reserved_by_request,"
-            " distribution_reservation_holds_vial DEFERRED"
+            " distribution_reservation_holds_vial"
+            + (", distribution_shipment_complete" if shipment else "")
+            + " DEFERRED"
         )
 
 
@@ -1023,4 +1067,193 @@ def request_cancel(
             ),
             reason=reason,
         )
+    return locked
+
+
+# Shipment (#88).
+
+PHONE = re.compile(r"^[+0-9][0-9 ()-]{4,38}[0-9]$")
+# The largest coolant quantity recorded, in kilograms (decimal(6, 2)).
+MAX_COOLANT_KG = Decimal("9999.99")
+
+
+def _checked_shipment(data: ShipmentInput) -> ShipmentInput:
+    """The fields alone; what depends on the strains is checked under the locks."""
+    if data.classification_basis not in BASES[data.transport_class]:
+        raise InvalidDistribution(
+            f"{ClassificationBasis(data.classification_basis).label} is not a basis for"
+            f" {TransportClass(data.transport_class).label}.",
+            attr="classification_basis",
+        )
+    note = data.basis_note.strip()
+    if data.classification_basis == ClassificationBasis.PROFESSIONAL_JUDGEMENT and not note:
+        raise InvalidDistribution(
+            "Say what the judgement rests on.", code="required", attr="basis_note"
+        )
+    if (
+        data.transport_class == TransportClass.UN3373
+        and data.packing_instruction != PackingInstruction.P650
+    ):
+        raise InvalidDistribution("UN 3373 is packed to P650.", attr="packing_instruction")
+    if data.coolant == Coolant.NONE and data.coolant_kg is not None:
+        raise InvalidDistribution("Choose the coolant of this quantity.", attr="coolant")
+    if data.coolant == Coolant.DRY_ICE and data.coolant_kg is None:
+        raise InvalidDistribution(
+            "Give the quantity of dry ice: it is marked on the package.",
+            code="required",
+            attr="coolant_kg",
+        )
+    if data.coolant_kg is not None and not Decimal(0) < data.coolant_kg <= MAX_COOLANT_KG:
+        raise InvalidDistribution(
+            f"Give more than 0 and at most {MAX_COOLANT_KG} kg.", attr="coolant_kg"
+        )
+    name = normalised(data.responsible.name)
+    if not name:
+        raise InvalidDistribution("Enter the responsible person.", attr="responsible_name")
+    phone = " ".join(data.responsible.phone.split())
+    if not PHONE.match(phone):
+        raise InvalidDistribution(
+            "Enter a phone number: digits, spaces, + ( ) and -.", attr="responsible_phone"
+        )
+    carrier = normalised(data.carrier)
+    if not carrier:
+        raise InvalidDistribution("Enter the carrier.", attr="carrier")
+    return ShipmentInput(
+        transport_class=data.transport_class,
+        classification_basis=data.classification_basis,
+        packing_instruction=data.packing_instruction,
+        responsible=ContactInput(name, phone=phone),
+        carrier=carrier,
+        basis_note=note,
+        coolant=data.coolant,
+        coolant_kg=None if data.coolant_kg is None else data.coolant_kg.quantize(Decimal("0.01")),
+        tracking_number=normalised(data.tracking_number),
+    )
+
+
+def request_ship(
+    *, access: Access, request: DistributionRequest, data: ShipmentInput
+) -> DistributionRequest:
+    """All the vials the approval reserved leave at once, in one transaction: the gates run
+    again on the ship day (a permit may have expired since the approval), the reservations end
+    as shipped, each vial is distributed (its placement closed), the shipment is recorded with
+    its vials and the request is shipped. Then each distribution batch with no vial left
+    available or reserved is exhausted. A request with a regulated line is refused: a second
+    person confirms it (ADR 0009), which #89 builds."""
+    data = _checked_shipment(data)
+    with audited_atomic():
+        locked = _locked_request(access, request, Perm.MANAGE_DISTRIBUTION)
+        old = _move(locked, RequestStatus.SHIPPED)
+        lines = list(locked.lines.select_related("strain").order_by("pk"))
+        strains = list(
+            Strain.objects.select_for_update()
+            .filter(pk__in=[line.strain_id for line in lines])
+            .order_by("pk")
+        )
+        # The gates first: what may not go at all is said before who else must confirm.
+        today = permit_today()
+        blockers = policy.evaluate(locked, today).blockers
+        if blockers:
+            raise ShipmentBlocked(" ".join(f.sentence for f in blockers))
+        if regulating_restrictions().filter(strain__in=strains).exists():
+            raise SecondPersonRequired
+        if data.classification_basis == ClassificationBasis.EXEMPT_NON_PATHOGENIC:
+            pathogens = [s.accession_number for s in strains if s.risk_group >= 2]  # noqa: PLR2004
+            if pathogens:
+                raise InvalidDistribution(
+                    f"{', '.join(map(str, pathogens))}: risk group 2 or higher is pathogenic,"
+                    " so the culture is not exempt as non-pathogenic.",
+                    code="not_exempt",
+                    attr="classification_basis",
+                )
+        open_rows = VialReservation.objects.filter(line__request=locked, ended_at__isnull=True)
+        batch_ids = set(open_rows.values_list("vial__batch_id", flat=True))
+        batches = list(
+            Batch.objects.select_for_update(of=("self",))
+            .select_related("strain")
+            .filter(pk__in=batch_ids)
+            .order_by("pk")
+        )
+        reservations = list(open_rows.select_for_update(of=("self",)).order_by("vial_id"))
+        vials = {
+            v.pk: v
+            for v in Vial.objects.select_for_update(of=("self",))
+            .select_related("batch__strain")
+            .filter(pk__in=[r.vial_id for r in reservations])
+            .order_by("pk")
+        }
+        now = timezone.now()
+        _defer_reservation_checks(shipment=True)
+        person = Contact.objects.create(
+            lab_id=locked.lab_id, name=data.responsible.name, phone=data.responsible.phone
+        )
+        shipment = Shipment.objects.create(
+            lab_id=locked.lab_id,
+            request=locked,
+            transport_class=data.transport_class,
+            classification_basis=data.classification_basis,
+            basis_note=data.basis_note,
+            classified_by=access.user,
+            classified_at=now,
+            packing_instruction=data.packing_instruction,
+            coolant=data.coolant,
+            coolant_kg=data.coolant_kg,
+            responsible=person,
+            carrier=data.carrier,
+            tracking_number=data.tracking_number,
+            shipped_by=access.user,
+            shipped_at=now,
+        )
+        reason = f"Shipped with request {locked.label}."
+        for line in lines:
+            held = [r for r in reservations if r.line_id == line.pk]
+            for reservation in held:
+                vial = vials[reservation.vial_id]
+                ShipmentVial.objects.create(shipment=shipment, line=line, vial=vial)
+                reservation.ended_at, reservation.ended_by = now, access.user
+                reservation.end_reason = ReservationEnd.SHIPPED
+                reservation.save(update_fields=["ended_at", "ended_by", "end_reason", "updated_at"])
+                lineage.vial_ship_locked(access=access, vial=vial, reason=reason)
+            record_event(
+                REQUEST_LINE_SHIPPED,
+                Change(
+                    LINE,
+                    line.public_id,
+                    {
+                        "shipment": [None, str(shipment.public_id)],
+                        "vials": [None, [str(vials[r.vial_id].public_id) for r in held]],
+                    },
+                    lab_id=locked.lab_id,
+                    strain_id=line.strain.public_id,
+                ),
+            )
+        locked.status = RequestStatus.SHIPPED
+        locked.save(update_fields=["status", "updated_at"])
+        record_event(
+            REQUEST_SHIPPED,
+            Change(
+                REQUEST,
+                locked.public_id,
+                {
+                    "status": [old, RequestStatus.SHIPPED],
+                    "shipment": [None, str(shipment.public_id)],
+                    "shipped_on": [None, today.isoformat()],
+                    "transport_class": [None, shipment.transport_class],
+                    "classification_basis": [None, shipment.classification_basis],
+                    "basis_note": [None, shipment.basis_note],
+                    "packing_instruction": [None, shipment.packing_instruction],
+                    "coolant": [None, shipment.coolant],
+                    "coolant_kg": [None, None if data.coolant_kg is None else str(data.coolant_kg)],
+                    "responsible": PERSONAL_CHANGED,
+                    "carrier": [None, shipment.carrier],
+                    "tracking_number": [None, shipment.tracking_number],
+                },
+                lab_id=locked.lab_id,
+            ),
+        )
+        for batch in batches:
+            lineage.batch_exhaust_if_emptied_locked(
+                batch=batch,
+                reason=f"No vial is left to distribute after request {locked.label} was shipped.",
+            )
     return locked

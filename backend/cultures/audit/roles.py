@@ -89,6 +89,9 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     "distribution_linepermit": ("SELECT", "INSERT"),
     "distribution_mtaacceptance": ("SELECT", "INSERT"),
     "distribution_vialreservation": ("SELECT", "INSERT", "UPDATE"),
+    # #88: a shipment and its vials are only added (frozen by triggers).
+    "distribution_shipment": ("SELECT", "INSERT"),
+    "distribution_shipmentvial": ("SELECT", "INSERT"),
     # ADR 0009: a location grant is revoked, never deleted.
     "labs_locationgrant": ("SELECT", "INSERT", "UPDATE"),
     # Storage units are retired, never deleted: events and, from #16, placements point at

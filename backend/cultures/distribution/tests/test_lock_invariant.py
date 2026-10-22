@@ -1,5 +1,6 @@
 """Every public write of cultures.distribution takes the lab lock first, then the request,
-then its strains, then the vials: lab, request, strain, (batch,) vial, box, as everywhere
+then its strains, then the batches (a shipment), then the vials: lab, request, strain, batch,
+vial, box, as everywhere
 (lineage keeps lab, strain, batch, vial, box; a request sits between the lab and its strains).
 
 Each service has a scenario here, run with the SQL captured, or a reviewed exemption. The
@@ -27,9 +28,17 @@ pytestmark = pytest.mark.django_db
 
 EXEMPT = dict.fromkeys(NOT_A_WRITE, "no query: input checks and text")
 # The services that decide on a request: they lock it before its strains and vials.
-DECISIONS = {"request_approve", "request_reject", "request_cancel", "acceptance_record"}
+DECISIONS = {
+    "request_approve",
+    "request_reject",
+    "request_cancel",
+    "acceptance_record",
+    "request_ship",
+}
 # The services that change vials: they lock them after the strains.
-RESERVING = {"request_approve", "request_cancel"}
+RESERVING = {"request_approve", "request_cancel", "request_ship"}
+# The services that may move a batch: they lock it after the strains and before its vials.
+BATCHES = {"request_ship"}
 
 
 def test_every_public_service_has_a_scenario_or_a_reviewed_exemption() -> None:
@@ -81,3 +90,10 @@ def test_the_lab_lock_comes_first_then_request_strain_vial(
     if name in RESERVING:
         assert strain_lock is not None and vial_lock is not None, name
         assert strain_lock < vial_lock, f"{name} locks a vial before its strain"
+    batch_lock = first(statements, locks("lineage_batch"))
+    if name in BATCHES:
+        assert batch_lock is not None, f"{name} moves batches it never locked"
+        assert strain_lock is not None and vial_lock is not None, name
+        assert strain_lock < batch_lock < vial_lock, f"{name}: lock order strain, batch, vial"
+    else:
+        assert batch_lock is None, f"{name} locks a batch: add it to BATCHES"

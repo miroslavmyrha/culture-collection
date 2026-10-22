@@ -29,6 +29,7 @@ from .support import (
     approve,
     as_actor,
     reserved,
+    ship,
     submit,
 )
 
@@ -334,7 +335,8 @@ def test_the_status_filter_and_search_narrow_within_the_lab(
     assert numbers(f"search={first.year}/{first.number}") == [first.label]
     assert numbers(f"search={strain.accession_number}") == [second.label, first.label]
     assert numbers(f"requester={other.public_id}") == [second.label]
-    assert_problem(client.get(f"{REQUESTS_URL}?status=shipped"), 400, "invalid", attr="status")
+    assert numbers("status=shipped") == []
+    assert_problem(client.get(f"{REQUESTS_URL}?status=lost"), 400, "invalid", attr="status")
 
 
 def scoped(queries: list[dict[str, str]], table: str) -> list[str]:
@@ -394,6 +396,10 @@ def test_the_request_detail_query_count_is_exact_and_flat(
     with query_baseline("request_detail_approved"):
         response = client.get(detail(request))
     assert sum(len(line["reserved"]) for line in response.json()["lines"]) == lines
+    ship(curator, request)
+    with query_baseline("request_detail_shipped"):
+        response = client.get(detail(request))
+    assert sum(len(line["shipped"]) for line in response.json()["lines"]) == lines
 
 
 @pytest.mark.parametrize("rows", [1, 20])
@@ -426,3 +432,93 @@ def test_a_cancelled_request_shows_no_vial_as_reserved(
     response = post(curator, f"{detail(request)}cancel/", {"reason": "withdrawn"})
     assert response.json()["lines"][0]["reserved"] == []
     assert logged_in(curator).get(detail(request)).json()["lines"][0]["reserved"] == []
+
+
+SHIP_BODY = {
+    "transport_class": "un3373",
+    "classification_basis": "professional_judgement",
+    "basis_note": "Risk group 1, shipped as Category B on the safe side.",
+    "packing_instruction": "p650",
+    "coolant": "dry_ice",
+    "coolant_kg": "2.50",
+    "responsible_name": "Jan Odpovědný",
+    "responsible_phone": "+420 555 000 111",
+    "carrier": "Example Courier (invented example)",
+    "tracking_number": "EX123456789CZ",
+}
+
+
+def test_a_curator_ships_and_the_request_shows_the_shipment_and_the_vials_sent(
+    *,
+    as_curator: AuditContext,
+    curator: User,
+    viewer: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+) -> None:
+    request = submit(curator, lab, requester, [(supply(vials=6), 2)])
+    accept_mtas(curator, request)
+    approve(curator, request)
+    labels = sorted(
+        f"{v.batch.strain.accession_number} / {v.batch.number} / {v.seq}" for v in reserved(request)
+    )
+    response = post(curator, f"{detail(request)}ship/", SHIP_BODY)
+    assert response.status_code == 200, response.content
+    body = response.json()
+    assert body["status"] == "shipped"
+    assert body["lines"][0]["reserved"] == []
+    assert sorted(v["label"] for v in body["lines"][0]["shipped"]) == labels
+    shipment = body["shipment"]
+    assert {k: shipment[k] for k in SHIP_BODY if k != "coolant_kg"} == {
+        k: v for k, v in SHIP_BODY.items() if k != "coolant_kg"
+    }
+    assert (shipment["coolant_kg"], shipment["shipped_by"], shipment["classified_by"]) == (
+        "2.50",
+        curator.username,
+        curator.username,
+    )
+    # A viewer reads the shipment, never the person who answers for it.
+    seen = logged_in(viewer).get(detail(request)).json()["shipment"]
+    assert (seen["responsible_name"], seen["responsible_phone"]) == (None, None)
+    assert seen["carrier"] == SHIP_BODY["carrier"]
+    assert_problem(post(curator, f"{detail(request)}ship/", SHIP_BODY), 409, "request_state")
+
+
+def test_a_request_not_shipped_has_no_shipment(
+    *, as_curator: AuditContext, curator: User, lab: Lab, requester: Requester, supply: Supply
+) -> None:
+    request = submit(curator, lab, requester, [(supply(), 1)])
+    body = logged_in(curator).get(detail(request)).json()
+    assert body["shipment"] is None
+    assert body["lines"][0]["shipped"] == []
+
+
+def test_a_refused_shipment_answers_its_code_on_its_field(
+    *,
+    as_curator: AuditContext,
+    curator: User,
+    manager: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+    mockia: Taxon,
+) -> None:
+    request = submit(curator, lab, requester, [(supply(vials=6), 1)])
+    accept_mtas(curator, request)
+    approve(curator, request)
+    url = f"{detail(request)}ship/"
+    for changes, attr, code in (
+        ({"transport_class": "un2814"}, "transport_class", "invalid"),
+        ({"packing_instruction": "triple_packaging"}, "packing_instruction", "invalid"),
+        ({"responsible_phone": "ask at the desk"}, "responsible_phone", "invalid"),
+        ({"basis_note": ""}, "basis_note", "required"),
+        ({"coolant_kg": None}, "coolant_kg", "required"),
+    ):
+        response = post(curator, url, {**SHIP_BODY, **changes})
+        assert_problem(response, 400, code, attr=attr)
+    regulated = submit(curator, lab, requester, [(supply(mockia, restrictions=[DUAL_USE]), 1)])
+    accept_mtas(curator, regulated)
+    approve(manager, regulated, "Dual-use inside the EU.")
+    response = post(curator, f"{detail(regulated)}ship/", SHIP_BODY)
+    assert_problem(response, 422, "second_person_required")

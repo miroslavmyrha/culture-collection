@@ -1,6 +1,6 @@
 """Depositors, deposits and the terms under which their material may be used (ADR 0008).
 
-Contacts (D11): a person's name, e-mail and postal address live in Contact,
+Contacts (D11): a person's name, e-mail, postal address and phone live in Contact,
 which the row trigger does not watch (audit.registry.NOT_ROW_AUDITED). A
 depositor points at one contact and holds the institution. Erasure empties the
 contact in place; the depositor and its deposits stay.
@@ -33,6 +33,8 @@ TERMS_USE_UNIQUE = "deposits_termsuse_terms_use_uniq"
 TRIMMED = r"^\S(.*\S)?$"
 # An MTA template's code: upper-case letters, digits and hyphens, as printed on the agreement.
 MTA_CODE = r"^[A-Z0-9][A-Z0-9-]{0,19}$"
+# A telephone number as people write it: a digit or + first, then digits, spaces, ( ) and -.
+PHONE = r"^[+0-9][0-9 ()-]{4,38}[0-9]$"
 
 
 def trimmed_or_empty(field: str) -> Q:
@@ -47,6 +49,9 @@ class Contact(PublicModel):
     name = models.CharField(max_length=200)
     email = models.EmailField(max_length=254, blank=True)
     postal_address = models.TextField(blank=True)
+    # A telephone number, as written: digits, spaces and + ( ) - only. The responsible person of
+    # a shipment (#88) is reached by it at all times (WHO transport guidance, 8.1).
+    phone = models.CharField(max_length=40, blank=True, default="", db_default="")
     # Set by contact_erase: the values above are gone, the row stays for the depositor.
     erased_at = models.DateTimeField(null=True, blank=True)
 
@@ -57,7 +62,7 @@ class Contact(PublicModel):
             *PublicModel.Meta.constraints,
             models.CheckConstraint(
                 condition=Q(erased_at__isnull=True, name__regex=TRIMMED)
-                | Q(erased_at__isnull=False, name="", email="", postal_address=""),
+                | Q(erased_at__isnull=False, name="", email="", postal_address="", phone=""),
                 name="deposits_contact_named_unless_erased",
             ),
             models.CheckConstraint(
@@ -67,6 +72,10 @@ class Contact(PublicModel):
             models.CheckConstraint(
                 condition=Q(postal_address="") | Q(postal_address__regex=r"^\S(.*\S)?$"),
                 name="deposits_contact_postal_address_trimmed",
+            ),
+            models.CheckConstraint(
+                condition=Q(phone="") | Q(phone__regex=PHONE),
+                name="deposits_contact_phone_shape",
             ),
         ]
 

@@ -27,10 +27,11 @@ export const canManageRequests = (role: Role | undefined): boolean => role === '
 /** Only managers approve over a finding that needs one (distribution.approve_regulated). */
 export const canApproveRegulated = (role: Role | undefined): boolean => role === 'manager'
 
-export const STATUSES = ['submitted', 'approved', 'rejected', 'cancelled'] as const satisfies readonly RequestStatus[]
+export const STATUSES = ['submitted', 'approved', 'shipped', 'rejected', 'cancelled'] as const satisfies readonly RequestStatus[]
 export const STATUS_LABELS: Record<RequestStatus, string> = {
   submitted: 'Waiting for a decision',
   approved: 'Approved, vials reserved',
+  shipped: 'Shipped',
   rejected: 'Rejected',
   cancelled: 'Cancelled',
 }

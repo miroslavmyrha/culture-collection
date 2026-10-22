@@ -419,6 +419,7 @@ def test_a_taken_position_is_refused(
 
 
 @pytest.mark.parametrize("status", sorted(NOT_IN_A_BOX))
+@pytest.mark.usefixtures("vial_edges_alone")  # distributed without a shipment of #88
 def test_a_vial_out_of_the_collection_has_no_place(
     as_technician: AuditContext, technician: User, vial: Vial, tree: Tree, status: VialStatus
 ) -> None:
@@ -684,7 +685,12 @@ NOT_A_WRITE = {
     "position_label",
 }
 # Distribution's steps: written under its locks, walked by distribution/tests/test_services.py.
-DISTRIBUTION_STEPS = {"vial_reserve_locked", "vial_release_locked"}
+DISTRIBUTION_STEPS = {
+    "vial_reserve_locked",
+    "vial_release_locked",
+    "vial_ship_locked",
+    "batch_exhaust_if_emptied_locked",
+}
 # Viewers may reveal (strains.view): the grant decides, tested in test_masking.py.
 VIEWER_MAY = {"vial_reveal_location"}
 
