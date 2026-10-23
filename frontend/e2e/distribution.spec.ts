@@ -213,6 +213,29 @@ test('a curator ships an approved request by keyboard and its vial shows as dist
   await expect(page.getByRole('button', { name: 'Cancel the request' })).toHaveCount(0)
   const requestUrl = page.url()
 
+  // The delivery note was written with the shipment (#90): opened from the list, printable,
+  // its text as stored, naming the vial, the class and the person who answers for it.
+  const documents = page.getByRole('list', { name: 'Documents of the shipment' })
+  await expect(documents.getByRole('listitem')).toHaveCount(1)
+  await documents.getByRole('link', { name: 'View and print: Delivery note' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: /^Delivery note, request \d{4}\/\d+$/ })).toBeVisible()
+  const text = page.getByLabel('Document text')
+  await expect(text).toContainText(`     ${label}`)
+  await expect(text).toContainText('Transport class: UN 3373, Biological substance, Category B')
+  await expect(text).toContainText('Responsible person: E2E Responsible, +420 555 000 111')
+  await expect(page.getByRole('button', { name: 'Print' })).toBeVisible()
+  const download = page.waitForEvent('download')
+  await page.getByRole('link', { name: 'Download as text' }).click()
+  expect((await download).suggestedFilename()).toMatch(/^delivery_note-[0-9a-f-]{36}\.txt$/)
+  // On paper only the document shows: the bar and the controls are not printed.
+  await page.emulateMedia({ media: 'print' })
+  await expect(page.getByRole('banner')).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Print' })).toBeHidden()
+  await expect(text).toBeVisible()
+  await page.emulateMedia({ media: 'screen' })
+  expect(await axe(page, 'main')).toEqual([])
+  await page.goto(requestUrl)
+
   // The strain page lists the vial as distributed, with no place.
   const accession = label.split(' / ')[0] ?? ''
   await page.goto(`${lab}/strains?search=${encodeURIComponent(accession)}`)
@@ -228,6 +251,10 @@ test('a curator ships an approved request by keyboard and its vial shows as dist
   const seen = viewer.page.getByRole('region', { name: 'Shipment' })
   await expect(seen).toContainText('E2E Courier')
   await expect(seen).not.toContainText('E2E Responsible')
+  // It sees that the delivery note exists, and opens none: it names a person.
+  const listed = viewer.page.getByRole('list', { name: 'Documents of the shipment' })
+  await expect(listed).toContainText('Delivery note, SHA-256')
+  await expect(listed.getByRole('link')).toHaveCount(0)
   expect(await viewer.page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
   expect(await axe(viewer.page, 'main')).toEqual([])
   await viewer.close()
