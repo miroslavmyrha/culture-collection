@@ -82,14 +82,15 @@ CALLS = [
     Call("request_approve", "post", "requests/{accepted}/approve/", CURATORS, events=3),
     Call("request_reject", "post", "requests/{request}/reject/", CURATORS),
     Call("request_cancel", "post", "requests/{request}/cancel/", CURATORS),
-    Call("request_ship", "post", "requests/{approved}/ship/", CURATORS, events=3),
+    # The vial, the line, the request, and the delivery note (#90).
+    Call("request_ship", "post", "requests/{approved}/ship/", CURATORS, events=4),
     Call("request_prepare_shipment", "post", "requests/{regulated}/prepare-shipment/", CURATORS),
     Call(
         "request_confirm_shipment",
         "post",
         "requests/{awaiting}/confirm-shipment/",
         CURATORS,
-        events=3,
+        events=4,
     ),
     Call("request_withdraw_shipment", "post", "requests/{awaiting}/withdraw-shipment/", CURATORS),
     Call(

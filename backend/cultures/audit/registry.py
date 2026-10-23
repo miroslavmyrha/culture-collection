@@ -264,6 +264,11 @@ REQUEST_SHIPMENT_WITHDRAWN = register(
         reason_required=True,
     )
 )
+# #90: a document of a shipment, written as it ships. The event holds its id, kind and SHA-256,
+# never the text: the text names the responsible person (ADR 0009).
+SHIPMENT_DOCUMENT_GENERATED = register(
+    EventType("shipment_document_generated", "{actor} generated the {kind} of a shipment")
+)
 
 
 @dataclass(frozen=True)
@@ -847,6 +852,23 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
     ),
     "distribution_shipmentvial": RowAudit(
         label="distribution.shipmentvial", audited=("id", "shipment_id", "line_id", "vial_id")
+    ),
+    # #90. The text names the responsible person and the delivery address: personal, so the
+    # trail holds the marker and the SHA-256, never the text.
+    "distribution_shipmentdocument": RowAudit(
+        label="distribution.shipmentdocument",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "shipment_id",
+            "kind",
+            "line_id",
+            "text_sha256",
+        ),
+        personal=("text",),
     ),
 }
 
