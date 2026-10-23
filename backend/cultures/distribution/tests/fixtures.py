@@ -10,11 +10,13 @@ import pytest
 from cultures.biosafety.models import AuthorisationKind, RestrictionKind
 from cultures.deposits import services as deposits
 from cultures.deposits.models import Condition, Depositor, MtaTemplate
-from cultures.deposits.tests.support import facts, terms
+from cultures.deposits.tests.support import DUAL_USE, facts, terms
 from cultures.distribution import services
-from cultures.distribution.models import PermitKind, Requester
+from cultures.distribution.models import DistributionRequest, PermitKind, Requester
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab
+from cultures.labs.permissions import Role
+from cultures.labs.tests.conftest import member_of
 from cultures.lineage import services as lineage
 from cultures.lineage.models import Passage, Purpose
 from cultures.lineage.tests.support import pass_all, preserve
@@ -26,11 +28,13 @@ from cultures.users.models import User
 
 from .support import (
     MakeRequester,
+    Regulated,
     Supply,
     accept_mtas,
     add_permit,
     approve,
     as_actor,
+    prepare,
     requester_input,
     submit,
 )
@@ -110,11 +114,55 @@ def requester(make_requester: MakeRequester) -> Requester:
 
 
 @pytest.fixture
+def approver(lab: Lab) -> User:
+    """A second manager: approves regulated requests in the tests of the two-person rule
+    (#89), so the curator and the manager stay free to prepare and to confirm."""
+    return member_of(lab, Role.MANAGER, "approver")
+
+
+@pytest.fixture
+def regulated(
+    *, approver: User, curator: User, lab: Lab, requester: Requester, supply: Supply, mockia: Taxon
+) -> Regulated:
+    """A request for `quantity` vials of a dual-use strain (invented Mockia vulgaris, a manager
+    finding only), approved by `by` (the approver) with a reason, and prepared by
+    `prepared_by` when given. Each call makes a strain of its own unless `strain` is passed."""
+
+    def make(
+        quantity: int = 1,
+        *,
+        strain: Strain | None = None,
+        prepared_by: User | None = None,
+        by: User = approver,
+    ) -> DistributionRequest:
+        chosen = strain or supply(mockia, restrictions=[DUAL_USE], vials=6)
+        request = submit(curator, lab, requester, [(chosen, quantity)])
+        accept_mtas(curator, request)
+        request = approve(by, request, "Dual-use inside the EU needs no licence.")
+        if prepared_by is not None:
+            request = prepare(prepared_by, request)
+        return request
+
+    return make
+
+
+@pytest.fixture
 def world(
-    curator: User, lab: Lab, requester: Requester, supply: Supply, mta: MtaTemplate
+    *,
+    curator: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+    mta: MtaTemplate,
+    approver: User,
+    regulated: Regulated,
+    mockia: Taxon,
 ) -> dict[str, object]:
-    """One of everything a service acts on, made by the curator through the services."""
+    """One of everything a service acts on, made by the curator through the services; the
+    regulated requests approved and prepared by `approver`, so the curator may confirm."""
     strain = supply(vials=6)
+    dual_use = supply(mockia, restrictions=[DUAL_USE], vials=6)
+    awaiting = regulated(strain=dual_use, prepared_by=approver)
     permit = add_permit(curator, requester, PermitKind.SUJB_RAT_NOTICE)
     request = submit(curator, lab, requester, [(strain, 1)])
     accepted = submit(curator, lab, requester, [(strain, 1)])
@@ -131,4 +179,7 @@ def world(
         "accepted": accepted,
         "approved": approved,
         "mta": mta,
+        "regulated_approved": regulated(strain=dual_use),
+        "awaiting": awaiting,
+        "awaiting_preparation": awaiting.preparations.get().public_id,
     }

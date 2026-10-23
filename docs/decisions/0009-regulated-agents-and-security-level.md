@@ -3,7 +3,8 @@
 Date: 2026-10-18
 Status: accepted (#50). Open questions listed at the end.
 Amended 2026-10-19: location masking as built (#16). Amended 2026-10-20: the box grid (#15);
-distribution of regulated strains (#18, part A).
+distribution of regulated strains (#18, part A). Amended 2026-10-22: the shipment before the
+second person (#88); the second person at shipment (#89).
 Deciders: maintainer
 
 ## Context
@@ -319,3 +320,91 @@ Decided by the maintainer with the distribution study (s10):
   the form.
 - **Masking.** The shipped vials are shown by their label only, like reserved ones; a shipped
   vial has no place (its placement is closed).
+
+## Amendment 2026-10-22: the second person at shipment (#89)
+
+A request with any line of a regulated strain (`strains.selectors.regulating_restrictions()`)
+leaves in two steps, by two people who hold `distribution.manage`:
+
+- **Prepare.** One person records the shipment, the same facts as a shipment in one step (class
+  and basis, packing, coolant, the responsible person as a contact, carrier, tracking number).
+  The gates run on that day and any blocker refuses (`shipment_blocked`). The request goes
+  `approved > awaiting_confirmation`. Nothing leaves: the vials stay reserved.
+- **Confirm.** A different person confirms the preparation they read: the request names its
+  public id, and another one open now is `preparation_changed` (409). The confirmer is neither
+  the approver (`decided_by`, `confirm_own_approval`) nor the preparer
+  (`confirm_own_preparation`), both 403. The gates run again on the confirmation day (a permit
+  that expired since the preparation blocks), and a risk group raised since then makes an
+  exemption as non-pathogenic refused again (`not_exempt`). Then exactly what a shipment in one
+  step does happens: reservations end as shipped, vials distributed, placements closed, the
+  shipment with its vials, the request `shipped`, emptied distribution batches exhausted.
+- **Withdraw.** The preparer or anyone else with `distribution.manage` withdraws a prepared
+  shipment with a reason (`awaiting_confirmation > approved`). The preparation stays with its
+  facts, who withdrew it, when and why; a new one may be prepared. A request awaiting
+  confirmation is not cancelled, approved again or shipped in one step: it is confirmed or
+  withdrawn first.
+
+The approver may prepare. Two people are then still involved, and the confirmer is a third
+whenever the approver prepared. Re-authentication before the confirmation (ASVS 7.5.3) waits for
+the second factor.
+
+**The model: a preparation row, the shipment written from it.** `distribution.ShipmentPreparation`
+holds the package's facts (an abstract `Package` shared with `Shipment`, the same check
+constraints by the same rules), `prepared_by` and `prepared_at`, and the withdrawal (by, at,
+reason) written once. Its trigger refuses DELETE, any change but the one withdrawal, a
+withdrawal of a confirmed preparation, and an insert for a request that is not approved; a
+partial unique index keeps one preparation per request not withdrawn. The runtime role has
+SELECT, INSERT and UPDATE. The confirmation inserts the `Shipment` with `preparation` pointing at
+it: `classified_by` and `classified_at` are the preparer and the time of preparation (the person
+who classified the package), `shipped_by` and `shipped_at` the confirmer and the time of
+confirmation. So the shipment row records both people and both times without new columns.
+
+Chosen over columns on the shipment written once (prepared_by and at, confirmed_by and at, the
+row inserted at preparation): the #88 triggers hold a shipment frozen from its insert and
+complete at commit (the request shipped, every reserved vial in it, each distributed). A
+shipment row that exists before anything leaves, is changed once by the confirmation, and goes
+away or stays orphaned when withdrawn, would have meant reopening all three guarantees and
+"one shipment per request". The preparation row needs one trigger of its own and four lines in
+the shipment guard; the #88 triggers stay as they are.
+
+**What the database holds**, against any writer (the shipment guard, replaced in distribution
+0008 from its 0005 body):
+- a shipment without a preparation is of an approved request with no line of a strain with an
+  active restriction;
+- a shipment with one is of a request awaiting confirmation, confirms that request's
+  preparation not withdrawn, repeats every package fact of it and its preparer and time as the
+  classification, and its `shipped_by` is neither the preparer nor the request's `decided_by`;
+- the request guard (also from 0005) allows `approved > awaiting_confirmation` only with a
+  preparation not withdrawn, `awaiting_confirmation > approved` only once it is withdrawn, and
+  `awaiting_confirmation > shipped` with the shipment; the approval stays as it was given in
+  both states. `REQUEST_EDGES` and the trigger hold the same pairs (a test tries all 36).
+
+**Codes.** A one-step shipment of a regulated request still answers `second_person_required`
+(422), as in #88: the rule it names did not change, and clients that handle it keep working.
+Its detail now says how: prepare, then a different person confirms. Preparing a request with no
+regulated line answers `ship_in_one_step` (422).
+
+**Events.** `request_shipment_prepared` on the request: the status, the preparation and the
+package's facts, the responsible person as "changed". `request_shipment_withdrawn` with its
+reason (required, audit 0021). The confirmation is `request_shipped`, actor the confirmer, with
+the facts, the preparation, `prepared_by` and `prepared_at`, `confirmed_by` and `confirmed_at`
+(users by public id, never by name), followed by the line and vial events of #88. A Letter of
+Authority counts a request awaiting confirmation as it counts approved and shipped ones, and the
+stock gate counts its reservations, not the free vials.
+
+**Screens.** An approved regulated request offers Prepare the shipment (the shipment form). While
+it waits, the page shows the prepared facts, Confirm the shipment to a person allowed to confirm
+(an alertdialog showing what will be recorded), and Withdraw with a reason; the approver and the
+preparer are told why they may not confirm (`confirm_refusal` in the answer, computed for the
+caller). Withdrawn preparations stay listed.
+
+Migration impact: `distribution` 0006 widens the request status to 30 characters (21 for
+`awaiting_confirmation`; no rewrite of the table or its index, checked on PostgreSQL 18), 0007
+adds the preparation table and the shipment's `preparation` column (nullable, no default) and
+lets the status check accept `awaiting_confirmation`, 0008 attaches its row audit and triggers
+and replaces the shipment and request guards (the reverse restores the 0005 bodies); `audit`
+0021 adds the withdrawal to the reason check. Reversible while no preparation exists: `migrate
+distribution 0005`, `migrate audit 0020`.
+
+Revisit when: the second factor exists (step-up before the confirmation), a lab adds actions to
+the two-person set (destruction and deaccession come with #20), or a shipment must go in parts.

@@ -11,6 +11,7 @@ import {
   makeMe,
   makeMember,
   makePassage,
+  makePreparation,
   makeStrain,
   makeStrainRow,
   makeTaxon,
@@ -344,6 +345,28 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
     await waitFor(() => expect(done).toHaveLength(1))
     await router.navigate({ to: '/labs/$labId/strains/$strainId', params: { labId: LAB_ID, strainId: STRAIN_ID } })
     // Within the stale time: only an invalidation makes the page ask again.
+    await waitFor(() => expect(vials).toHaveLength(1), { timeout: 5000 })
+  })
+
+  it('confirming a prepared shipment refreshes the vials the strain page shows (#89)', async () => {
+    const { router, user } = await openStrainPage('manager', free, located())
+    const REQUEST_ID = '00000000-0000-4000-8000-0000000000a1'
+    const request = makeRequest({
+      public_id: REQUEST_ID,
+      number: '2026/7',
+      status: 'awaiting_confirmation',
+      regulated: true,
+      preparations: [makePreparation({ public_id: '00000000-0000-4000-8000-0000000000f2' })],
+    })
+    mockApi('get', '/api/v1/labs/{lab_public_id}/requests/{public_id}/', request)
+    await router.navigate({ to: '/labs/$labId/requests/$requestId', params: { labId: LAB_ID, requestId: REQUEST_ID } })
+    await user.click(await screen.findByRole('button', { name: 'Confirm the shipment' }, { timeout: 5000 }))
+    const dialog = await screen.findByRole('alertdialog')
+    const done = mockApi('post', '/api/v1/labs/{lab_public_id}/requests/{public_id}/confirm-shipment/', { ...request, status: 'shipped' })
+    const vials = strainPage(free, { ...located(), status: 'distributed' })
+    await user.click(within(dialog).getByRole('button', { name: 'Confirm and ship' }))
+    await waitFor(() => expect(done).toHaveLength(1))
+    await router.navigate({ to: '/labs/$labId/strains/$strainId', params: { labId: LAB_ID, strainId: STRAIN_ID } })
     await waitFor(() => expect(vials).toHaveLength(1), { timeout: 5000 })
   })
 })

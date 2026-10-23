@@ -364,6 +364,7 @@ type Permit = components['schemas']['PermitOutput']
 type Finding = components['schemas']['Finding']
 type Acceptance = components['schemas']['AcceptanceOutput']
 type Shipment = components['schemas']['ShipmentOutput']
+type Preparation = components['schemas']['PreparationOutput']
 
 export function makeRequestRow(overrides: Partial<RequestRow> = {}): RequestRow {
   const n = next()
@@ -434,6 +435,7 @@ export function makeRequest(overrides: Partial<RequestDetail> = {}): RequestDeta
     acceptances: [],
     findings: [],
     shipment: null,
+    preparations: [],
     ...overrides,
   }
 }
@@ -457,6 +459,31 @@ export function makeShipment(overrides: Partial<Shipment> = {}): Shipment {
     tracking_number: 'EX123456789CZ',
     shipped_by: 'curator',
     shipped_at: at,
+    preparation: null,
+    ...overrides,
+  }
+}
+
+export function makePreparation(overrides: Partial<Preparation> = {}): Preparation {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    transport_class: 'not_subject',
+    classification_basis: 'exempt_non_pathogenic',
+    basis_note: '',
+    packing_instruction: 'triple_packaging',
+    coolant: '',
+    coolant_kg: null,
+    responsible_name: 'Jan Odpovědný',
+    responsible_phone: '+420 555 000 111',
+    carrier: 'Example Courier',
+    tracking_number: 'EX123456789CZ',
+    prepared_by: 'curator',
+    prepared_at: new Date(Date.UTC(2026, 9, 21, 8, 0, n)).toISOString(),
+    withdrawn_by: null,
+    withdrawn_at: null,
+    withdraw_reason: '',
+    confirm_refusal: null,
     ...overrides,
   }
 }

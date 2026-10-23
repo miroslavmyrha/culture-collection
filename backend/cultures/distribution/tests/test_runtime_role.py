@@ -20,7 +20,18 @@ from cultures.labs.access import access_for
 from cultures.labs.models import Lab
 from cultures.users.models import User
 
-from .support import Supply, accept_mtas, add_permit, approve, shipment_input, submit
+from .support import (
+    Regulated,
+    Supply,
+    accept_mtas,
+    add_permit,
+    approve,
+    confirm,
+    prepare,
+    shipment_input,
+    submit,
+    withdraw,
+)
 
 pytestmark = pytest.mark.django_db
 TABLES = (
@@ -35,6 +46,7 @@ TABLES = (
     "distribution_vialreservation",
     "distribution_shipment",
     "distribution_shipmentvial",
+    "distribution_shipmentpreparation",
 )
 
 
@@ -42,9 +54,11 @@ def test_the_runtime_role_enters_approves_ships_and_cancels(
     *,
     as_curator: AuditContext,
     curator: User,
+    manager: User,
     lab: Lab,
     requester: Requester,
     supply: Supply,
+    regulated: Regulated,
     runtime_role: CursorWrapper,
 ) -> None:
     strain = supply(risk_group=2)
@@ -70,6 +84,11 @@ def test_the_runtime_role_enters_approves_ships_and_cancels(
     services.permit_end(
         access=access_for(curator), permit=permit, ended_on=permit.valid_from, reason="revoked"
     )
+    # A regulated one in two steps, withdrawn once and prepared again (#89).
+    two_step = regulated(prepared_by=curator)
+    withdraw(curator, two_step)
+    prepare(curator, two_step)
+    confirm(manager, two_step)
     labels = set(RowChange.objects.values_list("table_label", flat=True))
     assert {f"distribution.{t.removeprefix('distribution_')}" for t in TABLES} <= labels
 

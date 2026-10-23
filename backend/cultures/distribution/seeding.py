@@ -1,10 +1,13 @@
 """What seed_dev and seed_e2e make of distribution, through the services: requesters with their
 permits, and requests, each with the acceptance of its MTA versions where the data asks for it,
-and approved where it asks for that (a request ready to ship, #88).
+and approved where it asks for that (a request ready to ship, #88, or, regulated, ready to
+prepare for a second person to confirm, #89).
 
 Found again by natural keys, so a second run changes nothing: a requester by its lab and
 institution, a permit by its requester, kind and reference, a request by its lab and end use
-(each seeded request has an end use of its own). Documents are a few bytes of an invented PDF.
+(each seeded request has an end use of its own). A request marked `renew` is found only while it
+is approved: once a test shipped it, or left its shipment prepared, the next run enters a new
+one with the same end use. Documents are a few bytes of an invented PDF.
 """
 
 from dataclasses import dataclass, field
@@ -22,6 +25,7 @@ from .models import (
     PermitKind,
     RecipientPermit,
     Requester,
+    RequestStatus,
     SignerRole,
 )
 
@@ -64,8 +68,12 @@ class SeedRequest:
     containment_level: int
     lines: tuple[tuple[Strain, int], ...]
     accept: bool = True
-    # Approved by the same person, which reserves its vials: a request ready to ship.
+    # Approved, which reserves its vials: by the same person, or by `approver` with `reason`
+    # (a regulated line needs a manager and a reason).
     approve: bool = False
+    reason: str = ""
+    # Entered again once the last one left the approved state (a test ships it each run).
+    renew: bool = False
 
 
 def requester(access: Access, lab: Lab, data: SeedRequester) -> Requester:
@@ -110,8 +118,13 @@ def requester(access: Access, lab: Lab, data: SeedRequester) -> Requester:
     return found
 
 
-def request(access: Access, lab: Lab, data: SeedRequest) -> DistributionRequest:
-    found = DistributionRequest.objects.filter(lab=lab, end_use=data.end_use).first()
+def request(
+    access: Access, lab: Lab, data: SeedRequest, approver: Access | None = None
+) -> DistributionRequest:
+    same = DistributionRequest.objects.filter(lab=lab, end_use=data.end_use)
+    if data.renew:
+        same = same.filter(status=RequestStatus.APPROVED)
+    found = same.order_by("-pk").first()
     if found is not None:
         return found
     made = services.request_submit(
@@ -140,5 +153,5 @@ def request(access: Access, lab: Lab, data: SeedRequest) -> DistributionRequest:
                 ),
             )
     if data.approve:
-        made = services.request_approve(access=access, request=made)
+        made = services.request_approve(access=approver or access, request=made, reason=data.reason)
     return made

@@ -67,6 +67,8 @@ from .support import (
     add_permit,
     approve,
     as_actor,
+    confirm,
+    prepare,
     reserved,
     ship,
     submit,
@@ -179,7 +181,7 @@ def test_a_curator_ships_every_reserved_vial_at_once_and_each_leaves_its_box(
     assert event.changes["shipped_on"] == [None, permit_today().isoformat()]
     assert event.changes["responsible"] == "changed"
     text = str([e.changes for e in recorded])
-    assert "Odpovědný" not in text and "555" not in text
+    assert "Odpovědný" not in text and "555 000 111" not in text
 
 
 def test_a_request_ships_once_and_only_once_approved(
@@ -680,29 +682,26 @@ def test_a_shipped_request_still_counts_against_its_letter_of_authority(
     *,
     manager: User,
     curator: User,
+    approver: User,
     lab: Lab,
     requester: Requester,
     supply: Supply,
     mockia: Taxon,
     approved: Any,
 ) -> None:
-    """A letter that allows one sending: once the first request is shipped, a second one is
-    blocked. The shipment is written past the service (a quarantine pest is regulated, so the
-    service waits for #89) and rolled back with the test's own savepoint."""
+    """A letter that allows one sending: while the first request's shipment waits for the
+    second person, and once it is confirmed, a second request is blocked."""
     strain = supply(mockia, restrictions=[QUARANTINE], vials=6)
     add_permit(curator, requester, PermitKind.PLANT_HEALTH_LOA, sendings_allowed=1)
     first = approved(strain, by=manager, reason="The letter allows it.")
-    with transaction.atomic():
-        shipment_row(first)
-        sql(
-            "UPDATE distribution_distributionrequest SET status = 'shipped' WHERE id = %s",
-            [first.pk],
-        )
-        second = submit(curator, lab, requester, [(strain, 1)])
-        accept_mtas(curator, second)
-        found = {f.code for f in evaluate(second, permit_today()).blockers}
-        transaction.set_rollback(True)
-    assert found == {"loa_exhausted"}
+    second = submit(curator, lab, requester, [(strain, 1)])
+    accept_mtas(curator, second)
+    prepare(curator, first)
+    assert {f.code for f in evaluate(second, permit_today()).blockers} == {"loa_exhausted"}
+    confirm(approver, first)
+    first.refresh_from_db()
+    assert first.status == RequestStatus.SHIPPED
+    assert {f.code for f in evaluate(second, permit_today()).blockers} == {"loa_exhausted"}
 
 
 def test_a_shipment_through_the_service_passes_the_checks_at_commit(

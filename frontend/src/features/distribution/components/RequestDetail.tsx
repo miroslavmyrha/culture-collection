@@ -9,11 +9,15 @@ import { useRequest } from '../api/queries'
 import {
   BASIS_LABELS,
   canApproveRegulated,
+  canPrepare,
   canShip,
+  CONFIRM_REFUSALS,
   COOLANT_LABELS,
   type Finding,
   type Line,
+  openPreparation,
   PACKING_LABELS,
+  type Preparation,
   type Request,
   type Role,
   type Shipment,
@@ -22,11 +26,12 @@ import {
   TRANSPORT_CLASS_LABELS,
   USE_LABELS,
 } from '../schemas'
-import { AcceptanceDialog, ApproveDialog, CancelDialog, RejectDialog, SECOND_PERSON, ShipDialog } from './RequestDialogs'
+import { AcceptanceDialog, ApproveDialog, CancelDialog, ConfirmShipmentDialog, RejectDialog, SECOND_PERSON, ShipDialog, WithdrawShipmentDialog } from './RequestDialogs'
 import { scrollable } from './scroll'
 
 type Props = { labId: string; requestId: string; role: Role }
-type Open = { kind: 'approve' | 'reject' | 'cancel' | 'acceptance' | 'ship'; open: boolean } | null
+type Kind = 'approve' | 'reject' | 'cancel' | 'acceptance' | 'ship' | 'prepare' | 'confirm' | 'withdraw'
+type Open = { kind: Kind; open: boolean; preparation?: Preparation } | null
 
 const day = (iso: string) => new Date(iso).toLocaleDateString('sv')
 
@@ -35,15 +40,18 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('sv')
  * under, what the policy finds while it waits, the MTA acceptances, and the decision. After an
  * approval each line lists the vials reserved for it, after the shipment the vials sent, by label
  * only: no place (ADR 0009). A shipped request shows the shipment's facts; its responsible person
- * only to those who may see people.
+ * only to those who may see people. A regulated request leaves in two steps (#89): the shipment
+ * prepared by one person waits for a second, who sees it before confirming; a withdrawn
+ * preparation stays listed.
  */
 export function RequestDetail({ labId, requestId, role }: Props) {
   const request = useRequest(labId, requestId)
   const [open, setOpen] = useState<Open>(null)
   const spot = useRef<FocusReturn | null>(null)
-  const show = (kind: NonNullable<Open>['kind']) => (event: MouseEvent<HTMLButtonElement>) => {
+  const show = (kind: Kind) => (event: MouseEvent<HTMLButtonElement>) => {
     spot.current = rememberFocus(event.currentTarget)
-    setOpen({ kind, open: true })
+    // The confirmation keeps the preparation it was opened on: a refetch does not swap it.
+    setOpen({ kind, open: true, preparation: request.data && openPreparation(request.data) })
   }
   const close = () => setOpen((current) => current && { ...current, open: false })
   const exited = () => {
@@ -79,6 +87,8 @@ export function RequestDetail({ labId, requestId, role }: Props) {
   }
   const r = request.data
   const manage = role === 'curator' || role === 'manager'
+  const prepared = openPreparation(r)
+  const withdrawn = r.preparations.filter((p) => p.withdrawn_at !== null)
   return (
     <>
       <PageTitle>{`Request ${r.number}`}</PageTitle>
@@ -126,9 +136,28 @@ export function RequestDetail({ labId, requestId, role }: Props) {
         <Decision request={r} role={role} onShow={show} />
       </Section>
 
+      {prepared && (
+        <Section title="Prepared shipment">
+          <PackageFacts package={prepared} people={[['Prepared by', `${prepared.prepared_by} on ${day(prepared.prepared_at)}`]]} />
+        </Section>
+      )}
+
       {r.shipment && (
         <Section title="Shipment">
           <ShipmentFacts shipment={r.shipment} />
+        </Section>
+      )}
+
+      {withdrawn.length > 0 && (
+        <Section title="Withdrawn preparations">
+          <Box component="ul" sx={{ pl: 3, my: 0 }}>
+            {withdrawn.map((p) => (
+              <Typography component="li" key={p.public_id} sx={{ overflowWrap: 'anywhere' }}>
+                Prepared by {p.prepared_by} on {day(p.prepared_at)}, withdrawn by {p.withdrawn_by} on {day(p.withdrawn_at ?? p.prepared_at)}
+                {reason(p.withdraw_reason)}
+              </Typography>
+            ))}
+          </Box>
         </Section>
       )}
 
@@ -137,6 +166,13 @@ export function RequestDetail({ labId, requestId, role }: Props) {
       {open?.kind === 'reject' && <RejectDialog labId={labId} request={r} open={open.open} onClose={close} onExited={exited} />}
       {open?.kind === 'cancel' && <CancelDialog labId={labId} request={r} open={open.open} onClose={close} onExited={exited} />}
       {open?.kind === 'ship' && <ShipDialog labId={labId} request={r} open={open.open} onClose={close} onExited={exited} />}
+      {open?.kind === 'prepare' && <ShipDialog prepare labId={labId} request={r} open={open.open} onClose={close} onExited={exited} />}
+      {open?.kind === 'confirm' && open.preparation && (
+        <ConfirmShipmentDialog labId={labId} request={r} preparation={open.preparation} open={open.open} onClose={close} onExited={exited}>
+          <PackageFacts package={open.preparation} people={[]} />
+        </ConfirmShipmentDialog>
+      )}
+      {open?.kind === 'withdraw' && <WithdrawShipmentDialog labId={labId} request={r} open={open.open} onClose={close} onExited={exited} />}
       {open?.kind === 'acceptance' && <AcceptanceDialog labId={labId} request={r} open={open.open} onClose={close} onExited={exited} />}
     </>
   )
@@ -231,7 +267,7 @@ function Acceptances({ request }: { request: Request }) {
 
 const reason = (text: string) => (text ? `: ${text}` : '.')
 
-type DecisionProps = { request: Request; role: Role; onShow: (kind: 'approve' | 'reject' | 'cancel' | 'ship') => (event: MouseEvent<HTMLButtonElement>) => void }
+type DecisionProps = { request: Request; role: Role; onShow: (kind: Kind) => (event: MouseEvent<HTMLButtonElement>) => void }
 
 function Decision({ request, role, onShow }: DecisionProps) {
   const manage = role === 'curator' || role === 'manager'
@@ -240,11 +276,37 @@ function Decision({ request, role, onShow }: DecisionProps) {
   if (request.status === 'cancelled')
     return <Typography sx={{ overflowWrap: 'anywhere' }}>Cancelled by {request.cancelled_by} on {day(request.cancelled_at ?? request.created_at)}{reason(request.cancel_reason)}</Typography>
   const approval = `Approved by ${request.decided_by ?? ''} on ${day(request.decided_at ?? request.created_at)}${reason(request.decision_reason)}`
+  const s = request.shipment
   if (request.status === 'shipped')
     return (
       <Typography sx={{ overflowWrap: 'anywhere' }}>
-        {approval} Shipped by {request.shipment?.shipped_by} on {day(request.shipment?.shipped_at ?? request.created_at)}.
+        {approval}{' '}
+        {s?.preparation
+          ? `Prepared by ${s.classified_by} on ${day(s.classified_at)}, confirmed and shipped by ${s.shipped_by} on ${day(s.shipped_at)}.`
+          : `Shipped by ${s?.shipped_by ?? ''} on ${day(s?.shipped_at ?? request.created_at)}.`}
       </Typography>
+    )
+  const prepared = openPreparation(request)
+  if (prepared)
+    return (
+      <KeepsFocus>
+        <Typography sx={{ overflowWrap: 'anywhere' }}>
+          {approval} The shipment was prepared by {prepared.prepared_by} on {day(prepared.prepared_at)} and waits for a second person to confirm it. The vials stay reserved until then.
+        </Typography>
+        {manage && prepared.confirm_refusal && <Alert severity="info">{CONFIRM_REFUSALS[prepared.confirm_refusal]}</Alert>}
+        {manage && (
+          <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap' }}>
+            {!prepared.confirm_refusal && (
+              <Button variant="contained" onClick={onShow('confirm')}>
+                Confirm the shipment
+              </Button>
+            )}
+            <Button color="error" variant="outlined" onClick={onShow('withdraw')}>
+              Withdraw the prepared shipment
+            </Button>
+          </Stack>
+        )}
+      </KeepsFocus>
     )
   if (request.status === 'approved')
     return (
@@ -256,6 +318,11 @@ function Decision({ request, role, onShow }: DecisionProps) {
             {canShip(request, role) && (
               <Button variant="contained" onClick={onShow('ship')}>
                 Ship the vials
+              </Button>
+            )}
+            {canPrepare(request, role) && (
+              <Button variant="contained" onClick={onShow('prepare')}>
+                Prepare the shipment
               </Button>
             )}
             <Button color="error" variant="outlined" onClick={onShow('cancel')}>
@@ -290,10 +357,21 @@ function Decision({ request, role, onShow }: DecisionProps) {
 }
 
 function ShipmentFacts({ shipment: s }: { shipment: Shipment }) {
+  const people: [string, string][] = s.preparation
+    ? [
+        ['Prepared and classified by', `${s.classified_by} on ${day(s.classified_at)}`],
+        ['Confirmed by', `${s.shipped_by} on ${day(s.shipped_at)}`],
+      ]
+    : [['Classified by', `${s.classified_by} on ${day(s.classified_at)}`]]
+  return <PackageFacts package={s} people={people} />
+}
+
+/** What the shipper decided about a package, shipped or prepared, and who answers for it. */
+function PackageFacts({ package: s, people }: { package: Shipment | Preparation; people: [string, string][] }) {
   const rows: [string, string][] = [
     ['Transport class', TRANSPORT_CLASS_LABELS[s.transport_class]],
     ['Basis', s.basis_note ? `${BASIS_LABELS[s.classification_basis]}: ${s.basis_note}` : BASIS_LABELS[s.classification_basis]],
-    ['Classified by', `${s.classified_by} on ${day(s.classified_at)}`],
+    ...people,
     ['Packing', PACKING_LABELS[s.packing_instruction]],
     ['Coolant', s.coolant ? `${COOLANT_LABELS[s.coolant]}${s.coolant_kg ? `, ${s.coolant_kg} kg` : ''}` : 'None'],
   ]

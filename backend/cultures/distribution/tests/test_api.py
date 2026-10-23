@@ -23,11 +23,13 @@ from .support import (
     REQUESTERS_URL,
     REQUESTS_URL,
     MakeRequester,
+    Regulated,
     Supply,
     accept_mtas,
     add_permit,
     approve,
     as_actor,
+    prepare,
     reserved,
     ship,
     submit,
@@ -522,3 +524,125 @@ def test_a_refused_shipment_answers_its_code_on_its_field(
     approve(manager, regulated, "Dual-use inside the EU.")
     response = post(curator, f"{detail(regulated)}ship/", SHIP_BODY)
     assert_problem(response, 422, "second_person_required")
+
+
+# The two-person shipment (#89).
+
+
+def test_a_curator_prepares_a_regulated_request_and_a_manager_confirms_it(
+    *,
+    curator: User,
+    manager: User,
+    approver: User,
+    viewer: User,
+    regulated: Regulated,
+) -> None:
+    request = regulated(2)
+    labels = sorted(
+        f"{v.batch.strain.accession_number} / {v.batch.number} / {v.seq}" for v in reserved(request)
+    )
+    response = post(curator, f"{detail(request)}prepare-shipment/", SHIP_BODY)
+    assert response.status_code == 200, response.content
+    body = response.json()
+    assert (body["status"], body["shipment"]) == ("awaiting_confirmation", None)
+    assert sorted(v["label"] for v in body["lines"][0]["reserved"]) == labels
+    [prepared] = body["preparations"]
+    assert {k: prepared[k] for k in SHIP_BODY if k != "coolant_kg"} == {
+        k: v for k, v in SHIP_BODY.items() if k != "coolant_kg"
+    }
+    assert (prepared["prepared_by"], prepared["withdrawn_at"]) == (curator.username, None)
+    # The preparer may not confirm, and is told why; so is the approver; the manager may.
+    assert prepared["confirm_refusal"] == "confirm_own_preparation"
+    refusals = {
+        user.username: logged_in(user)
+        .get(detail(request))
+        .json()["preparations"][0]["confirm_refusal"]
+        for user in (approver, manager)
+    }
+    assert refusals == {approver.username: "confirm_own_approval", manager.username: None}
+    seen = logged_in(viewer).get(detail(request)).json()["preparations"][0]
+    assert (seen["responsible_name"], seen["responsible_phone"]) == (None, None)
+
+    url = f"{detail(request)}confirm-shipment/"
+    assert_problem(
+        post(curator, url, {"preparation": prepared["public_id"]}), 403, "confirm_own_preparation"
+    )
+    assert_problem(
+        post(approver, url, {"preparation": prepared["public_id"]}), 403, "confirm_own_approval"
+    )
+    assert_problem(
+        post(manager, url, {"preparation": str(request.public_id)}), 409, "preparation_changed"
+    )
+    assert_problem(post(manager, url, {}), 400, "invalid", attr="preparation")
+    response = post(manager, url, {"preparation": prepared["public_id"]})
+    assert response.status_code == 200, response.content
+    body = response.json()
+    assert body["status"] == "shipped"
+    assert sorted(v["label"] for v in body["lines"][0]["shipped"]) == labels
+    shipment = body["shipment"]
+    assert (
+        shipment["preparation"],
+        shipment["classified_by"],
+        shipment["shipped_by"],
+        shipment["classified_at"],
+    ) == (prepared["public_id"], curator.username, manager.username, prepared["prepared_at"])
+
+
+def test_a_withdrawal_needs_its_reason_and_keeps_the_preparation(
+    *, curator: User, manager: User, regulated: Regulated
+) -> None:
+    request = regulated(prepared_by=curator)
+    url = f"{detail(request)}withdraw-shipment/"
+    assert_problem(post(manager, url, {"reason": " "}), 400, "invalid", attr="reason")
+    response = post(manager, url, {"reason": "The courier cannot come this week."})
+    assert response.status_code == 200, response.content
+    body = response.json()
+    assert body["status"] == "approved"
+    [kept] = body["preparations"]
+    assert (kept["withdrawn_by"], kept["withdraw_reason"]) == (
+        manager.username,
+        "The courier cannot come this week.",
+    )
+    assert_problem(post(manager, url, {"reason": "again"}), 409, "request_state")
+
+
+def test_the_preparations_come_newest_first_so_the_open_one_leads(
+    *, curator: User, manager: User, regulated: Regulated
+) -> None:
+    request = regulated(prepared_by=curator)
+    post(manager, f"{detail(request)}withdraw-shipment/", {"reason": "Wrong carrier."})
+    body = post(curator, f"{detail(request)}prepare-shipment/", SHIP_BODY).json()
+    assert [p["withdrawn_at"] is None for p in body["preparations"]] == [True, False]
+    assert body["preparations"][0]["prepared_at"] > body["preparations"][1]["prepared_at"]
+
+
+def test_an_approver_who_prepared_is_told_the_approval_bars_them(
+    *, approver: User, regulated: Regulated
+) -> None:
+    """The service refuses the approval first (confirm_own_approval); the page says the same."""
+    request = regulated(prepared_by=approver)
+    seen = logged_in(approver).get(detail(request)).json()["preparations"][0]
+    assert seen["confirm_refusal"] == "confirm_own_approval"
+
+
+def test_preparing_an_unregulated_request_is_refused_with_its_code(
+    *, as_curator: AuditContext, curator: User, lab: Lab, requester: Requester, supply: Supply
+) -> None:
+    request = submit(curator, lab, requester, [(supply(vials=6), 1)])
+    accept_mtas(curator, request)
+    approve(curator, request)
+    response = post(curator, f"{detail(request)}prepare-shipment/", SHIP_BODY)
+    assert_problem(response, 422, "ship_in_one_step")
+
+
+def test_the_detail_of_a_request_awaiting_confirmation_has_an_exact_query_count(
+    *, curator: User, manager: User, regulated: Regulated, query_baseline: QueryBaseline
+) -> None:
+    request = regulated(prepared_by=curator)
+    with as_actor(curator):
+        services.request_withdraw_shipment(access=access_for(curator), request=request, reason="r")
+    prepare(curator, request)
+    client = logged_in(manager)
+    with query_baseline("request_detail_awaiting"):
+        response = client.get(detail(request))
+    assert len(response.json()["preparations"]) == 2

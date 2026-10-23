@@ -57,8 +57,11 @@ EU_MEMBER_STATES: frozenset[str] = frozenset(
 )  # fmt: skip
 # Annex IV Part II of 2021/821: within the EU only ricin and saxitoxin need a transfer licence.
 TRANSFER_LICENCE_ENTRIES = ("1C351.d.4", "1C351.d.5")
-# Requests whose approval counts against a Letter of Authority, also once shipped.
-COUNTING = (RequestStatus.APPROVED, RequestStatus.SHIPPED)
+# Requests whose approval counts against a Letter of Authority, also while their shipment waits
+# for a second person (#89) and once shipped.
+COUNTING = (RequestStatus.APPROVED, RequestStatus.AWAITING_CONFIRMATION, RequestStatus.SHIPPED)
+# Requests that hold their vials: the stock gate counts their reservations, not the free vials.
+HOLDING = (RequestStatus.APPROVED, RequestStatus.AWAITING_CONFIRMATION)
 
 
 class Severity(StrEnum):
@@ -189,7 +192,7 @@ def _facts(request: DistributionRequest, lines: list[RequestLine], day: date) ->
         permits=permits,
         loa_used={row["permit_id"]: (row["quantity"], row["sendings"]) for row in usage},
         available={row["batch__strain_id"]: row["n"] for row in available},
-        reserved=_reserved(request) if request.status == RequestStatus.APPROVED else {},
+        reserved=_reserved(request) if request.status in HOLDING else {},
     )
 
 
@@ -277,7 +280,7 @@ class _LineCheck:
             self.restriction(restriction)
 
     def stock(self) -> None:
-        if self.request.status == RequestStatus.APPROVED:
+        if self.request.status in HOLDING:
             held = self.facts.reserved.get(self.line.pk, 0)
             if held < self.line.quantity:
                 self.block(

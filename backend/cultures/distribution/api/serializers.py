@@ -6,9 +6,9 @@ strains and MTA versions are referenced by public id through ScopedRelatedField,
 lab in the URL: another lab's id, an unknown id and a malformed one give the same error.
 
 A request's detail is read by viewers too: it names the requester's institution, never a person.
-The signer of an MTA acceptance, the responsible person of a shipment and the documents reach a
-person, so they are serialised only for a caller who may view requesters (`show_people` in the
-context).
+The signer of an MTA acceptance, the responsible person of a shipment or a prepared one and the
+documents reach a person, so they are serialised only for a caller who may view requesters
+(`show_people` in the context).
 """
 
 from typing import Any
@@ -38,6 +38,7 @@ from cultures.distribution.models import (
     RequestLine,
     RequestStatus,
     Shipment,
+    ShipmentPreparation,
     SignerRole,
     TransportClass,
 )
@@ -330,7 +331,9 @@ class AcceptanceOutputSerializer(serializers.ModelSerializer[MtaAcceptance]):
         return dict(DocumentOutputSerializer(acceptance.document).data)
 
 
-class ShipmentOutputSerializer(serializers.ModelSerializer[Shipment]):
+class PackageOutputSerializer(serializers.ModelSerializer[Shipment | ShipmentPreparation]):
+    """The package's facts, of a shipment or a prepared one."""
+
     transport_class = serializers.ChoiceField(choices=TransportClass.choices, read_only=True)
     classification_basis = serializers.ChoiceField(
         choices=ClassificationBasis.choices, read_only=True
@@ -339,41 +342,95 @@ class ShipmentOutputSerializer(serializers.ModelSerializer[Shipment]):
         choices=PackingInstruction.choices, read_only=True
     )
     coolant = serializers.ChoiceField(choices=Coolant.choices, read_only=True)
-    classified_by = serializers.CharField(source="classified_by.username", read_only=True)
-    shipped_by = serializers.CharField(source="shipped_by.username", read_only=True)
     responsible_name = serializers.SerializerMethodField()
     responsible_phone = serializers.SerializerMethodField()
 
-    class Meta:
-        model = Shipment
-        fields = (
-            "public_id",
-            "transport_class",
-            "classification_basis",
-            "basis_note",
-            "classified_by",
-            "classified_at",
-            "packing_instruction",
-            "coolant",
-            "coolant_kg",
-            "responsible_name",
-            "responsible_phone",
-            "carrier",
-            "tracking_number",
-            "shipped_by",
-            "shipped_at",
-        )
-        read_only_fields = fields
+    PACKAGE = (
+        "public_id",
+        "transport_class",
+        "classification_basis",
+        "basis_note",
+        "packing_instruction",
+        "coolant",
+        "coolant_kg",
+        "responsible_name",
+        "responsible_phone",
+        "carrier",
+        "tracking_number",
+    )
 
     def _people(self) -> bool:
         return bool(self.context.get("show_people"))
 
-    def get_responsible_name(self, shipment: Shipment) -> str | None:
+    def get_responsible_name(self, package: Shipment | ShipmentPreparation) -> str | None:
         """Null for a caller who may not see people; empty once the person was erased."""
-        return shipment.responsible.name if self._people() else None
+        return package.responsible.name if self._people() else None
 
-    def get_responsible_phone(self, shipment: Shipment) -> str | None:
-        return shipment.responsible.phone if self._people() else None
+    def get_responsible_phone(self, package: Shipment | ShipmentPreparation) -> str | None:
+        return package.responsible.phone if self._people() else None
+
+
+class PreparationOutputSerializer(PackageOutputSerializer):
+    """A prepared shipment (#89): open while it waits for a second person, or withdrawn and
+    kept as history. `confirm_refusal` says why the caller may not confirm it: they approved the
+    request or prepared it (ADR 0009); null when they may, as far as identity goes."""
+
+    prepared_by = serializers.CharField(source="prepared_by.username", read_only=True)
+    withdrawn_by = serializers.CharField(
+        source="withdrawn_by.username", read_only=True, allow_null=True
+    )
+    confirm_refusal = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ShipmentPreparation
+        fields = (
+            *PackageOutputSerializer.PACKAGE,
+            "prepared_by",
+            "prepared_at",
+            "withdrawn_by",
+            "withdrawn_at",
+            "withdraw_reason",
+            "confirm_refusal",
+        )
+        read_only_fields = fields
+
+    @extend_schema_field(
+        serializers.ChoiceField(
+            choices=["confirm_own_approval", "confirm_own_preparation"], allow_null=True
+        )
+    )
+    def get_confirm_refusal(self, preparation: ShipmentPreparation) -> str | None:
+        request: Request | None = self.context.get("request")
+        user_id = getattr(getattr(request, "user", None), "pk", None)
+        if preparation.request.decided_by_id == user_id:
+            return "confirm_own_approval"
+        if preparation.prepared_by_id == user_id:
+            return "confirm_own_preparation"
+        return None
+
+
+class ShipmentOutputSerializer(PackageOutputSerializer):
+    """For a confirmed shipment of a regulated request, `preparation` names what was confirmed:
+    classified_by and classified_at are the preparer and when, shipped_by and shipped_at the
+    confirmer and when."""
+
+    classified_by = serializers.CharField(source="classified_by.username", read_only=True)
+    shipped_by = serializers.CharField(source="shipped_by.username", read_only=True)
+    preparation = serializers.UUIDField(
+        source="preparation.public_id", read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = Shipment
+        fields = (
+            *PackageOutputSerializer.PACKAGE,
+            "classified_by",
+            "classified_at",
+            "shipped_by",
+            "shipped_at",
+            "preparation",
+        )
+        read_only_fields = fields
 
 
 class FindingSerializer(serializers.Serializer[None]):
@@ -395,6 +452,8 @@ class RequestDetailOutputSerializer(RequestListOutputSerializer):
     )
     findings = serializers.SerializerMethodField()
     shipment = serializers.SerializerMethodField()
+    # Newest first: the open one while the request awaits confirmation, then the withdrawn ones.
+    preparations = PreparationOutputSerializer(source="preparation_list", many=True, read_only=True)
 
     class Meta(RequestListOutputSerializer.Meta):
         fields = (
@@ -411,6 +470,7 @@ class RequestDetailOutputSerializer(RequestListOutputSerializer):
             "acceptances",
             "findings",
             "shipment",
+            "preparations",
         )
         read_only_fields = fields
 
@@ -482,6 +542,12 @@ class ShipInputSerializer(serializers.Serializer[None]):
     tracking_number = serializers.CharField(
         max_length=100, required=False, allow_blank=True, default=""
     )
+
+
+class ConfirmInputSerializer(serializers.Serializer[None]):
+    """The prepared shipment the confirmer read: another one open now is a conflict."""
+
+    preparation = serializers.UUIDField()
 
 
 class AcceptanceInputSerializer(serializers.Serializer[None]):

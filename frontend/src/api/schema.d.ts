@@ -766,6 +766,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/requests/{public_id}/confirm-shipment/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_requests_confirm_shipment_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/requests/{public_id}/prepare-shipment/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_requests_prepare_shipment_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/requests/{public_id}/reject/": {
         parameters: {
             query?: never;
@@ -792,6 +824,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["labs_requests_ship_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/requests/{public_id}/withdraw-shipment/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_requests_withdraw_shipment_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1435,6 +1483,17 @@ export interface components {
          * @enum {string}
          */
         Condition: "intact" | "damaged" | "other";
+        /** @description The prepared shipment the confirmer read: another one open now is a conflict. */
+        ConfirmInputRequest: {
+            /** Format: uuid */
+            preparation: string;
+        };
+        /**
+         * @description * `confirm_own_approval` - confirm_own_approval
+         *     * `confirm_own_preparation` - confirm_own_preparation
+         * @enum {string}
+         */
+        ConfirmRefusalEnum: "confirm_own_approval" | "confirm_own_preparation";
         /**
          * @description * `` - None
          *     * `dry_ice` - Dry ice (UN 1845)
@@ -2321,6 +2380,35 @@ export interface components {
             col: number;
         };
         /**
+         * @description A prepared shipment (#89): open while it waits for a second person, or withdrawn and
+         *     kept as history. `confirm_refusal` says why the caller may not confirm it: they approved the
+         *     request or prepared it (ADR 0009); null when they may, as far as identity goes.
+         */
+        PreparationOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly transport_class: components["schemas"]["TransportClass"];
+            readonly classification_basis: components["schemas"]["ClassificationBasis"];
+            readonly basis_note: string;
+            readonly packing_instruction: components["schemas"]["PackingInstruction"];
+            readonly coolant: components["schemas"]["Coolant"] | components["schemas"]["BlankEnum"];
+            /** Format: decimal */
+            readonly coolant_kg: string | null;
+            /** @description Null for a caller who may not see people; empty once the person was erased. */
+            readonly responsible_name: string | null;
+            readonly responsible_phone: string | null;
+            readonly carrier: string;
+            readonly tracking_number: string;
+            readonly prepared_by: string;
+            /** Format: date-time */
+            readonly prepared_at: string;
+            readonly withdrawn_by: string | null;
+            /** Format: date-time */
+            readonly withdrawn_at: string | null;
+            readonly withdraw_reason: string;
+            readonly confirm_refusal: (components["schemas"]["ConfirmRefusalEnum"] | components["schemas"]["NullEnum"]) | null;
+        };
+        /**
          * @description * `cryo_minus80` - Frozen at -80 °C
          *     * `cryo_ln2` - Frozen in liquid nitrogen
          *     * `lyophilised` - Freeze-dried
@@ -2420,6 +2508,7 @@ export interface components {
             readonly acceptances: components["schemas"]["AcceptanceOutput"][];
             readonly findings: components["schemas"]["Finding"][];
             readonly shipment: components["schemas"]["ShipmentOutput"] | null;
+            readonly preparations: components["schemas"]["PreparationOutput"][];
         };
         RequestInputRequest: {
             /** Format: uuid */
@@ -2452,9 +2541,10 @@ export interface components {
          *     * `rejected` - Rejected
          *     * `cancelled` - Cancelled
          *     * `shipped` - Shipped
+         *     * `awaiting_confirmation` - Awaiting confirmation
          * @enum {string}
          */
-        RequestStatus: "submitted" | "approved" | "rejected" | "cancelled" | "shipped";
+        RequestStatus: "submitted" | "approved" | "rejected" | "cancelled" | "shipped" | "awaiting_confirmation";
         RequesterBrief: {
             /** Format: uuid */
             readonly public_id: string;
@@ -2601,15 +2691,17 @@ export interface components {
             /** @default  */
             tracking_number: string;
         };
+        /**
+         * @description For a confirmed shipment of a regulated request, `preparation` names what was confirmed:
+         *     classified_by and classified_at are the preparer and when, shipped_by and shipped_at the
+         *     confirmer and when.
+         */
         ShipmentOutput: {
             /** Format: uuid */
             readonly public_id: string;
             readonly transport_class: components["schemas"]["TransportClass"];
             readonly classification_basis: components["schemas"]["ClassificationBasis"];
             readonly basis_note: string;
-            readonly classified_by: string;
-            /** Format: date-time */
-            readonly classified_at: string;
             readonly packing_instruction: components["schemas"]["PackingInstruction"];
             readonly coolant: components["schemas"]["Coolant"] | components["schemas"]["BlankEnum"];
             /** Format: decimal */
@@ -2619,9 +2711,14 @@ export interface components {
             readonly responsible_phone: string | null;
             readonly carrier: string;
             readonly tracking_number: string;
+            readonly classified_by: string;
+            /** Format: date-time */
+            readonly classified_at: string;
             readonly shipped_by: string;
             /** Format: date-time */
             readonly shipped_at: string;
+            /** Format: uuid */
+            readonly preparation: string | null;
         };
         /**
          * @description * `responsible_scientist` - Responsible scientist
@@ -6157,7 +6254,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6423,7 +6520,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6457,8 +6554,9 @@ export interface operations {
                  *     * `rejected` - Rejected
                  *     * `cancelled` - Cancelled
                  *     * `shipped` - Shipped
+                 *     * `awaiting_confirmation` - Awaiting confirmation
                  */
-                status?: "approved" | "cancelled" | "rejected" | "shipped" | "submitted";
+                status?: "approved" | "awaiting_confirmation" | "cancelled" | "rejected" | "shipped" | "submitted";
             };
             header?: never;
             path: {
@@ -6567,7 +6665,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6706,7 +6804,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6783,7 +6881,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6869,7 +6967,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6879,6 +6977,179 @@ export interface operations {
                 };
             };
             /** @description reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requests_confirm_shipment_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmInputRequest"];
+                "multipart/form-data": components["schemas"]["ConfirmInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestDetailOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description confirm_own_approval, confirm_own_preparation: a different person confirms (ADR 0009); permission_denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description shipment_blocked: a gate of the policy blocks the shipment on the ship day (the detail lists them); second_person_required: a regulated line is prepared and confirmed by a second person; ship_in_one_step: no line is regulated, so nothing is prepared */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requests_prepare_shipment_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShipInputRequest"];
+                "multipart/form-data": components["schemas"]["ShipInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestDetailOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description shipment_blocked: a gate of the policy blocks the shipment on the ship day (the detail lists them); second_person_required: a regulated line is prepared and confirmed by a second person; ship_in_one_step: no line is regulated, so nothing is prepared */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -6955,7 +7226,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7041,7 +7312,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7050,7 +7321,93 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description shipment_blocked: a gate of the policy blocks the shipment on the ship day (the detail lists them); second_person_required: a regulated line waits for a second person */
+            /** @description shipment_blocked: a gate of the policy blocks the shipment on the ship day (the detail lists them); second_person_required: a regulated line is prepared and confirmed by a second person; ship_in_one_step: no line is regulated, so nothing is prepared */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requests_withdraw_shipment_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonInputRequest"];
+                "multipart/form-data": components["schemas"]["ReasonInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestDetailOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required */
             422: {
                 headers: {
                     [name: string]: unknown;

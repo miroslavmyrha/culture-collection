@@ -5,6 +5,7 @@ Status: accepted (#50)
 Amended 2026-10-19: terms, contacts and the intake (#10, #12); storage (#14);
 preservation, batches and vials (#16). Amended 2026-10-20: the box grid (#15); checks of a
 batch and its release (#17); requests and the reservation (#18, part A).
+Amended 2026-10-22: the shipment (#88); the two-person shipment of a regulated request (#89).
 Deciders: maintainer
 
 ## Context
@@ -748,3 +749,14 @@ reverse restores the 0003 bodies). Reversible while no shipment exists: `migrate
 Revisit when: #89 adds the second person (the regulated refusal becomes a confirmation step),
 #90 adds the transport documents and the delivery note, a lab ships Category A or outside the
 EU, or a request must ship in parts.
+
+## Amendment 2026-10-22: the two-person shipment (#89)
+
+A request with a regulated line is shipped in two steps (ADR 0009, amendment of the same day):
+`approved > awaiting_confirmation` when one person prepares the shipment
+(`distribution.ShipmentPreparation`), `awaiting_confirmation > shipped` when a different person
+confirms it, `awaiting_confirmation > approved` when the preparation is withdrawn with a reason.
+`REQUEST_EDGES` and the request trigger hold the same 36 pairs. A request awaiting confirmation
+is not cancelled: it is withdrawn first, which keeps the reservations and the preparation
+history together. The lock order stays lab, request, strain, batch, reservation, vial; the
+preparation is read under the request's lock, which every writer of it holds.

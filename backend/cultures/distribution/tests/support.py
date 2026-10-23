@@ -29,6 +29,7 @@ from cultures.distribution.models import (
     Requester,
     RequestLine,
     Shipment,
+    ShipmentPreparation,
     ShipmentVial,
     SignerRole,
     TransportClass,
@@ -182,6 +183,38 @@ def ship(actor: User, request: DistributionRequest, **changes: Any) -> Distribut
         )
 
 
+def prepare(actor: User, request: DistributionRequest, **changes: Any) -> DistributionRequest:
+    """Step 1 of a regulated request's shipment (#89), with the facts of shipment_input()."""
+    with as_actor(actor):
+        return services.request_prepare_shipment(
+            access=access_for(actor), request=request, data=shipment_input(**changes)
+        )
+
+
+def open_preparation(request: DistributionRequest) -> ShipmentPreparation:
+    return ShipmentPreparation.objects.get(request=request, withdrawn_at__isnull=True)
+
+
+def confirm(
+    actor: User, request: DistributionRequest, preparation: ShipmentPreparation | None = None
+) -> DistributionRequest:
+    """Step 2: `actor` confirms the open preparation, or the one named."""
+    named = preparation or open_preparation(request)
+    with as_actor(actor):
+        return services.request_confirm_shipment(
+            access=access_for(actor), request=request, preparation=named.public_id
+        )
+
+
+def withdraw(
+    actor: User, request: DistributionRequest, reason: str = "The courier cannot come this week."
+) -> DistributionRequest:
+    with as_actor(actor):
+        return services.request_withdraw_shipment(
+            access=access_for(actor), request=request, reason=reason
+        )
+
+
 def reserved(request: DistributionRequest) -> list[Vial]:
     return list(
         Vial.objects.filter(
@@ -203,6 +236,7 @@ TABLES = (
     VialReservation,
     Vial,
     Shipment,
+    ShipmentPreparation,
     ShipmentVial,
     Batch,
     VialPlacement,
@@ -217,3 +251,4 @@ def snapshot() -> tuple[Any, ...]:
 
 MakeRequester = Callable[..., Requester]
 Supply = Callable[..., Strain]
+Regulated = Callable[..., DistributionRequest]

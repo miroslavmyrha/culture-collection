@@ -22,8 +22,14 @@ row, only from lineage.selectors.distributable(). Stock stays a query: there is 
 A shipment (#88) sends all the vials an approved request reserved, at once: the transport class
 a person decided with its basis, the packing, the coolant, the responsible person (a contact),
 the carrier, who shipped it and when. Approved > shipped, each reservation ended as shipped, each
-vial distributed, all in one transaction. Never changed or deleted. The two-person confirmation
-of a regulated line (#89), the register entry and the delivery documents (#90) come later.
+vial distributed, all in one transaction. Never changed or deleted. The register entry and the
+delivery documents (#90) come later.
+
+A request with a regulated line leaves in two steps (#89, ADR 0009): one person records the
+shipment as a ShipmentPreparation (approved > awaiting_confirmation, nothing leaves), and a
+different person, neither the approver nor the preparer, confirms it, which writes the Shipment
+from it (awaiting_confirmation > shipped). A preparation is withdrawn with a reason
+(awaiting_confirmation > approved) and stays as history.
 """
 
 from django.conf import settings
@@ -288,14 +294,18 @@ class RequestStatus(models.TextChoices):
     REJECTED = "rejected", "Rejected"
     CANCELLED = "cancelled", "Cancelled"
     SHIPPED = "shipped", "Shipped"
+    # A regulated request whose shipment one person prepared, waiting for a second (#89).
+    AWAITING_CONFIRMATION = "awaiting_confirmation", "Awaiting confirmation"
 
 
 R = RequestStatus
-# Which status may follow which. The request trigger (migration 0005) refuses every other pair,
-# and tests/test_request_states.py tries all 25 against both. A shipped request is final.
+# Which status may follow which. The request trigger (migration 0008) refuses every other pair,
+# and tests/test_request_states.py tries all 36 against both. A shipped request is final; a
+# request awaiting confirmation is not cancelled before its preparation is withdrawn.
 REQUEST_EDGES: dict[RequestStatus, frozenset[RequestStatus]] = {
     R.SUBMITTED: frozenset({R.APPROVED, R.REJECTED, R.CANCELLED}),
-    R.APPROVED: frozenset({R.CANCELLED, R.SHIPPED}),
+    R.APPROVED: frozenset({R.CANCELLED, R.SHIPPED, R.AWAITING_CONFIRMATION}),
+    R.AWAITING_CONFIRMATION: frozenset({R.APPROVED, R.SHIPPED}),
     R.REJECTED: frozenset(),
     R.CANCELLED: frozenset(),
     R.SHIPPED: frozenset(),
@@ -317,13 +327,13 @@ class DistributionRequest(PublicModel):
     # The containment level the requester declares for its laboratory (Directive 2000/54/EC).
     containment_level = models.PositiveSmallIntegerField()
     status = models.CharField(
-        max_length=20, choices=RequestStatus.choices, default=RequestStatus.SUBMITTED
+        max_length=30, choices=RequestStatus.choices, default=RequestStatus.SUBMITTED
     )
     submitted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )
-    # Who approved or rejected it, and when; kept once it is shipped. #89 refuses a shipment of a
-    # regulated line confirmed by the person who approved it (ADR 0009, two-person rule).
+    # Who approved or rejected it, and when; kept once it is shipped. The shipment of a regulated
+    # line is never confirmed by the person who approved it (#89, ADR 0009, two-person rule).
     decided_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", null=True, blank=True
     )
@@ -398,7 +408,7 @@ class DistributionRequest(PublicModel):
                     cancel_reason__regex=r"\S",
                 )
                 | Q(
-                    status=R.SHIPPED,
+                    status__in=[R.SHIPPED, R.AWAITING_CONFIRMATION],
                     decided_by__isnull=False,
                     decided_at__isnull=False,
                     cancelled_by__isnull=True,
@@ -628,24 +638,63 @@ class Coolant(models.TextChoices):
     LIQUID_NITROGEN = "liquid_nitrogen", "Liquid nitrogen in a dry shipper"
 
 
-class Shipment(PublicModel):
-    """All the vials an approved request reserved, sent at once (#88). Inserted once with its
-    vials, never changed or deleted (the trigger and the grants). The responsible person, who
-    answers the phone about the package at all times (WHO 8.1), is a contact: personal data,
-    erased with an erasure request (D11)."""
+def package_constraints() -> list[models.BaseConstraint]:
+    """The rules of a package's facts, for the preparation and the shipment alike."""
+    return [
+        models.CheckConstraint(
+            condition=Q(
+                transport_class=TransportClass.NOT_SUBJECT,
+                classification_basis__in=BASES[TransportClass.NOT_SUBJECT],
+            )
+            | Q(
+                transport_class=TransportClass.UN3373,
+                classification_basis__in=BASES[TransportClass.UN3373],
+            ),
+            name="%(app_label)s_%(class)s_class_and_basis",
+        ),
+        models.CheckConstraint(
+            condition=~Q(classification_basis=ClassificationBasis.PROFESSIONAL_JUDGEMENT)
+            | Q(basis_note__regex=r"\S"),
+            name="%(app_label)s_%(class)s_judgement_has_note",
+        ),
+        models.CheckConstraint(
+            condition=Q(packing_instruction__in=PackingInstruction.values)
+            & (
+                ~Q(transport_class=TransportClass.UN3373)
+                | Q(packing_instruction=PackingInstruction.P650)
+            ),
+            name="%(app_label)s_%(class)s_un3373_in_p650",
+        ),
+        models.CheckConstraint(
+            condition=Q(coolant=Coolant.NONE, coolant_kg__isnull=True)
+            | Q(coolant=Coolant.DRY_ICE, coolant_kg__isnull=False, coolant_kg__gt=0)
+            | (
+                Q(coolant__in=[Coolant.COLD_PACKS, Coolant.LIQUID_NITROGEN])
+                & (Q(coolant_kg__isnull=True) | Q(coolant_kg__gt=0))
+            ),
+            name="%(app_label)s_%(class)s_coolant_quantity",
+        ),
+        models.CheckConstraint(
+            condition=Q(carrier__regex=TRIMMED), name="%(app_label)s_%(class)s_carrier_trimmed"
+        ),
+        models.CheckConstraint(
+            condition=trimmed_or_empty("tracking_number"),
+            name="%(app_label)s_%(class)s_tracking_trimmed",
+        ),
+    ]
+
+
+class Package(PublicModel):
+    """What the shipper decided about the package and who answers for it: the facts a
+    preparation records and its shipment repeats. The responsible person, who answers the phone
+    about the package at all times (WHO 8.1), is a contact: personal data, erased with an
+    erasure request (D11)."""
 
     lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="+")
-    request = models.OneToOneField(
-        DistributionRequest, on_delete=models.PROTECT, related_name="shipment"
-    )
     transport_class = models.CharField(max_length=20, choices=TransportClass.choices)
     classification_basis = models.CharField(max_length=30, choices=ClassificationBasis.choices)
     # Why, in words: required for professional judgement. Names no person.
     basis_note = models.TextField(blank=True)
-    classified_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
-    )
-    classified_at = models.DateTimeField()
     packing_instruction = models.CharField(max_length=20, choices=PackingInstruction.choices)
     coolant = models.CharField(max_length=20, choices=Coolant.choices, blank=True)
     # In kilograms; required for dry ice, whose quantity is marked on the package.
@@ -653,57 +702,112 @@ class Shipment(PublicModel):
     responsible = models.OneToOneField(Contact, on_delete=models.PROTECT, related_name="+")
     carrier = models.CharField(max_length=200)
     tracking_number = models.CharField(max_length=100, blank=True)
+
+    class Meta(PublicModel.Meta):
+        abstract = True
+
+
+# The package's own columns: a confirmation copies them from its preparation, and the shipment
+# trigger compares them (migration 0008).
+PACKAGE_FIELDS = (
+    "transport_class",
+    "classification_basis",
+    "basis_note",
+    "packing_instruction",
+    "coolant",
+    "coolant_kg",
+    "responsible",
+    "carrier",
+    "tracking_number",
+)
+ONE_OPEN_PREPARATION = "distribution_preparation_one_open_per_request"
+
+
+class ShipmentPreparation(Package):
+    """The shipment of a request with a regulated line as one person recorded it (#89, ADR 0009).
+    A different person confirms it, which writes the Shipment from it, or someone withdraws it
+    with a reason. Inserted once; the one later change is the withdrawal, written once (the
+    trigger). Never deleted: a withdrawn preparation stays as history. At most one per request
+    is not withdrawn (a partial unique index)."""
+
+    request = models.ForeignKey(
+        DistributionRequest, on_delete=models.PROTECT, related_name="preparations"
+    )
+    prepared_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    prepared_at = models.DateTimeField()
+    withdrawn_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    withdrawn_at = models.DateTimeField(null=True, blank=True)
+    # Why it was withdrawn. Names nobody.
+    withdraw_reason = models.TextField(blank=True)
+
+    objects = LabScopedQuerySet["ShipmentPreparation"].as_manager()
+
+    class Meta(Package.Meta):
+        constraints = [
+            *PublicModel.Meta.constraints,
+            *package_constraints(),
+            models.UniqueConstraint(
+                fields=["request"],
+                condition=Q(withdrawn_at__isnull=True),
+                name=ONE_OPEN_PREPARATION,
+            ),
+            models.CheckConstraint(
+                condition=Q(
+                    withdrawn_at__isnull=True, withdrawn_by__isnull=True, withdraw_reason=""
+                )
+                | Q(
+                    withdrawn_at__isnull=False,
+                    withdrawn_by__isnull=False,
+                    withdraw_reason__regex=r"\S",
+                ),
+                name="distribution_preparation_withdrawal_complete",
+            ),
+            models.CheckConstraint(
+                condition=Q(withdrawn_at__isnull=True) | Q(withdrawn_at__gte=F("prepared_at")),
+                name="distribution_preparation_withdrawn_after_prepared",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"preparation {self.public_id}"
+
+
+class Shipment(Package):
+    """All the vials an approved request reserved, sent at once (#88). Inserted once with its
+    vials, never changed or deleted (the trigger and the grants). Of a regulated request it is
+    written by the confirmation of its preparation (#89): `preparation` points at it, the
+    classification is the preparer's (classified_by and classified_at are who prepared it and
+    when) and the shipment is the confirmer's (shipped_by and shipped_at), and every package
+    fact equals the preparation's (the trigger)."""
+
+    request = models.OneToOneField(
+        DistributionRequest, on_delete=models.PROTECT, related_name="shipment"
+    )
+    classified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    classified_at = models.DateTimeField()
     shipped_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )
     shipped_at = models.DateTimeField()
+    # The preparation it confirms; null for a request with no regulated line (one step).
+    preparation = models.OneToOneField(
+        ShipmentPreparation,
+        on_delete=models.PROTECT,
+        related_name="shipment",
+        null=True,
+        blank=True,
+    )
 
     objects = LabScopedQuerySet["Shipment"].as_manager()
 
-    class Meta(PublicModel.Meta):
-        constraints = [
-            *PublicModel.Meta.constraints,
-            models.CheckConstraint(
-                condition=Q(
-                    transport_class=TransportClass.NOT_SUBJECT,
-                    classification_basis__in=BASES[TransportClass.NOT_SUBJECT],
-                )
-                | Q(
-                    transport_class=TransportClass.UN3373,
-                    classification_basis__in=BASES[TransportClass.UN3373],
-                ),
-                name="distribution_shipment_class_and_basis",
-            ),
-            models.CheckConstraint(
-                condition=~Q(classification_basis=ClassificationBasis.PROFESSIONAL_JUDGEMENT)
-                | Q(basis_note__regex=r"\S"),
-                name="distribution_shipment_judgement_has_note",
-            ),
-            models.CheckConstraint(
-                condition=Q(packing_instruction__in=PackingInstruction.values)
-                & (
-                    ~Q(transport_class=TransportClass.UN3373)
-                    | Q(packing_instruction=PackingInstruction.P650)
-                ),
-                name="distribution_shipment_un3373_in_p650",
-            ),
-            models.CheckConstraint(
-                condition=Q(coolant=Coolant.NONE, coolant_kg__isnull=True)
-                | Q(coolant=Coolant.DRY_ICE, coolant_kg__isnull=False, coolant_kg__gt=0)
-                | (
-                    Q(coolant__in=[Coolant.COLD_PACKS, Coolant.LIQUID_NITROGEN])
-                    & (Q(coolant_kg__isnull=True) | Q(coolant_kg__gt=0))
-                ),
-                name="distribution_shipment_coolant_quantity",
-            ),
-            models.CheckConstraint(
-                condition=Q(carrier__regex=TRIMMED), name="distribution_shipment_carrier_trimmed"
-            ),
-            models.CheckConstraint(
-                condition=trimmed_or_empty("tracking_number"),
-                name="distribution_shipment_tracking_trimmed",
-            ),
-        ]
+    class Meta(Package.Meta):
+        constraints = [*PublicModel.Meta.constraints, *package_constraints()]
 
     def __str__(self) -> str:
         return f"shipment {self.public_id}"

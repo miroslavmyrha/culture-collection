@@ -2993,7 +2993,8 @@ paths:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
             starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken'
+            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
+            prepared shipment is open than the one confirmed; preparation_exists'
         '422':
           content:
             application/problem+json:
@@ -3249,7 +3250,8 @@ paths:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
             starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken'
+            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
+            prepared shipment is open than the one confirmed; preparation_exists'
         '401':
           content:
             application/problem+json:
@@ -3311,6 +3313,7 @@ paths:
           type: string
           enum:
           - approved
+          - awaiting_confirmation
           - cancelled
           - rejected
           - shipped
@@ -3321,6 +3324,7 @@ paths:
           * `rejected` - Rejected
           * `cancelled` - Cancelled
           * `shipped` - Shipped
+          * `awaiting_confirmation` - Awaiting confirmation
       tags:
       - labs
       security:
@@ -3401,7 +3405,8 @@ paths:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
             starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken'
+            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
+            prepared shipment is open than the one confirmed; preparation_exists'
         '422':
           content:
             application/problem+json:
@@ -3533,7 +3538,8 @@ paths:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
             starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken'
+            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
+            prepared shipment is open than the one confirmed; preparation_exists'
         '401':
           content:
             application/problem+json:
@@ -3609,7 +3615,8 @@ paths:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
             starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken'
+            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
+            prepared shipment is open than the one confirmed; preparation_exists'
         '422':
           content:
             application/problem+json:
@@ -3693,13 +3700,189 @@ paths:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
             starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken'
+            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
+            prepared shipment is open than the one confirmed; preparation_exists'
         '422':
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: reason_required
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/requests/{public_id}/confirm-shipment/:
+    post:
+      operationId: labs_requests_confirm_shipment_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConfirmInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input, named by its field: an unknown requester, strain
+            or MTA version, a strain without terms (no_terms), a file that is empty,
+            too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
+            is not exempt as non-pathogenic)'
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'confirm_own_approval, confirm_own_preparation: a different
+            person confirms (ADR 0009); permission_denied'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'request_state: the request is no longer in the state the action
+            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
+            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
+            prepared shipment is open than the one confirmed; preparation_exists'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'shipment_blocked: a gate of the policy blocks the shipment
+            on the ship day (the detail lists them); second_person_required: a regulated
+            line is prepared and confirmed by a second person; ship_in_one_step: no
+            line is regulated, so nothing is prepared'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/requests/{public_id}/prepare-shipment/:
+    post:
+      operationId: labs_requests_prepare_shipment_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShipInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ShipInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input, named by its field: an unknown requester, strain
+            or MTA version, a strain without terms (no_terms), a file that is empty,
+            too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
+            is not exempt as non-pathogenic)'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'request_state: the request is no longer in the state the action
+            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
+            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
+            prepared shipment is open than the one confirmed; preparation_exists'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'shipment_blocked: a gate of the policy blocks the shipment
+            on the ship day (the detail lists them); second_person_required: a regulated
+            line is prepared and confirmed by a second person; ship_in_one_step: no
+            line is regulated, so nothing is prepared'
         '401':
           content:
             application/problem+json:
@@ -3776,7 +3959,8 @@ paths:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
             starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken'
+            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
+            prepared shipment is open than the one confirmed; preparation_exists'
         '422':
           content:
             application/problem+json:
@@ -3859,7 +4043,8 @@ paths:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
             starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken'
+            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
+            prepared shipment is open than the one confirmed; preparation_exists'
         '422':
           content:
             application/problem+json:
@@ -3867,7 +4052,92 @@ paths:
                 $ref: '#/components/schemas/Problem'
           description: 'shipment_blocked: a gate of the policy blocks the shipment
             on the ship day (the detail lists them); second_person_required: a regulated
-            line waits for a second person'
+            line is prepared and confirmed by a second person; ship_in_one_step: no
+            line is regulated, so nothing is prepared'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/requests/{public_id}/withdraw-shipment/:
+    post:
+      operationId: labs_requests_withdraw_shipment_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReasonInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input, named by its field: an unknown requester, strain
+            or MTA version, a strain without terms (no_terms), a file that is empty,
+            too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
+            is not exempt as non-pathogenic)'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'request_state: the request is no longer in the state the action
+            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
+            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
+            prepared shipment is open than the one confirmed; preparation_exists'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: reason_required
         '401':
           content:
             application/problem+json:
@@ -6036,6 +6306,24 @@ components:
         * `intact` - Intact
         * `damaged` - Container or packaging damaged
         * `other` - Other, see the note
+    ConfirmInputRequest:
+      type: object
+      description: 'The prepared shipment the confirmer read: another one open now
+        is a conflict.'
+      properties:
+        preparation:
+          type: string
+          format: uuid
+      required:
+      - preparation
+    ConfirmRefusalEnum:
+      enum:
+      - confirm_own_approval
+      - confirm_own_preparation
+      type: string
+      description: |-
+        * `confirm_own_approval` - confirm_own_approval
+        * `confirm_own_preparation` - confirm_own_preparation
     Coolant:
       enum:
       - dry_ice
@@ -7977,6 +8265,102 @@ components:
       - box
       - col
       - row
+    PreparationOutput:
+      type: object
+      description: |-
+        A prepared shipment (#89): open while it waits for a second person, or withdrawn and
+        kept as history. `confirm_refusal` says why the caller may not confirm it: they approved the
+        request or prepared it (ADR 0009); null when they may, as far as identity goes.
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        transport_class:
+          allOf:
+          - $ref: '#/components/schemas/TransportClass'
+          readOnly: true
+        classification_basis:
+          allOf:
+          - $ref: '#/components/schemas/ClassificationBasis'
+          readOnly: true
+        basis_note:
+          type: string
+          readOnly: true
+        packing_instruction:
+          allOf:
+          - $ref: '#/components/schemas/PackingInstruction'
+          readOnly: true
+        coolant:
+          readOnly: true
+          oneOf:
+          - $ref: '#/components/schemas/Coolant'
+          - $ref: '#/components/schemas/BlankEnum'
+        coolant_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+        responsible_name:
+          type: string
+          nullable: true
+          description: Null for a caller who may not see people; empty once the person
+            was erased.
+          readOnly: true
+        responsible_phone:
+          type: string
+          nullable: true
+          readOnly: true
+        carrier:
+          type: string
+          readOnly: true
+        tracking_number:
+          type: string
+          readOnly: true
+        prepared_by:
+          type: string
+          readOnly: true
+        prepared_at:
+          type: string
+          format: date-time
+          readOnly: true
+        withdrawn_by:
+          type: string
+          readOnly: true
+          nullable: true
+        withdrawn_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        withdraw_reason:
+          type: string
+          readOnly: true
+        confirm_refusal:
+          nullable: true
+          readOnly: true
+          oneOf:
+          - $ref: '#/components/schemas/ConfirmRefusalEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - basis_note
+      - carrier
+      - classification_basis
+      - confirm_refusal
+      - coolant
+      - coolant_kg
+      - packing_instruction
+      - prepared_at
+      - prepared_by
+      - public_id
+      - responsible_name
+      - responsible_phone
+      - tracking_number
+      - transport_class
+      - withdraw_reason
+      - withdrawn_at
+      - withdrawn_by
     PreservationMethod:
       enum:
       - cryo_minus80
@@ -8224,6 +8608,11 @@ components:
           - $ref: '#/components/schemas/ShipmentOutput'
           nullable: true
           readOnly: true
+        preparations:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreparationOutput'
+          readOnly: true
       required:
       - acceptances
       - cancel_reason
@@ -8240,6 +8629,7 @@ components:
       - line_count
       - lines
       - number
+      - preparations
       - public_id
       - regulated
       - requester
@@ -8337,6 +8727,7 @@ components:
       - rejected
       - cancelled
       - shipped
+      - awaiting_confirmation
       type: string
       description: |-
         * `submitted` - Submitted
@@ -8344,6 +8735,7 @@ components:
         * `rejected` - Rejected
         * `cancelled` - Cancelled
         * `shipped` - Shipped
+        * `awaiting_confirmation` - Awaiting confirmation
     RequesterBrief:
       type: object
       properties:
@@ -8715,6 +9107,10 @@ components:
       - transport_class
     ShipmentOutput:
       type: object
+      description: |-
+        For a confirmed shipment of a regulated request, `preparation` names what was confirmed:
+        classified_by and classified_at are the preparer and when, shipped_by and shipped_at the
+        confirmer and when.
       properties:
         public_id:
           type: string
@@ -8730,13 +9126,6 @@ components:
           readOnly: true
         basis_note:
           type: string
-          readOnly: true
-        classified_by:
-          type: string
-          readOnly: true
-        classified_at:
-          type: string
-          format: date-time
           readOnly: true
         packing_instruction:
           allOf:
@@ -8769,6 +9158,13 @@ components:
         tracking_number:
           type: string
           readOnly: true
+        classified_by:
+          type: string
+          readOnly: true
+        classified_at:
+          type: string
+          format: date-time
+          readOnly: true
         shipped_by:
           type: string
           readOnly: true
@@ -8776,6 +9172,11 @@ components:
           type: string
           format: date-time
           readOnly: true
+        preparation:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
       required:
       - basis_note
       - carrier
@@ -8785,6 +9186,7 @@ components:
       - coolant
       - coolant_kg
       - packing_instruction
+      - preparation
       - public_id
       - responsible_name
       - responsible_phone

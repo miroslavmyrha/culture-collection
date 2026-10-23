@@ -34,11 +34,14 @@ DECISIONS = {
     "request_cancel",
     "acceptance_record",
     "request_ship",
+    "request_prepare_shipment",
+    "request_confirm_shipment",
+    "request_withdraw_shipment",
 }
 # The services that change vials: they lock them after the strains.
-RESERVING = {"request_approve", "request_cancel", "request_ship"}
+RESERVING = {"request_approve", "request_cancel", "request_ship", "request_confirm_shipment"}
 # The services that may move a batch: they lock it after the strains and before its vials.
-BATCHES = {"request_ship"}
+BATCHES = {"request_ship", "request_confirm_shipment"}
 
 
 def test_every_public_service_has_a_scenario_or_a_reviewed_exemption() -> None:
@@ -74,6 +77,7 @@ def test_the_lab_lock_comes_first_then_request_strain_vial(
         reads("distribution_requester"),
         reads("distribution_recipientpermit"),
         reads("distribution_vialreservation"),
+        reads("distribution_shipmentpreparation"),
         reads("strains_strain"),
         reads("lineage_vial"),
         writes,
