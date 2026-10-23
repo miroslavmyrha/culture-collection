@@ -1,6 +1,6 @@
-"""The shared role matrix (core.testing.ViewsetContract) for the requester, permit, document
-and request viewsets. core/tests/test_contract_coverage.py fails while a routed viewset has
-none. The per-role matrix of every action is in test_api_permissions.py."""
+"""The shared role matrix (core.testing.ViewsetContract) for the requester, permit, document,
+request and shipment document viewsets. core/tests/test_contract_coverage.py fails while a
+routed viewset has none. The per-role matrix of every action is in test_api_permissions.py."""
 
 from typing import Any
 
@@ -15,6 +15,7 @@ from cultures.distribution.api.views import (
     PermitViewSet,
     RequesterViewSet,
     RequestViewSet,
+    ShipmentDocumentViewSet,
 )
 from cultures.distribution.models import (
     DistributionRequest,
@@ -22,6 +23,7 @@ from cultures.distribution.models import (
     PermitKind,
     RecipientPermit,
     Requester,
+    ShipmentDocument,
 )
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Role
@@ -30,11 +32,15 @@ from cultures.users.models import User
 
 from .support import (
     DOCUMENTS_URL,
+    LAB_URL,
     PERMITS_URL,
     REQUESTERS_URL,
     REQUESTS_URL,
     Supply,
+    accept_mtas,
     add_permit,
+    approve,
+    ship,
     submit,
 )
 
@@ -141,6 +147,37 @@ class TestDocumentContract(PeopleContract):
         assert response["Content-Disposition"] == (
             f'attachment; filename="document-{obj.public_id}.pdf"'
         )
+        assert_problem(logged_in(outsider).get(self.detail(obj)), 404, "not_found")
+
+
+class TestShipmentDocumentContract(PeopleContract):
+    """A document of a shipment (#90), read one at a time: no list, no write."""
+
+    viewset = ShipmentDocumentViewSet
+    url = f"{LAB_URL}/shipment-documents/"
+
+    @pytest.fixture
+    def obj(
+        self,
+        as_curator: AuditContext,
+        curator: User,
+        lab: Lab,
+        requester: Requester,
+        supply: Supply,
+    ) -> ShipmentDocument:
+        request = submit(curator, lab, requester, [(supply(), 1)])
+        accept_mtas(curator, request)
+        approve(curator, request)
+        ship(curator, request)
+        return ShipmentDocument.objects.get(shipment__request=request)
+
+    def test_anonymous_gets_401(self, obj: Any) -> None:
+        response = logged_in(None).get(self.detail(obj))
+        assert_problem(response, 401, "not_authenticated")
+        assert response.has_header("WWW-Authenticate")
+
+    def test_list_is_scoped(self, obj: Any, reader: User, outsider: User) -> None:
+        assert logged_in(reader).get(self.url).status_code == 404  # not routed: no list
         assert_problem(logged_in(outsider).get(self.detail(obj)), 404, "not_found")
 
 

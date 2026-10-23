@@ -364,6 +364,7 @@ type Permit = components['schemas']['PermitOutput']
 type Finding = components['schemas']['Finding']
 type Acceptance = components['schemas']['AcceptanceOutput']
 type Shipment = components['schemas']['ShipmentOutput']
+type ShipmentDocument = components['schemas']['ShipmentDocument']
 type Preparation = components['schemas']['PreparationOutput']
 
 export function makeRequestRow(overrides: Partial<RequestRow> = {}): RequestRow {
@@ -460,6 +461,23 @@ export function makeShipment(overrides: Partial<Shipment> = {}): Shipment {
     shipped_by: 'curator',
     shipped_at: at,
     preparation: null,
+    documents: [],
+    ...overrides,
+  }
+}
+
+export function makeShipmentDocument(overrides: Partial<ShipmentDocument> = {}): ShipmentDocument {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    kind: 'delivery_note',
+    strain: null,
+    text_sha256: '3f'.repeat(32),
+    created_at: new Date(Date.UTC(2026, 9, 22, 8, 0, n)).toISOString(),
+    request: uuid(n + 1000),
+    request_number: '2026/7',
+    shipment: uuid(n + 2000),
+    text: 'DELIVERY NOTE\n',
     ...overrides,
   }
 }

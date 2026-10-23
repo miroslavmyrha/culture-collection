@@ -25,6 +25,9 @@ export type TransportClass = Schemas['TransportClass']
 export type ClassificationBasis = Schemas['ClassificationBasis']
 export type PackingInstruction = Schemas['PackingInstruction']
 export type Coolant = Schemas['Coolant']
+export type ShipmentDocument = Schemas['ShipmentDocument']
+export type ShipmentDocumentBrief = Schemas['ShipmentDocumentBrief']
+export type ShipmentDocumentKind = Schemas['ShipmentDocumentKind']
 
 /** Everyone in the lab reads requests (distribution.view): what is asked and what is reserved. */
 export const canSeeRequests = (role: Role | undefined): boolean => role !== undefined
@@ -41,6 +44,23 @@ export const canShip = (request: Pick<RequestRow, 'status' | 'regulated'>, role:
   canManageRequests(role) && request.status === 'approved' && !request.regulated
 export const canPrepare = (request: Pick<RequestRow, 'status' | 'regulated'>, role: Role | undefined): boolean =>
   canManageRequests(role) && request.status === 'approved' && request.regulated
+/**
+ * The documents of a shipment name the responsible person (#90): curators and managers open them
+ * (distribution.view_requesters). Everyone in the lab sees which exist.
+ */
+export const canReadDocuments = (role: Role | undefined): boolean => role === 'curator' || role === 'manager'
+export const DOCUMENT_KIND_LABELS: Record<ShipmentDocumentKind, string> = {
+  delivery_note: 'Delivery note',
+  abs_sheet: 'ABS information',
+  register_entry: 'Register entry and handover protocol',
+}
+/** "Delivery note", or a per-line document with its strain: "ABS information for MYC 3". */
+export const documentTitle = (d: Pick<ShipmentDocumentBrief, 'kind' | 'strain'>): string =>
+  d.strain ? `${DOCUMENT_KIND_LABELS[d.kind]} for ${d.strain}` : DOCUMENT_KIND_LABELS[d.kind]
+/** Enough of a SHA-256 to compare by eye; the document shows all of it. */
+export const shortSha = (sha: string): string => sha.slice(0, 12)
+export const documentDownloadHref = (labId: string, documentId: string): string =>
+  `/api/v1/labs/${encodeURIComponent(labId)}/shipment-documents/${encodeURIComponent(documentId)}/download/`
 /** The preparation a second person may confirm: the one not withdrawn, while the request waits. */
 export const openPreparation = (request: Pick<Request, 'status' | 'preparations'>): Preparation | undefined =>
   request.status === 'awaiting_confirmation' ? request.preparations.find((p) => p.withdrawn_at === null) : undefined

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { api } from '@/lib/api'
 import { allowConsole } from '@/test/console'
-import { makeAcceptance, makeFinding, makeLab, makeMe, makePreparation, makeRequest, makeRequestLine, makeShipment, problem, validationProblem } from '@/test/factories'
+import { makeAcceptance, makeFinding, makeLab, makeMe, makePreparation, makeRequest, makeRequestLine, makeShipment, makeShipmentDocument, problem, validationProblem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
@@ -448,4 +448,38 @@ describe('the request page', { timeout: 20_000 }, () => {
     })
   })
 
+
+  it('lists the documents of the shipment to everyone and opens them only for curators and managers', async () => {
+    const note = makeShipmentDocument({ public_id: '00000000-0000-4000-8000-0000000000e1', text_sha256: '0123456789ab'.repeat(5) + 'cdef' })
+    const entry = makeShipmentDocument({ public_id: '00000000-0000-4000-8000-0000000000e2', kind: 'register_entry', strain: 'MYC 3' })
+    const shipped = request({ status: 'shipped', decided_by: 'curator', shipment: makeShipment({ documents: [note, entry] }) })
+    signedIn('viewer')
+    mockApi('get', DETAIL, shipped)
+    const { unmount } = open()
+    const listed = await screen.findByRole('list', { name: 'Documents of the shipment' }, { timeout: 5000 })
+    expect(within(listed).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      'Delivery note, SHA-256 0123456789ab',
+      `Register entry and handover protocol for MYC 3, SHA-256 ${'3f'.repeat(6)}`,
+    ])
+    expect(within(listed).queryAllByRole('link')).toHaveLength(0)
+    expect(screen.getByText('Curators and managers open the documents: they name the responsible person.')).toBeInTheDocument()
+    unmount()
+    signedIn('curator')
+    mockApi('get', DETAIL, shipped)
+    open()
+    const own = await screen.findByRole('list', { name: 'Documents of the shipment' }, { timeout: 5000 })
+    expect(within(own).getByRole('link', { name: 'View and print: Delivery note' })).toHaveAttribute('href', `/labs/${LAB_ID}/shipment-documents/${note.public_id}`)
+    expect(within(own).getByRole('link', { name: 'Download: Register entry and handover protocol for MYC 3' })).toHaveAttribute(
+      'href',
+      `${window.location.origin}/api/v1/labs/${LAB_ID}/shipment-documents/${entry.public_id}/download/`,
+    )
+    expect(screen.queryByText(/Curators and managers open the documents/)).not.toBeInTheDocument()
+  })
+
+  it('says when a shipment has no documents, as one recorded before they were written', async () => {
+    signedIn('curator')
+    mockApi('get', DETAIL, request({ status: 'shipped', decided_by: 'curator', shipment: makeShipment() }))
+    open()
+    expect(await screen.findByText('This shipment was recorded before its documents were written by the app.', {}, { timeout: 5000 })).toBeInTheDocument()
+  })
 })

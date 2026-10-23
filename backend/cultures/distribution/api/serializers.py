@@ -38,6 +38,8 @@ from cultures.distribution.models import (
     RequestLine,
     RequestStatus,
     Shipment,
+    ShipmentDocument,
+    ShipmentDocumentKind,
     ShipmentPreparation,
     SignerRole,
     TransportClass,
@@ -409,6 +411,39 @@ class PreparationOutputSerializer(PackageOutputSerializer):
         return None
 
 
+class ShipmentDocumentBriefSerializer(serializers.ModelSerializer[ShipmentDocument]):
+    """A document of a shipment as a request's detail lists it, for every reader: what it is,
+    the line's strain, and its SHA-256. The text names a person: ShipmentDocumentSerializer."""
+
+    kind = serializers.ChoiceField(choices=ShipmentDocumentKind.choices, read_only=True)
+    strain = serializers.CharField(
+        source="line.strain.accession_number", read_only=True, allow_null=True, default=None
+    )
+
+    class Meta:
+        model = ShipmentDocument
+        fields: tuple[str, ...] = ("public_id", "kind", "strain", "text_sha256", "created_at")
+        read_only_fields: tuple[str, ...] = fields
+
+
+class ShipmentDocumentSerializer(ShipmentDocumentBriefSerializer):
+    """One document with its text as it was sent, for a caller who may view requesters."""
+
+    request = serializers.UUIDField(source="shipment.request.public_id", read_only=True)
+    request_number = serializers.CharField(source="shipment.request.label", read_only=True)
+    shipment = serializers.UUIDField(source="shipment.public_id", read_only=True)
+
+    class Meta(ShipmentDocumentBriefSerializer.Meta):
+        fields = (
+            *ShipmentDocumentBriefSerializer.Meta.fields,
+            "request",
+            "request_number",
+            "shipment",
+            "text",
+        )
+        read_only_fields = fields
+
+
 class ShipmentOutputSerializer(PackageOutputSerializer):
     """For a confirmed shipment of a regulated request, `preparation` names what was confirmed:
     classified_by and classified_at are the preparer and when, shipped_by and shipped_at the
@@ -419,6 +454,8 @@ class ShipmentOutputSerializer(PackageOutputSerializer):
     preparation = serializers.UUIDField(
         source="preparation.public_id", read_only=True, allow_null=True
     )
+    # Written with the shipment (#90): the delivery note first, then per line.
+    documents = ShipmentDocumentBriefSerializer(source="document_list", many=True, read_only=True)
 
     class Meta:
         model = Shipment
@@ -429,6 +466,7 @@ class ShipmentOutputSerializer(PackageOutputSerializer):
             "shipped_by",
             "shipped_at",
             "preparation",
+            "documents",
         )
         read_only_fields = fields
 

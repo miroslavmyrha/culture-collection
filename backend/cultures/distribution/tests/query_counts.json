@@ -3,7 +3,8 @@
   "request_detail": 19,
   "request_detail_approved": 12,
   "request_detail_awaiting": 12,
-  "request_detail_shipped": 12,
+  "request_detail_shipped": 13,
   "request_list": 6,
-  "requester_list": 7
+  "requester_list": 7,
+  "shipment_document": 5
 }
