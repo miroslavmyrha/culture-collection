@@ -25,3 +25,9 @@ export const requesterKeys = {
 export const strainChoiceKeys = {
   search: (labId: string, search: string) => [...sharedKeys.strainLists(labId), { limit: 20, offset: 0, search }] as const,
 }
+
+/** A document of a shipment never changes once written (#90). */
+export const shipmentDocumentKeys = {
+  all: ['shipment-documents'] as const,
+  detail: (labId: string, documentId: string) => [...shipmentDocumentKeys.all, labId, documentId] as const,
+}

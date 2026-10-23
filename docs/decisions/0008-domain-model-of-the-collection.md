@@ -6,6 +6,7 @@ Amended 2026-10-19: terms, contacts and the intake (#10, #12); storage (#14);
 preservation, batches and vials (#16). Amended 2026-10-20: the box grid (#15); checks of a
 batch and its release (#17); requests and the reservation (#18, part A).
 Amended 2026-10-22: the shipment (#88); the two-person shipment of a regulated request (#89).
+Amended 2026-10-23: the documents of a shipment (#90).
 Deciders: maintainer
 
 ## Context
@@ -760,3 +761,19 @@ confirms it, `awaiting_confirmation > approved` when the preparation is withdraw
 is not cancelled: it is withdrawn first, which keeps the reservations and the preparation
 history together. The lock order stays lab, request, strain, batch, reservation, vial; the
 preparation is read under the request's lock, which every writer of it holds.
+
+## Amendment 2026-10-23: the documents of a shipment (#90)
+
+A shipment writes its documents in the transaction that ships it, in one step
+(`request_ship`) and at the confirmation (`request_confirm_shipment`), after the vials left:
+`distribution.ShipmentDocument(shipment, kind, line, text, text_sha256)`, a delivery note for
+every shipment, an ABS sheet per line whose pinned terms are in scope, a register entry with
+its handover protocol per line of a VRAT or RAT. One per shipment, kind and line (a unique
+index with NULLs not distinct). The rendering is `distribution.documents` (pure: it reads the
+facts once and formats them), the write is `services._write_documents`, one
+`shipment_document_generated` event per document after `request_shipped`, with the strain for a
+line's document. What each document says, who reads it and why the text stays out of the audit
+trail: ADR 0009, amendment of the same day.
+
+Revisit when: a shipment goes in parts, or a document must be corrected after it was sent (a
+correction would be a new document that names the one it replaces, never a change).

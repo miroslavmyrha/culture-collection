@@ -1,6 +1,7 @@
 """Every write of distribution (#18, part A): requesters and their permits, requests with their
 lines, MTA acceptances, and the decisions on a request with the vials reserved at approval; the
-shipment of an approved request (#88), in two steps by two people when a line is regulated (#89).
+shipment of an approved request (#88), in two steps by two people when a line is regulated (#89),
+with the documents it needs written in the same transaction (#90).
 
 Each service runs in audited_atomic() and records its events in the same transaction. Lock
 order, as everywhere: the lab row first (labs.locks.lock_lab), then the request, then the
@@ -50,6 +51,7 @@ from cultures.audit.registry import (
     REQUEST_SUBMITTED,
     REQUESTER_CHANGED,
     REQUESTER_CREATED,
+    SHIPMENT_DOCUMENT_GENERATED,
 )
 from cultures.biosafety.policy import permit_today
 from cultures.core.exceptions import Conflict, DomainError, Forbidden, NotFound, RuleViolation
@@ -65,7 +67,7 @@ from cultures.strains.countries import COUNTRY_CODES
 from cultures.strains.models import Strain
 from cultures.strains.selectors import regulating_restrictions
 
-from . import policy
+from . import documents, policy
 from .models import (
     ACCEPTANCE_UNIQUE,
     BASES,
@@ -95,6 +97,7 @@ from .models import (
     RequestStatus,
     ReservationEnd,
     Shipment,
+    ShipmentDocument,
     ShipmentPreparation,
     ShipmentVial,
     SignerRole,
@@ -102,13 +105,14 @@ from .models import (
     VialReservation,
 )
 
-REQUESTER, CONTACT, PERMIT, REQUEST, LINE, ACCEPTANCE = (
+REQUESTER, CONTACT, PERMIT, REQUEST, LINE, ACCEPTANCE, SHIPMENT_DOCUMENT = (
     "requester",
     "contact",
     "recipient_permit",
     "distribution_request",
     "request_line",
     "mta_acceptance",
+    "shipment_document",
 )
 # A request holds at most this many strains: a bigger order is two requests.
 MAX_LINES = 20
@@ -884,7 +888,11 @@ def _defer_reservation_checks(*, shipment: bool = False) -> None:
         cursor.execute(
             "SET CONSTRAINTS distribution_vial_reserved_by_request,"
             " distribution_reservation_holds_vial"
-            + (", distribution_shipment_complete" if shipment else "")
+            + (
+                ", distribution_shipment_complete, distribution_shipment_documented"
+                if shipment
+                else ""
+            )
             + " DEFERRED"
         )
 
@@ -1296,6 +1304,7 @@ def request_ship(
                 lab_id=locked.lab_id,
             ),
         )
+        _write_documents(locked, shipment, today)
         _exhaust_emptied(locked, batches)
     return locked
 
@@ -1350,6 +1359,37 @@ def _send(
     locked.status = RequestStatus.SHIPPED
     locked.save(update_fields=["status", "updated_at"])
     return batches
+
+
+def _write_documents(locked: DistributionRequest, shipment: Shipment, today: date) -> None:
+    """The documents the shipment needs, rendered once from the data as it is now (after the
+    vials left) and stored with their SHA-256 (documents.py). Each event holds the document's id,
+    kind and SHA-256, never its text: the text names the responsible person (ADR 0009)."""
+    facts = documents.gather(locked, shipment, today)
+    for kind, line in documents.needs(facts):
+        text = documents.render(facts, kind, line)
+        document = ShipmentDocument.objects.create(
+            lab_id=locked.lab_id,
+            shipment=shipment,
+            kind=kind,
+            line=line,
+            text=text,
+            text_sha256=hashlib.sha256(text.encode()).hexdigest(),
+        )
+        record_event(
+            SHIPMENT_DOCUMENT_GENERATED,
+            Change(
+                SHIPMENT_DOCUMENT,
+                document.public_id,
+                {
+                    "kind": [None, kind.value],
+                    "shipment": [None, str(shipment.public_id)],
+                    "text_sha256": [None, document.text_sha256],
+                },
+                lab_id=locked.lab_id,
+                strain_id=None if line is None else line.strain.public_id,
+            ),
+        )
 
 
 def _exhaust_emptied(locked: DistributionRequest, batches: list[Batch]) -> None:
@@ -1466,6 +1506,7 @@ def request_confirm_shipment(
                 lab_id=locked.lab_id,
             ),
         )
+        _write_documents(locked, shipment, today)
         _exhaust_emptied(locked, batches)
     return locked
 

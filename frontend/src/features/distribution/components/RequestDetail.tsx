@@ -28,6 +28,7 @@ import {
 } from '../schemas'
 import { AcceptanceDialog, ApproveDialog, CancelDialog, ConfirmShipmentDialog, RejectDialog, SECOND_PERSON, ShipDialog, WithdrawShipmentDialog } from './RequestDialogs'
 import { scrollable } from './scroll'
+import { ShipmentDocuments } from './ShipmentDocuments'
 
 type Props = { labId: string; requestId: string; role: Role }
 type Kind = 'approve' | 'reject' | 'cancel' | 'acceptance' | 'ship' | 'prepare' | 'confirm' | 'withdraw'
@@ -42,7 +43,7 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('sv')
  * only: no place (ADR 0009). A shipped request shows the shipment's facts; its responsible person
  * only to those who may see people. A regulated request leaves in two steps (#89): the shipment
  * prepared by one person waits for a second, who sees it before confirming; a withdrawn
- * preparation stays listed.
+ * preparation stays listed. A shipped request lists the documents written with it (#90).
  */
 export function RequestDetail({ labId, requestId, role }: Props) {
   const request = useRequest(labId, requestId)
@@ -145,6 +146,12 @@ export function RequestDetail({ labId, requestId, role }: Props) {
       {r.shipment && (
         <Section title="Shipment">
           <ShipmentFacts shipment={r.shipment} />
+        </Section>
+      )}
+
+      {r.shipment && (
+        <Section title="Documents">
+          <ShipmentDocuments labId={labId} documents={r.shipment.documents} role={role} />
         </Section>
       )}
 

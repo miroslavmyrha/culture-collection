@@ -94,6 +94,8 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     "distribution_shipmentvial": ("SELECT", "INSERT"),
     # #89: a prepared shipment is withdrawn once, never deleted (its trigger).
     "distribution_shipmentpreparation": ("SELECT", "INSERT", "UPDATE"),
+    # #90: a shipment's documents are kept as sent (the trigger refuses UPDATE and DELETE too).
+    "distribution_shipmentdocument": ("SELECT", "INSERT"),
     # ADR 0009: a location grant is revoked, never deleted.
     "labs_locationgrant": ("SELECT", "INSERT", "UPDATE"),
     # Storage units are retired, never deleted: events and, from #16, placements point at

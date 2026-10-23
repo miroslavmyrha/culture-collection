@@ -4162,6 +4162,108 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/shipment-documents/{public_id}/:
+    get:
+      operationId: labs_shipment_documents_retrieve
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentDocument'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/shipment-documents/{public_id}/download/:
+    get:
+      operationId: labs_shipment_documents_download_retrieve
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/storage-units/:
     get:
       operationId: labs_storage_units_list
@@ -9105,6 +9207,95 @@ components:
       - responsible_name
       - responsible_phone
       - transport_class
+    ShipmentDocument:
+      type: object
+      description: One document with its text as it was sent, for a caller who may
+        view requesters.
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/ShipmentDocumentKind'
+          readOnly: true
+        strain:
+          type: string
+          readOnly: true
+          nullable: true
+        text_sha256:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        request:
+          type: string
+          format: uuid
+          readOnly: true
+        request_number:
+          type: string
+          readOnly: true
+        shipment:
+          type: string
+          format: uuid
+          readOnly: true
+        text:
+          type: string
+          readOnly: true
+      required:
+      - created_at
+      - kind
+      - public_id
+      - request
+      - request_number
+      - shipment
+      - strain
+      - text
+      - text_sha256
+    ShipmentDocumentBrief:
+      type: object
+      description: |-
+        A document of a shipment as a request's detail lists it, for every reader: what it is,
+        the line's strain, and its SHA-256. The text names a person: ShipmentDocumentSerializer.
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/ShipmentDocumentKind'
+          readOnly: true
+        strain:
+          type: string
+          readOnly: true
+          nullable: true
+        text_sha256:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - kind
+      - public_id
+      - strain
+      - text_sha256
+    ShipmentDocumentKind:
+      enum:
+      - delivery_note
+      - abs_sheet
+      - register_entry
+      type: string
+      description: |-
+        * `delivery_note` - Delivery note
+        * `abs_sheet` - ABS information for the recipient
+        * `register_entry` - Register entry and handover protocol
     ShipmentOutput:
       type: object
       description: |-
@@ -9177,6 +9368,11 @@ components:
           format: uuid
           readOnly: true
           nullable: true
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShipmentDocumentBrief'
+          readOnly: true
       required:
       - basis_note
       - carrier
@@ -9185,6 +9381,7 @@ components:
       - classified_by
       - coolant
       - coolant_kg
+      - documents
       - packing_instruction
       - preparation
       - public_id

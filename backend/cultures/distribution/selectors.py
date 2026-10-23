@@ -21,6 +21,7 @@ from .models import (
     RecipientPermit,
     Requester,
     RequestLine,
+    ShipmentDocument,
     ShipmentPreparation,
     ShipmentVial,
     VialReservation,
@@ -67,6 +68,18 @@ def document_list(*, access: Access, lab: Lab) -> QuerySet[Document]:
     return Document.objects.for_access(access, Perm.VIEW_REQUESTERS).filter(lab=lab).order_by("pk")
 
 
+def shipment_document_list(*, access: Access, lab: Lab) -> QuerySet[ShipmentDocument]:
+    """The documents of the lab's shipments, with their text: they name the responsible person,
+    so they need distribution.view_requesters like every document (#90). A request's detail
+    lists them without the text for every reader."""
+    return (
+        ShipmentDocument.objects.for_access(access, Perm.VIEW_REQUESTERS)
+        .filter(lab=lab)
+        .select_related("shipment__request", "line__strain")
+        .order_by("pk")
+    )
+
+
 def _regulated_line() -> Exists:
     return Exists(
         regulating_restrictions().filter(strain__request_lines__request_id=OuterRef("pk"))
@@ -109,7 +122,8 @@ def request_matching(
 def request_detail(*, access: Access, lab: Lab) -> QuerySet[DistributionRequest]:
     """The same rows with their lines (strain, terms and MTA version, open reservations with
     their vials, the vials shipped, the permits approved against), the MTA acceptances, the
-    shipment with its responsible person and the prepared shipments, newest first (#89)."""
+    shipment with its responsible person and its documents (#90), and the prepared shipments,
+    newest first (#89)."""
     lines: QuerySet[RequestLine] = RequestLine.objects.select_related(
         "strain__taxon", "terms", "mta"
     ).prefetch_related(
@@ -151,6 +165,14 @@ def request_detail(*, access: Access, lab: Lab) -> QuerySet[DistributionRequest]
                 "acceptances",
                 queryset=MtaAcceptance.objects.select_related("mta", "signer").order_by("pk"),
                 to_attr="acceptance_list",
+            ),
+            # The shipment's documents without their text: a viewer sees the list (#90).
+            Prefetch(
+                "shipment__documents",
+                queryset=ShipmentDocument.objects.defer("text")
+                .select_related("line__strain")
+                .order_by("pk"),
+                to_attr="document_list",
             ),
             Prefetch(
                 "preparations",

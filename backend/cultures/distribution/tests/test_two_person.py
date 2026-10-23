@@ -143,8 +143,9 @@ def test_a_second_person_confirms_and_the_vials_leave_with_both_people_recorded(
         "vial_status_changed",
         "request_line_shipped",
         "request_shipped",
+        "shipment_document_generated",
     ]
-    event = recorded[-1]
+    event = recorded[-2]
     assert event.actor == manager
     assert event.changes["status"] == ["awaiting_confirmation", "shipped"]
     assert event.changes["preparation"] == [None, str(preparation.public_id)]

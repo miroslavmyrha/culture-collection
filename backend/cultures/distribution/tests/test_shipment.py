@@ -33,6 +33,7 @@ from cultures.distribution.models import (
     RequestStatus,
     ReservationEnd,
     Shipment,
+    ShipmentDocument,
     ShipmentVial,
     TransportClass,
     VialReservation,
@@ -168,6 +169,7 @@ def test_a_curator_ships_every_reserved_vial_at_once_and_each_leaves_its_box(
         "vial_status_changed",
         "request_line_shipped",
         "request_shipped",
+        "shipment_document_generated",
     ]
     assert {e.strain_id for e in recorded[:3]} == {strain.public_id}
     assert recorded[0].changes["location"] == [
@@ -725,12 +727,13 @@ def test_the_ship_day_is_a_czech_day(*, curator: User, supply: Supply, approved:
 
 @pytest.mark.slow
 @pytest.mark.django_db(transaction=True)
-def test_an_erased_responsible_person_leaves_no_value_in_any_column(
+def test_an_erased_responsible_person_stays_only_in_the_documents_sent(
     *, curator: User, viewer: User, supply: Supply, approved: Any
 ) -> None:
     """The responsible person of a shipment is a contact (D11): shipped through the API with a
     marker in the name and a phone number of its own, then erased with erase_contact. The
-    shipment row holds only the contact's id, and the events say "changed"."""
+    shipment row holds only the contact's id, and the events say "changed". The delivery note
+    printed both and is kept as sent (#90, ADR 0009): the erasure does not rewrite it."""
     phone = "+420 731 908 246"
     request = approved(supply(vials=6))
     response = logged_in(curator).post(
@@ -746,14 +749,17 @@ def test_an_erased_responsible_person_leaves_no_value_in_any_column(
         content_type="application/json",
     )
     assert response.status_code == 200, response.content
-    assert marker_hits() == ["public.deposits_contact.name"]
-    assert marker_hits(phone) == ["public.deposits_contact.phone"]
+    sent = "public.distribution_shipmentdocument.text"
+    assert marker_hits() == ["public.deposits_contact.name", sent]
+    assert marker_hits(phone) == ["public.deposits_contact.phone", sent]
+    note = ShipmentDocument.objects.get(shipment__request=request).text
     with system():
         staff = users.superuser_create(username="root", password=None, reason="first admin")
     contact = Shipment.objects.get(request=request).responsible
     call_command(
         "erase_contact", str(contact.public_id), "--by", staff.username, "--reason", REASON
     )
-    assert marker_hits() == marker_hits(phone) == []
+    assert marker_hits() == marker_hits(phone) == [sent]
+    assert ShipmentDocument.objects.get(shipment__request=request).text == note
     shown = logged_in(curator).get(f"{REQUESTS_URL}{request.public_id}/").json()["shipment"]
     assert (shown["responsible_name"], shown["responsible_phone"]) == ("", "")

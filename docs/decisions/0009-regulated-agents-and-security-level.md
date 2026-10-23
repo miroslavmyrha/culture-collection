@@ -4,7 +4,8 @@ Date: 2026-10-18
 Status: accepted (#50). Open questions listed at the end.
 Amended 2026-10-19: location masking as built (#16). Amended 2026-10-20: the box grid (#15);
 distribution of regulated strains (#18, part A). Amended 2026-10-22: the shipment before the
-second person (#88); the second person at shipment (#89).
+second person (#88); the second person at shipment (#89). Amended 2026-10-23: the
+documents of a shipment (#90).
 Deciders: maintainer
 
 ## Context
@@ -408,3 +409,68 @@ distribution 0005`, `migrate audit 0020`.
 
 Revisit when: the second factor exists (step-up before the confirmation), a lab adds actions to
 the two-person set (destruction and deaccession come with #20), or a shipment must go in parts.
+
+## Amendment 2026-10-23: the documents of a shipment (#90)
+
+The shipment writes the documents the law asks the sender to keep and hand over, in the same
+transaction that ships (in one step and at the confirmation), from the data as it is at that
+moment: after the vials left, under the locks of the shipment. Each is rendered once to plain
+text, stored with its SHA-256 (`distribution.ShipmentDocument`) and never changed. Reading one
+returns the stored text, never a new rendering: a strain renamed or a restriction ended later
+changes no document that was sent.
+
+**The three kinds** (s10, sections 2, 3, 5 and 8):
+- **Delivery note**, for every shipment: request number, the recipient institution with its
+  company number and delivery address, the package (transport class, packing instruction,
+  coolant, carrier, tracking number, the responsible person and phone), and per line the strain
+  (accession number and current name), its risk group, the terms and MTA version the line was
+  pinned to, and each vial by its label. A line of a strain with an active `dual_use`
+  restriction prints its Annex I entry and the notice Art. 11(9) of Regulation (EU) 2021/821
+  asks for, in the regulation's words: "This item is subject to controls if exported from the
+  customs territory of the Union". A line with an active `quarantine_pest` restriction says that
+  the Letter of Authority it was approved against travels with the package (Regulation (EU)
+  2019/829, Art. 6(1)), naming its reference.
+- **ABS sheet**, for each line whose pinned terms are in scope of Regulation (EU) No 511/2014:
+  the Art. 4(3) facts held on the terms version, under (a) when an IRCC is held, else under (b)
+  (date and place of access, the source, PIC, access permit, MAT and the uses the MAT covers),
+  and the sentence that the recipient keeps them 20 years after the end of use (Art. 4(6)).
+- **Register entry and handover protocol**, for each line of a strain with an active `cz_vrat`
+  or `cz_rat` restriction: the data decree 474/2002 Sb., Annex 3 asks of the sender's register
+  (date, the agent as named, quantity issued, the strain's vials still in the lab, recipient,
+  its address, IČO if known, document number = the shipment's public id), and a protocol with
+  places for both signatures, as SÚJB asks. The document says that the bound register book stays
+  the legal register and the page gives the data of its entry (s10, section 3).
+
+**What the database holds** (distribution 0010): the document's trigger refuses UPDATE and
+DELETE; on insert it checks that `text_sha256` is the SHA-256 of the text, that the shipment is
+of the document's lab and was written by this same transaction (its row's xmin is still in
+progress, which only this transaction's own rows are when visible), that a line is of the
+shipment's request, and that an ABS sheet is only for terms in scope and a register entry only
+for a VRAT or RAT line. A deferred trigger on the shipment checks at commit that every document
+it needs exists. The runtime role has SELECT and INSERT.
+
+**Personal data.** The delivery note prints the responsible person's name and phone and the
+delivery address, so a document is personal data. It stays out of every append-only audit row:
+the event `shipment_document_generated` holds the document's id, kind, shipment and SHA-256, and
+the row trigger stores the text column as `personal`. Erasing the contact (`contact_erase`)
+does not rewrite a stored document. The trade-off is deliberate: the document is the record the
+sender handed over and must keep (decree 474/2002 Sb., register records kept 10 years after the
+book closes; 511/2014 Art. 4(6), 20 years for ABS information; WHO transport guidance, section
+8, for transport documents), so the legal basis for keeping the name in it after an erasure
+request is the sender's legal obligation (GDPR Art. 6(1)(c) and Art. 17(3)(b)). An erasure
+empties the contact and everything the screens read from it; the documents keep what was sent.
+
+**Who reads them.** Every reader of a request sees which documents its shipment has, with
+their SHA-256. The text needs `distribution.view_requesters` (curators and managers), as every
+document that names a person does; others get 404 for a document. `GET
+.../shipment-documents/<id>/` answers the text as JSON, `.../download/` as a text file, both
+`Cache-Control: no-store`.
+
+Migration impact: additive. `distribution` 0009 adds the table, 0010 attaches its row audit and
+its two triggers. Shipments recorded before #90 have no documents and are not given any (a
+document is written only with its shipment). Reversible while no document exists: `migrate
+distribution 0008`.
+
+Revisit when: SÚJB accepts an electronic register (the entry would become the register), a
+lab ships outside the EU (export documents, the end-user statement), the 5-day SÚJB notice of a
+cross-border VRAT or RAT is built, or a recipient asks for PDF.

@@ -22,14 +22,18 @@ row, only from lineage.selectors.distributable(). Stock stays a query: there is 
 A shipment (#88) sends all the vials an approved request reserved, at once: the transport class
 a person decided with its basis, the packing, the coolant, the responsible person (a contact),
 the carrier, who shipped it and when. Approved > shipped, each reservation ended as shipped, each
-vial distributed, all in one transaction. Never changed or deleted. The register entry and the
-delivery documents (#90) come later.
+vial distributed, all in one transaction. Never changed or deleted.
 
 A request with a regulated line leaves in two steps (#89, ADR 0009): one person records the
 shipment as a ShipmentPreparation (approved > awaiting_confirmation, nothing leaves), and a
 different person, neither the approver nor the preparer, confirms it, which writes the Shipment
 from it (awaiting_confirmation > shipped). A preparation is withdrawn with a reason
 (awaiting_confirmation > approved) and stays as history.
+
+The documents a shipment needs (#90) are written in the transaction that ships it, from the data
+as it is then: the delivery note, an ABS sheet per line whose terms are in scope of 511/2014, a
+register entry with its handover protocol per line of a VRAT or RAT. Each is text rendered once
+and kept with its SHA-256, never changed (documents.py, ADR 0009 amendment of 2026-10-23).
 """
 
 from django.conf import settings
@@ -824,3 +828,61 @@ class ShipmentVial(models.Model):
 
     def __str__(self) -> str:
         return f"{self.vial_id} in {self.shipment_id}"
+
+
+class ShipmentDocumentKind(models.TextChoices):
+    """The documents a shipment needs (#90, s10 sections 2, 3 and 5)."""
+
+    DELIVERY_NOTE = "delivery_note", "Delivery note"
+    ABS_SHEET = "abs_sheet", "ABS information for the recipient"
+    REGISTER_ENTRY = "register_entry", "Register entry and handover protocol"
+
+
+# The kinds written once per line; the delivery note is one per shipment and names no line.
+PER_LINE: frozenset[ShipmentDocumentKind] = frozenset(
+    {ShipmentDocumentKind.ABS_SHEET, ShipmentDocumentKind.REGISTER_ENTRY}
+)
+ONE_DOCUMENT = "distribution_shipmentdocument_one_per_kind_and_line"
+
+
+class ShipmentDocument(PublicModel):
+    """A document of a shipment as it was sent: plain text rendered once in the transaction that
+    shipped, with its SHA-256. Frozen: a trigger refuses changes and deletes, and checks on insert
+    that text_sha256 is the SHA-256 of the text and that the shipment was written in the same
+    transaction. Reading one returns this text, never a new rendering. The text names the
+    responsible person, so it is personal data: no event holds it, and erasing the contact does
+    not rewrite it (the sender keeps the record it handed over, ADR 0009)."""
+
+    lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="+")
+    # No index of its own: the unique (shipment, kind, line) leads with it.
+    shipment = models.ForeignKey(
+        Shipment, on_delete=models.PROTECT, related_name="documents", db_index=False
+    )
+    kind = models.CharField(max_length=20, choices=ShipmentDocumentKind.choices)
+    # The line an ABS sheet or a register entry is about; none for the delivery note.
+    line = models.ForeignKey(
+        RequestLine, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    text = models.TextField()
+    text_sha256 = models.CharField(max_length=64)
+
+    objects = LabScopedQuerySet["ShipmentDocument"].as_manager()
+
+    class Meta(PublicModel.Meta):
+        constraints = [
+            *PublicModel.Meta.constraints,
+            models.UniqueConstraint(
+                fields=["shipment", "kind", "line"], name=ONE_DOCUMENT, nulls_distinct=False
+            ),
+            models.CheckConstraint(
+                condition=Q(kind=ShipmentDocumentKind.DELIVERY_NOTE, line__isnull=True)
+                | Q(kind__in=sorted(PER_LINE), line__isnull=False),
+                name="distribution_shipmentdocument_line_iff_per_line",
+            ),
+            models.CheckConstraint(
+                condition=Q(text__regex=r"\S"), name="distribution_shipmentdocument_text_given"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.kind} {self.public_id}"

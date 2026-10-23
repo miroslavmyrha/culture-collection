@@ -31,6 +31,7 @@ from cultures.distribution.models import (
     RecipientPermit,
     Requester,
     RequestStatus,
+    ShipmentDocument,
     SignerRole,
     TransportClass,
 )
@@ -53,6 +54,7 @@ from .serializers import (
     RequestInputSerializer,
     RequestListOutputSerializer,
     ShipInputSerializer,
+    ShipmentDocumentSerializer,
 )
 
 # 401, 403, 404 and 429 with the Problem body are added to every operation by core.schema.
@@ -289,6 +291,34 @@ class DocumentViewSet(LabScoped, mixins.RetrieveModelMixin):
         extension = {"application/pdf": "pdf", "image/png": "png", "image/jpeg": "jpg"}
         response = HttpResponse(bytes(document.content), content_type=document.content_type)
         name = f"document-{document.public_id}.{extension[document.content_type]}"
+        response["Content-Disposition"] = f'attachment; filename="{name}"'
+        response["Cache-Control"] = "no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
+
+
+# The documents of a shipment (#90), for a caller who may view requesters: they name the
+# responsible person. The text is the one stored when the shipment was written, never rendered
+# again; the download is that text as a file named by the document's public id. Not cached.
+@extend_schema(parameters=[LAB_PARAMETER])
+class ShipmentDocumentViewSet(LabScoped, mixins.RetrieveModelMixin):
+    action_perms = {"retrieve": Perm.VIEW_REQUESTERS, "download": Perm.VIEW_REQUESTERS}
+    serializer_class = ShipmentDocumentSerializer
+
+    def scoped_queryset(self) -> QuerySet[Any]:
+        return selectors.shipment_document_list(access=access_of(self.request), lab=self.lab)
+
+    def retrieve(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        response = Response(ShipmentDocumentSerializer(self.get_object()).data)
+        response["Cache-Control"] = "no-store"
+        return response
+
+    @extend_schema(responses={(200, "text/plain"): OpenApiTypes.STR})
+    @action(detail=True, methods=["get"], url_path="download")
+    def download(self, request: Request, *args: Any, **kwargs: Any) -> HttpResponse:
+        document: ShipmentDocument = self.get_object()
+        response = HttpResponse(document.text, content_type="text/plain; charset=utf-8")
+        name = f"{document.kind}-{document.public_id}.txt"
         response["Content-Disposition"] = f'attachment; filename="{name}"'
         response["Cache-Control"] = "no-store"
         response["X-Content-Type-Options"] = "nosniff"

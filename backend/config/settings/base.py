@@ -306,6 +306,7 @@ SPECTACULAR_SETTINGS = {
         "ClassificationBasis": "cultures.distribution.models.ClassificationBasis",
         "PackingInstruction": "cultures.distribution.models.PackingInstruction",
         "Coolant": "cultures.distribution.models.Coolant",
+        "ShipmentDocumentKind": "cultures.distribution.models.ShipmentDocumentKind",
     },
 }
 

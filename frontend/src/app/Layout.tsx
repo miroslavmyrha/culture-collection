@@ -42,7 +42,8 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <SkipLink target={MAIN_ID} />
-      <AppBar position="static" elevation={0}>
+      {/* Not printed: a printed page (a shipment's document) shows only what it is about. */}
+      <AppBar position="static" elevation={0} sx={{ displayPrint: 'none' }}>
         {/* Wraps instead of overflowing: at 320 px the title, the links and the menu take two rows. */}
         <Toolbar sx={{ flexWrap: 'wrap', columnGap: 3, rowGap: 1, py: 1 }}>
           <Typography component="p" variant="h6" sx={{ minWidth: 0 }}>

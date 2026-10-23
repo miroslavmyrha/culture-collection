@@ -27,7 +27,7 @@ from cultures.distribution.models import (
 from cultures.labs.models import Lab
 from cultures.users.models import User
 
-from .support import Supply, submit
+from .support import Supply, delivery_note, submit
 
 pytestmark = pytest.mark.django_db
 STATES = sorted(RequestStatus)
@@ -89,7 +89,7 @@ def confirmed(request: DistributionRequest) -> None:
     prep = ShipmentPreparation.objects.get(request=request, withdrawn_at__isnull=True)
     other = User.objects.exclude(pk=request.submitted_by_id).order_by("pk").first()
     assert other is not None
-    Shipment.objects.create(
+    shipment = Shipment.objects.create(
         **{f: getattr(prep, f) for f in PACKAGE_FIELDS},
         lab=request.lab,
         request=request,
@@ -99,12 +99,13 @@ def confirmed(request: DistributionRequest) -> None:
         shipped_by=other,
         shipped_at=timezone.now(),
     )
+    delivery_note(shipment)
 
 
 def with_shipment(request: DistributionRequest) -> None:
     """The row a shipped request needs; its guard takes it only for an approved request."""
     contact = Contact.objects.create(lab=request.lab, name="Jan Odpovědný", phone="+420 555 000")
-    Shipment.objects.create(
+    shipment = Shipment.objects.create(
         lab=request.lab,
         request=request,
         transport_class=TransportClass.NOT_SUBJECT,
@@ -117,6 +118,7 @@ def with_shipment(request: DistributionRequest) -> None:
         shipped_by=request.submitted_by,
         shipped_at=timezone.now(),
     )
+    delivery_note(shipment)
 
 
 def update(request: DistributionRequest, status: str) -> None:

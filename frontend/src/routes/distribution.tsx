@@ -1,5 +1,5 @@
 import { createRoute, lazyRouteComponent, stripSearchParams } from '@tanstack/react-router'
-import { ALL_REQUESTERS, requestDetailOptions, requesterListOptions, requestListOptions } from '@/features/distribution/api/queries'
+import { ALL_REQUESTERS, requestDetailOptions, requesterListOptions, requestListOptions, shipmentDocumentOptions } from '@/features/distribution/api/queries'
 import { requesterListDefaults, requesterListSearch, requestListDefaults, requestListSearch } from '@/features/distribution/schemas'
 import { labDetailOptions } from '@/features/labs/api/queries'
 import { authenticatedRoute } from './authenticated'
@@ -47,4 +47,15 @@ export const requesterListRoute = createRoute({
   loader: ({ context, params, deps }) =>
     Promise.all([context.queryClient.prefetchQuery(labDetailOptions(params.labId)), context.queryClient.prefetchQuery(requesterListOptions(params.labId, deps))]),
   component: lazyRouteComponent(() => import('@/pages/RequesterListPage'), 'RequesterListPage'),
+})
+
+export const shipmentDocumentRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: 'labs/$labId/shipment-documents/$documentId',
+  loader: ({ context, params }) =>
+    Promise.all([
+      context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
+      context.queryClient.prefetchQuery(shipmentDocumentOptions(params.labId, params.documentId)),
+    ]),
+  component: lazyRouteComponent(() => import('@/pages/ShipmentDocumentPage'), 'ShipmentDocumentPage'),
 })

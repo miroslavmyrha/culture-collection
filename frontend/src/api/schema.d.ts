@@ -846,6 +846,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/shipment-documents/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_shipment_documents_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/shipment-documents/{public_id}/download/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_shipment_documents_download_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/storage-units/": {
         parameters: {
             query?: never;
@@ -2691,6 +2723,42 @@ export interface components {
             /** @default  */
             tracking_number: string;
         };
+        /** @description One document with its text as it was sent, for a caller who may view requesters. */
+        ShipmentDocument: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly kind: components["schemas"]["ShipmentDocumentKind"];
+            readonly strain: string | null;
+            readonly text_sha256: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: uuid */
+            readonly request: string;
+            readonly request_number: string;
+            /** Format: uuid */
+            readonly shipment: string;
+            readonly text: string;
+        };
+        /**
+         * @description A document of a shipment as a request's detail lists it, for every reader: what it is,
+         *     the line's strain, and its SHA-256. The text names a person: ShipmentDocumentSerializer.
+         */
+        ShipmentDocumentBrief: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly kind: components["schemas"]["ShipmentDocumentKind"];
+            readonly strain: string | null;
+            readonly text_sha256: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `delivery_note` - Delivery note
+         *     * `abs_sheet` - ABS information for the recipient
+         *     * `register_entry` - Register entry and handover protocol
+         * @enum {string}
+         */
+        ShipmentDocumentKind: "delivery_note" | "abs_sheet" | "register_entry";
         /**
          * @description For a confirmed shipment of a regulated request, `preparation` names what was confirmed:
          *     classified_by and classified_at are the preparer and when, shipped_by and shipped_at the
@@ -2719,6 +2787,7 @@ export interface components {
             readonly shipped_at: string;
             /** Format: uuid */
             readonly preparation: string | null;
+            readonly documents: components["schemas"]["ShipmentDocumentBrief"][];
         };
         /**
          * @description * `responsible_scientist` - Responsible scientist
@@ -7409,6 +7478,114 @@ export interface operations {
             };
             /** @description reason_required */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_shipment_documents_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShipmentDocument"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_shipment_documents_download_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

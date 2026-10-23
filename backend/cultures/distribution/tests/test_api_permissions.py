@@ -19,10 +19,12 @@ from cultures.distribution.models import (
     PermitKind,
     RecipientPermit,
     Requester,
+    ShipmentDocument,
 )
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
 from cultures.labs.tests.conftest import member_of
+from cultures.strains.models import Strain
 from cultures.users.models import User
 
 from .support import (
@@ -33,6 +35,7 @@ from .support import (
     accept_mtas,
     add_permit,
     approve,
+    ship,
     snapshot,
     submit,
 )
@@ -76,20 +79,36 @@ CALLS = [
     Call("permit_create", "post", "recipient-permits/", CURATORS, 201, multipart=True, hidden=True),
     Call("permit_end", "post", "recipient-permits/{permit}/end/", CURATORS, hidden=True),
     Call("document_retrieve", "get", "documents/{document}/", CURATORS, hidden=True),
+    # #90: a shipment's documents name the responsible person.
+    Call(
+        "shipment_document_retrieve",
+        "get",
+        "shipment-documents/{shipment_document}/",
+        CURATORS,
+        hidden=True,
+    ),
+    Call(
+        "shipment_document_download",
+        "get",
+        "shipment-documents/{shipment_document}/download/",
+        CURATORS,
+        hidden=True,
+    ),
     Call("request_list", "get", "requests/", EVERYONE),
     Call("request_retrieve", "get", "requests/{request}/", EVERYONE),
     Call("request_create", "post", "requests/", CURATORS, 201, events=2),
     Call("request_approve", "post", "requests/{accepted}/approve/", CURATORS, events=3),
     Call("request_reject", "post", "requests/{request}/reject/", CURATORS),
     Call("request_cancel", "post", "requests/{request}/cancel/", CURATORS),
-    Call("request_ship", "post", "requests/{approved}/ship/", CURATORS, events=3),
+    # The vial, the line, the request, and the delivery note (#90).
+    Call("request_ship", "post", "requests/{approved}/ship/", CURATORS, events=4),
     Call("request_prepare_shipment", "post", "requests/{regulated}/prepare-shipment/", CURATORS),
     Call(
         "request_confirm_shipment",
         "post",
         "requests/{awaiting}/confirm-shipment/",
         CURATORS,
-        events=3,
+        events=4,
     ),
     Call("request_withdraw_shipment", "post", "requests/{awaiting}/withdraw-shipment/", CURATORS),
     Call(
@@ -115,6 +134,16 @@ class World:
     # #89: approved and prepared by `approver`, so the curator and the manager may confirm.
     regulated: DistributionRequest
     awaiting: DistributionRequest
+    # #90: the delivery note of a request shipped in one step.
+    shipment_document: ShipmentDocument
+
+
+def delivered(curator: User, lab: Lab, requester: Requester, strain: Strain) -> ShipmentDocument:
+    request = submit(curator, lab, requester, [(strain, 1)])
+    accept_mtas(curator, request)
+    approve(curator, request)
+    ship(curator, request)
+    return ShipmentDocument.objects.get(shipment__request=request)
 
 
 @pytest.fixture
@@ -148,6 +177,7 @@ def world(
         str(mta.public_id),
         regulated(),
         regulated(prepared_by=approver),
+        delivered(curator, lab, requester, strain),
     )
 
 
@@ -161,6 +191,7 @@ def url(call: Call, w: World) -> str:
         approved=w.approved.public_id,
         regulated=w.regulated.public_id,
         awaiting=w.awaiting.public_id,
+        shipment_document=w.shipment_document.public_id,
     )
     return f"{LAB_URL}/{path}"
 
@@ -301,7 +332,11 @@ UNROUTED = [
     for path in ("requesters/{requester}/", "recipient-permits/{permit}/", "requests/{request}/")
     for method in ("patch", "delete", "put")
     if (path, method) != ("requesters/{requester}/", "put")  # a requester changes with put
-] + [("documents/{document}/", method) for method in ("patch", "delete", "put", "post")]
+] + [
+    (path, method)
+    for path in ("documents/{document}/", "shipment-documents/{shipment_document}/")
+    for method in ("patch", "delete", "put", "post")
+]
 
 
 @pytest.mark.parametrize(("path", "method"), UNROUTED)
@@ -315,6 +350,12 @@ def test_nothing_is_patched_or_deleted(path: str, method: str, world: World, man
 
 def test_unknown_and_malformed_ids_are_404(world: World, curator: User) -> None:
     for tail in ("00000000-0000-4000-8000-000000000999/", "not-a-uuid/"):
-        for resource in ("requesters", "recipient-permits", "documents", "requests"):
+        for resource in (
+            "requesters",
+            "recipient-permits",
+            "documents",
+            "requests",
+            "shipment-documents",
+        ):
             response = logged_in(curator).get(f"{LAB_URL}/{resource}/{tail}")
             assert_problem(response, 404, "not_found")

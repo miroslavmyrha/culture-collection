@@ -6,6 +6,7 @@ a restriction, so no real organism gets a legal status here. Requesters are inve
 institutions at example.org addresses. Documents are a few bytes with a real PDF signature.
 """
 
+import hashlib
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from datetime import date
@@ -29,6 +30,8 @@ from cultures.distribution.models import (
     Requester,
     RequestLine,
     Shipment,
+    ShipmentDocument,
+    ShipmentDocumentKind,
     ShipmentPreparation,
     ShipmentVial,
     SignerRole,
@@ -215,6 +218,18 @@ def withdraw(
         )
 
 
+def delivery_note(shipment: Shipment, text: str = "DELIVERY NOTE\n") -> ShipmentDocument:
+    """The one document every shipment needs at commit (#90), for a shipment a test wrote
+    without the service: in the same transaction, as the guard asks."""
+    return ShipmentDocument.objects.create(
+        lab_id=shipment.lab_id,
+        shipment=shipment,
+        kind=ShipmentDocumentKind.DELIVERY_NOTE,
+        text=text,
+        text_sha256=hashlib.sha256(text.encode()).hexdigest(),
+    )
+
+
 def reserved(request: DistributionRequest) -> list[Vial]:
     return list(
         Vial.objects.filter(
@@ -238,6 +253,7 @@ TABLES = (
     Shipment,
     ShipmentPreparation,
     ShipmentVial,
+    ShipmentDocument,
     Batch,
     VialPlacement,
 )

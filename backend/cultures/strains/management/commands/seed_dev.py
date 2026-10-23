@@ -678,13 +678,16 @@ class Command(BaseCommand):
     def _request(self, lab: Lab, row: dict[str, Any]) -> None:
         """#18: a request as entered by the lab's curator, waiting for a decision, or approved by
         the curator and ready to ship (#88), or, regulated, approved by the manager with a reason
-        and ready to prepare for a second person (#89)."""
+        and ready to prepare for a second person (#89); or shipped, in one step by the curator or
+        prepared by `prepared_by` and confirmed by `confirmed_by`, with its documents (#90)."""
         curator = access_for(User.objects.get(username=lab_username(lab.code, Role.CURATOR)))
-        approver = None
-        if row.get("approved_by"):
-            approver = access_for(
-                User.objects.get(username=lab_username(lab.code, Role(row["approved_by"])))
-            )
+
+        def member(role: str | None) -> Access | None:
+            if not role:
+                return None
+            return access_for(User.objects.get(username=lab_username(lab.code, Role(role))))
+
+        approver = member(row.get("approved_by"))
         lines = []
         for line in row["lines"]:
             strain = Deposit.objects.get(lab=lab, name_as_received=line["deposit"]).strain
@@ -702,8 +705,11 @@ class Command(BaseCommand):
                 accept=row["accept"],
                 approve=row.get("approve", False),
                 reason=row.get("reason", ""),
+                ship=row.get("ship", False),
             ),
             approver=approver,
+            shipper=member(row.get("prepared_by")),
+            confirmer=member(row.get("confirmed_by")),
         )
 
     def _report(self, data: dict[str, Any]) -> None:
