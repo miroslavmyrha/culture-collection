@@ -292,7 +292,6 @@ def register_entry(facts: Facts, line: RequestLine) -> str:
         for r in facts.restrictions.get(line.strain_id, [])
         if r.kind in REGISTERED
     ]
-    address = ", ".join(requester.contact.postal_address.splitlines()) or "not known"
     taxon = line.strain.taxon.name
     lines = [
         *_header(facts, "REGISTER ENTRY AND HANDOVER PROTOCOL"),
@@ -306,7 +305,8 @@ def register_entry(facts: Facts, line: RequestLine) -> str:
         f"Quantity issued: {len(labels)} vials",
         f"Vials of the strain left in the laboratory: {facts.left.get(line.strain_id, 0)}",
         f"Recipient: {requester.institution}",
-        f"Seat: {address} ({facts.request.destination_country})",
+        # The registered office, never the delivery address (that is the laboratory's).
+        f"Seat: {requester.seat or 'not known'}",
         f"Company number (IČO): {requester.registration_number or 'not known'}",
         # The number people quote back: the request's, as the request page shows it.
         f"Document number: {facts.request.label}",

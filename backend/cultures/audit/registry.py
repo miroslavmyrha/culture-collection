@@ -652,7 +652,8 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "revoke_reason",
         ),
     ),
-    # #18. The requester holds ids and its institution, an organisation; the responsible
+    # #18. The requester holds ids and its institution, an organisation, with the institution's
+    # registered office (seat, #90) as the business register publishes it; the responsible
     # scientist and the delivery address are its contact (NOT_ROW_AUDITED). Evidence, end use,
     # covers and reasons are free text that names nobody; user ids reach people only through
     # users_user.
@@ -668,6 +669,7 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "institution",
             "legal_form",
             "registration_number",
+            "seat",
             "country",
             "lab_evidence",
             "lab_confirmed_on",

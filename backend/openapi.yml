@@ -8868,6 +8868,11 @@ components:
           type: string
           default: ''
           maxLength: 40
+        seat:
+          type: string
+          default: ''
+          description: The registered office, as the business register gives it.
+          maxLength: 300
         country:
           $ref: '#/components/schemas/CountryCode'
         lab_evidence:
@@ -8919,6 +8924,9 @@ components:
         registration_number:
           type: string
           readOnly: true
+        seat:
+          type: string
+          readOnly: true
         country:
           type: string
           readOnly: true
@@ -8964,6 +8972,7 @@ components:
       - postal_address
       - public_id
       - registration_number
+      - seat
     ReservedVial:
       type: object
       description: |-

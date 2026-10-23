@@ -127,7 +127,7 @@ def state() -> dict[str, Any]:
         "vials": rows(Vial, "batch__number", "seq", "status", "updated_at"),
         "placements": rows(VialPlacement, "box__name", "row", "col", "removed_at"),
         "grants": rows(LocationGrant, "user__username", "revoked_at"),
-        "requesters": rows(Requester, "institution", "updated_at"),
+        "requesters": rows(Requester, "institution", "seat", "updated_at"),
         "permits": rows(RecipientPermit, "reference", "ended_on"),
         "requests": rows(DistributionRequest, "end_use", "status", "updated_at"),
         "acceptances": rows(MtaAcceptance, "request__end_use", "mta__version"),
@@ -508,8 +508,18 @@ def test_requesters_and_their_permits_are_clearly_invented() -> None:
         scientist = row["scientist"]
         assert scientist["email"].endswith("@example.org"), row["institution"]
         assert "(invented example)" in scientist["postal_address"], row["institution"]
+        assert "(invented example)" in row["seat"], row["institution"]
         for permit in row["permits"]:
             assert re.search(r"invented example|/DEV/", permit["reference"]), permit
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_requesters_get_their_registered_office() -> None:
+    seed()
+    seats = dict(Requester.objects.values_list("institution", "seat"))
+    assert seats == {row["institution"]: row["seat"] for row in DATA["requesters"]}
+    assert all(seats.values())
 
 
 @pytest.mark.django_db

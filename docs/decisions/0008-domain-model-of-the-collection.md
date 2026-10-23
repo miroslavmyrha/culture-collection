@@ -573,11 +573,13 @@ the delivery note. The design study is s10 (distribution, read against primary s
 institution, never a private person: a legal person or a natural person licensed to do business
 (act 78/2004 Sb., § 16(1) allows only these to hold a GMO; DSMZ, CCM Brno and CECT supply only
 institutions or microbiology laboratories). It has a country, an optional company number (the
-register of part B asks for the IČO), and the evidence that it runs a microbiology laboratory,
-with the day it was confirmed: required, so no requester exists unconfirmed. Its responsible
-scientist is a `deposits.Contact`, and the contact's postal address is the delivery address of
-the laboratory (D11: postal addresses of requesters are contacts), so an erasure takes both and
-a request to an erased requester is blocked. A portal for requesters stays for later.
+register of part B asks for the IČO), an optional registered office (seat, as the business
+register gives it: the institution's address, row audited like the institution, added in #90),
+and the evidence that it runs a microbiology laboratory, with the day it was confirmed:
+required, so no requester exists unconfirmed. Its responsible scientist is a `deposits.Contact`,
+and the contact's postal address is the delivery address of the laboratory (D11: postal
+addresses of requesters are contacts), so an erasure takes both and a request to an erased
+requester is blocked. A portal for requesters stays for later.
 - **Recipient permits** are the documents a requester holds: an SÚJB VRAT permit, a § 17a
   notice, an SÚJB exception decision, a Letter of Authority for a quarantine pest (with the
   quantity and sendings it allows and the endorsement of the state of origin), a contained-use

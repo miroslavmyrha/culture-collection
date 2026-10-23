@@ -142,6 +142,7 @@ class RequesterOutputSerializer(serializers.ModelSerializer[Requester]):
             "institution",
             "legal_form",
             "registration_number",
+            "seat",
             "country",
             "lab_evidence",
             "lab_confirmed_on",
@@ -163,6 +164,13 @@ class RequesterInputSerializer(serializers.Serializer[None]):
     legal_form = serializers.ChoiceField(choices=LegalForm.choices)
     registration_number = serializers.CharField(
         max_length=40, required=False, allow_blank=True, default=""
+    )
+    seat = serializers.CharField(
+        max_length=300,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="The registered office, as the business register gives it.",
     )
     country = serializers.ChoiceField(choices=COUNTRY_CHOICES)
     lab_evidence = serializers.CharField(max_length=2000, help_text=TEXT_HELP)

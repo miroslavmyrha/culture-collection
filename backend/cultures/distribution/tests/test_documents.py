@@ -36,6 +36,7 @@ from cultures.users.models import User
 
 from .support import (
     SCIENTIST,
+    SEAT,
     Supply,
     accept_mtas,
     add_permit,
@@ -302,7 +303,7 @@ def test_a_register_entry_and_handover_protocol_for_a_vrat_line(
         "Quantity issued: 2 vials",
         f"Vials of the strain left in the laboratory: {left}",
         "Recipient: Example Institute of Microbiology",
-        "Seat: Mikrobiologická laboratoř, Testovací 5, 602 00 Brno (CZ)",
+        f"Seat: {SEAT}",
         "Company number (IČO): 00000001",
         f"Document number: {request.label}",
         "HANDOVER PROTOCOL",
@@ -608,6 +609,33 @@ def test_a_register_entry_says_when_the_company_number_is_not_known(
     confirm(curator, request)
     entry = docs(request)[1].text.splitlines()
     assert "Company number (IČO): not known" in entry
+
+
+def test_a_register_entry_without_a_known_seat_says_so_and_never_prints_the_delivery_address(
+    *,
+    supply: Supply,
+    two_step: Any,
+    mockia: Taxon,
+    curator: User,
+    make_requester: Any,
+    lab: Lab,
+    approver: User,
+    manager: User,
+) -> None:
+    """A requester entered before the seat was asked has none: the entry says not known, and
+    the laboratory's delivery address does not stand in for the registered office."""
+    other = make_requester(institution="Example Older Laboratory", seat="")
+    add_permit(curator, other, PermitKind.SUJB_VRAT)
+    strain = supply(mockia, restrictions=[VRAT], vials=6)
+    request = submit(curator, lab, other, [(strain, 1)])
+    accept_mtas(curator, request)
+    approve(approver, request, "The recipient holds what the lists ask for.")
+    prepare(manager, request)
+    confirm(curator, request)
+    entry = docs(request)[1].text
+    assert [line for line in entry.splitlines() if line.startswith("Seat:")] == ["Seat: not known"]
+    for part in SCIENTIST.postal_address.splitlines():
+        assert part not in entry, part
 
 
 def test_at_commit_an_abs_sheet_does_not_stand_in_for_a_register_entry(

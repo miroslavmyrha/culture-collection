@@ -437,11 +437,12 @@ changes no document that was sent.
 - **Register entry and handover protocol**, for each line of a strain with an active `cz_vrat`
   or `cz_rat` restriction: the data decree 474/2002 Sb., Annex 3 asks of the sender's register
   (date, the agent as named, quantity issued, the strain's vials still in the lab, recipient,
-  its address, IČO if known, document number = the request's number as the request page shows
-  it, such as 2026/7; documents written before 2026-10-23 keep the shipment's public id there,
-  as sent), and a protocol with places for both signatures, as SÚJB asks. The document says
-  that the bound register book stays the legal register and the page gives the data of its
-  entry (s10, section 3).
+  its registered office (the requester's seat, or "not known", never the delivery address; until
+  2026-10-23 the delivery address stood there), IČO if known, document number = the request's
+  number as the request page shows it, such as 2026/7; documents written before 2026-10-23 keep
+  the shipment's public id there, as sent), and a protocol with places for both signatures, as
+  SÚJB asks. The document says that the bound register book stays the legal register and the
+  page gives the data of its entry (s10, section 3).
 
 **What the database holds** (distribution 0010): the document's trigger refuses UPDATE and
 DELETE; on insert it checks that `text_sha256` is the SHA-256 of the text, that the shipment is

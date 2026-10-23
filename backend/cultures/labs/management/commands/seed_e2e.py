@@ -39,7 +39,8 @@ Brings the database to this state, whatever it was before:
   batch when fewer than ten vials are free): Testella exempli e2e supply (risk group 1, no
   restriction) and Mockia vulgaris e2e supply (invented, a dual-use restriction, so a manager
   approves it). Two requesters, invented institutions: E2E Institute of Microbiology, which
-  holds an invented § 17a notice, and E2E Unnotified Laboratory, which holds none. Four
+  holds an invented § 17a notice and has an invented registered office, and E2E Unnotified
+  Laboratory, which holds none and whose registered office is not known. Four
   requests, found by their end use: one a curator may approve, one a manager must approve, one
   blocked by a legal gate (a RAT to the unnotified laboratory), and one approved, ready to ship
   (#88; shipped once, it stays shipped). A fifth, of the dual-use strain, approved by
@@ -429,6 +430,7 @@ class Command(BaseCommand):
             seeding.SeedRequester(
                 institution=INSTITUTE,
                 country="CZ",
+                seat="E2E street 1, 602 00 Brno (invented example)",
                 lab_evidence="The institute's page lists a BSL-2 microbiology laboratory"
                 " (invented example).",
                 scientist=scientist,

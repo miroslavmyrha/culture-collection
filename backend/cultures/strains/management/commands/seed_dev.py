@@ -658,6 +658,7 @@ class Command(BaseCommand):
                 ),
                 legal_form=LegalForm(row["legal_form"]),
                 registration_number=row["registration_number"],
+                seat=row["seat"],
                 lab_confirmed_on=date.fromisoformat(row["lab_confirmed_on"]),
                 permits=tuple(
                     seeding.SeedPermit(

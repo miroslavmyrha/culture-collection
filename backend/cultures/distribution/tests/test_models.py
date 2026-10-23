@@ -80,6 +80,7 @@ def approved(
         ({"institution": " x"}, "distribution_requester_institution_trimmed"),
         ({"legal_form": "private_person"}, "distribution_requester_legal_form_valid"),
         ({"registration_number": "1 "}, "distribution_requester_registration_number_trimmed"),
+        ({"seat": " Vzorová 12"}, "distribution_requester_seat_trimmed"),
         ({"country": "XX"}, "distribution_requester_country_iso_3166"),
         ({"lab_evidence": "  "}, "distribution_requester_lab_evidence_given"),
     ],

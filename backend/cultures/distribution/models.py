@@ -84,6 +84,10 @@ class Requester(PublicModel):
     legal_form = models.CharField(max_length=20, choices=LegalForm.choices)
     # The company number (IČO in the Czech Republic), if it has one: the register asks for it.
     registration_number = models.CharField(max_length=40, blank=True)
+    # The registered office ("sídlo") as the business register gives it: the address of the
+    # institution, not of a person, printed in the register entry (decree 474/2002 Sb., Annex 3).
+    # One line. Blank for requesters entered before it was asked: the entry then says not known.
+    seat = models.CharField(max_length=300, blank=True, default="", db_default="")
     country = models.CharField(max_length=2)  # ISO 3166-1 alpha-2, where the laboratory is
     # How the curator confirmed that the institution has a microbiology laboratory: the page,
     # the document or the call, in a sentence that names no person.
@@ -106,6 +110,9 @@ class Requester(PublicModel):
             models.CheckConstraint(
                 condition=trimmed_or_empty("registration_number"),
                 name="distribution_requester_registration_number_trimmed",
+            ),
+            models.CheckConstraint(
+                condition=trimmed_or_empty("seat"), name="distribution_requester_seat_trimmed"
             ),
             models.CheckConstraint(
                 condition=Q(country__in=COUNTRIES), name="distribution_requester_country_iso_3166"
