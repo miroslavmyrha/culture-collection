@@ -25,7 +25,8 @@ export function formData(fields: Record<string, string | number | boolean | null
 // promise keeps the mutation pending until they are fresh.
 function settleRequest(qc: QueryClient, labId: string, request: Request) {
   qc.setQueryData(requestKeys.detail(labId, request.public_id), request)
-  return qc.invalidateQueries({ queryKey: requestKeys.lists(labId) })
+  // What waits on Home and the Requests tab's count change with every move of a request.
+  return Promise.all([qc.invalidateQueries({ queryKey: requestKeys.lists(labId) }), qc.invalidateQueries({ queryKey: sharedKeys.overview() })])
 }
 
 /**

@@ -1,5 +1,7 @@
 import { PageTitle, Typography } from '@/components/ui'
+import { Home } from '@/features/home/components/Home'
 
+/** Thin: the feature shows what waits, the labs, the activity and the actions. */
 export function HomePage() {
   return (
     <section>
@@ -7,7 +9,7 @@ export function HomePage() {
       <Typography component="h1" variant="h4" gutterBottom>
         Home
       </Typography>
-      <Typography>Strains, storage and distribution will appear here.</Typography>
+      <Home />
     </section>
   )
 }

@@ -25,6 +25,11 @@ import {
   makeRequest,
   makeRequester,
   makeRequestRow,
+  makeActivityLine,
+  makeMyLab,
+  makeOverview,
+  makeWaitingGroup,
+  makeWaitingItem,
   page,
 } from '@/test/factories'
 import { holdApi, mockApi, mockApiError, type PathFor } from '@/test/mockApi'
@@ -495,5 +500,39 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     expect(await screen.findByText(/Could not load the MTA/, {}, { timeout: 5000 })).toBeInTheDocument()
     expect(screen.queryByText(/Could not refresh/)).not.toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+})
+
+// Home (#69) has no form: what stays is what was read, with a notice for each failed read.
+function homeData() {
+  mockApi('get', '/api/v1/me/overview/', makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, name: 'Mycology', code: 'MYC' })], waiting: [makeWaitingGroup({ items: [makeWaitingItem({ lab: LAB_ID, subject: 'Testella exempli W1' })] })] }))
+  mockApi('get', '/api/v1/me/activity/', { results: [makeActivityLine({ lab: LAB_ID, summary: 'accessioned MYC 42' })] })
+}
+
+describe('a failed background refresh keeps Home (#63, #69)', { timeout: 30_000 }, () => {
+  it.each([
+    ['the overview', '/api/v1/me/overview/', 'what waits for you'],
+    ['the activity', '/api/v1/me/activity/', 'the activity'],
+  ] as const)('%s: the lines stay, a stale notice offers a retry', async (_, fails, what) => {
+    allowConsole(/API error 500/)
+    mockApi('get', '/api/v1/auth/me/', makeMe())
+    homeData()
+    const { client } = renderApp({ path: '/' })
+    expect(await screen.findByRole('link', { name: 'Testella exempli W1' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'accessioned MYC 42' })).toBeInTheDocument()
+    const failed = mockApiError('get', fails, 500)
+    await refreshAll(client)
+    expect(failed.length).toBeGreaterThan(0)
+    const line = await notice(what)
+    expect(line.closest('output')).not.toBeNull()
+    expect(screen.getByRole('link', { name: 'Testella exempli W1' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'accessioned MYC 42' })).toBeInTheDocument()
+    expect(screen.queryByText(/Could not load/)).not.toBeInTheDocument()
+    homeData()
+    const output = line.closest('output')
+    expect(output).not.toBeNull()
+    if (!output) return
+    await userEvent.setup().click(within(output).getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(screen.queryByText(/Could not refresh/)).not.toBeInTheDocument())
   })
 })

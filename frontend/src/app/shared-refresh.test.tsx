@@ -9,6 +9,7 @@ import {
   makeLab,
   makeLocationGrant,
   makeMe,
+  makeMyLab,
   makeMember,
   makePassage,
   makePreparation,
@@ -19,6 +20,7 @@ import {
   makeUnitRow,
   makeVial,
   makeRequest,
+  makeOverview,
   page,
 } from '@/test/factories'
 import { mockApi } from '@/test/mockApi'
@@ -368,5 +370,46 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
     await waitFor(() => expect(done).toHaveLength(1))
     await router.navigate({ to: '/labs/$labId/strains/$strainId', params: { labId: LAB_ID, strainId: STRAIN_ID } })
     await waitFor(() => expect(vials).toHaveLength(1), { timeout: 5000 })
+  })
+
+  // What waits on Home and the counts on the lab tabs (#69): a deposit or a request that moves
+  // refreshes them, so the tab shows the new count without a reload.
+  it('starting the check of a deposit refreshes the counts of the lab tabs', async () => {
+    signedIn('curator')
+    const DEPOSIT = '/api/v1/labs/{lab_public_id}/deposits/{public_id}/'
+    const deposit = makeDeposit({ public_id: DEPOSIT_ID, name_as_received: 'T. exempli T2', status: 'received' })
+    mockApi('get', DEPOSIT, deposit)
+    const before = mockApi('get', '/api/v1/me/overview/', makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, role: 'curator', deposits_to_check: 2 })] }))
+    renderApp({ path: `/labs/${LAB_ID}/deposits/${DEPOSIT_ID}` })
+    const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 5000 })
+    expect(await within(nav).findByRole('link', { name: 'Deposits, 2 to check' })).toBeInTheDocument()
+    expect(before).toHaveLength(1)
+    const started = mockApi('post', '/api/v1/labs/{lab_public_id}/deposits/{public_id}/start-check/', { ...deposit, status: 'checking' })
+    const after = mockApi('get', '/api/v1/me/overview/', makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, role: 'curator', deposits_to_check: 1 })] }))
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Start checking' }))
+    await waitFor(() => expect(started).toHaveLength(1))
+    // Within the stale time: only an invalidation makes the tabs ask again.
+    expect(await within(nav).findByRole('link', { name: 'Deposits, 1 to check' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(after).toHaveLength(1)
+  })
+
+  it('approving a request refreshes the counts of the lab tabs', async () => {
+    signedIn('curator')
+    const REQUEST_ID = '00000000-0000-4000-8000-0000000000a1'
+    const request = makeRequest({ public_id: REQUEST_ID, number: '2026/7', status: 'submitted' })
+    mockApi('get', '/api/v1/labs/{lab_public_id}/requests/{public_id}/', request)
+    mockApi('get', '/api/v1/me/overview/', makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, role: 'curator', requests_to_decide: 1 })] }))
+    renderApp({ path: `/labs/${LAB_ID}/requests/${REQUEST_ID}` })
+    const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 5000 })
+    expect(await within(nav).findByRole('link', { name: 'Requests, 1 to decide' })).toBeInTheDocument()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Approve and reserve the vials' }))
+    const dialog = await screen.findByRole('dialog')
+    const done = mockApi('post', '/api/v1/labs/{lab_public_id}/requests/{public_id}/approve/', { ...request, status: 'approved' })
+    const after = mockApi('get', '/api/v1/me/overview/', makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, role: 'curator', requests_to_decide: 0 })] }))
+    await user.click(within(dialog).getByRole('button', { name: 'Approve and reserve' }))
+    await waitFor(() => expect(done).toHaveLength(1))
+    expect(await within(nav).findByRole('link', { name: 'Requests' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(after).toHaveLength(1)
   })
 })

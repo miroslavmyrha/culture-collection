@@ -12,7 +12,8 @@ type Deposit = Schemas['DepositDetailOutput']
 // promise keeps the mutation pending until they are fresh.
 function settleDeposit(qc: QueryClient, labId: string, deposit: Deposit) {
   qc.setQueryData(depositKeys.detail(labId, deposit.public_id), deposit)
-  return qc.invalidateQueries({ queryKey: depositKeys.lists(labId) })
+  // What waits on Home and the Deposits tab's count change with every move of a deposit.
+  return Promise.all([qc.invalidateQueries({ queryKey: depositKeys.lists(labId) }), qc.invalidateQueries({ queryKey: sharedKeys.overview() })])
 }
 
 const lab = (labId: string) => ({ params: { path: { lab_public_id: labId } } })

@@ -554,3 +554,67 @@ export function makeRequester(overrides: Partial<Requester> = {}): Requester {
     ...overrides,
   }
 }
+
+// Home (#69)
+export type Overview = components['schemas']['Overview']
+export type WaitingGroup = components['schemas']['WaitingGroup']
+export type WaitingItem = components['schemas']['WaitingItem']
+export type MyLab = components['schemas']['MyLab']
+export type ActivityLine = components['schemas']['ActivityLine']
+
+export function makeWaitingItem(overrides: Partial<WaitingItem> = {}): WaitingItem {
+  const n = next()
+  return {
+    lab: uuid(1000 + n),
+    subject: `Testella exempli W${n}`,
+    reason: 'Received, not checked yet',
+    since: '2026-10-05',
+    due: null,
+    target: 'deposit',
+    target_id: uuid(n),
+    needs_manager: false,
+    ...overrides,
+  }
+}
+
+export function makeWaitingGroup(overrides: Partial<WaitingGroup> = {}): WaitingGroup {
+  const items = overrides.items ?? [makeWaitingItem()]
+  return { kind: 'deposit_received', total: items.length, items, ...overrides }
+}
+
+export function makeMyLab(overrides: Partial<MyLab> = {}): MyLab {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    name: `Lab ${n}`,
+    code: `L${n}`,
+    role: 'viewer',
+    strains: 0,
+    batches: { pending_check: 0, released: 0, on_hold: 0, exhausted: 0 },
+    vials_available: 0,
+    free_positions: 0,
+    open_requests: 0,
+    requests_to_decide: null,
+    deposits_to_check: null,
+    actions: [],
+    ...overrides,
+  }
+}
+
+export function makeOverview(overrides: Partial<Overview> = {}): Overview {
+  return { waiting: [], labs: [], ...overrides }
+}
+
+export function makeActivityLine(overrides: Partial<ActivityLine> = {}): ActivityLine {
+  const n = next()
+  return {
+    occurred_at: new Date(Date.UTC(2026, 9, 23, 8, 0, n)).toISOString(),
+    lab: uuid(1000 + n),
+    lab_code: 'MYC',
+    actor: `user:${uuid(2000 + n)}`,
+    summary: `accessioned MYC ${n}`,
+    target: 'strain',
+    target_id: uuid(n),
+    ...overrides,
+  }
+}

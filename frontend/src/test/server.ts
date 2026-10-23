@@ -12,6 +12,9 @@ export const handlers = [
   }),
   // The lab picker in the top bar asks for the user's labs on every page: no labs unless a test says.
   http.get('*/api/v1/labs/', () => HttpResponse.json({ count: 0, next: null, previous: null, results: [] })),
+  // Home and the lab tabs read what waits: nothing, unless a test says.
+  http.get('*/api/v1/me/overview/', () => HttpResponse.json({ waiting: [], labs: [] })),
+  http.get('*/api/v1/me/activity/', () => HttpResponse.json({ results: [] })),
 ]
 
 export const server = setupServer(...handlers)
