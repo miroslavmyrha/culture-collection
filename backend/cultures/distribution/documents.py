@@ -308,7 +308,8 @@ def register_entry(facts: Facts, line: RequestLine) -> str:
         f"Recipient: {requester.institution}",
         f"Seat: {address} ({facts.request.destination_country})",
         f"Company number (IČO): {requester.registration_number or 'not known'}",
-        f"Document number: {facts.shipment.public_id}",
+        # The number people quote back: the request's, as the request page shows it.
+        f"Document number: {facts.request.label}",
         "",
         "HANDOVER PROTOCOL",
         f"On {facts.day.isoformat()} {facts.lab.name} hands over to {requester.institution}"

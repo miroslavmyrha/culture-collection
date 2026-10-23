@@ -304,7 +304,7 @@ def test_a_register_entry_and_handover_protocol_for_a_vrat_line(
         "Recipient: Example Institute of Microbiology",
         "Seat: Mikrobiologická laboratoř, Testovací 5, 602 00 Brno (CZ)",
         "Company number (IČO): 00000001",
-        f"Document number: {shipment.public_id}",
+        f"Document number: {request.label}",
         "HANDOVER PROTOCOL",
         documents.HANDOVER_NOTE,
         f"Handed over by (name, date, signature): {documents.SIGNATURE}",
@@ -316,6 +316,24 @@ def test_a_register_entry_and_handover_protocol_for_a_vrat_line(
         event_type="shipment_document_generated", subject_id=docs(request)[1].public_id
     )
     assert [e.strain_id for e in events] == [strain.public_id]
+
+
+def test_every_kind_names_the_request_by_the_number_people_read(
+    *, supply: Supply, two_step: Any, mockia: Taxon, curator: User, requester: Requester
+) -> None:
+    """The number a reader quotes back is the request's label, as the request page shows it:
+    the same on each kind, and the register entry's document number is that label."""
+    strain = supply(mockia, restrictions=[VRAT], vials=6, **in_scope())
+    add_permit(curator, requester, PermitKind.SUJB_VRAT)
+    request = two_step(strain)
+    texts = {d.kind: d.text.splitlines() for d in docs(request)}
+    assert set(texts) == {K.DELIVERY_NOTE, K.ABS_SHEET, K.REGISTER_ENTRY}
+    assert "/" in request.label
+    for kind, lines in texts.items():
+        assert f"Request: {request.label}" in lines, kind
+        numbers = [line for line in lines if line.startswith("Document number:")]
+        expected = [f"Document number: {request.label}"] if kind == K.REGISTER_ENTRY else []
+        assert numbers == expected, kind
 
 
 def test_a_rat_line_gets_a_register_entry_and_a_dual_use_line_none(
