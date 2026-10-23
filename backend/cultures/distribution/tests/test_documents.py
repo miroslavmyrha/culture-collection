@@ -551,3 +551,78 @@ def test_a_document_is_never_added_to_a_shipment_later(
     with pytest.raises(IntegrityError, match="written with its shipment"):
         insert(shipment, text="A SECOND NOTE\n")
     assert len(docs(request)) == 1
+
+
+# Survivors of the mutation review.
+
+
+def test_only_a_dual_use_restriction_brings_the_notice_not_a_vrat_listing(
+    supply: Supply, two_step: Any, mockia: Taxon, curator: User, requester: Requester
+) -> None:
+    """Art. 11(9) is about Annex I of 2021/821: a VRAT line with no dual-use row prints none."""
+    strain = supply(mockia, restrictions=[VRAT], vials=6)
+    add_permit(curator, requester, PermitKind.SUJB_VRAT)
+    request = two_step(strain)
+    assert documents.DUAL_USE_NOTICE not in note(request)
+    assert "Dual-use" not in note(request)
+
+
+def test_a_register_entry_says_when_the_company_number_is_not_known(
+    *,
+    supply: Supply,
+    two_step: Any,
+    mockia: Taxon,
+    curator: User,
+    make_requester: Any,
+    lab: Lab,
+    approver: User,
+    manager: User,
+) -> None:
+    """Decree 474/2002 Sb., Annex 3 asks for the IČO if there is one: the entry says it is not
+    known rather than leaving the line empty."""
+    other = make_requester(institution="Example Company Laboratory", registration_number="")
+    add_permit(curator, other, PermitKind.SUJB_VRAT)
+    strain = supply(mockia, restrictions=[VRAT], vials=6)
+    request = submit(curator, lab, other, [(strain, 1)])
+    accept_mtas(curator, request)
+    approve(approver, request, "The recipient holds what the lists ask for.")
+    prepare(manager, request)
+    confirm(curator, request)
+    entry = docs(request)[1].text.splitlines()
+    assert "Company number (IČO): not known" in entry
+
+
+def test_at_commit_an_abs_sheet_does_not_stand_in_for_a_register_entry(
+    *,
+    supply: Supply,
+    two_step: Any,
+    mockia: Taxon,
+    curator: User,
+    requester: Requester,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A VRAT line whose terms are in scope needs both: the deferred check counts the register
+    entry by its kind, so a line with only its ABS sheet is refused."""
+    strain = supply(mockia, restrictions=[VRAT], vials=6, **in_scope())
+    add_permit(curator, requester, PermitKind.SUJB_VRAT)
+
+    def without_entry(locked: Any, shipment: Shipment, today: Any) -> None:
+        facts = documents.gather(locked, shipment, today)
+        for kind, line in documents.needs(facts):
+            if kind == K.REGISTER_ENTRY:
+                continue
+            text = documents.render(facts, kind, line)
+            ShipmentDocument.objects.create(
+                lab_id=locked.lab_id,
+                shipment=shipment,
+                kind=kind,
+                line=line,
+                text=text,
+                text_sha256=hashlib.sha256(text.encode()).hexdigest(),
+            )
+
+    monkeypatch.setattr(services, "_write_documents", without_entry)
+    with pytest.raises(IntegrityError, match="every document it needs"), transaction.atomic():
+        two_step(strain)
+        with connection.cursor() as cursor:
+            cursor.execute("SET CONSTRAINTS distribution_shipment_documented IMMEDIATE")
