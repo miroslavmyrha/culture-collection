@@ -1,5 +1,5 @@
 import { type Browser, expect, type Locator, type Page, test } from '@playwright/test'
-import { axe, ratio, ring, signedInAs, surfaceOf, tabTo, username, watchCsp } from './support.js'
+import { axe, channels, ratio, ring, signedInAs, surfaceOf, tabTo, username, watchCsp } from './support.js'
 
 // Checks that need a browser: reflow at 320 px (WCAG 1.4.10), the focus ring and its contrast
 // (2.4.7, 1.4.11; axe does not test focus rings), titles and focus after navigation (2.4.2,
@@ -240,7 +240,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
       const drawn = await ring(item)
       expect(drawn.style).toBe('solid')
       expect(drawn.width).toBe('2px')
-      const itemRatio = ratio(drawn.color, await surfaceOf(item, true))
+      // The checked item is tinted (translucent): the ring is seen against the tint over the menu's paper.
+      const [tr = 0, tg = 0, tb = 0, ta = 1] = channels(await item.evaluate((e) => getComputedStyle(e).backgroundColor))
+      const paper = channels(await surfaceOf(item))
+      const tinted = [tr, tg, tb].map((c, i) => Math.round(c * ta + (paper[i] ?? 0) * (1 - ta)))
+      const itemRatio = ratio(drawn.color, `rgb(${tinted.join(', ')})`)
       test.info().annotations.push({ type: 'focus ring', description: `menu item (inset): ${drawn.color} = ${itemRatio.toFixed(2)}:1` })
       expect(itemRatio).toBeGreaterThanOrEqual(3)
       await page.keyboard.press('Escape')

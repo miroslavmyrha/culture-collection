@@ -13,7 +13,7 @@ export const password = process.env.E2E_PASSWORD ?? 'e2e correct horse battery'
  * to the file below, so the whole run stays under the login throttle (10 sign-ins a minute per
  * client). Only login.spec.ts signs in on its own, because sign-in is what it tests.
  */
-export const signedInUsers = [username, 'e2e-curator', 'e2e-technician', 'e2e-viewer']
+export const signedInUsers = [username, 'e2e-curator', 'e2e-technician', 'e2e-viewer', 'e2e-manager']
 export const signedInAs = (user: string) => fileURLToPath(new URL(`./.auth/${user}.json`, import.meta.url))
 
 /**

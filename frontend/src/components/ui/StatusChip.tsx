@@ -15,6 +15,7 @@ export function StatusChip({ tone, children }: { tone?: Tone; children: ReactNod
   return (
     <Box
       component="span"
+      data-tone={tone}
       sx={(theme) => {
         const colors = (theme.vars ?? theme).palette.status[tone]
         return {

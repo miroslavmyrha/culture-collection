@@ -8,8 +8,8 @@ import { axe, signedInAs, username, watchCsp } from './support.js'
 // first test names the run in its end use; it is cancelled at the end, which frees its vial
 // for the next run. The shipment test (#88) enters, approves and ships a request of its own:
 // one vial of the supply leaves per run, and seed_e2e tops the supply up. The two-person test
-// (#89) takes the regulated request seed_e2e approved as e2e-manager, which it enters again on
-// each run. It works as the sessions auth.setup.ts signed in.
+// (#89) enters a regulated request of its own and has e2e-manager, a manager for that moment,
+// approve it. It works as the sessions auth.setup.ts signed in.
 
 const RUN = Date.now().toString(36)
 const PDF = Buffer.from('%PDF-1.4\n% an invented signed copy of an e2e run\n%%EOF\n')
@@ -261,24 +261,73 @@ test('a curator ships an approved request by keyboard and its vial shows as dist
   await viewer.close()
 })
 
+/**
+ * A request for the dual-use strain, entered by the curator with its MTA acceptance and approved
+ * by e2e-manager, a manager only for this approval: the e2e user, who confirms the shipment
+ * later, did not approve it (#89). The e2e user adds and removes that membership through the API,
+ * so the lab keeps one manager (labs.spec.ts refuses to remove the last one), also when the
+ * approval fails.
+ */
+async function approvedRegulatedRequest(browser: Browser, lab: string) {
+  const curator = await as(browser, 'e2e-curator')
+  const owner = await as(browser, username)
+  const approver = await as(browser, 'e2e-manager')
+  try {
+    await curator.page.goto(`${lab}/requests/new`)
+    const form = curator.page.getByRole('form', { name: 'New request' })
+    await form.getByRole('combobox', { name: 'Requester' }).selectOption({ label: 'E2E Institute of Microbiology (CZ)' })
+    await form.getByRole('combobox', { name: 'Use' }).selectOption('research_noncommercial')
+    await form.getByRole('textbox', { name: 'End use' }).fill(`Prepared and confirmed in run ${RUN}.`)
+    await form.getByRole('combobox', { name: 'Declared containment level' }).selectOption('2')
+    await form.getByRole('combobox', { name: 'Strain 1' }).fill('Mockia vulgaris e2e')
+    await curator.page.getByRole('option', { name: /Mockia vulgaris/ }).first().click()
+    await form.getByRole('button', { name: 'Enter the request' }).click()
+    await expect(curator.page.getByRole('heading', { level: 1, name: /^Request \d{4}\/\d+$/ })).toBeVisible()
+    const requestUrl = curator.page.url()
+    await curator.page.getByRole('button', { name: 'Record an acceptance' }).click()
+    const accept = curator.page.getByRole('dialog', { name: 'Record an acceptance of the MTA' })
+    await accept.getByRole('textbox', { name: 'Signed by' }).fill('E2E Signatory')
+    await accept.getByRole('combobox', { name: "Signer's role" }).selectOption('head_of_institution')
+    await accept.getByRole('checkbox', { name: 'The signer may bind the institution' }).check()
+    await accept.getByLabel('Signed copy').setInputFiles({ name: 'signed.pdf', mimeType: 'application/pdf', buffer: PDF })
+    await accept.getByRole('button', { name: 'Record the acceptance' }).click()
+    await expect(accept).toBeHidden()
+    await expect(curator.page.getByRole('list', { name: 'Blocks the approval' })).toBeHidden()
+
+    await owner.page.goto('/labs')
+    const added = await post(owner.page, `/api/v1${lab}/members/`, { username: 'e2e-manager', role: 'manager' })
+    expect(added.status, added.body).toBe(201)
+    try {
+      await approver.page.goto(requestUrl)
+      await approver.page.getByRole('button', { name: 'Approve and reserve the vials' }).click()
+      const dialog = approver.page.getByRole('dialog', { name: /^Approve request/ })
+      await dialog.getByRole('textbox', { name: 'Reason' }).fill('Dual-use inside the EU: no licence needed.')
+      await dialog.getByRole('button', { name: 'Approve and reserve' }).click()
+      await expect(dialog).toBeHidden()
+      await expect(approver.page.getByText(/Approved by e2e-manager on /)).toBeVisible()
+    } finally {
+      await owner.page.evaluate(async (path) => {
+        const body: unknown = await (await fetch(`/api/v1${path}/members/?limit=200`)).json()
+        const rows: unknown = typeof body === 'object' && body !== null ? Reflect.get(body, 'results') : []
+        const row = (Array.isArray(rows) ? rows : []).find((r: unknown) => typeof r === 'object' && r !== null && Reflect.get(r, 'username') === 'e2e-manager')
+        if (row === undefined) return
+        const token = /(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
+        await fetch(`/api/v1${path}/members/${String(Reflect.get(row, 'public_id'))}/`, { method: 'DELETE', headers: { 'X-CSRFToken': decodeURIComponent(token) } })
+      }, lab)
+    }
+    return new URL(requestUrl).pathname
+  } finally {
+    await Promise.all([curator.close(), owner.close(), approver.close()])
+  }
+}
+
 test('a curator prepares a regulated shipment, and a manager who did not approve it confirms it', async ({ browser }) => {
-  // Approved by e2e-manager in seed_e2e, found by its end use among the approved requests.
+  // Entered and approved here, so every run prepares a request of its own.
   const curator = await as(browser, 'e2e-curator', 320)
   const violations = await watchCsp(curator.page)
   const page = curator.page
   const lab = await labPath(page)
-  const id = await page.evaluate(async (path) => {
-    const list: unknown = await (await fetch(`/api/v1${path}/requests/?status=approved&limit=200`)).json()
-    const rows: unknown = typeof list === 'object' && list !== null ? Reflect.get(list, 'results') : []
-    for (const row of Array.isArray(rows) ? rows : []) {
-      const rowId: unknown = Reflect.get(row, 'public_id')
-      const detail: unknown = await (await fetch(`/api/v1${path}/requests/${String(rowId)}/`)).json()
-      if (typeof detail === 'object' && detail !== null && Reflect.get(detail, 'end_use') === 'E2E seed: research on a dual-use strain, approved and ready to prepare.') return String(rowId)
-    }
-    return ''
-  }, lab)
-  expect(id, 'seed_e2e made an approved regulated request').not.toBe('')
-  const requestUrl = `${lab}/requests/${id}`
+  const requestUrl = await approvedRegulatedRequest(browser, lab)
   await page.goto(requestUrl)
   await expect(page.getByText(/leaves in two steps/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Ship the vials' })).toHaveCount(0)
