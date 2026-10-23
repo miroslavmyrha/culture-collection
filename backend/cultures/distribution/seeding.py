@@ -1,13 +1,15 @@
 """What seed_dev and seed_e2e make of distribution, through the services: requesters with their
 permits, and requests, each with the acceptance of its MTA versions where the data asks for it,
 and approved where it asks for that (a request ready to ship, #88, or, regulated, ready to
-prepare for a second person to confirm, #89).
+prepare for a second person to confirm, #89), and shipped where it asks for that: in one step,
+or prepared by one person and confirmed by another, which writes its documents (#90).
 
 Found again by natural keys, so a second run changes nothing: a requester by its lab and
 institution, a permit by its requester, kind and reference, a request by its lab and end use
 (each seeded request has an end use of its own). A request marked `renew` is found only while it
 is approved: once a test shipped it, or left its shipment prepared, the next run enters a new
-one with the same end use. Documents are a few bytes of an invented PDF.
+one with the same end use. Documents are a few bytes of an invented PDF. A shipped request is
+shipped by the run that entered it, so a second run finds it shipped and changes nothing.
 """
 
 from dataclasses import dataclass, field
@@ -20,17 +22,29 @@ from cultures.strains.models import Strain
 
 from . import services
 from .models import (
+    ClassificationBasis,
     DistributionRequest,
     LegalForm,
+    PackingInstruction,
     PermitKind,
     RecipientPermit,
     Requester,
     RequestStatus,
     SignerRole,
+    TransportClass,
 )
 
 # An invented document: the file a requester would have sent.
 INVENTED_PDF = b"%PDF-1.4\n% An invented example document of the development data.\n%%EOF\n"
+# The package of a seeded shipment: exempt, by an invented courier, an invented person.
+SEED_SHIPMENT = services.ShipmentInput(
+    transport_class=TransportClass.NOT_SUBJECT,
+    classification_basis=ClassificationBasis.EXEMPT_NON_PATHOGENIC,
+    packing_instruction=PackingInstruction.TRIPLE,
+    responsible=services.ContactInput("Invented Responsible Person", phone="+420 555 000 111"),
+    carrier="Example Courier (invented example)",
+    tracking_number="DEV0000001CZ",
+)
 
 
 @dataclass(frozen=True)
@@ -74,6 +88,9 @@ class SeedRequest:
     reason: str = ""
     # Entered again once the last one left the approved state (a test ships it each run).
     renew: bool = False
+    # Shipped once approved (#90): in one step by the request's enterer, or, when `confirmer`
+    # is given to request(), prepared by `shipper` and confirmed by `confirmer`.
+    ship: bool = False
 
 
 def requester(access: Access, lab: Lab, data: SeedRequester) -> Requester:
@@ -119,7 +136,13 @@ def requester(access: Access, lab: Lab, data: SeedRequester) -> Requester:
 
 
 def request(
-    access: Access, lab: Lab, data: SeedRequest, approver: Access | None = None
+    access: Access,
+    lab: Lab,
+    data: SeedRequest,
+    *,
+    approver: Access | None = None,
+    shipper: Access | None = None,
+    confirmer: Access | None = None,
 ) -> DistributionRequest:
     same = DistributionRequest.objects.filter(lab=lab, end_use=data.end_use)
     if data.renew:
@@ -154,4 +177,14 @@ def request(
             )
     if data.approve:
         made = services.request_approve(access=approver or access, request=made, reason=data.reason)
+    if data.ship and confirmer is None:
+        made = services.request_ship(access=shipper or access, request=made, data=SEED_SHIPMENT)
+    elif data.ship and confirmer is not None:
+        made = services.request_prepare_shipment(
+            access=shipper or access, request=made, data=SEED_SHIPMENT
+        )
+        prepared = made.preparations.get(withdrawn_at__isnull=True)
+        made = services.request_confirm_shipment(
+            access=confirmer, request=made, preparation=prepared.public_id
+        )
     return made

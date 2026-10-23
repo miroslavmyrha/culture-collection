@@ -21,11 +21,14 @@ from cultures.biosafety.models import AuthorisationKind, LabAuthorisation, Restr
 from cultures.biosafety.policy import NEEDS_PERMIT, AuthorisationRequired, permit_today, valid_on
 from cultures.core.tests.test_settings import BACKEND, GOOD_ENV, production_value
 from cultures.deposits.models import Contact, Deposit, Depositor, DepositTerms, MtaTemplate
+from cultures.distribution.documents import DUAL_USE_NOTICE
 from cultures.distribution.models import (
     DistributionRequest,
     MtaAcceptance,
     RecipientPermit,
     Requester,
+    Shipment,
+    ShipmentDocument,
 )
 from cultures.distribution.policy import evaluate
 from cultures.labs import services as labs
@@ -128,6 +131,7 @@ def state() -> dict[str, Any]:
         "permits": rows(RecipientPermit, "reference", "ended_on"),
         "requests": rows(DistributionRequest, "end_use", "status", "updated_at"),
         "acceptances": rows(MtaAcceptance, "request__end_use", "mta__version"),
+        "documents": rows(ShipmentDocument, "kind", "text_sha256"),
     }
 
 
@@ -510,13 +514,15 @@ def test_requesters_and_their_permits_are_clearly_invented() -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("env")
-def test_the_requests_one_approvable_one_for_a_manager_one_blocked_two_ready_to_ship() -> None:
+def test_the_requests_one_approvable_one_for_a_manager_one_blocked_two_ready_two_shipped() -> None:
     seed()
     found = {
         r.end_use: {f.code: f.severity for f in evaluate(r, permit_today()).findings}
         for r in DistributionRequest.objects.all()
     }
-    approvable, on_request, blocked, ready, regulated = (row["end_use"] for row in DATA["requests"])
+    approvable, on_request, blocked, ready, regulated, shipped, confirmed = (
+        row["end_use"] for row in DATA["requests"]
+    )
     assert found[approvable] == {}
     assert found[on_request] == {"use_on_request": "manager"}
     assert found[blocked]["rat_notice_missing"] == "block"
@@ -532,9 +538,25 @@ def test_the_requests_one_approvable_one_for_a_manager_one_blocked_two_ready_to_
         blocked: "submitted",
         ready: "approved",
         regulated: "approved",
+        shipped: "shipped",
+        confirmed: "shipped",
     }
     approver = DistributionRequest.objects.get(end_use=regulated).decided_by
     assert approver is not None and approver.username == "bac-manager"
+    # Shipped through the services, so each has its documents (#90): one in one step, one
+    # prepared by the manager and confirmed by the curator, its dual-use line with the notice.
+    one_step = Shipment.objects.get(request__end_use=shipped)
+    two_step = Shipment.objects.get(request__end_use=confirmed)
+    assert one_step.preparation is None
+    assert two_step.preparation is not None
+    assert (two_step.classified_by.username, two_step.shipped_by.username) == (
+        "bac-manager",
+        "bac-curator",
+    )
+    for shipment in (one_step, two_step):
+        assert list(shipment.documents.values_list("kind", flat=True)) == ["delivery_note"]
+    assert DUAL_USE_NOTICE in two_step.documents.get().text
+    assert DUAL_USE_NOTICE not in one_step.documents.get().text
 
 
 def test_contacts_and_references_of_the_intake_are_clearly_invented() -> None:
@@ -714,12 +736,13 @@ def test_it_preserves_batches_and_places_their_vials_through_the_lineage_service
     assert f"Batches: {len(BATCHES)} created, 0 found." in out
     assert Batch.objects.count() == len(BATCHES)
     assert Vial.objects.count() == sum(row["vial_count"] for row in BATCHES)
-    # Every vial of a batch with a box was placed; the checks used some up since (closed).
+    # Every vial of a batch with a box was placed; the checks used some up since, and the
+    # shipped requests sent some (#90): those placements are closed.
     placed = VialPlacement.objects.all()
     assert placed.count() == sum(row["vial_count"] for row in BATCHES if row["box"])
     assert set(
         placed.filter(removed_at__isnull=False).values_list("removal_reason", flat=True)
-    ) <= {"consumed"}
+    ) <= {"consumed", "distributed"}
     for row in BATCHES:
         if not row["box"]:
             continue

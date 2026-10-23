@@ -2526,6 +2526,42 @@
    "approve": true,
    "approved_by": "manager",
    "reason": "Dual-use inside the EU needs no licence (development data)."
+  },
+  {
+   "lab": "BAC",
+   "requester": "Example Institute of Microbiology",
+   "end_use": "Practical classes in a third term (development data, shipped in one step with its delivery note).",
+   "use": "teaching",
+   "containment_level": 1,
+   "lines": [
+    {
+     "deposit": "Bacillus subtilis soil isolate DEP-1",
+     "quantity": 2
+    }
+   ],
+   "accept": true,
+   "approve": true,
+   "ship": true
+  },
+  {
+   "lab": "BAC",
+   "requester": "Example Institute of Microbiology",
+   "end_use": "Research on a dual-use strain (development data, prepared by the manager and confirmed by the curator, with its delivery note).",
+   "use": "research_noncommercial",
+   "containment_level": 1,
+   "lines": [
+    {
+     "deposit": "Mockia vulgaris DEP-8",
+     "quantity": 1
+    }
+   ],
+   "accept": true,
+   "approve": true,
+   "approved_by": "manager",
+   "reason": "Dual-use inside the EU needs no licence (development data).",
+   "ship": true,
+   "prepared_by": "manager",
+   "confirmed_by": "curator"
   }
  ]
 }
