@@ -1,7 +1,7 @@
 import { type MouseEvent, type ReactNode, useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
-import { Alert, Box, Button, PageTitle, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
+import { Alert, Box, Button, Mono, PageTitle, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { countryName } from '@/lib/countries'
 import { type FocusReturn, rememberFocus, useFocusReturnOnUnmount } from '@/lib/focus'
@@ -94,7 +94,7 @@ export function RequestDetail({ labId, requestId, role }: Props) {
     <>
       <PageTitle>{`Request ${r.number}`}</PageTitle>
       <Typography component="h1" variant="h4" gutterBottom>
-        Request {r.number}
+        Request <Mono>{r.number}</Mono>
       </Typography>
       <StaleNotice what="the request" query={request} />
       <Typography sx={{ mb: 2 }}>Status: {STATUS_LABELS[r.status]}.</Typography>
@@ -202,14 +202,14 @@ function Lines({ lines, shipped }: { lines: Line[]; shipped: boolean }) {
           {lines.map((line) => (
             <TableRow key={line.public_id}>
               <TableCell sx={{ overflowWrap: 'anywhere' }}>
-                {line.strain.accession_number}, <i>{line.strain.taxon}</i>
+                <Mono>{line.strain.accession_number}</Mono>, <i>{line.strain.taxon}</i>
               </TableCell>
               <TableCell>{line.strain.risk_group}</TableCell>
               <TableCell>{line.quantity}</TableCell>
               <TableCell sx={{ overflowWrap: 'anywhere' }}>
                 Terms version {line.terms_version}, {line.mta ? `MTA ${line.mta.code} version ${line.mta.version}` : 'no MTA'}
               </TableCell>
-              <TableCell sx={{ overflowWrap: 'anywhere' }}>{vialLabels(shipped ? line.shipped : line.reserved)}</TableCell>
+              <TableCell sx={{ overflowWrap: 'anywhere' }}><Mono>{vialLabels(shipped ? line.shipped : line.reserved)}</Mono></TableCell>
             </TableRow>
           ))}
         </TableBody>

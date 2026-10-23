@@ -1,7 +1,8 @@
 import { type MouseEvent, type ReactNode, useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
-import { Box, Button, Link, PageTitle, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
+import { Box, Button, Link, PageTitle, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
+import { UNIT_TONES } from '@/lib/tones'
 import { isApiError } from '@/lib/api'
 import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { useUnit } from '../api/queries'
@@ -174,7 +175,9 @@ export function UnitDetail({ labId, labName, unitId, canManage, onCreated, rende
                       </TableCell>
                       <TableCell>{KIND_LABELS[c.kind]}</TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{c.rows !== null && c.cols !== null ? `${c.rows} x ${c.cols}` : ''}</TableCell>
-                      <TableCell>{STATUS_LABELS[c.status]}</TableCell>
+                      <TableCell>
+                        <StatusChip tone={UNIT_TONES[c.status]}>{STATUS_LABELS[c.status]}</StatusChip>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -2,7 +2,8 @@ import { useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
 import { Pager, PastTheEnd } from '@/components/Pager'
 import { StaleNotice } from '@/components/StaleNotice'
-import { Box, Button, Link, Paper, SelectField, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@/components/ui'
+import { Box, Button, Link, Mono, Paper, SelectField, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@/components/ui'
+import { REQUEST_TONES } from '@/lib/tones'
 import { countryName } from '@/lib/countries'
 import { useFocusReturnOnUnmount } from '@/lib/focus'
 import { useRequestList } from '../api/queries'
@@ -48,7 +49,7 @@ export function RequestList({ labId, params, onOffsetChange, onClearFilters }: P
               <TableRow key={r.public_id}>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
                   <Link to="/labs/$labId/requests/$requestId" params={{ labId, requestId: r.public_id }} aria-label={`Request ${r.number}`}>
-                    {r.number}
+                    <Mono>{r.number}</Mono>
                   </Link>
                 </TableCell>
                 <TableCell sx={{ overflowWrap: 'anywhere' }}>
@@ -59,7 +60,9 @@ export function RequestList({ labId, params, onOffsetChange, onClearFilters }: P
                   {r.line_count === 1 ? '1 strain' : `${r.line_count} strains`}, {r.vial_count === 1 ? '1 vial' : `${r.vial_count} vials`}
                   {r.regulated ? ', regulated' : ''}
                 </TableCell>
-                <TableCell>{STATUS_LABELS[r.status]}</TableCell>
+                <TableCell>
+                  <StatusChip tone={REQUEST_TONES[r.status]}>{STATUS_LABELS[r.status]}</StatusChip>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

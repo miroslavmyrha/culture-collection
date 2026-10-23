@@ -7,9 +7,11 @@ export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'regulated' | 'ne
 /**
  * A status as a small tinted label. The words carry the meaning, the tone only helps the eye, so
  * nothing relies on colour alone (WCAG 1.4.1). Text has 4.5:1 on its tint in both schemes
- * (src/app/theme.test.ts). Not interactive: no focus, no target size to meet.
+ * (src/app/theme.test.ts). With no tone it renders the words alone. Not interactive: no focus, no target size to meet.
  */
-export function StatusChip({ tone, children }: { tone: Tone; children: ReactNode }) {
+export function StatusChip({ tone, children }: { tone?: Tone; children: ReactNode }) {
+  // No tone: the ordinary state (Active, Available) stays plain text, so colour marks only what needs a look.
+  if (tone === undefined) return <>{children}</>
   return (
     <Box
       component="span"

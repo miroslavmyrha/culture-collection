@@ -1,4 +1,4 @@
-import { Box, Link, Typography } from '@/components/ui'
+import { Box, Link, Mono, Typography } from '@/components/ui'
 import { safeHref } from '@/lib/safe'
 import { canReadDocuments, documentDownloadHref, documentTitle, type Role, shortSha, type ShipmentDocumentBrief } from '../schemas'
 
@@ -20,7 +20,9 @@ export function ShipmentDocuments({ labId, documents, role }: Props) {
           const title = documentTitle(d)
           return (
             <Typography component="li" key={d.public_id} sx={{ overflowWrap: 'anywhere' }}>
-              {title}, SHA-256 <code title={d.text_sha256}>{shortSha(d.text_sha256)}</code>
+              {title}, SHA-256 <span title={d.text_sha256}>
+                <Mono>{shortSha(d.text_sha256)}</Mono>
+              </span>
               {read && (
                 <>
                   {' '}
