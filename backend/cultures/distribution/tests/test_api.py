@@ -293,6 +293,38 @@ def test_an_acceptance_is_sent_with_the_signed_copy(
     assert [f["code"] for f in response.json()["findings"]] == []
 
 
+REQUESTER = {
+    "institution": "Example Seat Institute",
+    "legal_form": "legal_person",
+    "country": "CZ",
+    "lab_evidence": "Seen on the department page.",
+    "lab_confirmed_on": "2026-10-01",
+    "name": "Petra Ukázková",
+    "postal_address": "Testovací 5, Brno",
+}
+
+
+def test_a_requester_is_entered_and_read_with_its_seat(curator: User) -> None:
+    created = post(curator, REQUESTERS_URL, {**REQUESTER, "seat": " Vzorová 12,  Brno "})
+    assert created.status_code == 201, created.content
+    assert created.json()["seat"] == "Vzorová 12, Brno"
+    read = logged_in(curator).get(f"{REQUESTERS_URL}{created.json()['public_id']}/").json()
+    assert (read["seat"], read["postal_address"]) == ("Vzorová 12, Brno", "Testovací 5, Brno")
+
+
+def test_a_requester_without_a_seat_is_entered_with_none(curator: User) -> None:
+    created = post(curator, REQUESTERS_URL, REQUESTER)
+    assert created.status_code == 201, created.content
+    assert created.json()["seat"] == ""
+    assert Requester.objects.get(public_id=created.json()["public_id"]).seat == ""
+
+
+def test_a_seat_longer_than_300_characters_is_refused_on_its_field(curator: User) -> None:
+    response = post(curator, REQUESTERS_URL, {**REQUESTER, "seat": "x" * 301})
+    assert_problem(response, 400, "invalid", attr="seat")
+    assert not Requester.objects.filter(institution="Example Seat Institute").exists()
+
+
 def test_the_requester_form_errors_name_their_field(curator: User) -> None:
     response = post(
         curator,

@@ -225,6 +225,7 @@ export const requesterSchema = z.object({
   institution: required('Enter the institution').max(200, 'Use at most 200 characters'),
   legal_form: choice(LEGAL_FORMS, 'Choose the legal form'),
   registration_number: optionalText(40),
+  seat: optionalText(300),
   country: z.custom<CountryCode | ''>(isCountry, 'Choose a country').refine((v) => v !== '', 'Choose a country'),
   lab_evidence: required('Say how the microbiology laboratory was confirmed').max(2000, 'Use at most 2000 characters'),
   lab_confirmed_on: isoDay,

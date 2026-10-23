@@ -244,6 +244,7 @@ class RequesterInput:
     lab_evidence: str
     lab_confirmed_on: date
     registration_number: str = ""
+    seat: str = ""  # the registered office, as the business register gives it
 
 
 @dataclass(frozen=True)
@@ -357,6 +358,8 @@ def _checked_requester(data: RequesterInput) -> RequesterInput:
         lab_evidence=evidence,
         lab_confirmed_on=data.lab_confirmed_on,
         registration_number=normalised(data.registration_number),
+        # One line: an address pasted from the register over several lines keeps its parts.
+        seat=", ".join(part for line in data.seat.splitlines() if (part := normalised(line))),
     )
 
 
@@ -432,6 +435,7 @@ def _requester_values(data: RequesterInput) -> dict[str, Any]:
         "institution": data.institution,
         "legal_form": data.legal_form,
         "registration_number": data.registration_number,
+        "seat": data.seat,
         "country": data.country,
         "lab_evidence": data.lab_evidence,
         "lab_confirmed_on": data.lab_confirmed_on.isoformat(),

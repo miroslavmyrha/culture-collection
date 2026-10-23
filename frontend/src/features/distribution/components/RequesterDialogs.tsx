@@ -30,7 +30,7 @@ type Base = { labId: string; open: boolean; onClose: () => void; onExited: () =>
 const today = () => new Date().toLocaleDateString('sv')
 const CHOOSE = { value: '', label: 'Choose' }
 
-const REQUESTER_FIELDS = ['institution', 'legal_form', 'registration_number', 'country', 'lab_evidence', 'lab_confirmed_on', 'name', 'email', 'postal_address'] as const
+const REQUESTER_FIELDS = ['institution', 'legal_form', 'registration_number', 'seat', 'country', 'lab_evidence', 'lab_confirmed_on', 'name', 'email', 'postal_address'] as const
 
 /**
  * Add a requester or change one: an institution, never a private person, with the evidence that
@@ -50,6 +50,7 @@ export function RequesterDialog({ labId, requester, open, onClose, onExited }: B
       institution: requester?.institution ?? '',
       legal_form: requester?.legal_form ?? '',
       registration_number: requester?.registration_number ?? '',
+      seat: requester?.seat ?? '',
       country: requester && isCountry(requester.country) ? requester.country : '',
       lab_evidence: requester?.lab_evidence ?? '',
       lab_confirmed_on: requester?.lab_confirmed_on ?? today(),
@@ -90,6 +91,7 @@ export function RequesterDialog({ labId, requester, open, onClose, onExited }: B
         <TextField label="Institution" autoFocus autoComplete="off" error={errors.institution?.message} {...register('institution')} />
         <SelectField label="Legal form" options={[CHOOSE, ...options(LEGAL_FORM_LABELS, LEGAL_FORMS)]} error={errors.legal_form?.message} {...register('legal_form')} />
         <TextField label="Company number" hint="The IČO or its equivalent, if it has one." autoComplete="off" error={errors.registration_number?.message} {...register('registration_number')} />
+        <TextField label="Registered office" hint="The address of the institution in the business register. Not the delivery address." autoComplete="off" error={errors.seat?.message} {...register('seat')} />
         <SelectField label="Country" hint="Where the laboratory is: the destination of its requests." options={countries} error={errors.country?.message} {...register('country')} />
         <TextField label="How the laboratory was confirmed" hint="The page, document or call that shows a microbiology laboratory. Name no person." multiline minRows={2} error={errors.lab_evidence?.message} {...register('lab_evidence')} />
         <TextField label="Confirmed on" hint="YYYY-MM-DD" autoComplete="off" error={errors.lab_confirmed_on?.message} {...register('lab_confirmed_on')} />

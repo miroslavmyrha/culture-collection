@@ -541,6 +541,7 @@ export function makeRequester(overrides: Partial<Requester> = {}): Requester {
     institution: `Example Institute ${n}`,
     legal_form: 'legal_person',
     registration_number: '',
+    seat: '',
     country: 'CZ',
     lab_evidence: 'The department page lists a microbiology laboratory.',
     lab_confirmed_on: '2026-10-01',

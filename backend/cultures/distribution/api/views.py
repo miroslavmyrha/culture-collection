@@ -121,6 +121,7 @@ def _requester(values: dict[str, Any]) -> services.RequesterInput:
         lab_evidence=values["lab_evidence"],
         lab_confirmed_on=values["lab_confirmed_on"],
         registration_number=values["registration_number"],
+        seat=values["seat"],
     )
 
 

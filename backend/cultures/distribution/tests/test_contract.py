@@ -49,6 +49,7 @@ pytestmark = pytest.mark.django_db
 REQUESTER_BODY = {
     "institution": "Renamed Institute",
     "legal_form": "legal_person",
+    "seat": "Vzorová 14, 602 00 Brno",
     "country": "CZ",
     "lab_evidence": "Seen on the department page.",
     "lab_confirmed_on": "2026-10-01",

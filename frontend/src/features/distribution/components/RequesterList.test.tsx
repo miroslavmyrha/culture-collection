@@ -2,8 +2,8 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { api } from '@/lib/api'
-import { makeLab, makeMe, makePermit, makeRequester, page } from '@/test/factories'
-import { mockApi, recordRequests } from '@/test/mockApi'
+import { makeLab, makeMe, makePermit, makeRequester, page, validationProblem } from '@/test/factories'
+import { mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
@@ -79,6 +79,57 @@ describe('the requesters page', { timeout: 30_000 }, () => {
     })
     const sentFile = sent.get('file')
     expect(sentFile instanceof File && sentFile.name).toBe('authorisation.pdf')
+  })
+
+  it('adds a requester with its registered office, the address in the business register', async () => {
+    signedIn()
+    mockApi('get', LIST, page([institute]))
+    const calls = mockApi('post', LIST, makeRequester())
+    renderApp({ path: `/labs/${LAB_ID}/requesters` })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Add a requester' }, { timeout: 5000 }))
+    const dialog = await screen.findByRole('dialog', { name: 'Add a requester' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Institution' }), 'Example Seat Institute')
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Legal form' }), 'legal_person')
+    const seat = within(dialog).getByRole('textbox', { name: 'Registered office' })
+    expect(seat).toHaveAccessibleDescription('The address of the institution in the business register. Not the delivery address.')
+    await user.type(seat, ' Vzorová 12, 602 00 Brno ')
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Country' }), 'CZ')
+    await user.type(within(dialog).getByRole('textbox', { name: 'How the laboratory was confirmed' }), 'The department page.')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Responsible scientist' }), 'Petra Ukázková')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Delivery address of the laboratory' }), 'Testovací 5, Brno')
+    await user.click(within(dialog).getByRole('button', { name: 'Add the requester' }))
+    await waitFor(() => expect(calls).toHaveLength(1))
+    expect(calls[0]?.body).toMatchObject({ seat: 'Vzorová 12, 602 00 Brno', postal_address: 'Testovací 5, Brno', institution: 'Example Seat Institute' })
+  })
+
+  it('shows the stored registered office when a requester is changed, and sends it back', async () => {
+    signedIn()
+    const seated = makeRequester({ institution: 'Seated Institute', seat: 'Vzorová 12, 602 00 Brno' })
+    mockApi('get', LIST, page([seated]))
+    const calls = mockApi('put', `${LIST}{public_id}/`, seated)
+    renderApp({ path: `/labs/${LAB_ID}/requesters` })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Change Seated Institute' }, { timeout: 5000 }))
+    const dialog = await screen.findByRole('dialog', { name: 'Change Seated Institute' })
+    expect(within(dialog).getByRole('textbox', { name: 'Registered office' })).toHaveValue('Vzorová 12, 602 00 Brno')
+    await user.click(within(dialog).getByRole('button', { name: 'Save the requester' }))
+    await waitFor(() => expect(calls).toHaveLength(1))
+    expect(calls[0]?.body).toMatchObject({ seat: 'Vzorová 12, 602 00 Brno' })
+  })
+
+  it('shows the server error of the registered office on its field', async () => {
+    signedIn()
+    const seated = makeRequester({ institution: 'Seated Institute' })
+    mockApi('get', LIST, page([seated]))
+    mockApiError('put', `${LIST}{public_id}/`, 400, validationProblem([{ attr: 'seat', code: 'max_length', detail: 'Ensure this field has no more than 300 characters.' }]))
+    renderApp({ path: `/labs/${LAB_ID}/requesters` })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Change Seated Institute' }, { timeout: 5000 }))
+    const dialog = await screen.findByRole('dialog', { name: 'Change Seated Institute' })
+    await user.click(within(dialog).getByRole('button', { name: 'Save the requester' }))
+    const seat = within(dialog).getByRole('textbox', { name: 'Registered office' })
+    await waitFor(() => expect(seat).toHaveAccessibleDescription(/no more than 300 characters/))
   })
 
   it('refuses a permit without its file before sending', async () => {

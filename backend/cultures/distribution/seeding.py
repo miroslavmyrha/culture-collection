@@ -70,6 +70,7 @@ class SeedRequester:
     scientist: services.ContactInput
     legal_form: LegalForm = LegalForm.LEGAL_PERSON
     registration_number: str = ""
+    seat: str = ""
     lab_confirmed_on: date = date(2026, 10, 1)
     permits: tuple[SeedPermit, ...] = field(default_factory=tuple)
 
@@ -107,6 +108,7 @@ def requester(access: Access, lab: Lab, data: SeedRequester) -> Requester:
                 lab_evidence=data.lab_evidence,
                 lab_confirmed_on=data.lab_confirmed_on,
                 registration_number=data.registration_number,
+                seat=data.seat,
             ),
         )
     for permit in data.permits:

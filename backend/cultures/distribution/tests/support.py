@@ -60,6 +60,11 @@ SCIENTIST = services.ContactInput(
 )
 
 
+# The registered office: another address than the scientist's delivery address, so a document
+# that prints one in place of the other is caught.
+SEAT = "Vzorová 12, 602 00 Brno"
+
+
 def as_actor(actor: User) -> AbstractContextManager[AuditContext]:
     return audit_context(channel=Channel.API, actor=actor, request_id="req-setup")
 
@@ -73,6 +78,7 @@ def requester_input(**changes: Any) -> services.RequesterInput:
         "lab_evidence": "The institute's department page lists a BSL-2 microbiology laboratory.",
         "lab_confirmed_on": date(2026, 10, 1),
         "registration_number": "00000001",
+        "seat": SEAT,
         **changes,
     }
     return services.RequesterInput(**values)

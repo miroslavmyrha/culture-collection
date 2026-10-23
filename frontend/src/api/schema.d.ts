@@ -2588,6 +2588,11 @@ export interface components {
             legal_form: components["schemas"]["LegalForm"];
             /** @default  */
             registration_number: string;
+            /**
+             * @description The registered office, as the business register gives it.
+             * @default
+             */
+            seat: string;
             country: components["schemas"]["CountryCode"];
             /** @description Stored for good: name no person. */
             lab_evidence: string;
@@ -2603,6 +2608,7 @@ export interface components {
             readonly institution: string;
             readonly legal_form: components["schemas"]["LegalForm"];
             readonly registration_number: string;
+            readonly seat: string;
             readonly country: string;
             readonly lab_evidence: string;
             /** Format: date */

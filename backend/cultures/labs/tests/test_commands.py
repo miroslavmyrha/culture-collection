@@ -12,14 +12,16 @@ from cultures.audit.context import audit_context
 from cultures.audit.models import ActorKind, AuditEvent, Channel, RowChange
 from cultures.deposits.models import Deposit, MtaTemplate
 from cultures.distribution import services as distribution
-from cultures.distribution.models import DistributionRequest
+from cultures.distribution.models import DistributionRequest, Requester
 from cultures.labs.access import access_for
 from cultures.labs.management.commands.seed_e2e import (
     COLLEAGUE,
     CURATOR,
+    INSTITUTE,
     LAB_CODE,
     READY_TO_PREPARE,
     TECHNICIAN,
+    UNNOTIFIED,
     VIEWER,
 )
 from cultures.labs.models import Lab, LocationGrant, Membership
@@ -223,6 +225,16 @@ def test_its_writes_are_audited_as_the_command() -> None:
     # The user rows the command wrote join its events by request id.
     request_ids = set(RowChange.objects.values_list("request_id", flat=True))
     assert request_ids == {events[0].request_id}
+
+
+@pytest.mark.usefixtures("env")
+def test_one_requester_has_an_invented_seat_and_the_other_none() -> None:
+    """The second stands for a requester entered before the seat was asked."""
+    seed()
+    assert dict(Requester.objects.values_list("institution", "seat")) == {
+        INSTITUTE: "E2E street 1, 602 00 Brno (invented example)",
+        UNNOTIFIED: "",
+    }
 
 
 @pytest.mark.usefixtures("env")

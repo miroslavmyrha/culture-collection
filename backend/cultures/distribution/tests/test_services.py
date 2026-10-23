@@ -151,6 +151,30 @@ def test_a_laboratory_confirmed_tomorrow_is_refused(
     )
 
 
+def test_the_seat_is_kept_on_one_line_and_recorded_as_it_is(
+    as_curator: AuditContext, curator: User, lab: Lab
+) -> None:
+    """An institution's registered office, from a public register, is no personal value: the
+    event holds it, as it holds the institution and its company number."""
+    requester = services.requester_create(
+        access=access_for(curator),
+        lab=lab,
+        data=requester_input(seat=" Vzorová  12\n\n602 00   Brno \n"),
+    )
+    requester.refresh_from_db()
+    assert requester.seat == "Vzorová 12, 602 00 Brno"
+    event = AuditEvent.objects.get(event_type="requester_created")
+    assert event.changes["seat"] == [None, "Vzorová 12, 602 00 Brno"]
+    start = last_pk()
+    services.requester_update(
+        access=access_for(curator), requester=requester, data=requester_input(seat="")
+    )
+    [changed] = events_since(start)
+    assert changed.changes == {"seat": ["Vzorová 12, 602 00 Brno", ""]}
+    requester.refresh_from_db()
+    assert requester.seat == ""
+
+
 def test_a_changed_requester_records_what_changed_and_the_same_values_record_nothing(
     as_curator: AuditContext, curator: User, requester: Requester
 ) -> None:
