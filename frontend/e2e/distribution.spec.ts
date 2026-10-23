@@ -230,6 +230,7 @@ test('a curator ships an approved request by keyboard and its vial shows as dist
   // On paper only the document shows: the bar and the controls are not printed.
   await page.emulateMedia({ media: 'print' })
   await expect(page.getByRole('banner')).toBeHidden()
+  await expect(page.getByRole('navigation', { name: 'Lab sections' })).toBeHidden()
   await expect(page.getByRole('button', { name: 'Print' })).toBeHidden()
   await expect(text).toBeVisible()
   await page.emulateMedia({ media: 'screen' })

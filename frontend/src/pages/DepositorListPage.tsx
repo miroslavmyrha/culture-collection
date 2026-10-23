@@ -1,5 +1,5 @@
 import { getRouteApi } from '@tanstack/react-router'
-import { Link, PageTitle, Typography } from '@/components/ui'
+import { PageTitle, Typography } from '@/components/ui'
 import { DepositorList } from '@/features/deposits/components/DepositorList'
 import { canHandleDeposits } from '@/features/deposits/schemas'
 import { LabGate } from '@/features/labs/components/LabGate'
@@ -18,11 +18,6 @@ export function DepositorListPage() {
             <PageTitle>{`Depositors of ${lab.name}`}</PageTitle>
             <Typography component="h1" variant="h4" gutterBottom sx={{ overflowWrap: 'anywhere' }}>
               Depositors of {lab.name}
-            </Typography>
-            <Typography sx={{ mb: 3 }}>
-              <Link to="/labs/$labId" params={{ labId }}>
-                Back to {lab.name}
-              </Link>
             </Typography>
             {canHandleDeposits(lab.my_role) ? (
               <DepositorList

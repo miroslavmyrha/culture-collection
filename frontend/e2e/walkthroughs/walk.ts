@@ -349,9 +349,10 @@ export async function passAll(page: Page, lab: string, batchId: string, vial: st
   }
 }
 
-/** From Home to a lab's page, the way every task starts: Labs, then the lab. */
+/** From Home to a lab's page, the way every task starts: the lab picker's All labs, then the lab. */
 export async function openLab(w: Walk, lab: string) {
-  await w.click(w.page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Labs' }))
+  await w.click(w.page.getByRole('button', { name: /^(Lab|Select a lab)/ }))
+  await w.click(w.page.getByRole('menuitem', { name: 'All labs' }))
   w.look()
   await w.click(w.page.getByRole('table', { name: 'Your labs' }).getByRole('link', { name: lab }))
   await expect(w.page.getByRole('heading', { level: 1, name: lab })).toBeVisible()

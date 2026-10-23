@@ -10,6 +10,8 @@ export const handlers = [
     document.cookie = 'csrftoken=test-token'
     return new HttpResponse(null, { status: 204 })
   }),
+  // The lab picker in the top bar asks for the user's labs on every page: no labs unless a test says.
+  http.get('*/api/v1/labs/', () => HttpResponse.json({ count: 0, next: null, previous: null, results: [] })),
 ]
 
 export const server = setupServer(...handlers)

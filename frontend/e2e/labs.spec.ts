@@ -1,11 +1,11 @@
 import { expect, type Page, test } from '@playwright/test'
-import { axe, contrast, signedInAs, username, watchCsp } from './support.js'
+import { accountButton, axe, contrast, openLabList, signedInAs, username, watchCsp } from './support.js'
 
 test.use({ storageState: signedInAs(username) })
 
 async function signIn(page: Page) {
   await page.goto('/')
-  await expect(page.getByText(`Signed in as ${username}`)).toBeVisible()
+  await expect(accountButton(page)).toBeVisible()
 }
 
 // Needs the seed: `python manage.py seed_e2e` (the CI workflow runs it before the tests).
@@ -15,9 +15,7 @@ test('a manager sees their lab and role, then adds, changes and removes a member
   const violations = await watchCsp(page)
   await signIn(page)
 
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Labs' }).click()
-  await expect(page).toHaveURL('/labs')
-  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Labs' })).toHaveAttribute('aria-current', 'page')
+  await openLabList(page)
   const row = page.getByRole('row', { name: /E2E lab/ })
   await expect(row).toContainText('E2E')
   await expect(row).toContainText('Manager')
@@ -77,7 +75,7 @@ test('a manager sees their lab and role, then adds, changes and removes a member
 test('a manager removes a member with the keyboard only; the dialog passes axe and stays open while the request runs', async ({ page }) => {
   const violations = await watchCsp(page)
   await signIn(page)
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Labs' }).click()
+  await openLabList(page)
   await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
   const form = page.getByRole('form', { name: 'Add a member' })

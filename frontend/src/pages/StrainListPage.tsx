@@ -22,17 +22,14 @@ export function StrainListPage() {
             <Typography component="h1" variant="h4" gutterBottom sx={{ overflowWrap: 'anywhere' }}>
               Strains of {lab.name}
             </Typography>
-            <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 3 }}>
-              <Link to="/labs/$labId" params={{ labId }}>
-                Back to {lab.name}
-              </Link>
-              {canSeeDeposits(lab.my_role) && (
-                // A strain comes from an accepted deposit (ADR 0008, amendment of 2026-10-19).
+            {/* A strain comes from an accepted deposit (ADR 0008, amendment of 2026-10-19). */}
+            {canSeeDeposits(lab.my_role) && (
+              <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 3 }}>
                 <Link to="/labs/$labId/deposits/new" params={{ labId }}>
                   Receive a deposit
                 </Link>
-              )}
-            </Stack>
+              </Stack>
+            )}
             <StrainFilters
               filters={filters}
               onChange={(next) => void navigate({ search: { ...next, limit, offset: 0 } })}

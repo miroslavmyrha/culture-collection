@@ -21,16 +21,13 @@ export function DepositListPage() {
             <Typography component="h1" variant="h4" gutterBottom sx={{ overflowWrap: 'anywhere' }}>
               Deposits of {lab.name}
             </Typography>
-            <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', mb: 3 }}>
-              <Link to="/labs/$labId" params={{ labId }}>
-                Back to {lab.name}
-              </Link>
-              {canHandleDeposits(lab.my_role) && (
+            {canHandleDeposits(lab.my_role) && (
+              <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', mb: 3 }}>
                 <Link to="/labs/$labId/deposits/new" params={{ labId }}>
                   Receive a deposit
                 </Link>
-              )}
-            </Stack>
+              </Stack>
+            )}
             {canHandleDeposits(lab.my_role) ? (
               <>
                 <DepositFilters filters={filters} onChange={(next) => void navigate({ search: { ...next, limit, offset: 0 } })} />

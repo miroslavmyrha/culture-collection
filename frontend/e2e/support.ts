@@ -140,3 +140,20 @@ export async function ring(target: Locator) {
     return { style: style.outlineStyle, width: style.outlineWidth, color: style.outlineColor, offset: style.outlineOffset }
   })
 }
+
+/** The lab picker's button on the top bar; the account menu's button. */
+export const labPicker = (page: Page) => page.getByRole('button', { name: /^(Lab|Select a lab)/ })
+export const accountButton = (page: Page, name = username) => page.getByRole('button', { name: `Account (${name})` })
+
+/** To the list of labs, through the picker's "All labs", the way a user goes. */
+export async function openLabList(page: Page) {
+  await labPicker(page).click()
+  await page.getByRole('menuitem', { name: 'All labs' }).click()
+  await expect(page).toHaveURL('/labs')
+}
+
+/** Signs out through the account menu. */
+export async function signOut(page: Page, name = username) {
+  await accountButton(page, name).click()
+  await page.getByRole('menuitem', { name: 'Sign out' }).click()
+}

@@ -1,5 +1,5 @@
 import type { AnyRoute } from '@tanstack/react-router'
-import { screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -22,6 +22,14 @@ async function signIn(username = 'lab-tech') {
   await user.type(screen.getByLabelText('Password'), 'correct horse battery')
   await user.click(screen.getByRole('button', { name: 'Sign in' }))
   return user
+}
+
+const account = (name = 'lab-tech') => screen.findByRole('button', { name: `Account (${name})` })
+
+/** Opens the account menu and returns its Sign out item. */
+async function signOutItem(user: ReturnType<typeof userEvent.setup>, name = 'lab-tech') {
+  await user.click(await account(name))
+  return screen.findByRole('menuitem', { name: 'Sign out' })
 }
 
 /**
@@ -88,7 +96,7 @@ describe('routing and the session guard', () => {
     const calls = mockApi('post', '/api/v1/auth/login/', me, { status: 200 })
     const { router, client } = renderApp({ path: '/login', search: { redirect: '/?tab=b' } })
     await signIn()
-    expect(await screen.findByText('Signed in as lab-tech')).toBeInTheDocument()
+    expect(await account('lab-tech')).toBeInTheDocument()
     expect(router.state.location.href).toBe('/?tab=b')
     expect(client.getMutationCache().getAll()).toEqual([]) // not even the login with its password
     expect(calls).toHaveLength(1)
@@ -171,7 +179,7 @@ describe('base layout', () => {
     session()
     renderApp({ path })
     expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument()
-    expect(screen.getByRole('banner')).toHaveTextContent('Culture collection')
+    expect(screen.getByRole('banner')).toHaveTextContent('Culture Collection')
     expect(screen.getAllByRole('main')).toHaveLength(1)
     expect(screen.getByRole('main')).toContainElement(screen.getByRole('heading', { name: heading }))
   })
@@ -179,20 +187,21 @@ describe('base layout', () => {
 
 describe('app shell', () => {
   // With search params on purpose: a link that compares them would not be current on /?tab=b.
-  it('shows the main navigation, the user and sign out with a session', async () => {
+  it('shows the top bar with the lab picker and the account menu with a session', async () => {
     mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))
     renderApp({ path: '/', search: { tab: 'b' } })
-    const nav = await screen.findByRole('navigation', { name: 'Main' })
-    expect(within(nav).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('banner')).toHaveTextContent('Signed in as lab-tech')
-    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
+    expect(await account()).toBeInTheDocument()
+    expect(screen.getByRole('banner')).toContainElement(screen.getByRole('link', { name: /Culture Collection/ }))
+    expect(screen.getByRole('banner')).toContainElement(screen.getByRole('button', { name: 'Select a lab' }))
+    expect(screen.queryByRole('navigation', { name: 'Lab sections' })).not.toBeInTheDocument() // not on a lab's page
+    expect(screen.queryByRole('menuitem', { name: 'Sign out' })).not.toBeInTheDocument() // in the menu, closed
   })
 
-  it('shows neither navigation nor sign out without a session', async () => {
+  it('shows neither the lab picker nor the account menu without a session', async () => {
     renderApp({ path: '/login' })
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
-    expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^(Lab|Select a lab)/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Account/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument() // no "signed out" without signing out
   })
 
@@ -218,7 +227,7 @@ describe('session expiry (401)', () => {
   it('clears the cache and redirects to /login with the current page', async () => {
     mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))
     const { router, client } = renderApp({ path: '/', search: { tab: 'b' } })
-    expect(await screen.findByText('Signed in as lab-tech')).toBeInTheDocument()
+    expect(await account('lab-tech')).toBeInTheDocument()
     await client.getMutationCache().build(client, { mutationFn: () => Promise.resolve('earlier write') }).execute(undefined)
     // The session ends: every API call now answers 401.
     mockApiError('get', '/api/v1/auth/me/', 401, problem(401))
@@ -231,8 +240,7 @@ describe('session expiry (401)', () => {
     expect(client.getQueryData(authKeys.me())).toBeNull()
     expect(client.getMutationCache().getAll()).toEqual([])
     // The always-mounted top bar follows the session, not the user it rendered first.
-    expect(screen.queryByText(/Signed in as/)).not.toBeInTheDocument()
-    expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Account/ })).not.toBeInTheDocument()
   })
 
   // The router updates its location synchronously on navigate, so without a blocker the
@@ -241,7 +249,7 @@ describe('session expiry (401)', () => {
   it('asks to navigate once for repeated 401s while a blocker holds the redirect', async () => {
     mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))
     const { router, client } = renderApp()
-    expect(await screen.findByText('Signed in as lab-tech')).toBeInTheDocument()
+    expect(await account('lab-tech')).toBeInTheDocument()
     const blockerFn = vi.fn<() => Promise<boolean>>(() => new Promise<boolean>(() => {})) // the dialog stays open
     router.history.block({ blockerFn })
     mockApiError('get', '/api/v1/auth/csrf/', 401, problem(401))
@@ -259,26 +267,25 @@ describe('sign out', () => {
     mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))
     const { client } = renderApp()
     const user = userEvent.setup()
-    const button = await screen.findByRole('button', { name: 'Sign out' })
+    const item = await signOutItem(user)
     mockApiError('get', '/api/v1/auth/me/', 401, problem(401))
     mockApi('post', '/api/v1/auth/logout/', undefined)
-    await user.click(button)
+    await user.click(item)
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(client.getQueryData(authKeys.me())).toBeNull()
     expect(client.getMutationCache().getAll()).toEqual([])
     expect(screen.getByRole('status')).toHaveTextContent('You have been signed out.')
-    expect(screen.queryByText(/Signed in as/)).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Account/ })).not.toBeInTheDocument()
   })
 
   it('counts a 401 from logout as signed out: the session was already gone', async () => {
     mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))
     const { client, router } = renderApp()
     client.setQueryData(['private', 'records'], ['secret'])
-    const button = await screen.findByRole('button', { name: 'Sign out' })
+    const item = await signOutItem(userEvent.setup())
     mockApiError('get', '/api/v1/auth/me/', 401, problem(401))
     mockApiError('post', '/api/v1/auth/logout/', 401, problem(401))
-    await userEvent.setup().click(button)
+    await userEvent.setup().click(item)
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(router.state.location.search).toEqual({ signedOut: true })
     expect(screen.getByRole('status')).toHaveTextContent('You have been signed out.')
@@ -310,9 +317,9 @@ describe('sign out', () => {
     const { client, router } = renderApp({ path: '/', search: { tab: 'b' } })
     client.setQueryData(['private', 'records'], ['secret'])
     const user = userEvent.setup()
-    const button = await screen.findByRole('button', { name: 'Sign out' })
+    const item = await signOutItem(user)
     const calls = failLogout()
-    await user.click(button)
+    await user.click(item)
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Sign-out failed. You are still signed in. Try again.')
     expect(screen.getAllByRole('alert')).toEqual([alert]) // the shell's, no second global notice
@@ -322,15 +329,16 @@ describe('sign out', () => {
     expect(reported.map((r) => r.context)).toEqual(reports) // a 4xx is an answer, not a bug
     expect(router.state.location.href).toBe('/?tab=b')
     expect(screen.getByRole('heading', { name: 'Home' })).toBeInTheDocument()
-    expect(screen.getByText('Signed in as lab-tech')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Account (lab-tech)' })).toBeInTheDocument()
     expect(client.getQueryData(['private', 'records'])).toEqual(['secret'])
     expect(client.getQueryData(authKeys.me())).toMatchObject({ username: 'lab-tech' })
     expect(client.getMutationCache().getAll()).toHaveLength(1) // the failed sign-out, nothing cleared
-    // The button keeps the focus and works again.
+    // The menu closed and the focus is back on its button; Sign out works again.
+    const button = screen.getByRole('button', { name: 'Account (lab-tech)' })
     expect(button).toHaveFocus()
-    expect(button).not.toBeDisabled()
-    expect(button).toHaveAttribute('aria-disabled', 'false')
-    await user.click(button)
+    const again = await signOutItem(user)
+    expect(again).toHaveAttribute('aria-disabled', 'false')
+    await user.click(again)
     await waitFor(() => expect(calls).toHaveLength(2))
     await user.click(await screen.findByRole('button', { name: 'Close' }))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
@@ -340,13 +348,13 @@ describe('sign out', () => {
     mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))
     renderApp()
     const user = userEvent.setup()
-    const button = await screen.findByRole('button', { name: 'Sign out' })
+    const item = await signOutItem(user)
     server.use(http.post('*/api/v1/auth/logout/', () => HttpResponse.json(problem(503), { status: 503 }), { once: true }))
-    await user.click(button)
+    await user.click(item)
     expect(await screen.findByRole('alert')).toHaveTextContent('Sign-out failed.')
     mockApi('post', '/api/v1/auth/logout/', undefined)
     mockApiError('get', '/api/v1/auth/me/', 401, problem(401))
-    await user.click(button)
+    await user.click(await signOutItem(user))
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('You have been signed out.')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
@@ -356,13 +364,14 @@ describe('sign out', () => {
     mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))
     const { client } = renderApp()
     const user = userEvent.setup()
-    const button = await screen.findByRole('button', { name: 'Sign out' })
+    const item = await signOutItem(user)
     const logout = holdApi('post', '/api/v1/auth/logout/')
     mockApiError('get', '/api/v1/auth/me/', 401, problem(401))
-    await user.click(button)
-    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'))
-    expect(button).toHaveFocus()
-    await user.click(button)
+    await user.click(item)
+    expect(await account()).toHaveFocus() // the menu closed, the focus is back on its button
+    const pending = await signOutItem(user)
+    await waitFor(() => expect(pending).toHaveAttribute('aria-disabled', 'true'))
+    await user.click(pending)
     expect(client.isMutating()).toBe(1) // a second mutate would count at once, before its request
     logout.release(204)
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
@@ -385,7 +394,7 @@ describe('route errors', () => {
 
     mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'back' }))
     await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
-    expect(await screen.findByText('Signed in as back')).toBeInTheDocument()
+    expect(await account('back')).toBeInTheDocument()
   })
 
   it('shows the raw message in development', async () => {

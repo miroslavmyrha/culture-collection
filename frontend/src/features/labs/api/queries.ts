@@ -30,8 +30,8 @@ export function useLabList(params: PageParams) {
   return useQuery(labListOptions(params))
 }
 
-export function useLab(labId: string) {
-  return useQuery(labDetailOptions(labId))
+export function useLab(labId: string, enabled = true) {
+  return useQuery({ ...labDetailOptions(labId), enabled })
 }
 
 export function useMemberList(labId: string, params: PageParams) {

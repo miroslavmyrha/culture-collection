@@ -21,11 +21,8 @@ export function RequestListPage() {
             <Typography component="h1" variant="h4" gutterBottom sx={{ overflowWrap: 'anywhere' }}>
               Requests of {lab.name}
             </Typography>
-            <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', mb: 3 }}>
-              <Link to="/labs/$labId" params={{ labId }}>
-                Back to {lab.name}
-              </Link>
-              {canManageRequests(lab.my_role) && (
+            {canManageRequests(lab.my_role) && (
+              <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', mb: 3 }}>
                 <>
                   <Link to="/labs/$labId/requests/new" params={{ labId }}>
                     Enter a request
@@ -34,8 +31,8 @@ export function RequestListPage() {
                     Requesters and their permits
                   </Link>
                 </>
-              )}
-            </Stack>
+              </Stack>
+            )}
             <RequestFilters filters={filters} onChange={(next) => void navigate({ search: { ...next, limit, offset: 0 } })} />
             <RequestList
               labId={labId}
