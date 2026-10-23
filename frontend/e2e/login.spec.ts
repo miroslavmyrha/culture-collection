@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
-import { password, username, watchCsp } from './support.js'
+import { accountButton, labPicker, password, signOut, username, watchCsp } from './support.js'
 
 /** The CSP header as a map of directive to sources. */
 function parseCsp(header: string): Record<string, string[]> {
@@ -28,12 +28,12 @@ test('signs in through the real API under the production CSP and returns to the 
   await page.goto('/?tab=b')
   await expect(page).toHaveURL('/login?redirect=%2F%3Ftab%3Db')
   await signIn(page)
-  await expect(page.getByText(`Signed in as ${username}`)).toBeVisible()
+  await expect(accountButton(page)).toBeVisible()
   await expect(page).toHaveURL('/?tab=b')
 
   // The session survives a reload: cookie based, nothing in localStorage.
   await page.reload()
-  await expect(page.getByText(`Signed in as ${username}`)).toBeVisible()
+  await expect(accountButton(page)).toBeVisible()
   expect(await page.evaluate(() => Object.keys(localStorage))).toEqual([])
   // The login remembered this browser for the login limits: out of reach of scripts, no name in it.
   const device = await knownDeviceCookie(page)
@@ -41,13 +41,12 @@ test('signs in through the real API under the production CSP and returns to the 
   expect(device?.value).not.toContain(username)
   expect(await page.evaluate(() => document.cookie)).not.toContain('knowndevice')
 
-  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page')
-  await page.getByRole('button', { name: 'Sign out' }).click()
+  await signOut(page)
   await expect(page.getByRole('form', { name: 'Sign in' })).toBeVisible()
   await expect(page).toHaveURL('/login?signedOut=true')
   await expect(page.getByRole('status')).toHaveText('You have been signed out.')
-  await expect(page.getByRole('navigation', { name: 'Main' })).toHaveCount(0)
-  await expect(page.getByText(`Signed in as ${username}`)).toHaveCount(0)
+  await expect(labPicker(page)).toHaveCount(0)
+  await expect(accountButton(page)).toHaveCount(0)
   expect((await knownDeviceCookie(page))?.value).toBe(device?.value) // signing out keeps it
 
   await page.goto('/no-such-page')
@@ -127,7 +126,7 @@ test('MUI styles apply under the production CSP: every emotion style carries the
   const violations = await watchCsp(page)
   await page.goto('/login')
   const bar = page.getByRole('banner')
-  await expect(bar).toContainText('Culture collection')
+  await expect(bar).toContainText('Culture Collection')
   // Without the nonce the CSP blocks emotion's <style> and the bar keeps a transparent background.
   expect(await bar.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)')
   const styles = await page.evaluate(() => {

@@ -13,7 +13,7 @@ export const password = process.env.E2E_PASSWORD ?? 'e2e correct horse battery'
  * to the file below, so the whole run stays under the login throttle (10 sign-ins a minute per
  * client). Only login.spec.ts signs in on its own, because sign-in is what it tests.
  */
-export const signedInUsers = [username, 'e2e-curator', 'e2e-technician', 'e2e-viewer']
+export const signedInUsers = [username, 'e2e-curator', 'e2e-technician', 'e2e-viewer', 'e2e-manager']
 export const signedInAs = (user: string) => fileURLToPath(new URL(`./.auth/${user}.json`, import.meta.url))
 
 /**
@@ -139,4 +139,21 @@ export async function ring(target: Locator) {
     const style = getComputedStyle(e)
     return { style: style.outlineStyle, width: style.outlineWidth, color: style.outlineColor, offset: style.outlineOffset }
   })
+}
+
+/** The lab picker's button on the top bar; the account menu's button. */
+export const labPicker = (page: Page) => page.getByRole('button', { name: /^(Lab|Select a lab)/ })
+export const accountButton = (page: Page, name = username) => page.getByRole('button', { name: `Account (${name})` })
+
+/** To the list of labs, through the picker's "All labs", the way a user goes. */
+export async function openLabList(page: Page) {
+  await labPicker(page).click()
+  await page.getByRole('menuitem', { name: 'All labs' }).click()
+  await expect(page).toHaveURL('/labs')
+}
+
+/** Signs out through the account menu. */
+export async function signOut(page: Page, name = username) {
+  await accountButton(page, name).click()
+  await page.getByRole('menuitem', { name: 'Sign out' }).click()
 }

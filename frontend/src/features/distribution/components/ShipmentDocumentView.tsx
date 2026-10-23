@@ -1,5 +1,5 @@
 import { LoadError } from '@/components/LoadError'
-import { Box, Button, Link, PageTitle, Stack, Typography } from '@/components/ui'
+import { Box, Button, Link, Mono, PageTitle, Stack, Typography } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { safeHref } from '@/lib/safe'
 import { useShipmentDocument } from '../api/queries'
@@ -54,7 +54,7 @@ export function ShipmentDocumentView({ labId, documentId }: Props) {
         {title}
       </Typography>
       <Typography sx={{ mb: 2, overflowWrap: 'anywhere' }}>
-        Kept as sent. SHA-256 <code>{d.text_sha256}</code>
+        Kept as sent. SHA-256 <Mono>{d.text_sha256}</Mono>
       </Typography>
       <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 3, displayPrint: 'none' }}>
         <Button variant="contained" onClick={() => window.print()}>

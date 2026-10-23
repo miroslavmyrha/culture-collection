@@ -17,16 +17,13 @@ export function MtaTemplateListPage() {
             <Typography component="h1" variant="h4" gutterBottom sx={{ overflowWrap: 'anywhere' }}>
               MTA templates of {lab.name}
             </Typography>
-            <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', mb: 3 }}>
-              <Link to="/labs/$labId" params={{ labId }}>
-                Back to {lab.name}
-              </Link>
-              {canPublishMta(lab.my_role) && (
+            {canPublishMta(lab.my_role) && (
+              <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', mb: 3 }}>
                 <Link to="/labs/$labId/mta-templates/new" params={{ labId }}>
                   Publish an MTA version
                 </Link>
-              )}
-            </Stack>
+              </Stack>
+            )}
             {canHandleDeposits(lab.my_role) ? (
               <MtaTemplateList labId={labId} />
             ) : (

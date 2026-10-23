@@ -11,10 +11,11 @@ Brings the database to this state, whatever it was before:
 - e2e-curator, e2e-technician and e2e-viewer, members of the lab in those roles, with the
   same password: the strain tests create strains as the curator and check what a viewer may
   not do, the box grid tests move vials as the technician;
-- e2e-manager, active, without a usable password and in no lab: made a manager of the lab
-  only for the moment it approves the regulated request below, then removed again, so the e2e
-  user, who did not approve it, may confirm its shipment (#89), and stays the lab's only
-  manager (labs.spec.ts refuses to remove the last one);
+- e2e-manager, active, with the same password and in no lab: made a manager of the lab only
+  for the moment it approves a regulated request (here for the one below, in distribution.spec.ts
+  for the one that test enters), then removed again, so the e2e user, who did not approve it,
+  may confirm its shipment (#89), and stays the lab's only manager (labs.spec.ts refuses to
+  remove the last one);
 - a few taxa for the strain form: two genera, a species in each with its NCBI id, and a
   synonym of each species (its basionym), plus an invented genus and species (Testella
   exempli) for the tests of the restriction gates, so no real organism is entered with a
@@ -174,7 +175,7 @@ class Command(BaseCommand):
             self._role(lab, self._user(CURATOR, password), Role.CURATOR)
             self._role(lab, self._user(TECHNICIAN, password), Role.TECHNICIAN)
             self._role(lab, self._user(VIEWER, password), Role.VIEWER)
-            approver = self._user(APPROVER, None)
+            approver = self._user(APPROVER, password)
             for membership in Membership.objects.filter(lab=lab, user=approver):
                 services.membership_delete(membership=membership)
             for row in TAXA:

@@ -1,7 +1,8 @@
 import { type MouseEvent, type ReactNode, useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
-import { Box, Button, PageTitle, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
+import { Box, Button, Mono, PageTitle, Paper, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
+import { STRAIN_TONES } from '@/lib/tones'
 import { isApiError } from '@/lib/api'
 import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { useStrain } from '../api/queries'
@@ -72,7 +73,7 @@ export function StrainDetail({ labId, strainId, canManage, renderMaterial }: Pro
     <>
       <PageTitle>{number}</PageTitle>
       <Typography component="h1" variant="h4" gutterBottom sx={{ overflowWrap: 'anywhere' }}>
-        {number}
+        <Mono>{number}</Mono>
       </Typography>
       <StaleNotice what="the strain" query={strain} />
       <Typography sx={{ mb: 3 }}>
@@ -82,7 +83,7 @@ export function StrainDetail({ labId, strainId, canManage, renderMaterial }: Pro
       <Facts
         rows={[
           ['Name as received', s.name_as_received],
-          ['Status', STATUS_LABELS[s.status]],
+          ['Status', <StatusChip key="status" tone={STRAIN_TONES[s.status]}>{STATUS_LABELS[s.status]}</StatusChip>],
           ['Risk group', String(s.risk_group)],
           ['Animal pathogenicity', PATHOGENICITY_LABELS[s.animal_pathogenicity]],
           ['Plant pathogenicity', PATHOGENICITY_LABELS[s.plant_pathogenicity]],
@@ -186,7 +187,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function Facts({ rows }: { rows: [string, string][] }) {
+function Facts({ rows }: { rows: [string, ReactNode][] }) {
   return (
     <Box component="dl" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'max-content 1fr' }, columnGap: 3, rowGap: 1, m: 0 }}>
       {rows.map(([label, value]) => (
@@ -226,7 +227,9 @@ function RestrictionTable({ rows, caption, end }: TableProps) {
         <TableBody>
           {rows.map((r) => (
             <TableRow key={r.public_id}>
-              <TableCell>{RESTRICTION_LABELS[r.kind]}</TableCell>
+              <TableCell>
+                <StatusChip tone="regulated">{RESTRICTION_LABELS[r.kind]}</StatusChip>
+              </TableCell>
               <TableCell sx={{ overflowWrap: 'anywhere' }}>
                 {r.reference}
                 {r.act && ` (read in ${r.act})`}

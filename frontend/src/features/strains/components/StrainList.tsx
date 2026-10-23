@@ -1,7 +1,8 @@
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
 import { Pager, PastTheEnd } from '@/components/Pager'
-import { Button, Link, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
+import { Button, Link, Mono, Paper, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
+import { STRAIN_TONES } from '@/lib/tones'
 import { useFocusReturnOnUnmount } from '@/lib/focus'
 import { useStrainList } from '../api/queries'
 import { hasFilters, RESTRICTION_LABELS, STATUS_LABELS, type StrainListParams } from '../schemas'
@@ -46,7 +47,7 @@ export function StrainList({ labId, params, onOffsetChange, onClearFilters }: Pr
               <TableRow key={strain.public_id}>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
                   <Link to="/labs/$labId/strains/$strainId" params={{ labId, strainId: strain.public_id }}>
-                    {strain.accession_number ?? 'pending'}
+                    <Mono>{strain.accession_number ?? 'pending'}</Mono>
                   </Link>
                 </TableCell>
                 <TableCell>{strain.name_as_received}</TableCell>
@@ -54,8 +55,10 @@ export function StrainList({ labId, params, onOffsetChange, onClearFilters }: Pr
                   <i>{strain.taxon.name}</i>
                 </TableCell>
                 <TableCell>{strain.risk_group}</TableCell>
-                <TableCell>{strain.restrictions.length === 0 ? 'None' : strain.restrictions.map((r) => RESTRICTION_LABELS[r.kind]).join(', ')}</TableCell>
-                <TableCell>{STATUS_LABELS[strain.status]}</TableCell>
+                <TableCell>{strain.restrictions.length === 0 ? 'None' : strain.restrictions.map((r) => <StatusChip key={r.kind} tone="regulated">{RESTRICTION_LABELS[r.kind]}</StatusChip>)}</TableCell>
+                <TableCell>
+                  <StatusChip tone={STRAIN_TONES[strain.status]}>{STATUS_LABELS[strain.status]}</StatusChip>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

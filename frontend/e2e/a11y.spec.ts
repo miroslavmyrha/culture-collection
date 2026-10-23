@@ -1,5 +1,5 @@
 import { type Browser, expect, type Locator, type Page, test } from '@playwright/test'
-import { axe, ratio, ring, signedInAs, surfaceOf, tabTo, username, watchCsp } from './support.js'
+import { axe, channels, ratio, ring, signedInAs, surfaceOf, tabTo, username, watchCsp } from './support.js'
 
 // Checks that need a browser: reflow at 320 px (WCAG 1.4.10), the focus ring and its contrast
 // (2.4.7, 1.4.11; axe does not test focus rings), titles and focus after navigation (2.4.2,
@@ -69,7 +69,6 @@ test.describe('reflow at 320 px', () => {
     // The user and sign-out live in the menu here.
     const account = page.getByRole('button', { name: `Account (${username})` })
     await expect(account).toBeVisible()
-    await expect(page.getByText(`Signed in as ${username}`)).toHaveCount(0)
     expect(await fitsWidth(page)).toBeLessThanOrEqual(320)
     // Fitting by squeezing is no fit: every control in the bar shows all of its text, inside the screen.
     const cut = await page.getByRole('banner').evaluate((bar) =>
@@ -82,12 +81,6 @@ test.describe('reflow at 320 px', () => {
         .map((control) => control.textContent),
     )
     expect(cut).toEqual([])
-    // Today's two links fit anyway: with more of them the nav wraps instead of widening the page.
-    await page.getByRole('navigation', { name: 'Main' }).evaluate((nav) => {
-      const link = nav.querySelector('a')
-      if (link) for (let i = 0; i < 6; i++) nav.append(link.cloneNode(true))
-    })
-    expect(await fitsWidth(page)).toBeLessThanOrEqual(320)
     await page.reload()
     await expect(page.getByRole('heading', { level: 1, name: 'Labs' })).toBeVisible()
     expect(await axe(page, 'body')).toEqual([])
@@ -95,6 +88,19 @@ test.describe('reflow at 320 px', () => {
     await openLab(page)
     expect(await fitsWidth(page)).toBeLessThanOrEqual(320)
     expect(await axe(page, 'body')).toEqual([])
+    // The lab tabs do not widen the page: the row scrolls inside itself, and the active tab is in view.
+    const tabs = page.getByRole('navigation', { name: 'Lab sections' })
+    const row = await tabs.locator('a').first().locator('xpath=..').evaluate((e) => ({ scroll: e.scrollWidth, client: e.clientWidth, overflow: getComputedStyle(e).overflowX }))
+    expect(row.overflow).toBe('auto')
+    expect(row.scroll).toBeGreaterThan(row.client) // six tabs do not fit in 320 px
+    for (const name of ['Strains', 'MTA templates']) {
+      const tab = tabs.getByRole('link', { name })
+      await tab.scrollIntoViewIfNeeded()
+      await expect(tab).toBeInViewport()
+      const box = await tab.boundingBox()
+      expect(box?.height ?? 0, `${name} tab height`).toBeGreaterThanOrEqual(24)
+    }
+    expect(await fitsWidth(page)).toBeLessThanOrEqual(320)
     // The members table is wider than the screen: it scrolls inside its own container.
     const scroller = page.getByRole('table', { name: 'Members' }).locator('xpath=..')
     const sizes = await scroller.evaluate((e) => ({ scroll: e.scrollWidth, client: e.clientWidth, overflow: getComputedStyle(e).overflowX }))
@@ -117,7 +123,8 @@ test.describe('reflow at 320 px', () => {
 
     await account.click()
     const menu = page.getByRole('menu', { name: `Account (${username})` })
-    await expect(menu.getByRole('menuitem', { name: 'Sign out' })).toBeFocused()
+    await expect(menu.getByRole('menuitemradio', { name: 'System' })).toBeFocused()
+    await expect(menu.getByRole('menuitem', { name: 'Sign out' })).toBeVisible()
     expect(await fitsWidth(page)).toBeLessThanOrEqual(320)
     expect(await axe(page, '[role="menu"]')).toEqual([])
     await page.keyboard.press('Escape')
@@ -154,15 +161,19 @@ for (const colorScheme of ['light', 'dark'] as const) {
       // Positioned over the bar, not inside it: measured against the bar and against its own paper.
       await expectRing(skip, 'skip link over the bar', await surfaceOf(page.getByRole('banner'), true))
       await expectRing(skip, 'skip link on its own paper', await surfaceOf(skip, true))
-      const home = page.getByRole('link', { name: 'Culture collection' })
+      const home = page.getByRole('link', { name: 'Culture Collection' })
       await tabTo(page, home)
       await expectRing(home, 'title link on the bar')
-      const signOut = page.getByRole('button', { name: 'Sign out' })
-      await tabTo(page, signOut)
-      await expectRing(signOut, 'Sign out on the bar')
-      const labs = page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Labs' })
-      await tabTo(page, labs)
-      await expectRing(labs, 'Labs link on the bar')
+      const picker = page.getByRole('button', { name: /^(Lab|Select a lab)/ })
+      await tabTo(page, picker)
+      await expectRing(picker, 'lab picker on the bar')
+      const account = page.getByRole('button', { name: `Account (${username})` })
+      await tabTo(page, account)
+      await expectRing(account, 'account menu on the bar')
+      // The tab's ring sits inside it: the row scrolls and would clip a ring outside.
+      const strainsTab = page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Strains' })
+      await tabTo(page, strainsTab)
+      await expectRing(strainsTab, 'lab tab', await surfaceOf(strainsTab, true))
 
       const next = page.getByRole('navigation', { name: 'Member pages' }).getByRole('button', { name: 'Next' })
       await tabTo(page, next)
@@ -223,13 +234,17 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await tabTo(page, account)
       await expectRing(account, 'account menu button on the bar')
       await page.keyboard.press('Enter')
-      const item = page.getByRole('menuitem', { name: 'Sign out' })
+      const item = page.getByRole('menuitemradio', { name: 'System' })
       await expect(item).toBeFocused()
       // MUI insets the ring inside a menu item (a scrolling list would clip it): it sits on the item.
       const drawn = await ring(item)
       expect(drawn.style).toBe('solid')
       expect(drawn.width).toBe('2px')
-      const itemRatio = ratio(drawn.color, await surfaceOf(item, true))
+      // The checked item is tinted (translucent): the ring is seen against the tint over the menu's paper.
+      const [tr = 0, tg = 0, tb = 0, ta = 1] = channels(await item.evaluate((e) => getComputedStyle(e).backgroundColor))
+      const paper = channels(await surfaceOf(item))
+      const tinted = [tr, tg, tb].map((c, i) => Math.round(c * ta + (paper[i] ?? 0) * (1 - ta)))
+      const itemRatio = ratio(drawn.color, `rgb(${tinted.join(', ')})`)
       test.info().annotations.push({ type: 'focus ring', description: `menu item (inset): ${drawn.color} = ${itemRatio.toFixed(2)}:1` })
       expect(itemRatio).toBeGreaterThanOrEqual(3)
       await page.keyboard.press('Escape')
@@ -246,15 +261,17 @@ test.describe('titles and focus after navigation', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
     expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true)
 
-    // Tab from the start: skip link, the title link, then the main navigation.
+    // Tab from the start: skip link, the title link, then the lab picker, which opens on the
+    // checked lab or its first item; End reaches All labs.
     await page.keyboard.press('Tab')
     await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused()
     await page.keyboard.press('Tab')
+    await expect(page.getByRole('link', { name: 'Culture Collection' })).toBeFocused()
     await page.keyboard.press('Tab')
-    const nav = page.getByRole('navigation', { name: 'Main' })
-    await expect(nav.getByRole('link', { name: 'Home' })).toBeFocused()
-    await page.keyboard.press('Tab')
-    await expect(nav.getByRole('link', { name: 'Labs' })).toBeFocused()
+    await expect(page.getByRole('button', { name: /^(Lab|Select a lab)/ })).toBeFocused()
+    await page.keyboard.press('Enter')
+    await page.keyboard.press('End')
+    await expect(page.getByRole('menuitem', { name: 'All labs' })).toBeFocused()
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL('/labs')
     await expect(page).toHaveTitle('Labs | Culture collection')
@@ -272,8 +289,8 @@ test.describe('titles and focus after navigation', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Labs' })).toBeFocused()
     // Shift+Tab from the h1 goes back to the bar's last control.
     await page.keyboard.press('Shift+Tab')
-    await expect(page.getByRole('button', { name: 'Sign out' })).toBeFocused()
-    await nav.getByRole('link', { name: 'Home' }).press('Enter')
+    await expect(page.getByRole('button', { name: `Account (${username})` })).toBeFocused()
+    await page.getByRole('link', { name: 'Culture Collection' }).press('Enter')
     await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeFocused()
 
     await page.goto('/no-such-page')
@@ -336,7 +353,7 @@ test.describe('keyboard walk through every page', () => {
     await anonymous.page.goto('/login')
     await expect(anonymous.page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
     const login = await walk(anonymous.page)
-    expect(login.slice(0, 5)).toEqual(['a:Skip to content', 'a:Culture collection', 'input:', 'input:', 'button:Sign in'])
+    expect(login.slice(0, 5)).toEqual(['a:Skip to content', 'a:Culture Collection', 'input:', 'input:', 'button:Sign in'])
     await anonymous.close()
 
     const { page, close } = await open(browser)
@@ -345,21 +362,20 @@ test.describe('keyboard walk through every page', () => {
       await page.goto(path)
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
       const stops = await walk(page)
-      expect(stops.slice(0, 5), path).toEqual(['a:Skip to content', 'a:Culture collection', 'a:Home', 'a:Labs', 'button:Sign out'])
+      expect(stops.slice(0, 4), path).toEqual(['a:Skip to content', 'a:Culture Collection', 'button:Select a lab', `button:Account (${username})`])
     }
     // An unknown URL loaded directly: the shell has not asked for the user yet, so no navigation.
     await page.goto('/no-such-page')
     await expect(page.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible()
-    expect(await walk(page)).toEqual(['a:Skip to content', 'a:Culture collection', 'a:Go to the start page'])
+    expect(await walk(page)).toEqual(['a:Skip to content', 'a:Culture Collection', 'a:Go to the start page'])
     await openLab(page, '?limit=1')
     const stops = await walk(page)
     // Every control of the lab page in reading order; Previous is aria-disabled, still a stop.
     expect(stops).toEqual([
       'a:Skip to content',
-      'a:Culture collection',
-      'a:Home',
-      'a:Labs',
-      'button:Sign out',
+      'a:Culture Collection',
+      'button:Lab E2E lab',
+      `button:Account (${username})`,
       'a:Strains',
       'a:Storage',
       'a:Requests',
@@ -381,11 +397,15 @@ test.describe('keyboard walk through every page', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Storage of E2E lab' })).toBeVisible()
     expect(await walk(page)).toEqual([
       'a:Skip to content',
-      'a:Culture collection',
-      'a:Home',
-      'a:Labs',
-      'button:Sign out',
-      'a:Back to E2E lab',
+      'a:Culture Collection',
+      'button:Lab E2E lab',
+      `button:Account (${username})`,
+      'a:Strains',
+      'a:Storage',
+      'a:Requests',
+      'a:Deposits',
+      'a:Depositors',
+      'a:MTA templates',
       'button:Add a freezer or tank',
       'li:E2E freezer, freezer, -20\u00a0°C',
     ])
@@ -402,10 +422,15 @@ test.describe('keyboard walk through every page', () => {
     await expect(page.getByRole('grid', { name: 'Positions of Box 1' })).toBeVisible()
     expect(await walk(page)).toEqual([
       'a:Skip to content',
-      'a:Culture collection',
-      'a:Home',
-      'a:Labs',
-      'button:Sign out',
+      'a:Culture Collection',
+      'button:Lab E2E lab',
+      `button:Account (${username})`,
+      'a:Strains',
+      'a:Storage',
+      'a:Requests',
+      'a:Deposits',
+      'a:Depositors',
+      'a:MTA templates',
       'a:Storage of E2E lab',
       'a:E2E freezer',
       'a:Rack 1',

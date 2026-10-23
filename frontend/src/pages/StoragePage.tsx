@@ -1,6 +1,6 @@
 import { getRouteApi } from '@tanstack/react-router'
 import { type MouseEvent, useRef, useState } from 'react'
-import { Button, Link, PageTitle, Stack, Typography } from '@/components/ui'
+import { Button, PageTitle, Stack, Typography } from '@/components/ui'
 import { LabGate } from '@/features/labs/components/LabGate'
 import { CreateUnitDialog } from '@/features/storage/components/UnitDialogs'
 import { UnitTree } from '@/features/storage/components/UnitTree'
@@ -29,16 +29,13 @@ export function StoragePage() {
             <Typography component="h1" variant="h4" gutterBottom sx={{ overflowWrap: 'anywhere' }}>
               Storage of {lab.name}
             </Typography>
-            <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 3 }}>
-              <Link to="/labs/$labId" params={{ labId }}>
-                Back to {lab.name}
-              </Link>
-              {canManageStorage(lab.my_role) && (
+            {canManageStorage(lab.my_role) && (
+              <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 3 }}>
                 <Button variant="contained" onClick={start}>
                   Add a freezer or tank
                 </Button>
-              )}
-            </Stack>
+              </Stack>
+            )}
             <UnitTree labId={labId} labName={lab.name} canManage={canManageStorage(lab.my_role)} onOpen={open} />
             {/* Mounted until it has faded out, so onExited can place the focus. */}
             {adding !== null && (

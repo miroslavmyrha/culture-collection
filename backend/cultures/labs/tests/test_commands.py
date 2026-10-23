@@ -75,10 +75,11 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
         member = User.objects.get(username=name)
         assert member.check_password(PASSWORD)
         assert Membership.objects.get(user=member, lab=lab).role == role
-    # The second manager approved the regulated request and left: nobody signs in as it, and
-    # the e2e user stays the lab's only manager.
+    # The second manager approved the regulated request and left: it signs in only to approve
+    # what a test enters, and the e2e user stays the lab's only manager.
     approver = User.objects.get(username="e2e-manager")
-    assert (approver.is_active, approver.has_usable_password()) == (True, False)
+    assert approver.is_active
+    assert approver.check_password(PASSWORD)
     assert not Membership.objects.filter(user=approver).exists()
     synonyms = dict(Taxon.objects.filter(status="synonym").values_list("name", "accepted__name"))
     assert synonyms == {"Vibrio subtilis": "Bacillus subtilis", "Bacillus coli": "Escherichia coli"}

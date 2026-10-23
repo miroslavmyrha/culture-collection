@@ -92,7 +92,6 @@ test('V7 may this strain be used for teaching', async ({ browser }, info) => {
   w.look()
   await expect(w.page.getByRole('heading', { name: /Terms/ })).toHaveCount(0)
   await w.click(w.page.getByRole('link', { name: `Strains of ${LAB}` }))
-  await w.click(w.page.getByRole('link', { name: `Back to ${LAB}` }))
   await expect(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Deposits' })).toHaveCount(0)
   w.look()
   w.impossible('The terms of use live only on the deposit, which a viewer may not open: the strain page does not show the uses it allows')

@@ -27,32 +27,14 @@ function mockLab(role: Role) {
 const render = () => renderWithProviders(<LabDetail labId={LAB_ID} params={PARAMS} onOffsetChange={vi.fn<(offset: number) => void>()} />)
 
 describe('LabDetail', () => {
-  it('leads a curator to the deposits, the depositors and the MTA templates', async () => {
-    mockLab('curator')
-    await render()
-    const sections = await screen.findByRole('navigation', { name: 'Lab sections' })
-    expect(within(sections).getAllByRole('link').map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
-      ['Strains', `/labs/${LAB_ID}/strains`],
-      ['Storage', `/labs/${LAB_ID}/storage`],
-      ['Requests', `/labs/${LAB_ID}/requests`],
-      ['Deposits', `/labs/${LAB_ID}/deposits`],
-      ['Depositors', `/labs/${LAB_ID}/depositors`],
-      ['MTA templates', `/labs/${LAB_ID}/mta-templates`],
-    ])
-  })
-
   it('shows the lab, my role and the members table', async () => {
     mockLab('viewer')
     await render()
     expect(screen.getByText('Loading the lab…')).toBeInTheDocument()
     expect(await screen.findByRole('heading', { level: 1, name: 'Mycology' })).toBeInTheDocument()
     expect(screen.getByText('Code MYC. Your role: Viewer.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Strains' })).toHaveAttribute('href', `/labs/${LAB_ID}/strains`)
-    expect(screen.getByRole('link', { name: 'Storage' })).toHaveAttribute('href', `/labs/${LAB_ID}/storage`)
-    // Requests name an institution, never a person: every member reads them.
-    expect(screen.getByRole('link', { name: 'Requests' })).toHaveAttribute('href', `/labs/${LAB_ID}/requests`)
-    // Depositors hold personal contacts: a viewer is not led to them.
-    expect(screen.queryByRole('link', { name: 'Depositors' })).not.toBeInTheDocument()
+    // The sections are the lab tabs of the shell, not part of this page.
+    expect(screen.queryByRole('navigation', { name: 'Lab sections' })).not.toBeInTheDocument()
     const table = await screen.findByRole('table', { name: 'Members' })
     const rows = within(table).getAllByRole('row').slice(1)
     expect(rows.map((row) => within(row).getAllByRole('cell').map((cell) => cell.textContent))).toEqual([

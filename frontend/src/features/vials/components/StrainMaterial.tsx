@@ -1,7 +1,8 @@
 import { Fragment, type MouseEvent, type ReactNode, useId, useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
-import { Box, Button, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
+import { Box, Button, Mono, Paper, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
+import { BATCH_TONES, VIAL_TONES } from '@/lib/tones'
 import { type FocusReturn, focusTarget, rememberFocus } from '@/lib/focus'
 import { useBatches, useBoxes, usePassages, useVials } from '../api/queries'
 import {
@@ -185,7 +186,7 @@ export function StrainMaterial({ labId, strainId, accession, canHandle, canRelea
                           <TableCell>{PURPOSE_LABELS[b.purpose]}</TableCell>
                           <TableCell sx={{ whiteSpace: 'nowrap' }}>{b.preserved_on}</TableCell>
                           <TableCell sx={{ minWidth: 160 }}>
-                            {BATCH_STATUS_LABELS[b.status]}
+                            <StatusChip tone={BATCH_TONES[b.status]}>{BATCH_STATUS_LABELS[b.status]}</StatusChip>
                             {b.status !== 'released' && (
                               <Typography component="span" variant="body2" color="text.secondary" sx={{ display: 'block' }}>
                                 {batchStatusReason(b)}
@@ -265,8 +266,12 @@ export function StrainMaterial({ labId, strainId, accession, canHandle, canRelea
                 <TableBody>
                   {vials.data.results.map((v) => (
                     <TableRow key={v.public_id}>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{v.label}</TableCell>
-                      <TableCell>{VIAL_STATUS_LABELS[v.status]}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                        <Mono>{v.label}</Mono>
+                      </TableCell>
+                      <TableCell>
+                        <StatusChip tone={VIAL_TONES[v.status]}>{VIAL_STATUS_LABELS[v.status]}</StatusChip>
+                      </TableCell>
                       <TableCell>
                         <Where key={`${v.status_changed_at ?? ''}:${moves[v.public_id] ?? 0}`} labId={labId} vial={v} />
                       </TableCell>

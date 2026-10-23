@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { pageSearch } from '@/lib/paging'
@@ -8,6 +8,8 @@ import { renderApp } from '@/test/render'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const signedIn = () => mockApi('get', '/api/v1/auth/me/', makeMe())
+/** The page's own requests: the lab picker in the top bar asks for up to 200 labs on every page. */
+const pageCalls = <T extends { url: URL }>(calls: T[]) => calls.filter((call) => call.url.searchParams.get('limit') !== '200')
 
 describe('/labs route', () => {
   it('loads the list once, before the page renders', async () => {
@@ -17,8 +19,8 @@ describe('/labs route', () => {
     expect(await screen.findByRole('heading', { name: 'Labs' }, { timeout: 5000 })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Mycology' })).toBeInTheDocument() // no loading state: the loader filled the cache
     expect(screen.getAllByRole('main')).toHaveLength(1) // the page is a section inside the layout's main
-    expect(calls).toHaveLength(1)
-    expect(calls[0]?.url.searchParams.get('offset')).toBe('0')
+    expect(pageCalls(calls)).toHaveLength(1)
+    expect(pageCalls(calls)[0]?.url.searchParams.get('offset')).toBe('0')
   })
 
   it('falls back to the defaults for bad search values', () => {
@@ -34,7 +36,7 @@ describe('/labs route', () => {
     const { router } = renderApp({ path: '/labs', search: { limit: 'oops' } })
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Next' }, { timeout: 5000 }))
     await waitFor(() => expect(router.state.location.search).toEqual({ offset: 25 }))
-    await waitFor(() => expect(calls.map((c) => c.url.searchParams.get('offset'))).toEqual(['0', '25']))
+    await waitFor(() => expect(pageCalls(calls).map((c) => c.url.searchParams.get('offset'))).toEqual(['0', '25']))
   })
 
   it('sends anonymous users to the login page without fetching the list', async () => {
@@ -43,22 +45,6 @@ describe('/labs route', () => {
     expect(await screen.findByRole('heading', { name: 'Sign in' }, { timeout: 5000 })).toBeInTheDocument()
     expect(router.state.location.search).toEqual({ redirect: '/labs' })
     expect(calls).toHaveLength(0)
-  })
-
-  // With search params on purpose: a nav link that compares them is not current on /labs?offset=25.
-  it.each([
-    ['/labs', { offset: 25 }],
-    [`/labs/${LAB_ID}`, { offset: 25 }],
-  ])('marks Labs as the current page on %s with search %j', async (path, search) => {
-    signedIn()
-    mockApi('get', '/api/v1/labs/', page([makeLab()], { count: 30 }))
-    mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID }))
-    mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([makeMember()], { count: 30 }))
-    mockApi('get', '/api/v1/labs/{lab_public_id}/location-grants/', [])
-    renderApp({ path, search })
-    const nav = await screen.findByRole('navigation', { name: 'Main' }, { timeout: 5000 })
-    await waitFor(() => expect(within(nav).getByRole('link', { name: 'Labs' })).toHaveAttribute('aria-current', 'page'))
-    expect(within(nav).getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current')
   })
 })
 

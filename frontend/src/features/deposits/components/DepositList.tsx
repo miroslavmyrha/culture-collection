@@ -2,7 +2,8 @@ import { useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
 import { Pager, PastTheEnd } from '@/components/Pager'
-import { Box, Button, Link, Paper, SelectField, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@/components/ui'
+import { Box, Button, Link, Mono, Paper, SelectField, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@/components/ui'
+import { DEPOSIT_TONES } from '@/lib/tones'
 import { useFocusReturnOnUnmount } from '@/lib/focus'
 import { useDepositList } from '../api/queries'
 import { type DepositFilters as Filters, type DepositListParams, depositorLabel, options, STATUS_LABELS, STATUSES } from '../schemas'
@@ -52,11 +53,13 @@ export function DepositList({ labId, params, onOffsetChange, onClearFilters }: P
                   </Link>
                 </TableCell>
                 <TableCell sx={{ overflowWrap: 'anywhere' }}>{depositorLabel(d.depositor)}</TableCell>
-                <TableCell>{STATUS_LABELS[d.status]}</TableCell>
+                <TableCell>
+                  <StatusChip tone={DEPOSIT_TONES[d.status]}>{STATUS_LABELS[d.status]}</StatusChip>
+                </TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
                   {d.strain ? (
                     <Link to="/labs/$labId/strains/$strainId" params={{ labId, strainId: d.strain.public_id }}>
-                      {d.strain.accession_number ?? 'pending'}
+                      <Mono>{d.strain.accession_number ?? 'pending'}</Mono>
                     </Link>
                   ) : (
                     'None'

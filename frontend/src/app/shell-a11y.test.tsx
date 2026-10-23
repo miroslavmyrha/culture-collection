@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { allowConsole } from '@/test/console'
 import { makeDeposit, makeLab, makeMe, makeMember, makeMtaTemplate, makeRequest, makeShipmentDocument, makeStrain, makeStrainRow, makeUnit, makeUnitRow, page, problem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
@@ -30,24 +30,6 @@ const material = () => {
 }
 const lab = (overrides = {}) => mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', ...overrides }))
 const members = (count = 1) => mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([makeMember()], { count }))
-
-/** jsdom has no matchMedia, so MUI's useMediaQuery answers false (the wide bar) unless stubbed. */
-function narrowScreen() {
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: query.includes('max-width'),
-    media: query,
-    onchange: null,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-    dispatchEvent: () => false,
-  }))
-}
-
-afterEach(() => {
-  vi.unstubAllGlobals()
-})
 
 describe('page titles (WCAG 2.4.2)', () => {
   // Every state a page can be in, also errors and not found: a tab keeps the previous page's
@@ -146,13 +128,16 @@ describe('focus after navigation (WCAG 2.4.3)', () => {
     expect(heading).toHaveAttribute('tabindex', '-1') // a target, not a tab stop
   })
 
-  it('focuses the h1 after moving through the main navigation by keyboard', async () => {
+  it('focuses the h1 after moving to All labs in the lab picker by keyboard', async () => {
     signedIn()
     mockApi('get', '/api/v1/labs/', page([makeLab()]))
     renderApp({ path: '/' })
-    const nav = await screen.findByRole('navigation', { name: 'Main' }, { timeout: 5000 })
-    within(nav).getByRole('link', { name: 'Labs' }).focus()
-    await userEvent.setup().keyboard('{Enter}')
+    const user = userEvent.setup()
+    const picker = await screen.findByRole('button', { name: /^(Lab|Select a lab)/ }, { timeout: 5000 })
+    picker.focus()
+    await user.keyboard('{Enter}{End}')
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'All labs' })).toHaveFocus())
+    await user.keyboard('{Enter}')
     const heading = await screen.findByRole('heading', { level: 1, name: 'Labs' }, { timeout: 5000 })
     await waitFor(() => expect(heading).toHaveFocus())
   })
@@ -165,7 +150,8 @@ describe('focus after navigation (WCAG 2.4.3)', () => {
     const next = await screen.findByRole('button', { name: 'Next' }, { timeout: 5000 })
     await user.click(next)
     await waitFor(() => expect(router.state.location.search).toEqual({ offset: 25 }))
-    await waitFor(() => expect(calls).toHaveLength(2))
+    // The picker's own request (limit 200) is not the page's.
+    await waitFor(() => expect(calls.filter((call) => call.url.searchParams.get('limit') !== '200')).toHaveLength(2))
     await waitFor(() => expect(router.state.status).toBe('idle'))
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(screen.getByRole('button', { name: 'Next' })).toHaveFocus()
@@ -223,9 +209,8 @@ describe('focus after a retry on the route error screen', () => {
   })
 })
 
-describe('the account menu on a narrow screen (WCAG 1.4.10)', () => {
-  it('replaces the user text and Sign out with a named menu button', async () => {
-    narrowScreen()
+describe('the account menu', () => {
+  it('is a named menu button with the user as its label', async () => {
     signedIn('lab-tech')
     renderApp({ path: '/' })
     const button = await screen.findByRole('button', { name: 'Account (lab-tech)' }, { timeout: 5000 })
@@ -236,8 +221,7 @@ describe('the account menu on a narrow screen (WCAG 1.4.10)', () => {
     expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
   })
 
-  it('works by keyboard: Enter opens on Sign out, arrows stay, Escape returns to the button, ArrowDown opens', async () => {
-    narrowScreen()
+  it('works by keyboard: Enter opens on the checked scheme, End reaches Sign out, Escape returns to the button, ArrowDown opens', async () => {
     signedIn('lab-tech')
     renderApp({ path: '/' })
     const user = userEvent.setup()
@@ -247,20 +231,19 @@ describe('the account menu on a narrow screen (WCAG 1.4.10)', () => {
     const menu = await screen.findByRole('menu', { name: 'Account (lab-tech)' })
     expect(button).toHaveAttribute('aria-expanded', 'true')
     expect(button).toHaveAttribute('aria-controls', menu.id)
-    const item = within(menu).getByRole('menuitem', { name: 'Sign out' })
-    await waitFor(() => expect(item).toHaveFocus())
-    await user.keyboard('{ArrowDown}')
-    expect(item).toHaveFocus() // one item: the arrows keep it
+    expect(within(menu).getAllByRole('menuitemradio').map((item) => item.textContent)).toEqual(['System', 'Light', 'Dark'])
+    await waitFor(() => expect(within(menu).getByRole('menuitemradio', { name: 'System' })).toHaveFocus())
+    await user.keyboard('{End}')
+    expect(within(menu).getByRole('menuitem', { name: 'Sign out' })).toHaveFocus()
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
     expect(button).toHaveFocus()
     expect(button).toHaveAttribute('aria-expanded', 'false')
     await user.keyboard('{ArrowDown}')
-    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Sign out' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('menu')).toBeInTheDocument())
   })
 
   it('signs out from the menu', async () => {
-    narrowScreen()
     signedIn('lab-tech')
     const { router } = renderApp({ path: '/' })
     const user = userEvent.setup()
@@ -273,7 +256,6 @@ describe('the account menu on a narrow screen (WCAG 1.4.10)', () => {
   })
 
   it('shows a failed sign-out under the bar and returns the focus to the menu button when it is closed', async () => {
-    narrowScreen()
     allowConsole(/API error 500/)
     signedIn('lab-tech')
     renderApp({ path: '/' })
@@ -288,22 +270,6 @@ describe('the account menu on a narrow screen (WCAG 1.4.10)', () => {
     await waitFor(() => expect(button).toHaveFocus()) // the menu returned it
     await user.click(within(alert).getByRole('button', { name: 'Close' }))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(button).toHaveFocus()
-  })
-})
-
-describe('the wide bar', () => {
-  it('returns the focus to Sign out when the failure notice is closed', async () => {
-    allowConsole(/API error 500/)
-    signedIn('lab-tech')
-    renderApp({ path: '/' })
-    const user = userEvent.setup()
-    const button = await screen.findByRole('button', { name: 'Sign out' }, { timeout: 5000 })
-    expect(screen.queryByRole('button', { name: /^Account/ })).not.toBeInTheDocument()
-    mockApiError('post', '/api/v1/auth/logout/', 500)
-    await user.click(button)
-    const alert = await screen.findByRole('alert')
-    await user.click(within(alert).getByRole('button', { name: 'Close' }))
     expect(button).toHaveFocus()
   })
 })
