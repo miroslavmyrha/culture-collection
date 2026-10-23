@@ -39,6 +39,16 @@ EXEMPT = {
     "cultures.users.api.views.me": Exemption(
         "own user only, no lookup", "auth-me", "users/tests/test_auth.py"
     ),
+    "cultures.overview.api.views.overview": Exemption(
+        "own view across own labs, no object in the URL: rows scoped by membership",
+        "me-overview",
+        "overview/tests/test_api.py",
+    ),
+    "cultures.overview.api.views.recent_activity": Exemption(
+        "own view across own labs, no object in the URL: rows scoped by membership",
+        "me-activity",
+        "overview/tests/test_api.py",
+    ),
     "cultures.taxonomy.api.views.TaxonViewSet": Exemption(
         "global reference data read by every signed-in user: no lab, so no outsider to hide from",
         "taxon-list",

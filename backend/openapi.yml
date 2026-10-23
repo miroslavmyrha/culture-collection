@@ -5660,6 +5660,78 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/me/activity/:
+    get:
+      operationId: me_activity_retrieve
+      description: |-
+        The latest 20 audit events of the person's labs they may read, newest first, one line
+        each. A line names its subject and the actor's pseudonymous label, never a location or a
+        person's data.
+      tags:
+      - me
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activity'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/me/overview/:
+    get:
+      operationId: me_overview_retrieve
+      description: |-
+        Home: what waits for the signed-in person in each of their labs, by kind, and per lab the
+        role, the figures and the actions the role may start. Scoped by the person's memberships:
+        nobody else's labs, and in each lab only what the role may handle or see. No lab: empty.
+      tags:
+      - me
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Overview'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/taxa/:
     get:
       operationId: taxa_list
@@ -5849,6 +5921,77 @@ components:
       - public_id
       - signer_name
       - signer_role
+    ActionsEnum:
+      enum:
+      - receive_deposit
+      - record_check
+      - find_vial
+      - enter_request
+      type: string
+      description: |-
+        * `receive_deposit` - receive_deposit
+        * `record_check` - record_check
+        * `find_vial` - find_vial
+        * `enter_request` - enter_request
+    Activity:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityLine'
+      required:
+      - results
+    ActivityLine:
+      type: object
+      properties:
+        occurred_at:
+          type: string
+          format: date-time
+        lab:
+          type: string
+          format: uuid
+        lab_code:
+          type: string
+        actor:
+          type: string
+        summary:
+          type: string
+        target:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/ActivityLineTargetEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        target_id:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - actor
+      - lab
+      - lab_code
+      - occurred_at
+      - summary
+      - target
+      - target_id
+    ActivityLineTargetEnum:
+      enum:
+      - strain
+      - request
+      - deposit
+      - storage_unit
+      - mta_template
+      - lab
+      - requesters
+      type: string
+      description: |-
+        * `strain` - strain
+        * `request` - request
+        * `deposit` - deposit
+        * `storage_unit` - storage_unit
+        * `mta_template` - mta_template
+        * `lab` - lab
+        * `requesters` - requesters
     ApproveInputRequest:
       type: object
       properties:
@@ -5978,6 +6121,22 @@ components:
       - value
       - vial
       - vial_label
+    BatchCounts:
+      type: object
+      properties:
+        pending_check:
+          type: integer
+        released:
+          type: integer
+        on_hold:
+          type: integer
+        exhausted:
+          type: integer
+      required:
+      - exhausted
+      - on_hold
+      - pending_check
+      - released
     BatchDecisionInputRequest:
       type: object
       description: 'A release or a hold: why, in a sentence.'
@@ -7715,9 +7874,68 @@ components:
       - text_sha256
       - title
       - version
+    MyLab:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        strains:
+          type: integer
+        batches:
+          $ref: '#/components/schemas/BatchCounts'
+        vials_available:
+          type: integer
+        free_positions:
+          type: integer
+        open_requests:
+          type: integer
+        requests_to_decide:
+          type: integer
+          nullable: true
+        deposits_to_check:
+          type: integer
+          nullable: true
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionsEnum'
+      required:
+      - actions
+      - batches
+      - code
+      - deposits_to_check
+      - free_positions
+      - name
+      - open_requests
+      - public_id
+      - requests_to_decide
+      - role
+      - strains
+      - vials_available
     NullEnum:
       enum:
       - null
+    Overview:
+      type: object
+      properties:
+        waiting:
+          type: array
+          items:
+            $ref: '#/components/schemas/WaitingGroup'
+        labs:
+          type: array
+          items:
+            $ref: '#/components/schemas/MyLab'
+      required:
+      - labs
+      - waiting
     PackingInstruction:
       enum:
       - p650
@@ -10339,6 +10557,96 @@ components:
         * `destroyed` - Destroyed
         * `lost` - Lost
         * `entered_in_error` - Entered in error
+    WaitingGroup:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/WaitingGroupKindEnum'
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WaitingItem'
+      required:
+      - items
+      - kind
+      - total
+    WaitingGroupKindEnum:
+      enum:
+      - deposit_received
+      - deposit_checking
+      - batch_checks_missing
+      - batch_to_release
+      - batch_on_hold
+      - request_to_decide
+      - shipment_to_confirm
+      - request_to_ship
+      - recipient_permit_expiring
+      - lab_permit_expiring
+      - vials_to_destroy
+      type: string
+      description: |-
+        * `deposit_received` - deposit_received
+        * `deposit_checking` - deposit_checking
+        * `batch_checks_missing` - batch_checks_missing
+        * `batch_to_release` - batch_to_release
+        * `batch_on_hold` - batch_on_hold
+        * `request_to_decide` - request_to_decide
+        * `shipment_to_confirm` - shipment_to_confirm
+        * `request_to_ship` - request_to_ship
+        * `recipient_permit_expiring` - recipient_permit_expiring
+        * `lab_permit_expiring` - lab_permit_expiring
+        * `vials_to_destroy` - vials_to_destroy
+    WaitingItem:
+      type: object
+      properties:
+        lab:
+          type: string
+          format: uuid
+          readOnly: true
+        subject:
+          type: string
+        reason:
+          type: string
+        since:
+          type: string
+          format: date
+        due:
+          type: string
+          format: date
+          nullable: true
+        target:
+          $ref: '#/components/schemas/WaitingItemTargetEnum'
+        target_id:
+          type: string
+          format: uuid
+          nullable: true
+        needs_manager:
+          type: boolean
+      required:
+      - due
+      - lab
+      - needs_manager
+      - reason
+      - since
+      - subject
+      - target
+      - target_id
+    WaitingItemTargetEnum:
+      enum:
+      - deposit
+      - strain
+      - request
+      - requesters
+      - lab
+      type: string
+      description: |-
+        * `deposit` - deposit
+        * `strain` - strain
+        * `request` - request
+        * `requesters` - requesters
+        * `lab` - lab
   securitySchemes:
     cookieAuth:
       type: apiKey

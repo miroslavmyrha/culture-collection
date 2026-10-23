@@ -58,8 +58,9 @@ def distributable(prefix: str = "") -> Q:
     )
 
 
-def _latest_result(kind: CheckKind) -> Subquery:
-    """The result of the batch's latest valid check of the kind, or null (one index scan)."""
+def latest_result(kind: CheckKind) -> Subquery:
+    """The result of the batch's latest valid check of the kind, or null (one index scan). The
+    batch list shows it, and Home (#69) tells a batch to check from one to release by it."""
     return Subquery(
         BatchCheck.objects.filter(batch=OuterRef("pk"), kind=kind, status=CheckStatus.VALID)
         .order_by("-checked_on", "-pk")
@@ -79,7 +80,7 @@ def batch_list(*, access: Access, lab: Lab) -> QuerySet[Batch]:
         .annotate(vials_available=Count("vials", filter=Q(vials__status=VialStatus.AVAILABLE)))
         .annotate(
             vials_distributable=Case(When(distributable(), then=F("vials_available")), default=0),
-            **{f"latest_{kind}": _latest_result(kind) for kind in CheckKind},
+            **{f"latest_{kind}": latest_result(kind) for kind in CheckKind},
         )
         .order_by("strain_id", "number", "pk")
     )
