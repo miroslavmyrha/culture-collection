@@ -117,7 +117,8 @@ test('C6 see what happened to a strain: its risk group and restriction changes',
   const w = await Walk.as(browser, info, 'bac-curator', curator('C6', 'See what happened to a strain (risk group, restrictions)'))
   await w.start()
   await openLab(w, LAB)
-  await openStrain(w, 'Mockia', /Mockia vulgaris/)
+  // seed_dev: BAC 27 is the Mockia vulgaris strain with the reassessment in its history. BAC 30 is a later deposit of the same taxon.
+  await openStrain(w, 'BAC 27', /^BAC 27 /)
   w.look(3) // facts, restrictions, identification history
   await expect(w.page.getByRole('heading', { level: 2, name: 'Identification history' })).toBeVisible()
   await expect(w.page.getByText(/Reassessed after the list entry was checked/)).toHaveCount(0)

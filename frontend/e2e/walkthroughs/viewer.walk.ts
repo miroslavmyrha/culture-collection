@@ -50,8 +50,8 @@ test('V4 can the collection supply this strain now', async ({ browser }, info) =
   await openStrain(w, 'BAC 29', /^BAC 29 /)
   const answer = w.page.getByText(/^Available for distribution:/)
   await w.read(answer)
-  // seed_dev: batch 2 is released distribution stock of 12 vials, one used up by its checks.
-  await expect(answer).toHaveText('Available for distribution: 11 vials, from released batch 2.')
+  // seed_dev: batch 2 is released distribution stock of 12 vials. One is used up by its checks, and the seeded requests reserved or shipped three more.
+  await expect(answer).toHaveText('Available for distribution: 8 vials, from released batch 2.')
   w.note('The answer is one line above the batch table, but only on the strain page: four page loads from Home, and nothing says the terms allow the use asked for')
   await w.done()
 })
