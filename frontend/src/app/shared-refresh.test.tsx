@@ -149,7 +149,7 @@ const STRAIN_WRITES: [string, (user: UserEvent) => Promise<void>][] = [
     async (user) => {
       mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/confirm/', free)
       await startAction(user, 'Confirm the end of restriction MŽP 2026/12')
-      const dialog = await screen.findByRole('alertdialog', { name: 'End the restriction MŽP 2026/12' })
+      const dialog = await screen.findByRole('alertdialog', { name: 'End the restriction MŽP 2026/12?' })
       await user.click(within(dialog).getByRole('button', { name: 'End restriction' }))
       await waitFor(() => expect(dialog).not.toBeInTheDocument(), { timeout: 5000 })
     },

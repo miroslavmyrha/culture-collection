@@ -103,7 +103,7 @@ test("ending a restriction shows the vial's place on the strain page without a r
   const tabs = page.getByRole('navigation', { name: 'Strain sections' })
   await tabs.getByRole('link', { name: 'Overview' }).click()
   await page.getByRole('button', { name: `Confirm the end of restriction ${made.reference}` }).click()
-  const dialog = page.getByRole('alertdialog', { name: `End the restriction ${made.reference}` })
+  const dialog = page.getByRole('alertdialog', { name: `End the restriction ${made.reference}?` })
   await expect(dialog.getByText('Reason given: the construct was destroyed')).toBeVisible()
   await dialog.getByRole('button', { name: 'End restriction' }).click()
   await expect(dialog).toBeHidden()

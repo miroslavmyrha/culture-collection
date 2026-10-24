@@ -255,7 +255,7 @@ export function ConfirmEndDialog({ labId, strain, restriction, proposal, open, o
   return (
     <ConfirmDialog
       open={open}
-      title={`End the restriction ${restriction.reference}`}
+      title={`End the restriction ${restriction.reference}?`}
       description={`${RESTRICTION_LABELS[restriction.kind]}: the strain leaves the rules of a regulated agent. Its vials' places show again and its requests need no manager's approval or second person.`}
       confirmLabel="End restriction"
       destructive
