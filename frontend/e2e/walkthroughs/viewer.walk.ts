@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, api, batchOf, expandUnit, labId, openLab, findStrain, openStrains, openUnit, passAll, release, requestFor, setupAs, supplyStrain } from './walk.js'
+import { RUN, Walk, api, batchOf, expandUnit, labId, openLab, findStrain, openStrains, openTab, openUnit, passAll, release, requestFor, setupAs, supplyStrain } from './walk.js'
 
 // A viewer of Bacteriology (seed_dev): someone who reads the catalogue and the stock, a student,
 // a colleague from another group or a quality officer, and changes nothing.
@@ -37,6 +37,7 @@ test('V3 find where vial X is', async ({ browser }, info) => {
   await w.start()
   await openStrains(w, LAB)
   await findStrain(w, 'BAC 29', /^BAC 29 /)
+  await openTab(w, 'Material')
   const row = w.page.getByRole('table', { name: 'Vials' }).getByRole('row', { name: /^BAC 29 \/ 1 \/ 3 / })
   await w.read(row)
   await expect(row).toContainText('LN2 tank 1 / Canister A / Seed stock 1, A3')
@@ -48,11 +49,12 @@ test('V4 can the collection supply this strain now', async ({ browser }, info) =
   await w.start()
   await openStrains(w, LAB)
   await findStrain(w, 'BAC 29', /^BAC 29 /)
+  await openTab(w, 'Material')
   const answer = w.page.getByText(/^Available for distribution:/)
   await w.read(answer)
   // seed_dev: batch 2 is released distribution stock of 12 vials. One is used up by its checks, and the seeded requests reserved or shipped three more.
   await expect(answer).toHaveText('Available for distribution: 8 vials, from released batch 2.')
-  w.note('The answer is one line above the batch table, but only on the strain page: two page loads from Home, and nothing says the terms allow the use asked for')
+  w.note('The answer is one line above the batch table on the Material tab, and the terms that say whether the use is allowed are on another tab, Overview')
   await w.done()
 })
 
@@ -61,11 +63,11 @@ test('V5 see a strain\'s history', async ({ browser }, info) => {
   await w.start()
   await openStrains(w, LAB)
   await findStrain(w, 'Fictivibrio', /Fictivibrio exempli/)
-  const identifications = w.page.getByRole('table', { name: 'Identification history' })
-  await w.read(identifications)
-  await expect(identifications.getByRole('row')).toHaveCount(3)
-  await w.shot('strain-page')
-  w.impossible('Only the identifications: passages, batches, moves and state changes of the vials have no time line', '#19')
+  await openTab(w, 'History')
+  const history = w.page.getByRole('list', { name: 'History, newest first' })
+  await expect(history).toContainText(/identified BAC \d+ anew/)
+  await w.read(history)
+  await w.shot('strain-history')
   await w.done()
 })
 
@@ -89,12 +91,10 @@ test('V7 may this strain be used for teaching', async ({ browser }, info) => {
   await w.start()
   await openStrains(w, LAB)
   await findStrain(w, 'BAC 29', /^BAC 29 /)
-  w.look()
-  await expect(w.page.getByRole('heading', { name: /Terms/ })).toHaveCount(0)
-  await w.click(w.page.getByRole('link', { name: `Strains of ${LAB}` }))
-  await expect(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Deposits' })).toHaveCount(0)
-  w.look()
-  w.impossible('The terms of use live only on the deposit, which a viewer may not open: the strain page does not show the uses it allows')
+  // seed_dev: the terms of BAC 29 permit teaching. They show on the Overview, to a viewer too (#78).
+  const uses = w.page.getByRole('table', { name: 'Uses of the terms in force' })
+  await w.read(uses)
+  await expect(uses.getByRole('row', { name: /^Teaching / })).toContainText('Permitted')
   await w.done()
 })
 
