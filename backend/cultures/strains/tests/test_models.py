@@ -7,10 +7,12 @@ from typing import Any
 import pytest
 from django.db import IntegrityError, InternalError, connection, transaction
 from django.db.models.functions import Now
+from django.utils import timezone
 
 from cultures.biosafety.models import RestrictionKind
 from cultures.labs.models import Lab
 from cultures.strains.models import (
+    RestrictionEndProposal,
     Strain,
     StrainCounter,
     StrainIdentification,
@@ -18,6 +20,7 @@ from cultures.strains.models import (
     StrainStatus,
 )
 from cultures.taxonomy.models import Taxon
+from cultures.users.models import User
 
 from .conftest import MakeStrain
 
@@ -31,6 +34,19 @@ def refused(constraint: str) -> Any:
 def guarded(message: str) -> Any:
     """A guard trigger raises restrict_violation, which psycopg reports as an IntegrityError."""
     return pytest.raises((IntegrityError, InternalError), match=message)
+
+
+def raw_end(row: StrainRestriction, proposer: User, confirmer: User, reason: str) -> None:
+    """Ends a restriction in raw writes the way the guard allows (#105): a proposal, its
+    confirmation by another person, and the end at that time with that reason."""
+    now = timezone.now()
+    proposal = RestrictionEndProposal.objects.create(
+        lab_id=row.lab_id, restriction=row, reason=reason, proposed_by=proposer, proposed_at=now
+    )
+    RestrictionEndProposal.objects.filter(pk=proposal.pk).update(
+        confirmed_by=confirmer, confirmed_at=now
+    )
+    StrainRestriction.objects.filter(pk=row.pk).update(ended_at=now, end_reason=reason)
 
 
 def raw_strain(lab: Lab, taxon: Taxon, **fields: Any) -> Strain:
@@ -231,12 +247,14 @@ def test_restrictions_of_the_right_shape_are_stored(
     restriction(make_strain(), **fields)
 
 
-def test_one_active_restriction_of_a_kind_and_entry_per_strain(make_strain: MakeStrain) -> None:
+def test_one_active_restriction_of_a_kind_and_entry_per_strain(
+    make_strain: MakeStrain, curator: User, manager: User
+) -> None:
     strain = make_strain()
     first = restriction(strain)
     with refused("strains_restriction_active_uniq"), transaction.atomic():
         restriction(strain)
-    StrainRestriction.objects.filter(pk=first.pk).update(ended_at=Now(), end_reason="annex changed")
+    raw_end(first, curator, manager, "annex changed")
     restriction(strain)  # once ended, the same entry may come back
 
 
@@ -315,13 +333,20 @@ def test_an_identification_only_stops_being_current(make_strain: MakeStrain, moc
         StrainIdentification.objects.filter(pk=current.pk).delete()
 
 
-def test_a_restriction_only_ends_once(make_strain: MakeStrain) -> None:
+def test_a_restriction_only_ends_once(
+    make_strain: MakeStrain, curator: User, manager: User
+) -> None:
     row = restriction(make_strain())
     with guarded("a restriction only ends, once"), transaction.atomic():
         StrainRestriction.objects.filter(pk=row.pk).update(reference="Příloha 2, bod 9")
-    StrainRestriction.objects.filter(pk=row.pk).update(ended_at=Now(), end_reason="annex changed")
+    raw_end(row, curator, manager, "annex changed")
     for change in ({"end_reason": "other"}, {"ended_at": None, "end_reason": ""}):
         with guarded("a restriction only ends, once"), transaction.atomic():
             StrainRestriction.objects.filter(pk=row.pk).update(**change)
-    with guarded("restrictions are history and never deleted"), transaction.atomic():
-        StrainRestriction.objects.filter(pk=row.pk).delete()
+    # Raw SQL: its proposal is a PROTECT reference, and Django would refuse before the guard.
+    with (
+        guarded("restrictions are history and never deleted"),
+        transaction.atomic(),
+        connection.cursor() as cursor,
+    ):
+        cursor.execute("DELETE FROM strains_strainrestriction WHERE id = %s", [row.pk])

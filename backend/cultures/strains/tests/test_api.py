@@ -14,7 +14,7 @@ from cultures.strains.services import RestrictionInput
 from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
 
-from .conftest import DUAL_USE, GMO, STRAINS_URL, MakeStrain
+from .conftest import DUAL_USE, GMO, STRAINS_URL, MakeStrain, end_restriction
 
 pytestmark = pytest.mark.django_db
 # Raised by the services with their own code on top; a serializer's field error is "invalid".
@@ -111,6 +111,7 @@ def test_the_detail_of_a_strain(
                 "created_at": body["restriction_history"][0]["created_at"],
                 "ended_at": None,
                 "end_reason": "",
+                "end_proposal": None,
             },
             {
                 "public_id": body["restriction_history"][1]["public_id"],
@@ -121,6 +122,7 @@ def test_the_detail_of_a_strain(
                 "created_at": body["restriction_history"][1]["created_at"],
                 "ended_at": None,
                 "end_reason": "",
+                "end_proposal": None,
             },
         ],
     }
@@ -140,7 +142,7 @@ def field_code(body: dict[str, Any], attr: str) -> str:
 
 
 def test_reclassify_risk_group_and_restrictions_through_the_actions(
-    curator: User, make_strain: MakeStrain, mockia: Taxon
+    curator: User, manager: User, make_strain: MakeStrain, mockia: Taxon
 ) -> None:
     strain = make_strain(restrictions=[GMO])
     base = f"{strain.public_id}/"
@@ -172,7 +174,17 @@ def test_reclassify_risk_group_and_restrictions_through_the_actions(
     ).json()
     assert [r["kind"] for r in body["restrictions"]] == ["dual_use", "gmo"]
     gmo = StrainRestriction.objects.get(strain=strain, kind="gmo")
-    body = post(curator, {"reason": "destroyed"}, f"{base}restrictions/{gmo.public_id}/end/").json()
+    end = f"{base}restrictions/{gmo.public_id}/end-proposal/"
+    body = post(curator, {"reason": "destroyed"}, end).json()
+    assert [r["kind"] for r in body["restrictions"]] == ["dual_use", "gmo"]  # still in force
+    proposal = next(r for r in body["restriction_history"] if r["kind"] == "gmo")["end_proposal"]
+    assert proposal == {
+        "public_id": proposal["public_id"],
+        "reason": "destroyed",
+        "proposed_at": proposal["proposed_at"],
+        "confirm_refusal": "confirm_own_end_proposal",  # the curator proposed it
+    }
+    body = post(manager, {"proposal": proposal["public_id"]}, f"{end}confirm/").json()
     assert [r["kind"] for r in body["restrictions"]] == ["dual_use"]
     ended = next(r for r in body["restriction_history"] if r["kind"] == "gmo")
     assert (ended["end_reason"], ended["ended_at"] is not None) == ("destroyed", True)
@@ -187,6 +199,7 @@ def test_reclassify_risk_group_and_restrictions_through_the_actions(
         "strain_reclassified",
         "strain_risk_group_changed",
         "strain_restriction_added",
+        "strain_restriction_end_proposed",
         "strain_restriction_ended",
     ]
 
@@ -251,12 +264,16 @@ def test_an_added_vrat_restriction_without_the_permit_is_422(
     )
 
 
-def test_ending_an_ended_restriction_is_409(curator: User, make_strain: MakeStrain) -> None:
+def test_proposing_to_end_an_ended_restriction_is_409(
+    curator: User, manager: User, make_strain: MakeStrain
+) -> None:
     strain = make_strain(restrictions=[GMO])
     gmo = StrainRestriction.objects.get(strain=strain)
-    post(curator, {"reason": "destroyed"}, f"{strain.public_id}/restrictions/{gmo.public_id}/end/")
+    end_restriction(gmo, proposer=curator, confirmer=manager, reason="destroyed")
     response = post(
-        curator, {"reason": "again"}, f"{strain.public_id}/restrictions/{gmo.public_id}/end/"
+        curator,
+        {"reason": "again"},
+        f"{strain.public_id}/restrictions/{gmo.public_id}/end-proposal/",
     )
     assert_problem(response, 409, "restriction_ended")
 
@@ -266,9 +283,11 @@ def test_a_restriction_of_another_strain_is_not_found_through_this_one(
 ) -> None:
     one, two = make_strain(), make_strain(restrictions=[GMO])
     gmo = StrainRestriction.objects.get(strain=two)
-    response = post(curator, {"reason": "x"}, f"{one.public_id}/restrictions/{gmo.public_id}/end/")
+    response = post(
+        curator, {"reason": "x"}, f"{one.public_id}/restrictions/{gmo.public_id}/end-proposal/"
+    )
     assert_problem(response, 404, "not_found")
-    assert StrainRestriction.objects.get(pk=gmo.pk).ended_at is None
+    assert not gmo.end_proposals.exists()
 
 
 # The list: filters, order, pages.
@@ -335,13 +354,9 @@ def test_the_other_filters_narrow_within_the_lab(viewer: User, make_strain: Make
 
 
 @pytest.mark.usefixtures("collection")
-def test_an_ended_restriction_no_longer_matches(viewer: User, curator: User) -> None:
+def test_an_ended_restriction_no_longer_matches(viewer: User, curator: User, manager: User) -> None:
     gmo = StrainRestriction.objects.get(kind="gmo")
-    post(
-        curator,
-        {"reason": "destroyed"},
-        f"{gmo.strain.public_id}/restrictions/{gmo.public_id}/end/",
-    )
+    end_restriction(gmo, proposer=curator, confirmer=manager, reason="destroyed")
     assert listed(viewer, restriction="gmo") == []
 
 

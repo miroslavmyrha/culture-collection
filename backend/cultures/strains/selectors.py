@@ -9,7 +9,7 @@ from cultures.labs.permissions import Perm
 from cultures.taxonomy.models import Taxon
 from cultures.taxonomy.selectors import taxon_and_below
 
-from .models import Strain, StrainIdentification, StrainRestriction
+from .models import RestrictionEndProposal, Strain, StrainIdentification, StrainRestriction
 
 
 def regulating_restrictions() -> QuerySet[StrainRestriction]:
@@ -60,6 +60,15 @@ def strain_detail(*, access: Access, lab: Lab) -> QuerySet[Strain]:
             # Active first, then the ended ones in the order they ended.
             queryset=StrainRestriction.objects.order_by(
                 F("ended_at").asc(nulls_first=True), "kind", "reference", "pk"
+            ).prefetch_related(
+                # The open proposal to end it, if any (#105): at most one (a unique index).
+                Prefetch(
+                    "end_proposals",
+                    queryset=RestrictionEndProposal.objects.filter(
+                        confirmed_at__isnull=True, withdrawn_at__isnull=True
+                    ),
+                    to_attr="open_end_proposals",
+                )
             ),
             to_attr="all_restrictions",
         ),

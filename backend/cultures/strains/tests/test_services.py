@@ -17,10 +17,12 @@ from cultures.core.exceptions import DomainError, Forbidden, RuleViolation
 from cultures.labs.access import Access, access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
+from cultures.labs.tests.conftest import member_of
 from cultures.labs.tests.test_lock_invariant import public_services
 from cultures.strains import services
 from cultures.strains.models import (
     Pathogenicity,
+    RestrictionEndProposal,
     Strain,
     StrainCounter,
     StrainIdentification,
@@ -31,12 +33,27 @@ from cultures.strains.services import RestrictionInput
 from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
 
-from .conftest import DUAL_USE, GMO, QUARANTINE, VRAT, MakeStrain, make_permit, new_strain
+from .conftest import (
+    DUAL_USE,
+    GMO,
+    QUARANTINE,
+    VRAT,
+    MakeStrain,
+    end_restriction,
+    make_permit,
+    new_strain,
+)
 
 pytestmark = pytest.mark.django_db
 REASON = "16S sequence of the deposit differs"
 
-TABLES: tuple[type[Model], ...] = (Strain, StrainCounter, StrainIdentification, StrainRestriction)
+TABLES: tuple[type[Model], ...] = (
+    Strain,
+    StrainCounter,
+    StrainIdentification,
+    StrainRestriction,
+    RestrictionEndProposal,
+)
 
 
 def snapshot() -> tuple[Any, ...]:
@@ -556,16 +573,18 @@ def test_a_risk_group_change_needs_a_reason(
 # Restrictions after accession.
 
 
-def test_a_curator_adds_and_ends_a_restriction(
-    make_strain: MakeStrain, as_curator: AuditContext, curator_access: Access
+def test_a_curator_adds_a_restriction_and_it_ends_by_two_people(
+    make_strain: MakeStrain,
+    as_curator: AuditContext,
+    curator: User,
+    manager: User,
+    curator_access: Access,
 ) -> None:
     strain = make_strain()
     added = services.strain_restriction_add(
         access=curator_access, strain=strain, restriction=DUAL_USE, reason="Annex I 2025"
     )
-    ended = services.strain_restriction_end(
-        access=curator_access, restriction=added, reason="no longer listed"
-    )
+    ended = end_restriction(added, proposer=curator, confirmer=manager, reason="no longer listed")
     assert ended.ended_at is not None
     assert ended.end_reason == "no longer listed"
     events = list(
@@ -576,6 +595,7 @@ def test_a_curator_adds_and_ends_a_restriction(
     assert events == [
         ("strain_created", ""),
         ("strain_restriction_added", "Annex I 2025"),
+        ("strain_restriction_end_proposed", "no longer listed"),
         ("strain_restriction_ended", "no longer listed"),
     ]
 
@@ -614,17 +634,19 @@ def test_a_restriction_twice_is_a_field_error(
 
 
 def test_a_restriction_ends_once(
-    make_strain: MakeStrain, as_curator: AuditContext, curator_access: Access
+    make_strain: MakeStrain,
+    as_curator: AuditContext,
+    curator: User,
+    manager: User,
+    curator_access: Access,
 ) -> None:
     strain = make_strain(restrictions=[GMO])
     restriction = StrainRestriction.objects.get(strain=strain)
-    services.strain_restriction_end(
-        access=curator_access, restriction=restriction, reason="destroyed"
-    )
+    end_restriction(restriction, proposer=curator, confirmer=manager, reason="destroyed")
     refused(
         services.RestrictionEnded,
         "restriction_ended",
-        lambda: services.strain_restriction_end(
+        lambda: services.strain_restriction_end_propose(
             access=curator_access, restriction=restriction, reason="again"
         ),
     )
@@ -649,10 +671,39 @@ SCENARIOS: dict[str, Scenario] = {
     "strain_restriction_add": lambda strain, access, taxon: services.strain_restriction_add(
         access=access, strain=strain, restriction=DUAL_USE, reason="listed"
     ),
-    "strain_restriction_end": lambda strain, access, taxon: services.strain_restriction_end(
-        access=access, restriction=StrainRestriction.objects.get(strain=strain), reason="delisted"
+    "strain_restriction_end_propose": lambda strain, access, taxon: (
+        services.strain_restriction_end_propose(
+            access=access, restriction=StrainRestriction.objects.get(strain=strain), reason="gone"
+        )
+    ),
+    "strain_restriction_end_confirm": lambda strain, access, taxon: (
+        services.strain_restriction_end_confirm(
+            access=access_for(member_of(strain.lab, Role.MANAGER, "confirmer")),
+            restriction=StrainRestriction.objects.get(strain=strain),
+            proposal=proposed(strain, access).public_id,
+        )
+    ),
+    "strain_restriction_end_withdraw": lambda strain, access, taxon: (
+        services.strain_restriction_end_withdraw(
+            access=access,
+            restriction=StrainRestriction.objects.get(strain=strain),
+            proposal=proposed(strain, access).public_id,
+            reason="still listed",
+        )
     ),
 }
+# The scenarios that propose first: the proposal's event names the strain too.
+EVENTS_OF = {
+    "strain_create": 1,
+    "strain_restriction_end_confirm": 3,
+    "strain_restriction_end_withdraw": 3,
+}
+
+
+def proposed(strain: Strain, access: Access) -> RestrictionEndProposal:
+    return services.strain_restriction_end_propose(
+        access=access, restriction=StrainRestriction.objects.get(strain=strain), reason="gone"
+    )
 
 
 def test_every_public_strain_service_has_a_strain_id_scenario() -> None:
@@ -672,7 +723,7 @@ def test_every_event_of_a_strain_service_names_its_strain(
     strain = make_strain(restrictions=[GMO])
     SCENARIOS[name](strain, curator_access, mockia)
     events = list(AuditEvent.objects.values_list("event_type", "strain_id", "lab_id"))
-    assert len(events) == (1 if name == "strain_create" else 2)
+    assert len(events) == EVENTS_OF.get(name, 2)
     assert {(strain_id, lab_id) for _, strain_id, lab_id in events} == {
         (strain.public_id, strain.lab_id)
     }

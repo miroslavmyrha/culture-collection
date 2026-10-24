@@ -44,6 +44,10 @@ class Perm(StrEnum):
     VIEW_STORAGE = "storage.view"
     MANAGE_STORAGE = "storage.manage"
     MANAGE_STRAINS = "strains.manage"  # #11
+    # #105: confirming that a restriction ends, which another person proposed. Ending one takes
+    # a strain out of the rules of a regulated agent (ADR 0009), so it is a manager's, like
+    # approving a regulated line.
+    CONFIRM_RESTRICTION_END = "strains.confirm_restriction_end"
     # #10 and #12: depositors (with their contacts), deposits and their terms. Reading them
     # shows personal contacts, so it is not a viewer's permission (ADR 0008, 2026-10-19).
     VIEW_DEPOSITS = "deposits.view"
@@ -91,7 +95,14 @@ GRANTS: dict[Role, frozenset[Perm]] = {
             Perm.RELEASE_BATCHES,
         }
     ),
-    Role.MANAGER: frozenset({Perm.MANAGE_MEMBERS, Perm.MANAGE_MTA, Perm.APPROVE_REGULATED}),
+    Role.MANAGER: frozenset(
+        {
+            Perm.MANAGE_MEMBERS,
+            Perm.MANAGE_MTA,
+            Perm.APPROVE_REGULATED,
+            Perm.CONFIRM_RESTRICTION_END,
+        }
+    ),
 }
 
 
