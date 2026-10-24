@@ -635,3 +635,35 @@ export function makeActivityLine(overrides: Partial<ActivityLine> = {}): Activit
     ...overrides,
   }
 }
+
+// The top bar's search (#76)
+export type SearchHit = Schemas['SearchHit']
+export type SearchGroup = Schemas['SearchGroup']
+
+export const SEARCH_LAB = '00000000-0000-4000-8000-0000000000ba'
+
+/** A strain hit of the lab SEARCH_LAB (BAC); a vial adds its strain and place. */
+export function makeSearchHit(overrides: Partial<SearchHit> = {}): SearchHit {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    lab: SEARCH_LAB,
+    lab_code: 'BAC',
+    identifier: `BAC ${n}`,
+    title: 'Bacillus subtilis',
+    detail: '',
+    status: 'active',
+    exact: false,
+    strain: null,
+    location: null,
+    location_masked: false,
+    ...overrides,
+  }
+}
+
+/** A group of hits; the total and the lab's total count them unless given. */
+export function makeSearchGroup(overrides: Partial<SearchGroup> = {}): SearchGroup {
+  const hits = overrides.hits ?? [makeSearchHit()]
+  const total = overrides.total ?? hits.length
+  return { kind: 'strain', total, labs: [{ lab: SEARCH_LAB, lab_code: 'BAC', total }], hits, ...overrides }
+}

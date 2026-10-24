@@ -4,7 +4,7 @@ import { Pager, PastTheEnd } from '@/components/Pager'
 import { StaleNotice } from '@/components/StaleNotice'
 import { ActionMenu, type ActionItem, Box, Button, Mono, Paper, SelectField, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { BATCH_TONES, VIAL_TONES } from '@/lib/tones'
-import { type FocusReturn, focusTarget, rememberFocus } from '@/lib/focus'
+import { type FocusReturn, focusTarget, rememberFocus, useFocusReturnOnUnmount } from '@/lib/focus'
 import { batchVialsPage, useBatches, useBoxes, usePassages, useVialPage } from '../api/queries'
 import {
   type Batch,
@@ -251,11 +251,12 @@ export function StrainMaterial({ labId, strainId, accession, canHandle, canRelea
             <SelectField
               label="Batch"
               value={vialPage.batch ?? ''}
-              onChange={(event) => onVialPage({ batch: event.target.value === '' ? undefined : event.target.value, offset: 0 })}
+              onChange={(event) => onVialPage({ batch: event.target.value === '' ? undefined : event.target.value, vial: undefined, offset: 0 })}
               options={[{ value: '', label: 'All batches' }, ...batches.data.results.map((b) => ({ value: b.public_id, label: `Batch ${b.number}` }))]}
             />
           </Box>
         )}
+        {vialPage.vial !== undefined && <OneVial onShowAll={() => onVialPage({ vial: undefined, offset: 0 })} />}
         <StaleNotice what="the vials" query={vials} />
         {vials.data === undefined ? (
           vials.isPending ? (
@@ -264,7 +265,7 @@ export function StrainMaterial({ labId, strainId, accession, canHandle, canRelea
             <LoadError what="the vials" error={vials.error} onRetry={() => void vials.refetch()} />
           )
         ) : vials.data.count === 0 ? (
-          <Typography>{vialPage.batch ? 'No vial in this batch.' : 'No vial yet.'}</Typography>
+          <Typography>{vialPage.vial ? 'This vial is not one of this strain.' : vialPage.batch ? 'No vial in this batch.' : 'No vial yet.'}</Typography>
         ) : vials.data.results.length === 0 ? (
           <PastTheEnd onFirstPage={() => onVialPage({ offset: 0 })} />
         ) : (
@@ -379,6 +380,29 @@ function supply(batches: readonly Batch[]): string {
   if (vials === 0) return 'Available for distribution: none. No released batch of distribution stock has a vial left.'
   const from = ready.length === 1 ? `batch ${ready[0]?.number ?? ''}` : `batches ${ready.map((b) => b.number).join(', ')}`
   return `Available for distribution: ${vials} ${vials === 1 ? 'vial' : 'vials'}, from released ${from}.`
+}
+
+/**
+ * The list narrowed to the vial a search opened (#76). Show every vial removes this line and its
+ * focused button: focus goes to the Vials heading.
+ */
+function OneVial({ onShowAll }: { onShowAll: () => void }) {
+  const remember = useFocusReturnOnUnmount()
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 2, rowGap: 1 }}>
+      <Typography>Only the vial you searched for.</Typography>
+      <Button
+        variant="outlined"
+        size="small"
+        onClick={(event) => {
+          remember(event.currentTarget)
+          onShowAll()
+        }}
+      >
+        Show every vial
+      </Button>
+    </Box>
+  )
 }
 
 function Where({ labId, vial }: { labId: string; vial: Vial }) {
