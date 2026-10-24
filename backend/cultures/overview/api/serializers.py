@@ -90,3 +90,23 @@ class ActivityLineSerializer(serializers.Serializer[Line]):
 
 class ActivitySerializer(serializers.Serializer[dict[str, Any]]):
     results = ActivityLineSerializer(many=True)
+
+
+class HistoryLineSerializer(serializers.Serializer[Line]):
+    """One line of a strain's history (#19): a line of Home's activity without the lab, which
+    is the strain's."""
+
+    occurred_at = serializers.DateTimeField()
+    actor = serializers.CharField()
+    summary = serializers.CharField()
+    target = serializers.ChoiceField(choices=ACTIVITY_TARGETS, allow_null=True)
+    target_id = serializers.UUIDField(allow_null=True)
+
+
+class HistoryPageSerializer(serializers.Serializer[dict[str, Any]]):
+    """A page of the history: `count` is every line the person may read, `results` this page."""
+
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    results = HistoryLineSerializer(many=True)

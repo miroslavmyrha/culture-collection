@@ -115,6 +115,45 @@ def test_a_subculture_through_the_api(technician: User, passage0: Passage, strai
     )
 
 
+def test_a_passage_names_its_place_in_the_tree(
+    technician: User, passage0: Passage, make_batch: MakeBatch, strain: Strain
+) -> None:
+    """Passage 0 is the root; a subculture hangs under its source, a revival under the passage
+    its vial's batch was preserved from, with the vial's label (#19)."""
+    client = logged_in(technician)
+    first = client.post(
+        PASSAGES_URL, {"source_passage": str(passage0.public_id)}, content_type="application/json"
+    ).json()
+    vial = vials_of(make_batch(Passage.objects.get(public_id=first["public_id"]), vial_count=2))[1]
+    revived = client.post(f"{VIALS_URL}{vial.public_id}/revive/").json()
+    rows = client.get(PASSAGES_URL, {"strain": str(strain.public_id)}).json()["results"]
+    tree = {row["number"]: (row["parent"], row["source_vial_label"]) for row in rows}
+    assert tree == {
+        0: (None, None),
+        1: (str(passage0.public_id), None),
+        2: (first["public_id"], f"{strain.accession_number} / {vial.batch.number} / 2"),
+    }
+    assert revived["parent"] == first["public_id"]
+
+
+@pytest.mark.parametrize("revivals", [1, 10])
+def test_the_passage_list_is_flat_with_revivals(
+    *,
+    revivals: int,
+    viewer: User,
+    technician: User,
+    passage0: Passage,
+    make_batch: MakeBatch,
+    query_baseline: QueryBaseline,
+) -> None:
+    for vial in vials_of(make_batch(passage0, vial_count=revivals)):
+        logged_in(technician).post(f"{VIALS_URL}{vial.public_id}/revive/")
+    client = logged_in(viewer)
+    with query_baseline("passage_list"):
+        rows = client.get(PASSAGES_URL).json()["results"]
+    assert len([row for row in rows if row["source_vial_label"]]) == revivals
+
+
 def test_placing_and_the_conflicts_it_answers(
     technician: User, passage0: Passage, make_batch: MakeBatch, tree: Tree
 ) -> None:

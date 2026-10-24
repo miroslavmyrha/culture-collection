@@ -4818,6 +4818,71 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/history/:
+    get:
+      operationId: labs_strains_history_retrieve
+      description: |-
+        Everything that happened to the strain that the person may read, newest first, one
+        line each, a page at a time: the rules of the activity on Home (overview.activity). A
+        line names its subject and the actor's pseudonymous label, never a location or a
+        person's data.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: At most 200
+      - in: query
+        name: offset
+        schema:
+          type: integer
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryPage'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/strains/{public_id}/reclassify/:
     post:
       operationId: labs_strains_reclassify_create
@@ -5104,6 +5169,60 @@ paths:
                 $ref: '#/components/schemas/Problem'
           description: 'lab_authorisation_required: the lab holds no valid permit
             for a restriction''s kind; reason_required'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/terms/:
+    get:
+      operationId: labs_strains_terms_retrieve
+      description: |-
+        The strain's terms of use, every version newest first, with the MTA each names. The
+        deposit they belong to only for a reader who may open deposits.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainTermsOutput'
+          description: ''
         '401':
           content:
             application/problem+json:
@@ -5960,7 +6079,7 @@ components:
         target:
           nullable: true
           oneOf:
-          - $ref: '#/components/schemas/ActivityLineTargetEnum'
+          - $ref: '#/components/schemas/ActivityTarget'
           - $ref: '#/components/schemas/NullEnum'
         target_id:
           type: string
@@ -5974,7 +6093,7 @@ components:
       - summary
       - target
       - target_id
-    ActivityLineTargetEnum:
+    ActivityTarget:
       enum:
       - strain
       - request
@@ -7401,6 +7520,58 @@ components:
       - line
       - sentence
       - severity
+    HistoryLine:
+      type: object
+      description: |-
+        One line of a strain's history (#19): a line of Home's activity without the lab, which
+        is the strain's.
+      properties:
+        occurred_at:
+          type: string
+          format: date-time
+        actor:
+          type: string
+        summary:
+          type: string
+        target:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/ActivityTarget'
+          - $ref: '#/components/schemas/NullEnum'
+        target_id:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - actor
+      - occurred_at
+      - summary
+      - target
+      - target_id
+    HistoryPage:
+      type: object
+      description: 'A page of the history: `count` is every line the person may read,
+        `results` this page.'
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          format: uri
+          nullable: true
+        previous:
+          type: string
+          format: uri
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryLine'
+      required:
+      - count
+      - next
+      - previous
+      - results
     IdentificationOutput:
       type: object
       properties:
@@ -8340,6 +8511,15 @@ components:
           format: uuid
           readOnly: true
           nullable: true
+        parent:
+          type: string
+          format: uuid
+          nullable: true
+          readOnly: true
+        source_vial_label:
+          type: string
+          nullable: true
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -8347,10 +8527,12 @@ components:
       required:
       - created_at
       - number
+      - parent
       - public_id
       - source_kind
       - source_passage
       - source_vial
+      - source_vial_label
       - strain
     PatchedMemberRoleInputRequest:
       type: object
@@ -9834,6 +10016,22 @@ components:
         * `active` - Active
         * `restricted` - Restricted
         * `deaccessioned` - Deaccessioned
+    StrainTermsOutput:
+      type: object
+      description: 'A strain''s terms of use (#19): every version, newest first, at
+        most one active.'
+      properties:
+        deposit:
+          type: string
+          format: uuid
+          nullable: true
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TermsOutput'
+      required:
+      - deposit
+      - versions
     SubcultureInputRequest:
       type: object
       properties:

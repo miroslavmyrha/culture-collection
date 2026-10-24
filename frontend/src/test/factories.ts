@@ -244,6 +244,8 @@ export function makePassage(overrides: Partial<PassageRow> = {}): PassageRow {
     source_kind: 'deposit',
     source_passage: null,
     source_vial: null,
+    parent: null,
+    source_vial_label: null,
     created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString(),
     ...overrides,
   }

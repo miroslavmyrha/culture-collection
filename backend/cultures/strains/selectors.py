@@ -19,6 +19,12 @@ def regulating_restrictions() -> QuerySet[StrainRestriction]:
     return StrainRestriction.objects.filter(ended_at__isnull=True)
 
 
+def strain_rows(*, access: Access, lab: Lab) -> QuerySet[Strain]:
+    """The strains of one lab the user may view, as bare rows: for a read about one of them
+    (its history, its terms) that needs the strain only to scope the rest."""
+    return Strain.objects.for_access(access, Perm.VIEW_STRAINS).filter(lab=lab).order_by("pk")
+
+
 def strain_list(*, access: Access, lab: Lab) -> QuerySet[Strain]:
     """The strains of one lab the user may view, by accession number (numbered first)."""
     return (

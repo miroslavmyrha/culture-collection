@@ -2,7 +2,8 @@
 
 Depositors and deposits show personal contacts, so they need deposits.view
 (curators and managers, ADR 0008, 2026-10-19). MTA templates are read with the
-same permission.
+same permission. A strain's terms of use name no person: every role that sees the
+strain reads them (deposits.view_terms, #19), without the deposit.
 """
 
 from django.db.models import Prefetch, Q, QuerySet
@@ -10,6 +11,7 @@ from django.db.models import Prefetch, Q, QuerySet
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
+from cultures.strains.models import Strain
 
 from .models import Deposit, Depositor, DepositTerms, MtaTemplate, TermsUse
 
@@ -73,4 +75,16 @@ def deposit_matching(deposits: QuerySet[Deposit], text: str) -> QuerySet[Deposit
         | Q(depositor__contact__name__icontains=text)
         | Q(depositor__institution__icontains=text)
         | Q(strain__accession_number__icontains=text)
+    )
+
+
+def strain_terms(*, access: Access, strain: Strain) -> QuerySet[DepositTerms]:
+    """Every terms version of the deposit the strain was accepted from, newest first, with its
+    uses and its MTA. At most one is active. A strain from no deposit has none."""
+    return (
+        DepositTerms.objects.for_access(access, Perm.VIEW_TERMS)
+        .filter(lab_id=strain.lab_id, deposit__strain=strain)
+        .select_related("mta", "deposit")
+        .prefetch_related(Prefetch("uses", queryset=TermsUse.objects.order_by("pk")))
+        .order_by("-version", "pk")
     )
