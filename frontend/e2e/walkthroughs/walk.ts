@@ -349,18 +349,24 @@ export async function passAll(page: Page, lab: string, batchId: string, vial: st
   }
 }
 
-/** From Home to a lab's page, the way every task starts: the lab picker's All labs, then the lab. */
+/** From Home to a lab's page by the lab's card under My labs (#69); before, the lab picker's All labs, then the lab. */
 export async function openLab(w: Walk, lab: string) {
-  await w.click(w.page.getByRole('button', { name: /^(Lab|Select a lab)/ }))
-  await w.click(w.page.getByRole('menuitem', { name: 'All labs' }))
+  const card = w.page.getByRole('region', { name: 'My labs' }).getByRole('article', { name: lab })
   w.look()
-  await w.click(w.page.getByRole('table', { name: 'Your labs' }).getByRole('link', { name: lab }))
+  await w.click(card.getByRole('link', { name: lab, exact: true }))
   await expect(w.page.getByRole('heading', { level: 1, name: lab })).toBeVisible()
 }
 
-/** From the lab's page to a strain, by the strain list's search and the row it finds. */
-export async function openStrain(w: Walk, search: string, row: RegExp) {
-  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Strains' }))
+/** From Home straight to a lab's strain list by the strain count on its card (#69). */
+export async function openStrains(w: Walk, lab: string) {
+  const card = w.page.getByRole('region', { name: 'My labs' }).getByRole('article', { name: lab })
+  w.look()
+  await w.click(card.getByRole('link', { name: /^Strains: \d+$/ }))
+  await expect(w.page.getByRole('searchbox', { name: 'Number or name' })).toBeVisible()
+}
+
+/** On the strain list: the strain by the list's search and the row it finds. */
+export async function findStrain(w: Walk, search: string, row: RegExp) {
   await w.type(w.page.getByRole('searchbox', { name: 'Number or name' }), search)
   await w.press('Enter')
   const found = w.page.getByRole('table', { name: 'Strains' }).getByRole('row', { name: row })
@@ -368,6 +374,19 @@ export async function openStrain(w: Walk, search: string, row: RegExp) {
   w.look()
   await w.click(found.getByRole('link').first())
   await expect(w.page.getByRole('heading', { level: 2, name: 'Vials' })).toBeVisible()
+}
+
+/** From the lab's page to a strain, by the strain list's search and the row it finds. */
+export async function openStrain(w: Walk, search: string, row: RegExp) {
+  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Strains' }))
+  await findStrain(w, search, row)
+}
+
+/** On Home: the waiting item of a kind (#69), by its subject, opened. */
+export async function openWaiting(w: Walk, group: string, subject: string) {
+  const item = w.page.getByRole('region', { name: new RegExp(`^${group} \\(\\d+\\)$`) }).getByRole('link', { name: subject, exact: true })
+  await w.read(item)
+  await w.click(item)
 }
 
 /** A unit in the storage tree by the names along its path, from the top. */

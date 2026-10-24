@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, acceptedStrain, api, batch, batchOf, expandUnit, freezerWithBoxes, labId, openLab, openStrain, openUnit, passAll, release, requestFor, setupAs, supplyStrain } from './walk.js'
+import { RUN, Walk, acceptedStrain, api, batch, batchOf, expandUnit, freezerWithBoxes, labId, openLab, findStrain, openStrains, openWaiting, openUnit, passAll, release, requestFor, setupAs, supplyStrain } from './walk.js'
 
 // A technician of Bacteriology (seed_dev): the bench work with batches, vials and boxes. The rows
 // each task needs are made first by the lab's curator, through the API, named for the run.
@@ -22,8 +22,8 @@ test('T1 preserve a fresh batch and put it in a box', async ({ browser }, info) 
 
   const w = await Walk.as(browser, info, 'bac-technician', technician('T1', 'Preserve a fresh batch and put it in a box'))
   await w.start()
-  await openLab(w, LAB)
-  await openStrain(w, s.name, new RegExp(s.name))
+  await openStrains(w, LAB)
+  await findStrain(w, s.name, new RegExp(s.name))
   await w.click(w.page.getByRole('button', { name: 'Preserve a batch' }))
   const dialog = w.page.getByRole('dialog', { name: /^Preserve a batch of BAC/ })
   await w.choose(dialog.getByRole('combobox', { name: 'Method' }), 'Frozen at -80')
@@ -42,8 +42,8 @@ test('T1 preserve a fresh batch and put it in a box', async ({ browser }, info) 
 test('T2 find where vial X is', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-technician', technician('T2', 'Find where vial BAC 29 / 2 / 7 is'))
   await w.start()
-  await openLab(w, LAB)
-  await openStrain(w, 'BAC 29', /^BAC 29 /)
+  await openStrains(w, LAB)
+  await findStrain(w, 'BAC 29', /^BAC 29 /)
   const row = w.page.getByRole('table', { name: 'Vials' }).getByRole('row', { name: /^BAC 29 \/ 2 \/ 7 / })
   const { total, at } = await w.screensOf(row)
   await w.read(row)
@@ -61,8 +61,8 @@ test('T3 place freeze-dried ampoules into a box', async ({ browser }, info) => {
 
   const w = await Walk.as(browser, info, 'bac-technician', technician('T3', 'Place three freeze-dried ampoules into a box'))
   await w.start()
-  await openLab(w, LAB)
-  await openStrain(w, s.name, new RegExp(s.name))
+  await openStrains(w, LAB)
+  await findStrain(w, s.name, new RegExp(s.name))
   for (const [i, label] of labels.entries()) {
     await w.click(w.page.getByRole('button', { name: `Place vial ${label}` }))
     const dialog = w.page.getByRole('dialog', { name: `Place vial ${label}` })
@@ -132,8 +132,8 @@ test('T6 revive a vial to start a subculture', async ({ browser }, info) => {
 
   const w = await Walk.as(browser, info, 'bac-technician', technician('T6', 'Revive a vial to start a subculture'))
   await w.start()
-  await openLab(w, LAB)
-  await openStrain(w, s.name, new RegExp(s.name))
+  await openStrains(w, LAB)
+  await findStrain(w, s.name, new RegExp(s.name))
   await w.click(w.page.getByRole('button', { name: `Revive vial ${labels[0] ?? ''}` }))
   const dialog = w.page.getByRole('alertdialog', { name: `Revive vial ${labels[0] ?? ''}?` })
   await w.click(dialog.getByRole('button', { name: 'Revive vial' }))
@@ -150,8 +150,8 @@ test('T7 record a cracked tube to be destroyed', async ({ browser }, info) => {
   const label = labels[1] ?? ''
   const w = await Walk.as(browser, info, 'bac-technician', technician('T7', 'Record a cracked tube to be destroyed'))
   await w.start()
-  await openLab(w, LAB)
-  await openStrain(w, s.name, new RegExp(s.name))
+  await openStrains(w, LAB)
+  await findStrain(w, s.name, new RegExp(s.name))
   await w.click(w.page.getByRole('button', { name: `Change the state of vial ${label}` }))
   const dialog = w.page.getByRole('dialog', { name: `Change the state of vial ${label}` })
   await w.choose(dialog.getByRole('combobox', { name: 'New state' }), /destroy/i)
@@ -172,8 +172,8 @@ test('T8 record a viability check of a batch', async ({ browser }, info) => {
 
   const w = await Walk.as(browser, info, 'bac-technician', technician('T8', 'Record a viability check of a batch'))
   await w.start()
-  await openLab(w, LAB)
-  await openStrain(w, name, new RegExp(name))
+  // The batch waits on Home for its checks (#69).
+  await openWaiting(w, 'Batches waiting for their checks', `${strain.number} batch 1`)
   const batches = w.page.getByRole('table', { name: 'Batches' })
   await w.click(batches.getByRole('button', { name: 'Checks of batch 1' }))
   await w.click(w.page.getByRole('button', { name: 'Record a check' }))
@@ -224,10 +224,12 @@ test('T9 pull vials for an outgoing shipment', async ({ browser }, info) => {
 test('T10 see what waits for me today', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-technician', technician('T10', 'See what waits for me today'))
   await w.start()
-  w.look()
-  await openLab(w, LAB)
-  await expect(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link')).toHaveCount(3)
-  w.look()
-  w.impossible('No overview of vials to destroy, unplaced vials or batches to check: each is only on its own strain page', '#69')
+  // seed_dev: batch 3 of BAC 29 waits for its identity and purity checks. Deposits and requests
+  // are the curators' and do not show.
+  const waiting = w.page.getByRole('region', { name: /^Waiting for you \(\d+\)$/ })
+  await w.read(waiting.getByRole('region', { name: /^Batches waiting for their checks \(\d+\)$/ }))
+  await expect(waiting.getByRole('region', { name: /^Deposits/ })).toHaveCount(0)
+  await w.shot('home-waiting')
+  w.note('Vials to destroy and unplaced vials are not listed for a technician: destroying is a curator\'s decision, and unplaced vials are not counted yet', '#69')
   await w.done()
 })

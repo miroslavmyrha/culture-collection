@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, api, batchOf, expandUnit, labId, openLab, openStrain, openUnit, passAll, release, requestFor, setupAs, supplyStrain } from './walk.js'
+import { RUN, Walk, api, batchOf, expandUnit, labId, openLab, findStrain, openStrains, openUnit, passAll, release, requestFor, setupAs, supplyStrain } from './walk.js'
 
 // A viewer of Bacteriology (seed_dev): someone who reads the catalogue and the stock, a student,
 // a colleague from another group or a quality officer, and changes nothing.
@@ -9,10 +9,10 @@ const viewer = (id: string, task: string) => ({ id, role: 'viewer' as const, tas
 test('V1 find a strain by its number', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-viewer', viewer('V1', 'Find strain BAC 25 by its number'))
   await w.start()
-  await openLab(w, LAB)
-  await openStrain(w, 'BAC 25', /^BAC 25 /)
+  await openStrains(w, LAB)
+  await findStrain(w, 'BAC 25', /^BAC 25 /)
   await expect(w.page.getByRole('heading', { level: 1, name: 'BAC 25' })).toBeVisible()
-  w.note('Four screens to a strain whose number is known: no search from Home or the top bar')
+  w.note('Two screens to a strain whose number is known, through the strain list of the lab: no search from Home or the top bar')
   await w.done()
 })
 
@@ -35,8 +35,8 @@ test('V2 find all strains of a genus in risk group 2', async ({ browser }, info)
 test('V3 find where vial X is', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-viewer', viewer('V3', 'Find where vial BAC 29 / 1 / 3 is'))
   await w.start()
-  await openLab(w, LAB)
-  await openStrain(w, 'BAC 29', /^BAC 29 /)
+  await openStrains(w, LAB)
+  await findStrain(w, 'BAC 29', /^BAC 29 /)
   const row = w.page.getByRole('table', { name: 'Vials' }).getByRole('row', { name: /^BAC 29 \/ 1 \/ 3 / })
   await w.read(row)
   await expect(row).toContainText('LN2 tank 1 / Canister A / Seed stock 1, A3')
@@ -46,21 +46,21 @@ test('V3 find where vial X is', async ({ browser }, info) => {
 test('V4 can the collection supply this strain now', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-viewer', viewer('V4', 'Can the collection supply BAC 29 now'))
   await w.start()
-  await openLab(w, LAB)
-  await openStrain(w, 'BAC 29', /^BAC 29 /)
+  await openStrains(w, LAB)
+  await findStrain(w, 'BAC 29', /^BAC 29 /)
   const answer = w.page.getByText(/^Available for distribution:/)
   await w.read(answer)
   // seed_dev: batch 2 is released distribution stock of 12 vials. One is used up by its checks, and the seeded requests reserved or shipped three more.
   await expect(answer).toHaveText('Available for distribution: 8 vials, from released batch 2.')
-  w.note('The answer is one line above the batch table, but only on the strain page: four page loads from Home, and nothing says the terms allow the use asked for')
+  w.note('The answer is one line above the batch table, but only on the strain page: two page loads from Home, and nothing says the terms allow the use asked for')
   await w.done()
 })
 
 test('V5 see a strain\'s history', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-viewer', viewer('V5', 'See the history of a reclassified strain'))
   await w.start()
-  await openLab(w, LAB)
-  await openStrain(w, 'Fictivibrio', /Fictivibrio exempli/)
+  await openStrains(w, LAB)
+  await findStrain(w, 'Fictivibrio', /Fictivibrio exempli/)
   const identifications = w.page.getByRole('table', { name: 'Identification history' })
   await w.read(identifications)
   await expect(identifications.getByRole('row')).toHaveCount(3)
@@ -87,8 +87,8 @@ test('V6 see what a box holds', async ({ browser }, info) => {
 test('V7 may this strain be used for teaching', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-viewer', viewer('V7', 'May strain BAC 29 be used for teaching'))
   await w.start()
-  await openLab(w, LAB)
-  await openStrain(w, 'BAC 29', /^BAC 29 /)
+  await openStrains(w, LAB)
+  await findStrain(w, 'BAC 29', /^BAC 29 /)
   w.look()
   await expect(w.page.getByRole('heading', { name: /Terms/ })).toHaveCount(0)
   await w.click(w.page.getByRole('link', { name: `Strains of ${LAB}` }))
@@ -114,8 +114,8 @@ test('V8 find soil isolates from Czechia', async ({ browser }, info) => {
 test('V9 look up how to grow a strain', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-viewer', viewer('V9', 'Look up the medium and temperature to grow BAC 18'))
   await w.start()
-  await openLab(w, LAB)
-  await openStrain(w, 'BAC 18', /^BAC 18 /)
+  await openStrains(w, LAB)
+  await findStrain(w, 'BAC 18', /^BAC 18 /)
   w.look(2)
   await expect(w.page.getByText(/medium|°C/i)).toHaveCount(0)
   w.impossible('No growth conditions anywhere: the strain and its passages have no medium, temperature or atmosphere')

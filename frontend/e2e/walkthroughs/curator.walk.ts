@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, acceptedStrain, api, batch, batchOf, freezerWithBoxes, labId, openLab, openStrain, openUnit, passAll, receivedDeposit, release, setupAs, supplyStrain } from './walk.js'
+import { RUN, Walk, acceptedStrain, api, batch, batchOf, freezerWithBoxes, labId, openLab, findStrain, openStrains, openWaiting, openUnit, passAll, receivedDeposit, release, setupAs, supplyStrain } from './walk.js'
 
 // A curator of Bacteriology (seed_dev): intake, identification, storage and the strain's record.
 const LAB = 'Bacteriology'
@@ -9,9 +9,8 @@ test('C1 receive a deposit and record its terms', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-curator', curator('C1', 'Receive a deposit and record its terms'))
   const name = `Bacillus subtilis walk ${RUN}`
   await w.start()
-  await openLab(w, LAB)
-  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Deposits' }))
-  await w.click(w.page.getByRole('link', { name: 'Receive a deposit' }))
+  // Home's quick action (#69), where the lab picker, the lab and its Deposits tab led before.
+  await w.click(w.page.getByRole('region', { name: 'Quick actions' }).getByRole('link', { name: 'Receive a deposit' }))
   const form = w.page.getByRole('form', { name: 'Receive a deposit' })
   await w.type(form.getByRole('combobox', { name: 'Depositor' }), 'Vzor')
   await w.click(w.page.getByRole('option', { name: /Jana Vzorová/ }))
@@ -38,12 +37,8 @@ test('C2 check a deposit and accept it as a strain', async ({ browser }, info) =
 
   const w = await Walk.as(browser, info, 'bac-curator', curator('C2', 'Check a deposit and accept it as a strain'))
   await w.start()
-  await openLab(w, LAB)
-  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Deposits' }))
-  await w.type(w.page.getByRole('searchbox', { name: 'Name, depositor or number' }), `check ${RUN}`)
-  await w.press('Enter')
-  w.look()
-  await w.click(w.page.getByRole('table', { name: 'Deposits' }).getByRole('link', { name, exact: true }))
+  // The deposit waits on Home (#69): one link, where the lab, its deposits and a search led before.
+  await openWaiting(w, 'Deposits received', name)
   await w.click(w.page.getByRole('button', { name: 'Start checking' }))
   const form = w.page.getByRole('form', { name: 'Accept the deposit' })
   await w.type(form.getByRole('combobox', { name: 'Taxon' }), 'Bacillus subt')
@@ -63,18 +58,15 @@ test('C2 check a deposit and accept it as a strain', async ({ browser }, info) =
 test('C3 see what waits for me today', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-curator', curator('C3', 'See what waits for me today'))
   await w.start()
-  w.look()
-  await expect(w.page.getByText('Strains, storage and distribution will appear here.')).toBeVisible()
-  await openLab(w, LAB)
-  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Deposits' }))
-  const status = w.page.getByRole('combobox', { name: 'Status' })
-  for (const state of ['Received', 'Checking']) {
-    await w.choose(status, state) // applies at once
-    await expect(w.page).toHaveURL(new RegExp(`status=${state.toLowerCase()}`))
-    w.look()
+  // seed_dev: in Bacteriology a received deposit (DEP-3), one in checking (DEP-2), batch 3 of
+  // BAC 29 pending its checks, two requests to decide and two to ship. Other tasks of the run add
+  // their own, so the groups are read, not counted.
+  const waiting = w.page.getByRole('region', { name: /^Waiting for you \(\d+\)$/ })
+  for (const group of ['Deposits received', 'Deposits in checking', 'Batches waiting for their checks', 'Requests to decide', 'Requests to ship']) {
+    await w.read(waiting.getByRole('region', { name: new RegExp(`^${group} \\(\\d+\\)$`) }))
   }
-  await w.shot('deposits-by-status')
-  w.impossible('No overview: Home is empty, deposits need two filtered lists, and batches pending check exist only on each strain page', '#69')
+  await w.shot('home-waiting')
+  w.note('Everything waits in one list on Home, but in groups by kind, not by what is most urgent: a manager-only request and an expiring permit sit in their own groups')
   await w.done()
 })
 
@@ -86,8 +78,8 @@ test('C4 reclassify a strain after a new identification', async ({ browser }, in
 
   const w = await Walk.as(browser, info, 'bac-curator', curator('C4', 'Reclassify a strain after a new identification'))
   await w.start()
-  await openLab(w, LAB)
-  await openStrain(w, name, new RegExp(name))
+  await openStrains(w, LAB)
+  await findStrain(w, name, new RegExp(name))
   await w.click(w.page.getByRole('button', { name: 'Reclassify' }))
   const dialog = w.page.getByRole('dialog', { name: /^Reclassify BAC/ })
   await w.keys('Priestia meg') // the taxon field takes focus
@@ -116,9 +108,9 @@ test('C5 find the strains that came from one depositor', async ({ browser }, inf
 test('C6 see what happened to a strain: its risk group and restriction changes', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-curator', curator('C6', 'See what happened to a strain (risk group, restrictions)'))
   await w.start()
-  await openLab(w, LAB)
+  await openStrains(w, LAB)
   // seed_dev: BAC 27 is the Mockia vulgaris strain with the reassessment in its history. BAC 30 is a later deposit of the same taxon.
-  await openStrain(w, 'BAC 27', /^BAC 27 /)
+  await findStrain(w, 'BAC 27', /^BAC 27 /)
   w.look(3) // facts, restrictions, identification history
   await expect(w.page.getByRole('heading', { level: 2, name: 'Identification history' })).toBeVisible()
   await expect(w.page.getByText(/Reassessed after the list entry was checked/)).toHaveCount(0)
@@ -179,8 +171,8 @@ test('C8 release a batch after its checks', async ({ browser }, info) => {
 
   const w = await Walk.as(browser, info, 'bac-curator', curator('C8', 'Release a batch after its purity and viability checks'))
   await w.start()
-  await openLab(w, LAB)
-  await openStrain(w, name, new RegExp(name))
+  // The batch waits on Home for its release (#69).
+  await openWaiting(w, 'Batches to release', `${strain.number} batch 1`)
   const batches = w.page.getByRole('table', { name: 'Batches' })
   await w.read(batches)
   await expect(batches.getByRole('row', { name: /All checks passed\. A curator releases it\./ })).toBeVisible()
@@ -193,7 +185,7 @@ test('C8 release a batch after its checks', async ({ browser }, info) => {
   await w.click(dialog.getByRole('button', { name: 'Release batch' }))
   await expect(w.page.getByRole('heading', { level: 3, name: 'Batch 1: Released' })).toBeFocused()
   await w.shot('released')
-  w.note('Nothing tells the curator that a batch waits for release: it is found strain by strain, and the reason is typed although the checks already say it', '#69')
+  w.note('The reason is typed although the checks already say it')
   await w.done()
 })
 
@@ -231,9 +223,8 @@ test('C11 record a request that came by e-mail, with the signed MTA', async ({ b
 
   const w = await Walk.as(browser, info, 'bac-curator', curator('C11', 'Record a request that came by e-mail, with the signed MTA'))
   await w.start()
-  await openLab(w, LAB)
-  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Requests' }))
-  await w.click(w.page.getByRole('link', { name: 'Enter a request' }))
+  // Home's quick action (#69), where the lab picker, the lab and its Requests tab led before.
+  await w.click(w.page.getByRole('region', { name: 'Quick actions' }).getByRole('link', { name: 'Enter a request' }))
   const form = w.page.getByRole('form', { name: 'New request' })
   await w.choose(form.getByRole('combobox', { name: 'Requester' }), /Example Institute of Microbiology/)
   await w.choose(form.getByRole('combobox', { name: 'Use' }), 'Teaching')
@@ -267,8 +258,8 @@ test('C11 record a request that came by e-mail, with the signed MTA', async ({ b
 test('C10 deaccession a strain that no longer grows', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-curator', curator('C10', 'Deaccession a strain that no longer grows'))
   await w.start()
-  await openLab(w, LAB)
-  await openStrain(w, 'BAC 14', /^BAC 14 /)
+  await openStrains(w, LAB)
+  await findStrain(w, 'BAC 14', /^BAC 14 /)
   w.look()
   await expect(w.page.getByRole('button', { name: /Deaccession/ })).toHaveCount(0)
   w.impossible('No deaccession: the strain list filters by "Deaccessioned" but no screen sets it', '#20')

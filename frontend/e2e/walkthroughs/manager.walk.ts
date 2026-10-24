@@ -1,5 +1,5 @@
 import { type Page, expect, test } from '@playwright/test'
-import { RUN, Walk, api, batchOf, field, labId, openLab, passAll, release, requestFor, rows, setupAs, supplyStrain } from './walk.js'
+import { RUN, Walk, api, batchOf, field, labId, openLab, openWaiting, passAll, release, requestFor, rows, setupAs, supplyStrain } from './walk.js'
 
 // A manager of Bacteriology and of Regulated agents (seed_dev): people, rights and the lab's
 // legal texts. dev-no-lab is a user in no lab, reg-technician works in Regulated agents.
@@ -116,12 +116,15 @@ test('M6 publish a new version of the MTA', async ({ browser }, info) => {
 test('M7 see how the lab stands: strains, vials, batches waiting', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-manager', manager('M7', 'See how the lab stands (strains, vials, batches waiting)'))
   await w.start()
-  await openLab(w, BAC)
+  // The lab's card on Home (#69): strains, batches by status, vials available, free places, open requests.
+  const card = w.page.getByRole('region', { name: 'My labs' }).getByRole('article', { name: BAC })
+  await w.read(card)
+  await expect(card.getByRole('link', { name: /^Strains: \d+$/ })).toBeVisible()
+  await expect(card).toContainText('Vials available')
+  await expect(card).toContainText('Free box positions')
   w.look()
-  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Strains' }))
-  await expect(w.page.getByText(/^1 to 25 of \d+$/)).toBeVisible()
-  w.look()
-  w.impossible('No figures: the strain count is only the pager line, and vials, batches waiting or free places have no count anywhere')
+  await w.shot('lab-card')
+  w.note('The figures are of today: no trend, and nothing says how many vials of each strain are left')
   await w.done()
 })
 
@@ -173,11 +176,8 @@ test('M11 approve a request for a regulated strain', async ({ browser }, info) =
 
   const w = await Walk.as(browser, info, 'bac-manager', manager('M11', 'Approve a request for a regulated strain'))
   await w.start()
-  await openLab(w, BAC)
-  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Requests' }))
-  await w.type(w.page.getByRole('searchbox', { name: 'Number, requester or strain' }), strain.number)
-  await w.press('Enter')
-  await w.click(w.page.getByRole('table', { name: 'Requests' }).getByRole('link', { name: `Request ${request.number}` }))
+  // The request waits on Home, flagged for a manager (#69).
+  await openWaiting(w, 'Requests to decide', `Request ${request.number}, Example Institute of Microbiology`)
   await w.read(w.page.getByRole('list', { name: 'Needs a manager’s approval' }))
   await w.click(w.page.getByRole('button', { name: 'Approve and reserve the vials' }))
   await w.keys('Dual-use inside the EU: no licence is needed for the transfer.')
