@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useId, useState } from 'react'
 import { type FieldValues, type Path, type UseFormSetError, useForm, useWatch } from 'react-hook-form'
-import { ConfirmDialog, SelectField, Stack, TextField } from '@/components/ui'
+import { ConfirmDialog, SelectField, Stack, TextField, Typography } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
 import { useDecideBatch, useEnterCheckInError, useRecordCheck } from '../api/mutations'
@@ -44,8 +44,8 @@ const CHECK_FIELDS = ['kind', 'stage', 'checked_on', 'method', 'method_detail', 
 
 type RecordProps = Common & {
   batch: Batch
-  /** The strain's vials: the batch's available ones may be checked. */
-  vials: readonly Vial[]
+  /** The batch's vials, undefined while they load: its available ones may be checked. */
+  vials: readonly Vial[] | undefined
   /** The batch's checks when loaded: a vial an earlier check used may serve again. */
   checks: readonly BatchCheck[] | undefined
 }
@@ -61,7 +61,7 @@ export function RecordCheckDialog({ labId, strainId, batch, vials, checks, open,
   })
   const kind = useWatch({ control, name: 'kind' })
   const errors = formState.errors
-  const available = vials.filter((v) => v.batch === batch.public_id && v.status === 'available')
+  const available = (vials ?? []).filter((v) => v.batch === batch.public_id && v.status === 'available')
   const used = new Map((checks ?? []).flatMap((c) => (c.vial && c.vial_label ? [[c.vial, c.vial_label] as const] : [])))
   const vialOptions = [
     { value: '', label: 'None named' },
@@ -158,7 +158,12 @@ export function RecordCheckDialog({ labId, strainId, batch, vials, checks, open,
             {...register('unit')}
           />
         </Stack>
-        <SelectField label="Vial checked" hint="Optional. Used up by the check." options={vialOptions} error={errors.vial?.message} {...register('vial')} />
+        {/* Mounted once its options are there, so a chosen vial is never lost to a late list. */}
+        {vials === undefined ? (
+          <Typography>Loading the vials of the batch…</Typography>
+        ) : (
+          <SelectField label="Vial checked" hint="Optional. Used up by the check." options={vialOptions} error={errors.vial?.message} {...register('vial')} />
+        )}
         <TextField label="Note" hint="What was seen. Required for a reduced result. Name no person." multiline minRows={2} error={errors.note?.message} {...register('note')} />
       </Stack>
     </ConfirmDialog>

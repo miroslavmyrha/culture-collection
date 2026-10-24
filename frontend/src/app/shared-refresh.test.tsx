@@ -26,6 +26,7 @@ import {
   page,
 } from '@/test/factories'
 import { mockApi } from '@/test/mockApi'
+import { vialAction } from '@/test/actions'
 import { renderApp } from '@/test/render'
 
 // Writes in one feature that change what another shows (lib/shared-keys.ts). Each case loads the
@@ -109,7 +110,8 @@ async function startAction(user: UserEvent, name: string) {
   if (['Reclassify', 'Change risk group', 'Add a restriction'].includes(name)) {
     await user.click(await screen.findByRole('button', { name: 'Actions for MYC 42' }))
     await user.click(await screen.findByRole('menuitem', { name }))
-  } else await user.click(await screen.findByRole('button', { name }))
+  } else if (name.startsWith('Change the state of vial ')) await vialAction(user, name.slice('Change the state of vial '.length), 'Change state')
+  else await user.click(await screen.findByRole('button', { name }))
 }
 
 async function inDialog(user: UserEvent, name: string, title: string, fill: (dialog: HTMLElement) => Promise<void>, confirm: string) {
@@ -330,7 +332,7 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
     strainPage(free, makeVial({ label: 'MYC 42 / 1 / 2' }))
     await router.navigate(toTab('material'))
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: 'Place vial MYC 42 / 1 / 2' }, { timeout: 5000 }))
+    await vialAction(user, 'MYC 42 / 1 / 2', 'Place')
     const dialog = await screen.findByRole('dialog')
     const choices = await within(dialog).findByRole('combobox', { name: 'Box' })
     expect(within(choices).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Freezer A / Box 1'])
@@ -360,7 +362,7 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
     await router.navigate(toTab('material'))
     await waitFor(() => expect(vialRow()).toHaveTextContent('Freezer B / Box 1, A1'), { timeout: 5000 })
     expect(vials).toHaveLength(1)
-    await user.click(screen.getByRole('button', { name: 'Move vial MYC 42 / 1 / 1' }))
+    await vialAction(user, 'MYC 42 / 1 / 1', 'Move')
     const choices = await within(await screen.findByRole('dialog')).findByRole('combobox', { name: 'Box' })
     expect(within(choices).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Freezer B / Box 1'])
     expect(units).toHaveLength(1)

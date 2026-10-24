@@ -1,12 +1,15 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import type { QueryClient } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { describe, expect, it } from 'vitest'
 import { allowConsole } from '@/test/console'
 import { makeBatch, makeBoxGrid, makePassage, makeUnitRow, makeVial, page, problem, validationProblem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError, recordRequests } from '@/test/mockApi'
+import { vialAction } from '@/test/actions'
 import { renderWithProviders } from '@/test/render'
 import { vialKeys } from '../api/keys'
+import type { VialPage } from '../schemas'
 import { StrainMaterial } from './StrainMaterial'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
@@ -37,8 +40,16 @@ function mockMaterial(vials = [placed, loose, consumed]) {
   mockApi('get', UNITS, [freezer, rack, box])
 }
 
-const render = (canHandle = true) =>
-  renderWithProviders(<StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} canRelease={canHandle} />)
+/** Vials number `from` to `to` of a strain with 200 in batch 1 and the rest in batch 2. */
+const many = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => makeVial({ label: `MYC 42 / ${from + i > 200 ? 2 : 1} / ${((from + i - 1) % 200) + 1}` }))
+
+/** The tab as the page drives it: the page of the vials in the page's state (the URL there). */
+function Material({ canHandle, limit = 50 }: { canHandle: boolean; limit?: number }) {
+  const [vialPage, setVialPage] = useState<VialPage>({ limit, offset: 0, batch: undefined })
+  return <StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} canRelease={canHandle} vialPage={vialPage} onVialPage={(next) => setVialPage((current) => ({ ...current, ...next }))} />
+}
+
+const render = (canHandle = true, limit = 50) => renderWithProviders(<Material canHandle={canHandle} limit={limit} />)
 
 describe('StrainMaterial', { timeout: 20_000 }, () => {
   it('shows the passages, the batches and where each vial is', async () => {
@@ -59,9 +70,55 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
     const batches = screen.getByRole('table', { name: 'Batches' })
     expect(within(batches).getAllByRole('row')[1]).toHaveTextContent('10Frozen at -80 °C, 10 % glycerolDistribution stock2026-10-01Pending checkWaiting for a passed identity, purity and viability check.2 of 3Checks')
     for (const name of ['Batches', 'Vials']) expect(screen.getByRole('region', { name: `${name} table` })).toHaveAttribute('tabindex', '0')
-    // A consumed vial has no place and no next state: no actions.
+    // A consumed vial has no place and no next state: no actions. The others have one menu each.
     const last = within(vials).getAllByRole('row')[3]
     expect(last && within(last).queryAllByRole('button')).toEqual([])
+    expect(last).toHaveTextContent(/None$/)
+    expect(within(vials).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Actions for vial MYC 42 / 1 / 1', 'Actions for vial MYC 42 / 1 / 2'])
+    expect(screen.getByText('3 vials')).toBeInTheDocument()
+  })
+
+  it('pages the vials of a strain with more than 200, with the count of all of them (#72)', async () => {
+    mockApi('get', PASSAGES, page([zero]))
+    mockApi('get', BATCHES, page([makeBatch({ number: 1, vial_count_created: 200 }), makeBatch({ number: 2, vial_count_created: 30 })]))
+    mockApi('get', UNITS, [freezer, rack, box])
+    const first = mockApi('get', VIALS, page(many(1, 50), { count: 230 }))
+    await render()
+    const pager = await screen.findByRole('navigation', { name: 'Pages of the vials' })
+    expect(screen.getByText('230 vials')).toBeInTheDocument()
+    expect(pager).toHaveTextContent('1 to 50 of 230')
+    expect(first[0]?.url.searchParams.get('limit')).toBe('50')
+    expect(first[0]?.url.searchParams.get('offset')).toBe('0')
+    // The last page: rows 201 to 230, batch 2 included, none dropped.
+    const user = userEvent.setup()
+    for (const offset of [50, 100, 150, 200]) {
+      const next = holdApi('get', VIALS)
+      await user.click(within(pager).getByRole('button', { name: 'Next' }))
+      await waitFor(() => expect(next.calls).toHaveLength(1))
+      expect(next.calls[0]?.url.searchParams.get('offset')).toBe(String(offset))
+      next.release(200, page(many(offset + 1, Math.min(offset + 50, 230)), { count: 230 }))
+      await waitFor(() => expect(pager).toHaveTextContent(`${offset + 1} to ${Math.min(offset + 50, 230)} of 230`))
+    }
+    const rows = within(screen.getByRole('table', { name: 'Vials' })).getAllByRole('row').slice(1)
+    expect(rows).toHaveLength(30)
+    expect(rows[29]).toHaveTextContent('MYC 42 / 2 / 30')
+    expect(within(pager).getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('narrows the vials to one batch, from the first page, and says how many there are in all', async () => {
+    const two = makeBatch({ number: 2, vial_count_created: 30 })
+    mockApi('get', PASSAGES, page([zero]))
+    mockApi('get', BATCHES, page([makeBatch({ number: 1, vial_count_created: 200 }), two]))
+    mockApi('get', UNITS, [freezer, rack, box])
+    mockApi('get', VIALS, page([placed], { count: 230 }))
+    await render()
+    await screen.findByText('230 vials')
+    const narrowed = mockApi('get', VIALS, page([loose], { count: 30 }))
+    await userEvent.setup().selectOptions(screen.getByRole('combobox', { name: 'Batch' }), two.public_id)
+    expect(await screen.findByText('30 vials of batch 2, of 230 in all.')).toBeInTheDocument()
+    expect(narrowed[0]?.url.searchParams.get('batch')).toBe(two.public_id)
+    expect(narrowed[0]?.url.searchParams.get('offset')).toBe('0')
+    expect(screen.getByRole('combobox', { name: 'Batch' })).toHaveFocus()
   })
 
   it('offers no bench work to a viewer and loads no boxes for one', async () => {
@@ -70,7 +127,7 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
     await render(false)
     await screen.findByRole('table', { name: 'Vials' })
     expect(screen.queryByRole('button', { name: 'Preserve a batch' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Subculture|Move|Place|Change the state|Revive/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Subculture|Move|Place|Change the state|Revive|Actions/ })).not.toBeInTheDocument()
     expect(boxes).toHaveLength(0)
   })
 
@@ -157,7 +214,7 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
     const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/place/', placed)
     await render()
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: 'Move vial MYC 42 / 1 / 1' }))
+    await vialAction(user, 'MYC 42 / 1 / 1', 'Move')
     const dialog = await screen.findByRole('dialog', { name: 'Move vial MYC 42 / 1 / 1' })
     const boxField = await within(dialog).findByRole('combobox', { name: 'Box' })
     expect(boxField).toHaveValue(box.public_id) // where it is now
@@ -173,20 +230,20 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
 
   // The box grids show where vials are: a write here may change any box (#64).
   it.each([
-    ['move', 'Move vial MYC 42 / 1 / 1', 'Move vial', '/api/v1/labs/{lab_public_id}/vials/{public_id}/place/'],
-    ['state change', 'Change the state of vial MYC 42 / 1 / 1', 'Save state', '/api/v1/labs/{lab_public_id}/vials/{public_id}/status/'],
-  ] as const)('a %s marks every box grid of the lab stale, not other strains', async (_, open, confirm, path) => {
+    ['move', 'Move vial MYC 42 / 1 / 1', 'Move vial', '/api/v1/labs/{lab_public_id}/vials/{public_id}/place/', 'Move'],
+    ['state change', 'Change the state of vial MYC 42 / 1 / 1', 'Save state', '/api/v1/labs/{lab_public_id}/vials/{public_id}/status/', 'Change state'],
+  ] as const)('a %s marks every box grid of the lab stale, not other strains', async (_, open, confirm, path, item) => {
     mockMaterial()
     mockApi('post', path, placed, { status: 200 })
     const { client } = await render()
     const here = vialKeys.box(LAB_ID, box.public_id)
     const elsewhere = vialKeys.box(LAB_ID, '00000000-0000-4000-8000-0000000000b9')
-    const otherStrain = vialKeys.vials(LAB_ID, '00000000-0000-4000-8000-0000000000d9')
+    const otherStrain = vialKeys.vialPage(LAB_ID, '00000000-0000-4000-8000-0000000000d9', { limit: 50, offset: 0, batch: undefined })
     client.setQueryData(here, makeBoxGrid())
     client.setQueryData(elsewhere, makeBoxGrid())
     client.setQueryData(otherStrain, page([]))
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: open }))
+    await vialAction(user, 'MYC 42 / 1 / 1', item)
     const dialog = await screen.findByRole('dialog', { name: open })
     if (confirm === 'Save state') {
       await user.selectOptions(within(dialog).getByRole('combobox', { name: 'New state' }), 'consumed')
@@ -207,7 +264,7 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
     mockApiError('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/place/', 409, problem(409, { code: 'position_taken' }))
     await render()
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: 'Place vial MYC 42 / 1 / 2' }))
+    await vialAction(user, 'MYC 42 / 1 / 2', 'Place')
     const dialog = await screen.findByRole('dialog', { name: 'Place vial MYC 42 / 1 / 2' })
     await user.click(within(dialog).getByRole('button', { name: 'Place vial' }))
     expect(within(dialog).getByRole('combobox', { name: 'Box' })).toHaveAccessibleDescription('Choose the box')
@@ -224,7 +281,7 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
     const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/status/', { ...loose, status: 'quarantined' })
     await render()
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: 'Change the state of vial MYC 42 / 1 / 2' }))
+    await vialAction(user, 'MYC 42 / 1 / 2', 'Change state')
     const dialog = await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 2' })
     const state = within(dialog).getByRole('combobox', { name: 'New state' })
     expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(['Quarantined', 'To destroy', 'Consumed', 'Lost', 'Entered in error'])
@@ -241,7 +298,7 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
     mockMaterial([makeVial({ label: 'MYC 42 / 2 / 1', status_changed_at: '2026-10-02T10:00:00Z' })])
     await render()
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: 'Change the state of vial MYC 42 / 2 / 1' }))
+    await vialAction(user, 'MYC 42 / 2 / 1', 'Change state')
     const state = within(await screen.findByRole('dialog')).getByRole('combobox', { name: 'New state' })
     expect(within(state).queryByRole('option', { name: 'Entered in error' })).not.toBeInTheDocument()
   })
@@ -251,7 +308,7 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
     const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/revive/', makePassage({ number: 2, source_kind: 'vial' }))
     await render()
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: 'Revive vial MYC 42 / 1 / 2' }))
+    await vialAction(user, 'MYC 42 / 1 / 2', 'Revive')
     const dialog = await screen.findByRole('alertdialog', { name: 'Revive vial MYC 42 / 1 / 2?' })
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
     await user.click(within(dialog).getByRole('button', { name: 'Revive vial' }))
@@ -326,7 +383,7 @@ describe('the location of a regulated strain', { timeout: 20_000 }, () => {
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Reveal the location of vial MYC 7 / 1 / 1' }))
     await screen.findByText('Freezer A / Rack 1 / Box R, A2')
-    await user.click(screen.getByRole('button', { name: 'Move vial MYC 7 / 1 / 1' }))
+    await vialAction(user, 'MYC 7 / 1 / 1', 'Move')
     const dialog = await screen.findByRole('dialog', { name: 'Move vial MYC 7 / 1 / 1' })
     await user.selectOptions(await within(dialog).findByRole('combobox', { name: 'Box' }), box.public_id)
     await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Row' }), '1')
@@ -351,7 +408,7 @@ describe('the location of a regulated strain', { timeout: 20_000 }, () => {
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Reveal the location of vial MYC 7 / 1 / 1' }))
     await screen.findByText('Freezer A / Rack 1 / Box R, A2')
-    await user.click(screen.getByRole('button', { name: 'Place vial MYC 7 / 1 / 2' }))
+    await vialAction(user, 'MYC 7 / 1 / 2', 'Place')
     const dialog = await screen.findByRole('dialog', { name: 'Place vial MYC 7 / 1 / 2' })
     await user.selectOptions(await within(dialog).findByRole('combobox', { name: 'Box' }), box.public_id)
     await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Row' }), '1')
@@ -411,7 +468,7 @@ describe('moving a vial of a regulated strain', { timeout: 20_000 }, () => {
     const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/place/', masked)
     await render()
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: 'Move vial MYC 7 / 1 / 1' }))
+    await vialAction(user, 'MYC 7 / 1 / 1', 'Move')
     const dialog = await screen.findByRole('dialog', { name: 'Move vial MYC 7 / 1 / 1' })
     const boxField = await within(dialog).findByRole('combobox', { name: 'Box' })
     expect(boxField).toHaveValue('')

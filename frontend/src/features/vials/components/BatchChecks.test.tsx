@@ -1,9 +1,11 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { allowConsole } from '@/test/console'
 import { makeBatch, makeCheck, makePassage, makeVial, page, problem, validationProblem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError, recordRequests } from '@/test/mockApi'
+import { server } from '@/test/server'
 import { renderWithProviders } from '@/test/render'
 import type { Batch } from '../schemas'
 import { StrainMaterial } from './StrainMaterial'
@@ -61,8 +63,9 @@ function mockMaterial(batches: Batch[] = [pending, ready, released, held]) {
   mockApi('get', CHECKS, page([viability, wrong, identity]))
 }
 
+const FIRST_PAGE = { limit: 50, offset: 0, batch: undefined }
 const render = ({ canHandle = true, canRelease = false } = {}) =>
-  renderWithProviders(<StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} canRelease={canRelease} />)
+  renderWithProviders(<StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} canRelease={canRelease} vialPage={FIRST_PAGE} onVialPage={() => undefined} />)
 
 async function openChecks(number: number) {
   const user = userEvent.setup()
@@ -142,6 +145,13 @@ describe('the checks of a batch', { timeout: 20_000 }, () => {
     mockMaterial()
     const calls = mockApi('post', CHECKS, makeCheck({ kind: 'purity' }))
     const reloads = recordRequests('get', BATCHES)
+    // The page of the table holds none of the batch's vials; the batch's own read does.
+    server.use(
+      http.get('*/api/v1/labs/:lab/vials/', ({ request }) =>
+        HttpResponse.json(new URL(request.url).searchParams.get('batch') === pending.public_id ? page([vialOne, vialTwo, usedVial]) : page([otherBatchVial])),
+      ),
+    )
+    const vialReads = recordRequests('get', '/api/v1/labs/{lab_public_id}/vials/')
     await render()
     const { user } = await openChecks(1)
     const trigger = await screen.findByRole('button', { name: 'Record a check' })
@@ -149,6 +159,9 @@ describe('the checks of a batch', { timeout: 20_000 }, () => {
     await user.keyboard('{Enter}')
     const dialog = await screen.findByRole('dialog', { name: 'Record a check of batch 1' })
     expect(dialog).toHaveAccessibleDescription(/It waits for a passed purity check\./)
+    // The batch's own vials, all of them, asked for with the dialog (#72), not the page on screen.
+    await within(dialog).findByRole('combobox', { name: 'Vial checked' })
+    expect(vialReads.map((r) => r.url.searchParams.get('batch'))).toContain(pending.public_id)
     const kind = within(dialog).getByRole('combobox', { name: 'Kind' })
     await waitFor(() => expect(kind).toHaveFocus())
     expect(kind).toHaveValue('purity') // the kind it waits for

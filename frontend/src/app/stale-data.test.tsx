@@ -35,6 +35,7 @@ import {
   page,
 } from '@/test/factories'
 import { holdApi, mockApi, mockApiError, type PathFor } from '@/test/mockApi'
+import { vialAction } from '@/test/actions'
 import { renderApp } from '@/test/render'
 
 // A failed background refetch keeps the data on screen (#63): the screen, its open dialog and
@@ -473,7 +474,7 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     strainPage()
     const { client } = renderApp({ path: MATERIAL })
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: 'Place vial MYC 42 / 1 / 1' }, { timeout: 5000 }))
+    await vialAction(user, 'MYC 42 / 1 / 1', 'Place')
     const dialog = await screen.findByRole('dialog')
     const choices = await within(dialog).findByRole('combobox', { name: 'Box' })
     await user.selectOptions(choices, box.public_id)

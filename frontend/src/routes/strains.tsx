@@ -2,7 +2,8 @@ import { createRoute, lazyRouteComponent, stripSearchParams } from '@tanstack/re
 import { labDetailOptions } from '@/features/labs/api/queries'
 import { strainDetailOptions, strainHistoryOptions, strainListOptions, strainTermsOptions } from '@/features/strains/api/queries'
 import { strainListDefaults, strainListSearch } from '@/features/strains/schemas'
-import { batchesOptions, passagesOptions, vialsOptions } from '@/features/vials/api/queries'
+import { batchesOptions, passagesOptions, vialPageOptions } from '@/features/vials/api/queries'
+import { vialPageDefaults, vialPageSearch } from '@/features/vials/schemas'
 import { pageDefaults, pageSearch } from '@/lib/paging'
 import { authenticatedRoute } from './authenticated'
 
@@ -47,11 +48,14 @@ export const strainOverviewRoute = createRoute({
 export const strainMaterialRoute = createRoute({
   getParentRoute: () => strainDetailRoute,
   path: 'material',
-  loader: ({ context, params }) =>
+  validateSearch: vialPageSearch,
+  search: { middlewares: [stripSearchParams(vialPageDefaults)] },
+  loaderDeps: ({ search }) => search,
+  loader: ({ context, params, deps }) =>
     Promise.all([
       context.queryClient.prefetchQuery(passagesOptions(params.labId, params.strainId)),
       context.queryClient.prefetchQuery(batchesOptions(params.labId, params.strainId)),
-      context.queryClient.prefetchQuery(vialsOptions(params.labId, params.strainId)),
+      context.queryClient.prefetchQuery(vialPageOptions(params.labId, params.strainId, deps)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/StrainDetailPage'), 'StrainMaterialPage'),
 })

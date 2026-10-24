@@ -1,10 +1,11 @@
 import { Fragment, type MouseEvent, type ReactNode, useId, useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
+import { Pager, PastTheEnd } from '@/components/Pager'
 import { StaleNotice } from '@/components/StaleNotice'
-import { Box, Button, Mono, Paper, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
+import { ActionMenu, type ActionItem, Box, Button, Mono, Paper, SelectField, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { BATCH_TONES, VIAL_TONES } from '@/lib/tones'
 import { type FocusReturn, focusTarget, rememberFocus } from '@/lib/focus'
-import { useBatches, useBoxes, usePassages, useVials } from '../api/queries'
+import { batchVialsPage, useBatches, useBoxes, usePassages, useVialPage } from '../api/queries'
 import {
   type Batch,
   type BatchCheck,
@@ -20,6 +21,7 @@ import {
   PURPOSE_LABELS,
   sourceLabel,
   type Vial,
+  type VialPage,
   VIAL_STATUS_LABELS,
 } from '../schemas'
 import { BatchChecks } from './BatchChecks'
@@ -27,7 +29,16 @@ import { BatchDecisionDialog, CheckErrorDialog, RecordCheckDialog } from './Chec
 import { RevealLocation } from './RevealLocation'
 import { PlaceVialDialog, PreserveBatchDialog, ReviveDialog, SubcultureDialog, VialStatusDialog } from './VialDialogs'
 
-type Props = { labId: string; strainId: string; accession: string; canHandle: boolean; canRelease: boolean }
+type Props = {
+  labId: string
+  strainId: string
+  accession: string
+  canHandle: boolean
+  canRelease: boolean
+  /** The page of the vials the URL holds, and how to ask for another (#72). */
+  vialPage: VialPage
+  onVialPage: (next: Partial<VialPage>) => void
+}
 
 type Open =
   | { kind: 'preserve'; open: boolean }
@@ -45,10 +56,10 @@ type Open =
  * reveals one (ADR 0009). A batch's checks open in its row (D16): technicians record them,
  * curators release and hold.
  */
-export function StrainMaterial({ labId, strainId, accession, canHandle, canRelease }: Props) {
+export function StrainMaterial({ labId, strainId, accession, canHandle, canRelease, vialPage, onVialPage }: Props) {
   const passages = usePassages(labId, strainId)
   const batches = useBatches(labId, strainId)
-  const vials = useVials(labId, strainId)
+  const vials = useVialPage(labId, strainId, vialPage)
   const [open, setOpen] = useState<Open>(null)
   // How often this page moved each vial. A revealed location answers one request and is wrong
   // once the vial moved, so the vial's location cell starts again (its key changes). A state
@@ -64,6 +75,14 @@ export function StrainMaterial({ labId, strainId, accession, canHandle, canRelea
     remember(event)
     setOpen(next)
   }
+  // From a row's menu: the focus goes back to the menu button.
+  const showFrom = (next: NonNullable<Open>) => (button: HTMLButtonElement) => {
+    spot.current = rememberFocus(button)
+    setOpen(next)
+  }
+  // The vials a check of the open batch may name: that batch's, all of them (#72), loaded with the dialog.
+  const checked = open?.kind === 'check' ? open.batch.public_id : undefined
+  const batchVials = useVialPage(labId, strainId, batchVialsPage(checked ?? ''), checked !== undefined)
   // The batches whose checks are open. A control in a panel that the action removes (Release
   // once released) gives the focus to the panel's heading.
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set())
@@ -227,20 +246,31 @@ export function StrainMaterial({ labId, strainId, accession, canHandle, canRelea
       </Section>
 
       <Section title="Vials">
+        {batches.data !== undefined && batches.data.results.length > 1 && (
+          <Box sx={{ maxWidth: 280 }}>
+            <SelectField
+              label="Batch"
+              value={vialPage.batch ?? ''}
+              onChange={(event) => onVialPage({ batch: event.target.value === '' ? undefined : event.target.value, offset: 0 })}
+              options={[{ value: '', label: 'All batches' }, ...batches.data.results.map((b) => ({ value: b.public_id, label: `Batch ${b.number}` }))]}
+            />
+          </Box>
+        )}
         <StaleNotice what="the vials" query={vials} />
-        {vials.isPending ? (
-          <Typography>Loading the vials…</Typography>
-        ) : vials.data === undefined ? (
-          <LoadError what="the vials" error={vials.error} onRetry={() => void vials.refetch()} />
+        {vials.data === undefined ? (
+          vials.isPending ? (
+            <Typography>Loading the vials…</Typography>
+          ) : (
+            <LoadError what="the vials" error={vials.error} onRetry={() => void vials.refetch()} />
+          )
         ) : vials.data.count === 0 ? (
-          <Typography>No vial yet.</Typography>
+          <Typography>{vialPage.batch ? 'No vial in this batch.' : 'No vial yet.'}</Typography>
+        ) : vials.data.results.length === 0 ? (
+          <PastTheEnd onFirstPage={() => onVialPage({ offset: 0 })} />
         ) : (
           <>
-            {vials.data.count > vials.data.results.length && (
-              <Typography>
-                The first {vials.data.results.length} of {vials.data.count} vials.
-              </Typography>
-            )}
+            {/* The count of every vial asked for, so a page never hides the rest (#72). */}
+            <Typography>{vialCount(vials.data.count, vialPage, batches.data?.results)}</Typography>
             <TableContainer {...scrollable('Vials')}>
               <Table aria-label="Vials" size="small">
                 <TableHead>
@@ -260,12 +290,13 @@ export function StrainMaterial({ labId, strainId, accession, canHandle, canRelea
                       <TableCell>
                         <StatusChip tone={VIAL_TONES[v.status]}>{VIAL_STATUS_LABELS[v.status]}</StatusChip>
                       </TableCell>
-                      <TableCell>
+                      {/* Wide enough to read a path at 320 px: the table scrolls, the row stays short. */}
+                      <TableCell sx={{ minWidth: 200 }}>
                         <Where key={`${v.status_changed_at ?? ''}:${moves[v.public_id] ?? 0}`} labId={labId} vial={v} />
                       </TableCell>
                       {canHandle && (
                         <TableCell>
-                          <Actions vial={v} show={show} />
+                          <Actions vial={v} show={showFrom} />
                         </TableCell>
                       )}
                     </TableRow>
@@ -273,6 +304,15 @@ export function StrainMaterial({ labId, strainId, accession, canHandle, canRelea
                 </TableBody>
               </Table>
             </TableContainer>
+            <Pager
+              label="Pages of the vials"
+              count={vials.data.count}
+              shown={vials.data.results.length}
+              limit={vialPage.limit}
+              offset={vialPage.offset}
+              loading={vials.isPlaceholderData}
+              onOffsetChange={(offset) => onVialPage({ offset })}
+            />
           </>
         )}
       </Section>
@@ -289,7 +329,7 @@ export function StrainMaterial({ labId, strainId, accession, canHandle, canRelea
       {open?.kind === 'status' && <VialStatusDialog {...common} vial={open.vial} open={open.open} />}
       {open?.kind === 'revive' && <ReviveDialog {...common} vial={open.vial} open={open.open} />}
       {open?.kind === 'check' && (
-        <RecordCheckDialog {...common} batch={open.batch} vials={vials.data?.results ?? []} checks={open.checks} open={open.open} />
+        <RecordCheckDialog {...common} batch={open.batch} vials={batchVials.data?.results ?? (batchVials.isError ? [] : undefined)} checks={open.checks} open={open.open} />
       )}
       {(open?.kind === 'release' || open?.kind === 'hold') && <BatchDecisionDialog {...common} batch={open.batch} decision={open.kind} open={open.open} />}
       {open?.kind === 'check-error' && <CheckErrorDialog {...common} check={open.check} open={open.open} />}
@@ -347,30 +387,25 @@ function Where({ labId, vial }: { labId: string; vial: Vial }) {
   return <>{OUT_OF_A_BOX.includes(vial.status) ? 'Left the collection' : 'Not placed'}</>
 }
 
-type ActionsProps = { vial: Vial; show: (next: NonNullable<Open>) => (event: MouseEvent<HTMLButtonElement>) => void }
+type ActionsProps = { vial: Vial; show: (next: NonNullable<Open>) => (button: HTMLButtonElement) => void }
 
+/** A vial's bench work in one menu per row (#19): move or place, change its state, revive it. */
 function Actions({ vial, show }: ActionsProps) {
-  const inABox = !OUT_OF_A_BOX.includes(vial.status)
-  const states = nextStates(vial)
-  return (
-    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-      {inABox && (
-        <Button size="small" aria-label={`${vial.placed ? 'Move' : 'Place'} vial ${vial.label}`} onClick={show({ kind: 'place', vial, open: true })}>
-          {vial.placed ? 'Move' : 'Place'}
-        </Button>
-      )}
-      {states.length > 0 && (
-        <Button size="small" aria-label={`Change the state of vial ${vial.label}`} onClick={show({ kind: 'status', vial, open: true })}>
-          Change state
-        </Button>
-      )}
-      {vial.status === 'available' && (
-        <Button size="small" aria-label={`Revive vial ${vial.label}`} onClick={show({ kind: 'revive', vial, open: true })}>
-          Revive
-        </Button>
-      )}
-    </Stack>
-  )
+  const items: ActionItem[] = []
+  if (!OUT_OF_A_BOX.includes(vial.status)) items.push({ label: vial.placed ? 'Move' : 'Place', onSelect: show({ kind: 'place', vial, open: true }) })
+  if (nextStates(vial).length > 0) items.push({ label: 'Change state', onSelect: show({ kind: 'status', vial, open: true }) })
+  if (vial.status === 'available') items.push({ label: 'Revive', onSelect: show({ kind: 'revive', vial, open: true }) })
+  if (items.length === 0) return <Typography variant="body2" color="text.secondary">None</Typography>
+  return <ActionMenu label="Actions" name={`Actions for vial ${vial.label}`} items={items} size="small" />
+}
+
+/** "230 vials", "Vials 51 to 100 of 230", or for one batch "40 vials of batch 3, of 230 in all". */
+function vialCount(count: number, page: VialPage, batches: readonly Batch[] | undefined): string {
+  const all = `${count} ${count === 1 ? 'vial' : 'vials'}`
+  if (!page.batch) return all
+  const batch = batches?.find((b) => b.public_id === page.batch)
+  const total = batches?.reduce((sum, b) => sum + b.vial_count_created, 0)
+  return `${all} of batch ${batch?.number ?? ''}${total === undefined ? '' : `, of ${total} in all`}.`
 }
 
 /**

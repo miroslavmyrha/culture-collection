@@ -23,6 +23,20 @@ export type CheckMethod = Schemas['CheckMethod']
 export type CheckResult = Schemas['CheckResult']
 export type CheckUnit = Schemas['CheckUnit']
 
+/**
+ * The Material tab's URL (#72): a page of the strain's vials, of all batches or of one. A
+ * strain's vials may be many more than one answer holds (200), so the table pages and the count
+ * of every vial shows. Defaults stay out of the URL; a bad value falls back to them.
+ */
+export const VIAL_PAGE = 50
+export const vialPageDefaults = { limit: VIAL_PAGE, offset: 0, batch: undefined }
+export const vialPageSearch = z.object({
+  limit: z.number().int().min(1).max(200).default(VIAL_PAGE).catch(VIAL_PAGE),
+  offset: z.number().int().min(0).default(0).catch(0),
+  batch: z.uuid().optional().catch(undefined),
+})
+export type VialPage = z.output<typeof vialPageSearch>
+
 /** Technicians and up do the bench work (vials.handle). The server decides; this only hides. */
 export const canHandleVials = (role: Role | undefined): boolean => role === 'technician' || role === 'curator' || role === 'manager'
 

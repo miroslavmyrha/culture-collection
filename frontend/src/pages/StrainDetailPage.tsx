@@ -14,6 +14,7 @@ import { canHandleVials, canReleaseBatches } from '@/features/vials/schemas'
 
 const route = getRouteApi('/_authenticated/labs/$labId/strains/$strainId')
 const historyRoute = getRouteApi('/_authenticated/labs/$labId/strains/$strainId/history')
+const materialRoute = getRouteApi('/_authenticated/labs/$labId/strains/$strainId/material')
 
 /** The strain's page around its tabs (#19): the lab, the strain's header and the tab links. */
 export function StrainDetailPage() {
@@ -67,10 +68,20 @@ export function StrainOverviewPage() {
 
 export function StrainMaterialPage() {
   const { labId, strainId, role, strain, number } = useTab()
+  const page = materialRoute.useSearch()
+  const navigate = materialRoute.useNavigate()
   return (
     <>
       <PageTitle>{`${number}, material`}</PageTitle>
-      <StrainMaterial labId={labId} strainId={strainId} accession={strain?.accession_number ?? 'the strain'} canHandle={canHandleVials(role)} canRelease={canReleaseBatches(role)} />
+      <StrainMaterial
+        labId={labId}
+        strainId={strainId}
+        accession={strain?.accession_number ?? 'the strain'}
+        canHandle={canHandleVials(role)}
+        canRelease={canReleaseBatches(role)}
+        vialPage={page}
+        onVialPage={(next) => void navigate({ search: (prev) => ({ ...prev, ...next }) })}
+      />
     </>
   )
 }

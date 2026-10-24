@@ -1,11 +1,12 @@
-import { queryOptions, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query'
 import { api, unwrap } from '@/lib/api'
 import { storageUnitsOptions } from '@/lib/shared-keys'
-import { boxChoices } from '../schemas'
+import { boxChoices, type VialPage } from '../schemas'
 import { vialKeys } from './keys'
 
-// One page of the most the API gives: a strain's material fits in it (a batch has at most 200
-// vials; the count tells when it does not).
+// One page of the most the API gives: a strain's passages and batches fit in it, and so do the
+// vials of one batch (at most 200). The count tells when they do not. The strain's vials are
+// paged (vialPageOptions, #72).
 export const MATERIAL_PAGE = 200
 
 const strainQuery = (labId: string, strainId: string) => ({
@@ -25,11 +26,23 @@ export const batchesOptions = (labId: string, strainId: string) =>
     queryFn: ({ signal }) => unwrap(api.GET('/api/v1/labs/{lab_public_id}/batches/', { signal, params: strainQuery(labId, strainId) })),
   })
 
-export const vialsOptions = (labId: string, strainId: string) =>
+/** A page of the strain's vials, by batch and number, with the count of all that match (#72). */
+export const vialPageOptions = (labId: string, strainId: string, page: VialPage) =>
   queryOptions({
-    queryKey: vialKeys.vials(labId, strainId),
-    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/labs/{lab_public_id}/vials/', { signal, params: strainQuery(labId, strainId) })),
+    queryKey: vialKeys.vialPage(labId, strainId, page),
+    queryFn: ({ signal }) =>
+      unwrap(
+        api.GET('/api/v1/labs/{lab_public_id}/vials/', {
+          signal,
+          params: { path: { lab_public_id: labId }, query: { strain: strainId, limit: page.limit, offset: page.offset, ...(page.batch ? { batch: page.batch } : {}) } },
+        }),
+      ),
+    // The page before stays on screen while the next one loads.
+    placeholderData: keepPreviousData,
   })
+
+/** Every vial of one batch (at most 200): what a check of the batch may name. */
+export const batchVialsPage = (batchId: string): VialPage => ({ limit: MATERIAL_PAGE, offset: 0, batch: batchId })
 
 /** Every check of one batch, newest first, entered in error included: a batch has few. */
 export const checksOptions = (labId: string, strainId: string, batchId: string) =>
@@ -52,8 +65,8 @@ export function useBatches(labId: string, strainId: string) {
   return useQuery(batchesOptions(labId, strainId))
 }
 
-export function useVials(labId: string, strainId: string) {
-  return useQuery(vialsOptions(labId, strainId))
+export function useVialPage(labId: string, strainId: string, page: VialPage, enabled = true) {
+  return useQuery({ ...vialPageOptions(labId, strainId, page), enabled })
 }
 
 /**
