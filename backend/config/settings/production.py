@@ -9,6 +9,7 @@ from .base import (
     ADMIN_PATH,
     ALLOWED_HOSTS,
     DEFAULT_ADMIN_PATH,
+    MIDDLEWARE,
     SECRET_KEY,
     SECRET_KEY_FALLBACKS,
     TRUSTED_PROXIES,
@@ -86,3 +87,16 @@ if BEHIND_TLS_PROXY:
             "DJANGO_BEHIND_TLS_PROXY is on: set DJANGO_TRUSTED_PROXIES to the addresses or "
             "networks of the proxies in front of the app."
         )
+
+# Static files (the admin's) are collected at build with hashed names and compressed copies,
+# and the app serves them itself: the image is read-only and the proxy cannot read the files
+# collected into it. WhiteNoise goes right after SecurityMiddleware (its documented place), so
+# the SSL redirect still applies. Only here: elsewhere runserver serves them and nothing is
+# collected (WhiteNoise warns about a missing STATIC_ROOT).
+WHITENOISE_MIDDLEWARE = "whitenoise.middleware.WhiteNoiseMiddleware"
+_security = MIDDLEWARE.index("django.middleware.security.SecurityMiddleware")
+MIDDLEWARE = [*MIDDLEWARE[: _security + 1], WHITENOISE_MIDDLEWARE, *MIDDLEWARE[_security + 1 :]]
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}

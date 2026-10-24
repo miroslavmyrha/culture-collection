@@ -85,6 +85,17 @@ def test_production_known_device_cookie_is_host_prefixed_and_secure() -> None:
     assert production_value(GOOD_ENV, expr).split() == ["__Host-knowndevice", "True"]
 
 
+def test_production_serves_the_collected_static_files_right_after_the_security_middleware() -> None:
+    expr = (
+        "s.MIDDLEWARE[s.MIDDLEWARE.index('django.middleware.security.SecurityMiddleware') + 1],"
+        " s.STORAGES['staticfiles']['BACKEND']"
+    )
+    assert production_value(GOOD_ENV, expr).split() == [
+        "whitenoise.middleware.WhiteNoiseMiddleware",
+        "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    ]
+
+
 def test_session_cookie_is_http_only_and_same_site_lax() -> None:
     expr = "s.SESSION_COOKIE_HTTPONLY, s.SESSION_COOKIE_SAMESITE, s.CSRF_COOKIE_SAMESITE"
     assert production_value(GOOD_ENV, expr).split() == ["True", "Lax", "Lax"]
