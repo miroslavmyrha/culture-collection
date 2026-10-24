@@ -14,6 +14,8 @@ export type RestrictionKind = Schemas['RestrictionKind']
 export type StrainStatus = Schemas['StrainStatus']
 export type CountryCode = Schemas['CountryCode']
 export type Role = Schemas['Role']
+export type Terms = Schemas['TermsOutput']
+export type HistoryLine = Schemas['HistoryLine']
 
 /** Curators and managers write strains (strains.manage). The server decides; this only hides. */
 export const canManageStrains = (role: Role | undefined): boolean => role === 'curator' || role === 'manager'
@@ -54,6 +56,7 @@ export const options = <T extends string | number>(labels: Record<T, string>, va
   values.map((value) => ({ value: String(value), label: labels[value] }))
 
 export { countryName } from '@/lib/countries'
+export { actorLabel, moment } from '@/lib/activity'
 
 export const taxonLabel = (taxon: Pick<Taxon, 'name' | 'authority'>) => (taxon.authority ? `${taxon.name} ${taxon.authority}` : taxon.name)
 

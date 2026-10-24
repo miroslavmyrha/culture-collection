@@ -67,6 +67,11 @@ class PassageOutputSerializer(serializers.ModelSerializer[Passage]):
     source_vial = serializers.UUIDField(
         source="source_vial.public_id", read_only=True, allow_null=True, default=None
     )
+    # Where it sits in the strain's tree from the deposit (#19): the passage it was grown from,
+    # or for a revival the passage the vial's batch was preserved from. Null for passage 0.
+    parent = serializers.SerializerMethodField()  # type: ignore[assignment]  # Field.parent
+    # The revived vial's label, for a revival.
+    source_vial_label = serializers.SerializerMethodField()
 
     class Meta:
         model = Passage
@@ -77,9 +82,26 @@ class PassageOutputSerializer(serializers.ModelSerializer[Passage]):
             "source_kind",
             "source_passage",
             "source_vial",
+            "parent",
+            "source_vial_label",
             "created_at",
         )
         read_only_fields = fields
+
+    @extend_schema_field(serializers.UUIDField(allow_null=True))
+    def get_parent(self, passage: Passage) -> str | None:
+        if passage.source_passage is not None:
+            return str(passage.source_passage.public_id)
+        if passage.source_vial is not None:
+            return str(passage.source_vial.batch.passage.public_id)
+        return None
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_source_vial_label(self, passage: Passage) -> str | None:
+        vial = passage.source_vial
+        if vial is None:
+            return None
+        return f"{passage.strain.accession_number} / {vial.batch.number} / {vial.seq}"
 
     @extend_schema_field(serializers.ChoiceField(choices=["deposit", "passage", "vial"]))
     def get_source_kind(self, passage: Passage) -> str:

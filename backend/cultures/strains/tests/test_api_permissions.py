@@ -50,6 +50,8 @@ class Call:
 CALLS = [
     Call("list", "get", "", write=False),
     Call("retrieve", "get", "{strain}/", write=False),
+    Call("history", "get", "{strain}/history/", write=False),
+    Call("terms", "get", "{strain}/terms/", write=False),
     Call("reclassify", "post", "{strain}/reclassify/", write=True),
     Call("risk_group", "post", "{strain}/risk-group/", write=True),
     Call("add_restriction", "post", "{strain}/restrictions/", write=True),

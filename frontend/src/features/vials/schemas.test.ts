@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { makeBatch, makeCheck } from '@/test/factories'
-import { batchStatusReason, checkDetails, emptyCheck, formatValue, kindsText, mayHold, mayRelease, notPassed } from './schemas'
+import { makeBatch, makeCheck, makePassage } from '@/test/factories'
+import { batchStatusReason, checkDetails, emptyCheck, formatValue, kindsText, mayHold, mayRelease, notPassed, passageTree, sourceLabel } from './schemas'
 
 const none = { identity: null, purity: null, viability: null } as const
 
@@ -61,5 +61,30 @@ describe('a check as it reads', () => {
     expect(emptyCheck(makeBatch({ latest_checks: none }))).toMatchObject({ kind: 'identity', stage: 'after_preservation', method: 'morphology', result: 'pass' })
     expect(emptyCheck(makeBatch({ latest_checks: { identity: 'pass', purity: null, viability: 'pass' } }))).toMatchObject({ kind: 'purity', stage: 'periodic', method: 'streak_plate' })
     expect(emptyCheck(makeBatch({ latest_checks: { identity: 'pass', purity: 'pass', viability: 'pass' } }))).toMatchObject({ kind: 'viability', method: 'growth' })
+  })
+})
+
+/** A tree as nested [number, children] pairs. */
+const shape = (nodes: ReturnType<typeof passageTree>): unknown[] => nodes.map((n) => [n.passage.number, shape(n.children)])
+
+describe('the passages as a tree from the deposit (#19)', () => {
+  const zero = makePassage({ number: 0 })
+  const one = makePassage({ number: 1, source_kind: 'passage', source_passage: zero.public_id, parent: zero.public_id })
+  const two = makePassage({ number: 2, source_kind: 'passage', source_passage: zero.public_id, parent: zero.public_id })
+  const revived = makePassage({ number: 3, source_kind: 'vial', parent: one.public_id, source_vial_label: 'MYC 42 / 1 / 4' })
+
+  it('hangs each passage under its parent, in the order of the list', () => {
+    expect(shape(passageTree([zero, one, two, revived]))).toEqual([[0, [[1, [[3, []]]], [2, []]]]])
+  })
+
+  it('keeps a passage whose parent is not in the list as a root of its own, dropping none', () => {
+    expect(shape(passageTree([one, revived]))).toEqual([[1, [[3, []]]]])
+    expect(shape(passageTree([revived]))).toEqual([[3, []]])
+    expect(shape(passageTree([]))).toEqual([])
+  })
+
+  it('says where each passage came from', () => {
+    const all = [zero, one, two, revived]
+    expect(all.map((p) => sourceLabel(p, all))).toEqual(['As received', 'Subculture of passage 0', 'Subculture of passage 0', 'Revived from vial MYC 42 / 1 / 4'])
   })
 })

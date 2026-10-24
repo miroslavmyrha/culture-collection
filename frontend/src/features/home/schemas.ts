@@ -8,6 +8,7 @@ export type ActivityLine = components['schemas']['ActivityLine']
 export type Kind = WaitingGroup['kind']
 export type Action = MyLab['actions'][number]
 export type Role = MyLab['role']
+export { actorLabel, moment } from '@/lib/activity'
 
 /** The heading of each group on Home, in the server's order (overview/selectors.py, Kind). */
 export const KIND_TITLES: Record<Kind, string> = {
@@ -33,19 +34,6 @@ export const ACTION_LABELS: Record<Action, string> = {
 export const ACTIONS = ['receive_deposit', 'record_check', 'find_vial', 'enter_request'] as const satisfies readonly Action[]
 
 export const ROLE_LABELS: Record<Role, string> = { viewer: 'Viewer', technician: 'Technician', curator: 'Curator', manager: 'Manager' }
-
-/**
- * The actor as the audit trail labels it (ADR 0005): the reader is "You", a user is the start of
- * the public id in their label, a system actor its own label. Never a name.
- */
-export function actorLabel(actor: string): string {
-  if (actor === 'you') return 'You'
-  if (actor.startsWith('user:')) return `user ${actor.slice('user:'.length, 'user:'.length + 8)}`
-  return actor
-}
-
-/** A moment as people here read it: 2026-10-23 14:05, local time. */
-export const moment = (iso: string) => new Date(iso).toLocaleString('sv', { dateStyle: 'short', timeStyle: 'short' })
 
 /** How many of each batch status, the ones there are: "1 pending check, 3 released". */
 export function batchSummary(batches: MyLab['batches']): string {

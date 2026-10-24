@@ -373,7 +373,28 @@ export async function findStrain(w: Walk, search: string, row: RegExp) {
   await expect(found).toHaveCount(1)
   w.look()
   await w.click(found.getByRole('link').first())
-  await expect(w.page.getByRole('heading', { level: 2, name: 'Vials' })).toBeVisible()
+  // The strain opens on its Overview tab (#19).
+  await expect(w.page.getByRole('navigation', { name: 'Strain sections' }).getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
+}
+
+/** On a strain's page: one of its tabs (#19), by its link. */
+export async function openTab(w: Walk, tab: 'Overview' | 'Material' | 'Terms' | 'History') {
+  const link = w.page.getByRole('navigation', { name: 'Strain sections' }).getByRole('link', { name: tab })
+  w.look()
+  await w.click(link)
+  await expect(link).toHaveAttribute('aria-current', 'page')
+}
+
+/** A vial's action from the menu in its row (#19): two clicks. */
+export async function vialAction(w: Walk, label: string, item: 'Move' | 'Place' | 'Change state' | 'Revive') {
+  await w.click(w.page.getByRole('button', { name: `Actions for vial ${label}` }))
+  await w.click(w.page.getByRole('menuitem', { name: item }))
+}
+
+/** A strain's action from the menu in its header (#19): two clicks. */
+export async function strainAction(w: Walk, item: 'Reclassify' | 'Change risk group' | 'Add a restriction') {
+  await w.click(w.page.getByRole('button', { name: /^Actions for / }))
+  await w.click(w.page.getByRole('menuitem', { name: item }))
 }
 
 /** From the lab's page to a strain, by the strain list's search and the row it finds. */

@@ -79,7 +79,16 @@ export function useReplaceTerms(labId: string, depositId: string) {
       return unwrap(api.POST('/api/v1/labs/{lab_public_id}/deposits/{public_id}/terms/', { ...one(labId, depositId), body }))
     },
     meta: { handlesError: true },
-    onSuccess: (deposit) => settleDeposit(qc, labId, deposit),
+    // An accepted deposit's terms are its strain's: the strain page shows them and the change.
+    onSuccess: (deposit) => {
+      const strain = deposit.strain?.public_id
+      return Promise.all([
+        settleDeposit(qc, labId, deposit),
+        ...(strain
+          ? [qc.invalidateQueries({ queryKey: sharedKeys.strainTerms(labId, strain) }), qc.invalidateQueries({ queryKey: sharedKeys.strainHistory(labId, strain) })]
+          : []),
+      ])
+    },
   })
 }
 

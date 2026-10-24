@@ -244,6 +244,8 @@ export function makePassage(overrides: Partial<PassageRow> = {}): PassageRow {
     source_kind: 'deposit',
     source_passage: null,
     source_vial: null,
+    parent: null,
+    source_vial_label: null,
     created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString(),
     ...overrides,
   }
@@ -603,6 +605,21 @@ export function makeMyLab(overrides: Partial<MyLab> = {}): MyLab {
 
 export function makeOverview(overrides: Partial<Overview> = {}): Overview {
   return { waiting: [], labs: [], ...overrides }
+}
+
+export type HistoryLine = Schemas['HistoryLine']
+
+/** A line of a strain's history (#19): a line of Home's activity without the lab. */
+export function makeHistoryLine(overrides: Partial<HistoryLine> = {}): HistoryLine {
+  const n = next()
+  return {
+    occurred_at: new Date(Date.UTC(2026, 9, 23, 8, 0, n)).toISOString(),
+    actor: `user:${uuid(2000 + n)}`,
+    summary: `preserved MYC 42 batch ${n}`,
+    target: 'strain',
+    target_id: uuid(n),
+    ...overrides,
+  }
 }
 
 export function makeActivityLine(overrides: Partial<ActivityLine> = {}): ActivityLine {

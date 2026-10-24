@@ -146,6 +146,14 @@ class TermsOutputSerializer(serializers.ModelSerializer[DepositTerms]):
         read_only_fields = fields
 
 
+class StrainTermsOutputSerializer(serializers.Serializer[dict[str, Any]]):
+    """A strain's terms of use (#19): every version, newest first, at most one active."""
+
+    # The deposit they belong to, for a reader who may open it (deposits.view), else null.
+    deposit = serializers.UUIDField(allow_null=True)
+    versions = TermsOutputSerializer(many=True)
+
+
 class StrainBriefSerializer(serializers.ModelSerializer[Strain]):
     class Meta:
         model = Strain

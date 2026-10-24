@@ -15,12 +15,14 @@ async function as(browser: Browser, name: string, width = 1280) {
   return { page, close: () => context.close() }
 }
 
-/** From the labs list to a strain of the seeded lab, by its links and its name as received. */
+/** From the labs list to the material of a strain of the seeded lab, by its links and its name as received. */
 async function openStrain(page: Page, received: RegExp) {
   await page.goto('/labs')
   await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
   await page.getByRole('link', { name: 'Strains' }).click()
   await page.getByRole('row', { name: received }).getByRole('link').first().click()
+  // The material is the strain page's Material tab (#19).
+  await page.getByRole('navigation', { name: 'Strain sections' }).getByRole('link', { name: 'Material' }).click()
   await expect(page.getByRole('heading', { level: 2, name: 'Vials' })).toBeVisible()
 }
 
@@ -95,7 +97,11 @@ test('a curator preserves a batch into a box, moves a vial and quarantines it, b
   await expect(vials.getByRole('row', { name: new RegExp(`${where}, A2`) })).toBeVisible()
   const label = (await first.getByRole('cell').first().textContent()) ?? ''
 
-  await page.getByRole('button', { name: `Move vial ${label}` }).focus()
+  // The row's actions are one menu (#19): ArrowDown opens it on Move, Enter picks it.
+  const actions = page.getByRole('button', { name: `Actions for vial ${label}` })
+  await actions.focus()
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByRole('menuitem', { name: 'Move' })).toBeFocused()
   await page.keyboard.press('Enter')
   const move = page.getByRole('dialog', { name: `Move vial ${label}` })
   await expect(move.getByRole('combobox', { name: 'Box' })).toBeFocused()
@@ -107,9 +113,12 @@ test('a curator preserves a batch into a box, moves a vial and quarantines it, b
   await page.keyboard.press('Tab')
   await page.keyboard.press('Enter')
   await expect(move).toBeHidden()
+  await expect(actions).toBeFocused()
   await expect(vials.getByRole('row', { name: new RegExp(`${label}.*${where}, C3`) })).toBeVisible()
 
-  await page.getByRole('button', { name: `Change the state of vial ${label}` }).focus()
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByRole('menuitem', { name: 'Change state' })).toBeFocused()
   await page.keyboard.press('Enter')
   const state = page.getByRole('dialog', { name: `Change the state of vial ${label}` })
   await expect(state.getByRole('combobox', { name: 'New state' })).toBeFocused()
@@ -129,8 +138,8 @@ test('a curator preserves a batch into a box, moves a vial and quarantines it, b
 test('a viewer reads the batches and vials but is offered no bench work, and the API agrees', async ({ browser }) => {
   const { page, close } = await as(browser, 'e2e-viewer')
   await openStrain(page, /B\. subtilis e2e seed/)
-  await expect(page.getByRole('table', { name: 'Passages' })).toBeVisible()
-  await expect(page.getByRole('button', { name: /Preserve a batch|Subculture|Move|Place|Change the state|Revive/ })).toHaveCount(0)
+  await expect(page.getByRole('list', { name: 'Passages from the deposit' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Preserve a batch|Subculture|Move|Place|Change the state|Revive|Actions/ })).toHaveCount(0)
   const passage = await page.evaluate(async () => {
     const lab = location.pathname.split('/')[2] ?? ''
     const list: { results: { public_id: string }[] } = await (await fetch(`/api/v1/labs/${lab}/passages/`)).json()

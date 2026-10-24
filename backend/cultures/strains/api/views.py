@@ -13,10 +13,14 @@ from cultures.core.api import ScopedReadOnlyViewSet
 from cultures.core.errors import PROBLEM_CONTENT_TYPE as PROBLEM
 from cultures.core.errors import ProblemSerializer
 from cultures.core.exceptions import NotFound
+from cultures.deposits import selectors as deposits
+from cultures.deposits.api.serializers import StrainTermsOutputSerializer
 from cultures.labs import selectors as labs
 from cultures.labs.access import access_of
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
+from cultures.overview import activity
+from cultures.overview.api.serializers import HistoryLineSerializer, HistoryPageSerializer
 from cultures.strains import selectors, services
 from cultures.strains.filters import StrainFilter
 from cultures.strains.models import Strain, StrainRestriction
@@ -44,6 +48,10 @@ RULE = OpenApiResponse(
 ENDED = OpenApiResponse(ProblemSerializer, "The restriction has ended already")
 LAB_PARAMETER = OpenApiParameter("lab_public_id", OpenApiTypes.UUID, OpenApiParameter.PATH)
 RESTRICTION_PARAMETER = OpenApiParameter("restriction_id", OpenApiTypes.UUID, OpenApiParameter.PATH)
+PAGE_PARAMETERS = [
+    OpenApiParameter("limit", OpenApiTypes.INT, OpenApiParameter.QUERY, description="At most 200"),
+    OpenApiParameter("offset", OpenApiTypes.INT, OpenApiParameter.QUERY),
+]
 
 
 def restrictions_of(items: list[dict[str, Any]]) -> list[services.RestrictionInput]:
@@ -75,6 +83,8 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         "risk_group": Perm.MANAGE_STRAINS,
         "add_restriction": Perm.MANAGE_STRAINS,
         "end_restriction": Perm.MANAGE_STRAINS,
+        "history": Perm.VIEW_STRAINS,
+        "terms": Perm.VIEW_TERMS,
     }
     filterset_class = StrainFilter
 
@@ -89,6 +99,8 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         access = access_of(self.request)
         if self.action == "list":
             return selectors.strain_list(access=access, lab=self.lab)
+        if self.action in ("history", "terms"):
+            return selectors.strain_rows(access=access, lab=self.lab)
         return selectors.strain_detail(access=access, lab=self.lab)
 
     def has_perm(self, perm: str, obj: Model | None) -> bool:
@@ -192,3 +204,29 @@ class StrainViewSet(ScopedReadOnlyViewSet):
             access=access_of(request), restriction=restriction, reason=data.validated_data["reason"]
         )
         return self._detail(strain)
+
+    @extend_schema(parameters=PAGE_PARAMETERS, responses={200: HistoryPageSerializer})
+    @action(detail=True, methods=["get"], url_path="history")
+    def history(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Everything that happened to the strain that the person may read, newest first, one
+        line each, a page at a time: the rules of the activity on Home (overview.activity). A
+        line names its subject and the actor's pseudonymous label, never a location or a
+        person's data."""
+        strain: Strain = self.get_object()
+        access = access_of(request)
+        page = self.paginate_queryset(activity.strain_history(access=access, strain=strain))
+        rows = activity.lines(page or [], access=access)
+        return self.get_paginated_response([HistoryLineSerializer(row).data for row in rows])
+
+    @extend_schema(responses={200: StrainTermsOutputSerializer})
+    @action(detail=True, methods=["get"], url_path="terms")
+    def terms(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """The strain's terms of use, every version newest first, with the MTA each names. The
+        deposit they belong to only for a reader who may open deposits."""
+        strain: Strain = self.get_object()
+        access = access_of(request)
+        versions = list(deposits.strain_terms(access=access, strain=strain))
+        deposit = versions[0].deposit.public_id if versions else None
+        shown = deposit if access.can(Perm.VIEW_DEPOSITS, strain.lab_id) else None
+        data = {"deposit": shown, "versions": versions}
+        return Response(StrainTermsOutputSerializer(data).data)

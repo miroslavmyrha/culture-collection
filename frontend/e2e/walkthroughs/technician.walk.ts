@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, acceptedStrain, api, batch, batchOf, expandUnit, freezerWithBoxes, labId, openLab, findStrain, openStrains, openWaiting, openUnit, passAll, release, requestFor, setupAs, supplyStrain } from './walk.js'
+import { RUN, Walk, acceptedStrain, api, batch, batchOf, expandUnit, freezerWithBoxes, labId, openLab, findStrain, openStrains, openTab, openWaiting, openUnit, vialAction, passAll, release, requestFor, setupAs, supplyStrain } from './walk.js'
 
 // A technician of Bacteriology (seed_dev): the bench work with batches, vials and boxes. The rows
 // each task needs are made first by the lab's curator, through the API, named for the run.
@@ -24,6 +24,7 @@ test('T1 preserve a fresh batch and put it in a box', async ({ browser }, info) 
   await w.start()
   await openStrains(w, LAB)
   await findStrain(w, s.name, new RegExp(s.name))
+  await openTab(w, 'Material')
   await w.click(w.page.getByRole('button', { name: 'Preserve a batch' }))
   const dialog = w.page.getByRole('dialog', { name: /^Preserve a batch of BAC/ })
   await w.choose(dialog.getByRole('combobox', { name: 'Method' }), 'Frozen at -80')
@@ -44,6 +45,7 @@ test('T2 find where vial X is', async ({ browser }, info) => {
   await w.start()
   await openStrains(w, LAB)
   await findStrain(w, 'BAC 29', /^BAC 29 /)
+  await openTab(w, 'Material')
   const row = w.page.getByRole('table', { name: 'Vials' }).getByRole('row', { name: /^BAC 29 \/ 2 \/ 7 / })
   const { total, at } = await w.screensOf(row)
   await w.read(row)
@@ -63,8 +65,9 @@ test('T3 place freeze-dried ampoules into a box', async ({ browser }, info) => {
   await w.start()
   await openStrains(w, LAB)
   await findStrain(w, s.name, new RegExp(s.name))
+  await openTab(w, 'Material')
   for (const [i, label] of labels.entries()) {
-    await w.click(w.page.getByRole('button', { name: `Place vial ${label}` }))
+    await vialAction(w, label, 'Place')
     const dialog = w.page.getByRole('dialog', { name: `Place vial ${label}` })
     await w.choose(dialog.getByRole('combobox', { name: 'Box' }), `${s.freezer} / Rack 1 / ${box}`)
     if (i === 0) await w.shot('place-dialog')
@@ -134,10 +137,11 @@ test('T6 revive a vial to start a subculture', async ({ browser }, info) => {
   await w.start()
   await openStrains(w, LAB)
   await findStrain(w, s.name, new RegExp(s.name))
-  await w.click(w.page.getByRole('button', { name: `Revive vial ${labels[0] ?? ''}` }))
+  await openTab(w, 'Material')
+  await vialAction(w, labels[0] ?? '', 'Revive')
   const dialog = w.page.getByRole('alertdialog', { name: `Revive vial ${labels[0] ?? ''}?` })
   await w.click(dialog.getByRole('button', { name: 'Revive vial' }))
-  await expect(w.page.getByRole('table', { name: 'Passages' }).getByRole('row')).toHaveCount(3)
+  await expect(w.page.getByRole('list', { name: 'Passages from the deposit' }).getByRole('listitem', { name: /^Passage \d+$/ })).toHaveCount(2)
   w.note('The revival records no medium, temperature or growth result: the passage has no field for them')
   await w.done()
 })
@@ -152,7 +156,8 @@ test('T7 record a cracked tube to be destroyed', async ({ browser }, info) => {
   await w.start()
   await openStrains(w, LAB)
   await findStrain(w, s.name, new RegExp(s.name))
-  await w.click(w.page.getByRole('button', { name: `Change the state of vial ${label}` }))
+  await openTab(w, 'Material')
+  await vialAction(w, label, 'Change state')
   const dialog = w.page.getByRole('dialog', { name: `Change the state of vial ${label}` })
   await w.choose(dialog.getByRole('combobox', { name: 'New state' }), /destroy/i)
   await w.type(dialog.getByRole('textbox', { name: 'Reason' }), 'Tube cracked in the box.')
@@ -174,6 +179,7 @@ test('T8 record a viability check of a batch', async ({ browser }, info) => {
   await w.start()
   // The batch waits on Home for its checks (#69).
   await openWaiting(w, 'Batches waiting for their checks', `${strain.number} batch 1`)
+  await openTab(w, 'Material')
   const batches = w.page.getByRole('table', { name: 'Batches' })
   await w.click(batches.getByRole('button', { name: 'Checks of batch 1' }))
   await w.click(w.page.getByRole('button', { name: 'Record a check' }))

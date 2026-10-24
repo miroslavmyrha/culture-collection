@@ -47,6 +47,10 @@ class Perm(StrEnum):
     # #10 and #12: depositors (with their contacts), deposits and their terms. Reading them
     # shows personal contacts, so it is not a viewer's permission (ADR 0008, 2026-10-19).
     VIEW_DEPOSITS = "deposits.view"
+    # #19: a strain's terms of use, every version, with its MTA by code and version. They name
+    # no person and decide what a strain may be used for, which every role that sees the strain
+    # asks (#78): a viewer's permission, apart from the deposit and its depositor.
+    VIEW_TERMS = "deposits.view_terms"
     MANAGE_DEPOSITS = "deposits.manage"
     # Publishing an MTA template version: a legal text the lab signs up to.
     MANAGE_MTA = "deposits.manage_mta"
@@ -72,6 +76,7 @@ GRANTS: dict[Role, frozenset[Perm]] = {
             Perm.VIEW_STRAINS,
             Perm.VIEW_STORAGE,
             Perm.VIEW_DISTRIBUTION,
+            Perm.VIEW_TERMS,
         }
     ),
     Role.TECHNICIAN: frozenset({Perm.HANDLE_VIALS}),

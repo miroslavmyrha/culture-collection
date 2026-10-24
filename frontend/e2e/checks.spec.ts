@@ -86,7 +86,7 @@ async function strainWithBatch(browser: Browser, tag: string) {
   )
   const vials = rows(await ok(page, lab, `vials/?batch=${batch}`)).map((v) => text(v, 'label'))
   await close()
-  return { lab, strain, batch, vials, path: `/labs/${lab}/strains/${strain}` }
+  return { lab, strain, batch, vials, path: `/labs/${lab}/strains/${strain}/material` }
 }
 
 async function openBatch(page: Page, path: string) {

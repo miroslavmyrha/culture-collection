@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, acceptedStrain, api, batch, batchOf, freezerWithBoxes, labId, openLab, findStrain, openStrains, openWaiting, openUnit, passAll, receivedDeposit, release, setupAs, supplyStrain } from './walk.js'
+import { RUN, Walk, acceptedStrain, api, batch, batchOf, freezerWithBoxes, labId, openLab, findStrain, openStrains, openTab, openWaiting, openUnit, strainAction, passAll, receivedDeposit, release, setupAs, supplyStrain } from './walk.js'
 
 // A curator of Bacteriology (seed_dev): intake, identification, storage and the strain's record.
 const LAB = 'Bacteriology'
@@ -80,7 +80,7 @@ test('C4 reclassify a strain after a new identification', async ({ browser }, in
   await w.start()
   await openStrains(w, LAB)
   await findStrain(w, name, new RegExp(name))
-  await w.click(w.page.getByRole('button', { name: 'Reclassify' }))
+  await strainAction(w, 'Reclassify')
   const dialog = w.page.getByRole('dialog', { name: /^Reclassify BAC/ })
   await w.keys('Priestia meg') // the taxon field takes focus
   await w.click(w.page.getByRole('option', { name: /^Priestia megaterium/ }))
@@ -111,11 +111,13 @@ test('C6 see what happened to a strain: its risk group and restriction changes',
   await openStrains(w, LAB)
   // seed_dev: BAC 27 is the Mockia vulgaris strain with the reassessment in its history. BAC 30 is a later deposit of the same taxon.
   await findStrain(w, 'BAC 27', /^BAC 27 /)
-  w.look(3) // facts, restrictions, identification history
-  await expect(w.page.getByRole('heading', { level: 2, name: 'Identification history' })).toBeVisible()
-  await expect(w.page.getByText(/Reassessed after the list entry was checked/)).toHaveCount(0)
-  await w.shot('strain-without-history')
-  w.impossible('The risk group was lowered from 2 to 1: the page shows the ended restriction with its reason, but not that change, when, by whom or why', '#19')
+  await openTab(w, 'History')
+  // seed_dev: the risk group went from 2 to 1 with a reason, and a restriction ended.
+  const history = w.page.getByRole('list', { name: 'History, newest first' })
+  await expect(history.getByRole('listitem').filter({ hasText: 'changed the risk group of BAC 27' })).toHaveCount(1)
+  await w.read(history)
+  await w.shot('strain-history')
+  w.note('The line says the risk group changed, not from what to what or why: the reason stays in the audit trail', '#19')
   await w.done()
 })
 
@@ -173,6 +175,7 @@ test('C8 release a batch after its checks', async ({ browser }, info) => {
   await w.start()
   // The batch waits on Home for its release (#69).
   await openWaiting(w, 'Batches to release', `${strain.number} batch 1`)
+  await openTab(w, 'Material')
   const batches = w.page.getByRole('table', { name: 'Batches' })
   await w.read(batches)
   await expect(batches.getByRole('row', { name: /All checks passed\. A curator releases it\./ })).toBeVisible()

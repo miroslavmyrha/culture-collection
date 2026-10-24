@@ -115,6 +115,45 @@ def test_a_subculture_through_the_api(technician: User, passage0: Passage, strai
     )
 
 
+def test_a_passage_names_its_place_in_the_tree(
+    technician: User, passage0: Passage, make_batch: MakeBatch, strain: Strain
+) -> None:
+    """Passage 0 is the root; a subculture hangs under its source, a revival under the passage
+    its vial's batch was preserved from, with the vial's label (#19)."""
+    client = logged_in(technician)
+    first = client.post(
+        PASSAGES_URL, {"source_passage": str(passage0.public_id)}, content_type="application/json"
+    ).json()
+    vial = vials_of(make_batch(Passage.objects.get(public_id=first["public_id"]), vial_count=2))[1]
+    revived = client.post(f"{VIALS_URL}{vial.public_id}/revive/").json()
+    rows = client.get(PASSAGES_URL, {"strain": str(strain.public_id)}).json()["results"]
+    tree = {row["number"]: (row["parent"], row["source_vial_label"]) for row in rows}
+    assert tree == {
+        0: (None, None),
+        1: (str(passage0.public_id), None),
+        2: (first["public_id"], f"{strain.accession_number} / {vial.batch.number} / 2"),
+    }
+    assert revived["parent"] == first["public_id"]
+
+
+@pytest.mark.parametrize("revivals", [1, 10])
+def test_the_passage_list_is_flat_with_revivals(
+    *,
+    revivals: int,
+    viewer: User,
+    technician: User,
+    passage0: Passage,
+    make_batch: MakeBatch,
+    query_baseline: QueryBaseline,
+) -> None:
+    for vial in vials_of(make_batch(passage0, vial_count=revivals)):
+        logged_in(technician).post(f"{VIALS_URL}{vial.public_id}/revive/")
+    client = logged_in(viewer)
+    with query_baseline("passage_list"):
+        rows = client.get(PASSAGES_URL).json()["results"]
+    assert len([row for row in rows if row["source_vial_label"]]) == revivals
+
+
 def test_placing_and_the_conflicts_it_answers(
     technician: User, passage0: Passage, make_batch: MakeBatch, tree: Tree
 ) -> None:
@@ -235,3 +274,44 @@ def test_the_batch_and_passage_lists_are_flat(
     assert scoped(captured.captured_queries, "lineage_batch")
     with query_baseline("passage_list"):
         assert client.get(PASSAGES_URL).json()["count"] == 1
+
+
+def test_every_vial_of_a_strain_is_reachable_a_page_at_a_time(
+    *,
+    viewer: User,
+    passage0: Passage,
+    regulated: Strain,
+    make_batch: MakeBatch,
+    tree: Tree,
+    strain: Strain,
+) -> None:
+    """#72: a strain with more than 200 vials. The count is every vial of the strain, the pages
+    cover each vial once in batch and number order, the cap of 200 never drops one unsaid, and
+    a regulated strain's vials stay masked on every page."""
+    for count in (200, 30):
+        make_batch(passage0, vial_count=count)
+    regulated0 = Passage.objects.get(strain=regulated, number=0)
+    make_batch(regulated0, vial_count=200)
+    make_batch(regulated0, vial_count=1, box=tree.box)
+    client = logged_in(viewer)
+    params: dict[str, str | int] = {"strain": str(strain.public_id)}
+    capped = client.get(VIALS_URL, {**params, "limit": 1000}).json()
+    assert capped["count"] == 230
+    assert len(capped["results"]) == 200  # the cap: the count says what is left out
+    seen: list[str] = []
+    for offset in range(0, 230, 50):
+        part = client.get(VIALS_URL, {**params, "limit": 50, "offset": offset}).json()
+        assert part["count"] == 230
+        seen += [row["label"] for row in part["results"]]
+    number = strain.accession_number
+    assert seen == [f"{number} / 1 / {n}" for n in range(1, 201)] + [
+        f"{number} / 2 / {n}" for n in range(1, 31)
+    ]
+    one_batch = client.get(
+        VIALS_URL, {**params, "batch": str(Batch.objects.get(strain=strain, number=2).public_id)}
+    )
+    assert one_batch.json()["count"] == 30
+    last: dict[str, str | int] = {"strain": str(regulated.public_id), "limit": 200, "offset": 200}
+    masked = client.get(VIALS_URL, last).json()
+    assert masked["count"] == 201
+    assert [(r["location"], r["location_masked"]) for r in masked["results"]] == [(None, True)]

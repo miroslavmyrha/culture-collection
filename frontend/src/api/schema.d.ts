@@ -990,6 +990,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Everything that happened to the strain that the person may read, newest first, one
+         *     line each, a page at a time: the rules of the activity on Home (overview.activity). A
+         *     line names its subject and the actor's pseudonymous label, never a location or a
+         *     person's data.
+         */
+        get: operations["labs_strains_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/strains/{public_id}/reclassify/": {
         parameters: {
             query?: never;
@@ -1048,6 +1070,26 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["labs_strains_risk_group_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/terms/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The strain's terms of use, every version newest first, with the MTA each names. The
+         *     deposit they belong to only for a reader who may open deposits.
+         */
+        get: operations["labs_strains_terms_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1342,7 +1384,7 @@ export interface components {
             lab_code: string;
             actor: string;
             summary: string;
-            target: (components["schemas"]["ActivityLineTargetEnum"] | components["schemas"]["NullEnum"]) | null;
+            target: (components["schemas"]["ActivityTarget"] | components["schemas"]["NullEnum"]) | null;
             /** Format: uuid */
             target_id: string | null;
         };
@@ -1356,7 +1398,7 @@ export interface components {
          *     * `requesters` - requesters
          * @enum {string}
          */
-        ActivityLineTargetEnum: "strain" | "request" | "deposit" | "storage_unit" | "mta_template" | "lab" | "requesters";
+        ActivityTarget: "strain" | "request" | "deposit" | "storage_unit" | "mta_template" | "lab" | "requesters";
         ApproveInputRequest: {
             /**
              * @description Why, in a sentence. Stored for good: name no person.
@@ -1980,6 +2022,28 @@ export interface components {
             /** Format: uuid */
             line: string | null;
         };
+        /**
+         * @description One line of a strain's history (#19): a line of Home's activity without the lab, which
+         *     is the strain's.
+         */
+        HistoryLine: {
+            /** Format: date-time */
+            occurred_at: string;
+            actor: string;
+            summary: string;
+            target: (components["schemas"]["ActivityTarget"] | components["schemas"]["NullEnum"]) | null;
+            /** Format: uuid */
+            target_id: string | null;
+        };
+        /** @description A page of the history: `count` is every line the person may read, `results` this page. */
+        HistoryPage: {
+            count: number;
+            /** Format: uri */
+            next: string | null;
+            /** Format: uri */
+            previous: string | null;
+            results: components["schemas"]["HistoryLine"][];
+        };
         IdentificationOutput: {
             /** Format: uuid */
             readonly public_id: string;
@@ -2422,6 +2486,9 @@ export interface components {
             readonly source_passage: string | null;
             /** Format: uuid */
             readonly source_vial: string | null;
+            /** Format: uuid */
+            readonly parent: string | null;
+            readonly source_vial_label: string | null;
             /** Format: date-time */
             readonly created_at: string;
         };
@@ -2977,6 +3044,12 @@ export interface components {
          * @enum {string}
          */
         StrainStatus: "pending" | "active" | "restricted" | "deaccessioned";
+        /** @description A strain's terms of use (#19): every version, newest first, at most one active. */
+        StrainTermsOutput: {
+            /** Format: uuid */
+            deposit: string | null;
+            versions: components["schemas"]["TermsOutput"][];
+        };
         SubcultureInputRequest: {
             /** Format: uuid */
             source_passage: string;
@@ -8303,6 +8376,64 @@ export interface operations {
             };
         };
     };
+    labs_strains_history_retrieve: {
+        parameters: {
+            query?: {
+                /** @description At most 200 */
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoryPage"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     labs_strains_reclassify_create: {
         parameters: {
             query?: never;
@@ -8603,6 +8734,60 @@ export interface operations {
             };
             /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_terms_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainTermsOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

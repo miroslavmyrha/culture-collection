@@ -15,6 +15,7 @@ where a regulated strain is (ADR 0009). The labels come from the subjects' own r
 lab, in the one query that reads the events.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -216,10 +217,9 @@ def events(*, access: Access) -> QuerySet[AuditEvent]:
     return AuditEvent.objects.for_access(access, Perm.VIEW_LAB).filter(scope).filter(one_line)
 
 
-def recent(*, access: Access, limit: int = ACTIVITY_LIMIT) -> list[Line]:
-    """The latest events, newest first, with what each line needs, in one query."""
-    if not access.roles:
-        return []
+def _with_labels(rows: QuerySet[AuditEvent]) -> QuerySet[AuditEvent]:
+    """The events with what their lines need: the labels of their subjects, from the subjects'
+    own rows in the event's lab, as subqueries of the one query that reads the events."""
     request_of_line = RequestLine.objects.filter(public_id=OuterRef("subject_id")).values(
         "request__public_id"
     )[:1]
@@ -269,23 +269,40 @@ def recent(*, access: Access, limit: int = ACTIVITY_LIMIT) -> list[Line]:
         default=None,
         output_field=IntegerField(),
     )
-    rows = (
-        events(access=access)
-        .annotate(
-            lab_public_id=F("lab__public_id"),
-            lab_code=F("lab__code"),
-            asked_in=asked_in,
-            request_label=Subquery(request_label),
-            strain_number=Subquery(strain.values("accession_number")[:1]),
-            batch_number=batch_number,
-            vial_seq=_of_subject(Vial, "vial", "seq"),
-            deposit_name=_of_subject(Deposit, "deposit", "name_as_received"),
-            unit_name=_of_subject(StorageUnit, "storage_unit", "name"),
-            mta_code=_of_subject(MtaTemplate, "mta_template", "code"),
-            mta_version=_of_subject(MtaTemplate, "mta_template", "version"),
-        )
-        .order_by("-occurred_at", "-pk")[:limit]
+    return rows.annotate(
+        lab_public_id=F("lab__public_id"),
+        lab_code=F("lab__code"),
+        asked_in=asked_in,
+        request_label=Subquery(request_label),
+        strain_number=Subquery(strain.values("accession_number")[:1]),
+        batch_number=batch_number,
+        vial_seq=_of_subject(Vial, "vial", "seq"),
+        deposit_name=_of_subject(Deposit, "deposit", "name_as_received"),
+        unit_name=_of_subject(StorageUnit, "storage_unit", "name"),
+        mta_code=_of_subject(MtaTemplate, "mta_template", "code"),
+        mta_version=_of_subject(MtaTemplate, "mta_template", "version"),
     )
+
+
+def recent(*, access: Access, limit: int = ACTIVITY_LIMIT) -> list[Line]:
+    """The latest events, newest first, with what each line needs, in one query."""
+    if not access.roles:
+        return []
+    rows = _with_labels(events(access=access)).order_by("-occurred_at", "-pk")[:limit]
+    return lines(rows, access=access)
+
+
+def strain_history(*, access: Access, strain: Strain) -> QuerySet[AuditEvent]:
+    """Everything that happened to one strain that the person may read, newest first (#19):
+    the events whose timeline root is the strain (ADR 0008, D13), under the same rules as the
+    activity on Home, so the strain's page never shows an event Home would hide. Ordered for a
+    page of it; `lines` turns the page into lines."""
+    rows = events(access=access).filter(lab_id=strain.lab_id, strain_id=strain.public_id)
+    return _with_labels(rows).order_by("-occurred_at", "-pk")
+
+
+def lines(rows: Iterable[AuditEvent], *, access: Access) -> list[Line]:
+    """Events read by `_with_labels`, as the lines a person reads."""
     return [_line(event, access) for event in rows]
 
 

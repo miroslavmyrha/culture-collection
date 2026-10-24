@@ -282,6 +282,8 @@ SPECTACULAR_SETTINGS = {
         "StrainStatus": "cultures.strains.models.StrainStatus",
         "TaxonStatus": "cultures.taxonomy.models.TaxonStatus",
         "RiskGroup": "cultures.strains.api.serializers.RISK_GROUPS",
+        # Home's activity and a strain's history link their lines to the same pages (#19).
+        "ActivityTarget": "cultures.overview.api.serializers.ACTIVITY_TARGETS",
         "CountryCode": "cultures.strains.api.serializers.COUNTRY_CHOICES",
         "DepositStatus": "cultures.deposits.models.DepositStatus",
         "Condition": "cultures.deposits.models.Condition",
