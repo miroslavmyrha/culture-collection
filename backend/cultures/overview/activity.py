@@ -91,6 +91,12 @@ SHOWN: dict[str, Shown] = {
     "strain_reclassified": Shown(S, "identified {subject} anew", STRAIN),
     "strain_risk_group_changed": Shown(S, "changed the risk group of {subject}", STRAIN),
     "strain_restriction_added": Shown(S, "added a restriction to {subject}", STRAIN),
+    "strain_restriction_end_proposed": Shown(
+        S, "proposed to end a restriction of {subject}", STRAIN
+    ),
+    "strain_restriction_end_withdrawn": Shown(
+        S, "withdrew a proposal to end a restriction of {subject}", STRAIN
+    ),
     "strain_restriction_ended": Shown(S, "ended a restriction of {subject}", STRAIN),
     "depositor_created": Shown(D, "added a depositor", None),
     "depositor_changed": Shown(D, "changed a depositor", None),

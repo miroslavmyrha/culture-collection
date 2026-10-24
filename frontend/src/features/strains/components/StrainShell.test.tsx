@@ -26,6 +26,7 @@ const GMO = {
   created_at: '2026-02-01T10:00:00Z',
   ended_at: null,
   end_reason: '',
+  end_proposal: null,
 }
 
 const strain = makeStrain({
@@ -62,10 +63,10 @@ const teachingDenied = makeTerms({
 const terms = (versions = [teachingDenied, makeTerms({ is_active: false })]) => mockApi('get', TERMS, { deposit: null, versions })
 
 /** The strain page's header with its Overview tab, as the page puts them together. */
-const render = (canManage = true) =>
+const render = (canManage = true, canConfirm = false) =>
   renderWithProviders(
     <StrainShell labId={LAB_ID} strainId={STRAIN_ID} canManage={canManage}>
-      {(s) => <StrainOverview labId={LAB_ID} strain={s} canManage={canManage} />}
+      {(s) => <StrainOverview labId={LAB_ID} strain={s} canManage={canManage} canConfirm={canConfirm} />}
     </StrainShell>,
   )
 
@@ -101,7 +102,7 @@ describe('StrainShell with the Overview tab', { timeout: 20_000 }, () => {
       Accessioned: '2026-01-10',
     })
     const current = screen.getByRole('table', { name: 'Current restrictions' })
-    expect(within(current).getAllByRole('row')[1]).toHaveTextContent('GMO in contained useMŽP 2026/12, category II2026-02-01End')
+    expect(within(current).getAllByRole('row')[1]).toHaveTextContent('GMO in contained useMŽP 2026/12, category II2026-02-01Propose to end')
     const ended = screen.getByRole('table', { name: 'Ended restrictions' })
     expect(within(ended).getAllByRole('row')[1]).toHaveTextContent('Risky agent (RAT)Příloha 2, bod 32026-02-012026-04-01: delisted')
     // Tables that may scroll sideways at 320 px are tab stops, so the keys can scroll them.
@@ -146,7 +147,7 @@ describe('StrainShell with the Overview tab', { timeout: 20_000 }, () => {
     await screen.findByRole('heading', { level: 1, name: 'MYC 42' })
     expect(screen.queryByRole('button', { name: /^Actions/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Reclassify' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /End restriction/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /end restriction/i })).not.toBeInTheDocument()
   })
 
   it('says a strain it cannot find is not found, with its title', async () => {
@@ -293,24 +294,80 @@ describe('StrainShell with the Overview tab', { timeout: 20_000 }, () => {
     expect(entry).toHaveFocus()
   })
 
-  it('ends a restriction with a reason; the focus goes to the next control when its row is gone', async () => {
+  it('proposes to end a restriction with a reason; it stays in force until a manager confirms', async () => {
     mockApi('get', DETAIL, strain)
     terms()
-    const ended = { ...strain, restriction_history: strain.restriction_history.map((r) => ({ ...r, ended_at: r.ended_at ?? '2026-05-01T10:00:00Z', end_reason: r.end_reason || 'destroyed' })) }
-    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end/', ended)
-    await render()
+    const proposal = { public_id: '00000000-0000-4000-8000-0000000000e9', reason: 'destroyed', proposed_at: '2026-05-01T10:00:00Z', confirm_refusal: 'confirm_own_end_proposal' as const }
+    const proposed = { ...strain, restriction_history: [{ ...GMO, end_proposal: proposal }, strain.restriction_history[1]!] }
+    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/', proposed)
+    await render(true, true)
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: 'End restriction MŽP 2026/12' }))
-    const dialog = await screen.findByRole('dialog', { name: 'End the restriction MŽP 2026/12' })
+    await user.click(await screen.findByRole('button', { name: 'Propose to end restriction MŽP 2026/12' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Propose to end the restriction MŽP 2026/12' })
+    expect(dialog).toHaveAccessibleDescription(/stays in force until a manager other than you confirms/)
     const reason = within(dialog).getByRole('textbox', { name: 'Reason' })
     await waitFor(() => expect(reason).toHaveFocus())
     await user.keyboard('destroyed')
+    await user.click(within(dialog).getByRole('button', { name: 'Propose' }))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    expect(calls[0]?.url.pathname).toBe(`/api/v1/labs/${LAB_ID}/strains/${STRAIN_ID}/restrictions/${GMO.public_id}/end-proposal/`)
+    expect(calls[0]?.body).toEqual({ reason: 'destroyed' })
+    const current = screen.getByRole('table', { name: 'Current restrictions' })
+    expect(within(current).getByText(/Proposed 2026-05-01: destroyed/)).toBeInTheDocument()
+    // The proposer is a manager too, but not the one who confirms.
+    expect(within(current).getByText('You proposed it: a different manager confirms.')).toBeInTheDocument()
+    expect(within(current).queryByRole('button', { name: /^Confirm the end/ })).not.toBeInTheDocument()
+    expect(within(current).getByRole('button', { name: 'Withdraw the proposal to end restriction MŽP 2026/12' })).toBeInTheDocument()
+  })
+
+  it('a manager confirms the proposal they read, and the restriction ends', async () => {
+    const proposal = { public_id: '00000000-0000-4000-8000-0000000000e9', reason: 'destroyed', proposed_at: '2026-05-01T10:00:00Z', confirm_refusal: null }
+    mockApi('get', DETAIL, { ...strain, restriction_history: [{ ...GMO, end_proposal: proposal }, strain.restriction_history[1]!] })
+    terms()
+    const ended = { ...strain, restriction_history: strain.restriction_history.map((r) => ({ ...r, ended_at: r.ended_at ?? '2026-05-02T10:00:00Z', end_reason: r.end_reason || 'destroyed' })) }
+    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/confirm/', ended)
+    await render(true, true)
+    const user = userEvent.setup()
+    expect(await screen.findByText('Waiting for your confirmation.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Confirm the end of restriction MŽP 2026/12' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'End the restriction MŽP 2026/12?' })
+    expect(within(dialog).getByText('Reason given: destroyed')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'End restriction' }))
     await waitFor(() => expect(dialog).not.toBeInTheDocument())
-    expect(calls[0]?.url.pathname).toBe(`/api/v1/labs/${LAB_ID}/strains/${STRAIN_ID}/restrictions/${GMO.public_id}/end/`)
-    expect(calls[0]?.body).toEqual({ reason: 'destroyed' })
+    expect(calls[0]?.body).toEqual({ proposal: proposal.public_id })
     expect(await screen.findByText('None. The agent is on no regulatory list.')).toBeInTheDocument()
     await waitFor(() => expect(document.activeElement).not.toBe(document.body))
     expect(screen.getByRole('heading', { level: 2, name: 'Restrictions' })).toHaveFocus()
+  })
+
+  it('a curator sees a proposal waiting for a manager and may withdraw it, never confirm it', async () => {
+    const proposal = { public_id: '00000000-0000-4000-8000-0000000000e9', reason: 'destroyed', proposed_at: '2026-05-01T10:00:00Z', confirm_refusal: null }
+    mockApi('get', DETAIL, { ...strain, restriction_history: [{ ...GMO, end_proposal: proposal }, strain.restriction_history[1]!] })
+    terms()
+    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/withdraw/', strain)
+    await render(true, false)
+    const user = userEvent.setup()
+    expect(await screen.findByText('Waiting for a manager to confirm.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Confirm the end/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Withdraw the proposal to end restriction MŽP 2026/12' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Withdraw the proposal to end MŽP 2026/12' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'still listed')
+    await user.click(within(dialog).getByRole('button', { name: 'Withdraw' }))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    expect(calls[0]?.body).toEqual({ proposal: proposal.public_id, reason: 'still listed' })
+    expect(await screen.findByRole('button', { name: 'Propose to end restriction MŽP 2026/12' })).toBeInTheDocument()
+  })
+
+  it('says the proposal changed when another one is open now', async () => {
+    const proposal = { public_id: '00000000-0000-4000-8000-0000000000e9', reason: 'destroyed', proposed_at: '2026-05-01T10:00:00Z', confirm_refusal: null }
+    mockApi('get', DETAIL, { ...strain, restriction_history: [{ ...GMO, end_proposal: proposal }, strain.restriction_history[1]!] })
+    terms()
+    mockApiError('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/confirm/', 409, problem(409, { code: 'end_proposal_changed' }))
+    await render(true, true)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Confirm the end of restriction MŽP 2026/12' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'End the restriction MŽP 2026/12?' })
+    await user.click(within(dialog).getByRole('button', { name: 'End restriction' }))
+    expect(await within(dialog).findByText('The proposal changed meanwhile. Close this and read it again before you decide.')).toBeInTheDocument()
   })
 })

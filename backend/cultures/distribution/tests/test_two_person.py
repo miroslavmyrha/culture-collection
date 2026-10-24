@@ -40,6 +40,7 @@ from cultures.storage.tests.conftest import Tree
 from cultures.strains import services as strains
 from cultures.strains.models import StrainRestriction
 from cultures.strains.services import RestrictionInput
+from cultures.strains.tests.conftest import end_restriction
 from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
 
@@ -253,10 +254,7 @@ def test_a_request_awaiting_confirmation_is_not_shipped_in_one_step_approved_or_
     withdrawn, nothing else."""
     request = regulated(prepared_by=curator)
     for restriction in StrainRestriction.objects.filter(strain__request_lines__request=request):
-        with as_actor(approver):
-            strains.strain_restriction_end(
-                access=access_for(approver), restriction=restriction, reason="Delisted."
-            )
+        end_restriction(restriction, proposer=curator, confirmer=approver)
 
     def cancel() -> None:
         with as_actor(curator):

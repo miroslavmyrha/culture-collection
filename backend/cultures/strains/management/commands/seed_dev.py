@@ -404,7 +404,14 @@ class Command(BaseCommand):
             row = StrainRestriction.objects.get(
                 strain=strain, kind=ending["kind"], reference=ending["reference"], ended_at=None
             )
-            strains.strain_restriction_end(access=access, restriction=row, reason=step["reason"])
+            # Two people (#105): the curator proposes, the lab's manager confirms.
+            proposal = strains.strain_restriction_end_propose(
+                access=access, restriction=row, reason=step["reason"]
+            )
+            manager = User.objects.get(username=lab_username(strain.lab.code, Role.MANAGER))
+            strains.strain_restriction_end_confirm(
+                access=access_for(manager), restriction=row, proposal=proposal.public_id
+            )
             return strain
         raise CommandError(f"Unknown step in {DATA.name}: {sorted(step)}")
 

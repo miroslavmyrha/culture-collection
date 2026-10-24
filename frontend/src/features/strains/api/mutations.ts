@@ -59,15 +59,56 @@ export function useAddRestriction(labId: string, strainId: string) {
   })
 }
 
-export function useEndRestriction(labId: string, strainId: string) {
+type EndPath = { restrictionId: string }
+const endPath = (labId: string, strainId: string, restrictionId: string) => ({
+  path: { lab_public_id: labId, public_id: strainId, restriction_id: restrictionId },
+})
+
+/** The first of two steps (#105): nothing changes for the strain until a manager confirms. */
+export function useProposeEnd(labId: string, strainId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ restrictionId, reason }: { restrictionId: string; reason: string }) => {
+    mutationFn: async ({ restrictionId, reason }: EndPath & { reason: string }) => {
       await ensureCsrf()
       return unwrap(
-        api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end/', {
-          params: { path: { lab_public_id: labId, public_id: strainId, restriction_id: restrictionId } },
+        api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/', {
+          params: endPath(labId, strainId, restrictionId),
           body: { reason },
+        }),
+      )
+    },
+    meta: { handlesError: true },
+    onSuccess: (strain) => settle(qc, labId, strain),
+  })
+}
+
+/** The proposal the manager read, by its id: another one open meanwhile is a 409. */
+export function useConfirmEnd(labId: string, strainId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ restrictionId, proposal }: EndPath & { proposal: string }) => {
+      await ensureCsrf()
+      return unwrap(
+        api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/confirm/', {
+          params: endPath(labId, strainId, restrictionId),
+          body: { proposal },
+        }),
+      )
+    },
+    meta: { handlesError: true },
+    onSuccess: (strain) => settle(qc, labId, strain),
+  })
+}
+
+export function useWithdrawEnd(labId: string, strainId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ restrictionId, proposal, reason }: EndPath & { proposal: string; reason: string }) => {
+      await ensureCsrf()
+      return unwrap(
+        api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/withdraw/', {
+          params: endPath(labId, strainId, restrictionId),
+          body: { proposal, reason },
         }),
       )
     },

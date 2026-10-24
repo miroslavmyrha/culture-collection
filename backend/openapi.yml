@@ -5033,9 +5033,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
-  /api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end/:
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/:
     post:
-      operationId: labs_strains_restrictions_end_create
+      operationId: labs_strains_restrictions_end_proposal_create
+      description: |-
+        Proposes to end a restriction, with the reason it will end with (#105). The
+        restriction stays active until a manager other than the proposer confirms it.
       parameters:
       - in: path
         name: lab_public_id
@@ -5061,10 +5064,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RestrictionEndInputRequest'
+              $ref: '#/components/schemas/EndProposeInputRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/RestrictionEndInputRequest'
+              $ref: '#/components/schemas/EndProposeInputRequest'
         required: true
       security:
       - cookieAuth: []
@@ -5080,7 +5083,179 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-          description: The restriction has ended already
+          description: 'restriction_ended; end_proposed: someone proposed to end it
+            already, a proposal waits'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'lab_authorisation_required: the lab holds no valid permit
+            for a restriction''s kind; reason_required'
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/confirm/:
+    post:
+      operationId: labs_strains_restrictions_end_proposal_confirm_create
+      description: |-
+        A manager other than the proposer confirms the proposal they read: the restriction
+        ends now, with the proposal's reason.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: restriction_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndConfirmInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EndConfirmInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainDetailOutput'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'permission_denied: confirming is a manager''s; confirm_own_end_proposal:
+            the caller proposed it, a different manager confirms'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'restriction_ended; end_not_proposed: no proposal is open;
+            end_proposal_changed: another proposal is open than the one named'
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/withdraw/:
+    post:
+      operationId: labs_strains_restrictions_end_proposal_withdraw_create
+      description: Withdraws the open proposal the caller read, with a reason. The
+        restriction stays.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: restriction_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndWithdrawInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EndWithdrawInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainDetailOutput'
+          description: ''
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'restriction_ended; end_not_proposed: no proposal is open;
+            end_proposal_changed: another proposal is open than the one named'
         '422':
           content:
             application/problem+json:
@@ -6696,14 +6871,6 @@ components:
           format: uuid
       required:
       - preparation
-    ConfirmRefusalEnum:
-      enum:
-      - confirm_own_approval
-      - confirm_own_preparation
-      type: string
-      description: |-
-        * `confirm_own_approval` - confirm_own_approval
-        * `confirm_own_preparation` - confirm_own_preparation
     Coolant:
       enum:
       - dry_ice
@@ -7502,6 +7669,74 @@ components:
         * `application/pdf` - PDF
         * `image/png` - PNG image
         * `image/jpeg` - JPEG image
+    EndConfirmInputRequest:
+      type: object
+      properties:
+        proposal:
+          type: string
+          format: uuid
+          description: The public id of the proposal the manager read.
+      required:
+      - proposal
+    EndProposalOutput:
+      type: object
+      description: |-
+        The open proposal to end a restriction (#105). It names nobody: `confirm_refusal` says
+        the caller proposed it and so may not confirm it (ADR 0009); null when they may, as far as
+        identity goes (confirming is a manager's, strains.confirm_restriction_end).
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        proposed_at:
+          type: string
+          format: date-time
+          readOnly: true
+        confirm_refusal:
+          nullable: true
+          readOnly: true
+          oneOf:
+          - $ref: '#/components/schemas/EndProposalOutputConfirmRefusalEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - confirm_refusal
+      - proposed_at
+      - public_id
+      - reason
+    EndProposalOutputConfirmRefusalEnum:
+      enum:
+      - confirm_own_end_proposal
+      type: string
+      description: '* `confirm_own_end_proposal` - confirm_own_end_proposal'
+    EndProposeInputRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+      required:
+      - reason
+    EndWithdrawInputRequest:
+      type: object
+      properties:
+        proposal:
+          type: string
+          format: uuid
+          description: The public id of the proposal the manager read.
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+      required:
+      - proposal
+      - reason
     Finding:
       type: object
       properties:
@@ -8843,7 +9078,7 @@ components:
           nullable: true
           readOnly: true
           oneOf:
-          - $ref: '#/components/schemas/ConfirmRefusalEnum'
+          - $ref: '#/components/schemas/PreparationOutputConfirmRefusalEnum'
           - $ref: '#/components/schemas/NullEnum'
       required:
       - basis_note
@@ -8863,6 +9098,14 @@ components:
       - withdraw_reason
       - withdrawn_at
       - withdrawn_by
+    PreparationOutputConfirmRefusalEnum:
+      enum:
+      - confirm_own_approval
+      - confirm_own_preparation
+      type: string
+      description: |-
+        * `confirm_own_approval` - confirm_own_approval
+        * `confirm_own_preparation` - confirm_own_preparation
     PreservationMethod:
       enum:
       - cryo_minus80
@@ -9427,15 +9670,6 @@ components:
       required:
       - kind
       - reference
-    RestrictionEndInputRequest:
-      type: object
-      properties:
-        reason:
-          type: string
-          minLength: 1
-          description: 'Why, in a sentence. Stored for good: name no person.'
-      required:
-      - reason
     RestrictionInputRequest:
       type: object
       properties:
@@ -9504,9 +9738,15 @@ components:
         end_reason:
           type: string
           readOnly: true
+        end_proposal:
+          allOf:
+          - $ref: '#/components/schemas/EndProposalOutput'
+          nullable: true
+          readOnly: true
       required:
       - act
       - created_at
+      - end_proposal
       - end_reason
       - ended_at
       - gmo_category

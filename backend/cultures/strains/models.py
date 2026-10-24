@@ -12,9 +12,12 @@ Every identification is a StrainIdentification row; exactly one is current,
 and its taxon is cached on the strain for filters.
 
 Biosafety (ADR 0009): a risk group 1 to 4, pathogenicity for animals and for
-plants as separate fields, and any number of restrictions.
+plants as separate fields, and any number of restrictions. A restriction ends only through a
+proposal a second person confirms (#105): one person lifting it alone would take the strain out
+of every rule that reads "regulated" from the active restrictions.
 """
 
+from django.conf import settings
 from django.db import models
 from django.db.models import F, Q
 from django.db.models.functions import Upper
@@ -31,6 +34,7 @@ ACCESSION_NUMBER_UNIQUE = "strains_strain_accession_number_uniq"
 ACCESSION_SEQ_UNIQUE = "strains_strain_lab_accession_seq_uniq"
 ONE_CURRENT_IDENTIFICATION = "strains_identification_one_current"
 ACTIVE_RESTRICTION_UNIQUE = "strains_restriction_active_uniq"
+ONE_OPEN_END_PROPOSAL = "strains_endproposal_one_open"
 
 # ISO 8601 calendar dates of reduced precision: a year, a year and a month, or a full date
 # (the precision Darwin Core's eventDate allows). An isolation date is often known to the
@@ -268,3 +272,83 @@ class StrainRestriction(PublicModel):
 
     def __str__(self) -> str:
         return f"{self.kind} {self.reference}"
+
+
+class RestrictionEndProposal(PublicModel):
+    """A proposal to end a restriction, with the reason (#105, ADR 0009). A manager other than
+    the proposer confirms it, which ends the restriction with this reason at the confirmation's
+    time; or someone withdraws it with a reason of their own. Inserted open; the one later
+    change is the confirmation or the withdrawal, written once (the trigger). Never deleted. At
+    most one per restriction is not withdrawn (a partial unique index)."""
+
+    lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="+")
+    restriction = models.ForeignKey(
+        StrainRestriction, on_delete=models.PROTECT, related_name="end_proposals"
+    )
+    # Why the restriction should end (an annex no longer lists the agent). It becomes the
+    # restriction's end_reason. Names nobody.
+    reason = models.TextField()
+    proposed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    proposed_at = models.DateTimeField()
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    withdrawn_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    withdrawn_at = models.DateTimeField(null=True, blank=True)
+    # Why it was withdrawn. Names nobody.
+    withdraw_reason = models.TextField(blank=True)
+
+    objects = LabScopedQuerySet["RestrictionEndProposal"].as_manager()
+
+    class Meta(PublicModel.Meta):
+        constraints = [
+            *PublicModel.Meta.constraints,
+            # One not withdrawn: the open one, or the one confirmed (an ended restriction takes
+            # no proposal, the trigger). So at most one is open, and one ended the restriction.
+            models.UniqueConstraint(
+                fields=["restriction"],
+                condition=Q(withdrawn_at__isnull=True),
+                name=ONE_OPEN_END_PROPOSAL,
+            ),
+            models.CheckConstraint(
+                condition=Q(reason__regex=r"\S"), name="strains_endproposal_reason_given"
+            ),
+            models.CheckConstraint(
+                condition=Q(confirmed_at__isnull=True, confirmed_by__isnull=True)
+                | Q(confirmed_at__isnull=False, confirmed_by__isnull=False),
+                name="strains_endproposal_confirmation_complete",
+            ),
+            models.CheckConstraint(
+                condition=Q(
+                    withdrawn_at__isnull=True, withdrawn_by__isnull=True, withdraw_reason=""
+                )
+                | Q(
+                    withdrawn_at__isnull=False,
+                    withdrawn_by__isnull=False,
+                    withdraw_reason__regex=r"\S",
+                ),
+                name="strains_endproposal_withdrawal_complete",
+            ),
+            models.CheckConstraint(
+                condition=Q(confirmed_at__isnull=True) | Q(withdrawn_at__isnull=True),
+                name="strains_endproposal_confirmed_or_withdrawn",
+            ),
+            models.CheckConstraint(
+                # Spelled with isnull: a CHECK passes when its condition is NULL.
+                condition=Q(confirmed_by__isnull=True) | ~Q(confirmed_by=F("proposed_by")),
+                name="strains_endproposal_second_person",
+            ),
+            models.CheckConstraint(
+                condition=(Q(confirmed_at__isnull=True) | Q(confirmed_at__gte=F("proposed_at")))
+                & (Q(withdrawn_at__isnull=True) | Q(withdrawn_at__gte=F("proposed_at"))),
+                name="strains_endproposal_outcome_after_proposal",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"end proposal {self.public_id}"

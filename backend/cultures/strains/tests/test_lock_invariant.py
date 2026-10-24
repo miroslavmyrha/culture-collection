@@ -10,6 +10,7 @@ one side. SQL is text: the thread race in test_concurrency.py proves what Postgr
 
 from collections.abc import Callable
 from datetime import date
+from uuid import UUID
 
 import pytest
 from django.db import connection
@@ -20,6 +21,8 @@ from cultures.biosafety import services as biosafety
 from cultures.biosafety.models import AuthorisationKind
 from cultures.labs.access import Access, access_for
 from cultures.labs.models import Lab
+from cultures.labs.permissions import Role
+from cultures.labs.tests.conftest import member_of
 from cultures.labs.tests.test_lock_invariant import first, locks, public_services
 from cultures.strains import services as strains
 from cultures.strains.models import StrainRestriction
@@ -70,11 +73,35 @@ def strain_restriction_add(f: Fixtures) -> Callable[[], object]:
     )
 
 
-def strain_restriction_end(f: Fixtures) -> Callable[[], object]:
+def strain_restriction_end_propose(f: Fixtures) -> Callable[[], object]:
     _, access, _, make = f
     restriction = StrainRestriction.objects.get(strain=make(restrictions=[GMO]))
-    return lambda: strains.strain_restriction_end(
+    return lambda: strains.strain_restriction_end_propose(
         access=access, restriction=restriction, reason="r"
+    )
+
+
+def _proposed(f: Fixtures) -> tuple[StrainRestriction, UUID]:
+    _, access, _, make = f
+    restriction = StrainRestriction.objects.get(strain=make(restrictions=[GMO]))
+    proposal = strains.strain_restriction_end_propose(
+        access=access, restriction=restriction, reason="r"
+    )
+    return restriction, proposal.public_id
+
+
+def strain_restriction_end_confirm(f: Fixtures) -> Callable[[], object]:
+    restriction, proposal = _proposed(f)
+    confirmer = access_for(member_of(f[0], Role.MANAGER, "confirmer"))
+    return lambda: strains.strain_restriction_end_confirm(
+        access=confirmer, restriction=restriction, proposal=proposal
+    )
+
+
+def strain_restriction_end_withdraw(f: Fixtures) -> Callable[[], object]:
+    restriction, proposal = _proposed(f)
+    return lambda: strains.strain_restriction_end_withdraw(
+        access=f[1], restriction=restriction, proposal=proposal, reason="r"
     )
 
 
@@ -103,7 +130,9 @@ SCENARIOS: dict[str, Scenario] = {
         strain_reclassify,
         strain_set_risk_group,
         strain_restriction_add,
-        strain_restriction_end,
+        strain_restriction_end_propose,
+        strain_restriction_end_confirm,
+        strain_restriction_end_withdraw,
         authorisation_create,
         authorisation_end,
     )
