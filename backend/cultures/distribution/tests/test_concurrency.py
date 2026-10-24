@@ -145,7 +145,10 @@ def test_the_open_reservation_index_decides_when_a_writer_skipped_the_locks(
         )
 
     events = AuditEvent.objects.count()
-    with run_before(services, "_save", competitor), pytest.raises(services.ReservedMeanwhile):
+    with (
+        run_before(services.decisions, "_save", competitor),
+        pytest.raises(services.ReservedMeanwhile),
+    ):
         approve(curator, request)
     request.refresh_from_db()
     assert request.status == "submitted"
@@ -161,7 +164,7 @@ def test_a_number_taken_at_the_same_moment_is_a_conflict(
     def competitor() -> None:
         RequestCounter.objects.create(lab=lab, year=year, last_number=0)
 
-    with run_before(services, "_save", competitor), pytest.raises(services.NumberTaken):
+    with run_before(services.requests, "_save", competitor), pytest.raises(services.NumberTaken):
         services.request_submit(
             access=access_for(curator), lab=lab, data=new_request(requester, [(strain, 1)])
         )

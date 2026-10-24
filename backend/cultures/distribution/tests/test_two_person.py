@@ -639,7 +639,10 @@ def test_the_open_preparation_index_decides_when_a_writer_skipped_the_locks(
         )
 
     events = last_pk()
-    with run_before(services, "_save", competitor), pytest.raises(services.PreparedMeanwhile):
+    with (
+        run_before(services.two_person, "_save", competitor),
+        pytest.raises(services.PreparedMeanwhile),
+    ):
         prepare(curator, request)
     request.refresh_from_db()
     assert request.status == RequestStatus.APPROVED

@@ -537,7 +537,9 @@ def test_at_commit_a_shipment_without_its_documents_is_refused(
     strain = supply(mockia, restrictions=[VRAT], vials=6)
     add_permit(curator, requester, PermitKind.SUJB_VRAT)
     monkeypatch.setattr(
-        services, "_write_documents", lambda locked, shipment, today: delivery_note(shipment)
+        services.two_person,
+        "_write_documents",
+        lambda locked, shipment, today: delivery_note(shipment),
     )
     with pytest.raises(IntegrityError, match="every document it needs"), transaction.atomic():
         two_step(strain)
@@ -548,7 +550,7 @@ def test_at_commit_a_shipment_without_its_documents_is_refused(
 def test_at_commit_a_shipment_without_a_delivery_note_is_refused(
     supply: Supply, one_step: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(services, "_write_documents", lambda locked, shipment, today: None)
+    monkeypatch.setattr(services.shipment, "_write_documents", lambda locked, shipment, today: None)
     with pytest.raises(IntegrityError, match="every document it needs"), transaction.atomic():
         one_step(supply(vials=6))
         with connection.cursor() as cursor:
@@ -669,7 +671,7 @@ def test_at_commit_an_abs_sheet_does_not_stand_in_for_a_register_entry(
                 text_sha256=hashlib.sha256(text.encode()).hexdigest(),
             )
 
-    monkeypatch.setattr(services, "_write_documents", without_entry)
+    monkeypatch.setattr(services.two_person, "_write_documents", without_entry)
     with pytest.raises(IntegrityError, match="every document it needs"), transaction.atomic():
         two_step(strain)
         with connection.cursor() as cursor:
