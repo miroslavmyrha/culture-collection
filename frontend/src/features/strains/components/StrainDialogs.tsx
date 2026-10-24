@@ -1,16 +1,16 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useId, useState } from 'react'
 import { type FieldValues, type Path, type UseFormSetError, useController, useForm, useWatch } from 'react-hook-form'
-import { ConfirmDialog, SelectField, Stack, TextField } from '@/components/ui'
+import { ConfirmDialog, SelectField, Stack, TextField, Typography } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
-import { useAddRestriction, useEndRestriction, useReclassify, useSetRiskGroup } from '../api/mutations'
+import { useAddRestriction, useConfirmEnd, useProposeEnd, useReclassify, useSetRiskGroup, useWithdrawEnd } from '../api/mutations'
 import {
   type AddRestrictionForm,
   addRestrictionSchema,
   emptyRestriction,
-  type EndRestrictionForm,
-  endRestrictionSchema,
+  type EndReasonForm,
+  endReasonSchema,
   GMO_CATEGORIES,
   GMO_CATEGORY_LABELS,
   options,
@@ -204,19 +204,22 @@ export function AddRestrictionDialog({ labId, strain, open, onClose, onExited }:
   )
 }
 
-type EndProps = Common & { restriction: Strain['restriction_history'][number] }
+type Restriction = Strain['restriction_history'][number]
+type EndProps = Common & { restriction: Restriction }
+type ProposalProps = Common & { restriction: Restriction; proposal: NonNullable<Restriction['end_proposal']> }
 
-export function EndRestrictionDialog({ labId, strain, restriction, open, onClose, onExited }: EndProps) {
-  const end = useEndRestriction(labId, strain.public_id)
+/** The first of two steps (#105): the restriction stays in force until a manager confirms. */
+export function ProposeEndDialog({ labId, strain, restriction, open, onClose, onExited }: EndProps) {
+  const propose = useProposeEnd(labId, strain.public_id)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
-  const { register, handleSubmit, formState, setError } = useForm<EndRestrictionForm>({
-    resolver: zodResolver(endRestrictionSchema),
+  const { register, handleSubmit, formState, setError } = useForm<EndReasonForm>({
+    resolver: zodResolver(endReasonSchema),
     defaultValues: { reason: '' },
   })
   const onSubmit = handleSubmit((values) => {
     setFailure(undefined)
-    end.mutate(
+    propose.mutate(
       { restrictionId: restriction.public_id, reason: values.reason.trim() },
       { onSuccess: onClose, onError: (error) => setFailure(placeError(error, ['reason'], setError, () => setError('reason', missing, { shouldFocus: true }))) },
     )
@@ -224,16 +227,77 @@ export function EndRestrictionDialog({ labId, strain, restriction, open, onClose
   return (
     <ConfirmDialog
       open={open}
-      title={`End the restriction ${restriction.reference}`}
-      description={`${RESTRICTION_LABELS[restriction.kind]}: it stays in the history with the time it ended and the reason.`}
-      confirmLabel="End restriction"
+      title={`Propose to end the restriction ${restriction.reference}`}
+      description={`${RESTRICTION_LABELS[restriction.kind]}: it stays in force until a manager other than you confirms the end. It then ends with this reason and stays in the history.`}
+      confirmLabel="Propose"
       form={formId}
-      pending={end.isPending}
+      pending={propose.isPending}
       error={failure}
       onClose={onClose}
       onExited={onExited}
     >
-      <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="End the restriction" spacing={2} sx={{ mt: 2 }}>
+      <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Propose to end the restriction" spacing={2} sx={{ mt: 2 }}>
+        {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
+        <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} autoFocus error={formState.errors.reason?.message} {...register('reason')} />
+      </Stack>
+    </ConfirmDialog>
+  )
+}
+
+/** A manager other than the proposer confirms the proposal they read: the restriction ends now. */
+export function ConfirmEndDialog({ labId, strain, restriction, proposal, open, onClose, onExited }: ProposalProps) {
+  const confirm = useConfirmEnd(labId, strain.public_id)
+  const [failure, setFailure] = useState<string>()
+  const onConfirm = () => {
+    setFailure(undefined)
+    confirm.mutate({ restrictionId: restriction.public_id, proposal: proposal.public_id }, { onSuccess: onClose, onError: (error) => setFailure(strainError(error)) })
+  }
+  return (
+    <ConfirmDialog
+      open={open}
+      title={`End the restriction ${restriction.reference}`}
+      description={`${RESTRICTION_LABELS[restriction.kind]}: the strain leaves the rules of a regulated agent. Its vials' places show again and its requests need no manager's approval or second person.`}
+      confirmLabel="End restriction"
+      destructive
+      pending={confirm.isPending}
+      error={failure}
+      onConfirm={onConfirm}
+      onClose={onClose}
+      onExited={onExited}
+    >
+      <Typography sx={{ mt: 2 }}>Reason given: {proposal.reason}</Typography>
+    </ConfirmDialog>
+  )
+}
+
+export function WithdrawEndDialog({ labId, strain, restriction, proposal, open, onClose, onExited }: ProposalProps) {
+  const withdraw = useWithdrawEnd(labId, strain.public_id)
+  const formId = useId()
+  const [failure, setFailure] = useState<string>()
+  const { register, handleSubmit, formState, setError } = useForm<EndReasonForm>({
+    resolver: zodResolver(endReasonSchema),
+    defaultValues: { reason: '' },
+  })
+  const onSubmit = handleSubmit((values) => {
+    setFailure(undefined)
+    withdraw.mutate(
+      { restrictionId: restriction.public_id, proposal: proposal.public_id, reason: values.reason.trim() },
+      { onSuccess: onClose, onError: (error) => setFailure(placeError(error, ['reason'], setError, () => setError('reason', missing, { shouldFocus: true }))) },
+    )
+  })
+  return (
+    <ConfirmDialog
+      open={open}
+      title={`Withdraw the proposal to end ${restriction.reference}`}
+      description="The restriction stays in force. The proposal stays in the history with your reason."
+      confirmLabel="Withdraw"
+      form={formId}
+      pending={withdraw.isPending}
+      error={failure}
+      onClose={onClose}
+      onExited={onExited}
+    >
+      <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Withdraw the proposal" spacing={2} sx={{ mt: 2 }}>
         {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
         <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} autoFocus error={formState.errors.reason?.message} {...register('reason')} />
       </Stack>

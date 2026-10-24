@@ -1044,7 +1044,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end/": {
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/": {
         parameters: {
             query?: never;
             header?: never;
@@ -1053,7 +1053,48 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["labs_strains_restrictions_end_create"];
+        /**
+         * @description Proposes to end a restriction, with the reason it will end with (#105). The
+         *     restriction stays active until a manager other than the proposer confirms it.
+         */
+        post: operations["labs_strains_restrictions_end_proposal_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/confirm/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A manager other than the proposer confirms the proposal they read: the restriction
+         *     ends now, with the proposal's reason.
+         */
+        post: operations["labs_strains_restrictions_end_proposal_confirm_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/withdraw/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Withdraws the open proposal the caller read, with a reason. The restriction stays. */
+        post: operations["labs_strains_restrictions_end_proposal_withdraw_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1645,12 +1686,6 @@ export interface components {
             preparation: string;
         };
         /**
-         * @description * `confirm_own_approval` - confirm_own_approval
-         *     * `confirm_own_preparation` - confirm_own_preparation
-         * @enum {string}
-         */
-        ConfirmRefusalEnum: "confirm_own_approval" | "confirm_own_preparation";
-        /**
          * @description * `` - None
          *     * `dry_ice` - Dry ice (UN 1845)
          *     * `cold_packs` - Ice or cold packs
@@ -2015,6 +2050,44 @@ export interface components {
          * @enum {string}
          */
         DocumentType: "application/pdf" | "image/png" | "image/jpeg";
+        EndConfirmInputRequest: {
+            /**
+             * Format: uuid
+             * @description The public id of the proposal the manager read.
+             */
+            proposal: string;
+        };
+        /**
+         * @description The open proposal to end a restriction (#105). It names nobody: `confirm_refusal` says
+         *     the caller proposed it and so may not confirm it (ADR 0009); null when they may, as far as
+         *     identity goes (confirming is a manager's, strains.confirm_restriction_end).
+         */
+        EndProposalOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly reason: string;
+            /** Format: date-time */
+            readonly proposed_at: string;
+            readonly confirm_refusal: (components["schemas"]["EndProposalOutputConfirmRefusalEnum"] | components["schemas"]["NullEnum"]) | null;
+        };
+        /**
+         * @description * `confirm_own_end_proposal` - confirm_own_end_proposal
+         * @enum {string}
+         */
+        EndProposalOutputConfirmRefusalEnum: "confirm_own_end_proposal";
+        EndProposeInputRequest: {
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
+        EndWithdrawInputRequest: {
+            /**
+             * Format: uuid
+             * @description The public id of the proposal the manager read.
+             */
+            proposal: string;
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
         Finding: {
             code: string;
             severity: components["schemas"]["SeverityEnum"];
@@ -2606,8 +2679,14 @@ export interface components {
             /** Format: date-time */
             readonly withdrawn_at: string | null;
             readonly withdraw_reason: string;
-            readonly confirm_refusal: (components["schemas"]["ConfirmRefusalEnum"] | components["schemas"]["NullEnum"]) | null;
+            readonly confirm_refusal: (components["schemas"]["PreparationOutputConfirmRefusalEnum"] | components["schemas"]["NullEnum"]) | null;
         };
+        /**
+         * @description * `confirm_own_approval` - confirm_own_approval
+         *     * `confirm_own_preparation` - confirm_own_preparation
+         * @enum {string}
+         */
+        PreparationOutputConfirmRefusalEnum: "confirm_own_approval" | "confirm_own_preparation";
         /**
          * @description * `cryo_minus80` - Frozen at -80 °C
          *     * `cryo_ln2` - Frozen in liquid nitrogen
@@ -2811,10 +2890,6 @@ export interface components {
             readonly kind: components["schemas"]["RestrictionKind"];
             readonly reference: string;
         };
-        RestrictionEndInputRequest: {
-            /** @description Why, in a sentence. Stored for good: name no person. */
-            reason: string;
-        };
         RestrictionInputRequest: {
             kind: components["schemas"]["RestrictionKind"];
             reference: string;
@@ -2843,6 +2918,7 @@ export interface components {
             /** Format: date-time */
             readonly ended_at: string | null;
             readonly end_reason: string;
+            readonly end_proposal: components["schemas"]["EndProposalOutput"] | null;
         };
         RevealOutput: {
             location: components["schemas"]["Location"] | null;
@@ -8588,7 +8664,7 @@ export interface operations {
             };
         };
     };
-    labs_strains_restrictions_end_create: {
+    labs_strains_restrictions_end_proposal_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -8601,8 +8677,8 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RestrictionEndInputRequest"];
-                "multipart/form-data": components["schemas"]["RestrictionEndInputRequest"];
+                "application/json": components["schemas"]["EndProposeInputRequest"];
+                "multipart/form-data": components["schemas"]["EndProposeInputRequest"];
             };
         };
         responses: {
@@ -8646,7 +8722,171 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The restriction has ended already */
+            /** @description restriction_ended; end_proposed: someone proposed to end it already, a proposal waits */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_restrictions_end_proposal_confirm_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+                restriction_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EndConfirmInputRequest"];
+                "multipart/form-data": components["schemas"]["EndConfirmInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainDetailOutput"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description permission_denied: confirming is a manager's; confirm_own_end_proposal: the caller proposed it, a different manager confirms */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description restriction_ended; end_not_proposed: no proposal is open; end_proposal_changed: another proposal is open than the one named */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_restrictions_end_proposal_withdraw_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+                restriction_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EndWithdrawInputRequest"];
+                "multipart/form-data": components["schemas"]["EndWithdrawInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainDetailOutput"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description restriction_ended; end_not_proposed: no proposal is open; end_proposal_changed: another proposal is open than the one named */
             409: {
                 headers: {
                     [name: string]: unknown;

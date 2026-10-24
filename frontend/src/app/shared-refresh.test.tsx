@@ -59,8 +59,12 @@ const GMO = {
   created_at: '2026-02-01T10:00:00Z',
   ended_at: null,
   end_reason: '',
+  end_proposal: null,
 }
+const PROPOSAL = { public_id: '00000000-0000-4000-8000-0000000000e9', reason: 'destroyed', proposed_at: '2026-10-19T10:00:00Z', confirm_refusal: null }
 const regulated = makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42', taxon: exempli, restriction_history: [GMO] })
+/** A curator proposed to end it (#105): the manager confirms. */
+const proposed = { ...regulated, restriction_history: [{ ...GMO, end_proposal: PROPOSAL }] }
 const free = { ...regulated, restriction_history: [{ ...GMO, ended_at: '2026-10-20T10:00:00Z', end_reason: 'destroyed' }] }
 
 const freezer = makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000f1', name: 'Freezer A' })
@@ -140,10 +144,14 @@ const STRAIN_WRITES: [string, (user: UserEvent) => Promise<void>][] = [
     },
   ],
   [
+    // The second of the two steps (#105): the page shows the proposal a curator made.
     'ending a restriction',
     async (user) => {
-      mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end/', free)
-      await inDialog(user, 'End restriction MŽP 2026/12', 'End the restriction MŽP 2026/12', (dialog) => user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'destroyed'), 'End restriction')
+      mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/confirm/', free)
+      await startAction(user, 'Confirm the end of restriction MŽP 2026/12')
+      const dialog = await screen.findByRole('alertdialog', { name: 'End the restriction MŽP 2026/12' })
+      await user.click(within(dialog).getByRole('button', { name: 'End restriction' }))
+      await waitFor(() => expect(dialog).not.toBeInTheDocument(), { timeout: 5000 })
     },
   ],
   [
@@ -200,7 +208,7 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
   })
 
   it("ending a restriction on Overview marks the strain's material and the box grids stale", async () => {
-    const { client, router, user } = await openStrainPage('manager')
+    const { client, router, user } = await openStrainPage('manager', proposed)
     const grid = vialKeys.box(LAB_ID, box.public_id)
     client.setQueryData(grid, makeBoxGrid({ public_id: box.public_id }))
     // A restriction ends from its row on Overview, where the material is not on screen.
@@ -279,7 +287,7 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
   })
 
   it("ending a restriction shows the vial's location and the box grid's vial without a reload", async () => {
-    const { router, user } = await openStrainPage('manager')
+    const { router, user } = await openStrainPage('manager', proposed)
     expect(vialRow()).toHaveTextContent('Hidden: regulated strain')
     // The box grid as a reader saw it a moment ago: masked, and still fresh in the cache.
     signedIn('manager')
@@ -292,8 +300,7 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
     await screen.findByRole('table', { name: 'Current restrictions' }, { timeout: 5000 })
 
     const vials = mockApi('get', VIALS, page([located()]))
-    mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end/', free)
-    await inDialog(user, 'End restriction MŽP 2026/12', 'End the restriction MŽP 2026/12', (dialog) => user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'destroyed'), 'End restriction')
+    await STRAIN_WRITES.find(([name]) => name === 'ending a restriction')?.[1](user)
     await router.navigate(toTab('material'))
     await waitFor(() => expect(vialRow()).toHaveTextContent('Freezer A / Box 1, A1'), { timeout: 5000 })
     expect(vials).toHaveLength(1)

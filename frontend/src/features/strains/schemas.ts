@@ -19,6 +19,11 @@ export type HistoryLine = Schemas['HistoryLine']
 
 /** Curators and managers write strains (strains.manage). The server decides; this only hides. */
 export const canManageStrains = (role: Role | undefined): boolean => role === 'curator' || role === 'manager'
+/**
+ * A restriction ends by two people (#105, ADR 0009): a curator or a manager proposes it, a manager
+ * other than the proposer confirms it (strains.confirm_restriction_end).
+ */
+export const canConfirmRestrictionEnd = (role: Role | undefined): boolean => role === 'manager'
 
 export const RISK_GROUPS = [1, 2, 3, 4] as const satisfies readonly RiskGroup[]
 export const PATHOGENICITY_LABELS: Record<Pathogenicity, string> = {
@@ -149,8 +154,8 @@ export type RiskGroupValues = z.output<typeof riskGroupSchema>
 export const addRestrictionSchema = restrictionSchema.and(z.object({ reason: reasonSchema }))
 export type AddRestrictionForm = z.input<typeof addRestrictionSchema>
 
-export const endRestrictionSchema = z.object({ reason: reasonSchema })
-export type EndRestrictionForm = z.input<typeof endRestrictionSchema>
+export const endReasonSchema = z.object({ reason: reasonSchema })
+export type EndReasonForm = z.input<typeof endReasonSchema>
 
 /** The form's restriction as the API takes it: act only for dual-use, a category only for a GMO. */
 export function restrictionBody(value: RestrictionForm) {
