@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { makeDepositRow, makeLab, makeMe, page } from '@/test/factories'
@@ -39,6 +39,20 @@ describe('the deposits page', { timeout: 15_000 }, () => {
     await user.type(screen.getByRole('searchbox', { name: 'Name, depositor or number' }), 'K3{Enter}')
     await waitFor(() => expect(router.state.location.search).toEqual({ status: 'checking', search: 'K3' }), { timeout: 5000 })
     await waitFor(() => expect(Object.fromEntries(calls.at(-1)?.url.searchParams ?? [])).toEqual({ limit: '25', offset: '0', status: 'checking', search: 'K3' }), { timeout: 5000 })
+  })
+
+  it('keeps the status when Search is pressed right after choosing it', async () => {
+    signedIn()
+    const calls = mockApi('get', LIST, page([makeDepositRow()]))
+    const { router } = renderApp({ path: `/labs/${LAB_ID}/deposits` })
+    const status = await screen.findByRole('combobox', { name: 'Status' }, { timeout: 5000 })
+    fireEvent.change(status, { target: { value: 'checking' } })
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Name, depositor or number' }), { target: { value: 'K3' } })
+    // No wait between the two: the navigation of the status has not reached the form yet.
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ status: 'checking', search: 'K3' }), { timeout: 5000 })
+    await waitFor(() => expect(Object.fromEntries(calls.at(-1)?.url.searchParams ?? [])).toEqual({ limit: '25', offset: '0', status: 'checking', search: 'K3' }), { timeout: 5000 })
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveValue('checking')
   })
 
   it('offers to clear filters that match nothing, and focus moves on as the button goes', async () => {

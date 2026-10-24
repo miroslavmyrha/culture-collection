@@ -15,7 +15,7 @@ import { TaxonField } from './TaxonField'
 type Props = {
   filters: Filters
   /** The page owns the URL: it turns new filters into a navigation (back to the first page). */
-  onChange: (filters: Filters) => void
+  onChange: (update: (current: Filters) => Filters) => void
 }
 
 const ALL = { value: '', label: 'All' }
@@ -50,7 +50,7 @@ export function StrainFilters({ filters, onChange }: Props) {
       aria-label="Filter strains"
       onSubmit={(event) => {
         event.preventDefault()
-        onChange({ ...filters, search: text.trim() || undefined })
+        onChange((current) => ({ ...current, search: text.trim() || undefined }))
       }}
       sx={{ mb: 3 }}
     >
@@ -61,7 +61,7 @@ export function StrainFilters({ filters, onChange }: Props) {
             label="Taxon"
             hint="With everything below it"
             value={filters.taxon && taxon.data ? taxon.data : null}
-            onChange={(picked) => onChange({ ...filters, taxon: picked?.public_id })}
+            onChange={(picked) => onChange((current) => ({ ...current, taxon: picked?.public_id }))}
           />
         </Box>
         <SelectField
@@ -69,21 +69,21 @@ export function StrainFilters({ filters, onChange }: Props) {
           label="Risk group"
           options={RISK}
           value={filters.risk_group === undefined ? '' : String(filters.risk_group)}
-          onChange={(event) => onChange({ ...filters, risk_group: riskGroupOf(event.target.value) })}
+          onChange={(event) => onChange((current) => ({ ...current, risk_group: riskGroupOf(event.target.value) }))}
         />
         <SelectField
           sx={{ minWidth: { md: 150 } }}
           label="Restriction"
           options={KINDS}
           value={filters.restriction ?? ''}
-          onChange={(event) => onChange({ ...filters, restriction: kindOf(event.target.value) })}
+          onChange={(event) => onChange((current) => ({ ...current, restriction: kindOf(event.target.value) }))}
         />
         <SelectField
           sx={{ minWidth: { md: 150 } }}
           label="Status"
           options={STATUS}
           value={filters.status ?? ''}
-          onChange={(event) => onChange({ ...filters, status: statusOf(event.target.value) })}
+          onChange={(event) => onChange((current) => ({ ...current, status: statusOf(event.target.value) }))}
         />
         <Stack direction="row" spacing={1} sx={{ pt: 1 }}>
           <Button type="submit" variant="outlined">
@@ -93,7 +93,7 @@ export function StrainFilters({ filters, onChange }: Props) {
             <Button
               onClick={() => {
                 setText('')
-                onChange({})
+                onChange(() => ({}))
                 // The button goes with the filters: focus moves to the first one.
                 textField.current?.focus()
               }}

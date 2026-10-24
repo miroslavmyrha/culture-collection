@@ -33,7 +33,7 @@ export function RequestListPage() {
                 </>
               </Stack>
             )}
-            <RequestFilters filters={filters} onChange={(next) => void navigate({ search: { ...next, limit, offset: 0 } })} />
+            <RequestFilters filters={filters} onChange={(update) => void navigate({ search: (prev) => { const { limit: keep, offset: _dropped, ...current } = prev; return { ...update(current), limit: keep, offset: 0 } } })} />
             <RequestList
               labId={labId}
               params={search}

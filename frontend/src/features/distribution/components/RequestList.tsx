@@ -94,7 +94,7 @@ const STATUS_OPTIONS = [{ value: '', label: 'All' }, ...options(STATUS_LABELS, S
 const statusOf = (value: string) => STATUSES.find((status) => status === value)
 
 /** The status applies at once, the text when submitted. Both live in the URL. */
-export function RequestFilters({ filters, onChange }: { filters: Filters; onChange: (filters: Filters) => void }) {
+export function RequestFilters({ filters, onChange }: { filters: Filters; onChange: (update: (current: Filters) => Filters) => void }) {
   const [text, setText] = useState(filters.search ?? '')
   // The URL changed (back, forward, Clear filters): the text follows it while rendering.
   const [shown, setShown] = useState(filters.search)
@@ -110,7 +110,7 @@ export function RequestFilters({ filters, onChange }: { filters: Filters; onChan
       aria-label="Filter requests"
       onSubmit={(event) => {
         event.preventDefault()
-        onChange({ ...filters, search: text.trim() || undefined })
+        onChange((current) => ({ ...current, search: text.trim() || undefined }))
       }}
       sx={{ mb: 3 }}
     >
@@ -121,7 +121,7 @@ export function RequestFilters({ filters, onChange }: { filters: Filters; onChan
           label="Status"
           options={STATUS_OPTIONS}
           value={filters.status ?? ''}
-          onChange={(event) => onChange({ ...filters, status: statusOf(event.target.value) })}
+          onChange={(event) => onChange((current) => ({ ...current, status: statusOf(event.target.value) }))}
         />
         <Stack direction="row" spacing={1} sx={{ pt: 1 }}>
           <Button type="submit" variant="outlined">
@@ -131,7 +131,7 @@ export function RequestFilters({ filters, onChange }: { filters: Filters; onChan
             <Button
               onClick={() => {
                 setText('')
-                onChange({})
+                onChange(() => ({}))
                 textField.current?.focus()
               }}
             >

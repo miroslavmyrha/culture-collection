@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { allowConsole } from '@/test/console'
@@ -117,6 +117,20 @@ function signedInApp(role: 'viewer' | 'curator' = 'viewer') {
 // Through the real routes: the filters live in the URL, and the pager keeps the focus.
 describe('the strains page', () => {
   const signedIn = signedInApp
+
+  it('keeps a chosen filter when Search is pressed right after choosing it', async () => {
+    signedIn()
+    const calls = mockApi('get', LIST, page([makeStrainRow()]))
+    const { router } = renderApp({ path: `/labs/${LAB_ID}/strains` })
+    await screen.findByRole('form', { name: 'Filter strains' }, { timeout: 5000 })
+    fireEvent.change(within(form()).getByRole('combobox', { name: 'Risk group' }), { target: { value: '2' } })
+    fireEvent.change(within(form()).getByRole('searchbox', { name: 'Number or name' }), { target: { value: 'MYC 4' } })
+    // No wait between the two: the navigation of the risk group has not reached the form yet.
+    fireEvent.click(within(form()).getByRole('button', { name: 'Search' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ risk_group: 2, search: 'MYC 4' }), { timeout: 5000 })
+    await waitFor(() => expect(calls.at(-1)?.url.searchParams.get('risk_group')).toBe('2'), { timeout: 5000 })
+    expect(calls.at(-1)?.url.searchParams.get('search')).toBe('MYC 4')
+  })
 
   it('puts each filter into the URL and asks the API with it', async () => {
     signedIn()
