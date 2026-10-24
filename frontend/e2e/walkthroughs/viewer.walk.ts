@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, api, batchOf, expandUnit, labId, openLab, findStrain, openStrains, openTab, openUnit, passAll, release, requestFor, setupAs, supplyStrain } from './walk.js'
+import { RUN, Walk, api, batchOf, expandUnit, labId, openLab, findStrain, openStrains, openTab, openUnit, passAll, release, requestFor, searchStrain, searchVial, setupAs, supplyStrain } from './walk.js'
 
 // A viewer of Bacteriology (seed_dev): someone who reads the catalogue and the stock, a student,
 // a colleague from another group or a quality officer, and changes nothing.
@@ -9,10 +9,9 @@ const viewer = (id: string, task: string) => ({ id, role: 'viewer' as const, tas
 test('V1 find a strain by its number', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-viewer', viewer('V1', 'Find strain BAC 25 by its number'))
   await w.start()
-  await openStrains(w, LAB)
-  await findStrain(w, 'BAC 25', /^BAC 25 /)
+  // The number names one strain: Enter opens it (#76).
+  await searchStrain(w, 'BAC 25')
   await expect(w.page.getByRole('heading', { level: 1, name: 'BAC 25' })).toBeVisible()
-  w.note('Two screens to a strain whose number is known, through the strain list of the lab: no search from Home or the top bar')
   await w.done()
 })
 
@@ -35,10 +34,8 @@ test('V2 find all strains of a genus in risk group 2', async ({ browser }, info)
 test('V3 find where vial X is', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-viewer', viewer('V3', 'Find where vial BAC 29 / 1 / 3 is'))
   await w.start()
-  await openStrains(w, LAB)
-  await findStrain(w, 'BAC 29', /^BAC 29 /)
-  await openTab(w, 'Material')
-  const row = w.page.getByRole('table', { name: 'Vials' }).getByRole('row', { name: /^BAC 29 \/ 1 \/ 3 / })
+  // The label names one vial: Enter opens its strain's Material tab with only that vial (#76).
+  const row = await searchVial(w, 'BAC 29 / 1 / 3')
   await w.read(row)
   await expect(row).toContainText('LN2 tank 1 / Canister A / Seed stock 1, A3')
   await w.done()
@@ -47,8 +44,7 @@ test('V3 find where vial X is', async ({ browser }, info) => {
 test('V4 can the collection supply this strain now', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-viewer', viewer('V4', 'Can the collection supply BAC 29 now'))
   await w.start()
-  await openStrains(w, LAB)
-  await findStrain(w, 'BAC 29', /^BAC 29 /)
+  await searchStrain(w, 'BAC 29')
   await openTab(w, 'Material')
   const answer = w.page.getByText(/^Available for distribution:/)
   await w.read(answer)
@@ -89,8 +85,7 @@ test('V6 see what a box holds', async ({ browser }, info) => {
 test('V7 may this strain be used for teaching', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-viewer', viewer('V7', 'May strain BAC 29 be used for teaching'))
   await w.start()
-  await openStrains(w, LAB)
-  await findStrain(w, 'BAC 29', /^BAC 29 /)
+  await searchStrain(w, 'BAC 29')
   // seed_dev: the terms of BAC 29 permit teaching. They show on the Overview, to a viewer too (#78).
   const uses = w.page.getByRole('table', { name: 'Uses of the terms in force' })
   await w.read(uses)
@@ -114,8 +109,7 @@ test('V8 find soil isolates from Czechia', async ({ browser }, info) => {
 test('V9 look up how to grow a strain', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-viewer', viewer('V9', 'Look up the medium and temperature to grow BAC 18'))
   await w.start()
-  await openStrains(w, LAB)
-  await findStrain(w, 'BAC 18', /^BAC 18 /)
+  await searchStrain(w, 'BAC 18')
   w.look(2)
   await expect(w.page.getByText(/medium|°C/i)).toHaveCount(0)
   w.impossible('No growth conditions anywhere: the strain and its passages have no medium, temperature or atmosphere')

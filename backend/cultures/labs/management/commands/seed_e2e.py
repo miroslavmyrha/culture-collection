@@ -16,6 +16,9 @@ Brings the database to this state, whatever it was before:
   for the one that test enters), then removed again, so the e2e user, who did not approve it,
   may confirm its shipment (#89), and stays the lab's only manager (labs.spec.ts refuses to
   remove the last one);
+- the lab "E2E other lab" (code E2O), with e2e-outsider as its viewer (the same password) and
+  e2e-other-manager as its manager (no usable password): the search test (#76) shows that a
+  viewer finds nothing of a lab they are not in;
 - a few taxa for the strain form: two genera, a species in each with its NCBI id, and a
   synonym of each species (its basionym), plus an invented genus and species (Testella
   exempli) for the tests of the restriction gates, so no real organism is entered with a
@@ -112,6 +115,8 @@ REGULATED_DEPOSIT = "Testella exempli e2e regulated"
 REGULATED_BOX = "Box R"
 CURATOR, TECHNICIAN, VIEWER = "e2e-curator", "e2e-technician", "e2e-viewer"
 APPROVER = "e2e-manager"
+OTHER_LAB_NAME, OTHER_LAB_CODE = "E2E other lab", "E2O"
+OUTSIDER, OTHER_MANAGER = "e2e-outsider", "e2e-other-manager"
 SUPPLY = "Testella exempli e2e supply"
 REGULATED_SUPPLY = "Mockia vulgaris e2e supply"
 INSTITUTE, UNNOTIFIED = "E2E Institute of Microbiology", "E2E Unnotified Laboratory"
@@ -178,6 +183,11 @@ class Command(BaseCommand):
             approver = self._user(APPROVER, password)
             for membership in Membership.objects.filter(lab=lab, user=approver):
                 services.membership_delete(membership=membership)
+            other = Lab.objects.filter(code=OTHER_LAB_CODE).first() or services.lab_create(
+                name=OTHER_LAB_NAME, code=OTHER_LAB_CODE
+            )
+            self._role(other, self._user(OTHER_MANAGER, None), Role.MANAGER)
+            self._role(other, self._user(OUTSIDER, password), Role.VIEWER)
             for row in TAXA:
                 self._taxon(*row)
             self._deposit(lab, curator=User.objects.get(username=CURATOR), manager=user)
@@ -205,7 +215,8 @@ class Command(BaseCommand):
             f" a regulated strain with two vials in {REGULATED_BOX}, revealed by {username};"
             " a released batch of the seeded strain; two strains that may go out, two"
             f" requesters and five requests, two approved, one of them regulated and approved"
-            f" by {APPROVER}, who is in no lab"
+            f" by {APPROVER}, who is in no lab; {OUTSIDER} views {OTHER_LAB_NAME}, which"
+            f" {OTHER_MANAGER} manages"
         )
 
     def _taxon(  # noqa: PLR0917 (one row of TAXA, spread)

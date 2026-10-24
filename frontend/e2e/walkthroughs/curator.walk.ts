@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, acceptedStrain, api, batch, batchOf, freezerWithBoxes, labId, openLab, findStrain, openStrains, openTab, openWaiting, openUnit, strainAction, passAll, receivedDeposit, release, setupAs, supplyStrain } from './walk.js'
+import { RUN, Walk, acceptedStrain, api, batch, batchOf, freezerWithBoxes, labId, openLab, openTab, openWaiting, openUnit, strainAction, passAll, receivedDeposit, release, searchStrain, setupAs, supplyStrain } from './walk.js'
 
 // A curator of Bacteriology (seed_dev): intake, identification, storage and the strain's record.
 const LAB = 'Bacteriology'
@@ -78,8 +78,7 @@ test('C4 reclassify a strain after a new identification', async ({ browser }, in
 
   const w = await Walk.as(browser, info, 'bac-curator', curator('C4', 'Reclassify a strain after a new identification'))
   await w.start()
-  await openStrains(w, LAB)
-  await findStrain(w, name, new RegExp(name))
+  await searchStrain(w, name, new RegExp(`^BAC \\d+, BAC, Active\\. .*${name}`))
   await strainAction(w, 'Reclassify')
   const dialog = w.page.getByRole('dialog', { name: /^Reclassify BAC/ })
   await w.keys('Priestia meg') // the taxon field takes focus
@@ -108,9 +107,8 @@ test('C5 find the strains that came from one depositor', async ({ browser }, inf
 test('C6 see what happened to a strain: its risk group and restriction changes', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-curator', curator('C6', 'See what happened to a strain (risk group, restrictions)'))
   await w.start()
-  await openStrains(w, LAB)
   // seed_dev: BAC 27 is the Mockia vulgaris strain with the reassessment in its history. BAC 30 is a later deposit of the same taxon.
-  await findStrain(w, 'BAC 27', /^BAC 27 /)
+  await searchStrain(w, 'BAC 27')
   await openTab(w, 'History')
   // seed_dev: the risk group went from 2 to 1 with a reason, and a restriction ended.
   const history = w.page.getByRole('list', { name: 'History, newest first' })
@@ -261,8 +259,7 @@ test('C11 record a request that came by e-mail, with the signed MTA', async ({ b
 test('C10 deaccession a strain that no longer grows', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-curator', curator('C10', 'Deaccession a strain that no longer grows'))
   await w.start()
-  await openStrains(w, LAB)
-  await findStrain(w, 'BAC 14', /^BAC 14 /)
+  await searchStrain(w, 'BAC 14')
   w.look()
   await expect(w.page.getByRole('button', { name: /Deaccession/ })).toHaveCount(0)
   w.impossible('No deaccession: the strain list filters by "Deaccessioned" but no screen sets it', '#20')

@@ -167,6 +167,17 @@ for (const colorScheme of ['light', 'dark'] as const) {
       const picker = page.getByRole('button', { name: /^(Lab|Select a lab)/ })
       await tabTo(page, picker)
       await expectRing(picker, 'lab picker on the bar')
+      // The search field (#76): a 2px border in the primary colour, on the bar.
+      const search = page.getByRole('banner').getByRole('combobox', { name: 'Search' })
+      await tabTo(page, search)
+      const searchBorder = await search.evaluate((input) => {
+        const style = getComputedStyle(input.parentElement?.querySelector('fieldset') ?? input)
+        return { width: style.borderTopWidth, color: style.borderTopColor }
+      })
+      expect(searchBorder.width).toBe('2px')
+      const searchRatio = ratio(searchBorder.color, await surfaceOf(search))
+      test.info().annotations.push({ type: 'focus ring', description: `search field border: ${searchBorder.color} = ${searchRatio.toFixed(2)}:1` })
+      expect(searchRatio).toBeGreaterThanOrEqual(3)
       const account = page.getByRole('button', { name: `Account (${username})` })
       await tabTo(page, account)
       await expectRing(account, 'account menu on the bar')
@@ -230,6 +241,10 @@ for (const colorScheme of ['light', 'dark'] as const) {
     test('the account menu button and its item show a ring with 3:1 at 320 px', async ({ browser }) => {
       const { page, close } = await open(browser, { colorScheme, width: 320 })
       await page.goto('/')
+      // The search is a button here (#76), on the bar like the account menu.
+      const search = page.getByRole('banner').getByRole('button', { name: 'Search' })
+      await tabTo(page, search)
+      await expectRing(search, 'search button on the bar')
       const account = page.getByRole('button', { name: `Account (${username})` })
       await tabTo(page, account)
       await expectRing(account, 'account menu button on the bar')
@@ -314,14 +329,20 @@ test.describe('titles and focus after navigation', () => {
   })
 })
 
-/** Focus stops from the top of the page until Tab leaves the document (the browser's own UI). */
+/**
+ * Focus stops from the top of the page until Tab leaves the document (the browser's own UI).
+ * MOST_STOPS is far above any page's controls: Home of the e2e user lists what every earlier run
+ * left waiting (a link each, 20 per kind) and 20 lines of activity, and the bar has the search
+ * field (#76), so a local stack after a few runs passed 60 stops with no trap.
+ */
+const MOST_STOPS = 150
 async function walk(page: Page) {
   const stops: string[] = []
   await page.evaluate(() => {
     const active = document.activeElement
     if (active instanceof HTMLElement) active.blur()
   })
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < MOST_STOPS; i++) {
     await page.keyboard.press('Tab')
     const stop = await page.evaluate(() => {
       const e = document.activeElement
@@ -343,7 +364,7 @@ async function walk(page: Page) {
     stops.push(stop.name)
   }
   expect(stops.length).toBeGreaterThan(0)
-  expect(stops.length, 'Tab never leaves the page').toBeLessThan(60)
+  expect(stops.length, 'Tab never leaves the page').toBeLessThan(MOST_STOPS)
   return stops
 }
 
@@ -364,7 +385,8 @@ test.describe('keyboard walk through every page', () => {
       await page.goto(path)
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
       const stops = await walk(page)
-      expect(stops.slice(0, 4), path).toEqual(['a:Skip to content', 'a:Culture Collection', 'button:Select a lab', `button:Account (${username})`])
+      // The search field (#76) sits between the lab picker and the account menu.
+      expect(stops.slice(0, 5), path).toEqual(['a:Skip to content', 'a:Culture Collection', 'button:Select a lab', 'input:', `button:Account (${username})`])
     }
     // An unknown URL loaded directly: the shell has not asked for the user yet, so no navigation.
     await page.goto('/no-such-page')
@@ -377,6 +399,7 @@ test.describe('keyboard walk through every page', () => {
       'a:Skip to content',
       'a:Culture Collection',
       'button:Lab E2E lab',
+      'input:',
       `button:Account (${username})`,
       'a:Strains',
       'a:Storage',
@@ -401,6 +424,7 @@ test.describe('keyboard walk through every page', () => {
       'a:Skip to content',
       'a:Culture Collection',
       'button:Lab E2E lab',
+      'input:',
       `button:Account (${username})`,
       'a:Strains',
       'a:Storage',
@@ -426,6 +450,7 @@ test.describe('keyboard walk through every page', () => {
       'a:Skip to content',
       'a:Culture Collection',
       'button:Lab E2E lab',
+      'input:',
       `button:Account (${username})`,
       'a:Strains',
       'a:Storage',
