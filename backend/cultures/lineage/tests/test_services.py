@@ -448,7 +448,7 @@ def test_placing_asks_may_store_under_the_lab_lock(
         asked.append((unit.pk, risk_group))
         return real(unit=unit, risk_group=risk_group)
 
-    monkeypatch.setattr("cultures.lineage.services.may_store", spy)
+    monkeypatch.setattr("cultures.lineage.services._shared.may_store", spy)
     place(technician, vial, tree.box, 1, 1)
     assert asked == [(tree.box.pk, 1)]
     storage.unit_update(
@@ -781,5 +781,8 @@ def test_a_batch_number_taken_at_the_same_moment_is_a_conflict(
             purpose="seed",
         )
 
-    with run_before(services, "_save", competitor), pytest.raises(services.BatchNumberTaken):
+    with (
+        run_before(services.passages, "_save", competitor),
+        pytest.raises(services.BatchNumberTaken),
+    ):
         preserve(technician, passage0)

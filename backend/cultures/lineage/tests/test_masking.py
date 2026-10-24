@@ -201,7 +201,7 @@ def test_the_reveal_is_committed_before_the_location_is_read(
         )
         return location_of(vial)
 
-    monkeypatch.setattr("cultures.lineage.services.location_of", spy)
+    monkeypatch.setattr("cultures.lineage.services.locations.location_of", spy)
     response = logged_in(keeper).post(f"{VIALS_URL}{masked[0].public_id}/reveal-location/")
     assert response.status_code == 200
     assert seen == [(False, 1)]  # outside any transaction, the event already there
