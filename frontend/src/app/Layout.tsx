@@ -1,8 +1,11 @@
+import useMediaQuery from '@mui/material/useMediaQuery'
+import { useTheme } from '@mui/material/styles'
 import { useParams, useRouter, useRouterState } from '@tanstack/react-router'
 import { type ReactNode, useEffect, useRef } from 'react'
 import { Alert, AppBar, Box, Container, Link, SkipLink, Toolbar } from '@/components/ui'
 import { SIGN_OUT_FAILED, useLogout } from '@/features/auth/api/mutations'
 import { useKnownUser } from '@/features/auth/api/queries'
+import { TopSearch } from '@/features/search/components/TopSearch'
 import { AccountMenu } from './AccountMenu'
 import { LabPicker } from './LabPicker'
 import { LabTabs } from './LabTabs'
@@ -11,7 +14,7 @@ import { focusPageStart, movesFocus } from './page-focus'
 const MAIN_ID = 'main-content'
 
 /**
- * The shell every route renders in: a skip link, the top bar (name, lab picker, search slot,
+ * The shell every route renders in: a skip link, the top bar (name, lab picker, search,
  * account menu), the lab's section tabs on a lab's pages, and the one <main> of the page. They
  * show only with a session. The bar wraps instead of overflowing, so it fits 320 px (WCAG 1.4.10).
  */
@@ -24,6 +27,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const section = useRouterState({ select: (state) => state.location.pathname.split('/')[3] })
   // Sign out, or the menu button that holds it: where focus goes when the failure notice closes.
   const accountControl = useRef<HTMLButtonElement>(null)
+  // Below sm the search is a button that opens a full-width field under the bar (#76).
+  const compact = useMediaQuery(useTheme().breakpoints.down('sm'), { noSsr: true })
 
   // After a navigation to another page, focus its h1 (or main), so a screen reader reads the new
   // page and Tab starts there, not on the link that is gone (WCAG 2.4.3).
@@ -60,8 +65,8 @@ export function Layout({ children }: { children: ReactNode }) {
           {user && (
             <>
               <LabPicker labId={labId} section={section} />
-              {/* The slot where search will go. */}
               <Box sx={{ flexGrow: 1 }} />
+              <TopSearch compact={compact} />
               <AccountMenu ref={accountControl} username={user.username} pending={logout.isPending} onSignOut={signOut} />
             </>
           )}

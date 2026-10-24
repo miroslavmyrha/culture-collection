@@ -34,7 +34,7 @@ export const vialPageOptions = (labId: string, strainId: string, page: VialPage)
       unwrap(
         api.GET('/api/v1/labs/{lab_public_id}/vials/', {
           signal,
-          params: { path: { lab_public_id: labId }, query: { strain: strainId, limit: page.limit, offset: page.offset, ...(page.batch ? { batch: page.batch } : {}) } },
+          params: { path: { lab_public_id: labId }, query: { strain: strainId, limit: page.limit, offset: page.offset, ...(page.batch ? { batch: page.batch } : {}), ...(page.vial ? { vial: page.vial } : {}) } },
         }),
       ),
     // The page before stays on screen while the next one loads.

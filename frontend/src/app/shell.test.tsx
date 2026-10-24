@@ -105,6 +105,45 @@ describe('the colour scheme switch', () => {
   })
 })
 
+/** jsdom has no layout: the stub answers MUI's breakpoint query, narrow or wide. */
+function viewport(narrow: boolean) {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: query.includes('max-width') ? narrow : false,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  }))
+}
+
+describe('the search in the top bar (#76)', () => {
+  it('is a field on a wide screen, beside the account menu', async () => {
+    signedIn()
+    viewport(false)
+    renderApp({ path: '/' })
+    await screen.findByRole('button', { name: 'Account (lab-tech)' }, { timeout: 5000 })
+    const banner = screen.getByRole('banner')
+    expect(within(banner).getByRole('combobox', { name: 'Search' })).toHaveAttribute('aria-keyshortcuts', '/')
+    expect(within(banner).queryByRole('button', { name: 'Search' })).toBeNull()
+  })
+
+  it('is a Search button below sm, which opens the field', async () => {
+    signedIn()
+    viewport(true)
+    const user = userEvent.setup()
+    renderApp({ path: '/' })
+    await screen.findByRole('button', { name: 'Account (lab-tech)' }, { timeout: 5000 })
+    const banner = screen.getByRole('banner')
+    const button = within(banner).getByRole('button', { name: 'Search' })
+    expect(within(banner).queryByRole('combobox', { name: 'Search' })).toBeNull()
+    await user.click(button)
+    await waitFor(() => expect(within(banner).getByRole('combobox', { name: 'Search' })).toHaveFocus())
+  })
+})
+
 describe('the lab picker', () => {
   it('shows the current lab and lists the user labs with the current one checked', async () => {
     signedIn()
