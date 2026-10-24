@@ -4,7 +4,8 @@ import { signedInAs, username } from './support.js'
 // A write in one part of the app refreshes what another part shows (#64), against the real API.
 // The strain, its restriction, storage and vial are this run's own, made through the API with
 // the session auth.setup.ts signed in: strains and vials are never deleted and a restriction ends
-// only once, so no other spec's data changes. Testella exempli is invented, so a GMO entry on it
+// only once, so no other spec's data changes. e2e-curator proposes the end and the e2e user, a
+// manager, confirms it (#105). Testella exempli is invented, so a GMO entry on it
 // states nothing about a real organism.
 
 const RUN = Date.now().toString(36)
@@ -73,6 +74,25 @@ test("ending a restriction shows the vial's place on the strain page without a r
     return { lab, strain, reference }
   }, RUN)
 
+  // A restriction ends by two people (#105): e2e-curator proposes it, the e2e user (a manager)
+  // confirms it on the page.
+  const curator = await browser.newContext({ storageState: signedInAs('e2e-curator') })
+  const proposer = await curator.newPage()
+  await proposer.goto('/labs')
+  await proposer.evaluate(async ({ lab, strain }) => {
+    await fetch('/api/v1/auth/csrf/')
+    const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
+    const detail: { restriction_history: { public_id: string }[] } = await (await fetch(`/api/v1/labs/${lab}/strains/${strain}/`)).json()
+    const restriction = detail.restriction_history[0]?.public_id ?? ''
+    const response = await fetch(`/api/v1/labs/${lab}/strains/${strain}/restrictions/${restriction}/end-proposal/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
+      body: JSON.stringify({ reason: 'the construct was destroyed' }),
+    })
+    if (!response.ok) throw new Error(`end-proposal: ${response.status} ${await response.text()}`)
+  }, made)
+  await curator.close()
+
   await page.goto(`/labs/${made.lab}/strains/${made.strain}/material`)
   const vials = page.getByRole('table', { name: 'Vials' })
   await expect(vials.getByRole('row').nth(1)).toContainText('Hidden: regulated strain')
@@ -82,9 +102,9 @@ test("ending a restriction shows the vial's place on the strain page without a r
   // The restriction ends from its row on the Overview tab, the vial shows on Material (#19).
   const tabs = page.getByRole('navigation', { name: 'Strain sections' })
   await tabs.getByRole('link', { name: 'Overview' }).click()
-  await page.getByRole('button', { name: `End restriction ${made.reference}` }).click()
-  const dialog = page.getByRole('dialog', { name: `End the restriction ${made.reference}` })
-  await dialog.getByRole('textbox', { name: 'Reason' }).fill('the construct was destroyed')
+  await page.getByRole('button', { name: `Confirm the end of restriction ${made.reference}` }).click()
+  const dialog = page.getByRole('alertdialog', { name: `End the restriction ${made.reference}?` })
+  await expect(dialog.getByText('Reason given: the construct was destroyed')).toBeVisible()
   await dialog.getByRole('button', { name: 'End restriction' }).click()
   await expect(dialog).toBeHidden()
   await tabs.getByRole('link', { name: 'Material' }).click()
