@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { components } from '@/api/schema'
 import { isCountry } from '@/lib/countries'
 import { pageDefaults } from '@/lib/paging'
+import { USES } from '@/lib/terms'
 
 type Schemas = components['schemas']
 export type Depositor = Schemas['DepositorOutput']
@@ -38,39 +39,9 @@ export const CONDITION_LABELS: Record<Condition, string> = {
   damaged: 'Container or packaging damaged',
   other: 'Other, see the note',
 }
+export { ABS_SCOPE_LABELS, DECISION_LABELS, USE_LABELS, USES } from '@/lib/terms'
 export const ABS_SCOPES = ['not_in_scope', 'in_scope', 'unknown'] as const satisfies readonly AbsScope[]
-export const ABS_SCOPE_LABELS: Record<AbsScope, string> = {
-  not_in_scope: 'Not in scope',
-  in_scope: 'In scope',
-  unknown: 'Unknown',
-}
-/** ADR 0008, D10, in the order the server lists them. To be confirmed with the curators. */
-export const USES = [
-  'research_noncommercial',
-  'research_commercial',
-  'teaching',
-  'diagnostics',
-  'production',
-  'reference_qc',
-  'patent_deposit_related',
-  'redistribution',
-] as const satisfies readonly Use[]
-export const USE_LABELS: Record<Use, string> = {
-  research_noncommercial: 'Non-commercial research',
-  research_commercial: 'Commercial research',
-  teaching: 'Teaching',
-  diagnostics: 'Diagnostics',
-  production: 'Production',
-  reference_qc: 'Reference material and quality control',
-  patent_deposit_related: 'Related to a patent deposit',
-  redistribution: 'Redistribution to third parties',
-}
 export const DECISIONS = ['permit', 'deny', 'on_request'] as const satisfies readonly Decision[]
-export const DECISION_LABELS: Record<Decision, string> = {
-  permit: 'Permitted',
-  deny: 'Not permitted',
-  on_request: 'On request to the depositor',
-}
 
 export const options = <T extends string>(labels: Record<T, string>, values: readonly T[]) => values.map((value) => ({ value, label: labels[value] }))
 

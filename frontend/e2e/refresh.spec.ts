@@ -73,17 +73,21 @@ test("ending a restriction shows the vial's place on the strain page without a r
     return { lab, strain, reference }
   }, RUN)
 
-  await page.goto(`/labs/${made.lab}/strains/${made.strain}`)
+  await page.goto(`/labs/${made.lab}/strains/${made.strain}/material`)
   const vials = page.getByRole('table', { name: 'Vials' })
   await expect(vials.getByRole('row').nth(1)).toContainText('Hidden: regulated strain')
   // Marks this document: a reload would lose it.
   await page.evaluate(() => document.documentElement.setAttribute('data-run', 'kept'))
 
+  // The restriction ends from its row on the Overview tab, the vial shows on Material (#19).
+  const tabs = page.getByRole('navigation', { name: 'Strain sections' })
+  await tabs.getByRole('link', { name: 'Overview' }).click()
   await page.getByRole('button', { name: `End restriction ${made.reference}` }).click()
   const dialog = page.getByRole('dialog', { name: `End the restriction ${made.reference}` })
   await dialog.getByRole('textbox', { name: 'Reason' }).fill('the construct was destroyed')
   await dialog.getByRole('button', { name: 'End restriction' }).click()
   await expect(dialog).toBeHidden()
+  await tabs.getByRole('link', { name: 'Material' }).click()
   await expect(vials.getByRole('row').nth(1)).toContainText(`Freezer r${RUN} / Rack 1 / Box 1, A1`)
   await expect(vials.getByRole('button', { name: /Reveal the location/ })).toHaveCount(0)
   await expect(page.locator('html')).toHaveAttribute('data-run', 'kept')

@@ -1,4 +1,5 @@
 import { sharedKeys } from '@/lib/shared-keys'
+import type { PageParams } from '@/lib/paging'
 import type { StrainListParams } from '../schemas'
 
 /**
@@ -13,6 +14,9 @@ export const strainKeys = {
   list: (labId: string, params: StrainListParams) => [...strainKeys.lists(labId), params] as const,
   details: (labId: string) => [...strainKeys.lab(labId), 'detail'] as const,
   detail: (labId: string, strainId: string) => [...strainKeys.details(labId), strainId] as const,
+  /** Shared roots (#19): a deposit's new terms version changes the terms, any write the history. */
+  terms: sharedKeys.strainTerms,
+  history: (labId: string, strainId: string, page: PageParams) => [...sharedKeys.strainHistory(labId, strainId), page] as const,
 }
 
 /** Taxa are global: no lab in their keys. */

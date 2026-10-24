@@ -13,6 +13,8 @@ import { api, unwrap } from './api'
  *   storage tree) and the paths and sizes in vial locations and box grids: material;
  * - a location grant given or revoked changes can_reveal for its holder: material;
  * - accepting a deposit creates a strain: strainLists;
+ * - a new terms version of an accepted deposit changes its strain's terms and history:
+ *   strainTerms and strainHistory;
  * - a deposit or a request that changes what waits (received, checked, decided, shipped) changes
  *   Home and the counts on the lab tabs: overview.
  *
@@ -29,6 +31,13 @@ export const sharedKeys = {
   material: (labId: string) => ['vials', labId] as const,
   strainMaterial: (labId: string, strainId: string) => [...sharedKeys.material(labId), 'strain', strainId] as const,
   boxGrids: (labId: string) => [...sharedKeys.material(labId), 'box'] as const,
+  /**
+   * A strain's history (#19), under its material: every write that changes the material or the
+   * strain invalidates the material root, and with it the lines that write added.
+   */
+  strainHistory: (labId: string, strainId: string) => [...sharedKeys.strainMaterial(labId, strainId), 'history'] as const,
+  /** A strain's terms of use (#19): a new terms version of its deposit changes them. */
+  strainTerms: (labId: string, strainId: string) => [...sharedKeys.strains(labId), 'terms', strainId] as const,
   /** What waits for the signed-in person across their labs, and each lab's figures (#69). */
   overview: () => ['overview'] as const,
 }

@@ -23,6 +23,7 @@ export {
   Toolbar,
   Typography,
 } from '@mui/material'
+export { ActionMenu, type ActionItem } from './ActionMenu'
 export { AutocompleteField } from './AutocompleteField'
 export { CheckboxField } from './CheckboxField'
 export { ConfirmDialog } from './ConfirmDialog'

@@ -15,6 +15,8 @@ import {
   nextStates,
   OUT_OF_A_BOX,
   type Passage,
+  type PassageNode,
+  passageTree,
   PURPOSE_LABELS,
   sourceLabel,
   type Vial,
@@ -37,8 +39,8 @@ type Open =
   | null
 
 /**
- * A strain's material (ADR 0008, D1): its passages, its batches and their vials, with the
- * bench work for technicians and up. Where a vial is shows for strains without restrictions;
+ * A strain's material (ADR 0008, D1), the strain page's Material tab (#19): its passages as a
+ * tree from the deposit, its batches and their vials, with the bench work for technicians and up. Where a vial is shows for strains without restrictions;
  * a regulated strain's places are masked, and only a holder of the lab's location grant
  * reveals one (ADR 0009). A batch's checks open in its row (D16): technicians record them,
  * curators release and hold.
@@ -108,32 +110,18 @@ export function StrainMaterial({ labId, strainId, accession, canHandle, canRelea
         ) : passageRows.length === 0 ? (
           <Typography>No passage yet. A strain gets passage 0 when its deposit is accepted.</Typography>
         ) : (
-          <TableContainer {...scrollable('Passages')}>
-            <Table aria-label="Passages" size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Passage</TableCell>
-                  <TableCell>Source</TableCell>
-                  {canHandle && <TableCell>Action</TableCell>}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {passageRows.map((p) => (
-                  <TableRow key={p.public_id}>
-                    <TableCell>{p.number}</TableCell>
-                    <TableCell>{sourceLabel(p, passageRows)}</TableCell>
-                    {canHandle && (
-                      <TableCell>
-                        <Button size="small" aria-label={`Subculture passage ${p.number}`} onClick={show({ kind: 'subculture', passage: p, open: true })}>
-                          Subculture
-                        </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <>
+            {passages.data.count > passageRows.length && (
+              <Typography>
+                The first {passageRows.length} of {passages.data.count} passages.
+              </Typography>
+            )}
+            <Box component="ul" aria-label="Passages from the deposit" sx={{ listStyle: 'none', m: 0, p: 0 }}>
+              {passageTree(passageRows).map((node) => (
+                <PassageItem key={node.passage.public_id} node={node} passages={passageRows} subculture={canHandle ? (p) => show({ kind: 'subculture', passage: p, open: true }) : undefined} />
+              ))}
+            </Box>
+          </>
         )}
       </Section>
 
@@ -309,6 +297,41 @@ export function StrainMaterial({ labId, strainId, accession, canHandle, canRelea
   )
 }
 
+type PassageItemProps = {
+  node: PassageNode
+  passages: readonly Passage[]
+  subculture: ((p: Passage) => (event: MouseEvent<HTMLButtonElement>) => void) | undefined
+}
+
+/** One passage and, nested under it, the passages grown or revived from it: plain lists, no tree widget. */
+function PassageItem({ node, passages, subculture }: PassageItemProps) {
+  const p = node.passage
+  return (
+    <Box component="li" aria-label={`Passage ${p.number}`}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 1, minHeight: 32 }}>
+        <Typography component="span" sx={{ fontWeight: 600 }}>
+          Passage {p.number}
+        </Typography>
+        <Typography component="span" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+          {sourceLabel(p, passages)}
+        </Typography>
+        {subculture && (
+          <Button size="small" aria-label={`Subculture passage ${p.number}`} onClick={subculture(p)}>
+            Subculture
+          </Button>
+        )}
+      </Box>
+      {node.children.length > 0 && (
+        <Box component="ul" aria-label={`Grown from passage ${p.number}`} sx={{ listStyle: 'none', m: 0, pl: { xs: 1.5, sm: 3 }, ml: 1, borderLeft: 1, borderColor: 'divider' }}>
+          {node.children.map((child) => (
+            <PassageItem key={child.passage.public_id} node={child} passages={passages} subculture={subculture} />
+          ))}
+        </Box>
+      )}
+    </Box>
+  )
+}
+
 /** Can the collection supply the strain now: the vials of its released distribution batches. */
 function supply(batches: readonly Batch[]): string {
   const ready = batches.filter((b) => b.vials_distributable > 0)
@@ -366,7 +389,7 @@ const scrollable = (name: string) =>
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <Box component="section" aria-label={title} sx={{ mt: 4 }}>
+    <Box component="section" aria-label={title} sx={{ mb: 4 }}>
       {/* tabIndex -1: where focus goes when the control that had it is gone. */}
       <Typography component="h2" variant="h6" tabIndex={-1} gutterBottom>
         {title}

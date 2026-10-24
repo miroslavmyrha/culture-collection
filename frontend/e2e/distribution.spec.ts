@@ -241,6 +241,7 @@ test('a curator ships an approved request by keyboard and its vial shows as dist
   const accession = label.split(' / ')[0] ?? ''
   await page.goto(`${lab}/strains?search=${encodeURIComponent(accession)}`)
   await page.getByRole('link', { name: accession, exact: true }).click()
+  await page.getByRole('navigation', { name: 'Strain sections' }).getByRole('link', { name: 'Material' }).click()
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   await expect(page.getByRole('table', { name: 'Vials' }).getByRole('row', { name: new RegExp(`^${escaped} Distributed Left the collection`) })).toBeVisible()
   expect(violations()).toEqual([])
@@ -390,6 +391,7 @@ test('a curator prepares a regulated shipment, and a manager who did not approve
   const accession = label.split(' / ')[0] ?? ''
   await mpage.goto(`${lab}/strains?search=${encodeURIComponent(accession)}`)
   await mpage.getByRole('link', { name: accession, exact: true }).click()
+  await mpage.getByRole('navigation', { name: 'Strain sections' }).getByRole('link', { name: 'Material' }).click()
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   await expect(mpage.getByRole('table', { name: 'Vials' }).getByRole('row', { name: new RegExp(`^${escaped} Distributed Left the collection`) })).toBeVisible()
   await manager.close()

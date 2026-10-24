@@ -26,6 +26,8 @@ import {
   makeRequester,
   makeRequestRow,
   makeActivityLine,
+  makeHistoryLine,
+  makeTerms,
   makeMyLab,
   makeOverview,
   makeWaitingGroup,
@@ -55,6 +57,9 @@ const DEPOSITS = '/api/v1/labs/{lab_public_id}/deposits/'
 const STRAINS = '/api/v1/labs/{lab_public_id}/strains/'
 const MTAS = '/api/v1/labs/{lab_public_id}/mta-templates/'
 const MTA = '/api/v1/labs/{lab_public_id}/mta-templates/{public_id}/'
+const TERMS = '/api/v1/labs/{lab_public_id}/strains/{public_id}/terms/'
+const HISTORY = '/api/v1/labs/{lab_public_id}/strains/{public_id}/history/'
+const MATERIAL = `/labs/${LAB_ID}/strains/${STRAIN_ID}/material`
 
 type Role = 'technician' | 'curator' | 'manager'
 type Get = PathFor<'get'>
@@ -72,6 +77,8 @@ function strainPage() {
   mockApi('get', '/api/v1/labs/{lab_public_id}/batches/', page([makeBatch()]))
   mockApi('get', VIALS, page([makeVial({ label: 'MYC 42 / 1 / 1' })]))
   mockApi('get', UNITS, [freezer, box])
+  mockApi('get', TERMS, { deposit: null, versions: [makeTerms()] })
+  mockApi('get', HISTORY, page([makeHistoryLine({ summary: 'accessioned MYC 42' })]))
 }
 
 type Screen = {
@@ -90,6 +97,17 @@ const TYPED = 'typed before the refresh'
 
 async function dialogField(user: UserEvent, trigger: string, field: string) {
   await user.click(await screen.findByRole('button', { name: trigger }, { timeout: 5000 }))
+  const dialog = await screen.findByRole('dialog')
+  const input = within(dialog).getByRole('textbox', { name: field })
+  await user.clear(input)
+  await user.type(input, TYPED)
+  return input
+}
+
+/** The same through a menu button: the menu's item opens the dialog. */
+async function menuField(user: UserEvent, menu: string, item: string, field: string) {
+  await user.click(await screen.findByRole('button', { name: menu }, { timeout: 5000 }))
+  await user.click(await screen.findByRole('menuitem', { name: item }))
   const dialog = await screen.findByRole('dialog')
   const input = within(dialog).getByRole('textbox', { name: field })
   await user.clear(input)
@@ -156,18 +174,45 @@ const SCREENS: Screen[] = [
     type: (user) => formField(user, 'Vial label or barcode'),
   },
   {
-    name: 'StrainDetail, with the add restriction dialog',
+    name: 'StrainShell, with the add restriction dialog',
     role: 'manager',
     path: `/labs/${LAB_ID}/strains/${STRAIN_ID}`,
     fails: STRAIN,
     what: 'the strain',
     data: strainPage,
-    type: (user) => dialogField(user, 'Add a restriction', 'Reason'),
+    type: (user) => menuField(user, 'Actions for MYC 42', 'Add a restriction', 'Reason'),
+  },
+  {
+    name: 'ActiveTerms on the Overview tab, with the add restriction dialog',
+    role: 'manager',
+    path: `/labs/${LAB_ID}/strains/${STRAIN_ID}`,
+    fails: TERMS,
+    what: 'the terms',
+    data: strainPage,
+    type: (user) => menuField(user, 'Actions for MYC 42', 'Add a restriction', 'Reason'),
+  },
+  {
+    name: 'StrainTerms, with the add restriction dialog',
+    role: 'manager',
+    path: `/labs/${LAB_ID}/strains/${STRAIN_ID}/terms`,
+    fails: TERMS,
+    what: 'the terms',
+    data: strainPage,
+    type: (user) => menuField(user, 'Actions for MYC 42', 'Add a restriction', 'Reason'),
+  },
+  {
+    name: 'StrainHistory, with the reclassify dialog',
+    role: 'manager',
+    path: `/labs/${LAB_ID}/strains/${STRAIN_ID}/history`,
+    fails: HISTORY,
+    what: 'the history',
+    data: strainPage,
+    type: (user) => menuField(user, 'Actions for MYC 42', 'Reclassify', 'Reason'),
   },
   {
     name: 'StrainMaterial, with the preserve dialog',
     role: 'technician',
-    path: `/labs/${LAB_ID}/strains/${STRAIN_ID}`,
+    path: MATERIAL,
     fails: VIALS,
     what: 'the vials',
     data: strainPage,
@@ -176,7 +221,7 @@ const SCREENS: Screen[] = [
   {
     name: 'StrainMaterial passages, with the preserve dialog',
     role: 'technician',
-    path: `/labs/${LAB_ID}/strains/${STRAIN_ID}`,
+    path: MATERIAL,
     fails: '/api/v1/labs/{lab_public_id}/passages/',
     what: 'the passages',
     data: strainPage,
@@ -185,7 +230,7 @@ const SCREENS: Screen[] = [
   {
     name: 'StrainMaterial batches, with the preserve dialog',
     role: 'technician',
-    path: `/labs/${LAB_ID}/strains/${STRAIN_ID}`,
+    path: MATERIAL,
     fails: '/api/v1/labs/{lab_public_id}/batches/',
     what: 'the batches',
     data: strainPage,
@@ -194,7 +239,7 @@ const SCREENS: Screen[] = [
   {
     name: 'BatchChecks, with the record check dialog',
     role: 'technician',
-    path: `/labs/${LAB_ID}/strains/${STRAIN_ID}`,
+    path: MATERIAL,
     fails: '/api/v1/labs/{lab_public_id}/batch-checks/',
     what: 'the checks',
     data: () => {
@@ -352,7 +397,7 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
   // A 404 on a refresh: the row is gone or no longer this user's. The screen stays, and the
   // notice says so in its own words.
   it.each([
-    ['StrainDetail', `/labs/${LAB_ID}/strains/${STRAIN_ID}`, STRAIN, 'the strain', strainPage, () => screen.findByRole('heading', { level: 1, name: 'MYC 42' })],
+    ['StrainShell', `/labs/${LAB_ID}/strains/${STRAIN_ID}`, STRAIN, 'the strain', strainPage, () => screen.findByRole('heading', { level: 1, name: 'MYC 42' })],
     ['StrainList', `/labs/${LAB_ID}/strains`, STRAINS, 'the strains', () => mockApi('get', STRAINS, page([makeStrainRow({ accession_number: 'MYC 42' })])), () => screen.findByRole('link', { name: 'MYC 42' })],
   ] as const)('%s says a 404 on a refresh means it no longer exists', async (_, path, fails, what, data, shown) => {
     signedIn('manager')
@@ -386,7 +431,7 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     allowConsole(/API error 500/)
     signedIn('technician')
     strainPage()
-    const { client } = renderApp({ path: `/labs/${LAB_ID}/strains/${STRAIN_ID}` })
+    const { client } = renderApp({ path: MATERIAL })
     await screen.findByRole('table', { name: 'Vials' }, { timeout: 5000 })
     mockApiError('get', VIALS, 500)
     await refreshAll(client)
@@ -426,7 +471,7 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     allowConsole(/API error 500/)
     signedIn('technician')
     strainPage()
-    const { client } = renderApp({ path: `/labs/${LAB_ID}/strains/${STRAIN_ID}` })
+    const { client } = renderApp({ path: MATERIAL })
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Place vial MYC 42 / 1 / 1' }, { timeout: 5000 }))
     const dialog = await screen.findByRole('dialog')

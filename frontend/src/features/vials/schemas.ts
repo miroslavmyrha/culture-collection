@@ -80,9 +80,29 @@ export const rowLabel = (row: number) => String.fromCodePoint(64 + row)
 
 export const sourceLabel = (p: Passage, passages: readonly Passage[]) => {
   if (p.source_kind === 'deposit') return 'As received'
-  if (p.source_kind === 'vial') return 'Revived from a vial'
+  if (p.source_kind === 'vial') return p.source_vial_label ? `Revived from vial ${p.source_vial_label}` : 'Revived from a vial'
   const parent = passages.find((q) => q.public_id === p.source_passage)
   return parent ? `Subculture of passage ${parent.number}` : 'Subculture'
+}
+
+export type PassageNode = { passage: Passage; children: PassageNode[] }
+
+/**
+ * The passages as a tree from the original deposit (#19): passage 0 at the root, a subculture
+ * under the passage it was grown from, a revival under the passage its vial's batch came from
+ * (the server's `parent`). Children keep the order of the list, by number. A passage whose
+ * parent is not in the list (the first page of a longer list) starts a tree of its own, so none
+ * is dropped.
+ */
+export function passageTree(passages: readonly Passage[]): PassageNode[] {
+  const nodes = new Map<string, PassageNode>(passages.map((passage) => [passage.public_id, { passage, children: [] }]))
+  const roots: PassageNode[] = []
+  for (const node of nodes.values()) {
+    const parent = node.passage.parent === null ? undefined : nodes.get(node.passage.parent)
+    if (parent && parent !== node) parent.children.push(node)
+    else roots.push(node)
+  }
+  return roots
 }
 
 /** A box with the names of the units above it, for a select. */

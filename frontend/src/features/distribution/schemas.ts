@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { components } from '@/api/schema'
 import { isCountry } from '@/lib/countries'
 import { pageDefaults } from '@/lib/paging'
+import { USES } from '@/lib/terms'
 
 type Schemas = components['schemas']
 export type RequestRow = Schemas['RequestListOutput']
@@ -79,27 +80,7 @@ export const STATUS_LABELS: Record<RequestStatus, string> = {
   rejected: 'Rejected',
   cancelled: 'Cancelled',
 }
-/** ADR 0008, D10, in the order the server lists them. */
-export const USES = [
-  'research_noncommercial',
-  'research_commercial',
-  'teaching',
-  'diagnostics',
-  'production',
-  'reference_qc',
-  'patent_deposit_related',
-  'redistribution',
-] as const satisfies readonly Use[]
-export const USE_LABELS: Record<Use, string> = {
-  research_noncommercial: 'Non-commercial research',
-  research_commercial: 'Commercial research',
-  teaching: 'Teaching',
-  diagnostics: 'Diagnostics',
-  production: 'Production',
-  reference_qc: 'Reference material and quality control',
-  patent_deposit_related: 'Related to a patent deposit',
-  redistribution: 'Redistribution to third parties',
-}
+export { USE_LABELS, USES } from '@/lib/terms'
 export const LEGAL_FORMS = ['legal_person', 'business'] as const satisfies readonly LegalForm[]
 export const LEGAL_FORM_LABELS: Record<LegalForm, string> = {
   legal_person: 'Legal person (an institution or a company)',

@@ -28,6 +28,12 @@ const material = () => {
   for (const path of ['/api/v1/labs/{lab_public_id}/passages/', '/api/v1/labs/{lab_public_id}/batches/', '/api/v1/labs/{lab_public_id}/vials/'] as const) mockApi('get', path, page([]))
   mockApi('get', '/api/v1/labs/{lab_public_id}/storage-units/', [])
 }
+/** Every tab's data of the strain page (#19), so any of them may open. */
+const strainTabs = () => {
+  material()
+  mockApi('get', '/api/v1/labs/{lab_public_id}/strains/{public_id}/terms/', { deposit: null, versions: [] })
+  mockApi('get', '/api/v1/labs/{lab_public_id}/strains/{public_id}/history/', page([]))
+}
 const lab = (overrides = {}) => mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', ...overrides }))
 const members = (count = 1) => mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([makeMember()], { count }))
 
@@ -43,9 +49,13 @@ describe('page titles (WCAG 2.4.2)', () => {
     [`/labs/${LAB_ID}`, 'Could not load the lab', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 500), members())],
     [`/labs/${LAB_ID}/strains`, 'Strains of Mycology', () => (signedIn(), lab(), mockApi('get', STRAINS, page([makeStrainRow()])))],
     [`/labs/${LAB_ID}/strains`, 'Lab not found', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApi('get', STRAINS, page([])))],
-    [`/labs/${LAB_ID}/strains/${STRAIN_ID}`, 'MYC 42', () => (signedIn(), lab(), material(), mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42' })))],
-    [`/labs/${LAB_ID}/strains/${STRAIN_ID}`, 'Strain not found', () => (signedIn(), lab(), mockApiError('get', STRAIN, 404, problem(404)))],
-    [`/labs/${LAB_ID}/strains/${STRAIN_ID}`, 'Could not load the strain', () => (signedIn(), lab(), mockApiError('get', STRAIN, 500))],
+    [`/labs/${LAB_ID}/strains/${STRAIN_ID}`, 'MYC 42', () => (signedIn(), lab(), strainTabs(), mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42' })))],
+    [`/labs/${LAB_ID}/strains/${STRAIN_ID}/material`, 'MYC 42, material', () => (signedIn(), lab(), strainTabs(), mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42' })))],
+    [`/labs/${LAB_ID}/strains/${STRAIN_ID}/terms`, 'MYC 42, terms', () => (signedIn(), lab(), strainTabs(), mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42' })))],
+    [`/labs/${LAB_ID}/strains/${STRAIN_ID}/history`, 'MYC 42, history', () => (signedIn(), lab(), strainTabs(), mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42' })))],
+    [`/labs/${LAB_ID}/strains/${STRAIN_ID}/history`, 'Strain not found', () => (signedIn(), lab(), strainTabs(), mockApiError('get', STRAIN, 404, problem(404)))],
+    [`/labs/${LAB_ID}/strains/${STRAIN_ID}`, 'Strain not found', () => (signedIn(), lab(), strainTabs(), mockApiError('get', STRAIN, 404, problem(404)))],
+    [`/labs/${LAB_ID}/strains/${STRAIN_ID}`, 'Could not load the strain', () => (signedIn(), lab(), strainTabs(), mockApiError('get', STRAIN, 500))],
     [`/labs/${LAB_ID}/depositors`, 'Depositors of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', DEPOSITORS, page([])))],
     [`/labs/${LAB_ID}/mta-templates`, 'MTA templates of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', MTAS, page([])))],
     [`/labs/${LAB_ID}/mta-templates/new`, 'Publish an MTA version in Mycology', () => (signedIn(), lab({ my_role: 'manager' }))],

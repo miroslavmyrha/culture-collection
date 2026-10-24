@@ -1,5 +1,6 @@
 import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query'
 import { api, unwrap } from '@/lib/api'
+import type { PageParams } from '@/lib/paging'
 import type { StrainListParams } from '../schemas'
 import { strainKeys, taxonKeys } from './keys'
 
@@ -20,6 +21,29 @@ export const strainDetailOptions = (labId: string, strainId: string) =>
       unwrap(
         api.GET('/api/v1/labs/{lab_public_id}/strains/{public_id}/', { signal, params: { path: { lab_public_id: labId, public_id: strainId } } }),
       ),
+  })
+
+/** Every version of the strain's terms of use, newest first, with the MTA each names (#19). */
+export const strainTermsOptions = (labId: string, strainId: string) =>
+  queryOptions({
+    queryKey: strainKeys.terms(labId, strainId),
+    queryFn: ({ signal }) =>
+      unwrap(api.GET('/api/v1/labs/{lab_public_id}/strains/{public_id}/terms/', { signal, params: { path: { lab_public_id: labId, public_id: strainId } } })),
+  })
+
+/** A page of what happened to the strain, newest first (#19). */
+export const strainHistoryOptions = (labId: string, strainId: string, page: PageParams) =>
+  queryOptions({
+    queryKey: strainKeys.history(labId, strainId, page),
+    queryFn: ({ signal }) =>
+      unwrap(
+        api.GET('/api/v1/labs/{lab_public_id}/strains/{public_id}/history/', {
+          signal,
+          params: { path: { lab_public_id: labId, public_id: strainId }, query: page },
+        }),
+      ),
+    // The page before stays on screen while the next one loads.
+    placeholderData: keepPreviousData,
   })
 
 export const TAXON_PAGE = 20
@@ -46,6 +70,14 @@ export function useStrainList(labId: string, params: StrainListParams) {
 
 export function useStrain(labId: string, strainId: string) {
   return useQuery(strainDetailOptions(labId, strainId))
+}
+
+export function useStrainTerms(labId: string, strainId: string) {
+  return useQuery(strainTermsOptions(labId, strainId))
+}
+
+export function useStrainHistory(labId: string, strainId: string, page: PageParams) {
+  return useQuery(strainHistoryOptions(labId, strainId, page))
 }
 
 export function useTaxonSearch(text: string, enabled: boolean) {

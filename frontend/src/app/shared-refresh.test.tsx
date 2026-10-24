@@ -16,6 +16,8 @@ import {
   makeStrain,
   makeStrainRow,
   makeTaxon,
+  makeTerms,
+  makeHistoryLine,
   makeUnit,
   makeUnitRow,
   makeVial,
@@ -41,6 +43,8 @@ const STRAIN = '/api/v1/labs/{lab_public_id}/strains/{public_id}/'
 const STRAINS = '/api/v1/labs/{lab_public_id}/strains/'
 const BOX = '/api/v1/labs/{lab_public_id}/boxes/{public_id}/'
 const GRANTS = '/api/v1/labs/{lab_public_id}/location-grants/'
+const TERMS = '/api/v1/labs/{lab_public_id}/strains/{public_id}/terms/'
+const HISTORY = '/api/v1/labs/{lab_public_id}/strains/{public_id}/history/'
 
 // Invented taxa: the tests pair them with restrictions and risk groups.
 const exempli = makeTaxon({ public_id: '00000000-0000-4000-8000-0000000000c1', name: 'Testella exempli' })
@@ -77,10 +81,17 @@ function strainPage(strain = regulated, vial: ReturnType<typeof makeVial> = mask
   mockApi('get', STRAIN, strain)
   mockApi('get', PASSAGES, page([makePassage({ number: 0 })]))
   mockApi('get', BATCHES, page([makeBatch()]))
+  mockApi('get', TERMS, { deposit: null, versions: [makeTerms()] })
+  mockApi('get', HISTORY, page([makeHistoryLine()]))
   return mockApi('get', VIALS, page([vial]))
 }
 
-const strainPath = `/labs/${LAB_ID}/strains/${STRAIN_ID}`
+// The strain page's tabs (#19): the vials are on Material, the restrictions on Overview.
+const strainPath = `/labs/${LAB_ID}/strains/${STRAIN_ID}/material`
+const toTab = (tab: 'overview' | 'material' | 'history') =>
+  tab === 'overview'
+    ? ({ to: '/labs/$labId/strains/$strainId', params: { labId: LAB_ID, strainId: STRAIN_ID } } as const)
+    : ({ to: `/labs/$labId/strains/$strainId/${tab}`, params: { labId: LAB_ID, strainId: STRAIN_ID } } as const)
 const vialRow = () => within(screen.getByRole('table', { name: 'Vials' })).getAllByRole('row')[1]
 
 async function openStrainPage(role: Role, strain = regulated, vial: ReturnType<typeof makeVial> = masked) {
@@ -93,8 +104,16 @@ async function openStrainPage(role: Role, strain = regulated, vial: ReturnType<t
   return { ...view, user: userEvent.setup() }
 }
 
-async function inDialog(user: UserEvent, trigger: string, title: string, fill: (dialog: HTMLElement) => Promise<void>, confirm: string) {
-  await user.click(await screen.findByRole('button', { name: trigger }))
+/** A strain's action: from the header's menu (Reclassify, Change risk group, Add a restriction), else a button. */
+async function startAction(user: UserEvent, name: string) {
+  if (['Reclassify', 'Change risk group', 'Add a restriction'].includes(name)) {
+    await user.click(await screen.findByRole('button', { name: 'Actions for MYC 42' }))
+    await user.click(await screen.findByRole('menuitem', { name }))
+  } else await user.click(await screen.findByRole('button', { name }))
+}
+
+async function inDialog(user: UserEvent, name: string, title: string, fill: (dialog: HTMLElement) => Promise<void>, confirm: string) {
+  await startAction(user, name)
   const dialog = await screen.findByRole('dialog', { name: title })
   await fill(dialog)
   await user.click(within(dialog).getByRole('button', { name: confirm }))
@@ -165,7 +184,7 @@ const STRAIN_WRITES: [string, (user: UserEvent) => Promise<void>][] = [
 ]
 
 describe('a write refreshes the data other features show', { timeout: 30_000 }, () => {
-  it.each(STRAIN_WRITES)("%s on the strain page refetches the strain's material and marks the lab's box grids stale", async (_, write) => {
+  it.each(STRAIN_WRITES.filter(([name]) => name !== 'ending a restriction'))("%s on the strain page refetches the strain's material and marks the lab's box grids stale", async (_, write) => {
     const { client, user } = await openStrainPage('manager')
     const grid = vialKeys.box(LAB_ID, box.public_id)
     client.setQueryData(grid, makeBoxGrid({ public_id: box.public_id }))
@@ -178,6 +197,85 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
     expect(client.getQueryState(grid)?.isInvalidated).toBe(true)
   })
 
+  it("ending a restriction on Overview marks the strain's material and the box grids stale", async () => {
+    const { client, router, user } = await openStrainPage('manager')
+    const grid = vialKeys.box(LAB_ID, box.public_id)
+    client.setQueryData(grid, makeBoxGrid({ public_id: box.public_id }))
+    // A restriction ends from its row on Overview, where the material is not on screen.
+    await router.navigate(toTab('overview'))
+    await screen.findByRole('table', { name: 'Current restrictions' }, { timeout: 5000 })
+    const vials = mockApi('get', VIALS, page([masked]))
+    const write = STRAIN_WRITES.find(([name]) => name === 'ending a restriction')
+    await write?.[1](user)
+    expect(vials).toHaveLength(0)
+    expect(client.getQueryState(grid)?.isInvalidated).toBe(true)
+    // Within the stale time: only the invalidation makes Material ask again when it opens.
+    await router.navigate(toTab('material'))
+    await waitFor(() => expect(vials).toHaveLength(1), { timeout: 5000 })
+  })
+
+  it("a strain write refreshes the strain's history on screen", async () => {
+    signedIn('manager')
+    strainPage(free)
+    renderApp({ path: `/labs/${LAB_ID}/strains/${STRAIN_ID}/history` })
+    await screen.findByRole('list', { name: 'History, newest first' }, { timeout: 5000 })
+    const history = mockApi('get', HISTORY, page([makeHistoryLine({ summary: 'changed the risk group of MYC 42' })]))
+    const write = STRAIN_WRITES.find(([name]) => name === 'changing the risk group')
+    await write?.[1](userEvent.setup())
+    expect(history).toHaveLength(1)
+    expect(await screen.findByText('changed the risk group of MYC 42')).toBeInTheDocument()
+  })
+
+  it("a vial write refreshes the strain's history, asked again when its tab opens", async () => {
+    const { router, user } = await openStrainPage('technician', free, makeVial({ public_id: VIAL_ID, label: 'MYC 42 / 1 / 1' }))
+    await router.navigate(toTab('history'))
+    await screen.findByRole('list', { name: 'History, newest first' }, { timeout: 5000 })
+    await router.navigate(toTab('material'))
+    await screen.findByRole('table', { name: 'Vials' }, { timeout: 5000 })
+    mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/status/', makeVial({ public_id: VIAL_ID, status: 'lost' }))
+    const history = mockApi('get', HISTORY, page([makeHistoryLine({ summary: 'set vial MYC 42 / 1 / 1 to lost' })]))
+    await inDialog(
+      user,
+      'Change the state of vial MYC 42 / 1 / 1',
+      'Change the state of vial MYC 42 / 1 / 1',
+      async (dialog) => {
+        await user.selectOptions(within(dialog).getByRole('combobox', { name: 'New state' }), 'lost')
+        await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'not in its place')
+      },
+      'Save state',
+    )
+    // Within the stale time: only the invalidation makes the tab ask again.
+    await router.navigate(toTab('history'))
+    expect(await screen.findByText('set vial MYC 42 / 1 / 1 to lost', {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(history).toHaveLength(1)
+  })
+
+  it("a new terms version of the deposit refreshes its strain's terms and history", async () => {
+    signedIn('curator')
+    strainPage(free)
+    const { client, router } = renderApp({ path: `/labs/${LAB_ID}/strains/${STRAIN_ID}/history` })
+    await screen.findByRole('list', { name: 'History, newest first' }, { timeout: 5000 })
+    await router.navigate({ to: '/labs/$labId/strains/$strainId/terms', params: { labId: LAB_ID, strainId: STRAIN_ID } })
+    await screen.findByRole('article', { name: 'Version 1' }, { timeout: 5000 })
+    const deposit = makeDeposit({ public_id: DEPOSIT_ID, status: 'accepted', strain: { public_id: STRAIN_ID, accession_number: 'MYC 42' } })
+    mockApi('get', '/api/v1/labs/{lab_public_id}/deposits/{public_id}/', deposit)
+    mockApi('get', '/api/v1/labs/{lab_public_id}/mta-templates/', page([]))
+    await router.navigate({ to: '/labs/$labId/deposits/$depositId', params: { labId: LAB_ID, depositId: DEPOSIT_ID } })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Change the terms' }, { timeout: 5000 }))
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'The depositor withdrew teaching.')
+    const replaced = mockApi('post', '/api/v1/labs/{lab_public_id}/deposits/{public_id}/terms/', deposit)
+    const terms = mockApi('get', TERMS, { deposit: DEPOSIT_ID, versions: [makeTerms({ version: 2 }), makeTerms({ is_active: false })] })
+    await user.click(within(dialog).getByRole('button', { name: 'Save the new version' }))
+    await waitFor(() => expect(replaced).toHaveLength(1))
+    expect(client.getQueryState(['strains', LAB_ID, 'terms', STRAIN_ID])?.isInvalidated).toBe(true)
+    expect(client.getQueryState(['vials', LAB_ID, 'strain', STRAIN_ID, 'history', { limit: 25, offset: 0 }])?.isInvalidated).toBe(true)
+    await router.navigate({ to: '/labs/$labId/strains/$strainId/terms', params: { labId: LAB_ID, strainId: STRAIN_ID } })
+    expect(await screen.findByRole('article', { name: 'Version 2' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(terms).toHaveLength(1)
+  })
+
   it("ending a restriction shows the vial's location and the box grid's vial without a reload", async () => {
     const { router, user } = await openStrainPage('manager')
     expect(vialRow()).toHaveTextContent('Hidden: regulated strain')
@@ -187,14 +285,16 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
     mockApi('get', BOX, makeBoxGrid({ public_id: box.public_id, positions: [{ row: 1, col: 1, label: 'A1', masked: true, vial: null }] }))
     await router.navigate({ to: '/labs/$labId/storage/$unitId', params: { labId: LAB_ID, unitId: box.public_id } })
     expect(await screen.findByText('Position A1: a vial of a regulated strain. Which one is hidden.', {}, { timeout: 5000 })).toBeInTheDocument()
-    await router.navigate({ to: '/labs/$labId/strains/$strainId', params: { labId: LAB_ID, strainId: STRAIN_ID } })
-    await screen.findByRole('table', { name: 'Vials' })
+    // The restriction ends from its row on Overview; the vial shows on Material.
+    await router.navigate(toTab('overview'))
+    await screen.findByRole('table', { name: 'Current restrictions' }, { timeout: 5000 })
 
     const vials = mockApi('get', VIALS, page([located()]))
     mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end/', free)
     await inDialog(user, 'End restriction MŽP 2026/12', 'End the restriction MŽP 2026/12', (dialog) => user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'destroyed'), 'End restriction')
+    await router.navigate(toTab('material'))
+    await waitFor(() => expect(vialRow()).toHaveTextContent('Freezer A / Box 1, A1'), { timeout: 5000 })
     expect(vials).toHaveLength(1)
-    expect(vialRow()).toHaveTextContent('Freezer A / Box 1, A1')
 
     const grids = mockApi('get', BOX, makeBoxGrid({ public_id: box.public_id, positions: [{ row: 1, col: 1, label: 'A1', masked: false, vial: { public_id: VIAL_ID, label: 'MYC 42 / 1 / 1', status: 'available', barcode: null, strain: STRAIN_ID, accession_number: 'MYC 42' } }] }))
     await router.navigate({ to: '/labs/$labId/storage/$unitId', params: { labId: LAB_ID, unitId: box.public_id } })
@@ -228,7 +328,7 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
     const { router } = renderApp({ path: `/labs/${LAB_ID}/storage` })
     await screen.findByRole('tree', { name: 'Storage of Mycology' }, { timeout: 5000 })
     strainPage(free, makeVial({ label: 'MYC 42 / 1 / 2' }))
-    await router.navigate({ to: '/labs/$labId/strains/$strainId', params: { labId: LAB_ID, strainId: STRAIN_ID } })
+    await router.navigate(toTab('material'))
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Place vial MYC 42 / 1 / 2' }, { timeout: 5000 }))
     const dialog = await screen.findByRole('dialog')
@@ -257,7 +357,7 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
       },
       'Save',
     )
-    await router.navigate({ to: '/labs/$labId/strains/$strainId', params: { labId: LAB_ID, strainId: STRAIN_ID } })
+    await router.navigate(toTab('material'))
     await waitFor(() => expect(vialRow()).toHaveTextContent('Freezer B / Box 1, A1'), { timeout: 5000 })
     expect(vials).toHaveLength(1)
     await user.click(screen.getByRole('button', { name: 'Move vial MYC 42 / 1 / 1' }))
@@ -290,7 +390,7 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
     await user.click(within(dialog).getByRole('button', { name: verb }))
     // Waits of 5 s: under the load of the whole suite this flow takes longer than the default.
     await waitFor(() => expect(dialog).not.toBeInTheDocument(), { timeout: 5000 })
-    await router.navigate({ to: '/labs/$labId/strains/$strainId', params: { labId: LAB_ID, strainId: STRAIN_ID } })
+    await router.navigate(toTab('material'))
     await waitFor(() => expect(vials).toHaveLength(1), { timeout: 5000 })
     await waitFor(() => expect(within(vialRow() ?? document.body).queryAllByRole('button', { name: /Reveal the location/ })).toHaveLength(after ? 1 : 0), { timeout: 5000 })
   })
@@ -345,7 +445,7 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
     const vials = strainPage(free, { ...located(), status })
     await user.click(within(dialog).getByRole('button', { name: confirm }))
     await waitFor(() => expect(done).toHaveLength(1))
-    await router.navigate({ to: '/labs/$labId/strains/$strainId', params: { labId: LAB_ID, strainId: STRAIN_ID } })
+    await router.navigate(toTab('material'))
     // Within the stale time: only an invalidation makes the page ask again.
     await waitFor(() => expect(vials).toHaveLength(1), { timeout: 5000 })
   })
@@ -368,7 +468,7 @@ describe('a write refreshes the data other features show', { timeout: 30_000 }, 
     const vials = strainPage(free, { ...located(), status: 'distributed' })
     await user.click(within(dialog).getByRole('button', { name: 'Confirm and ship' }))
     await waitFor(() => expect(done).toHaveLength(1))
-    await router.navigate({ to: '/labs/$labId/strains/$strainId', params: { labId: LAB_ID, strainId: STRAIN_ID } })
+    await router.navigate(toTab('material'))
     await waitFor(() => expect(vials).toHaveLength(1), { timeout: 5000 })
   })
 

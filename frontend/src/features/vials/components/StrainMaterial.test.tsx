@@ -18,7 +18,7 @@ const UNITS = '/api/v1/labs/{lab_public_id}/storage-units/'
 const REVEAL = '/api/v1/labs/{lab_public_id}/vials/{public_id}/reveal-location/'
 
 const zero = makePassage({ number: 0 })
-const one = makePassage({ number: 1, source_kind: 'passage', source_passage: zero.public_id })
+const one = makePassage({ number: 1, source_kind: 'passage', source_passage: zero.public_id, parent: zero.public_id })
 const freezer = makeUnitRow({ name: 'Freezer A' })
 const rack = makeUnitRow({ kind: 'rack', name: 'Rack 1', parent: freezer.public_id, max_risk_group: null })
 const box = makeUnitRow({ kind: 'box', name: 'Box 1', parent: rack.public_id, rows: 3, cols: 4, max_risk_group: null })
@@ -50,11 +50,15 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
       'Not placed',
       'Left the collection',
     ])
-    const passages = screen.getByRole('table', { name: 'Passages' })
-    expect(within(passages).getAllByRole('row').slice(1).map((row) => within(row).getAllByRole('cell')[1]?.textContent)).toEqual(['As received', 'Subculture of passage 0'])
+    // The passages as a tree from the deposit: passage 1 nested under passage 0.
+    const tree = screen.getByRole('list', { name: 'Passages from the deposit' })
+    const root = within(tree).getByRole('listitem', { name: 'Passage 0' })
+    expect(root).toHaveTextContent(/^Passage 0As receivedSubculture/)
+    const grown = within(root).getByRole('list', { name: 'Grown from passage 0' })
+    expect(within(grown).getByRole('listitem', { name: 'Passage 1' })).toHaveTextContent(/^Passage 1Subculture of passage 0Subculture$/)
     const batches = screen.getByRole('table', { name: 'Batches' })
     expect(within(batches).getAllByRole('row')[1]).toHaveTextContent('10Frozen at -80 °C, 10 % glycerolDistribution stock2026-10-01Pending checkWaiting for a passed identity, purity and viability check.2 of 3Checks')
-    for (const name of ['Passages', 'Batches', 'Vials']) expect(screen.getByRole('region', { name: `${name} table` })).toHaveAttribute('tabindex', '0')
+    for (const name of ['Batches', 'Vials']) expect(screen.getByRole('region', { name: `${name} table` })).toHaveAttribute('tabindex', '0')
     // A consumed vial has no place and no next state: no actions.
     const last = within(vials).getAllByRole('row')[3]
     expect(last && within(last).queryAllByRole('button')).toEqual([])
