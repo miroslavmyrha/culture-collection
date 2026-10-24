@@ -1,18 +1,27 @@
 """Every action of the strain API for every caller: 401 anonymous, 404 outside the lab,
-403 for a role without the permission, success for viewer and up reading and for
-curator and up writing. A refused write changes no row and records no event."""
+403 for a role without the permission, success for viewer and up reading, for curator and up
+writing, and for a manager confirming the end of a restriction (#105). A refused write changes
+no row and records no event."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
 
-from cultures.audit.models import AuditEvent
+from cultures.audit.context import audit_context
+from cultures.audit.models import AuditEvent, Channel
 from cultures.core.testing import assert_problem, logged_in
+from cultures.labs.access import access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
 from cultures.labs.tests.conftest import member_of
-from cultures.strains.models import Strain, StrainIdentification, StrainRestriction
+from cultures.strains import services
+from cultures.strains.models import (
+    RestrictionEndProposal,
+    Strain,
+    StrainIdentification,
+    StrainRestriction,
+)
 from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
 
@@ -21,14 +30,21 @@ from .conftest import GMO, STRAINS_URL, MakeStrain
 pytestmark = pytest.mark.django_db
 
 
+WRITERS = frozenset({Role.CURATOR, Role.MANAGER})
+
+
 @dataclass(frozen=True)
 class Call:
     name: str
     method: str
     path: str  # after the list URL: {strain} and {restriction} are filled in
     write: bool
+    allowed: frozenset[Role] = field(default=WRITERS)
+    proposed: bool = False  # acts on an open proposal to end the restriction
 
     def body(self, taxon: Taxon) -> dict[str, Any]:
+        proposal = RestrictionEndProposal.objects.filter(confirmed_at=None, withdrawn_at=None)
+        named = {"proposal": str(proposal.get().public_id)} if proposal.exists() else {}
         bodies: dict[str, dict[str, Any]] = {
             "reclassify": {
                 "taxon": str(taxon.public_id),
@@ -42,7 +58,9 @@ class Call:
                 "reference": "Příloha 2, bod 3",
                 "reason": "listed",
             },
-            "end_restriction": {"reason": "delisted"},
+            "propose_end": {"reason": "delisted"},
+            "confirm_end": named,
+            "withdraw_end": {**named, "reason": "still listed"},
         }
         return bodies.get(self.name, {})
 
@@ -55,9 +73,38 @@ CALLS = [
     Call("reclassify", "post", "{strain}/reclassify/", write=True),
     Call("risk_group", "post", "{strain}/risk-group/", write=True),
     Call("add_restriction", "post", "{strain}/restrictions/", write=True),
-    Call("end_restriction", "post", "{strain}/restrictions/{restriction}/end/", write=True),
+    Call("propose_end", "post", "{strain}/restrictions/{restriction}/end-proposal/", write=True),
+    Call(
+        "confirm_end",
+        "post",
+        "{strain}/restrictions/{restriction}/end-proposal/confirm/",
+        write=True,
+        allowed=frozenset({Role.MANAGER}),
+        proposed=True,
+    ),
+    Call(
+        "withdraw_end",
+        "post",
+        "{strain}/restrictions/{restriction}/end-proposal/withdraw/",
+        write=True,
+        proposed=True,
+    ),
 ]
-ALLOWED = {Role.VIEWER: False, Role.TECHNICIAN: False, Role.CURATOR: True, Role.MANAGER: True}
+ROLES = [Role.VIEWER, Role.TECHNICIAN, Role.CURATOR, Role.MANAGER]
+
+
+def ready(call: Call) -> None:
+    """An open proposal for the calls that act on one, by a curator who is none of the team."""
+    if not call.proposed:
+        return
+    strain = Strain.objects.get()
+    proposer = member_of(strain.lab, Role.CURATOR, "proposer")
+    with audit_context(channel=Channel.API, actor=proposer, request_id="req-propose"):
+        services.strain_restriction_end_propose(
+            access=access_for(proposer),
+            restriction=StrainRestriction.objects.get(strain=strain),
+            reason="delisted",
+        )
 
 
 @pytest.fixture
@@ -68,7 +115,7 @@ def strain(make_strain: MakeStrain) -> Strain:
 def state() -> tuple[Any, ...]:
     rows = tuple(
         list(m._default_manager.order_by("pk").values())
-        for m in (Strain, StrainIdentification, StrainRestriction)
+        for m in (Strain, StrainIdentification, StrainRestriction, RestrictionEndProposal)
     )
     return (*rows, AuditEvent.objects.count())
 
@@ -90,6 +137,7 @@ def send(user: User | None, call: Call, taxon: Taxon) -> Any:
 
 @pytest.mark.parametrize("call", CALLS, ids=lambda c: c.name)
 def test_anonymous_gets_401(call: Call, strain: Strain, mockia: Taxon) -> None:
+    ready(call)
     before = state()
     response = send(None, call, mockia)
     assert_problem(response, 401, "not_authenticated")
@@ -101,22 +149,24 @@ def test_anonymous_gets_401(call: Call, strain: Strain, mockia: Taxon) -> None:
 def test_a_member_of_another_lab_gets_404_for_everything(
     call: Call, strain: Strain, outsider: User, mockia: Taxon
 ) -> None:
+    ready(call)
     before = state()
     assert_problem(send(outsider, call, mockia), 404, "not_found")
     assert state() == before
 
 
 @pytest.mark.parametrize("call", CALLS, ids=lambda c: c.name)
-@pytest.mark.parametrize("role", list(ALLOWED))
+@pytest.mark.parametrize("role", ROLES)
 def test_each_role_may_do_what_its_permissions_say(
     call: Call, role: Role, strain: Strain, team: dict[Role, User], mockia: Taxon
 ) -> None:
+    ready(call)
     before = state()
     response = send(team[role], call, mockia)
     if not call.write:
         assert response.status_code == 200, response.content
         return
-    if ALLOWED[role]:
+    if role in call.allowed:
         assert response.status_code == 200, response.content
         assert state() != before
         assert AuditEvent.objects.count() == before[-1] + 1  # one event per write
@@ -129,8 +179,9 @@ def test_each_role_may_do_what_its_permissions_say(
 def test_a_curator_elsewhere_is_only_what_they_are_here(
     call: Call, strain: Strain, other_lab: Lab, mockia: Taxon
 ) -> None:
-    """Curator in BAC, viewer in MYC: MYC's strains are read-only for them (the role per lab)."""
-    two_labs = member_of(other_lab, Role.CURATOR, "two-labs")
+    """Manager in BAC, viewer in MYC: MYC's strains are read-only for them (the role per lab)."""
+    ready(call)
+    two_labs = member_of(other_lab, Role.MANAGER, "two-labs")
     Membership.objects.create(user=two_labs, lab=strain.lab, role=Role.VIEWER)
     before = state()
     assert_problem(send(two_labs, call, mockia), 403, "permission_denied")
@@ -169,6 +220,7 @@ def test_a_role_without_the_permission_gets_403_before_its_input_is_read(
 ) -> None:
     """The viewset refuses first: invalid input from a viewer is a 403, never a 400 that
     tells them what the form expects. The services refuse too, but only after validation."""
+    ready(call)
     response = getattr(logged_in(team[role]), call.method)(
         url(call), {"risk_group": "x", "taxon": "x"}, content_type="application/json"
     )

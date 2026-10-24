@@ -1,27 +1,29 @@
 import { type MouseEvent, useRef, useState } from 'react'
-import { Box, Button, Link, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
+import { Box, Button, Link, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { STRAIN_TONES } from '@/lib/tones'
 import { countryName, GMO_CATEGORY_LABELS, PATHOGENICITY_LABELS, RESTRICTION_LABELS, STATUS_LABELS, type Strain } from '../schemas'
 import { day, Facts, scrollable, Section } from './parts'
-import { EndRestrictionDialog } from './StrainDialogs'
+import { ConfirmEndDialog, ProposeEndDialog, WithdrawEndDialog } from './StrainDialogs'
 import { ActiveTerms } from './StrainTerms'
 
-type Props = { labId: string; strain: Strain; canManage: boolean }
+type Props = { labId: string; strain: Strain; canManage: boolean; canConfirm: boolean }
 
 type Restriction = Strain['restriction_history'][number]
-type Open = { restriction: Restriction; open: boolean } | null
+type Step = 'propose' | 'confirm' | 'withdraw'
+type Open = { step: Step; restriction: Restriction; open: boolean } | null
+type Act = (step: Step, r: Restriction) => (event: MouseEvent<HTMLButtonElement>) => void
 
 /**
  * What the strain is (#19): its facts, its restrictions, the terms of use in force and how it was
  * identified, from the strain the page already holds; only the terms are a read of their own.
  */
-export function StrainOverview({ labId, strain: s, canManage }: Props) {
+export function StrainOverview({ labId, strain: s, canManage, canConfirm }: Props) {
   const [open, setOpen] = useState<Open>(null)
   const spot = useRef<FocusReturn | null>(null)
-  const end = (restriction: Restriction) => (event: MouseEvent<HTMLButtonElement>) => {
+  const act: Act = (step, restriction) => (event) => {
     spot.current = rememberFocus(event.currentTarget)
-    setOpen({ restriction, open: true })
+    setOpen({ step, restriction, open: true })
   }
   const close = () => setOpen((current) => current && { ...current, open: false })
   const exited = () => {
@@ -53,7 +55,7 @@ export function StrainOverview({ labId, strain: s, canManage }: Props) {
         {active.length === 0 ? (
           <Typography>None. The agent is on no regulatory list.</Typography>
         ) : (
-          <RestrictionTable rows={active} caption="Current restrictions" end={canManage ? end : undefined} />
+          <RestrictionTable rows={active} caption="Current restrictions" act={canManage || canConfirm ? act : undefined} canManage={canManage} canConfirm={canConfirm} />
         )}
         {ended.length > 0 && <RestrictionTable rows={ended} caption="Ended restrictions" />}
       </Section>
@@ -98,19 +100,30 @@ export function StrainOverview({ labId, strain: s, canManage }: Props) {
       </Section>
 
       {/* Mounted until it has faded out, so onExited can place the focus. */}
-      {open && <EndRestrictionDialog labId={labId} strain={s} restriction={open.restriction} open={open.open} onClose={close} onExited={exited} />}
+      {open && <EndDialog labId={labId} strain={s} at={open} onClose={close} onExited={exited} />}
     </>
   )
+}
+
+function EndDialog({ labId, strain, at, onClose, onExited }: { labId: string; strain: Strain; at: NonNullable<Open>; onClose: () => void; onExited: () => void }) {
+  const common = { labId, strain, restriction: at.restriction, open: at.open, onClose, onExited }
+  const proposal = at.restriction.end_proposal
+  if (at.step === 'propose' || proposal === null) return <ProposeEndDialog {...common} />
+  if (at.step === 'confirm') return <ConfirmEndDialog {...common} proposal={proposal} />
+  return <WithdrawEndDialog {...common} proposal={proposal} />
 }
 
 type TableProps = {
   rows: Restriction[]
   caption: string
-  end?: ((r: Restriction) => (event: MouseEvent<HTMLButtonElement>) => void) | undefined
+  act?: Act | undefined
+  canManage?: boolean
+  canConfirm?: boolean
 }
 
-function RestrictionTable({ rows, caption, end }: TableProps) {
+function RestrictionTable({ rows, caption, act, canManage = false, canConfirm = false }: TableProps) {
   const isEnded = rows.some((r) => r.ended_at !== null)
+  const isProposed = rows.some((r) => r.end_proposal !== null)
   return (
     <TableContainer {...scrollable(caption)}>
       <Table aria-label={caption}>
@@ -120,7 +133,8 @@ function RestrictionTable({ rows, caption, end }: TableProps) {
             <TableCell>List entry</TableCell>
             <TableCell>Since</TableCell>
             {isEnded && <TableCell>Ended</TableCell>}
-            {end && <TableCell>Action</TableCell>}
+            {isProposed && <TableCell>Ending</TableCell>}
+            {act && <TableCell>Action</TableCell>}
           </TableRow>
         </TableHead>
         <TableBody>
@@ -140,11 +154,10 @@ function RestrictionTable({ rows, caption, end }: TableProps) {
                   {r.ended_at && day(r.ended_at)}: {r.end_reason}
                 </TableCell>
               )}
-              {end && (
+              {isProposed && <TableCell>{r.end_proposal && <Proposed proposal={r.end_proposal} canConfirm={canConfirm} />}</TableCell>}
+              {act && (
                 <TableCell>
-                  <Button onClick={end(r)} aria-label={`End restriction ${r.reference}`}>
-                    End
-                  </Button>
+                  <Actions restriction={r} act={act} canManage={canManage} canConfirm={canConfirm} />
                 </TableCell>
               )}
             </TableRow>
@@ -152,5 +165,43 @@ function RestrictionTable({ rows, caption, end }: TableProps) {
         </TableBody>
       </Table>
     </TableContainer>
+  )
+}
+
+/** A proposal waiting for a second person (#105): what it says and who may settle it. */
+function Proposed({ proposal, canConfirm }: { proposal: NonNullable<Restriction['end_proposal']>; canConfirm: boolean }) {
+  const own = proposal.confirm_refusal === 'confirm_own_end_proposal'
+  return (
+    <>
+      Proposed {day(proposal.proposed_at)}: {proposal.reason}
+      <Typography variant="body2" color="text.secondary">
+        {own ? 'You proposed it: a different manager confirms.' : canConfirm ? 'Waiting for your confirmation.' : 'Waiting for a manager to confirm.'}
+      </Typography>
+    </>
+  )
+}
+
+function Actions({ restriction: r, act, canManage, canConfirm }: { restriction: Restriction; act: Act; canManage: boolean; canConfirm: boolean }) {
+  const proposal = r.end_proposal
+  if (proposal === null) {
+    return canManage ? (
+      <Button onClick={act('propose', r)} aria-label={`Propose to end restriction ${r.reference}`}>
+        Propose to end
+      </Button>
+    ) : null
+  }
+  return (
+    <Stack direction="row" spacing={1}>
+      {canConfirm && proposal.confirm_refusal === null && (
+        <Button onClick={act('confirm', r)} aria-label={`Confirm the end of restriction ${r.reference}`}>
+          Confirm end
+        </Button>
+      )}
+      {canManage && (
+        <Button onClick={act('withdraw', r)} aria-label={`Withdraw the proposal to end restriction ${r.reference}`}>
+          Withdraw
+        </Button>
+      )}
+    </Stack>
   )
 }

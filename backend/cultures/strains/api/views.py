@@ -26,9 +26,11 @@ from cultures.strains.filters import StrainFilter
 from cultures.strains.models import Strain, StrainRestriction
 
 from .serializers import (
+    EndConfirmInputSerializer,
+    EndProposeInputSerializer,
+    EndWithdrawInputSerializer,
     ReclassifyInputSerializer,
     RestrictionAddInputSerializer,
-    RestrictionEndInputSerializer,
     RiskGroupInputSerializer,
     StrainDetailOutputSerializer,
     StrainListOutputSerializer,
@@ -45,7 +47,20 @@ RULE = OpenApiResponse(
     "lab_authorisation_required: the lab holds no valid permit for a restriction's kind;"
     " reason_required",
 )
-ENDED = OpenApiResponse(ProblemSerializer, "The restriction has ended already")
+PROPOSED = OpenApiResponse(
+    ProblemSerializer,
+    "restriction_ended; end_proposed: someone proposed to end it already, a proposal waits",
+)
+SETTLED = OpenApiResponse(
+    ProblemSerializer,
+    "restriction_ended; end_not_proposed: no proposal is open; end_proposal_changed: another"
+    " proposal is open than the one named",
+)
+OWN = OpenApiResponse(
+    ProblemSerializer,
+    "permission_denied: confirming is a manager's; confirm_own_end_proposal: the caller proposed"
+    " it, a different manager confirms",
+)
 LAB_PARAMETER = OpenApiParameter("lab_public_id", OpenApiTypes.UUID, OpenApiParameter.PATH)
 RESTRICTION_PARAMETER = OpenApiParameter("restriction_id", OpenApiTypes.UUID, OpenApiParameter.PATH)
 PAGE_PARAMETERS = [
@@ -82,7 +97,10 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         "reclassify": Perm.MANAGE_STRAINS,
         "risk_group": Perm.MANAGE_STRAINS,
         "add_restriction": Perm.MANAGE_STRAINS,
-        "end_restriction": Perm.MANAGE_STRAINS,
+        # #105: a restriction ends in two steps, by two people (ADR 0009).
+        "propose_end": Perm.MANAGE_STRAINS,
+        "confirm_end": Perm.CONFIRM_RESTRICTION_END,
+        "withdraw_end": Perm.MANAGE_STRAINS,
         "history": Perm.VIEW_STRAINS,
         "terms": Perm.VIEW_TERMS,
     }
@@ -111,7 +129,18 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         fresh = selectors.strain_detail(access=access_of(self.request), lab=self.lab).get(
             pk=strain.pk
         )
-        return Response(StrainDetailOutputSerializer(fresh).data)
+        # The request in the context: a proposal says whether the caller may confirm it.
+        return Response(
+            StrainDetailOutputSerializer(fresh, context=self.get_serializer_context()).data
+        )
+
+    def _restriction(self, strain: Strain, restriction_id: str) -> StrainRestriction:
+        # Through the strain: a restriction of another strain is not found here.
+        history: list[StrainRestriction] = vars(strain)["all_restrictions"]  # the prefetch
+        restriction = next((r for r in history if str(r.public_id) == restriction_id), None)
+        if restriction is None:
+            raise NotFound
+        return restriction
 
     @extend_schema(
         request=ReclassifyInputSerializer,
@@ -183,25 +212,79 @@ class StrainViewSet(ScopedReadOnlyViewSet):
 
     @extend_schema(
         parameters=[RESTRICTION_PARAMETER],
-        request=RestrictionEndInputSerializer,
-        responses={200: StrainDetailOutputSerializer, (409, PROBLEM): ENDED, (422, PROBLEM): RULE},
+        request=EndProposeInputSerializer,
+        responses={
+            200: StrainDetailOutputSerializer,
+            (409, PROBLEM): PROPOSED,
+            (422, PROBLEM): RULE,
+        },
     )
     @action(
-        detail=True, methods=["post"], url_path=r"restrictions/(?P<restriction_id>[0-9a-f-]+)/end"
+        detail=True,
+        methods=["post"],
+        url_path=r"restrictions/(?P<restriction_id>[0-9a-f-]+)/end-proposal",
     )
-    def end_restriction(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+    def propose_end(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Proposes to end a restriction, with the reason it will end with (#105). The
+        restriction stays active until a manager other than the proposer confirms it."""
         strain: Strain = self.get_object()
-        # Through the strain: a restriction of another strain is not found here.
-        history: list[StrainRestriction] = vars(strain)["all_restrictions"]  # the prefetch
-        restriction = next(
-            (r for r in history if str(r.public_id) == kwargs["restriction_id"]), None
-        )
-        if restriction is None:
-            raise NotFound
-        data = RestrictionEndInputSerializer(data=request.data)
+        restriction = self._restriction(strain, kwargs["restriction_id"])
+        data = EndProposeInputSerializer(data=request.data)
         data.is_valid(raise_exception=True)
-        services.strain_restriction_end(
+        services.strain_restriction_end_propose(
             access=access_of(request), restriction=restriction, reason=data.validated_data["reason"]
+        )
+        return self._detail(strain)
+
+    @extend_schema(
+        parameters=[RESTRICTION_PARAMETER],
+        request=EndConfirmInputSerializer,
+        responses={200: StrainDetailOutputSerializer, (403, PROBLEM): OWN, (409, PROBLEM): SETTLED},
+    )
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path=r"restrictions/(?P<restriction_id>[0-9a-f-]+)/end-proposal/confirm",
+    )
+    def confirm_end(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """A manager other than the proposer confirms the proposal they read: the restriction
+        ends now, with the proposal's reason."""
+        strain: Strain = self.get_object()
+        restriction = self._restriction(strain, kwargs["restriction_id"])
+        data = EndConfirmInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.strain_restriction_end_confirm(
+            access=access_of(request),
+            restriction=restriction,
+            proposal=data.validated_data["proposal"],
+        )
+        return self._detail(strain)
+
+    @extend_schema(
+        parameters=[RESTRICTION_PARAMETER],
+        request=EndWithdrawInputSerializer,
+        responses={
+            200: StrainDetailOutputSerializer,
+            (409, PROBLEM): SETTLED,
+            (422, PROBLEM): RULE,
+        },
+    )
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path=r"restrictions/(?P<restriction_id>[0-9a-f-]+)/end-proposal/withdraw",
+    )
+    def withdraw_end(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Withdraws the open proposal the caller read, with a reason. The restriction stays."""
+        strain: Strain = self.get_object()
+        restriction = self._restriction(strain, kwargs["restriction_id"])
+        data = EndWithdrawInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.strain_restriction_end_withdraw(
+            access=access_of(request),
+            restriction=restriction,
+            proposal=data.validated_data["proposal"],
+            reason=data.validated_data["reason"],
         )
         return self._detail(strain)
 

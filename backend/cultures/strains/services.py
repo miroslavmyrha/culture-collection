@@ -16,11 +16,14 @@ changes nothing and records nothing.
 Rules (ADR 0009): a risk group 4 agent is refused, at accession and as a
 change, and so is a group above the cap of a box holding the strain's vials.
 A changed risk group, a reclassification, an added or an ended restriction
-each need a reason (audit.registry, reason_required).
+each need a reason (audit.registry, reason_required). A restriction ends in two
+steps by two people (#105): someone who manages strains proposes it, a manager
+other than the proposer confirms it.
 """
 
 import re
 import unicodedata
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date
@@ -36,6 +39,8 @@ from cultures.audit.registry import (
     STRAIN_CREATED,
     STRAIN_RECLASSIFIED,
     STRAIN_RESTRICTION_ADDED,
+    STRAIN_RESTRICTION_END_PROPOSED,
+    STRAIN_RESTRICTION_END_WITHDRAWN,
     STRAIN_RESTRICTION_ENDED,
     STRAIN_RISK_GROUP_CHANGED,
 )
@@ -59,6 +64,7 @@ from .models import (
     EU_ACT,
     PARTIAL_DATE,
     Pathogenicity,
+    RestrictionEndProposal,
     Strain,
     StrainCounter,
     StrainIdentification,
@@ -106,6 +112,32 @@ class AccessionTaken(Conflict):
 class RestrictionEnded(Conflict):
     default_code = "restriction_ended"
     default_detail = "This restriction has ended already."
+
+
+class EndProposed(Conflict):
+    """One open proposal per restriction: the second one waits for the first to be settled."""
+
+    default_code = "end_proposed"
+    default_detail = "Someone has proposed to end this restriction already."
+
+
+class EndNotProposed(Conflict):
+    default_code = "end_not_proposed"
+    default_detail = "Nobody has proposed to end this restriction, or the proposal was settled."
+
+
+class EndProposalChanged(Conflict):
+    """The confirmation names the proposal the manager read; another one is open now."""
+
+    default_code = "end_proposal_changed"
+    default_detail = "The proposal changed meanwhile. Read it again before you confirm."
+
+
+class ConfirmOwnEndProposal(Forbidden):
+    """ADR 0009 (#105): nobody confirms the end of a restriction they proposed."""
+
+    default_code = "confirm_own_end_proposal"
+    default_detail = "You proposed to end this restriction: a different manager confirms it."
 
 
 @dataclass(frozen=True)
@@ -243,14 +275,14 @@ def _check_reason(reason: str) -> str:
 # Under the lab lock.
 
 
-def _require_role(access: Access, lab_id: int) -> None:
+def _require_role(access: Access, lab_id: int, perm: Perm = Perm.MANAGE_STRAINS) -> None:
     """The actor's role as committed now (caller holds the lab lock), not as the request began."""
     role = (
         Membership.objects.filter(lab_id=lab_id, user=access.user, user__is_active=True)
         .values_list("role", flat=True)
         .first()
     )
-    if role is None or not role_has(Role(role), Perm.MANAGE_STRAINS):
+    if role is None or not role_has(Role(role), perm):
         raise Forbidden
 
 
@@ -503,24 +535,95 @@ def strain_restriction_add(
     return added
 
 
-def strain_restriction_end(
+def _locked_restriction(restriction: StrainRestriction) -> StrainRestriction:
+    """The restriction locked, active. Caller holds the lab lock."""
+    locked = (
+        StrainRestriction.objects.select_for_update()
+        .filter(pk=restriction.pk)
+        .select_related("strain")
+        .first()
+    )
+    if locked is None:
+        raise NotFound
+    if locked.ended_at is not None:
+        raise RestrictionEnded
+    return locked
+
+
+def _open_proposal(restriction: StrainRestriction, named: uuid.UUID) -> RestrictionEndProposal:
+    """The restriction's open proposal, locked, if it is the one the caller read."""
+    proposal = (
+        RestrictionEndProposal.objects.select_for_update()
+        .filter(restriction=restriction, confirmed_at__isnull=True, withdrawn_at__isnull=True)
+        .select_related("proposed_by")
+        .first()
+    )
+    if proposal is None:
+        raise EndNotProposed
+    if proposal.public_id != named:
+        raise EndProposalChanged
+    return proposal
+
+
+def strain_restriction_end_propose(
     *, access: Access, restriction: StrainRestriction, reason: str
-) -> StrainRestriction:
-    """The row stays, with the time it ended and why (an annex no longer lists the agent)."""
+) -> RestrictionEndProposal:
+    """The first of two steps to end a restriction (#105, ADR 0009): someone who manages strains
+    proposes it, with the reason it will end with (an annex no longer lists the agent). Nothing
+    changes for the strain until a manager other than the proposer confirms it."""
+    reason = _check_reason(reason)  # the proposal and the restriction's end both keep it
     with audited_atomic():
         lock_lab(restriction.lab_id)
         _require_role(access, restriction.lab_id)
-        locked = (
-            StrainRestriction.objects.select_for_update()
-            .filter(pk=restriction.pk)
-            .select_related("strain")
-            .first()
+        locked = _locked_restriction(restriction)
+        if locked.end_proposals.filter(confirmed_at__isnull=True, withdrawn_at__isnull=True):
+            raise EndProposed
+        proposal = RestrictionEndProposal.objects.create(
+            lab_id=locked.lab_id,
+            restriction=locked,
+            reason=reason,
+            proposed_by=access.user,
+            proposed_at=timezone.now(),
         )
-        if locked is None:
-            raise NotFound
-        if locked.ended_at is not None:
-            raise RestrictionEnded
-        locked.ended_at, locked.end_reason = timezone.now(), reason.strip()
+        record_event(
+            STRAIN_RESTRICTION_END_PROPOSED,
+            Change(
+                STRAIN,
+                locked.strain.public_id,
+                {
+                    "end_proposal": [
+                        None,
+                        {
+                            "public_id": str(proposal.public_id),
+                            "restriction": str(locked.public_id),
+                        },
+                    ]
+                },
+                lab_id=locked.lab_id,
+                strain_id=locked.strain.public_id,
+            ),
+            reason=reason,
+        )
+    return proposal
+
+
+def strain_restriction_end_confirm(
+    *, access: Access, restriction: StrainRestriction, proposal: uuid.UUID
+) -> StrainRestriction:
+    """The second step: a manager other than the proposer confirms the proposal they read
+    (`proposal`, its public id). The restriction ends now, with the proposal's reason; the row
+    stays, and the event holds both people and both times."""
+    with audited_atomic():
+        lock_lab(restriction.lab_id)
+        _require_role(access, restriction.lab_id, Perm.CONFIRM_RESTRICTION_END)
+        locked = _locked_restriction(restriction)
+        proposed = _open_proposal(locked, proposal)
+        if proposed.proposed_by_id == access.user.pk:
+            raise ConfirmOwnEndProposal
+        now = timezone.now()
+        proposed.confirmed_by, proposed.confirmed_at = access.user, now
+        proposed.save(update_fields=["confirmed_by", "confirmed_at", "updated_at"])
+        locked.ended_at, locked.end_reason = now, proposed.reason
         record_event(
             STRAIN_RESTRICTION_ENDED,
             Change(
@@ -530,12 +633,50 @@ def strain_restriction_end(
                     "restriction": [
                         {"public_id": str(locked.public_id), **_restriction_values(locked)},
                         None,
-                    ]
+                    ],
+                    "end_proposal": [None, str(proposed.public_id)],
+                    # Pseudonymous: public ids, never names (ADR 0005).
+                    "proposed_by": [None, str(proposed.proposed_by.public_id)],
+                    "proposed_at": [None, proposed.proposed_at.isoformat()],
+                    "confirmed_by": [None, str(access.user.public_id)],
+                    "confirmed_at": [None, now.isoformat()],
                 },
+                lab_id=locked.lab_id,
+                strain_id=locked.strain.public_id,
+            ),
+            reason=proposed.reason,
+        )
+        # After the proposal: the restriction's guard asks for the confirmed proposal.
+        locked.save(update_fields=["ended_at", "end_reason", "updated_at"])
+    return locked
+
+
+def strain_restriction_end_withdraw(
+    *, access: Access, restriction: StrainRestriction, proposal: uuid.UUID, reason: str
+) -> RestrictionEndProposal:
+    """Anyone who manages strains withdraws the open proposal they read, with a reason (the
+    agent is on the list after all). It stays with who withdrew it, when and why; the
+    restriction stays active and may be proposed to end again."""
+    reason = _check_reason(reason)
+    with audited_atomic():
+        lock_lab(restriction.lab_id)
+        _require_role(access, restriction.lab_id)
+        locked = _locked_restriction(restriction)
+        proposed = _open_proposal(locked, proposal)
+        proposed.withdrawn_by, proposed.withdrawn_at = access.user, timezone.now()
+        proposed.withdraw_reason = reason
+        proposed.save(
+            update_fields=["withdrawn_by", "withdrawn_at", "withdraw_reason", "updated_at"]
+        )
+        record_event(
+            STRAIN_RESTRICTION_END_WITHDRAWN,
+            Change(
+                STRAIN,
+                locked.strain.public_id,
+                {"end_proposal": [str(proposed.public_id), None]},
                 lab_id=locked.lab_id,
                 strain_id=locked.strain.public_id,
             ),
             reason=reason,
         )
-        locked.save(update_fields=["ended_at", "end_reason", "updated_at"])
-    return locked
+    return proposed

@@ -19,14 +19,14 @@ from cultures.labs import services as labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, LocationGrant, Membership
 from cultures.labs.permissions import GRANTS, Perm, Role
-from cultures.labs.tests.conftest import membership
+from cultures.labs.tests.conftest import member_of, membership
 from cultures.lineage.models import Passage, Vial
 from cultures.lineage.services import is_regulated, location_of
 from cultures.storage.models import StorageUnit, UnitKind
 from cultures.storage.tests.conftest import MakeUnit, Tree
 from cultures.strains import services as strains
 from cultures.strains.models import Strain
-from cultures.strains.tests.conftest import GMO
+from cultures.strains.tests.conftest import GMO, end_restriction
 from cultures.users import services as users
 from cultures.users.models import User
 
@@ -317,13 +317,14 @@ def test_moving_a_regulated_vial_shows_neither_where_it_was_nor_where_it_went(
 
 
 def end_restrictions(curator: User, strain: Strain, keep: int = 0) -> None:
-    """Ends the strain's active restrictions through the service, all but the last `keep`."""
+    """Ends the strain's active restrictions through the services, all but the last `keep`: the
+    curator proposes, a manager of the lab confirms (#105)."""
     active = list(strain.restrictions.filter(ended_at__isnull=True).order_by("pk"))
-    with audit_context(channel=Channel.API, actor=curator, request_id="req-end"):
-        for restriction in active[: len(active) - keep]:
-            strains.strain_restriction_end(
-                access=access_for(curator), restriction=restriction, reason="delisted"
-            )
+    confirmer = User.objects.filter(
+        memberships__lab=strain.lab, memberships__role=Role.MANAGER
+    ).exclude(pk=curator.pk).first() or member_of(strain.lab, Role.MANAGER, "confirmer")
+    for restriction in active[: len(active) - keep]:
+        end_restriction(restriction, proposer=curator, confirmer=confirmer, reason="delisted")
 
 
 @pytest.mark.parametrize("role", ROLES)
