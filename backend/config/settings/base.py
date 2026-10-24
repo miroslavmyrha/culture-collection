@@ -63,6 +63,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "cultures.core.middleware.PermissionsPolicyMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",
+    "cultures.core.middleware.AdminContentSecurityPolicyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -191,6 +192,18 @@ CSRF_COOKIE_SAMESITE = "Lax"
 # The API serves JSON only; the frontend's own CSP is set where the SPA is served.
 SECURE_CSP = {
     "default-src": [CSP.NONE],
+    "frame-ancestors": [CSP.NONE],
+    "base-uri": [CSP.NONE],
+    "form-action": [CSP.SELF],
+}
+# The admin's pages load their own static files and the inline blocks Django gives a nonce
+# (cultures.core.middleware.AdminContentSecurityPolicyMiddleware); autocomplete fetches JSON.
+ADMIN_CSP = {
+    "default-src": [CSP.NONE],
+    "script-src": [CSP.SELF, CSP.NONCE],
+    "style-src": [CSP.SELF, CSP.NONCE],
+    "img-src": [CSP.SELF],
+    "connect-src": [CSP.SELF],
     "frame-ancestors": [CSP.NONE],
     "base-uri": [CSP.NONE],
     "form-action": [CSP.SELF],

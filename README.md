@@ -80,8 +80,11 @@ After changing the backend API run `./sync-api.sh` (regenerates openapi.yml and 
 ## Production image
 `backend/Dockerfile` builds the runtime image by default: production dependencies
 only (`uv sync --locked --no-dev`), code owned by root and read-only for the app
-user (uid 10001), static files collected at build, gunicorn configured from
+user (uid 10001), static files collected at build and served by the app itself
+(WhiteNoise, hashed names, far-future cache), gunicorn configured from
 `GUNICORN_*` variables (`backend/gunicorn.conf.py`). Compose uses the `dev` target.
+The proxy sends `/static/` to the app with the admin path: the admin's pages load
+their CSS and JS from there, under their own CSP (`ADMIN_CSP`).
 
 ```bash
 docker build -t cultures-api backend
