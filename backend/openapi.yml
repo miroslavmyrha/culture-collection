@@ -5286,6 +5286,11 @@ paths:
         schema:
           type: string
           format: uuid
+      - in: query
+        name: vial
+        schema:
+          type: string
+          format: uuid
       tags:
       - labs
       security:
@@ -5833,6 +5838,55 @@ paths:
               schema:
                 $ref: '#/components/schemas/Overview'
           description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/me/search/:
+    get:
+      operationId: me_search_retrieve
+      description: |-
+        Strains, vials, deposits and requests that match the text, by kind, from the person's
+        labs and only the kinds their role there may read. A regulated strain's vial names its
+        strain and lab, never its place. No lab, or fewer than 2 characters: no groups.
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+          maxLength: 200
+        required: true
+      tags:
+      - me
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Search'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The text is too long
         '401':
           content:
             application/problem+json:
@@ -9558,6 +9612,105 @@ components:
         * `technician` - Technician
         * `curator` - Curator
         * `manager` - Manager
+    Search:
+      type: object
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchGroup'
+      required:
+      - groups
+    SearchGroup:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/SearchGroupKindEnum'
+        total:
+          type: integer
+        labs:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchLabTotal'
+        hits:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchHit'
+      required:
+      - hits
+      - kind
+      - labs
+      - total
+    SearchGroupKindEnum:
+      enum:
+      - strain
+      - vial
+      - deposit
+      - request
+      type: string
+      description: |-
+        * `strain` - strain
+        * `vial` - vial
+        * `deposit` - deposit
+        * `request` - request
+    SearchHit:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        lab:
+          type: string
+          format: uuid
+        lab_code:
+          type: string
+        identifier:
+          type: string
+          nullable: true
+        title:
+          type: string
+        detail:
+          type: string
+        status:
+          type: string
+        exact:
+          type: boolean
+        strain:
+          type: string
+          format: uuid
+          nullable: true
+        location:
+          allOf:
+          - $ref: '#/components/schemas/Location'
+          nullable: true
+        location_masked:
+          type: boolean
+      required:
+      - detail
+      - exact
+      - identifier
+      - lab
+      - lab_code
+      - location
+      - location_masked
+      - public_id
+      - status
+      - strain
+      - title
+    SearchLabTotal:
+      type: object
+      properties:
+        lab:
+          type: string
+          format: uuid
+        lab_code:
+          type: string
+        total:
+          type: integer
+      required:
+      - lab
+      - lab_code
+      - total
     SeverityEnum:
       enum:
       - block

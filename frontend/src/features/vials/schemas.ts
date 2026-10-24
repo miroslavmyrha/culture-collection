@@ -29,11 +29,13 @@ export type CheckUnit = Schemas['CheckUnit']
  * of every vial shows. Defaults stay out of the URL; a bad value falls back to them.
  */
 export const VIAL_PAGE = 50
-export const vialPageDefaults = { limit: VIAL_PAGE, offset: 0, batch: undefined }
+export const vialPageDefaults = { limit: VIAL_PAGE, offset: 0, batch: undefined, vial: undefined }
 export const vialPageSearch = z.object({
   limit: z.number().int().min(1).max(200).default(VIAL_PAGE).catch(VIAL_PAGE),
   offset: z.number().int().min(0).default(0).catch(0),
   batch: z.uuid().optional().catch(undefined),
+  /** One vial, the one a search result opened (#76): the list narrows to it. */
+  vial: z.uuid().optional().catch(undefined),
 })
 export type VialPage = z.output<typeof vialPageSearch>
 

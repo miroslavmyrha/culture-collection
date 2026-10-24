@@ -6,6 +6,7 @@ The serializers leave the location out of every regulated row: the list is the s
 reader, a holder of the location grant included (ADR 0009, amendment of 2026-10-19).
 """
 
+import re
 from collections.abc import Iterable
 
 from django.db.models import Case, Count, Exists, F, OuterRef, Prefetch, Q, QuerySet, Subquery, When
@@ -108,6 +109,31 @@ def vials_for_distribution(*, access: Access, lab: Lab, perm: Perm) -> QuerySet[
         .select_related("batch__strain")
         .order_by("batch__strain_id", "batch__number", "seq", "pk")
     )
+
+
+# A vial's label as printed: "<accession number> / <batch> / <seq>" ("MYC 42 / 1 / 3"). The
+# spaces around the slashes may be missing, as a person types it.
+LABEL = re.compile(r"(?P<accession>\S.*?)\s*/\s*(?P<batch>\d{1,9})\s*/\s*(?P<seq>\d{1,9})")
+
+
+def code_match(text: str) -> Q:
+    """What a person types or a scanner sends (#15, #76): the vial's barcode exactly, or its
+    label, the accession number without regard to case. Spaces are folded first."""
+    text = " ".join(text.split())
+    match = Q(barcode=text)
+    label = LABEL.fullmatch(text)
+    if label is not None:
+        match |= Q(
+            batch__strain__accession_number__iexact=label["accession"],
+            batch__number=int(label["batch"]),
+            seq=int(label["seq"]),
+        )
+    return match
+
+
+def vials_by_code(vials: QuerySet[Vial], text: str) -> QuerySet[Vial]:
+    """Applied to a scoped queryset only: the box scan and the top bar's search share it."""
+    return vials.filter(code_match(text))
 
 
 def _regulated() -> Exists:

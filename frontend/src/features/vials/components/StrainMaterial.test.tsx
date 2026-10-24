@@ -44,8 +44,8 @@ function mockMaterial(vials = [placed, loose, consumed]) {
 const many = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => makeVial({ label: `MYC 42 / ${from + i > 200 ? 2 : 1} / ${((from + i - 1) % 200) + 1}` }))
 
 /** The tab as the page drives it: the page of the vials in the page's state (the URL there). */
-function Material({ canHandle, limit = 50 }: { canHandle: boolean; limit?: number }) {
-  const [vialPage, setVialPage] = useState<VialPage>({ limit, offset: 0, batch: undefined })
+function Material({ canHandle, limit = 50, vial }: { canHandle: boolean; limit?: number; vial?: string }) {
+  const [vialPage, setVialPage] = useState<VialPage>({ limit, offset: 0, batch: undefined, vial })
   return <StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} canRelease={canHandle} vialPage={vialPage} onVialPage={(next) => setVialPage((current) => ({ ...current, ...next }))} />
 }
 
@@ -119,6 +119,24 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
     expect(narrowed[0]?.url.searchParams.get('batch')).toBe(two.public_id)
     expect(narrowed[0]?.url.searchParams.get('offset')).toBe('0')
     expect(screen.getByRole('combobox', { name: 'Batch' })).toHaveFocus()
+  })
+
+  it('shows only the vial a search opened, until Show every vial, which leaves the focus on the Vials heading (#76)', async () => {
+    mockApi('get', PASSAGES, page([zero]))
+    mockApi('get', BATCHES, page([makeBatch({ number: 1 })]))
+    mockApi('get', UNITS, [freezer, rack, box])
+    const narrowed = mockApi('get', VIALS, page([placed]))
+    await renderWithProviders(<Material canHandle vial={placed.public_id} />)
+    const vials = await screen.findByRole('table', { name: 'Vials' })
+    expect(within(vials).getAllByRole('row')).toHaveLength(2)
+    expect(narrowed[0]?.url.searchParams.get('vial')).toBe(placed.public_id)
+    expect(screen.getByText('Only the vial you searched for.')).toBeInTheDocument()
+    const every = mockApi('get', VIALS, page([placed, loose, consumed]))
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Show every vial' }))
+    expect(await screen.findByText('3 vials')).toBeInTheDocument()
+    expect(every[0]?.url.searchParams.has('vial')).toBe(false)
+    expect(screen.queryByText('Only the vial you searched for.')).toBeNull()
+    expect(screen.getByRole('heading', { level: 2, name: 'Vials' })).toHaveFocus()
   })
 
   it('offers no bench work to a viewer and loads no boxes for one', async () => {
