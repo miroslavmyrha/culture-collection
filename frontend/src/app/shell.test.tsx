@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { preferences } from '@/lib/storage'
-import { makeLab, makeMe, makeStrainRow, page } from '@/test/factories'
+import { makeLab, makeMe, makeMyLab, makeOverview, makeStrainRow, page } from '@/test/factories'
 import { mockApi } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
@@ -185,6 +185,33 @@ describe('the lab tabs', () => {
     renderApp({ path: `/labs/${LAB_ID}/strains` })
     const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 5000 })
     await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests', 'Deposits', 'Depositors', 'MTA templates']))
+  })
+
+  it('counts on Requests and Deposits what waits for the person, from the overview (#69)', async () => {
+    signedIn()
+    labs()
+    lab('curator')
+    mockApi('get', STRAINS, page([]))
+    const overview = mockApi('get', '/api/v1/me/overview/', makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, role: 'curator', requests_to_decide: 3, deposits_to_check: 1 })] }))
+    renderApp({ path: `/labs/${LAB_ID}/strains` })
+    const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 5000 })
+    // The pill is for the eye; the label is what a screen reader reads, after the visible name.
+    const requests = await within(nav).findByRole('link', { name: 'Requests, 3 to decide' })
+    expect(requests).toHaveTextContent(/^Requests3$/)
+    expect(within(nav).getByRole('link', { name: 'Deposits, 1 to check' })).toBeInTheDocument()
+    expect(within(nav).getByRole('link', { name: 'Strains' })).toBeInTheDocument()
+    expect(overview).toHaveLength(1)
+  })
+
+  it('shows no count where nothing waits or the role does not decide', async () => {
+    signedIn()
+    labs()
+    lab('viewer')
+    mockApi('get', STRAINS, page([]))
+    mockApi('get', '/api/v1/me/overview/', makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, role: 'viewer', requests_to_decide: null, open_requests: 4 })] }))
+    renderApp({ path: `/labs/${LAB_ID}/strains` })
+    const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 5000 })
+    await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests']))
   })
 
   it('is not there outside a lab', async () => {

@@ -80,7 +80,9 @@ def shipment_document_list(*, access: Access, lab: Lab) -> QuerySet[ShipmentDocu
     )
 
 
-def _regulated_line() -> Exists:
+def regulated_line() -> Exists:
+    """A line of the request is of a regulated strain: a manager approves it (ADR 0009). The
+    request list shows it, and Home (#69) flags the request by it."""
     return Exists(
         regulating_restrictions().filter(strain__request_lines__request_id=OuterRef("pk"))
     )
@@ -96,7 +98,7 @@ def request_list(*, access: Access, lab: Lab) -> QuerySet[DistributionRequest]:
         .annotate(
             line_count=Count("lines", distinct=True),
             vial_count=Sum("lines__quantity"),
-            regulated=_regulated_line(),
+            regulated=regulated_line(),
         )
         .order_by("-year", "-number", "-pk")
     )

@@ -333,7 +333,9 @@ async function walk(page: Page) {
       const visible = style.outlineStyle !== 'none' && style.outlineWidth !== '0px' ? true : fieldset ? getComputedStyle(fieldset).borderTopWidth === '2px' : false
       const labelledBy = e.getAttribute('aria-labelledby')
       const named = labelledBy ? document.getElementById(labelledBy)?.textContent : undefined
-      const label = e.getAttribute('aria-label') ?? named ?? (e.textContent ?? '').trim()
+      // A lab tab names what waits after its name ("Requests, 3 to decide", #69): the count depends
+      // on what the other specs leave waiting, so the stop is the tab's name.
+      const label = (e.getAttribute('aria-label') ?? named ?? (e.textContent ?? '').trim()).replace(/, \d+ to (decide|check)$/, '')
       return { name: `${e.tagName.toLowerCase()}:${label}`, visible }
     })
     if (stop === null) break // past the last control: focus left the document

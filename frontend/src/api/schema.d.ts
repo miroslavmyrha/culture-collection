@@ -1210,6 +1210,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/activity/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The latest 20 audit events of the person's labs they may read, newest first, one line
+         *     each. A line names its subject and the actor's pseudonymous label, never a location or a
+         *     person's data.
+         */
+        get: operations["me_activity_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/overview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Home: what waits for the signed-in person in each of their labs, by kind, and per lab the
+         *     role, the figures and the actions the role may start. Scoped by the person's memberships:
+         *     nobody else's labs, and in each lab only what the role may handle or see. No lab: empty.
+         */
+        get: operations["me_overview_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/taxa/": {
         parameters: {
             query?: never;
@@ -1281,6 +1323,40 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        /**
+         * @description * `receive_deposit` - receive_deposit
+         *     * `record_check` - record_check
+         *     * `find_vial` - find_vial
+         *     * `enter_request` - enter_request
+         * @enum {string}
+         */
+        ActionsEnum: "receive_deposit" | "record_check" | "find_vial" | "enter_request";
+        Activity: {
+            results: components["schemas"]["ActivityLine"][];
+        };
+        ActivityLine: {
+            /** Format: date-time */
+            occurred_at: string;
+            /** Format: uuid */
+            lab: string;
+            lab_code: string;
+            actor: string;
+            summary: string;
+            target: (components["schemas"]["ActivityLineTargetEnum"] | components["schemas"]["NullEnum"]) | null;
+            /** Format: uuid */
+            target_id: string | null;
+        };
+        /**
+         * @description * `strain` - strain
+         *     * `request` - request
+         *     * `deposit` - deposit
+         *     * `storage_unit` - storage_unit
+         *     * `mta_template` - mta_template
+         *     * `lab` - lab
+         *     * `requesters` - requesters
+         * @enum {string}
+         */
+        ActivityLineTargetEnum: "strain" | "request" | "deposit" | "storage_unit" | "mta_template" | "lab" | "requesters";
         ApproveInputRequest: {
             /**
              * @description Why, in a sentence. Stored for good: name no person.
@@ -1324,6 +1400,12 @@ export interface components {
             readonly reason: string;
             /** Format: date-time */
             readonly created_at: string;
+        };
+        BatchCounts: {
+            pending_check: number;
+            released: number;
+            on_hold: number;
+            exhausted: number;
         };
         /** @description A release or a hold: why, in a sentence. */
         BatchDecisionInputRequest: {
@@ -2062,8 +2144,27 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        MyLab: {
+            /** Format: uuid */
+            public_id: string;
+            name: string;
+            code: string;
+            role: components["schemas"]["Role"];
+            strains: number;
+            batches: components["schemas"]["BatchCounts"];
+            vials_available: number;
+            free_positions: number;
+            open_requests: number;
+            requests_to_decide: number | null;
+            deposits_to_check: number | null;
+            actions: components["schemas"]["ActionsEnum"][];
+        };
         /** @enum {unknown} */
         NullEnum: null;
+        Overview: {
+            waiting: components["schemas"]["WaitingGroup"][];
+            labs: components["schemas"]["MyLab"][];
+        };
         /**
          * @description * `p650` - P650
          *     * `triple_packaging` - Basic triple packaging
@@ -3135,6 +3236,49 @@ export interface components {
          * @enum {string}
          */
         VialStatusInputStatusEnum: "available" | "consumed" | "quarantined" | "to_destroy" | "destroyed" | "lost" | "entered_in_error";
+        WaitingGroup: {
+            kind: components["schemas"]["WaitingGroupKindEnum"];
+            total: number;
+            items: components["schemas"]["WaitingItem"][];
+        };
+        /**
+         * @description * `deposit_received` - deposit_received
+         *     * `deposit_checking` - deposit_checking
+         *     * `batch_checks_missing` - batch_checks_missing
+         *     * `batch_to_release` - batch_to_release
+         *     * `batch_on_hold` - batch_on_hold
+         *     * `request_to_decide` - request_to_decide
+         *     * `shipment_to_confirm` - shipment_to_confirm
+         *     * `request_to_ship` - request_to_ship
+         *     * `recipient_permit_expiring` - recipient_permit_expiring
+         *     * `lab_permit_expiring` - lab_permit_expiring
+         *     * `vials_to_destroy` - vials_to_destroy
+         * @enum {string}
+         */
+        WaitingGroupKindEnum: "deposit_received" | "deposit_checking" | "batch_checks_missing" | "batch_to_release" | "batch_on_hold" | "request_to_decide" | "shipment_to_confirm" | "request_to_ship" | "recipient_permit_expiring" | "lab_permit_expiring" | "vials_to_destroy";
+        WaitingItem: {
+            /** Format: uuid */
+            readonly lab: string;
+            subject: string;
+            reason: string;
+            /** Format: date */
+            since: string;
+            /** Format: date */
+            due: string | null;
+            target: components["schemas"]["WaitingItemTargetEnum"];
+            /** Format: uuid */
+            target_id: string | null;
+            needs_manager: boolean;
+        };
+        /**
+         * @description * `deposit` - deposit
+         *     * `strain` - strain
+         *     * `request` - request
+         *     * `requesters` - requesters
+         *     * `lab` - lab
+         * @enum {string}
+         */
+        WaitingItemTargetEnum: "deposit" | "strain" | "request" | "requesters" | "lab";
     };
     responses: never;
     parameters: never;
@@ -8984,6 +9128,92 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    me_activity_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Activity"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    me_overview_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Overview"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

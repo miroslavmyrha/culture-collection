@@ -12,7 +12,9 @@ import { api, unwrap } from './api'
  * - a storage write changes the units the vial forms offer (storageUnits, the same entry as the
  *   storage tree) and the paths and sizes in vial locations and box grids: material;
  * - a location grant given or revoked changes can_reveal for its holder: material;
- * - accepting a deposit creates a strain: strainLists.
+ * - accepting a deposit creates a strain: strainLists;
+ * - a deposit or a request that changes what waits (received, checked, decided, shipped) changes
+ *   Home and the counts on the lab tabs: overview.
  *
  * Shared roots rather than invalidation in the page: the mutation names every key it changes
  * and stays pending until all of them are fresh, wherever the dialog that runs it is mounted.
@@ -27,6 +29,8 @@ export const sharedKeys = {
   material: (labId: string) => ['vials', labId] as const,
   strainMaterial: (labId: string, strainId: string) => [...sharedKeys.material(labId), 'strain', strainId] as const,
   boxGrids: (labId: string) => [...sharedKeys.material(labId), 'box'] as const,
+  /** What waits for the signed-in person across their labs, and each lab's figures (#69). */
+  overview: () => ['overview'] as const,
 }
 
 /**
