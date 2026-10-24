@@ -1294,6 +1294,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/search/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Strains, vials, deposits and requests that match the text, by kind, from the person's
+         *     labs and only the kinds their role there may read. A regulated strain's vial names its
+         *     strain and lab, never its place. No lab, or fewer than 2 characters: no groups.
+         */
+        get: operations["me_search_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/taxa/": {
         parameters: {
             query?: never;
@@ -2868,6 +2889,45 @@ export interface components {
          * @enum {string}
          */
         Role: "viewer" | "technician" | "curator" | "manager";
+        Search: {
+            groups: components["schemas"]["SearchGroup"][];
+        };
+        SearchGroup: {
+            kind: components["schemas"]["SearchGroupKindEnum"];
+            total: number;
+            labs: components["schemas"]["SearchLabTotal"][];
+            hits: components["schemas"]["SearchHit"][];
+        };
+        /**
+         * @description * `strain` - strain
+         *     * `vial` - vial
+         *     * `deposit` - deposit
+         *     * `request` - request
+         * @enum {string}
+         */
+        SearchGroupKindEnum: "strain" | "vial" | "deposit" | "request";
+        SearchHit: {
+            /** Format: uuid */
+            public_id: string;
+            /** Format: uuid */
+            lab: string;
+            lab_code: string;
+            identifier: string | null;
+            title: string;
+            detail: string;
+            status: string;
+            exact: boolean;
+            /** Format: uuid */
+            strain: string | null;
+            location: components["schemas"]["Location"] | null;
+            location_masked: boolean;
+        };
+        SearchLabTotal: {
+            /** Format: uuid */
+            lab: string;
+            lab_code: string;
+            total: number;
+        };
         /**
          * @description * `block` - block
          *     * `manager` - manager
@@ -8815,6 +8875,7 @@ export interface operations {
                 /** @description The initial index from which to return the results. */
                 offset?: number;
                 strain?: string;
+                vial?: string;
             };
             header?: never;
             path: {
@@ -9388,6 +9449,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Overview"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    me_search_retrieve: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Search"];
+                };
+            };
+            /** @description The text is too long */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: {

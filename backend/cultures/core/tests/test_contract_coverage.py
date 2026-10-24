@@ -49,6 +49,11 @@ EXEMPT = {
         "me-activity",
         "overview/tests/test_api.py",
     ),
+    "cultures.search.api.views.search": Exemption(
+        "own search across own labs, no object in the URL: rows scoped by membership",
+        "me-search",
+        "search/tests/test_api.py",
+    ),
     "cultures.taxonomy.api.views.TaxonViewSet": Exemption(
         "global reference data read by every signed-in user: no lab, so no outsider to hide from",
         "taxon-list",
