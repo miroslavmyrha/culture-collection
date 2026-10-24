@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { allowConsole } from '@/test/console'
@@ -23,6 +23,20 @@ describe('the request list', { timeout: 20_000 }, () => {
     expect(within(table).getAllByRole('row')[1]).toHaveTextContent('2026/2Example Institute of Microbiology, CzechiaNon-commercial research2 strains, 3 vials, regulatedApproved, vials reserved')
     expect(within(table).getByRole('link', { name: 'Request 2026/2' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Enter a request' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the status when Search is pressed right after choosing it', async () => {
+    signedIn('curator')
+    const calls = mockApi('get', LIST, page([makeRequestRow()]))
+    const { router } = renderApp({ path: `/labs/${LAB_ID}/requests` })
+    const status = await screen.findByRole('combobox', { name: 'Status' }, { timeout: 5000 })
+    fireEvent.change(status, { target: { value: 'submitted' } })
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Number, requester or strain' }), { target: { value: '2026/7' } })
+    // No wait between the two: the navigation of the status has not reached the form yet.
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ status: 'submitted', search: '2026/7' }), { timeout: 5000 })
+    await waitFor(() => expect(calls.at(-1)?.url.searchParams.get('status')).toBe('submitted'), { timeout: 5000 })
+    expect(calls.at(-1)?.url.searchParams.get('search')).toBe('2026/7')
   })
 
   it('keeps the filters in the URL and sends them', async () => {
