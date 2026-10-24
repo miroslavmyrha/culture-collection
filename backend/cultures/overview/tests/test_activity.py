@@ -21,9 +21,9 @@ from cultures.distribution.tests.support import (
 )
 from cultures.labs import services as labs
 from cultures.labs.access import access_for
-from cultures.labs.models import Lab
+from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
-from cultures.labs.tests.conftest import membership
+from cultures.labs.tests.conftest import member_of, membership
 from cultures.lineage import services as lineage
 from cultures.lineage.models import Batch, Passage
 from cultures.lineage.tests.support import preserve, vials_of
@@ -213,6 +213,20 @@ def test_another_labs_events_never_show(
     make_deposit("accepted", taxon=exempli)
     assert lines(outsider) == []
     assert {line["lab_code"] for line in lines(curator)} == {"MYC"}
+
+
+def test_a_person_in_two_labs_reads_each_lab_by_its_own_role(
+    make_deposit: MakeDeposit, exempli: Taxon, lab: Lab, other_lab: Lab
+) -> None:
+    """Curator in one lab, viewer in the other: the other lab's deposit events stay out, its
+    strain events come in."""
+    person = member_of(other_lab, Role.CURATOR, "two-labs")
+    Membership.objects.create(user=person, lab=lab, role=Role.VIEWER)
+    deposit = make_deposit("accepted", taxon=exempli, name_as_received="Testella exempli A2")
+    assert deposit.strain is not None
+    seen = summaries(person)
+    assert f"accessioned {deposit.strain.accession_number}" in seen
+    assert not [s for s in seen if "deposit" in s]
 
 
 def test_the_latest_twenty_come_newest_first(passage: Passage, curator: User, viewer: User) -> None:

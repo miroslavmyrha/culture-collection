@@ -344,19 +344,78 @@ def test_items_of_another_lab_never_show(
 
 
 def test_a_person_in_two_labs_sees_each_lab_by_its_own_role(
-    make_deposit: MakeDeposit, supply: Supply, lab: Lab, other_lab: Lab
+    *,
+    make_deposit: MakeDeposit,
+    supply: Supply,
+    requester: Requester,
+    lab: Lab,
+    other_lab: Lab,
+    curator: User,
 ) -> None:
-    """Curator in one lab, viewer in the other: the other lab's deposit stays out."""
-    person = member_of(other_lab, Role.CURATOR, "two-labs")
+    """Manager in one lab, viewer in the other: nothing of every kind in the other lab shows,
+    though the person may act on each kind in their own lab."""
+    person = member_of(other_lab, Role.MANAGER, "two-labs")
     Membership.objects.create(user=person, lab=lab, role=Role.VIEWER)
+    today = permit_today()
     make_deposit(name_as_received="Testella exempli W3")
-    supply(release=False)
+    pending = batch_of(supply(release=False))
+    submit(curator, lab, requester, [(supply(), 1)])
+    with as_actor(curator):
+        vial = vials_of(pending)[0]
+        lineage.vial_transition(
+            access=access_for(curator),
+            vial=vial,
+            status=VialStatus.TO_DESTROY,
+            reason="Cracked tube.",
+        )
+    soon = today + timedelta(days=5)
+    add_permit(
+        curator,
+        requester,
+        PermitKind.SUJB_RAT_NOTICE,
+        valid_from=today - timedelta(days=9),
+        expires_on=soon,
+    )
+    make_permit(lab, AuthorisationKind.CZ_VRAT, expires_on=soon)
+    assert set(waiting(team_manager(lab))) >= {
+        "deposit_received",
+        "batch_checks_missing",
+        "request_to_decide",
+        "vials_to_destroy",
+        "recipient_permit_expiring",
+        "lab_permit_expiring",
+    }
     data = overview(person)
     assert data["waiting"] == []
     assert [(entry["code"], entry["role"]) for entry in data["labs"]] == [
-        ("BAC", "curator"),
+        ("BAC", "manager"),
         ("MYC", "viewer"),
     ]
+
+
+def test_a_curator_who_manages_another_lab_renews_no_permit_of_this_one(
+    requester: Requester, lab: Lab, other_lab: Lab, curator: User
+) -> None:
+    """Permits wait for the lab's managers: a curator here sees none, whatever else they are."""
+    person = member_of(other_lab, Role.MANAGER, "two-labs")
+    Membership.objects.create(user=person, lab=lab, role=Role.CURATOR)
+    soon = permit_today() + timedelta(days=5)
+    add_permit(
+        curator,
+        requester,
+        PermitKind.SUJB_RAT_NOTICE,
+        valid_from=soon - timedelta(days=30),
+        expires_on=soon,
+    )
+    make_permit(lab, AuthorisationKind.CZ_VRAT, expires_on=soon)
+    found = waiting(person)
+    assert "recipient_permit_expiring" not in found
+    assert "lab_permit_expiring" not in found
+
+
+def team_manager(lab: Lab) -> User:
+    """A manager of the lab, to show that each kind is there to be seen."""
+    return member_of(lab, Role.MANAGER, "lab-manager")
 
 
 def test_a_person_in_no_lab_sees_nothing() -> None:
