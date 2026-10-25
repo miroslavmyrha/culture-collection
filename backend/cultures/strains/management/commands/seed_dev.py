@@ -74,46 +74,41 @@ from config.env import env_secret
 from cultures.audit.context import audit_context, audited_atomic
 from cultures.audit.models import ActorKind, AuditEvent, Channel
 from cultures.audit.registry import LAB_CREATED
-from cultures.biosafety import services as biosafety
-from cultures.biosafety.models import AuthorisationKind, LabAuthorisation, RestrictionKind
+from cultures.biosafety import seeding as seed_biosafety
+from cultures.biosafety.models import AuthorisationKind, RestrictionKind
+from cultures.deposits import seeding as seed_deposits
 from cultures.deposits import services as deposits
 from cultures.deposits.models import (
     AbsScope,
     Condition,
     Decision,
-    Deposit,
-    Depositor,
-    MtaTemplate,
     Use,
 )
 from cultures.distribution import seeding
 from cultures.distribution import services as distribution
 from cultures.distribution.models import LegalForm, PermitKind
-from cultures.labs import services as labs
+from cultures.labs import seeding as seed_labs
 from cultures.labs.access import Access, access_for
-from cultures.labs.models import Lab, LocationGrant, Membership
+from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
-from cultures.lineage import services as lineage
+from cultures.lineage import seeding as seed_lineage
 from cultures.lineage.models import (
-    Batch,
-    BatchCheck,
-    BatchStatus,
     CheckKind,
     CheckMethod,
     CheckResult,
     CheckStage,
     CheckUnit,
     Method,
-    Passage,
     Purpose,
-    Vial,
 )
-from cultures.storage import services as storage
-from cultures.storage.models import BoxType, StorageUnit, UnitKind, UnitStatus
+from cultures.storage import seeding as seed_storage
+from cultures.storage.models import UnitKind, UnitStatus
+from cultures.strains import seeding as seed_strains
 from cultures.strains import services as strains
-from cultures.strains.models import Pathogenicity, Strain, StrainRestriction
-from cultures.taxonomy import services as taxonomy
-from cultures.taxonomy.models import IdentifierSystem, Rank, Taxon
+from cultures.strains.models import Pathogenicity
+from cultures.taxonomy import seeding as seed_taxa
+from cultures.taxonomy.models import Rank
+from cultures.users import seeding as seed_users
 from cultures.users import services as users
 from cultures.users.models import User
 
@@ -167,6 +162,11 @@ def foreign_labs() -> list[Lab]:
     ]
 
 
+def staff(code: str, role: Role) -> Access:
+    """The access of the lab's member in this role."""
+    return access_for(User.objects.get(username=lab_username(code, role)))
+
+
 def day(text: str | None) -> date | None:
     return date.fromisoformat(text) if text else None
 
@@ -175,6 +175,16 @@ def day(text: str | None) -> date | None:
 class Counts:
     created: int = 0
     found: int = 0
+
+    def add_counts(self, counts: tuple[int, int]) -> None:
+        self.created += counts[0]
+        self.found += counts[1]
+
+    def add(self, created: bool) -> None:
+        if created:
+            self.created += 1
+        else:
+            self.found += 1
 
 
 class Command(BaseCommand):
@@ -214,432 +224,110 @@ class Command(BaseCommand):
                 self.strains = Counts()
                 self.units = Counts()
                 for row in data["box_types"]:
-                    self._box_type(row)
+                    seed_storage.box_type(row["name"], row["rows"], row["cols"])
                 for row in data["taxa"]:
-                    self._taxon(row)
-                self._admin(password)
+                    self.taxa.add(seed_taxa.taxon_filling_parent(taxon(row)))
+                seed_users.superuser(ADMIN, password)
                 lab_by_code = {row["code"]: self._lab(row, password) for row in data["labs"]}
                 self._extra_users(lab_by_code, password)
                 for row in data["strains"]:
-                    self._strain(row, lab_by_code[row["lab"]], data["taxa"])
+                    # Entered with the curator's role, never changed afterwards.
+                    created = seed_strains.strain(
+                        staff(row["lab"], Role.CURATOR),
+                        staff(row["lab"], Role.MANAGER),
+                        lab_by_code[row["lab"]],
+                        seed_strain(row, data["taxa"]),
+                    )
+                    self.strains.add(created)
                 self.deposits = Counts()
                 self._intake(data, lab_by_code)
                 for row in data["labs"]:
-                    self._storage(lab_by_code[row["code"]], row["storage"], parent=None)
+                    # Added with the curator's role, never changed afterwards.
+                    units = [unit(u) for u in row["storage"]]
+                    curator = staff(row["code"], Role.CURATOR)
+                    self.units.add_counts(
+                        seed_storage.tree(curator, lab_by_code[row["code"]], units)
+                    )
                 self.batches = Counts()
-                for (code, deposit), rows in _by_deposit(data["batches"]).items():
-                    self._batches(lab_by_code[code], deposit, rows)
+                for (code, deposit_name), rows in _by_deposit(data["batches"]).items():
+                    # The bench work, by the lab's technician.
+                    strain = seed_deposits.accepted_strain(lab_by_code[code], deposit_name)
+                    bench = staff(code, Role.TECHNICIAN)
+                    made = seed_lineage.batches(bench, strain, [batch(row) for row in rows])
+                    self.batches.add_counts(made)
                 self.checks = Counts()
-                for (code, deposit, number), rows in _by_batch(data["checks"]).items():
-                    self._checks(lab_by_code[code], deposit, number, rows)
+                for (code, deposit_name, number), rows in _by_batch(data["checks"]).items():
+                    checked = seed_lineage.batch_of(lab_by_code[code], deposit_name, number)
+                    bench = staff(code, Role.TECHNICIAN)
+                    made = seed_lineage.checks(bench, checked, [check(row) for row in rows])
+                    self.checks.add_counts(made)
                 for row in data["releases"]:
-                    self._release(lab_by_code[row["lab"]], row)
+                    released = seed_lineage.batch_of(
+                        lab_by_code[row["lab"]], row["deposit"], row["batch"]
+                    )
+                    seed_lineage.release(staff(row["lab"], Role.CURATOR), released, row["reason"])
                 for row in data["location_grants"]:
                     self._location_grant(lab_by_code[row["lab"]], row)
                 self._distribution(data, lab_by_code)
         self._report(data)
 
-    # Taxa: created when missing, never changed, except a parent added where none is set
-    # (seed_e2e creates its genera without one).
-
-    def _taxon(self, row: dict[str, Any]) -> None:
-        rank = Rank(row["rank"])
-        parent = Taxon.objects.get(name=row["parent"]) if row["parent"] else None
-        accepted = Taxon.objects.get(name=row["accepted"]) if row["accepted"] else None
-        found = Taxon.objects.filter(name__iexact=row["name"], rank=rank).first()
-        if found is not None:
-            self.taxa.found += 1
-            if parent is not None and found.parent_id is None and found.accepted_id is None:
-                taxonomy.taxon_update(
-                    taxon=found,
-                    fields=taxonomy.TaxonFields(
-                        name=found.name, authority=found.authority, rank=rank, parent=parent
-                    ),
-                )
-            return
-        taxon = taxonomy.taxon_create(
-            fields=taxonomy.TaxonFields(
-                name=row["name"],
-                authority=row["authority"],
-                rank=rank,
-                parent=parent,
-                accepted=accepted,
-            )
-        )
-        if row["ncbi"]:
-            taxonomy.taxon_identifier_add(
-                taxon=taxon, system=IdentifierSystem.NCBI, value=row["ncbi"]
-            )
-        self.taxa.created += 1
-
     # Users and labs.
 
-    def _user(self, username: str, password: str) -> User:
-        """An active user with this password, changed only where needed."""
-        user = User.objects.filter(username=username).first()
-        if user is None:
-            return users.user_create(username=username, password=password)
-        if not user.is_active:
-            user = users.user_activate(user=user)
-        if not user.check_password(password):
-            user = users.user_set_password(user=user, raw_password=password)
-        return user
-
-    def _admin(self, password: str) -> None:
-        admin = User.objects.filter(username=ADMIN).first()
-        if admin is None:
-            # The project's superuser path: the services, with the context's reason.
-            User.objects.create_superuser(ADMIN, password=password)
-            return
-        admin = self._user(ADMIN, password)
-        users.user_set_staff(user=admin, is_staff=True)
-        users.user_set_superuser(user=admin, is_superuser=True)
-
-    def _role(self, lab: Lab, user: User, role: Role) -> None:
-        membership = Membership.objects.filter(lab=lab, user=user).first()
-        if membership is None:
-            labs.membership_create(lab=lab, user=user, role=role)
-        elif membership.role != role:
-            labs.membership_set_role(membership=membership, role=role)
-
     def _lab(self, row: dict[str, Any], password: str) -> Lab:
-        lab = Lab.objects.filter(code=row["code"]).first() or labs.lab_create(
-            name=row["name"], code=row["code"]
-        )
+        lab = seed_labs.lab(row["name"], row["code"])
         for role in LAB_ROLES:
-            self._role(lab, self._user(lab_username(lab.code, role), password), role)
+            seed_labs.member(lab, seed_users.user(lab_username(lab.code, role), password), role)
         for permit in row["authorisations"]:
-            self._authorisation(lab, permit)
+            seed_biosafety.authorisation(lab, authorisation(permit))
         return lab
 
-    def _authorisation(self, lab: Lab, row: dict[str, Any]) -> None:
-        kind = AuthorisationKind(row["kind"])
-        found = LabAuthorisation.objects.filter(
-            lab=lab, kind=kind, permit_reference=row["permit_reference"]
-        ).first()
-        if found is None:
-            found = biosafety.authorisation_create(
-                lab=lab,
-                kind=kind,
-                permit_reference=row["permit_reference"],
-                valid_from=date.fromisoformat(row["valid_from"]),
-                expires_on=day(row["expires_on"]),
-            )
-        ended_on = day(row.get("ended_on"))
-        if ended_on is not None and found.ended_on is None:
-            biosafety.authorisation_end(
-                authorisation=found, ended_on=ended_on, reason=row["end_reason"]
-            )
-
     def _extra_users(self, lab_by_code: dict[str, Lab], password: str) -> None:
-        self._user(TWO_LABS, password)
-        self._user(NO_LAB, password)
-        inactive = User.objects.filter(username=INACTIVE).first() or self._user(INACTIVE, password)
+        seed_users.user(TWO_LABS, password)
+        seed_users.user(NO_LAB, password)
+        inactive = User.objects.filter(username=INACTIVE).first() or seed_users.user(
+            INACTIVE, password
+        )
         for username, code, role in EXTRA_MEMBERS:
             user = User.objects.get(username=username)
             missing = not Membership.objects.filter(lab=lab_by_code[code], user=user).exists()
             if missing and not user.is_active:
                 user = users.user_activate(user=user)  # memberships need an active user
-            self._role(lab_by_code[code], user, role)
+            seed_labs.member(lab_by_code[code], user, role)
         inactive.refresh_from_db()
         if inactive.is_active:
             users.user_deactivate(user=inactive)
         if not inactive.check_password(password):
             users.user_set_password(user=inactive, raw_password=password)
 
-    # Strains: created with the curator's role through the services, never changed afterwards.
-
-    def _strain(self, row: dict[str, Any], lab: Lab, taxa: list[dict[str, Any]]) -> None:
-        if Strain.objects.filter(lab=lab, name_as_received=row["name_as_received"]).exists():
-            self.strains.found += 1
-            return
-        facts = strain_facts(row, taxa)
-        access = access_for(User.objects.get(username=lab_username(lab.code, Role.CURATOR)))
-        strain = strains.strain_create(
-            access=access,
-            lab=lab,
-            data=strains.NewStrain(
-                name_as_received=row["name_as_received"],
-                taxon=Taxon.objects.get(name=row["taxon"]),
-                identified_on=date.fromisoformat(row["identified_on"]),
-                identification_method=row["method"],
-                risk_group=facts.risk_group,
-                animal_pathogenicity=facts.animal,
-                plant_pathogenicity=facts.plant,
-                isolation_source=row["isolation_source"],
-                country_of_origin=row["country_of_origin"],
-                isolation_date=row["isolation_date"],
-                restrictions=[restriction(r) for r in row.get("restrictions", [])],
-            ),
-        )
-        for step in row.get("history", []):
-            strain = self._step(access, strain, step)
-        self.strains.created += 1
-
-    def _step(self, access: Access, strain: Strain, step: dict[str, Any]) -> Strain:
-        if "reclassify" in step:
-            change = step["reclassify"]
-            return strains.strain_reclassify(
-                access=access,
-                strain=strain,
-                taxon=Taxon.objects.get(name=change["taxon"]),
-                identified_on=date.fromisoformat(change["identified_on"]),
-                method=change["method"],
-                reason=change["reason"],
-            )
-        if "risk_group" in step:
-            return strains.strain_set_risk_group(
-                access=access, strain=strain, risk_group=step["risk_group"], reason=step["reason"]
-            )
-        if "restriction_add" in step:
-            strains.strain_restriction_add(
-                access=access,
-                strain=strain,
-                restriction=restriction(step["restriction_add"]),
-                reason=step["reason"],
-            )
-            return strain
-        if "restriction_end" in step:
-            ending = step["restriction_end"]
-            row = StrainRestriction.objects.get(
-                strain=strain, kind=ending["kind"], reference=ending["reference"], ended_at=None
-            )
-            # Two people (#105): the curator proposes, the lab's manager confirms.
-            proposal = strains.strain_restriction_end_propose(
-                access=access, restriction=row, reason=step["reason"]
-            )
-            manager = User.objects.get(username=lab_username(strain.lab.code, Role.MANAGER))
-            strains.strain_restriction_end_confirm(
-                access=access_for(manager), restriction=row, proposal=proposal.public_id
-            )
-            return strain
-        raise CommandError(f"Unknown step in {DATA.name}: {sorted(step)}")
-
     # Depositors, MTA versions and deposits, through the deposit services.
 
     def _intake(self, data: dict[str, Any], lab_by_code: dict[str, Lab]) -> None:
-        def staff(code: str, role: Role) -> Access:
-            return access_for(User.objects.get(username=lab_username(code, role)))
-
         for row in data["depositors"]:
-            lab = lab_by_code[row["lab"]]
-            if not Depositor.objects.filter(lab=lab, contact__name=row["name"]).exists():
-                deposits.depositor_create(
-                    access=staff(lab.code, Role.CURATOR),
-                    lab=lab,
-                    contact=deposits.ContactInput(row["name"], row["email"], row["postal_address"]),
-                    institution=row["institution"],
-                )
+            seed_deposits.depositor(
+                staff(row["lab"], Role.CURATOR),
+                lab_by_code[row["lab"]],
+                deposits.ContactInput(row["name"], row["email"], row["postal_address"]),
+                row["institution"],
+            )
         for (code, mta_code), rows in _grouped(data["mta_templates"]).items():
-            lab = lab_by_code[code]
-            published = MtaTemplate.objects.filter(lab=lab, code=mta_code).count()
-            for row in rows[published:]:
-                deposits.mta_template_publish(
-                    access=staff(code, Role.MANAGER),
-                    lab=lab,
-                    code=mta_code,
-                    title=row["title"],
-                    text=row["text"],
-                )
+            seed_deposits.mta_versions(
+                staff(code, Role.MANAGER),
+                lab_by_code[code],
+                mta_code,
+                [seed_deposits.SeedMta(row["title"], row["text"]) for row in rows],
+            )
         for row in data["deposits"]:
-            self._deposit(row, lab_by_code[row["lab"]], staff(row["lab"], Role.CURATOR), data)
-
-    def _deposit(self, row: dict[str, Any], lab: Lab, access: Access, data: dict[str, Any]) -> None:
-        if Deposit.objects.filter(lab=lab, name_as_received=row["name_as_received"]).exists():
-            self.deposits.found += 1
-            return
-        terms = row["terms"]
-        mta = (
-            MtaTemplate.objects.get(lab=lab, code=row["mta"][0], version=row["mta"][1])
-            if row["mta"]
-            else None
-        )
-        deposit = deposits.deposit_receive(
-            access=access,
-            lab=lab,
-            data=deposits.NewDeposit(
-                depositor=Depositor.objects.get(lab=lab, contact__name=row["depositor"]),
-                received_on=date.fromisoformat(row["received_on"]),
-                condition=Condition(row["condition"]),
-                condition_note=row.get("condition_note", ""),
-                name_as_received=row["name_as_received"],
-                depositor_passages=row.get("depositor_passages"),
-                terms=deposits.TermsInput(
-                    abs_scope=AbsScope(terms["abs_scope"]),
-                    uses=[(Use(u), Decision(d)) for u, d in terms["uses"].items()],
-                    mta=mta,
-                    country_of_origin=terms.get("country_of_origin", ""),
-                    collection_date=terms.get("collection_date", ""),
-                    pic_reference=terms.get("pic_reference", ""),
-                    mat_reference=terms.get("mat_reference", ""),
-                    permit_reference=terms.get("permit_reference", ""),
-                ),
-            ),
-        )
-        self.deposits.created += 1
-        if row["state"] == "received":
-            return
-        deposit = deposits.deposit_start_check(access=access, deposit=deposit)
-        if row["state"] == "rejected":
-            deposits.deposit_reject(access=access, deposit=deposit, reason=row["rejection_reason"])
-        if row["state"] != "accepted":
-            return
-        strain = row["strain"]
-        facts = strain_facts(
-            {**strain, "history": [], "name_as_received": row["name_as_received"]}, data["taxa"]
-        )
-        deposits.deposit_accept(
-            access=access,
-            deposit=deposit,
-            facts=deposits.StrainFacts(
-                taxon=Taxon.objects.get(name=strain["taxon"]),
-                identified_on=date.fromisoformat(strain["identified_on"]),
-                identification_method=strain["method"],
-                risk_group=facts.risk_group,
-                animal_pathogenicity=facts.animal,
-                plant_pathogenicity=facts.plant,
-                isolation_source=strain["isolation_source"],
-                country_of_origin=strain["country_of_origin"],
-                isolation_date=strain["isolation_date"],
-                restrictions=[restriction(r) for r in strain.get("restrictions", [])],
-            ),
-        )
-
-    # Storage: box types and units created when missing, never changed afterwards.
-
-    def _box_type(self, row: dict[str, Any]) -> None:
-        if not BoxType.objects.filter(name__iexact=row["name"]).exists():
-            storage.box_type_create(name=row["name"], rows=row["rows"], cols=row["cols"])
-
-    def _storage(self, lab: Lab, rows: list[dict[str, Any]], parent: StorageUnit | None) -> None:
-        curator = User.objects.get(username=lab_username(lab.code, Role.CURATOR))
-        for row in rows:
-            unit = StorageUnit.objects.filter(lab=lab, parent=parent, name=row["name"]).first()
-            access = access_for(curator)
-            created = unit is None
-            if unit is None:
-                unit = storage.unit_create(
-                    access=access,
-                    lab=lab,
-                    data=storage.NewUnit(
-                        kind=UnitKind(row["kind"]),
-                        name=row["name"],
-                        parent=parent,
-                        slot=row.get("slot"),
-                        barcode=row.get("barcode", ""),
-                        temperature_c=row.get("temperature_c"),
-                        max_risk_group=row.get("max_risk_group"),
-                        box_type=BoxType.objects.get(name=row["box_type"])
-                        if "box_type" in row
-                        else None,
-                    ),
-                )
-                self.units.created += 1
-            else:
-                self.units.found += 1
-            self._storage(lab, row.get("children", []), parent=unit)
-            # After what it holds: nothing goes into a unit out of service.
-            if created and "status" in row:
-                storage.unit_set_status(
-                    access=access, unit=unit, status=UnitStatus(row["status"]), reason=row["reason"]
-                )
-
-    # Passages, batches and vials (#16), through the lineage services with the technician's role:
-    # the bench work. A strain's batches are created in the order of the file; a strain that
-    # has as many as the file lists gets no more.
-
-    def _batches(self, lab: Lab, deposit_name: str, rows: list[dict[str, Any]]) -> None:
-        technician = User.objects.get(username=lab_username(lab.code, Role.TECHNICIAN))
-        access = access_for(technician)
-        strain = Deposit.objects.get(lab=lab, name_as_received=deposit_name).strain
-        assert strain is not None  # noqa: S101 (the file lists accepted deposits only)
-        made = Batch.objects.filter(strain=strain).count()
-        self.batches.found += min(made, len(rows))
-        for row in rows[made:]:
-            passage = self._passage(access, strain, row["passage"])
-            box = None
-            if row["box"]:
-                box = self._unit_at(lab, row["box"])
-            lineage.batch_preserve(
-                access=access,
-                passage=passage,
-                data=lineage.NewBatch(
-                    method=Method(row["method"]),
-                    purpose=Purpose(row["purpose"]),
-                    preserved_on=date.fromisoformat(row["preserved_on"]),
-                    vial_count=row["vial_count"],
-                    cryoprotectant=row["cryoprotectant"],
-                    box=box,
-                ),
+            _, created = seed_deposits.deposit(
+                staff(row["lab"], Role.CURATOR), lab_by_code[row["lab"]], deposit(row, data["taxa"])
             )
-            self.batches.created += 1
-
-    # Checks of batches and their release (#17): checks by the technician (the bench work), in
-    # the order of the file; a release by the curator.
-
-    def _batch(self, lab: Lab, deposit_name: str, number: int) -> Batch:
-        return Batch.objects.get(
-            lab=lab, strain__deposit__name_as_received=deposit_name, number=number
-        )
-
-    def _checks(self, lab: Lab, deposit_name: str, number: int, rows: list[dict[str, Any]]) -> None:
-        technician = User.objects.get(username=lab_username(lab.code, Role.TECHNICIAN))
-        access = access_for(technician)
-        batch = self._batch(lab, deposit_name, number)
-        made = BatchCheck.objects.filter(batch=batch).count()
-        self.checks.found += min(made, len(rows))
-        for row in rows[made:]:
-            vial = Vial.objects.get(batch=batch, seq=row["vial"]) if row["vial"] else None
-            lineage.check_record(
-                access=access,
-                batch=batch,
-                data=lineage.NewCheck(
-                    kind=CheckKind(row["kind"]),
-                    stage=CheckStage(row["stage"]),
-                    checked_on=date.fromisoformat(row["checked_on"]),
-                    method=CheckMethod(row["method"]),
-                    result=CheckResult(row["result"]),
-                    method_detail=row["method_detail"],
-                    value=None if row["value"] is None else Decimal(row["value"]),
-                    unit=None if row["unit"] is None else CheckUnit(row["unit"]),
-                    vial=vial,
-                    note=row["note"],
-                ),
-            )
-            self.checks.created += 1
-
-    def _release(self, lab: Lab, row: dict[str, Any]) -> None:
-        batch = self._batch(lab, row["deposit"], row["batch"])
-        if batch.status != BatchStatus.PENDING_CHECK:
-            return
-        curator = User.objects.get(username=lab_username(lab.code, Role.CURATOR))
-        lineage.batch_release(access=access_for(curator), batch=batch, reason=row["reason"])
-
-    def _passage(self, access: Access, strain: Strain, number: int) -> Passage:
-        """The strain's passage with this number, grown by subculture from the one before."""
-        found = Passage.objects.filter(strain=strain, number=number).order_by("pk").first()
-        if found is not None:
-            return found
-        parent = self._passage(access, strain, number - 1)
-        return lineage.passage_subculture(access=access, parent=parent)
-
-    def _unit_at(self, lab: Lab, names: list[str]) -> StorageUnit:
-        unit = None
-        for name in names:
-            unit = StorageUnit.objects.get(lab=lab, parent=unit, name=name)
-        assert unit is not None  # noqa: S101 (a path names at least the box)
-        return unit
+            self.deposits.add(created)
 
     def _location_grant(self, lab: Lab, row: dict[str, Any]) -> None:
         """ADR 0009: who may see where the lab's regulated strains are, granted by its manager."""
-        user = User.objects.get(username=row["user"])
-        if LocationGrant.objects.filter(lab=lab, user=user, revoked_at__isnull=True).exists():
-            return
-        manager = User.objects.get(username=lab_username(lab.code, Role.MANAGER))
-        labs.location_grant_add(
-            access=access_for(manager),
-            lab=lab,
-            membership=Membership.objects.get(lab=lab, user=user),
+        seed_labs.location_grant(
+            lab,
+            User.objects.get(username=row["user"]),
+            granted_by=User.objects.get(username=lab_username(lab.code, Role.MANAGER)),
             reason=row["reason"],
         )
 
@@ -698,9 +386,7 @@ class Command(BaseCommand):
         approver = member(row.get("approved_by"))
         lines = []
         for line in row["lines"]:
-            strain = Deposit.objects.get(lab=lab, name_as_received=line["deposit"]).strain
-            assert strain is not None  # noqa: S101 (an accepted deposit)
-            lines.append((strain, line["quantity"]))
+            lines.append((seed_deposits.accepted_strain(lab, line["deposit"]), line["quantity"]))
         seeding.request(
             curator,
             lab,
@@ -800,6 +486,148 @@ def _grouped(rows: list[dict[str, Any]]) -> dict[tuple[str, str], list[dict[str,
     for row in rows:
         groups.setdefault((row["lab"], row["code"]), []).append(row)
     return groups
+
+
+def taxon(row: dict[str, Any]) -> seed_taxa.SeedTaxon:
+    return seed_taxa.SeedTaxon(
+        name=row["name"],
+        authority=row["authority"],
+        rank=Rank(row["rank"]),
+        parent=row["parent"],
+        accepted=row["accepted"],
+        ncbi=row["ncbi"],
+    )
+
+
+def authorisation(row: dict[str, Any]) -> seed_biosafety.SeedAuthorisation:
+    ended_on = day(row.get("ended_on"))
+    return seed_biosafety.SeedAuthorisation(
+        kind=AuthorisationKind(row["kind"]),
+        permit_reference=row["permit_reference"],
+        valid_from=date.fromisoformat(row["valid_from"]),
+        expires_on=day(row["expires_on"]),
+        ended_on=ended_on,
+        end_reason=row["end_reason"] if ended_on is not None else "",
+    )
+
+
+def facts(row: dict[str, Any], taxa: list[dict[str, Any]]) -> seed_strains.SeedFacts:
+    known = strain_facts(row, taxa)
+    return seed_strains.SeedFacts(
+        taxon=row["taxon"],
+        identified_on=date.fromisoformat(row["identified_on"]),
+        identification_method=row["method"],
+        risk_group=known.risk_group,
+        animal_pathogenicity=known.animal,
+        plant_pathogenicity=known.plant,
+        isolation_source=row["isolation_source"],
+        country_of_origin=row["country_of_origin"],
+        isolation_date=row["isolation_date"],
+        restrictions=tuple(restriction(r) for r in row.get("restrictions", [])),
+    )
+
+
+def seed_strain(row: dict[str, Any], taxa: list[dict[str, Any]]) -> seed_strains.SeedStrain:
+    return seed_strains.SeedStrain(
+        name_as_received=row["name_as_received"],
+        facts=facts(row, taxa),
+        history=tuple(step(s) for s in row.get("history", [])),
+    )
+
+
+def step(row: dict[str, Any]) -> seed_strains.Step:
+    if "reclassify" in row:
+        change = row["reclassify"]
+        return seed_strains.Reclassify(
+            taxon=change["taxon"],
+            identified_on=date.fromisoformat(change["identified_on"]),
+            method=change["method"],
+            reason=change["reason"],
+        )
+    if "risk_group" in row:
+        return seed_strains.SetRiskGroup(risk_group=row["risk_group"], reason=row["reason"])
+    if "restriction_add" in row:
+        return seed_strains.AddRestriction(
+            restriction=restriction(row["restriction_add"]), reason=row["reason"]
+        )
+    if "restriction_end" in row:
+        ending = row["restriction_end"]
+        return seed_strains.EndRestriction(
+            kind=ending["kind"], reference=ending["reference"], reason=row["reason"]
+        )
+    raise CommandError(f"Unknown step in {DATA.name}: {sorted(row)}")
+
+
+def deposit(row: dict[str, Any], taxa: list[dict[str, Any]]) -> seed_deposits.SeedDeposit:
+    terms = row["terms"]
+    accepted = row["state"] == "accepted"
+    return seed_deposits.SeedDeposit(
+        name_as_received=row["name_as_received"],
+        depositor=row["depositor"],
+        received_on=date.fromisoformat(row["received_on"]),
+        condition=Condition(row["condition"]),
+        condition_note=row.get("condition_note", ""),
+        depositor_passages=row.get("depositor_passages"),
+        terms=seed_deposits.SeedTerms(
+            abs_scope=AbsScope(terms["abs_scope"]),
+            uses=tuple((Use(u), Decision(d)) for u, d in terms["uses"].items()),
+            mta=(row["mta"][0], row["mta"][1]) if row["mta"] else None,
+            country_of_origin=terms.get("country_of_origin", ""),
+            collection_date=terms.get("collection_date", ""),
+            pic_reference=terms.get("pic_reference", ""),
+            mat_reference=terms.get("mat_reference", ""),
+            permit_reference=terms.get("permit_reference", ""),
+        ),
+        state=row["state"],
+        rejection_reason=row["rejection_reason"] if row["state"] == "rejected" else "",
+        strain=facts(
+            {**row["strain"], "history": [], "name_as_received": row["name_as_received"]}, taxa
+        )
+        if accepted
+        else None,
+    )
+
+
+def unit(row: dict[str, Any]) -> seed_storage.SeedUnit:
+    return seed_storage.SeedUnit(
+        kind=UnitKind(row["kind"]),
+        name=row["name"],
+        slot=row.get("slot"),
+        barcode=row.get("barcode", ""),
+        temperature_c=row.get("temperature_c"),
+        max_risk_group=row.get("max_risk_group"),
+        box_type=row.get("box_type"),
+        status=UnitStatus(row["status"]) if "status" in row else None,
+        reason=row["reason"] if "status" in row else "",
+        children=tuple(unit(child) for child in row.get("children", [])),
+    )
+
+
+def batch(row: dict[str, Any]) -> seed_lineage.SeedBatch:
+    return seed_lineage.SeedBatch(
+        method=Method(row["method"]),
+        purpose=Purpose(row["purpose"]),
+        preserved_on=date.fromisoformat(row["preserved_on"]),
+        vial_count=row["vial_count"],
+        cryoprotectant=row["cryoprotectant"],
+        passage=row["passage"],
+        box=tuple(row["box"]) if row["box"] else (),
+    )
+
+
+def check(row: dict[str, Any]) -> seed_lineage.SeedCheck:
+    return seed_lineage.SeedCheck(
+        kind=CheckKind(row["kind"]),
+        stage=CheckStage(row["stage"]),
+        checked_on=date.fromisoformat(row["checked_on"]),
+        method=CheckMethod(row["method"]),
+        result=CheckResult(row["result"]),
+        method_detail=row["method_detail"],
+        value=None if row["value"] is None else Decimal(row["value"]),
+        unit=None if row["unit"] is None else CheckUnit(row["unit"]),
+        vial=row["vial"] or None,
+        note=row["note"],
+    )
 
 
 def restriction(row: dict[str, Any]) -> strains.RestrictionInput:

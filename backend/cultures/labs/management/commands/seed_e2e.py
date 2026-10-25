@@ -57,6 +57,7 @@ through the services with their audit events (channel command, actor kind
 system).
 """
 
+from dataclasses import replace
 from datetime import date
 from typing import Any
 
@@ -67,44 +68,39 @@ from config.env import env_secret, env_str
 from cultures.audit.context import audit_context
 from cultures.audit.models import ActorKind, Channel
 from cultures.biosafety.models import RestrictionKind
+from cultures.deposits import seeding as seed_deposits
 from cultures.deposits import services as deposits
 from cultures.deposits.models import (
     AbsScope,
     Condition,
     Decision,
-    Deposit,
-    Depositor,
-    MtaTemplate,
     Use,
 )
 from cultures.distribution import seeding
 from cultures.distribution import services as distribution
 from cultures.distribution.models import DistributionRequest, PermitKind, RequestStatus
-from cultures.labs import services
+from cultures.labs import seeding as seed_labs
 from cultures.labs.access import access_for
-from cultures.labs.models import Lab, LocationGrant, Membership
+from cultures.labs.models import Lab
 from cultures.labs.permissions import Role
-from cultures.lineage import services as lineage
+from cultures.lineage import seeding as seed_lineage
 from cultures.lineage.models import (
     Batch,
     BatchStatus,
-    CheckKind,
-    CheckMethod,
-    CheckResult,
-    CheckStage,
     Method,
-    Passage,
     Purpose,
     Vial,
 )
 from cultures.lineage.selectors import distributable
-from cultures.storage import services as storage
-from cultures.storage.models import BoxType, StorageUnit, UnitKind
+from cultures.storage import seeding as seed_storage
+from cultures.storage.models import StorageUnit, UnitKind
 from cultures.strains import services as strains
 from cultures.strains.models import Strain
-from cultures.taxonomy import services as taxonomy
-from cultures.taxonomy.models import IdentifierSystem, Rank, Taxon
-from cultures.users import services as users
+from cultures.strains.seeding import SeedFacts
+from cultures.taxonomy import seeding as seed_taxa
+from cultures.taxonomy.models import Rank
+from cultures.taxonomy.seeding import SeedTaxon
+from cultures.users import seeding as seed_users
 from cultures.users.models import User
 
 LAB_NAME, LAB_CODE = "E2E lab", "E2E"
@@ -124,33 +120,61 @@ READY_TO_PREPARE = "E2E seed: research on a dual-use strain, approved and ready 
 # Fewer free vials than this, and the next run releases another batch: the tests reserve some.
 MIN_FREE = 10
 
-# (name, authority, rank, parent name, accepted name, NCBI Taxonomy id). Facts from LPSN and
-# NCBI Taxonomy: Bacillus Cohn 1872 (taxid 1386), B. subtilis (Ehrenberg 1835) Cohn 1872 (1423),
-# basionym Vibrio subtilis Ehrenberg 1835; Escherichia Castellani and Chalmers 1919 (561),
+# Created when missing, never changed: staff may have edited the seed's taxa. Facts from LPSN
+# and NCBI Taxonomy: Bacillus Cohn 1872 (taxid 1386), B. subtilis (Ehrenberg 1835) Cohn 1872
+# (1423), basionym Vibrio subtilis Ehrenberg 1835; Escherichia Castellani and Chalmers 1919 (561),
 # E. coli (Migula 1895) Castellani and Chalmers 1919 (562), basionym Bacillus coli Migula 1895.
-TAXA: tuple[tuple[str, str, Rank, str | None, str | None, str | None], ...] = (
-    ("Bacillus", "Cohn 1872", Rank.GENUS, None, None, "1386"),
-    ("Bacillus subtilis", "(Ehrenberg 1835) Cohn 1872", Rank.SPECIES, "Bacillus", None, "1423"),
-    ("Vibrio subtilis", "Ehrenberg 1835", Rank.SPECIES, None, "Bacillus subtilis", None),
-    ("Escherichia", "Castellani and Chalmers 1919", Rank.GENUS, None, None, "561"),
-    (
+TAXA: tuple[SeedTaxon, ...] = (
+    SeedTaxon("Bacillus", "Cohn 1872", Rank.GENUS, ncbi="1386"),
+    SeedTaxon(
+        "Bacillus subtilis", "(Ehrenberg 1835) Cohn 1872", Rank.SPECIES, "Bacillus", ncbi="1423"
+    ),
+    SeedTaxon("Vibrio subtilis", "Ehrenberg 1835", Rank.SPECIES, accepted="Bacillus subtilis"),
+    SeedTaxon("Escherichia", "Castellani and Chalmers 1919", Rank.GENUS, ncbi="561"),
+    SeedTaxon(
         "Escherichia coli",
         "(Migula 1895) Castellani and Chalmers 1919",
         Rank.SPECIES,
         "Escherichia",
-        None,
-        "562",
+        ncbi="562",
     ),
-    ("Bacillus coli", "Migula 1895", Rank.SPECIES, None, "Escherichia coli", None),
+    SeedTaxon("Bacillus coli", "Migula 1895", Rank.SPECIES, accepted="Escherichia coli"),
     # Invented: the e2e tests pair it with restrictions to exercise the gates.
-    ("Testella", "", Rank.GENUS, None, None, None),
-    ("Testella exempli", "", Rank.SPECIES, "Testella", None, None),
-    ("Mockia", "", Rank.GENUS, None, None, None),
-    ("Mockia vulgaris", "", Rank.SPECIES, "Mockia", None, None),
+    SeedTaxon("Testella", "", Rank.GENUS),
+    SeedTaxon("Testella exempli", "", Rank.SPECIES, "Testella"),
+    SeedTaxon("Mockia", "", Rank.GENUS),
+    SeedTaxon("Mockia vulgaris", "", Rank.SPECIES, "Mockia"),
 )
+MTA = seed_deposits.SeedMta(
+    "Standard MTA (invented example)",
+    "The recipient uses the material for research only. (Invented example.)",
+)
+# Every use permitted, outside the ABS scope; the supply strains' terms also name MTA STD.
+ALL_PERMITTED = seed_deposits.SeedTerms(
+    AbsScope.NOT_IN_SCOPE, tuple((Use(use), Decision.PERMIT) for use in Use.values)
+)
+SEQUENCED = "16S rRNA gene sequence"
+GLYCEROL = "10 % glycerol"
+ALL_PASSED = "All three checks passed."
 # (name, rows, cols), the names seed_dev uses too.
 BOX_TYPES = (("81-place cryobox (9 x 9)", 9, 9), ("100-place cryobox (10 x 10)", 10, 10))
 FREEZER = "E2E freezer"
+TREE = seed_storage.SeedUnit(
+    UnitKind.FREEZER,
+    FREEZER,
+    temperature_c=-20,
+    max_risk_group=1,
+    children=(
+        seed_storage.SeedUnit(
+            UnitKind.RACK,
+            "Rack 1",
+            slot=1,
+            children=(
+                seed_storage.SeedUnit(UnitKind.BOX, "Box 1", slot=1, box_type=BOX_TYPES[0][0]),
+            ),
+        ),
+    ),
+)
 
 
 class Command(BaseCommand):
@@ -169,31 +193,24 @@ class Command(BaseCommand):
             actor_label="command:seed_e2e",
             reason="reset the e2e data",  # reactivating a user needs one
         ):
-            user = self._user(username, password)
-            colleague = self._user(COLLEAGUE, None)
-            lab = Lab.objects.filter(code=LAB_CODE).first() or services.lab_create(
-                name=LAB_NAME, code=LAB_CODE
-            )
-            self._role(lab, user, Role.MANAGER)
-            for membership in Membership.objects.filter(lab=lab, user=colleague):
-                services.membership_delete(membership=membership)
-            self._role(lab, self._user(CURATOR, password), Role.CURATOR)
-            self._role(lab, self._user(TECHNICIAN, password), Role.TECHNICIAN)
-            self._role(lab, self._user(VIEWER, password), Role.VIEWER)
-            approver = self._user(APPROVER, password)
-            for membership in Membership.objects.filter(lab=lab, user=approver):
-                services.membership_delete(membership=membership)
-            other = Lab.objects.filter(code=OTHER_LAB_CODE).first() or services.lab_create(
-                name=OTHER_LAB_NAME, code=OTHER_LAB_CODE
-            )
-            self._role(other, self._user(OTHER_MANAGER, None), Role.MANAGER)
-            self._role(other, self._user(OUTSIDER, password), Role.VIEWER)
+            user = seed_users.user(username, password)
+            colleague = seed_users.user(COLLEAGUE, None)
+            lab = seed_labs.lab(LAB_NAME, LAB_CODE)
+            seed_labs.member(lab, user, Role.MANAGER)
+            seed_labs.no_member(lab, colleague)
+            seed_labs.member(lab, seed_users.user(CURATOR, password), Role.CURATOR)
+            seed_labs.member(lab, seed_users.user(TECHNICIAN, password), Role.TECHNICIAN)
+            seed_labs.member(lab, seed_users.user(VIEWER, password), Role.VIEWER)
+            approver = seed_users.user(APPROVER, password)
+            seed_labs.no_member(lab, approver)
+            other = seed_labs.lab(OTHER_LAB_NAME, OTHER_LAB_CODE)
+            seed_labs.member(other, seed_users.user(OTHER_MANAGER, None), Role.MANAGER)
+            seed_labs.member(other, seed_users.user(OUTSIDER, password), Role.VIEWER)
             for row in TAXA:
-                self._taxon(*row)
+                seed_taxa.taxon(row)
             self._deposit(lab, curator=User.objects.get(username=CURATOR), manager=user)
             for name, rows, cols in BOX_TYPES:
-                if not BoxType.objects.filter(name__iexact=name).exists():
-                    storage.box_type_create(name=name, rows=rows, cols=cols)
+                seed_storage.box_type(name, rows, cols)
             self._storage(lab, User.objects.get(username=CURATOR))
             self._regulated(lab, curator=User.objects.get(username=CURATOR), manager=user)
             self._released(
@@ -219,220 +236,118 @@ class Command(BaseCommand):
             f" {OTHER_MANAGER} manages"
         )
 
-    def _taxon(  # noqa: PLR0917 (one row of TAXA, spread)
-        self,
-        name: str,
-        authority: str,
-        rank: Rank,
-        parent: str | None,
-        accepted: str | None,
-        ncbi: str | None,
-    ) -> None:
-        """Created when missing, never changed: staff may have edited the seed's taxa."""
-        if Taxon.objects.filter(name=name, rank=rank).exists():
-            return
-        taxon = taxonomy.taxon_create(
-            fields=taxonomy.TaxonFields(
-                name=name,
-                authority=authority,
-                rank=rank,
-                parent=Taxon.objects.get(name=parent) if parent else None,
-                accepted=Taxon.objects.get(name=accepted) if accepted else None,
-            )
-        )
-        if ncbi:
-            taxonomy.taxon_identifier_add(taxon=taxon, system=IdentifierSystem.NCBI, value=ncbi)
-
     def _deposit(self, lab: Lab, *, curator: User, manager: User) -> None:
         """The depositor, the MTA and one accepted deposit, created through the services."""
         access = access_for(curator)
-        depositor = Depositor.objects.filter(lab=lab, contact__name=DEPOSITOR.name).first()
-        if depositor is None:
-            depositor = deposits.depositor_create(
-                access=access, lab=lab, contact=DEPOSITOR, institution="Example University"
-            )
-        if not MtaTemplate.objects.filter(lab=lab, code="STD").exists():
-            deposits.mta_template_publish(
-                access=access_for(manager),
-                lab=lab,
-                code="STD",
-                title="Standard MTA (invented example)",
-                text="The recipient uses the material for research only. (Invented example.)",
-            )
-        if Deposit.objects.filter(lab=lab, name_as_received=SEEDED_DEPOSIT).exists():
-            return
-        deposit = deposits.deposit_receive(
-            access=access,
-            lab=lab,
-            data=deposits.NewDeposit(
-                depositor=depositor,
-                received_on=date(2026, 10, 1),
-                condition=Condition.INTACT,
-                name_as_received=SEEDED_DEPOSIT,
-                terms=deposits.TermsInput(
-                    abs_scope=AbsScope.NOT_IN_SCOPE,
-                    uses=[(Use(use), Decision.PERMIT) for use in Use.values],
-                ),
-            ),
-        )
-        deposit = deposits.deposit_start_check(access=access, deposit=deposit)
-        deposits.deposit_accept(
-            access=access,
-            deposit=deposit,
-            facts=deposits.StrainFacts(
-                taxon=Taxon.objects.get(name="Bacillus subtilis"),
-                identified_on=date(2026, 10, 2),
-                identification_method="16S rRNA gene sequence",
-                risk_group=1,
+        seed_deposits.depositor(access, lab, DEPOSITOR, "Example University")
+        seed_deposits.mta_versions(access_for(manager), lab, "STD", (MTA,))
+        seed_deposits.deposit(
+            access,
+            lab,
+            seed_deposits.SeedDeposit(
+                SEEDED_DEPOSIT,
+                DEPOSITOR.name,
+                date(2026, 10, 1),
+                Condition.INTACT,
+                ALL_PERMITTED,
+                "accepted",
+                strain=SeedFacts("Bacillus subtilis", date(2026, 10, 2), SEQUENCED, risk_group=1),
             ),
         )
 
     def _storage(self, lab: Lab, curator: User) -> None:
         """The fixed tree, created when missing and never changed."""
-        access = access_for(curator)
-
-        def unit(name: str, parent: StorageUnit | None, data: storage.NewUnit) -> StorageUnit:
-            found = StorageUnit.objects.filter(lab=lab, parent=parent, name=name).first()
-            return found or storage.unit_create(access=access, lab=lab, data=data)
-
-        freezer = unit(
-            FREEZER,
-            None,
-            storage.NewUnit(UnitKind.FREEZER, FREEZER, temperature_c=-20, max_risk_group=1),
-        )
-        rack = unit("Rack 1", freezer, storage.NewUnit(UnitKind.RACK, "Rack 1", freezer, slot=1))
-        box_type = BoxType.objects.get(name=BOX_TYPES[0][0])
-        unit("Box 1", rack, storage.NewUnit(UnitKind.BOX, "Box 1", rack, slot=1, box_type=box_type))
+        seed_storage.tree(access_for(curator), lab, (TREE,))
 
     def _regulated(self, lab: Lab, *, curator: User, manager: User) -> None:
         """A regulated strain with two placed vials, and the manager's location grant."""
         access = access_for(curator)
-        deposit = Deposit.objects.filter(lab=lab, name_as_received=REGULATED_DEPOSIT).first()
-        if deposit is None:
-            received = deposits.deposit_receive(
-                access=access,
-                lab=lab,
-                data=deposits.NewDeposit(
-                    depositor=Depositor.objects.get(lab=lab, contact__name=DEPOSITOR.name),
-                    received_on=date(2026, 10, 3),
-                    condition=Condition.INTACT,
-                    name_as_received=REGULATED_DEPOSIT,
-                    terms=deposits.TermsInput(
-                        abs_scope=AbsScope.NOT_IN_SCOPE,
-                        uses=[(Use(use), Decision.PERMIT) for use in Use.values],
-                    ),
-                ),
-            )
-            deposit = deposits.deposit_accept(
-                access=access,
-                deposit=deposits.deposit_start_check(access=access, deposit=received),
-                facts=deposits.StrainFacts(
-                    taxon=Taxon.objects.get(name="Testella exempli"),
-                    identified_on=date(2026, 10, 4),
-                    identification_method="16S rRNA gene sequence",
+        deposit, _ = seed_deposits.deposit(
+            access,
+            lab,
+            seed_deposits.SeedDeposit(
+                REGULATED_DEPOSIT,
+                DEPOSITOR.name,
+                date(2026, 10, 3),
+                Condition.INTACT,
+                ALL_PERMITTED,
+                "accepted",
+                strain=SeedFacts(
+                    "Testella exempli",
+                    date(2026, 10, 4),
+                    SEQUENCED,
                     risk_group=1,
-                    restrictions=[
+                    restrictions=(
                         strains.RestrictionInput(
                             RestrictionKind.CZ_RAT, "Příloha 2 (invented example)"
-                        )
-                    ],
+                        ),
+                    ),
                 ),
-            )
+            ),
+        )
         strain = deposit.strain
         assert strain is not None  # noqa: S101 (accepted above)
         rack = StorageUnit.objects.get(lab=lab, parent__name=FREEZER, name="Rack 1")
-        box = StorageUnit.objects.filter(lab=lab, parent=rack, name=REGULATED_BOX).first()
-        if box is None:
-            box = storage.unit_create(
-                access=access,
-                lab=lab,
-                data=storage.NewUnit(
-                    UnitKind.BOX,
-                    REGULATED_BOX,
-                    rack,
-                    slot=2,
-                    box_type=BoxType.objects.get(name=BOX_TYPES[0][0]),
-                ),
-            )
-        if not Batch.objects.filter(strain=strain).exists():
-            lineage.batch_preserve(
-                access=access,
-                passage=Passage.objects.get(strain=strain, number=0),
-                data=lineage.NewBatch(
-                    method=Method.CRYO_MINUS80,
-                    purpose=Purpose.SEED,
-                    preserved_on=date(2026, 10, 5),
+        seed_storage.unit(
+            access,
+            lab,
+            seed_storage.SeedUnit(UnitKind.BOX, REGULATED_BOX, slot=2, box_type=BOX_TYPES[0][0]),
+            rack,
+        )
+        seed_lineage.batches(
+            access,
+            strain,
+            (
+                seed_lineage.SeedBatch(
+                    Method.CRYO_MINUS80,
+                    Purpose.SEED,
+                    date(2026, 10, 5),
                     vial_count=2,
-                    cryoprotectant="10 % glycerol",
-                    box=box,
+                    cryoprotectant=GLYCEROL,
+                    box=(FREEZER, "Rack 1", REGULATED_BOX),
                 ),
-            )
-        if not LocationGrant.objects.filter(
-            lab=lab, user=manager, revoked_at__isnull=True
-        ).exists():
-            services.location_grant_add(
-                access=access_for(manager),
-                lab=lab,
-                membership=Membership.objects.get(lab=lab, user=manager),
-                reason="Keeps the register of the e2e lab (invented example).",
-            )
+            ),
+        )
+        seed_labs.location_grant(
+            lab,
+            manager,
+            granted_by=manager,
+            reason="Keeps the register of the e2e lab (invented example).",
+        )
 
     def _released(self, lab: Lab, *, curator: User, technician: User) -> None:
         """A batch of the seeded strain, checked by the technician and released by the curator."""
-        strain = Deposit.objects.get(lab=lab, name_as_received=SEEDED_DEPOSIT).strain
-        assert strain is not None  # noqa: S101 (accepted in _deposit)
+        strain = seed_deposits.accepted_strain(lab, SEEDED_DEPOSIT)
         if Batch.objects.filter(strain=strain, status=BatchStatus.RELEASED).exists():
             return
-        bench = access_for(technician)
-        batch = lineage.batch_preserve(
-            access=bench,
-            passage=Passage.objects.get(strain=strain, number=0),
-            data=lineage.NewBatch(
-                method=Method.CRYO_MINUS80,
-                purpose=Purpose.DISTRIBUTION,
-                preserved_on=date(2026, 10, 3),
+        seed_lineage.released_batch(
+            access_for(technician),
+            access_for(curator),
+            strain,
+            seed_lineage.SeedBatch(
+                Method.CRYO_MINUS80,
+                Purpose.DISTRIBUTION,
+                date(2026, 10, 3),
                 vial_count=2,
-                cryoprotectant="10 % glycerol",
+                cryoprotectant=GLYCEROL,
             ),
-        )
-        vial = Vial.objects.get(batch=batch, seq=1)
-        for kind, method in (
-            (CheckKind.IDENTITY, CheckMethod.SEQUENCING),
-            (CheckKind.PURITY, CheckMethod.STREAK_PLATE),
-            (CheckKind.VIABILITY, CheckMethod.GROWTH),
-        ):
-            lineage.check_record(
-                access=bench,
-                batch=batch,
-                data=lineage.NewCheck(
-                    kind=kind,
-                    stage=CheckStage.AFTER_PRESERVATION,
-                    checked_on=date(2026, 10, 5),
-                    method=method,
-                    result=CheckResult.PASS,
-                    vial=vial,
-                ),
-            )
-        lineage.batch_release(
-            access=access_for(curator), batch=batch, reason="All three checks passed."
+            checked_on=date(2026, 10, 5),
+            reason=ALL_PASSED,
         )
 
     def _distribution(self, lab: Lab, *, curator: User, technician: User, approver: User) -> None:
         """Strains that may go out, the requesters and the five requests (#18, #88, #89)."""
         access = access_for(curator)
-        mta = MtaTemplate.objects.get(lab=lab, code="STD", version=1)
-        supply = self._supply(lab, SUPPLY, "Testella exempli", (), mta, curator, technician)
+        supply = self._supply(lab, SUPPLY, "Testella exempli", (), curator, technician)
         regulated = self._supply(
             lab,
             REGULATED_SUPPLY,
             "Mockia vulgaris",
             (strains.RestrictionInput(RestrictionKind.DUAL_USE, "1C351.c", act="(EU) 2025/2003"),),
-            mta,
             curator,
             technician,
         )
-        rat = Deposit.objects.get(lab=lab, name_as_received=REGULATED_DEPOSIT).strain
-        assert rat is not None  # noqa: S101 (accepted in _regulated)
+        rat = seed_deposits.accepted_strain(lab, REGULATED_DEPOSIT)
         scientist = distribution.ContactInput(
             "E2E Scientist", "e2e.scientist@example.org", "Microbiology laboratory\nE2E street 2"
         )
@@ -502,7 +417,7 @@ class Command(BaseCommand):
         ).exists():
             return
         # A manager for this one approval: the lab keeps the e2e user as its only manager.
-        self._role(lab, approver, Role.MANAGER)
+        seed_labs.member(lab, approver, Role.MANAGER)
         seeding.request(
             access,
             lab,
@@ -518,7 +433,7 @@ class Command(BaseCommand):
             ),
             approver=access_for(approver),
         )
-        services.membership_delete(membership=Membership.objects.get(lab=lab, user=approver))
+        seed_labs.no_member(lab, approver)
 
     def _supply(  # noqa: PLR0917 (one strain of the seed, spread)
         self,
@@ -526,101 +441,44 @@ class Command(BaseCommand):
         name: str,
         taxon: str,
         restrictions: tuple[strains.RestrictionInput, ...],
-        mta: MtaTemplate,
         curator: User,
         technician: User,
     ) -> Strain:
         """An accepted deposit whose terms name the MTA, with released distribution stock."""
         access = access_for(curator)
-        deposit = Deposit.objects.filter(lab=lab, name_as_received=name).first()
-        if deposit is None:
-            received = deposits.deposit_receive(
-                access=access,
-                lab=lab,
-                data=deposits.NewDeposit(
-                    depositor=Depositor.objects.get(lab=lab, contact__name=DEPOSITOR.name),
-                    received_on=date(2026, 10, 3),
-                    condition=Condition.INTACT,
-                    name_as_received=name,
-                    terms=deposits.TermsInput(
-                        abs_scope=AbsScope.NOT_IN_SCOPE,
-                        uses=[(Use(use), Decision.PERMIT) for use in Use.values],
-                        mta=mta,
-                    ),
+        deposit, _ = seed_deposits.deposit(
+            access,
+            lab,
+            seed_deposits.SeedDeposit(
+                name,
+                DEPOSITOR.name,
+                date(2026, 10, 3),
+                Condition.INTACT,
+                replace(ALL_PERMITTED, mta=("STD", 1)),
+                "accepted",
+                strain=SeedFacts(
+                    taxon, date(2026, 10, 4), SEQUENCED, risk_group=1, restrictions=restrictions
                 ),
-            )
-            deposit = deposits.deposit_accept(
-                access=access,
-                deposit=deposits.deposit_start_check(access=access, deposit=received),
-                facts=deposits.StrainFacts(
-                    taxon=Taxon.objects.get(name=taxon),
-                    identified_on=date(2026, 10, 4),
-                    identification_method="16S rRNA gene sequence",
-                    risk_group=1,
-                    restrictions=list(restrictions),
-                ),
-            )
+            ),
+        )
         strain = deposit.strain
         assert strain is not None  # noqa: S101 (accepted above)
         free = Vial.objects.filter(
             distributable("batch__"), batch__strain=strain, status="available"
         ).count()
         if free < MIN_FREE:
-            self._release_stock(strain, curator, technician)
-        return strain
-
-    def _release_stock(self, strain: Strain, curator: User, technician: User) -> None:
-        bench = access_for(technician)
-        batch = lineage.batch_preserve(
-            access=bench,
-            passage=Passage.objects.get(strain=strain, number=0),
-            data=lineage.NewBatch(
-                method=Method.CRYO_MINUS80,
-                purpose=Purpose.DISTRIBUTION,
-                preserved_on=date(2026, 10, 5),
-                vial_count=21,
-                cryoprotectant="10 % glycerol",
-            ),
-        )
-        vial = Vial.objects.get(batch=batch, seq=1)
-        for kind, method in (
-            (CheckKind.IDENTITY, CheckMethod.SEQUENCING),
-            (CheckKind.PURITY, CheckMethod.STREAK_PLATE),
-            (CheckKind.VIABILITY, CheckMethod.GROWTH),
-        ):
-            lineage.check_record(
-                access=bench,
-                batch=batch,
-                data=lineage.NewCheck(
-                    kind=kind,
-                    stage=CheckStage.AFTER_PRESERVATION,
-                    checked_on=date(2026, 10, 6),
-                    method=method,
-                    result=CheckResult.PASS,
-                    vial=vial,
+            seed_lineage.released_batch(
+                access_for(technician),
+                access_for(curator),
+                strain,
+                seed_lineage.SeedBatch(
+                    Method.CRYO_MINUS80,
+                    Purpose.DISTRIBUTION,
+                    date(2026, 10, 5),
+                    vial_count=21,
+                    cryoprotectant=GLYCEROL,
                 ),
+                checked_on=date(2026, 10, 6),
+                reason=ALL_PASSED,
             )
-        lineage.batch_release(
-            access=access_for(curator), batch=batch, reason="All three checks passed."
-        )
-
-    def _user(self, username: str, password: str | None) -> User:
-        """An active user with this password (None: no usable one), changed only where needed."""
-        user = User.objects.filter(username=username).first()
-        if user is None:
-            return users.user_create(username=username, password=password)
-        if not user.is_active:
-            user = users.user_activate(user=user)
-        wrong = (
-            user.has_usable_password() if password is None else not user.check_password(password)
-        )
-        if wrong:
-            user = users.user_set_password(user=user, raw_password=password)
-        return user
-
-    def _role(self, lab: Lab, user: User, role: Role) -> None:
-        membership = Membership.objects.filter(lab=lab, user=user).first()
-        if membership is None:
-            services.membership_create(lab=lab, user=user, role=role)
-        elif membership.role != role:
-            services.membership_set_role(membership=membership, role=role)
+        return strain
