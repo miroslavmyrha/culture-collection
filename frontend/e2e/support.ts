@@ -111,7 +111,7 @@ export function ratio(a: string, b: string) {
 export async function surfaceOf(element: Locator, includeSelf = false): Promise<string> {
   return element.evaluate((start, self) => {
     // Inside evaluate on purpose: this function runs in the browser.
-    // oxlint-disable-next-line unicorn/consistent-function-scoping
+    // oxlint-disable-next-line unicorn/consistent-function-scoping -- the helper must live inside evaluate: only its body is sent to the browser
     const parse = (css: string) => (css.match(/[\d.]+/g) ?? []).map(Number)
     for (let node: Element | null = self ? start : start.parentElement; node; node = node.parentElement) {
       const style = getComputedStyle(node)

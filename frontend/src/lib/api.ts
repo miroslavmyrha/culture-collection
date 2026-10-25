@@ -143,7 +143,7 @@ export async function unwrap<T>(request: Promise<Result<T>> | Result<T>): Promis
   const { data, error, response } = result
   if (response.ok && data !== undefined) return data
   // openapi-fetch already types a body-less 204 as undefined, so T includes it there.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a 204 has no body, and callers of a body-less endpoint ask for undefined
   if (response.status === 204) return undefined as T
   // An empty error body arrives as '' from openapi-fetch; a proxy may send an HTML page.
   throw new ApiError(response.status, error === '' ? undefined : error, {
