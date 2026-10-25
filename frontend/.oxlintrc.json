@@ -140,6 +140,54 @@
     },
     {
       "files": [
+        "src/features/*/*.ts",
+        "src/features/*/*.tsx"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "dompurify",
+                "message": "Render HTML only through components/SafeHtml.tsx (lib/sanitize.ts)."
+              }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "@/app/**",
+                  "@/pages/**",
+                  "@/routes/**"
+                ],
+                "message": "Features never import the app shell, pages or routes: they import features."
+              },
+              {
+                "group": [
+                  "@/features/**"
+                ],
+                "message": "No feature-to-feature imports. Inside a feature use relative paths; shared code goes to lib/ or components/."
+              },
+              {
+                "group": [
+                  "../**"
+                ],
+                "message": "A file at the root of a feature has nothing above it but other features: import with ./ inside the feature, never ../."
+              },
+              {
+                "group": [
+                  "@mui/**",
+                  "@emotion/**"
+                ],
+                "message": "Import UI components from @/components/ui. Only components/ui and app/ (theme, emotion cache) import MUI and emotion."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
         "src/lib/**",
         "src/components/**",
         "src/hooks/**"
