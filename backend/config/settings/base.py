@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "cultures.storage",
     "cultures.distribution",
     "cultures.overview",
+    "cultures.search",
 ]
 
 MIDDLEWARE = [

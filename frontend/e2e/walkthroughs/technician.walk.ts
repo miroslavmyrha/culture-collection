@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, acceptedStrain, api, batch, batchOf, expandUnit, freezerWithBoxes, labId, openLab, findStrain, openStrains, openTab, openWaiting, openUnit, vialAction, passAll, release, requestFor, setupAs, supplyStrain } from './walk.js'
+import { RUN, Walk, acceptedStrain, api, batch, batchOf, expandUnit, freezerWithBoxes, labId, openLab, openTab, openWaiting, openUnit, vialAction, passAll, release, requestFor, searchStrain, searchVial, setupAs, supplyStrain } from './walk.js'
 
 // A technician of Bacteriology (seed_dev): the bench work with batches, vials and boxes. The rows
 // each task needs are made first by the lab's curator, through the API, named for the run.
@@ -22,8 +22,7 @@ test('T1 preserve a fresh batch and put it in a box', async ({ browser }, info) 
 
   const w = await Walk.as(browser, info, 'bac-technician', technician('T1', 'Preserve a fresh batch and put it in a box'))
   await w.start()
-  await openStrains(w, LAB)
-  await findStrain(w, s.name, new RegExp(s.name))
+  await searchStrain(w, s.name, new RegExp(`^BAC \\d+, BAC, Active\\. .*${s.name}`))
   await openTab(w, 'Material')
   await w.click(w.page.getByRole('button', { name: 'Preserve a batch' }))
   const dialog = w.page.getByRole('dialog', { name: /^Preserve a batch of BAC/ })
@@ -43,14 +42,12 @@ test('T1 preserve a fresh batch and put it in a box', async ({ browser }, info) 
 test('T2 find where vial X is', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-technician', technician('T2', 'Find where vial BAC 29 / 2 / 7 is'))
   await w.start()
-  await openStrains(w, LAB)
-  await findStrain(w, 'BAC 29', /^BAC 29 /)
-  await openTab(w, 'Material')
-  const row = w.page.getByRole('table', { name: 'Vials' }).getByRole('row', { name: /^BAC 29 \/ 2 \/ 7 / })
-  const { total, at } = await w.screensOf(row)
+  // The label names one vial: Enter opens its strain's Material tab with only that vial (#76).
+  const row = await searchVial(w, 'BAC 29 / 2 / 7')
+  const { at } = await w.screensOf(row)
   await w.read(row)
   await expect(row).toContainText('Freezer -80 A / Rack 1 / Box 1, A7')
-  w.note(`No search by vial label: the label leads to the strain page, ${total} screens long, and the vial's row is on screen ${at}`)
+  w.note(`The vial's row is on screen ${at} of its strain's Material tab, under the passages and the batches`)
   await w.shot('strain-page')
   await w.done()
 })
@@ -63,8 +60,7 @@ test('T3 place freeze-dried ampoules into a box', async ({ browser }, info) => {
 
   const w = await Walk.as(browser, info, 'bac-technician', technician('T3', 'Place three freeze-dried ampoules into a box'))
   await w.start()
-  await openStrains(w, LAB)
-  await findStrain(w, s.name, new RegExp(s.name))
+  await searchStrain(w, s.name, new RegExp(`^BAC \\d+, BAC, Active\\. .*${s.name}`))
   await openTab(w, 'Material')
   for (const [i, label] of labels.entries()) {
     await vialAction(w, label, 'Place')
@@ -135,8 +131,7 @@ test('T6 revive a vial to start a subculture', async ({ browser }, info) => {
 
   const w = await Walk.as(browser, info, 'bac-technician', technician('T6', 'Revive a vial to start a subculture'))
   await w.start()
-  await openStrains(w, LAB)
-  await findStrain(w, s.name, new RegExp(s.name))
+  await searchStrain(w, s.name, new RegExp(`^BAC \\d+, BAC, Active\\. .*${s.name}`))
   await openTab(w, 'Material')
   await vialAction(w, labels[0] ?? '', 'Revive')
   const dialog = w.page.getByRole('alertdialog', { name: `Revive vial ${labels[0] ?? ''}?` })
@@ -154,9 +149,8 @@ test('T7 record a cracked tube to be destroyed', async ({ browser }, info) => {
   const label = labels[1] ?? ''
   const w = await Walk.as(browser, info, 'bac-technician', technician('T7', 'Record a cracked tube to be destroyed'))
   await w.start()
-  await openStrains(w, LAB)
-  await findStrain(w, s.name, new RegExp(s.name))
-  await openTab(w, 'Material')
+  // The cracked tube's label is in the hand: the search opens it alone on its strain's Material tab (#76).
+  await searchVial(w, label)
   await vialAction(w, label, 'Change state')
   const dialog = w.page.getByRole('dialog', { name: `Change the state of vial ${label}` })
   await w.choose(dialog.getByRole('combobox', { name: 'New state' }), /destroy/i)

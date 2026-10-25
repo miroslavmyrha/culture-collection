@@ -397,6 +397,36 @@ export async function strainAction(w: Walk, item: 'Reclassify' | 'Change risk gr
   await w.click(w.page.getByRole('menuitem', { name: item }))
 }
 
+/**
+ * From any page by the top bar's search (#76): a click into the field and the text. A text that
+ * names one thing exactly (a number, a vial label) opens it with Enter; otherwise the person
+ * reads the results and clicks the option. Waiting for the results is part of the run time.
+ */
+export async function topSearch(w: Walk, text: string, option?: RegExp) {
+  await w.type(w.page.getByRole('banner').getByRole('combobox', { name: 'Search' }), text)
+  if (option === undefined) {
+    await w.press('Enter')
+    return
+  }
+  const found = w.page.getByRole('listbox', { name: 'Search results' }).getByRole('option', { name: option })
+  await expect(found).toHaveCount(1, { timeout: 10_000 })
+  w.look()
+  await w.click(found)
+}
+
+/** By the top bar's search, a strain opened on its Overview tab. */
+export async function searchStrain(w: Walk, text: string, option?: RegExp) {
+  await topSearch(w, text, option)
+  await expect(w.page.getByRole('navigation', { name: 'Strain sections' }).getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
+}
+
+/** By the top bar's search, a vial by its label: its strain's Material tab with only that vial. */
+export async function searchVial(w: Walk, label: string) {
+  await topSearch(w, label)
+  await expect(w.page.getByText('Only the vial you searched for.')).toBeVisible()
+  return w.page.getByRole('table', { name: 'Vials' }).getByRole('row', { name: new RegExp(`^${label.replaceAll('/', '\\/')} `) })
+}
+
 /** From the lab's page to a strain, by the strain list's search and the row it finds. */
 export async function openStrain(w: Walk, search: string, row: RegExp) {
   await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Strains' }))

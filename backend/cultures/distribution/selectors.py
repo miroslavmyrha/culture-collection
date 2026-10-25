@@ -6,6 +6,8 @@ signers of MTAs and every document reach a person, so they need distribution.vie
 (curators and up), as deposits do.
 """
 
+import re
+
 from django.db.models import Count, Exists, OuterRef, Prefetch, Q, QuerySet, Sum
 
 from cultures.labs.access import Access
@@ -26,6 +28,9 @@ from .models import (
     ShipmentVial,
     VialReservation,
 )
+
+# "2026/7" or "7": a year of the request counter and a number within it.
+REQUEST_NUMBER = re.compile(r"(?:(?P<year>\d{1,4})/)?(?P<number>\d{1,9})")
 
 
 def requester_list(*, access: Access, lab: Lab) -> QuerySet[Requester]:
@@ -114,11 +119,20 @@ def request_matching(
     match = Q(requester__institution__icontains=text) | Q(
         lines__strain__accession_number__icontains=text
     )
-    year, _, number = text.rpartition("/")
-    if number.isdigit() and (not year or year.isdigit()):
-        by_number = Q(number=int(number))
-        match |= by_number & Q(year=int(year)) if year else by_number
+    number = request_number(text)
+    if number is not None:
+        match |= number
     return requests.filter(pk__in=requests.filter(match).values("pk"))
+
+
+def request_number(text: str) -> Q | None:
+    """A request's number as people write it, "2026/7" or "7", or None for other text. The
+    request list and the top bar's search (#76) read it the same way."""
+    found = REQUEST_NUMBER.fullmatch("".join(text.split()))
+    if found is None:
+        return None
+    by_number = Q(number=int(found["number"]))
+    return by_number & Q(year=int(found["year"])) if found["year"] else by_number
 
 
 def request_detail(*, access: Access, lab: Lab) -> QuerySet[DistributionRequest]:

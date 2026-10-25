@@ -1,13 +1,8 @@
-import re
-
 import django_filters
-from django.db.models import Q, QuerySet
+from django.db.models import QuerySet
 
 from .models import Batch, BatchCheck, Passage, Vial
-
-# A vial's label as printed: "<accession number> / <batch> / <seq>" ("MYC 42 / 1 / 3"). The
-# spaces around the slashes may be missing, as a person types it.
-LABEL = re.compile(r"(?P<accession>\S.*?)\s*/\s*(?P<batch>\d{1,9})\s*/\s*(?P<seq>\d{1,9})")
+from .selectors import vials_by_code
 
 
 class PassageFilter(django_filters.FilterSet):  # type: ignore[misc]  # FilterSet is Any: no types
@@ -41,22 +36,15 @@ class BatchCheckFilter(django_filters.FilterSet):  # type: ignore[misc]
 class VialFilter(django_filters.FilterSet):  # type: ignore[misc]
     strain = django_filters.UUIDFilter(field_name="batch__strain__public_id")
     batch = django_filters.UUIDFilter(field_name="batch__public_id")
+    # One vial, the one a search result opens on its strain's Material tab (#76).
+    vial = django_filters.UUIDFilter(field_name="public_id")
     # What a person types or a scanner sends at the bench (#15): the vial's barcode, exactly,
     # or its label, the accession number without regard to case.
     code = django_filters.CharFilter(method="by_code", max_length=200)
 
     class Meta:
         model = Vial
-        fields = ("strain", "batch", "code")
+        fields = ("strain", "batch", "vial", "code")
 
     def by_code(self, queryset: QuerySet[Vial], name: str, value: str) -> QuerySet[Vial]:
-        text = " ".join(value.split())
-        match = Q(barcode=text)
-        label = LABEL.fullmatch(text)
-        if label is not None:
-            match |= Q(
-                batch__strain__accession_number__iexact=label["accession"],
-                batch__number=int(label["batch"]),
-                seq=int(label["seq"]),
-            )
-        return queryset.filter(match)
+        return vials_by_code(queryset, value)

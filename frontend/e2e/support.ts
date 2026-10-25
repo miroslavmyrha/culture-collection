@@ -4,7 +4,8 @@ import { expect, type Locator, type Page } from '@playwright/test'
 
 // Seeded by `python manage.py seed_e2e` (backend/cultures/labs/management/commands/seed_e2e.py),
 // locally and in CI: the user manages the lab "E2E lab", e2e-curator, e2e-technician and e2e-viewer
-// are its curator, technician and viewer, e2e-colleague is in no lab.
+// are its curator, technician and viewer, e2e-colleague is in no lab, e2e-outsider views only "E2E
+// other lab".
 export const username = process.env.E2E_USERNAME ?? 'e2e-user'
 export const password = process.env.E2E_PASSWORD ?? 'e2e correct horse battery'
 
@@ -13,7 +14,7 @@ export const password = process.env.E2E_PASSWORD ?? 'e2e correct horse battery'
  * to the file below, so the whole run stays under the login throttle (10 sign-ins a minute per
  * client). Only login.spec.ts signs in on its own, because sign-in is what it tests.
  */
-export const signedInUsers = [username, 'e2e-curator', 'e2e-technician', 'e2e-viewer', 'e2e-manager']
+export const signedInUsers = [username, 'e2e-curator', 'e2e-technician', 'e2e-viewer', 'e2e-manager', 'e2e-outsider']
 export const signedInAs = (user: string) => fileURLToPath(new URL(`./.auth/${user}.json`, import.meta.url))
 
 /**
