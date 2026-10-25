@@ -60,6 +60,8 @@ export function StrainFilters({ filters, onChange }: Props) {
           <TaxonField
             label="Taxon"
             hint="With everything below it"
+            // The list is filtered by a taxon the field cannot show: an empty field would hide that.
+            error={filters.taxon && taxon.isError ? 'Could not load the taxon this list is filtered by.' : undefined}
             value={filters.taxon && taxon.data ? taxon.data : null}
             onChange={(picked) => onChange((current) => ({ ...current, taxon: picked?.public_id }))}
           />

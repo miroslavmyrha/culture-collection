@@ -114,9 +114,11 @@ export function StrainMaterial({ labId, strainId, accession, canHandle, canRelea
   }
   const common = { labId, strainId, onClose: close, onExited: exited }
   const passageRows = passages.data?.results ?? []
-  // Undefined while they load: the dialogs mount their box select only once the options exist.
+  // Undefined while they load or when they failed: the dialogs mount their box select only once
+  // the options exist, and say so when the load failed (an empty list would read as no boxes).
   // A failed refresh keeps the boxes already loaded.
-  const boxList = boxes.data ?? (boxes.isError ? [] : undefined)
+  const boxList = boxes.data
+  const boxesFailed = boxes.isError && boxes.data === undefined
 
   return (
     <>
@@ -321,11 +323,11 @@ export function StrainMaterial({ labId, strainId, accession, canHandle, canRelea
       {/* Mounted until they have faded out, so onExited can place the focus; outside the
           lists' loading and error branches, which a write passes through. */}
       {open?.kind === 'preserve' && (
-        <PreserveBatchDialog {...common} accession={accession} passages={passageRows} boxes={boxList} open={open.open} />
+        <PreserveBatchDialog {...common} accession={accession} passages={passageRows} boxes={boxList} boxesFailed={boxesFailed} open={open.open} />
       )}
       {open?.kind === 'subculture' && <SubcultureDialog {...common} passage={open.passage} open={open.open} />}
       {open?.kind === 'place' && (
-        <PlaceVialDialog {...common} vial={open.vial} boxes={boxList} open={open.open} onPlaced={() => moved(open.vial.public_id)} />
+        <PlaceVialDialog {...common} vial={open.vial} boxes={boxList} boxesFailed={boxesFailed} open={open.open} onPlaced={() => moved(open.vial.public_id)} />
       )}
       {open?.kind === 'status' && <VialStatusDialog {...common} vial={open.vial} open={open.open} />}
       {open?.kind === 'revive' && <ReviveDialog {...common} vial={open.vial} open={open.open} />}

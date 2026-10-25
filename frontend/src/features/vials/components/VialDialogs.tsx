@@ -29,6 +29,9 @@ import { vialError } from '../vialErrors'
 type Common = { labId: string; strainId: string; open: boolean; onClose: () => void; onExited: () => void }
 
 const REASON_HINT = 'Stored for good with the change. Name no person.'
+// A failed box load is no empty list: "no boxes" would read as a lab without storage.
+const BOXES_FAILED = 'Could not load the boxes. Close this dialog and try again.'
+const BOXES_FAILED_PRESERVE = 'Could not load the boxes, so the vials cannot be placed now. Close this dialog and try again, or preserve them and place them later.'
 const choose = (label: string) => ({ value: '', label })
 
 /**
@@ -48,11 +51,11 @@ function placeError<T extends FieldValues>(
   return applyServerErrors(error, fields, setError) ? undefined : vialError(error)
 }
 
-type PreserveProps = Common & { accession: string; passages: readonly Passage[]; boxes: readonly BoxChoice[] | undefined }
+type PreserveProps = Common & { accession: string; passages: readonly Passage[]; boxes: readonly BoxChoice[] | undefined; boxesFailed?: boolean }
 
 const passageLabel = (p: Passage) => (p.number === 0 ? 'Passage 0, as received' : `Passage ${p.number}`)
 
-export function PreserveBatchDialog({ labId, strainId, accession, passages, boxes, open, onClose, onExited }: PreserveProps) {
+export function PreserveBatchDialog({ labId, strainId, accession, passages, boxes, boxesFailed, open, onClose, onExited }: PreserveProps) {
   const preserve = usePreserve(labId, strainId)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
@@ -89,7 +92,7 @@ export function PreserveBatchDialog({ labId, strainId, accession, passages, boxe
       confirmLabel="Preserve batch"
       form={formId}
       pending={preserve.isPending}
-      error={failure}
+      error={failure ?? (boxesFailed ? BOXES_FAILED_PRESERVE : undefined)}
       onClose={onClose}
       onExited={onExited}
     >
@@ -127,7 +130,7 @@ export function PreserveBatchDialog({ labId, strainId, accession, passages, boxe
             {...register('box')}
           />
         ) : (
-          <Typography>Loading the boxes…</Typography>
+          !boxesFailed && <Typography>Loading the boxes…</Typography>
         )}
       </Stack>
     </ConfirmDialog>
@@ -138,11 +141,12 @@ type VialProps = Common & { vial: Vial }
 
 type PlaceProps = VialProps & {
   boxes: readonly BoxChoice[] | undefined
+  boxesFailed?: boolean
   /** After the server placed or moved the vial, before the dialog closes. */
   onPlaced?: () => void
 }
 
-export function PlaceVialDialog({ labId, strainId, vial, boxes, open, onClose, onExited, onPlaced }: PlaceProps) {
+export function PlaceVialDialog({ labId, strainId, vial, boxes, boxesFailed, open, onClose, onExited, onPlaced }: PlaceProps) {
   const place = usePlace(labId, strainId)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
@@ -177,7 +181,7 @@ export function PlaceVialDialog({ labId, strainId, vial, boxes, open, onClose, o
       confirmLabel={vial.placed ? 'Move vial' : 'Place vial'}
       form={formId}
       pending={place.isPending}
-      error={failure}
+      error={failure ?? (boxesFailed ? BOXES_FAILED : undefined)}
       onClose={onClose}
       onExited={onExited}
     >
@@ -204,7 +208,7 @@ export function PlaceVialDialog({ labId, strainId, vial, boxes, open, onClose, o
             </Stack>
           </>
         ) : (
-          <Typography>Loading the boxes…</Typography>
+          !boxesFailed && <Typography>Loading the boxes…</Typography>
         )}
       </Stack>
     </ConfirmDialog>

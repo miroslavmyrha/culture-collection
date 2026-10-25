@@ -177,6 +177,20 @@ describe('the strains page', () => {
     expect(taxon).toHaveFocus()
   })
 
+  it('says when the taxa could not be searched, and when the taxon of the filter could not be loaded', async () => {
+    allowConsole(/API error 500/)
+    signedIn()
+    mockApi('get', LIST, page([makeStrainRow()]))
+    mockApiError('get', '/api/v1/taxa/', 500)
+    mockApiError('get', '/api/v1/taxa/{public_id}/', 500)
+    renderApp({ path: `/labs/${LAB_ID}/strains`, search: { taxon: testella.public_id } })
+    const taxon = await screen.findByRole('combobox', { name: 'Taxon' }, { timeout: 5000 })
+    expect(await screen.findByText(/Could not load the taxon this list is filtered by/, undefined, { timeout: 4000 })).toBeInTheDocument()
+    await userEvent.setup().type(taxon, 'Tes')
+    expect(await screen.findByText('Could not search the taxa. Change the text to try again.', undefined, { timeout: 4000 })).toBeInTheDocument()
+    expect(screen.queryByText('No taxon has this name')).not.toBeInTheDocument()
+  })
+
   it('falls back to no filter for a junk value in the URL', async () => {
     signedIn()
     const calls = mockApi('get', LIST, page([makeStrainRow()]))
