@@ -110,8 +110,9 @@ from cultures.lineage.models import (
 )
 from cultures.storage import services as storage
 from cultures.storage.models import BoxType, StorageUnit, UnitKind, UnitStatus
+from cultures.strains import seeding as seed_strains
 from cultures.strains import services as strains
-from cultures.strains.models import Pathogenicity, Strain, StrainRestriction
+from cultures.strains.models import Pathogenicity, Strain
 from cultures.taxonomy import seeding as seed_taxa
 from cultures.taxonomy.models import Rank, Taxon
 from cultures.users import seeding as seed_users
@@ -166,6 +167,11 @@ def foreign_labs() -> list[Lab]:
         for lab in Lab.objects.order_by("code")
         if created_by.get(lab.public_id) not in SEED_LABELS
     ]
+
+
+def staff(code: str, role: Role) -> Access:
+    """The access of the lab's member in this role."""
+    return access_for(User.objects.get(username=lab_username(code, role)))
 
 
 def day(text: str | None) -> date | None:
@@ -228,7 +234,14 @@ class Command(BaseCommand):
                 lab_by_code = {row["code"]: self._lab(row, password) for row in data["labs"]}
                 self._extra_users(lab_by_code, password)
                 for row in data["strains"]:
-                    self._strain(row, lab_by_code[row["lab"]], data["taxa"])
+                    # Entered with the curator's role, never changed afterwards.
+                    created = seed_strains.strain(
+                        staff(row["lab"], Role.CURATOR),
+                        staff(row["lab"], Role.MANAGER),
+                        lab_by_code[row["lab"]],
+                        seed_strain(row, data["taxa"]),
+                    )
+                    self.strains.add(created)
                 self.deposits = Counts()
                 self._intake(data, lab_by_code)
                 for row in data["labs"]:
@@ -273,74 +286,6 @@ class Command(BaseCommand):
             users.user_deactivate(user=inactive)
         if not inactive.check_password(password):
             users.user_set_password(user=inactive, raw_password=password)
-
-    # Strains: created with the curator's role through the services, never changed afterwards.
-
-    def _strain(self, row: dict[str, Any], lab: Lab, taxa: list[dict[str, Any]]) -> None:
-        if Strain.objects.filter(lab=lab, name_as_received=row["name_as_received"]).exists():
-            self.strains.found += 1
-            return
-        facts = strain_facts(row, taxa)
-        access = access_for(User.objects.get(username=lab_username(lab.code, Role.CURATOR)))
-        strain = strains.strain_create(
-            access=access,
-            lab=lab,
-            data=strains.NewStrain(
-                name_as_received=row["name_as_received"],
-                taxon=Taxon.objects.get(name=row["taxon"]),
-                identified_on=date.fromisoformat(row["identified_on"]),
-                identification_method=row["method"],
-                risk_group=facts.risk_group,
-                animal_pathogenicity=facts.animal,
-                plant_pathogenicity=facts.plant,
-                isolation_source=row["isolation_source"],
-                country_of_origin=row["country_of_origin"],
-                isolation_date=row["isolation_date"],
-                restrictions=[restriction(r) for r in row.get("restrictions", [])],
-            ),
-        )
-        for step in row.get("history", []):
-            strain = self._step(access, strain, step)
-        self.strains.created += 1
-
-    def _step(self, access: Access, strain: Strain, step: dict[str, Any]) -> Strain:
-        if "reclassify" in step:
-            change = step["reclassify"]
-            return strains.strain_reclassify(
-                access=access,
-                strain=strain,
-                taxon=Taxon.objects.get(name=change["taxon"]),
-                identified_on=date.fromisoformat(change["identified_on"]),
-                method=change["method"],
-                reason=change["reason"],
-            )
-        if "risk_group" in step:
-            return strains.strain_set_risk_group(
-                access=access, strain=strain, risk_group=step["risk_group"], reason=step["reason"]
-            )
-        if "restriction_add" in step:
-            strains.strain_restriction_add(
-                access=access,
-                strain=strain,
-                restriction=restriction(step["restriction_add"]),
-                reason=step["reason"],
-            )
-            return strain
-        if "restriction_end" in step:
-            ending = step["restriction_end"]
-            row = StrainRestriction.objects.get(
-                strain=strain, kind=ending["kind"], reference=ending["reference"], ended_at=None
-            )
-            # Two people (#105): the curator proposes, the lab's manager confirms.
-            proposal = strains.strain_restriction_end_propose(
-                access=access, restriction=row, reason=step["reason"]
-            )
-            manager = User.objects.get(username=lab_username(strain.lab.code, Role.MANAGER))
-            strains.strain_restriction_end_confirm(
-                access=access_for(manager), restriction=row, proposal=proposal.public_id
-            )
-            return strain
-        raise CommandError(f"Unknown step in {DATA.name}: {sorted(step)}")
 
     # Depositors, MTA versions and deposits, through the deposit services.
 
@@ -746,6 +691,53 @@ def authorisation(row: dict[str, Any]) -> seed_biosafety.SeedAuthorisation:
         ended_on=ended_on,
         end_reason=row["end_reason"] if ended_on is not None else "",
     )
+
+
+def facts(row: dict[str, Any], taxa: list[dict[str, Any]]) -> seed_strains.SeedFacts:
+    known = strain_facts(row, taxa)
+    return seed_strains.SeedFacts(
+        taxon=row["taxon"],
+        identified_on=date.fromisoformat(row["identified_on"]),
+        identification_method=row["method"],
+        risk_group=known.risk_group,
+        animal_pathogenicity=known.animal,
+        plant_pathogenicity=known.plant,
+        isolation_source=row["isolation_source"],
+        country_of_origin=row["country_of_origin"],
+        isolation_date=row["isolation_date"],
+        restrictions=tuple(restriction(r) for r in row.get("restrictions", [])),
+    )
+
+
+def seed_strain(row: dict[str, Any], taxa: list[dict[str, Any]]) -> seed_strains.SeedStrain:
+    return seed_strains.SeedStrain(
+        name_as_received=row["name_as_received"],
+        facts=facts(row, taxa),
+        history=tuple(step(s) for s in row.get("history", [])),
+    )
+
+
+def step(row: dict[str, Any]) -> seed_strains.Step:
+    if "reclassify" in row:
+        change = row["reclassify"]
+        return seed_strains.Reclassify(
+            taxon=change["taxon"],
+            identified_on=date.fromisoformat(change["identified_on"]),
+            method=change["method"],
+            reason=change["reason"],
+        )
+    if "risk_group" in row:
+        return seed_strains.SetRiskGroup(risk_group=row["risk_group"], reason=row["reason"])
+    if "restriction_add" in row:
+        return seed_strains.AddRestriction(
+            restriction=restriction(row["restriction_add"]), reason=row["reason"]
+        )
+    if "restriction_end" in row:
+        ending = row["restriction_end"]
+        return seed_strains.EndRestriction(
+            kind=ending["kind"], reference=ending["reference"], reason=row["reason"]
+        )
+    raise CommandError(f"Unknown step in {DATA.name}: {sorted(row)}")
 
 
 def restriction(row: dict[str, Any]) -> strains.RestrictionInput:
