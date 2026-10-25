@@ -31,7 +31,7 @@ from cultures.labs.models import Lab, LocationGrant, Membership
 from cultures.labs.permissions import Role
 from cultures.lineage.models import Batch, BatchStatus, Vial
 from cultures.storage.models import BoxType, StorageUnit
-from cultures.taxonomy.models import Taxon
+from cultures.taxonomy.models import Rank, Taxon, TaxonStatus
 from cultures.users.models import User
 
 pytestmark = pytest.mark.django_db
@@ -267,6 +267,20 @@ def test_a_second_run_changes_nothing() -> None:
     before = (AuditEvent.objects.count(), RowChange.objects.count())
     seed()
     assert (AuditEvent.objects.count(), RowChange.objects.count()) == before
+
+
+@pytest.mark.usefixtures("env")
+def test_a_taxon_written_in_another_case_is_reused_and_gains_its_missing_parent() -> None:
+    """The seeds share one rule for taxa (#121): staff's spelling stays, no second taxon."""
+    typed = Taxon.objects.create(
+        name="bacillus subtilis", authority="", rank=Rank.SPECIES, status=TaxonStatus.ACCEPTED
+    )
+    seed()
+    found = Taxon.objects.filter(name__iexact="Bacillus subtilis", rank=Rank.SPECIES)
+    assert list(found) == [typed]
+    typed.refresh_from_db()
+    assert (typed.name, typed.authority) == ("bacillus subtilis", "")
+    assert typed.parent == Taxon.objects.get(name="Bacillus", rank=Rank.GENUS)
 
 
 @pytest.mark.usefixtures("env")

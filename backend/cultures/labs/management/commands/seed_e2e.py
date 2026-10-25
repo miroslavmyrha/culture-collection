@@ -120,7 +120,8 @@ READY_TO_PREPARE = "E2E seed: research on a dual-use strain, approved and ready 
 # Fewer free vials than this, and the next run releases another batch: the tests reserve some.
 MIN_FREE = 10
 
-# Created when missing, never changed: staff may have edited the seed's taxa. Facts from LPSN
+# Created when missing; one found (in any case) keeps what staff gave it and only gains a
+# missing parent (cultures/taxonomy/seeding.py). Facts from LPSN
 # and NCBI Taxonomy: Bacillus Cohn 1872 (taxid 1386), B. subtilis (Ehrenberg 1835) Cohn 1872
 # (1423), basionym Vibrio subtilis Ehrenberg 1835; Escherichia Castellani and Chalmers 1919 (561),
 # E. coli (Migula 1895) Castellani and Chalmers 1919 (562), basionym Bacillus coli Migula 1895.
