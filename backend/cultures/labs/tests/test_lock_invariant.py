@@ -15,7 +15,9 @@ SQL is text, so this proves the order of statements, not what PostgreSQL
 does with them: the thread races in test_concurrency.py prove that part.
 """
 
+import importlib
 import inspect
+import pkgutil
 from collections.abc import Callable
 from types import ModuleType
 
@@ -157,10 +159,18 @@ EXEMPT: dict[str, str] = {
 
 
 def public_services(module: ModuleType) -> set[str]:
+    """The public functions defined in the module, or for a package in any of its modules."""
+    modules = [module]
+    if hasattr(module, "__path__"):
+        modules += [
+            importlib.import_module(info.name)
+            for info in pkgutil.iter_modules(module.__path__, f"{module.__name__}.")
+        ]
     return {
         name
-        for name, function in inspect.getmembers(module, inspect.isfunction)
-        if function.__module__ == module.__name__ and not name.startswith("_")
+        for each in modules
+        for name, function in inspect.getmembers(each, inspect.isfunction)
+        if function.__module__ == each.__name__ and not name.startswith("_")
     }
 
 

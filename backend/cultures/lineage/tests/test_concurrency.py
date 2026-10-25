@@ -83,7 +83,7 @@ def test_the_index_decides_when_a_writer_skipped_the_locks(
         )
 
     events = AuditEvent.objects.count()
-    with run_before(services, "_save", competitor), pytest.raises(services.PositionTaken):
+    with run_before(services.vials, "_save", competitor), pytest.raises(services.PositionTaken):
         services.vial_place(access=access_for(technician), vial=first, box=tree.box, row=3, col=3)
     assert VialPlacement.objects.filter(vial=first).count() == 0
     assert AuditEvent.objects.count() == events
