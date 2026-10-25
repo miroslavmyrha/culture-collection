@@ -97,8 +97,8 @@ from cultures.lineage.models import (
     Vial,
 )
 from cultures.lineage.selectors import distributable
-from cultures.storage import services as storage
-from cultures.storage.models import BoxType, StorageUnit, UnitKind
+from cultures.storage import seeding as seed_storage
+from cultures.storage.models import StorageUnit, UnitKind
 from cultures.strains import services as strains
 from cultures.strains.models import Strain
 from cultures.strains.seeding import SeedFacts
@@ -162,6 +162,22 @@ SEQUENCED = "16S rRNA gene sequence"
 # (name, rows, cols), the names seed_dev uses too.
 BOX_TYPES = (("81-place cryobox (9 x 9)", 9, 9), ("100-place cryobox (10 x 10)", 10, 10))
 FREEZER = "E2E freezer"
+TREE = seed_storage.SeedUnit(
+    UnitKind.FREEZER,
+    FREEZER,
+    temperature_c=-20,
+    max_risk_group=1,
+    children=(
+        seed_storage.SeedUnit(
+            UnitKind.RACK,
+            "Rack 1",
+            slot=1,
+            children=(
+                seed_storage.SeedUnit(UnitKind.BOX, "Box 1", slot=1, box_type=BOX_TYPES[0][0]),
+            ),
+        ),
+    ),
+)
 
 
 class Command(BaseCommand):
@@ -197,8 +213,7 @@ class Command(BaseCommand):
                 seed_taxa.taxon(row)
             self._deposit(lab, curator=User.objects.get(username=CURATOR), manager=user)
             for name, rows, cols in BOX_TYPES:
-                if not BoxType.objects.filter(name__iexact=name).exists():
-                    storage.box_type_create(name=name, rows=rows, cols=cols)
+                seed_storage.box_type(name, rows, cols)
             self._storage(lab, User.objects.get(username=CURATOR))
             self._regulated(lab, curator=User.objects.get(username=CURATOR), manager=user)
             self._released(
@@ -245,20 +260,7 @@ class Command(BaseCommand):
 
     def _storage(self, lab: Lab, curator: User) -> None:
         """The fixed tree, created when missing and never changed."""
-        access = access_for(curator)
-
-        def unit(name: str, parent: StorageUnit | None, data: storage.NewUnit) -> StorageUnit:
-            found = StorageUnit.objects.filter(lab=lab, parent=parent, name=name).first()
-            return found or storage.unit_create(access=access, lab=lab, data=data)
-
-        freezer = unit(
-            FREEZER,
-            None,
-            storage.NewUnit(UnitKind.FREEZER, FREEZER, temperature_c=-20, max_risk_group=1),
-        )
-        rack = unit("Rack 1", freezer, storage.NewUnit(UnitKind.RACK, "Rack 1", freezer, slot=1))
-        box_type = BoxType.objects.get(name=BOX_TYPES[0][0])
-        unit("Box 1", rack, storage.NewUnit(UnitKind.BOX, "Box 1", rack, slot=1, box_type=box_type))
+        seed_storage.tree(access_for(curator), lab, (TREE,))
 
     def _regulated(self, lab: Lab, *, curator: User, manager: User) -> None:
         """A regulated strain with two placed vials, and the manager's location grant."""
@@ -289,19 +291,12 @@ class Command(BaseCommand):
         strain = deposit.strain
         assert strain is not None  # noqa: S101 (accepted above)
         rack = StorageUnit.objects.get(lab=lab, parent__name=FREEZER, name="Rack 1")
-        box = StorageUnit.objects.filter(lab=lab, parent=rack, name=REGULATED_BOX).first()
-        if box is None:
-            box = storage.unit_create(
-                access=access,
-                lab=lab,
-                data=storage.NewUnit(
-                    UnitKind.BOX,
-                    REGULATED_BOX,
-                    rack,
-                    slot=2,
-                    box_type=BoxType.objects.get(name=BOX_TYPES[0][0]),
-                ),
-            )
+        box, _ = seed_storage.unit(
+            access,
+            lab,
+            seed_storage.SeedUnit(UnitKind.BOX, REGULATED_BOX, slot=2, box_type=BOX_TYPES[0][0]),
+            rack,
+        )
         if not Batch.objects.filter(strain=strain).exists():
             lineage.batch_preserve(
                 access=access,

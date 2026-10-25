@@ -106,8 +106,8 @@ from cultures.lineage.models import (
     Purpose,
     Vial,
 )
-from cultures.storage import services as storage
-from cultures.storage.models import BoxType, StorageUnit, UnitKind, UnitStatus
+from cultures.storage import seeding as seed_storage
+from cultures.storage.models import UnitKind, UnitStatus
 from cultures.strains import seeding as seed_strains
 from cultures.strains import services as strains
 from cultures.strains.models import Pathogenicity, Strain
@@ -181,6 +181,10 @@ class Counts:
     created: int = 0
     found: int = 0
 
+    def add_counts(self, counts: tuple[int, int]) -> None:
+        self.created += counts[0]
+        self.found += counts[1]
+
     def add(self, created: bool) -> None:
         if created:
             self.created += 1
@@ -225,7 +229,7 @@ class Command(BaseCommand):
                 self.strains = Counts()
                 self.units = Counts()
                 for row in data["box_types"]:
-                    self._box_type(row)
+                    seed_storage.box_type(row["name"], row["rows"], row["cols"])
                 for row in data["taxa"]:
                     self.taxa.add(seed_taxa.taxon_filling_parent(taxon(row)))
                 seed_users.superuser(ADMIN, password)
@@ -243,7 +247,12 @@ class Command(BaseCommand):
                 self.deposits = Counts()
                 self._intake(data, lab_by_code)
                 for row in data["labs"]:
-                    self._storage(lab_by_code[row["code"]], row["storage"], parent=None)
+                    # Added with the curator's role, never changed afterwards.
+                    units = [unit(u) for u in row["storage"]]
+                    curator = staff(row["code"], Role.CURATOR)
+                    self.units.add_counts(
+                        seed_storage.tree(curator, lab_by_code[row["code"]], units)
+                    )
                 self.batches = Counts()
                 for (code, deposit), rows in _by_deposit(data["batches"]).items():
                     self._batches(lab_by_code[code], deposit, rows)
@@ -308,45 +317,6 @@ class Command(BaseCommand):
             )
             self.deposits.add(created)
 
-    # Storage: box types and units created when missing, never changed afterwards.
-
-    def _box_type(self, row: dict[str, Any]) -> None:
-        if not BoxType.objects.filter(name__iexact=row["name"]).exists():
-            storage.box_type_create(name=row["name"], rows=row["rows"], cols=row["cols"])
-
-    def _storage(self, lab: Lab, rows: list[dict[str, Any]], parent: StorageUnit | None) -> None:
-        curator = User.objects.get(username=lab_username(lab.code, Role.CURATOR))
-        for row in rows:
-            unit = StorageUnit.objects.filter(lab=lab, parent=parent, name=row["name"]).first()
-            access = access_for(curator)
-            created = unit is None
-            if unit is None:
-                unit = storage.unit_create(
-                    access=access,
-                    lab=lab,
-                    data=storage.NewUnit(
-                        kind=UnitKind(row["kind"]),
-                        name=row["name"],
-                        parent=parent,
-                        slot=row.get("slot"),
-                        barcode=row.get("barcode", ""),
-                        temperature_c=row.get("temperature_c"),
-                        max_risk_group=row.get("max_risk_group"),
-                        box_type=BoxType.objects.get(name=row["box_type"])
-                        if "box_type" in row
-                        else None,
-                    ),
-                )
-                self.units.created += 1
-            else:
-                self.units.found += 1
-            self._storage(lab, row.get("children", []), parent=unit)
-            # After what it holds: nothing goes into a unit out of service.
-            if created and "status" in row:
-                storage.unit_set_status(
-                    access=access, unit=unit, status=UnitStatus(row["status"]), reason=row["reason"]
-                )
-
     # Passages, batches and vials (#16), through the lineage services with the technician's role:
     # the bench work. A strain's batches are created in the order of the file; a strain that
     # has as many as the file lists gets no more.
@@ -361,7 +331,7 @@ class Command(BaseCommand):
             passage = self._passage(access, strain, row["passage"])
             box = None
             if row["box"]:
-                box = self._unit_at(lab, row["box"])
+                box = seed_storage.unit_at(lab, row["box"])
             lineage.batch_preserve(
                 access=access,
                 passage=passage,
@@ -424,13 +394,6 @@ class Command(BaseCommand):
             return found
         parent = self._passage(access, strain, number - 1)
         return lineage.passage_subculture(access=access, parent=parent)
-
-    def _unit_at(self, lab: Lab, names: list[str]) -> StorageUnit:
-        unit = None
-        for name in names:
-            unit = StorageUnit.objects.get(lab=lab, parent=unit, name=name)
-        assert unit is not None  # noqa: S101 (a path names at least the box)
-        return unit
 
     def _location_grant(self, lab: Lab, row: dict[str, Any]) -> None:
         """ADR 0009: who may see where the lab's regulated strains are, granted by its manager."""
@@ -695,6 +658,21 @@ def deposit(row: dict[str, Any], taxa: list[dict[str, Any]]) -> seed_deposits.Se
         )
         if accepted
         else None,
+    )
+
+
+def unit(row: dict[str, Any]) -> seed_storage.SeedUnit:
+    return seed_storage.SeedUnit(
+        kind=UnitKind(row["kind"]),
+        name=row["name"],
+        slot=row.get("slot"),
+        barcode=row.get("barcode", ""),
+        temperature_c=row.get("temperature_c"),
+        max_risk_group=row.get("max_risk_group"),
+        box_type=row.get("box_type"),
+        status=UnitStatus(row["status"]) if "status" in row else None,
+        reason=row["reason"] if "status" in row else "",
+        children=tuple(unit(child) for child in row.get("children", [])),
     )
 
 
