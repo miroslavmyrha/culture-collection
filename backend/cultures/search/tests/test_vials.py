@@ -14,7 +14,7 @@ from cultures.labs.models import Lab
 from cultures.labs.permissions import ROLES, Role
 from cultures.labs.tests.conftest import member_of, membership
 from cultures.storage.tests.conftest import Tree
-from cultures.strains import services as strains
+from cultures.strains.tests.conftest import end_restriction
 from cultures.users.models import User
 
 from .fixtures import Stock
@@ -99,13 +99,11 @@ def test_a_regulated_vial_never_carries_its_place(
 
 
 def test_an_ended_restriction_shows_the_place_again(
-    stock: Stock, curator: User, viewer: User
+    stock: Stock, curator: User, manager: User, viewer: User
 ) -> None:
-    with audit_context(channel=Channel.API, actor=curator, request_id="req-end"):
-        for restriction in stock.regulated.restrictions.filter(ended_at__isnull=True):
-            strains.strain_restriction_end(
-                access=access_for(curator), restriction=restriction, reason="delisted"
-            )
+    # The curator proposes each end, a manager confirms it (#105).
+    for restriction in stock.regulated.restrictions.filter(ended_at__isnull=True):
+        end_restriction(restriction, proposer=curator, confirmer=manager, reason="delisted")
     hit = groups(viewer, "TUBE-R")["vial"]["hits"][0]
     assert hit["location_masked"] is False
     assert hit["location"]["path"] == ["Freezer A", "Rack 1", "Box Hidden"]

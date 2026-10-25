@@ -129,6 +129,23 @@ STRAIN_RISK_GROUP_CHANGED = register(
 STRAIN_RESTRICTION_ADDED = register(
     EventType("strain_restriction_added", "{actor} added a restriction", reason_required=True)
 )
+# #105: a restriction ends in two steps. The proposal carries the reason; the confirmation is
+# strain_restriction_ended, by a manager other than the proposer, with both people and both
+# times.
+STRAIN_RESTRICTION_END_PROPOSED = register(
+    EventType(
+        "strain_restriction_end_proposed",
+        "{actor} proposed to end a restriction",
+        reason_required=True,
+    )
+)
+STRAIN_RESTRICTION_END_WITHDRAWN = register(
+    EventType(
+        "strain_restriction_end_withdrawn",
+        "{actor} withdrew a proposal to end a restriction",
+        reason_required=True,
+    )
+)
 STRAIN_RESTRICTION_ENDED = register(
     EventType("strain_restriction_ended", "{actor} ended a restriction", reason_required=True)
 )
@@ -413,6 +430,26 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "gmo_category",
             "ended_at",
             "end_reason",
+        ),
+    ),
+    # #105. The reasons are free text that names nobody; the people are user ids.
+    "strains_restrictionendproposal": RowAudit(
+        label="strains.restrictionendproposal",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "restriction_id",
+            "reason",
+            "proposed_by_id",
+            "proposed_at",
+            "confirmed_by_id",
+            "confirmed_at",
+            "withdrawn_by_id",
+            "withdrawn_at",
+            "withdraw_reason",
         ),
     ),
     "storage_boxtype": RowAudit(

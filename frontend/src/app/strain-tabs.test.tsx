@@ -29,6 +29,7 @@ const GMO = {
   created_at: '2026-02-01T10:00:00Z',
   ended_at: null,
   end_reason: '',
+  end_proposal: null,
 }
 const regulated = makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42', taxon: makeTaxon({ name: 'Testella exempli' }), restriction_history: [GMO] })
 const freezer = makeUnitRow({ name: 'Freezer Secret' })

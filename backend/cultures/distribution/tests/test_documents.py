@@ -29,7 +29,7 @@ from cultures.lineage.models import Vial
 from cultures.strains import services as strains
 from cultures.strains.models import Strain, StrainRestriction
 from cultures.strains.services import RestrictionInput
-from cultures.strains.tests.conftest import DUAL_USE, QUARANTINE, VRAT
+from cultures.strains.tests.conftest import DUAL_USE, QUARANTINE, VRAT, end_restriction
 from cultures.taxonomy.models import Rank, Taxon
 from cultures.taxonomy.tests.conftest import make_taxon
 from cultures.users.models import User
@@ -215,13 +215,13 @@ def test_the_dual_use_notice_is_the_sentence_of_the_regulation() -> None:
 
 
 def test_an_ended_dual_use_restriction_prints_no_notice(
-    supply: Supply, one_step: Any, curator: User, mockia: Taxon
+    supply: Supply, one_step: Any, curator: User, manager: User, mockia: Taxon
 ) -> None:
     """Only an active restriction regulates (strains.selectors.regulating_restrictions)."""
     strain = supply(mockia, restrictions=[DUAL_USE], vials=6)
     restriction = StrainRestriction.objects.get(strain=strain)
-    strains.strain_restriction_end(
-        access=access_for(curator), restriction=restriction, reason="Removed from Annex I."
+    end_restriction(
+        restriction, proposer=curator, confirmer=manager, reason="Removed from Annex I."
     )
     request = one_step(strain)
     assert documents.DUAL_USE_NOTICE not in note(request)
@@ -377,6 +377,7 @@ def test_the_stored_text_stays_after_the_strain_is_renamed_and_its_restriction_e
     two_step: Any,
     mockia: Taxon,
     curator: User,
+    manager: User,
     requester: Requester,
 ) -> None:
     """The strain is reclassified (its name changes) and its VRAT listing ends: a new rendering
@@ -395,9 +396,10 @@ def test_the_stored_text_stays_after_the_strain_is_renamed_and_its_restriction_e
         method="16S rRNA gene sequence",
         reason="Sequencing placed it in a new species.",
     )
-    strains.strain_restriction_end(
-        access=access,
-        restriction=StrainRestriction.objects.get(strain=strain),
+    end_restriction(
+        StrainRestriction.objects.get(strain=strain),
+        proposer=curator,
+        confirmer=manager,
         reason="Removed from Annex 1.",
     )
     assert [(d.public_id, d.text, d.text_sha256) for d in docs(request)] == before

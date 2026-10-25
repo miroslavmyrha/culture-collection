@@ -5,7 +5,7 @@ Status: accepted (#50). Open questions listed at the end.
 Amended 2026-10-19: location masking as built (#16). Amended 2026-10-20: the box grid (#15);
 distribution of regulated strains (#18, part A). Amended 2026-10-22: the shipment before the
 second person (#88); the second person at shipment (#89). Amended 2026-10-23: the
-documents of a shipment (#90).
+documents of a shipment (#90). Amended 2026-10-24: a restriction ends by two people (#105).
 Deciders: maintainer
 
 ## Context
@@ -477,3 +477,46 @@ distribution 0008`.
 Revisit when: SÚJB accepts an electronic register (the entry would become the register), a
 lab ships outside the EU (export documents, the end-user statement), the 5-day SÚJB notice of a
 cross-border VRAT or RAT is built, or a recipient asks for PDF.
+
+## Amendment 2026-10-24: a restriction ends by two people (#105)
+
+Every rule of this ADR reads "regulated" from the strain's active restrictions
+(`strains.selectors.regulating_restrictions()`): the manager's approval of a line, the shipment
+in two steps, the register entry, the masking of locations. Ending a restriction was one
+curator's action, so one person could take a strain out of all of them at once. A curator alone
+could end a VRAT's restriction, approve and ship the request in one step with no register entry,
+see where its vials are without the location grant, and add the restriction back, with nothing
+on the strain showing the window. That broke "no single account can ... ship a regulated
+strain". Ending a restriction is now one of the gated actions of the two-person rule:
+
+- **Propose.** Someone with `strains.manage` (curator or manager) proposes to end a restriction,
+  with the reason it will end with (`strain_restriction_end_proposed`, the reason required).
+  Nothing changes for the strain: the restriction stays active, and with it every rule. One
+  proposal per restriction is open at a time (`end_proposed`, 409).
+- **Confirm.** A manager (`strains.confirm_restriction_end`, a manager's permission like
+  `distribution.approve_regulated`) other than the proposer confirms the proposal they read: the
+  request names its public id, and another one open now is `end_proposal_changed` (409). The
+  proposer is refused (`confirm_own_end_proposal`, 403), a manager too. The restriction ends at
+  the confirmation's time with the proposal's reason. The event `strain_restriction_ended` holds
+  both people (public ids) and both times.
+- **Withdraw.** Anyone with `strains.manage` withdraws the open proposal with a reason
+  (`strain_restriction_end_withdrawn`). It stays with who withdrew it, when and why; a new one
+  may be proposed.
+- **The database holds it.** `strains_restrictionendproposal` is inserted open for an active
+  restriction of its lab, settled once (confirmed or withdrawn), never deleted. A check
+  constraint refuses a confirmer who is the proposer. The restriction's guard lets a restriction
+  end only at the confirmation of a proposal to end it, at that time and with its reason, so
+  `QuerySet.update()` and psql cannot skip the second person either. The runtime role has
+  SELECT, INSERT and UPDATE on the proposals.
+- **What people see.** The strain's restrictions carry the open proposal (reason, when) and
+  `confirm_refusal` for the caller; it names nobody, so every reader of the strain may see it.
+  The strain page offers the confirmation to the managers who may give it.
+
+Two managers together, or a curator and a manager, may still end a restriction: that is the rule
+for every gated action. Restrictions ended before #105 keep their end as it was.
+
+Migration impact: additive. `strains` 0004 adds the table, 0005 attaches its row audit and its
+trigger and replaces the restriction guard of 0003; `audit` 0022 adds the two event types to
+`audit_auditevent_reason_required` NOT VALID and 0023 validates it in a transaction of its own
+(as `audit.registry` asks of the append-only table). The one-step `.../restrictions/<id>/end/`
+is gone. Reversible while no proposal exists: `migrate strains 0003` and `migrate audit 0021`.

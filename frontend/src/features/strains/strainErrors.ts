@@ -18,6 +18,10 @@ export function strainError(error: unknown): string {
   if (isApiError(error) && error.code === 'risk_group_above_box_cap') return RISK_GROUP_ABOVE_BOX_CAP
   if (isApiError(error, 409) && error.code === 'accession_taken') return 'Another strain took this number at the same moment. Save again.'
   if (isApiError(error, 409) && error.code === 'restriction_ended') return 'This restriction has ended already. Reload to see it.'
+  if (isApiError(error, 409) && error.code === 'end_proposed') return 'Someone has proposed to end this restriction already. Close this and look at it again.'
+  if (isApiError(error, 409) && (error.code === 'end_not_proposed' || error.code === 'end_proposal_changed'))
+    return 'The proposal changed meanwhile. Close this and read it again before you decide.'
+  if (isApiError(error, 403) && error.code === 'confirm_own_end_proposal') return 'You proposed to end this restriction: a different manager confirms it.'
   return errorMessage(error)
 }
 

@@ -7,6 +7,7 @@ error.
 """
 
 from django.db.models import QuerySet
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.request import Request
 
@@ -15,6 +16,7 @@ from cultures.core.api import ScopedRelatedField
 from cultures.strains.countries import COUNTRY_CODES
 from cultures.strains.models import (
     Pathogenicity,
+    RestrictionEndProposal,
     Strain,
     StrainIdentification,
     StrainRestriction,
@@ -81,9 +83,31 @@ class IdentificationOutputSerializer(serializers.ModelSerializer[StrainIdentific
         read_only_fields = fields
 
 
+class EndProposalOutputSerializer(serializers.ModelSerializer[RestrictionEndProposal]):
+    """The open proposal to end a restriction (#105). It names nobody: `confirm_refusal` says
+    the caller proposed it and so may not confirm it (ADR 0009); null when they may, as far as
+    identity goes (confirming is a manager's, strains.confirm_restriction_end)."""
+
+    confirm_refusal = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RestrictionEndProposal
+        fields = ("public_id", "reason", "proposed_at", "confirm_refusal")
+        read_only_fields = fields
+
+    @extend_schema_field(
+        serializers.ChoiceField(choices=["confirm_own_end_proposal"], allow_null=True)
+    )
+    def get_confirm_refusal(self, proposal: RestrictionEndProposal) -> str | None:
+        request: Request | None = self.context.get("request")
+        user_id = getattr(getattr(request, "user", None), "pk", None)
+        return "confirm_own_end_proposal" if proposal.proposed_by_id == user_id else None
+
+
 class RestrictionOutputSerializer(serializers.ModelSerializer[StrainRestriction]):
     kind = serializers.ChoiceField(choices=RestrictionKind.choices, read_only=True)
     gmo_category = serializers.IntegerField(read_only=True, allow_null=True)
+    end_proposal = serializers.SerializerMethodField()
 
     class Meta:
         model = StrainRestriction
@@ -96,8 +120,17 @@ class RestrictionOutputSerializer(serializers.ModelSerializer[StrainRestriction]
             "created_at",
             "ended_at",
             "end_reason",
+            "end_proposal",
         )
         read_only_fields = fields
+
+    @extend_schema_field(EndProposalOutputSerializer(allow_null=True))
+    def get_end_proposal(self, restriction: StrainRestriction) -> dict[str, object] | None:
+        # strains.selectors.strain_detail prefetches the open one; an ended restriction has none.
+        open_ones: list[RestrictionEndProposal] = vars(restriction).get("open_end_proposals", [])
+        if not open_ones:
+            return None
+        return EndProposalOutputSerializer(open_ones[0], context=self.context).data
 
 
 class StrainDetailOutputSerializer(StrainListOutputSerializer):
@@ -176,5 +209,13 @@ class RestrictionAddInputSerializer(RestrictionInputSerializer):
     reason = serializers.CharField(help_text=REASON_HELP)
 
 
-class RestrictionEndInputSerializer(serializers.Serializer[None]):
-    reason = serializers.CharField(help_text=REASON_HELP)
+class EndProposeInputSerializer(serializers.Serializer[None]):
+    reason = serializers.CharField(max_length=2000, help_text=REASON_HELP)
+
+
+class EndConfirmInputSerializer(serializers.Serializer[None]):
+    proposal = serializers.UUIDField(help_text="The public id of the proposal the manager read.")
+
+
+class EndWithdrawInputSerializer(EndConfirmInputSerializer):
+    reason = serializers.CharField(max_length=2000, help_text=REASON_HELP)

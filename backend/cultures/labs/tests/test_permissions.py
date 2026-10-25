@@ -25,6 +25,7 @@ MATRIX = [
     (Perm.VIEW_STORAGE, {V, T, C, M}),
     (Perm.MANAGE_STORAGE, {C, M}),
     (Perm.MANAGE_STRAINS, {C, M}),
+    (Perm.CONFIRM_RESTRICTION_END, {M}),
     (Perm.VIEW_DEPOSITS, {C, M}),
     (Perm.VIEW_TERMS, {V, T, C, M}),
     (Perm.MANAGE_DEPOSITS, {C, M}),

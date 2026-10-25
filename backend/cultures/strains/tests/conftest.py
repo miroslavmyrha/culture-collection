@@ -33,7 +33,7 @@ from cultures.labs.models import Lab
 from cultures.labs.permissions import Role
 from cultures.labs.tests.conftest import make_lab, member_of
 from cultures.strains import services
-from cultures.strains.models import Strain
+from cultures.strains.models import Strain, StrainRestriction
 from cultures.strains.services import NewStrain, RestrictionInput
 from cultures.taxonomy.models import Rank, Taxon
 from cultures.taxonomy.tests.conftest import make_synonym, make_taxon
@@ -175,3 +175,18 @@ def make_permit(lab: Lab, kind: AuthorisationKind, **fields: Any) -> LabAuthoris
         **fields,
     }
     return LabAuthorisation.objects.create(lab=lab, kind=kind, **values)
+
+
+def end_restriction(
+    restriction: StrainRestriction, *, proposer: User, confirmer: User, reason: str = "Delisted."
+) -> StrainRestriction:
+    """Ends a restriction the only way there is (#105): one person proposes, a manager other
+    than the proposer confirms. Each in an audit context of their own."""
+    with audit_context(channel=Channel.API, actor=proposer, request_id="req-propose-end"):
+        proposal = services.strain_restriction_end_propose(
+            access=access_for(proposer), restriction=restriction, reason=reason
+        )
+    with audit_context(channel=Channel.API, actor=confirmer, request_id="req-confirm-end"):
+        return services.strain_restriction_end_confirm(
+            access=access_for(confirmer), restriction=restriction, proposal=proposal.public_id
+        )
