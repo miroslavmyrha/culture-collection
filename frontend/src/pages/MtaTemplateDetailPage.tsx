@@ -1,7 +1,8 @@
 import { getRouteApi } from '@tanstack/react-router'
 import { Link, PageTitle, Typography } from '@/components/ui'
 import { MtaTemplateDetail } from '@/features/deposits/components/MtaTemplateDetail'
-import { canHandleDeposits, canPublishMta } from '@/features/deposits/schemas'
+import { canPublishMta } from '@/features/deposits/schemas'
+import { canHandleDeposits } from '@/lib/roles'
 import { LabGate } from '@/features/labs/components/LabGate'
 
 const route = getRouteApi('/_authenticated/labs/$labId/mta-templates/$templateId')

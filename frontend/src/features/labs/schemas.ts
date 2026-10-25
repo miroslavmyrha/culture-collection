@@ -18,9 +18,6 @@ export const ROLE_LABELS: Record<Role, string> = {
 /** Only managers manage members. The server decides; this only hides what it would refuse. */
 export const canManageMembers = (role: Role | undefined): boolean => role === 'manager'
 
-/** Curators and managers see the lab's depositors, deposits and MTA templates (deposits.view). */
-export const canSeeDeposits = (role: Role | undefined): boolean => role === 'curator' || role === 'manager'
-
 /** The own role and every role below it: the ceiling of a grant (may_grant on the server). */
 export const rolesUpTo = (own: Role): Role[] => ROLES.slice(0, ROLES.indexOf(own) + 1)
 

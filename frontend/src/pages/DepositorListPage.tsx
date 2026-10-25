@@ -1,7 +1,7 @@
 import { getRouteApi } from '@tanstack/react-router'
 import { PageTitle, Typography } from '@/components/ui'
 import { DepositorList } from '@/features/deposits/components/DepositorList'
-import { canHandleDeposits } from '@/features/deposits/schemas'
+import { canHandleDeposits } from '@/lib/roles'
 import { LabGate } from '@/features/labs/components/LabGate'
 
 const route = getRouteApi('/_authenticated/labs/$labId/depositors')
