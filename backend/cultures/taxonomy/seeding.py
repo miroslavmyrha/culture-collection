@@ -1,10 +1,9 @@
 """What seed_dev and seed_e2e make of taxa, through the services.
 
-A taxon is found again by its name and rank, so a second run creates none twice. The two
-commands find and keep taxa in different ways, and each keeps its own: seed_e2e matches the
-exact name and never changes a taxon it finds (staff may have edited the seed's taxa), seed_dev
-matches the name in any case and gives a taxon it finds the parent the data names when it has
-none and is no synonym (seed_e2e creates its genera without one).
+A taxon is found again by its name in any case and its rank, so a second run creates none twice
+and a taxon staff wrote in another case is reused. One found keeps everything it has, but gains
+the parent the data names when it has none and is no synonym: seed_e2e creates its genera
+without one, and a later seed_dev run fills it.
 """
 
 from dataclasses import dataclass
@@ -23,8 +22,14 @@ class SeedTaxon:
     ncbi: str | None = None  # NCBI Taxonomy id
 
 
+def named(name: str) -> Taxon:
+    """The taxon of this name in any case, the way the seeds find taxa: one staff wrote in
+    lower case is still the seed's taxon (the database keeps names unique in any case)."""
+    return Taxon.objects.get(name__iexact=name)
+
+
 def _named(name: str | None) -> Taxon | None:
-    return Taxon.objects.get(name=name) if name else None
+    return named(name) if name else None
 
 
 def _create(data: SeedTaxon, parent: Taxon | None, accepted: Taxon | None) -> None:
@@ -42,16 +47,8 @@ def _create(data: SeedTaxon, parent: Taxon | None, accepted: Taxon | None) -> No
 
 
 def taxon(data: SeedTaxon) -> bool:
-    """seed_e2e: created when no taxon has this name and rank, never changed. True when created."""
-    if Taxon.objects.filter(name=data.name, rank=data.rank).exists():
-        return False
-    _create(data, _named(data.parent), _named(data.accepted))
-    return True
-
-
-def taxon_filling_parent(data: SeedTaxon) -> bool:
-    """seed_dev: created when no taxon has this name (in any case) and rank; one found keeps
-    everything but gains the parent when it has none and is no synonym. True when created."""
+    """Created when no taxon has this name (in any case) and rank; one found keeps everything
+    but gains the parent when it has none and is no synonym. True when created."""
     parent = _named(data.parent)
     accepted = _named(data.accepted)
     found = Taxon.objects.filter(name__iexact=data.name, rank=data.rank).first()

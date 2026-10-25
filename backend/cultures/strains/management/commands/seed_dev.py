@@ -226,7 +226,7 @@ class Command(BaseCommand):
                 for row in data["box_types"]:
                     seed_storage.box_type(row["name"], row["rows"], row["cols"])
                 for row in data["taxa"]:
-                    self.taxa.add(seed_taxa.taxon_filling_parent(taxon(row)))
+                    self.taxa.add(seed_taxa.taxon(taxon(row)))
                 seed_users.superuser(ADMIN, password)
                 lab_by_code = {row["code"]: self._lab(row, password) for row in data["labs"]}
                 self._extra_users(lab_by_code, password)

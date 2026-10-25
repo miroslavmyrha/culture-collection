@@ -17,7 +17,7 @@ from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.strains.models import Strain
 from cultures.strains.seeding import SeedFacts
-from cultures.taxonomy.models import Taxon
+from cultures.taxonomy import seeding as seed_taxa
 
 from . import services
 from .models import AbsScope, Condition, Decision, Deposit, Depositor, MtaTemplate, Use
@@ -113,7 +113,7 @@ def deposit(access: Access, lab: Lab, data: SeedDeposit) -> tuple[Deposit, bool]
         access=access,
         deposit=made,
         facts=services.StrainFacts(
-            taxon=Taxon.objects.get(name=facts.taxon),
+            taxon=seed_taxa.named(facts.taxon),
             identified_on=facts.identified_on,
             identification_method=facts.identification_method,
             risk_group=facts.risk_group,

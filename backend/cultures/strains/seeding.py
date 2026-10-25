@@ -13,7 +13,7 @@ from datetime import date
 
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
-from cultures.taxonomy.models import Taxon
+from cultures.taxonomy import seeding as seed_taxa
 
 from . import services
 from .models import Pathogenicity, Strain, StrainRestriction
@@ -85,7 +85,7 @@ def strain(curator: Access, manager: Access, lab: Lab, data: SeedStrain) -> bool
         lab=lab,
         data=services.NewStrain(
             name_as_received=data.name_as_received,
-            taxon=Taxon.objects.get(name=facts.taxon),
+            taxon=seed_taxa.named(facts.taxon),
             identified_on=facts.identified_on,
             identification_method=facts.identification_method,
             risk_group=facts.risk_group,
@@ -108,7 +108,7 @@ def _step(curator: Access, manager: Access, strain: Strain, step: Step) -> Strai
             return services.strain_reclassify(
                 access=curator,
                 strain=strain,
-                taxon=Taxon.objects.get(name=step.taxon),
+                taxon=seed_taxa.named(step.taxon),
                 identified_on=step.identified_on,
                 method=step.method,
                 reason=step.reason,
