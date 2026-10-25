@@ -1,7 +1,8 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { allowConsole } from '@/test/console'
+import { notify } from '@/lib/notify'
 import { makeDeposit, makeLab, makeMe, makeMember, makeMtaTemplate, makeRequest, makeShipmentDocument, makeStrain, makeStrainRow, makeUnit, makeUnitRow, page, problem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
@@ -281,5 +282,28 @@ describe('the account menu', () => {
     await user.click(within(alert).getByRole('button', { name: 'Close' }))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(button).toHaveFocus()
+  })
+})
+
+describe('global notices', () => {
+  it('show in the shell, above the page, and focus goes to the h1 when the last is dismissed', async () => {
+    signedIn()
+    mockApi('get', '/api/v1/labs/', page([makeLab()]))
+    renderApp({ path: '/labs' })
+    const heading = await screen.findByRole('heading', { level: 1, name: 'Labs' }, { timeout: 5000 })
+    act(() => {
+      notify.error('First failure.')
+      notify.error('Second failure.')
+    })
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('First failure.')
+    expect(screen.getByRole('main')).not.toContainElement(alert)
+    const user = userEvent.setup()
+    await user.click(within(alert).getAllByRole('button', { name: 'Dismiss' })[0]!)
+    // One is left: its close button holds the focus, not the body.
+    expect(within(screen.getByRole('alert')).getByRole('button', { name: 'Dismiss' })).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await waitFor(() => expect(heading).toHaveFocus())
   })
 })

@@ -5,6 +5,7 @@ import { type ReactNode, useEffect, useRef } from 'react'
 import { Alert, AppBar, Box, Container, Link, SkipLink, Toolbar } from '@/components/ui'
 import { SIGN_OUT_FAILED, useLogout } from '@/features/auth/api/mutations'
 import { useKnownUser } from '@/features/auth/api/queries'
+import { Notifications } from '@/components/Notifications'
 import { TopSearch } from '@/features/search/components/TopSearch'
 import { AccountMenu } from './AccountMenu'
 import { LabPicker } from './LabPicker'
@@ -73,7 +74,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </Toolbar>
       </AppBar>
       {user && labId !== undefined && <LabTabs labId={labId} />}
-      {/* Under the button that failed, in view: the global notices render after the page. Closing
+      {/* Under the button that failed, in view. Closing
           it would drop the focus with its close button, so focus goes back to sign out. */}
       {user && logout.isError && (
         <Alert
@@ -87,6 +88,8 @@ export function Layout({ children }: { children: ReactNode }) {
           {SIGN_OUT_FAILED}
         </Alert>
       )}
+      {/* The global notices (a failed save nobody handled): in view, above the page they came from. */}
+      <Notifications />
       {/* tabIndex -1: the skip link and a navigation move focus here, not only the scroll position. */}
       <Container component="main" id={MAIN_ID} tabIndex={-1} maxWidth="lg" sx={{ py: 4, flex: 1, outline: 'none' }}>
         {children}
