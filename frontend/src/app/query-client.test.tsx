@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { Notifications } from '@/components/Notifications'
 import { api, ApiError, unwrap } from '@/lib/api'
 import { problem } from '@/test/factories'
 import { mockApiError } from '@/test/mockApi'
@@ -25,7 +26,12 @@ function SaveButton({ handlesError = false }: { handlesError?: boolean }) {
 }
 
 async function clickSave(handlesError?: boolean) {
-  await renderWithProviders(<SaveButton handlesError={handlesError} />)
+  await renderWithProviders(
+    <>
+      <SaveButton handlesError={handlesError} />
+      <Notifications />
+    </>,
+  )
   await userEvent.setup().click(screen.getByRole('button', { name: 'Save' }))
 }
 

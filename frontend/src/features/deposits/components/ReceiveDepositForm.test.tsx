@@ -14,10 +14,10 @@ const PATH = '/api/v1/labs/{lab_public_id}/deposits/'
 const jana = makeDepositor({ name: 'Jana Vzorová', institution: 'Example University' })
 const std = makeMtaTemplate({ code: 'STD', version: 2, title: 'Standard MTA' })
 
-async function setup() {
+async function setup(onSaved: (deposit: Deposit) => void = () => {}) {
   mockApi('get', '/api/v1/labs/{lab_public_id}/depositors/', page([jana]))
   mockApi('get', '/api/v1/labs/{lab_public_id}/mta-templates/', page([std]))
-  const onReceived = vi.fn<(deposit: Deposit) => void>()
+  const onReceived = vi.fn<(deposit: Deposit) => void>(onSaved)
   const view = await renderWithProviders(<ReceiveDepositForm labId={LAB_ID} onReceived={onReceived} />)
   return { ...view, onReceived, user: userEvent.setup() }
 }
@@ -40,9 +40,21 @@ async function fillRequired(user: UserEvent, decision = 'permit') {
   await user.selectOptions(select('ABS scope'), 'not_in_scope')
 }
 
+// Not awaited: a blocked navigation stays pending until the dialog is answered.
+const away = (router: Awaited<ReturnType<typeof setup>>['router']) => {
+  void router.navigate({ to: '/labs' })
+}
+
 const submit = (user: UserEvent) => user.click(screen.getByRole('button', { name: 'Record the deposit' }))
 
 describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
+  it('says how many MTA versions are not in the list when the lab has more than the API gives at once', async () => {
+    mockApi('get', '/api/v1/labs/{lab_public_id}/depositors/', page([jana]))
+    mockApi('get', '/api/v1/labs/{lab_public_id}/mta-templates/', page([std], { count: 230 }))
+    await renderWithProviders(<ReceiveDepositForm labId={LAB_ID} onReceived={() => {}} />)
+    expect(await screen.findByRole('combobox', { name: 'MTA' })).toHaveAccessibleDescription(/Only the first 1 of 230 versions are listed\./)
+  })
+
   it('sends the receipt with every use decided, the MTA and the ABS facts, with the CSRF token', async () => {
     const received = makeDeposit()
     const calls = mockApi('post', PATH, received)
@@ -200,5 +212,40 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     expect(held.calls[0]?.body).toMatchObject({ terms: { mta: null } })
     held.release(201, makeDeposit())
     await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'false'), { timeout: 5000 })
+  })
+
+  describe('leaving with unsaved changes', () => {
+
+    it('lets a form nobody typed in go without asking', async () => {
+      const { router } = await setup()
+      away(router)
+      await waitFor(() => expect(router.state.location.pathname).toBe('/labs'))
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    })
+
+    it('asks when something was typed: Cancel keeps the form as it was, Leave goes on', async () => {
+      const { router, user } = await setup()
+      await user.type(field('Name as received'), 'Testella exempli K3')
+      away(router)
+      const dialog = await screen.findByRole('alertdialog', { name: 'Leave without saving?' })
+      expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+      expect(router.state.location.pathname).toBe('/')
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      await waitFor(() => expect(dialog).not.toBeInTheDocument())
+      expect(router.state.location.pathname).toBe('/')
+      expect(field('Name as received')).toHaveValue('Testella exempli K3')
+      away(router)
+      await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Leave' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/labs'))
+    })
+
+    it('does not ask after the deposit was saved, when the page moves to the deposit', async () => {
+      mockApi('post', PATH, makeDeposit())
+      const { user, router } = await setup((deposit) => void router.navigate({ to: '/labs/$labId', params: { labId: deposit.public_id } }))
+      await fillRequired(user)
+      await submit(user)
+      await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/labs\//), { timeout: 5000 })
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    })
   })
 })

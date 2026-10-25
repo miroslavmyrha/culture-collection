@@ -60,7 +60,7 @@ export function LocationGrantDialog({ labId, member, grant, open, onClose, onExi
       confirmLabel={grant ? 'Revoke' : 'Grant'}
       form={formId}
       pending={add.isPending || revoke.isPending}
-      error={failure}
+      error={failure ?? formState.errors.root?.server?.message}
       onClose={onClose}
       onExited={onExited}
     >

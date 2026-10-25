@@ -3,7 +3,6 @@ import CssBaseline from '@mui/material/CssBaseline'
 import { ThemeProvider } from '@mui/material/styles'
 import { type QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
-import { Notifications } from '@/components/Notifications'
 import { createEmotionCache } from './emotion'
 import { SCHEME_KEY, schemeStorage } from './scheme'
 import { theme } from './theme'
@@ -19,7 +18,6 @@ export function Providers({ children, client }: { children: ReactNode; client: Q
         <CssBaseline enableColorScheme />
         <QueryClientProvider client={client}>
           {children}
-          <Notifications />
         </QueryClientProvider>
       </ThemeProvider>
     </CacheProvider>

@@ -1,7 +1,7 @@
 import { getRouteApi } from '@tanstack/react-router'
 import { Link, PageTitle, Stack, Typography } from '@/components/ui'
 import { LabGate } from '@/features/labs/components/LabGate'
-import { canSeeDeposits } from '@/features/labs/schemas'
+import { canHandleDeposits } from '@/lib/roles'
 import { StrainFilters } from '@/features/strains/components/StrainFilters'
 import { StrainList } from '@/features/strains/components/StrainList'
 
@@ -23,7 +23,7 @@ export function StrainListPage() {
               Strains of {lab.name}
             </Typography>
             {/* A strain comes from an accepted deposit (ADR 0008, amendment of 2026-10-19). */}
-            {canSeeDeposits(lab.my_role) && (
+            {canHandleDeposits(lab.my_role) && (
               <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 3 }}>
                 <Link to="/labs/$labId/deposits/new" params={{ labId }}>
                   Receive a deposit

@@ -99,7 +99,7 @@ test('enforces Trusted Types; the dompurify policy exists from boot', async ({ p
   await expect(page.getByRole('form', { name: 'Sign in' })).toBeVisible()
   const result = await page.evaluate(() => {
     // Inside evaluate on purpose: this function runs in the browser.
-    // oxlint-disable-next-line unicorn/consistent-function-scoping
+    // oxlint-disable-next-line unicorn/consistent-function-scoping -- the helper must live inside evaluate: only its body is sent to the browser
     const attempt = (fn: () => void) => {
       try {
         fn()

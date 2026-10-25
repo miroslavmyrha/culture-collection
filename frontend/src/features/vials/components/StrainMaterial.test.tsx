@@ -306,6 +306,26 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
     expect(client.getQueryState(otherStrain)?.isInvalidated).toBe(false)
   })
 
+  it('says the boxes did not load, in the place and the preserve dialogs, not that there are none', async () => {
+    allowConsole(/API error 500/)
+    mockApi('get', PASSAGES, page([zero, one]))
+    mockApi('get', BATCHES, page([makeBatch({ number: 1, vials_available: 2 })]))
+    mockApi('get', VIALS, page([placed, loose, consumed]))
+    mockApiError('get', UNITS, 500)
+    await render()
+    const user = userEvent.setup()
+    await vialAction(user, 'MYC 42 / 1 / 2', 'Place')
+    const place = await screen.findByRole('dialog', { name: 'Place vial MYC 42 / 1 / 2' })
+    expect(await within(place).findByText('Could not load the boxes. Close this dialog and try again.')).toBeInTheDocument()
+    expect(within(place).queryByRole('combobox', { name: 'Box' })).not.toBeInTheDocument()
+    expect(within(place).queryByText('Loading the boxes…')).not.toBeInTheDocument()
+    await user.click(within(place).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(place).not.toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Preserve a batch' }))
+    const preserve = await screen.findByRole('dialog', { name: 'Preserve a batch of MYC 42' })
+    expect(within(preserve).getByText(/Could not load the boxes, so the vials cannot be placed now/)).toBeInTheDocument()
+  })
+
   it('places a loose vial and says inside the dialog when the position is taken', async () => {
     mockMaterial()
     mockApiError('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/place/', 409, problem(409, { code: 'position_taken' }))

@@ -256,7 +256,7 @@ test('the box page fits 320 px: the grid scrolls inside its own container, posit
 const fill = (target: Locator) =>
   target.evaluate((start) => {
     // Inside evaluate on purpose: this function runs in the browser.
-    // oxlint-disable-next-line unicorn/consistent-function-scoping
+    // oxlint-disable-next-line unicorn/consistent-function-scoping -- the helper must live inside evaluate: only its body is sent to the browser
     const parse = (css: string) => (css.match(/[\d.]+/g) ?? []).map(Number)
     const layers: number[][] = []
     for (let node: Element | null = start; node; node = node.parentElement) {

@@ -3,7 +3,7 @@ import { TabRow, tabSx } from '@/components/TabRow'
 import { Box, Container, Link } from '@/components/ui'
 import { overviewOptions } from '@/features/home/api/queries'
 import { useLab } from '@/features/labs/api/queries'
-import { canSeeDeposits } from '@/features/labs/schemas'
+import { canHandleDeposits } from '@/lib/roles'
 
 /**
  * The tabs of a lab's sections under the top bar, on every page of the lab. Navigation links, not
@@ -41,7 +41,7 @@ export function LabTabs({ labId }: { labId: string }) {
             Requests
             <TabCount count={figures?.requests_to_decide} />
           </Link>
-          {canSeeDeposits(role) && (
+          {canHandleDeposits(role) && (
             <>
               <Link to="/labs/$labId/deposits" params={params} underline="none" sx={tabSx} aria-label={counted('Deposits', figures?.deposits_to_check, 'to check')}>
                 Deposits

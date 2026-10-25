@@ -67,7 +67,7 @@ export function TaxonField({ label, hint, error, value, onChange, onBlur, name, 
         </span>
       )}
       loading={taxa.isFetching}
-      noOptionsText={search ? 'No taxon has this name' : 'Type a name'}
+      noOptionsText={taxa.isError ? 'Could not search the taxa. Change the text to try again.' : search ? 'No taxon has this name' : 'Type a name'}
     />
   )
 }

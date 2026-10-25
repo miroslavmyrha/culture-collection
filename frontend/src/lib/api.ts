@@ -143,7 +143,7 @@ export async function unwrap<T>(request: Promise<Result<T>> | Result<T>): Promis
   const { data, error, response } = result
   if (response.ok && data !== undefined) return data
   // openapi-fetch already types a body-less 204 as undefined, so T includes it there.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a 204 has no body, and callers of a body-less endpoint ask for undefined
   if (response.status === 204) return undefined as T
   // An empty error body arrives as '' from openapi-fetch; a proxy may send an HTML page.
   throw new ApiError(response.status, error === '' ? undefined : error, {
@@ -152,9 +152,13 @@ export async function unwrap<T>(request: Promise<Result<T>> | Result<T>): Promis
   })
 }
 
-/** Ensures the CSRF cookie exists before the first unsafe request. */
+/**
+ * Asks for the CSRF cookie before the first unsafe request when there is none. A failed ask
+ * stops the write with its own error (an ApiError, or status 0 without a response), so the form
+ * says what failed instead of a 403 for a write sent without a token.
+ */
 export async function ensureCsrf(): Promise<void> {
-  if (!csrfToken()) await api.GET('/api/v1/auth/csrf/')
+  if (!csrfToken()) await unwrap(api.GET('/api/v1/auth/csrf/'))
 }
 
 const MAX_RETRIES = 2

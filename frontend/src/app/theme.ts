@@ -97,6 +97,8 @@ export const schemes = { light: light.palette, dark: dark.palette }
  * both schemes (the top bar is paper too, so no control needs another ring colour there).
  * e2e/a11y.spec.ts measures every case.
  *
+ * Motion: reducedMotion 'system' (@mui/material 9.5.0, styles/createMotion.js; the default is 'never').
+ *
  * Density: compact. Small buttons, inputs and table cells; link and button targets keep 24 by 24 px
  * (WCAG 2.5.8): e2e/shell.spec.ts measures them.
  */
@@ -104,6 +106,9 @@ export const theme = createTheme({
   cssVariables: { colorSchemeSelector: 'data-color-scheme' },
   colorSchemes: { light, dark },
   focusVisible: true,
+  // 'system' follows prefers-reduced-motion: MUI's ripples and transitions (dialog, collapse,
+  // menu) drop to none for a user who asked for less motion (WCAG 2.3.3). The default is 'never'.
+  motion: { reducedMotion: 'system' },
   shape: { borderRadius: 6 },
   typography: {
     fontFamily: FONT,

@@ -47,7 +47,7 @@ export function RejectDialog({ labId, deposit, open, onClose, onExited }: Common
       confirmLabel="Reject the deposit"
       form={formId}
       pending={reject.isPending}
-      error={failure}
+      error={failure ?? formState.errors.root?.server?.message}
       onClose={onClose}
       onExited={onExited}
     >
@@ -88,7 +88,7 @@ export function ReplaceTermsDialog({ labId, deposit, open, onClose, onExited }: 
       confirmLabel="Save the new version"
       form={formId}
       pending={replace.isPending}
-      error={failure}
+      error={failure ?? formState.errors.root?.server?.message}
       onClose={onClose}
       onExited={onExited}
     >

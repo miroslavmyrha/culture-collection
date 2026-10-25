@@ -1,6 +1,6 @@
 import { createTheme } from '@mui/material/styles'
 import { describe, expect, it } from 'vitest'
-import { schemes } from './theme'
+import { schemes, theme } from './theme'
 
 // The tokens of the visual base, both schemes, computed from the theme itself: text 4.5:1 (WCAG
 // 1.4.3), borders and rings 3:1 (1.4.11), on every surface and at rest, hover and selected. The
@@ -115,3 +115,10 @@ for (const scheme of ['light', 'dark'] as const) {
     })
   })
 }
+
+describe('motion', () => {
+  it('follows the system setting for reduced motion (MUI defaults to never)', () => {
+    expect(createTheme().motion.reducedMotion).toBe('never')
+    expect(theme.motion.reducedMotion).toBe('system')
+  })
+})

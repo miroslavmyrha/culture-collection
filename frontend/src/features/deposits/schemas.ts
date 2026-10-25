@@ -21,8 +21,6 @@ export type CountryCode = Schemas['CountryCode']
 export type Role = Schemas['Role']
 export type TermsBody = Schemas['TermsInputRequest']
 
-/** Curators and managers handle depositors and deposits (deposits.view, deposits.manage). */
-export const canHandleDeposits = (role: Role | undefined): boolean => role === 'curator' || role === 'manager'
 /** Only managers publish an MTA version (deposits.manage_mta). The server decides; this hides. */
 export const canPublishMta = (role: Role | undefined): boolean => role === 'manager'
 

@@ -141,6 +141,21 @@ describe('the checks of a batch', { timeout: 20_000 }, () => {
     expect(await screen.findByText('No check recorded yet.')).toBeInTheDocument()
   })
 
+  it('says when the batch has more vials than the dialog lists', async () => {
+    mockMaterial()
+    server.use(
+      http.get('*/api/v1/labs/:lab/vials/', ({ request }) =>
+        HttpResponse.json(new URL(request.url).searchParams.get('batch') === pending.public_id ? page([vialOne], { count: 260 }) : page([otherBatchVial])),
+      ),
+    )
+    await render()
+    const { user } = await openChecks(1)
+    await user.click(await screen.findByRole('button', { name: 'Record a check' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Record a check of batch 1' })
+    const vial = await within(dialog).findByRole('combobox', { name: 'Vial checked' })
+    expect(vial).toHaveAccessibleDescription('Optional. Used up by the check. Only the first 1 of the 260 vials of the batch are listed.')
+  })
+
   it('records a check by keyboard: the methods follow the kind, the vial is one of the batch, the lists refresh', async () => {
     mockMaterial()
     const calls = mockApi('post', CHECKS, makeCheck({ kind: 'purity' }))
