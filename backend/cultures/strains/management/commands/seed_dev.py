@@ -74,8 +74,8 @@ from config.env import env_secret
 from cultures.audit.context import audit_context, audited_atomic
 from cultures.audit.models import ActorKind, AuditEvent, Channel
 from cultures.audit.registry import LAB_CREATED
-from cultures.biosafety import services as biosafety
-from cultures.biosafety.models import AuthorisationKind, LabAuthorisation, RestrictionKind
+from cultures.biosafety import seeding as seed_biosafety
+from cultures.biosafety.models import AuthorisationKind, RestrictionKind
 from cultures.deposits import services as deposits
 from cultures.deposits.models import (
     AbsScope,
@@ -253,27 +253,8 @@ class Command(BaseCommand):
         for role in LAB_ROLES:
             seed_labs.member(lab, seed_users.user(lab_username(lab.code, role), password), role)
         for permit in row["authorisations"]:
-            self._authorisation(lab, permit)
+            seed_biosafety.authorisation(lab, authorisation(permit))
         return lab
-
-    def _authorisation(self, lab: Lab, row: dict[str, Any]) -> None:
-        kind = AuthorisationKind(row["kind"])
-        found = LabAuthorisation.objects.filter(
-            lab=lab, kind=kind, permit_reference=row["permit_reference"]
-        ).first()
-        if found is None:
-            found = biosafety.authorisation_create(
-                lab=lab,
-                kind=kind,
-                permit_reference=row["permit_reference"],
-                valid_from=date.fromisoformat(row["valid_from"]),
-                expires_on=day(row["expires_on"]),
-            )
-        ended_on = day(row.get("ended_on"))
-        if ended_on is not None and found.ended_on is None:
-            biosafety.authorisation_end(
-                authorisation=found, ended_on=ended_on, reason=row["end_reason"]
-            )
 
     def _extra_users(self, lab_by_code: dict[str, Lab], password: str) -> None:
         seed_users.user(TWO_LABS, password)
@@ -752,6 +733,18 @@ def taxon(row: dict[str, Any]) -> seed_taxa.SeedTaxon:
         parent=row["parent"],
         accepted=row["accepted"],
         ncbi=row["ncbi"],
+    )
+
+
+def authorisation(row: dict[str, Any]) -> seed_biosafety.SeedAuthorisation:
+    ended_on = day(row.get("ended_on"))
+    return seed_biosafety.SeedAuthorisation(
+        kind=AuthorisationKind(row["kind"]),
+        permit_reference=row["permit_reference"],
+        valid_from=date.fromisoformat(row["valid_from"]),
+        expires_on=day(row["expires_on"]),
+        ended_on=ended_on,
+        end_reason=row["end_reason"] if ended_on is not None else "",
     )
 
 
