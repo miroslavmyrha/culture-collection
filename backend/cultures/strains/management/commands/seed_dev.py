@@ -91,26 +91,21 @@ from cultures.labs import seeding as seed_labs
 from cultures.labs.access import Access, access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
-from cultures.lineage import services as lineage
+from cultures.lineage import seeding as seed_lineage
 from cultures.lineage.models import (
-    Batch,
-    BatchCheck,
-    BatchStatus,
     CheckKind,
     CheckMethod,
     CheckResult,
     CheckStage,
     CheckUnit,
     Method,
-    Passage,
     Purpose,
-    Vial,
 )
 from cultures.storage import seeding as seed_storage
 from cultures.storage.models import UnitKind, UnitStatus
 from cultures.strains import seeding as seed_strains
 from cultures.strains import services as strains
-from cultures.strains.models import Pathogenicity, Strain
+from cultures.strains.models import Pathogenicity
 from cultures.taxonomy import seeding as seed_taxa
 from cultures.taxonomy.models import Rank
 from cultures.users import seeding as seed_users
@@ -254,13 +249,23 @@ class Command(BaseCommand):
                         seed_storage.tree(curator, lab_by_code[row["code"]], units)
                     )
                 self.batches = Counts()
-                for (code, deposit), rows in _by_deposit(data["batches"]).items():
-                    self._batches(lab_by_code[code], deposit, rows)
+                for (code, deposit_name), rows in _by_deposit(data["batches"]).items():
+                    # The bench work, by the lab's technician.
+                    strain = seed_deposits.accepted_strain(lab_by_code[code], deposit_name)
+                    bench = staff(code, Role.TECHNICIAN)
+                    made = seed_lineage.batches(bench, strain, [batch(row) for row in rows])
+                    self.batches.add_counts(made)
                 self.checks = Counts()
-                for (code, deposit, number), rows in _by_batch(data["checks"]).items():
-                    self._checks(lab_by_code[code], deposit, number, rows)
+                for (code, deposit_name, number), rows in _by_batch(data["checks"]).items():
+                    checked = seed_lineage.batch_of(lab_by_code[code], deposit_name, number)
+                    bench = staff(code, Role.TECHNICIAN)
+                    made = seed_lineage.checks(bench, checked, [check(row) for row in rows])
+                    self.checks.add_counts(made)
                 for row in data["releases"]:
-                    self._release(lab_by_code[row["lab"]], row)
+                    released = seed_lineage.batch_of(
+                        lab_by_code[row["lab"]], row["deposit"], row["batch"]
+                    )
+                    seed_lineage.release(staff(row["lab"], Role.CURATOR), released, row["reason"])
                 for row in data["location_grants"]:
                     self._location_grant(lab_by_code[row["lab"]], row)
                 self._distribution(data, lab_by_code)
@@ -316,84 +321,6 @@ class Command(BaseCommand):
                 staff(row["lab"], Role.CURATOR), lab_by_code[row["lab"]], deposit(row, data["taxa"])
             )
             self.deposits.add(created)
-
-    # Passages, batches and vials (#16), through the lineage services with the technician's role:
-    # the bench work. A strain's batches are created in the order of the file; a strain that
-    # has as many as the file lists gets no more.
-
-    def _batches(self, lab: Lab, deposit_name: str, rows: list[dict[str, Any]]) -> None:
-        technician = User.objects.get(username=lab_username(lab.code, Role.TECHNICIAN))
-        access = access_for(technician)
-        strain = seed_deposits.accepted_strain(lab, deposit_name)
-        made = Batch.objects.filter(strain=strain).count()
-        self.batches.found += min(made, len(rows))
-        for row in rows[made:]:
-            passage = self._passage(access, strain, row["passage"])
-            box = None
-            if row["box"]:
-                box = seed_storage.unit_at(lab, row["box"])
-            lineage.batch_preserve(
-                access=access,
-                passage=passage,
-                data=lineage.NewBatch(
-                    method=Method(row["method"]),
-                    purpose=Purpose(row["purpose"]),
-                    preserved_on=date.fromisoformat(row["preserved_on"]),
-                    vial_count=row["vial_count"],
-                    cryoprotectant=row["cryoprotectant"],
-                    box=box,
-                ),
-            )
-            self.batches.created += 1
-
-    # Checks of batches and their release (#17): checks by the technician (the bench work), in
-    # the order of the file; a release by the curator.
-
-    def _batch(self, lab: Lab, deposit_name: str, number: int) -> Batch:
-        return Batch.objects.get(
-            lab=lab, strain__deposit__name_as_received=deposit_name, number=number
-        )
-
-    def _checks(self, lab: Lab, deposit_name: str, number: int, rows: list[dict[str, Any]]) -> None:
-        technician = User.objects.get(username=lab_username(lab.code, Role.TECHNICIAN))
-        access = access_for(technician)
-        batch = self._batch(lab, deposit_name, number)
-        made = BatchCheck.objects.filter(batch=batch).count()
-        self.checks.found += min(made, len(rows))
-        for row in rows[made:]:
-            vial = Vial.objects.get(batch=batch, seq=row["vial"]) if row["vial"] else None
-            lineage.check_record(
-                access=access,
-                batch=batch,
-                data=lineage.NewCheck(
-                    kind=CheckKind(row["kind"]),
-                    stage=CheckStage(row["stage"]),
-                    checked_on=date.fromisoformat(row["checked_on"]),
-                    method=CheckMethod(row["method"]),
-                    result=CheckResult(row["result"]),
-                    method_detail=row["method_detail"],
-                    value=None if row["value"] is None else Decimal(row["value"]),
-                    unit=None if row["unit"] is None else CheckUnit(row["unit"]),
-                    vial=vial,
-                    note=row["note"],
-                ),
-            )
-            self.checks.created += 1
-
-    def _release(self, lab: Lab, row: dict[str, Any]) -> None:
-        batch = self._batch(lab, row["deposit"], row["batch"])
-        if batch.status != BatchStatus.PENDING_CHECK:
-            return
-        curator = User.objects.get(username=lab_username(lab.code, Role.CURATOR))
-        lineage.batch_release(access=access_for(curator), batch=batch, reason=row["reason"])
-
-    def _passage(self, access: Access, strain: Strain, number: int) -> Passage:
-        """The strain's passage with this number, grown by subculture from the one before."""
-        found = Passage.objects.filter(strain=strain, number=number).order_by("pk").first()
-        if found is not None:
-            return found
-        parent = self._passage(access, strain, number - 1)
-        return lineage.passage_subculture(access=access, parent=parent)
 
     def _location_grant(self, lab: Lab, row: dict[str, Any]) -> None:
         """ADR 0009: who may see where the lab's regulated strains are, granted by its manager."""
@@ -673,6 +600,33 @@ def unit(row: dict[str, Any]) -> seed_storage.SeedUnit:
         status=UnitStatus(row["status"]) if "status" in row else None,
         reason=row["reason"] if "status" in row else "",
         children=tuple(unit(child) for child in row.get("children", [])),
+    )
+
+
+def batch(row: dict[str, Any]) -> seed_lineage.SeedBatch:
+    return seed_lineage.SeedBatch(
+        method=Method(row["method"]),
+        purpose=Purpose(row["purpose"]),
+        preserved_on=date.fromisoformat(row["preserved_on"]),
+        vial_count=row["vial_count"],
+        cryoprotectant=row["cryoprotectant"],
+        passage=row["passage"],
+        box=tuple(row["box"]) if row["box"] else (),
+    )
+
+
+def check(row: dict[str, Any]) -> seed_lineage.SeedCheck:
+    return seed_lineage.SeedCheck(
+        kind=CheckKind(row["kind"]),
+        stage=CheckStage(row["stage"]),
+        checked_on=date.fromisoformat(row["checked_on"]),
+        method=CheckMethod(row["method"]),
+        result=CheckResult(row["result"]),
+        method_detail=row["method_detail"],
+        value=None if row["value"] is None else Decimal(row["value"]),
+        unit=None if row["unit"] is None else CheckUnit(row["unit"]),
+        vial=row["vial"] or None,
+        note=row["note"],
     )
 
 

@@ -83,16 +83,11 @@ from cultures.labs import seeding as seed_labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Role
-from cultures.lineage import services as lineage
+from cultures.lineage import seeding as seed_lineage
 from cultures.lineage.models import (
     Batch,
     BatchStatus,
-    CheckKind,
-    CheckMethod,
-    CheckResult,
-    CheckStage,
     Method,
-    Passage,
     Purpose,
     Vial,
 )
@@ -159,6 +154,8 @@ ALL_PERMITTED = seed_deposits.SeedTerms(
     AbsScope.NOT_IN_SCOPE, tuple((Use(use), Decision.PERMIT) for use in Use.values)
 )
 SEQUENCED = "16S rRNA gene sequence"
+GLYCEROL = "10 % glycerol"
+ALL_PASSED = "All three checks passed."
 # (name, rows, cols), the names seed_dev uses too.
 BOX_TYPES = (("81-place cryobox (9 x 9)", 9, 9), ("100-place cryobox (10 x 10)", 10, 10))
 FREEZER = "E2E freezer"
@@ -291,25 +288,26 @@ class Command(BaseCommand):
         strain = deposit.strain
         assert strain is not None  # noqa: S101 (accepted above)
         rack = StorageUnit.objects.get(lab=lab, parent__name=FREEZER, name="Rack 1")
-        box, _ = seed_storage.unit(
+        seed_storage.unit(
             access,
             lab,
             seed_storage.SeedUnit(UnitKind.BOX, REGULATED_BOX, slot=2, box_type=BOX_TYPES[0][0]),
             rack,
         )
-        if not Batch.objects.filter(strain=strain).exists():
-            lineage.batch_preserve(
-                access=access,
-                passage=Passage.objects.get(strain=strain, number=0),
-                data=lineage.NewBatch(
-                    method=Method.CRYO_MINUS80,
-                    purpose=Purpose.SEED,
-                    preserved_on=date(2026, 10, 5),
+        seed_lineage.batches(
+            access,
+            strain,
+            (
+                seed_lineage.SeedBatch(
+                    Method.CRYO_MINUS80,
+                    Purpose.SEED,
+                    date(2026, 10, 5),
                     vial_count=2,
-                    cryoprotectant="10 % glycerol",
-                    box=box,
+                    cryoprotectant=GLYCEROL,
+                    box=(FREEZER, "Rack 1", REGULATED_BOX),
                 ),
-            )
+            ),
+        )
         seed_labs.location_grant(
             lab,
             manager,
@@ -322,38 +320,19 @@ class Command(BaseCommand):
         strain = seed_deposits.accepted_strain(lab, SEEDED_DEPOSIT)
         if Batch.objects.filter(strain=strain, status=BatchStatus.RELEASED).exists():
             return
-        bench = access_for(technician)
-        batch = lineage.batch_preserve(
-            access=bench,
-            passage=Passage.objects.get(strain=strain, number=0),
-            data=lineage.NewBatch(
-                method=Method.CRYO_MINUS80,
-                purpose=Purpose.DISTRIBUTION,
-                preserved_on=date(2026, 10, 3),
+        seed_lineage.released_batch(
+            access_for(technician),
+            access_for(curator),
+            strain,
+            seed_lineage.SeedBatch(
+                Method.CRYO_MINUS80,
+                Purpose.DISTRIBUTION,
+                date(2026, 10, 3),
                 vial_count=2,
-                cryoprotectant="10 % glycerol",
+                cryoprotectant=GLYCEROL,
             ),
-        )
-        vial = Vial.objects.get(batch=batch, seq=1)
-        for kind, method in (
-            (CheckKind.IDENTITY, CheckMethod.SEQUENCING),
-            (CheckKind.PURITY, CheckMethod.STREAK_PLATE),
-            (CheckKind.VIABILITY, CheckMethod.GROWTH),
-        ):
-            lineage.check_record(
-                access=bench,
-                batch=batch,
-                data=lineage.NewCheck(
-                    kind=kind,
-                    stage=CheckStage.AFTER_PRESERVATION,
-                    checked_on=date(2026, 10, 5),
-                    method=method,
-                    result=CheckResult.PASS,
-                    vial=vial,
-                ),
-            )
-        lineage.batch_release(
-            access=access_for(curator), batch=batch, reason="All three checks passed."
+            checked_on=date(2026, 10, 5),
+            reason=ALL_PASSED,
         )
 
     def _distribution(self, lab: Lab, *, curator: User, technician: User, approver: User) -> None:
@@ -488,40 +467,18 @@ class Command(BaseCommand):
             distributable("batch__"), batch__strain=strain, status="available"
         ).count()
         if free < MIN_FREE:
-            self._release_stock(strain, curator, technician)
-        return strain
-
-    def _release_stock(self, strain: Strain, curator: User, technician: User) -> None:
-        bench = access_for(technician)
-        batch = lineage.batch_preserve(
-            access=bench,
-            passage=Passage.objects.get(strain=strain, number=0),
-            data=lineage.NewBatch(
-                method=Method.CRYO_MINUS80,
-                purpose=Purpose.DISTRIBUTION,
-                preserved_on=date(2026, 10, 5),
-                vial_count=21,
-                cryoprotectant="10 % glycerol",
-            ),
-        )
-        vial = Vial.objects.get(batch=batch, seq=1)
-        for kind, method in (
-            (CheckKind.IDENTITY, CheckMethod.SEQUENCING),
-            (CheckKind.PURITY, CheckMethod.STREAK_PLATE),
-            (CheckKind.VIABILITY, CheckMethod.GROWTH),
-        ):
-            lineage.check_record(
-                access=bench,
-                batch=batch,
-                data=lineage.NewCheck(
-                    kind=kind,
-                    stage=CheckStage.AFTER_PRESERVATION,
-                    checked_on=date(2026, 10, 6),
-                    method=method,
-                    result=CheckResult.PASS,
-                    vial=vial,
+            seed_lineage.released_batch(
+                access_for(technician),
+                access_for(curator),
+                strain,
+                seed_lineage.SeedBatch(
+                    Method.CRYO_MINUS80,
+                    Purpose.DISTRIBUTION,
+                    date(2026, 10, 5),
+                    vial_count=21,
+                    cryoprotectant=GLYCEROL,
                 ),
+                checked_on=date(2026, 10, 6),
+                reason=ALL_PASSED,
             )
-        lineage.batch_release(
-            access=access_for(curator), batch=batch, reason="All three checks passed."
-        )
+        return strain
