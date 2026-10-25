@@ -48,6 +48,13 @@ const away = (router: Awaited<ReturnType<typeof setup>>['router']) => {
 const submit = (user: UserEvent) => user.click(screen.getByRole('button', { name: 'Record the deposit' }))
 
 describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
+  it('says how many MTA versions are not in the list when the lab has more than the API gives at once', async () => {
+    mockApi('get', '/api/v1/labs/{lab_public_id}/depositors/', page([jana]))
+    mockApi('get', '/api/v1/labs/{lab_public_id}/mta-templates/', page([std], { count: 230 }))
+    await renderWithProviders(<ReceiveDepositForm labId={LAB_ID} onReceived={() => {}} />)
+    expect(await screen.findByRole('combobox', { name: 'MTA' })).toHaveAccessibleDescription(/Only the first 1 of 230 versions are listed\./)
+  })
+
   it('sends the receipt with every use decided, the MTA and the ABS facts, with the CSRF token', async () => {
     const received = makeDeposit()
     const calls = mockApi('post', PATH, received)

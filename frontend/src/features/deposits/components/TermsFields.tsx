@@ -24,6 +24,13 @@ const CHOOSE = { value: '', label: 'Choose' }
 const DECISION_OPTIONS = [CHOOSE, ...options(DECISION_LABELS, DECISIONS)]
 const SCOPE_OPTIONS = [CHOOSE, ...options(ABS_SCOPE_LABELS, ABS_SCOPES)]
 
+/** What the MTA field says of its list: it failed, it holds only the first versions, or the usual hint. */
+function mtaHint(list: { count: number; results: readonly unknown[] } | undefined): string {
+  if (list === undefined) return 'The MTA templates could not be loaded.'
+  const hint = 'The agreement version the depositor signed, if any.'
+  return list.count > list.results.length ? `${hint} Only the first ${list.results.length} of ${list.count} versions are listed.` : hint
+}
+
 /**
  * The terms of a deposit inside a form that has them under `terms` (FormProvider): a decision
  * for every use (nothing is preset), the MTA version, and the ABS facts of Regulation (EU)
@@ -58,7 +65,7 @@ export function TermsFields({ labId }: { labId: string }) {
       ) : (
         <SelectField
           label="MTA"
-          hint={mtas.data === undefined && mtas.isError ? 'The MTA templates could not be loaded.' : 'The agreement version the depositor signed, if any.'}
+          hint={mtaHint(mtas.data)}
           options={mtaOptions}
           error={errors?.mta?.message}
           {...register('terms.mta')}

@@ -332,7 +332,7 @@ export function StrainMaterial({ labId, strainId, accession, canHandle, canRelea
       {open?.kind === 'status' && <VialStatusDialog {...common} vial={open.vial} open={open.open} />}
       {open?.kind === 'revive' && <ReviveDialog {...common} vial={open.vial} open={open.open} />}
       {open?.kind === 'check' && (
-        <RecordCheckDialog {...common} batch={open.batch} vials={batchVials.data?.results ?? (batchVials.isError ? [] : undefined)} checks={open.checks} open={open.open} />
+        <RecordCheckDialog {...common} batch={open.batch} vials={batchVials.data?.results ?? (batchVials.isError ? [] : undefined)} vialsTotal={batchVials.data?.count} checks={open.checks} open={open.open} />
       )}
       {(open?.kind === 'release' || open?.kind === 'hold') && <BatchDecisionDialog {...common} batch={open.batch} decision={open.kind} open={open.open} />}
       {open?.kind === 'check-error' && <CheckErrorDialog {...common} check={open.check} open={open.open} />}

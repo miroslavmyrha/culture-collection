@@ -42,16 +42,24 @@ function failureOf<T extends FieldValues>(error: unknown, fields: readonly Path<
 
 const CHECK_FIELDS = ['kind', 'stage', 'checked_on', 'method', 'method_detail', 'result', 'value', 'unit', 'vial', 'note'] as const
 
+/** Says so when the list holds only the first vials of the batch: the others cannot be named here. */
+const vialHint = (shown: number, total: number | undefined) =>
+  total !== undefined && total > shown
+    ? `Optional. Used up by the check. Only the first ${shown} of the ${total} vials of the batch are listed.`
+    : 'Optional. Used up by the check.'
+
 type RecordProps = Common & {
   batch: Batch
   /** The batch's vials, undefined while they load: its available ones may be checked. */
   vials: readonly Vial[] | undefined
+  /** How many vials the batch has in all: the API gives at most 200 of them at once. */
+  vialsTotal?: number | undefined
   /** The batch's checks when loaded: a vial an earlier check used may serve again. */
   checks: readonly BatchCheck[] | undefined
 }
 
 /** Records one check of a batch (technicians and up). The vial named is used up by the check. */
-export function RecordCheckDialog({ labId, strainId, batch, vials, checks, open, onClose, onExited }: RecordProps) {
+export function RecordCheckDialog({ labId, strainId, batch, vials, vialsTotal, checks, open, onClose, onExited }: RecordProps) {
   const record = useRecordCheck(labId, strainId)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
@@ -162,7 +170,7 @@ export function RecordCheckDialog({ labId, strainId, batch, vials, checks, open,
         {vials === undefined ? (
           <Typography>Loading the vials of the batch…</Typography>
         ) : (
-          <SelectField label="Vial checked" hint="Optional. Used up by the check." options={vialOptions} error={errors.vial?.message} {...register('vial')} />
+          <SelectField label="Vial checked" hint={vialHint(vials.length, vialsTotal)} options={vialOptions} error={errors.vial?.message} {...register('vial')} />
         )}
         <TextField label="Note" hint="What was seen. Required for a reduced result. Name no person." multiline minRows={2} error={errors.note?.message} {...register('note')} />
       </Stack>

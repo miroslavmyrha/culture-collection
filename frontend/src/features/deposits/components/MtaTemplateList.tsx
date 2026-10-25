@@ -15,6 +15,11 @@ export function MtaTemplateList({ labId }: { labId: string }) {
   return (
     <>
       {stale}
+      {list.data.count > list.data.results.length && (
+        <Typography sx={{ mb: 1 }}>
+          Showing the first {list.data.results.length} of {list.data.count} MTA templates.
+        </Typography>
+      )}
       <TableContainer component={Paper} variant="outlined">
         <Table aria-label="MTA templates">
           <TableHead>

@@ -27,6 +27,12 @@ describe('MtaTemplateList', () => {
     expect(first).toHaveTextContent('0123456789ab…')
   })
 
+  it('says how many versions are hidden when the lab has more than the API gives at once', async () => {
+    mockApi('get', LIST, page([v2, makeMtaTemplate({ version: 1, public_id: '00000000-0000-4000-8000-0000000000e1' })], { count: 250 }))
+    await renderWithProviders(<MtaTemplateList labId={LAB_ID} />)
+    expect(await screen.findByText('Showing the first 2 of 250 MTA templates.')).toBeInTheDocument()
+  })
+
   it('says when there is none, and shows a load error', async () => {
     mockApi('get', LIST, page([]))
     await renderWithProviders(<MtaTemplateList labId={LAB_ID} />)
