@@ -114,6 +114,7 @@ from cultures.strains import services as strains
 from cultures.strains.models import Pathogenicity, Strain, StrainRestriction
 from cultures.taxonomy import services as taxonomy
 from cultures.taxonomy.models import IdentifierSystem, Rank, Taxon
+from cultures.users import seeding as seed_users
 from cultures.users import services as users
 from cultures.users.models import User
 
@@ -217,7 +218,7 @@ class Command(BaseCommand):
                     self._box_type(row)
                 for row in data["taxa"]:
                     self._taxon(row)
-                self._admin(password)
+                seed_users.superuser(ADMIN, password)
                 lab_by_code = {row["code"]: self._lab(row, password) for row in data["labs"]}
                 self._extra_users(lab_by_code, password)
                 for row in data["strains"]:
@@ -274,27 +275,6 @@ class Command(BaseCommand):
 
     # Users and labs.
 
-    def _user(self, username: str, password: str) -> User:
-        """An active user with this password, changed only where needed."""
-        user = User.objects.filter(username=username).first()
-        if user is None:
-            return users.user_create(username=username, password=password)
-        if not user.is_active:
-            user = users.user_activate(user=user)
-        if not user.check_password(password):
-            user = users.user_set_password(user=user, raw_password=password)
-        return user
-
-    def _admin(self, password: str) -> None:
-        admin = User.objects.filter(username=ADMIN).first()
-        if admin is None:
-            # The project's superuser path: the services, with the context's reason.
-            User.objects.create_superuser(ADMIN, password=password)
-            return
-        admin = self._user(ADMIN, password)
-        users.user_set_staff(user=admin, is_staff=True)
-        users.user_set_superuser(user=admin, is_superuser=True)
-
     def _role(self, lab: Lab, user: User, role: Role) -> None:
         membership = Membership.objects.filter(lab=lab, user=user).first()
         if membership is None:
@@ -307,7 +287,7 @@ class Command(BaseCommand):
             name=row["name"], code=row["code"]
         )
         for role in LAB_ROLES:
-            self._role(lab, self._user(lab_username(lab.code, role), password), role)
+            self._role(lab, seed_users.user(lab_username(lab.code, role), password), role)
         for permit in row["authorisations"]:
             self._authorisation(lab, permit)
         return lab
@@ -332,9 +312,11 @@ class Command(BaseCommand):
             )
 
     def _extra_users(self, lab_by_code: dict[str, Lab], password: str) -> None:
-        self._user(TWO_LABS, password)
-        self._user(NO_LAB, password)
-        inactive = User.objects.filter(username=INACTIVE).first() or self._user(INACTIVE, password)
+        seed_users.user(TWO_LABS, password)
+        seed_users.user(NO_LAB, password)
+        inactive = User.objects.filter(username=INACTIVE).first() or seed_users.user(
+            INACTIVE, password
+        )
         for username, code, role in EXTRA_MEMBERS:
             user = User.objects.get(username=username)
             missing = not Membership.objects.filter(lab=lab_by_code[code], user=user).exists()

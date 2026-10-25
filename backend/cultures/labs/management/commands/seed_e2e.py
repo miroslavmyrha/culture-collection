@@ -104,7 +104,7 @@ from cultures.strains import services as strains
 from cultures.strains.models import Strain
 from cultures.taxonomy import services as taxonomy
 from cultures.taxonomy.models import IdentifierSystem, Rank, Taxon
-from cultures.users import services as users
+from cultures.users import seeding as seed_users
 from cultures.users.models import User
 
 LAB_NAME, LAB_CODE = "E2E lab", "E2E"
@@ -169,25 +169,25 @@ class Command(BaseCommand):
             actor_label="command:seed_e2e",
             reason="reset the e2e data",  # reactivating a user needs one
         ):
-            user = self._user(username, password)
-            colleague = self._user(COLLEAGUE, None)
+            user = seed_users.user(username, password)
+            colleague = seed_users.user(COLLEAGUE, None)
             lab = Lab.objects.filter(code=LAB_CODE).first() or services.lab_create(
                 name=LAB_NAME, code=LAB_CODE
             )
             self._role(lab, user, Role.MANAGER)
             for membership in Membership.objects.filter(lab=lab, user=colleague):
                 services.membership_delete(membership=membership)
-            self._role(lab, self._user(CURATOR, password), Role.CURATOR)
-            self._role(lab, self._user(TECHNICIAN, password), Role.TECHNICIAN)
-            self._role(lab, self._user(VIEWER, password), Role.VIEWER)
-            approver = self._user(APPROVER, password)
+            self._role(lab, seed_users.user(CURATOR, password), Role.CURATOR)
+            self._role(lab, seed_users.user(TECHNICIAN, password), Role.TECHNICIAN)
+            self._role(lab, seed_users.user(VIEWER, password), Role.VIEWER)
+            approver = seed_users.user(APPROVER, password)
             for membership in Membership.objects.filter(lab=lab, user=approver):
                 services.membership_delete(membership=membership)
             other = Lab.objects.filter(code=OTHER_LAB_CODE).first() or services.lab_create(
                 name=OTHER_LAB_NAME, code=OTHER_LAB_CODE
             )
-            self._role(other, self._user(OTHER_MANAGER, None), Role.MANAGER)
-            self._role(other, self._user(OUTSIDER, password), Role.VIEWER)
+            self._role(other, seed_users.user(OTHER_MANAGER, None), Role.MANAGER)
+            self._role(other, seed_users.user(OUTSIDER, password), Role.VIEWER)
             for row in TAXA:
                 self._taxon(*row)
             self._deposit(lab, curator=User.objects.get(username=CURATOR), manager=user)
@@ -603,20 +603,6 @@ class Command(BaseCommand):
         lineage.batch_release(
             access=access_for(curator), batch=batch, reason="All three checks passed."
         )
-
-    def _user(self, username: str, password: str | None) -> User:
-        """An active user with this password (None: no usable one), changed only where needed."""
-        user = User.objects.filter(username=username).first()
-        if user is None:
-            return users.user_create(username=username, password=password)
-        if not user.is_active:
-            user = users.user_activate(user=user)
-        wrong = (
-            user.has_usable_password() if password is None else not user.check_password(password)
-        )
-        if wrong:
-            user = users.user_set_password(user=user, raw_password=password)
-        return user
 
     def _role(self, lab: Lab, user: User, role: Role) -> None:
         membership = Membership.objects.filter(lab=lab, user=user).first()
