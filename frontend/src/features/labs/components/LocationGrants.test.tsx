@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { allowConsole } from '@/test/console'
-import { makeLocationGrant, makeMember, page, problem } from '@/test/factories'
+import { makeLocationGrant, makeMember, page, problem, validationProblem } from '@/test/factories'
 import { mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { renderWithProviders } from '@/test/render'
 import { ROLES } from '../schemas'
@@ -96,6 +96,17 @@ describe('who may see regulated locations (ADR 0009)', { timeout: 20_000 }, () =
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'register')
     await user.click(within(dialog).getByRole('button', { name: 'Grant' }))
     expect(await within(dialog).findByText('This member may see regulated locations already. Reload to see it.')).toBeInTheDocument()
+  })
+
+  it('shows a 400 on a field the dialog does not have', async () => {
+    mockApi('get', GRANTS, [])
+    mockApiError('post', GRANTS, 400, validationProblem([{ attr: 'member', code: 'inactive', detail: 'This member is not active.' }]))
+    const { user } = await render()
+    await user.click(await screen.findByRole('button', { name: 'Grant regulated locations for bob' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'register')
+    await user.click(within(dialog).getByRole('button', { name: 'Grant' }))
+    expect(await within(dialog).findByText('This member is not active.')).toBeInTheDocument()
   })
 
   it('says when the grants could not be loaded, and offers no grant button then', async () => {

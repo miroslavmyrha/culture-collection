@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { allowConsole } from '@/test/console'
-import { makeDeposit, makeLab, makeMe, makeMtaTemplate, makeTaxon, makeTerms, page, problem } from '@/test/factories'
+import { makeDeposit, makeLab, makeMe, makeMtaTemplate, makeTaxon, makeTerms, page, problem, validationProblem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
@@ -112,6 +112,27 @@ describe('the deposit page', { timeout: 20_000 }, () => {
     expect(await screen.findByText(/^Rejected on .*: Mixed culture\.$/)).toBeInTheDocument()
     await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Check and decision' })).toHaveFocus(), { timeout: 5000 })
     expect(calls[0]?.body).toEqual({ reason: 'Mixed culture.' })
+  })
+
+  it('shows a 400 on another field inside the reject and the terms dialogs', async () => {
+    signedIn()
+    mockApi('get', DETAIL, deposit({ status: 'checking', terms: makeTerms({ mta: MTA }) }))
+    mockApiError('post', ACTION('reject'), 400, validationProblem([{ attr: 'status', code: 'invalid', detail: 'The deposit cannot be rejected now.' }]))
+    mockApiError('post', ACTION('terms'), 400, validationProblem([{ attr: 'version', code: 'invalid', detail: 'The terms version is out of date.' }]))
+    open()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Reject the deposit' }, { timeout: 5000 }))
+    const reject = await screen.findByRole('alertdialog')
+    await user.type(within(reject).getByRole('textbox', { name: 'Reason' }), 'Mixed culture.')
+    await user.click(within(reject).getByRole('button', { name: 'Reject the deposit' }))
+    expect(await within(reject).findByText('The deposit cannot be rejected now.')).toBeInTheDocument()
+    await user.click(within(reject).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(reject).not.toBeInTheDocument())
+    await user.click(await screen.findByRole('button', { name: 'Change the terms' }))
+    const terms = await screen.findByRole('dialog', { name: 'Change the terms' })
+    await user.type(within(terms).getByRole('textbox', { name: 'Reason' }), 'Teaching withdrawn.')
+    await user.click(within(terms).getByRole('button', { name: 'Save the new version' }))
+    expect(await within(terms).findByText('The terms version is out of date.')).toBeInTheDocument()
   })
 
   it('changes the terms from the current version, with a reason, and keeps the dialog open while it saves', async () => {
