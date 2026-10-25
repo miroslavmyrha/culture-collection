@@ -152,9 +152,13 @@ export async function unwrap<T>(request: Promise<Result<T>> | Result<T>): Promis
   })
 }
 
-/** Ensures the CSRF cookie exists before the first unsafe request. */
+/**
+ * Asks for the CSRF cookie before the first unsafe request when there is none. A failed ask
+ * stops the write with its own error (an ApiError, or status 0 without a response), so the form
+ * says what failed instead of a 403 for a write sent without a token.
+ */
 export async function ensureCsrf(): Promise<void> {
-  if (!csrfToken()) await api.GET('/api/v1/auth/csrf/')
+  if (!csrfToken()) await unwrap(api.GET('/api/v1/auth/csrf/'))
 }
 
 const MAX_RETRIES = 2

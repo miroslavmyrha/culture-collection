@@ -2,9 +2,9 @@ import { http, HttpResponse } from 'msw'
 import { QueryClient } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
 import { makeMe, problem } from '@/test/factories'
-import { mockApi, mockApiError } from '@/test/mockApi'
+import { mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { server } from '@/test/server'
-import { api, ApiError, csrfToken, errorMessage, parseRetryAfter, readProblem, retryDelay, shouldRetry, unwrap } from './api'
+import { api, ApiError, csrfToken, ensureCsrf, errorMessage, parseRetryAfter, readProblem, retryDelay, shouldRetry, unwrap } from './api'
 
 const getMe = () => unwrap(api.GET('/api/v1/auth/me/'))
 
@@ -142,5 +142,25 @@ describe('csrfToken', () => {
     expect(csrfToken()).toBe('dev')
     cookie.mockReturnValue('')
     expect(csrfToken()).toBeUndefined()
+  })
+})
+
+describe('ensureCsrf', () => {
+  it('asks once when there is no cookie and not at all when there is one', async () => {
+    const asked = recordRequests('get', '/api/v1/auth/csrf/')
+    await ensureCsrf()
+    await ensureCsrf()
+    expect(asked).toHaveLength(1)
+    expect(csrfToken()).toBe('test-token')
+  })
+
+  it('throws an ApiError when the ask gets an error status, so the write is not sent', async () => {
+    mockApiError('get', '/api/v1/auth/csrf/', 500)
+    await expect(ensureCsrf()).rejects.toMatchObject({ name: 'ApiError', status: 500 })
+  })
+
+  it('stops the write with status 0 when the ask gets no response', async () => {
+    server.use(http.get('*/api/v1/auth/csrf/', () => HttpResponse.error()))
+    await expect(ensureCsrf()).rejects.toMatchObject({ name: 'ApiError', status: 0 })
   })
 })
