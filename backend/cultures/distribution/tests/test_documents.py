@@ -13,6 +13,7 @@ from django.db import IntegrityError, connection, transaction
 from cultures.audit.context import AuditContext
 from cultures.audit.models import AuditEvent, RowChange
 from cultures.biosafety.models import RestrictionKind
+from cultures.biosafety.policy import PERMIT_TIME_ZONE
 from cultures.deposits.models import AbsScope, Use
 from cultures.distribution import documents, services
 from cultures.distribution.models import (
@@ -298,7 +299,7 @@ def test_a_register_entry_and_handover_protocol_for_a_vrat_line(
         "REGISTER ENTRY AND HANDOVER PROTOCOL",
         "List: Highly risky agent (VRAT), decree 474/2002 Sb., Annex 1, Příloha 1, bod 2",
         documents.REGISTER_NOTE,
-        f"Date: {shipment.shipped_at.date().isoformat()}",
+        f"Date: {shipment.shipped_at.astimezone(PERMIT_TIME_ZONE).date().isoformat()}",
         f"Agent: Mockia vulgaris (strain {strain.accession_number})",
         "Quantity issued: 2 vials",
         f"Vials of the strain left in the laboratory: {left}",

@@ -4,7 +4,6 @@ confirms it, the gates run again on that day, and then exactly what a shipment i
 happens. A preparation is withdrawn with a reason and stays. The database holds every rule
 against any writer. Regulated examples are the invented Mockia vulgaris."""
 
-from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -52,6 +51,7 @@ from .support import (
     approve,
     as_actor,
     confirm,
+    next_permit_day,
     open_preparation,
     prepare,
     reserved,
@@ -313,7 +313,7 @@ def test_a_permit_that_expires_between_preparation_and_confirmation_blocks_it(
     strain = supply(mockia, restrictions=[RAT], vials=6)
     add_permit(curator, requester, PermitKind.SUJB_RAT_NOTICE, expires_on=permit_today())
     request = regulated(strain=strain, prepared_by=curator)
-    with time_machine.travel(timezone.now() + timedelta(days=1), tick=False):
+    with time_machine.travel(next_permit_day(), tick=False):
         error = refused(
             services.ShipmentBlocked, "shipment_blocked", lambda: confirm(manager, request)
         )
@@ -336,7 +336,7 @@ def test_a_permit_that_expired_before_the_preparation_blocks_the_preparation(
     strain = supply(mockia, restrictions=[RAT], vials=6)
     add_permit(curator, requester, PermitKind.SUJB_RAT_NOTICE, expires_on=permit_today())
     request = regulated(strain=strain)
-    with time_machine.travel(timezone.now() + timedelta(days=1), tick=False):
+    with time_machine.travel(next_permit_day(), tick=False):
         refused(services.ShipmentBlocked, "shipment_blocked", lambda: prepare(curator, request))
 
 
