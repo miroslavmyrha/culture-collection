@@ -1,6 +1,7 @@
 import { screen } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
+import { LeaveDialog } from '@/components/UnsavedGuard'
 import { RejectDialog } from '@/features/deposits/components/DepositDialogs'
 import { CancelDialog, ConfirmShipmentDialog, WithdrawShipmentDialog } from '@/features/distribution/components/RequestDialogs'
 import { EndPermitDialog } from '@/features/distribution/components/RequesterDialogs'
@@ -20,6 +21,11 @@ import { renderWithProviders } from '@/test/render'
  */
 type Entry = { render: () => ReactElement; name: string; consequence: string }
 const DESTRUCTIVE: Record<string, Entry | Entry[]> = {
+  '/src/components/UnsavedGuard.tsx': {
+    render: () => <LeaveDialog open onStay={() => {}} onLeave={() => {}} />,
+    name: 'Leave without saving?',
+    consequence: 'What you typed on this page is lost if you leave. This cannot be undone.',
+  },
   '/src/features/labs/components/RemoveMemberDialog.tsx': {
     render: () => (
       <RemoveMemberDialog

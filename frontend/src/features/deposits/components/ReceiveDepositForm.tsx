@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRef, useState } from 'react'
 import { FormProvider, useController, useForm, useWatch } from 'react-hook-form'
+import { useUnsavedGuard } from '@/components/UnsavedGuard'
 import { Alert, Box, Button, SelectField, Stack, TextField, Typography } from '@/components/ui'
 import { errorMessage } from '@/lib/api'
 import { type FocusReturn, rememberFocus } from '@/lib/focus'
@@ -44,6 +45,7 @@ export function ReceiveDepositForm({ labId, onReceived }: Props) {
   const { value: depositor, onChange: onDepositorChange, onBlur: onDepositorBlur, name: depositorName, ref: depositorRef } = depositorController
   const condition = useWatch({ control, name: 'condition' })
   const errors = formState.errors
+  const guard = useUnsavedGuard(formState.isDirty)
 
   const onSubmit = handleSubmit((values) => {
     if (receive.isPending) return // aria-disabled keeps focus on the button, so guard here
@@ -60,7 +62,10 @@ export function ReceiveDepositForm({ labId, onReceived }: Props) {
         terms: termsBody(values.terms),
       },
       {
-        onSuccess: (deposit) => onReceived(deposit),
+        onSuccess: (deposit) => {
+          guard.allowLeaving() // the move to the saved deposit is not a way out of the form
+          onReceived(deposit)
+        },
         onError: (error) => {
           if (!applyServerErrors(error, FIELDS, setError)) setFailure(errorMessage(error))
         },
@@ -117,6 +122,7 @@ export function ReceiveDepositForm({ labId, onReceived }: Props) {
           </Box>
         </Stack>
       </Box>
+      {guard.dialog}
       {adding && (
         <DepositorDialog
           labId={labId}
