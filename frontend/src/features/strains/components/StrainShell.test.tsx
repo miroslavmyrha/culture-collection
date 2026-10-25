@@ -204,6 +204,34 @@ describe('StrainShell with the Overview tab', { timeout: 20_000 }, () => {
     await waitFor(() => expect(trigger).toHaveFocus())
   })
 
+  it('reclassifies nothing on the last valid date while the field shows an invalid one (#111)', async () => {
+    mockApi('get', DETAIL, strain)
+    terms()
+    mockApi('get', '/api/v1/taxa/', page([mockia]))
+    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/reclassify/', strain)
+    await render()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Actions for MYC 42' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Reclassify' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Reclassify MYC 42' })
+    const taxon = within(dialog).getByRole('combobox', { name: 'Taxon' })
+    await waitFor(() => expect(taxon).toHaveFocus())
+    await user.keyboard('vulg')
+    await screen.findByRole('option', { name: /Mockia vulgaris/ }, { timeout: 4000 })
+    await user.keyboard('{ArrowDown}{Enter}')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Method' }), 'MALDI-TOF MS')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'the sequence differs')
+    const day = within(dialog).getByRole('textbox', { name: 'Identified on' })
+    for (const typed of ['2026-13-45', '12.10.2026']) {
+      await user.clear(day)
+      await user.type(day, typed)
+      await user.click(within(dialog).getByRole('button', { name: 'Save identification' }))
+      await waitFor(() => expect(day).toHaveAccessibleDescription(expect.stringContaining('Enter a date as YYYY-MM-DD')))
+      expect(day).toHaveValue(typed)
+      expect(calls).toHaveLength(0)
+    }
+  })
+
   it('refuses risk group 4 inside the dialog, on the field, and stays open', async () => {
     mockApi('get', DETAIL, strain)
     terms()

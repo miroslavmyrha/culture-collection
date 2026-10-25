@@ -190,6 +190,30 @@ describe('the request page', { timeout: 20_000 }, () => {
   })
 
 
+  it('records no acceptance on the last valid date while the field shows an invalid one (#111)', async () => {
+    signedIn('curator')
+    mockApi('get', DETAIL, request())
+    open()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Record an acceptance' }, { timeout: 5000 }))
+    const dialog = await screen.findByRole('dialog', { name: 'Record an acceptance of the MTA' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Signed by' }), 'Karel Podpisový')
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: "Signer's role" }), 'responsible_scientist')
+    await user.upload(within(dialog).getByLabelText('Signed copy'), new File(['%PDF-1.4'], 'signed.pdf', { type: 'application/pdf' }))
+    const post = vi.spyOn(api, 'POST').mockResolvedValue({ data: request(), response: new Response('{}', { status: 201 }) })
+    const day = within(dialog).getByRole('textbox', { name: 'Accepted on' })
+    expect(day).toHaveValue(new Date().toLocaleDateString('sv'))
+    for (const typed of ['2026-13-45', '12.10.2026']) {
+      await user.clear(day)
+      await user.type(day, typed)
+      await user.click(within(dialog).getByRole('button', { name: 'Record the acceptance' }))
+      await waitFor(() => expect(day).toHaveAccessibleDescription(expect.stringContaining('Enter a date as YYYY-MM-DD')))
+      expect(day).toHaveValue(typed)
+      expect(post).not.toHaveBeenCalled()
+    }
+    post.mockRestore()
+  })
+
   describe('the shipment', () => {
     const vial = { public_id: '00000000-0000-4000-8000-0000000000e1', label: 'MYC 3 / 1 / 1' }
     const approved = (overrides = {}) =>
@@ -253,6 +277,34 @@ describe('the request page', { timeout: 20_000 }, () => {
       expect(within(strains).getByRole('columnheader', { name: 'Shipped vials' })).toBeInTheDocument()
       expect(within(strains).getByRole('cell', { name: 'MYC 3 / 1 / 1' })).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Ship the vials' })).not.toBeInTheDocument()
+    })
+
+    it('does not ship with the last valid coolant weight while the field shows an invalid one (#111)', async () => {
+      signedIn('curator')
+      mockApi('get', DETAIL, approved())
+      open()
+      const { user, dialog } = await openShipDialog()
+      await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Transport class' }), 'un3373')
+      await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Basis of the classification' }), 'indicative_list')
+      await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Coolant' }), 'dry_ice')
+      await fillPerson(user, dialog)
+      const calls = mockApi('post', ACTION('ship'), shipped())
+      const kg = within(dialog).getByRole('textbox', { name: 'Coolant in kg' })
+      await user.type(kg, '2,5')
+      for (const [typed, message] of [
+        ['2.5x', 'Enter kilograms, for example 2.5'],
+        ['-1', 'Enter kilograms, for example 2.5'],
+        ['2.555', 'Enter kilograms, for example 2.5'],
+        ['12345', 'Enter kilograms, for example 2.5'],
+        ['0', 'Give more than 0 kg'],
+      ] as const) {
+        await user.clear(kg)
+        await user.type(kg, typed)
+        await user.click(within(dialog).getByRole('button', { name: 'Ship' }))
+        await waitFor(() => expect(kg).toHaveAccessibleDescription(expect.stringContaining(message)))
+        expect(kg).toHaveValue(typed)
+        expect(calls).toHaveLength(0)
+      }
     })
 
     it('offers a regulated request the preparation, not the shipment in one step, and says why', async () => {

@@ -231,6 +231,36 @@ describe('the checks of a batch', { timeout: 20_000 }, () => {
     expect(calls).toHaveLength(0)
   })
 
+  it('records nothing with the last valid value or date while the field shows an invalid one (#111)', async () => {
+    mockMaterial()
+    const calls = recordRequests('post', CHECKS)
+    await render()
+    const { user } = await openChecks(1)
+    await user.click(await screen.findByRole('button', { name: 'Record a check' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Record a check of batch 1' })
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Unit' }), 'cfu_per_ml')
+    const today = new Date().toLocaleDateString('sv')
+    const cases: readonly (readonly [string, string, readonly string[], string])[] = [
+      ['Value', '12.5', ['12x', '-1', '1,5', '1.23456', '2e100'], 'Enter a number, as 12.5 or 2.1e8'],
+      ['Checked on', today, ['2026-13-45', '12.10.2026'], 'Enter a date as YYYY-MM-DD'],
+    ]
+    for (const [label, valid, invalid, message] of cases) {
+      const input = within(dialog).getByRole('textbox', { name: label })
+      await user.clear(input)
+      await user.type(input, valid)
+      for (const typed of invalid) {
+        await user.clear(input)
+        await user.type(input, typed)
+        await user.click(within(dialog).getByRole('button', { name: 'Record check' }))
+        await waitFor(() => expect(input).toHaveAccessibleDescription(expect.stringContaining(message)))
+        expect(input).toHaveValue(typed)
+        expect(calls).toHaveLength(0)
+      }
+      await user.clear(input)
+      await user.type(input, valid)
+    }
+  })
+
   it('puts a server field error on its field and a conflict in the dialog', async () => {
     mockMaterial()
     mockApiError('post', CHECKS, 400, validationProblem([{ attr: 'checked_on', code: 'invalid', detail: 'The batch was preserved on 2026-10-01: a check is not dated before.' }]))

@@ -70,6 +70,29 @@ describe('/labs/$labId/storage route', { timeout: 20_000 }, () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Freezer C' })).toBeInTheDocument()
   })
 
+  it('adds no freezer with the last valid temperature while the field shows an invalid one (#111)', async () => {
+    signedIn()
+    lab('curator')
+    mockApi('get', TREE, [])
+    const calls = mockApi('post', TREE, makeUnit({ name: 'Freezer C' }))
+    renderApp({ path: `/labs/${LAB_ID}/storage` })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Add a freezer or tank' }, { timeout: 5000 }))
+    const dialog = await screen.findByRole('dialog', { name: 'Add a freezer or tank' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Name' }), 'Freezer C')
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Highest risk group' }), '2')
+    const temperature = within(dialog).getByRole('textbox', { name: 'Temperature (°C)' })
+    await user.type(temperature, '-80')
+    for (const typed of ['-80x', '-80.5', '-80,5', '-274', '101']) {
+      await user.clear(temperature)
+      await user.type(temperature, typed)
+      await user.click(within(dialog).getByRole('button', { name: 'Add' }))
+      await waitFor(() => expect(temperature).toHaveAccessibleDescription(expect.stringContaining('Enter whole degrees from -273 to 100')))
+      expect(temperature).toHaveValue(typed)
+      expect(calls).toHaveLength(0)
+    }
+  })
+
   // The page composes the storage unit with the vials' grid: who may move vials is decided here.
   it.each([
     ['viewer', true, false],

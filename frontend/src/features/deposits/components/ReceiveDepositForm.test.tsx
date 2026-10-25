@@ -84,6 +84,33 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     })
   })
 
+  it('does not send the last valid passage count or date while the field shows an invalid one (#111)', async () => {
+    const calls = mockApi('post', PATH, makeDeposit())
+    const { user } = await setup()
+    await fillRequired(user)
+    const today = new Date().toLocaleDateString('sv')
+    const cases: readonly (readonly [string, string, readonly string[], string])[] = [
+      ['Passages stated by the depositor', '3', ['3x', '-1', '1,5', '123456'], 'Enter a whole number, or leave it empty'],
+      ['Received on', today, ['2026-13-45', '12.10.2026', '2026-10'], 'Enter a date as YYYY-MM-DD'],
+      ['Collection date', '2019-05', ['2019-5', '19-05-01', '2019-05-01x'], 'Use YYYY, YYYY-MM or YYYY-MM-DD'],
+    ]
+    for (const [label, valid, invalid, message] of cases) {
+      const input = field(label)
+      await user.clear(input)
+      await user.type(input, valid)
+      for (const typed of invalid) {
+        await user.clear(input)
+        await user.type(input, typed)
+        await submit(user)
+        await waitFor(() => expect(input).toHaveAccessibleDescription(expect.stringContaining(message)))
+        expect(input).toHaveValue(typed)
+        expect(calls).toHaveLength(0)
+      }
+      await user.clear(input)
+      await user.type(input, valid)
+    }
+  })
+
   it('presets no use and no scope: each must be chosen, the depositor focused first, nothing sent', async () => {
     const calls = recordRequests('post', PATH)
     const { user } = await setup()

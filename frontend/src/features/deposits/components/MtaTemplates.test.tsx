@@ -72,6 +72,23 @@ describe('PublishMtaForm', { timeout: 15_000 }, () => {
     expect(calls).toHaveLength(0)
   })
 
+  it('publishes nothing under the last valid code while the field shows an invalid one (#111)', async () => {
+    const calls = mockApi('post', LIST, v2)
+    const { user } = await renderForm()
+    await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Standard MTA')
+    await user.type(screen.getByRole('textbox', { name: 'Text' }), 'Line one.')
+    const code = screen.getByRole('textbox', { name: 'Code' })
+    await user.type(code, 'std')
+    for (const typed of ['s t d', '-std', 'std_1', 'a'.repeat(21)]) {
+      await user.clear(code)
+      await user.type(code, typed)
+      await user.click(screen.getByRole('button', { name: 'Publish the version' }))
+      await waitFor(() => expect(code).toHaveAccessibleDescription(expect.stringContaining('Use up to 20 letters, digits and hyphens')))
+      expect(code).toHaveValue(typed)
+      expect(calls).toHaveLength(0)
+    }
+  })
+
   it('maps a server error to its field, and a race to its own words', async () => {
     mockApiError('post', LIST, 400, validationProblem([{ attr: 'code', code: 'invalid', detail: 'Not this code.' }]))
     const { user } = await renderForm(v2)

@@ -66,6 +66,27 @@ describe('entering a request', { timeout: 30_000 }, () => {
     expect(calls).toHaveLength(0)
   })
 
+  it('does not send the last valid count of vials while the field shows an invalid one (#111)', async () => {
+    const { user } = setup()
+    await fill(user)
+    const calls = mockApi('post', POST, makeRequest())
+    const vials = screen.getByRole('textbox', { name: 'Vials of strain 1' })
+    expect(vials).toHaveValue('2')
+    for (const [typed, message] of [
+      ['12x', 'Ask for 1 to 50 vials'],
+      ['-1', 'Ask for 1 to 50 vials'],
+      ['1,5', 'Ask for 1 to 50 vials'],
+      ['51', 'Ask for 1 to 50 vials'],
+    ] as const) {
+      await user.clear(vials)
+      await user.type(vials, typed)
+      await user.click(screen.getByRole('button', { name: 'Enter the request' }))
+      await waitFor(() => expect(vials).toHaveAccessibleDescription(expect.stringContaining(message)))
+      expect(vials).toHaveValue(typed)
+      expect(calls).toHaveLength(0)
+    }
+  })
+
   it('puts the server errors on their fields, the EU refusal on the requester', async () => {
     allowConsole(/API error (400|422)/)
     const { user } = setup()
