@@ -112,8 +112,8 @@ from cultures.storage import services as storage
 from cultures.storage.models import BoxType, StorageUnit, UnitKind, UnitStatus
 from cultures.strains import services as strains
 from cultures.strains.models import Pathogenicity, Strain, StrainRestriction
-from cultures.taxonomy import services as taxonomy
-from cultures.taxonomy.models import IdentifierSystem, Rank, Taxon
+from cultures.taxonomy import seeding as seed_taxa
+from cultures.taxonomy.models import Rank, Taxon
 from cultures.users import seeding as seed_users
 from cultures.users import services as users
 from cultures.users.models import User
@@ -177,6 +177,12 @@ class Counts:
     created: int = 0
     found: int = 0
 
+    def add(self, created: bool) -> None:
+        if created:
+            self.created += 1
+        else:
+            self.found += 1
+
 
 class Command(BaseCommand):
     help = "Fill a development database with labs, users, taxa, permits, strains and storage."
@@ -217,7 +223,7 @@ class Command(BaseCommand):
                 for row in data["box_types"]:
                     self._box_type(row)
                 for row in data["taxa"]:
-                    self._taxon(row)
+                    self.taxa.add(seed_taxa.taxon_filling_parent(taxon(row)))
                 seed_users.superuser(ADMIN, password)
                 lab_by_code = {row["code"]: self._lab(row, password) for row in data["labs"]}
                 self._extra_users(lab_by_code, password)
@@ -239,39 +245,6 @@ class Command(BaseCommand):
                     self._location_grant(lab_by_code[row["lab"]], row)
                 self._distribution(data, lab_by_code)
         self._report(data)
-
-    # Taxa: created when missing, never changed, except a parent added where none is set
-    # (seed_e2e creates its genera without one).
-
-    def _taxon(self, row: dict[str, Any]) -> None:
-        rank = Rank(row["rank"])
-        parent = Taxon.objects.get(name=row["parent"]) if row["parent"] else None
-        accepted = Taxon.objects.get(name=row["accepted"]) if row["accepted"] else None
-        found = Taxon.objects.filter(name__iexact=row["name"], rank=rank).first()
-        if found is not None:
-            self.taxa.found += 1
-            if parent is not None and found.parent_id is None and found.accepted_id is None:
-                taxonomy.taxon_update(
-                    taxon=found,
-                    fields=taxonomy.TaxonFields(
-                        name=found.name, authority=found.authority, rank=rank, parent=parent
-                    ),
-                )
-            return
-        taxon = taxonomy.taxon_create(
-            fields=taxonomy.TaxonFields(
-                name=row["name"],
-                authority=row["authority"],
-                rank=rank,
-                parent=parent,
-                accepted=accepted,
-            )
-        )
-        if row["ncbi"]:
-            taxonomy.taxon_identifier_add(
-                taxon=taxon, system=IdentifierSystem.NCBI, value=row["ncbi"]
-            )
-        self.taxa.created += 1
 
     # Users and labs.
 
@@ -769,6 +742,17 @@ def _grouped(rows: list[dict[str, Any]]) -> dict[tuple[str, str], list[dict[str,
     for row in rows:
         groups.setdefault((row["lab"], row["code"]), []).append(row)
     return groups
+
+
+def taxon(row: dict[str, Any]) -> seed_taxa.SeedTaxon:
+    return seed_taxa.SeedTaxon(
+        name=row["name"],
+        authority=row["authority"],
+        rank=Rank(row["rank"]),
+        parent=row["parent"],
+        accepted=row["accepted"],
+        ncbi=row["ncbi"],
+    )
 
 
 def restriction(row: dict[str, Any]) -> strains.RestrictionInput:

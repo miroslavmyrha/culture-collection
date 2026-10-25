@@ -102,8 +102,9 @@ from cultures.storage import services as storage
 from cultures.storage.models import BoxType, StorageUnit, UnitKind
 from cultures.strains import services as strains
 from cultures.strains.models import Strain
-from cultures.taxonomy import services as taxonomy
-from cultures.taxonomy.models import IdentifierSystem, Rank, Taxon
+from cultures.taxonomy import seeding as seed_taxa
+from cultures.taxonomy.models import Rank, Taxon
+from cultures.taxonomy.seeding import SeedTaxon
 from cultures.users import seeding as seed_users
 from cultures.users.models import User
 
@@ -124,29 +125,30 @@ READY_TO_PREPARE = "E2E seed: research on a dual-use strain, approved and ready 
 # Fewer free vials than this, and the next run releases another batch: the tests reserve some.
 MIN_FREE = 10
 
-# (name, authority, rank, parent name, accepted name, NCBI Taxonomy id). Facts from LPSN and
-# NCBI Taxonomy: Bacillus Cohn 1872 (taxid 1386), B. subtilis (Ehrenberg 1835) Cohn 1872 (1423),
-# basionym Vibrio subtilis Ehrenberg 1835; Escherichia Castellani and Chalmers 1919 (561),
+# Created when missing, never changed: staff may have edited the seed's taxa. Facts from LPSN
+# and NCBI Taxonomy: Bacillus Cohn 1872 (taxid 1386), B. subtilis (Ehrenberg 1835) Cohn 1872
+# (1423), basionym Vibrio subtilis Ehrenberg 1835; Escherichia Castellani and Chalmers 1919 (561),
 # E. coli (Migula 1895) Castellani and Chalmers 1919 (562), basionym Bacillus coli Migula 1895.
-TAXA: tuple[tuple[str, str, Rank, str | None, str | None, str | None], ...] = (
-    ("Bacillus", "Cohn 1872", Rank.GENUS, None, None, "1386"),
-    ("Bacillus subtilis", "(Ehrenberg 1835) Cohn 1872", Rank.SPECIES, "Bacillus", None, "1423"),
-    ("Vibrio subtilis", "Ehrenberg 1835", Rank.SPECIES, None, "Bacillus subtilis", None),
-    ("Escherichia", "Castellani and Chalmers 1919", Rank.GENUS, None, None, "561"),
-    (
+TAXA: tuple[SeedTaxon, ...] = (
+    SeedTaxon("Bacillus", "Cohn 1872", Rank.GENUS, ncbi="1386"),
+    SeedTaxon(
+        "Bacillus subtilis", "(Ehrenberg 1835) Cohn 1872", Rank.SPECIES, "Bacillus", ncbi="1423"
+    ),
+    SeedTaxon("Vibrio subtilis", "Ehrenberg 1835", Rank.SPECIES, accepted="Bacillus subtilis"),
+    SeedTaxon("Escherichia", "Castellani and Chalmers 1919", Rank.GENUS, ncbi="561"),
+    SeedTaxon(
         "Escherichia coli",
         "(Migula 1895) Castellani and Chalmers 1919",
         Rank.SPECIES,
         "Escherichia",
-        None,
-        "562",
+        ncbi="562",
     ),
-    ("Bacillus coli", "Migula 1895", Rank.SPECIES, None, "Escherichia coli", None),
+    SeedTaxon("Bacillus coli", "Migula 1895", Rank.SPECIES, accepted="Escherichia coli"),
     # Invented: the e2e tests pair it with restrictions to exercise the gates.
-    ("Testella", "", Rank.GENUS, None, None, None),
-    ("Testella exempli", "", Rank.SPECIES, "Testella", None, None),
-    ("Mockia", "", Rank.GENUS, None, None, None),
-    ("Mockia vulgaris", "", Rank.SPECIES, "Mockia", None, None),
+    SeedTaxon("Testella", "", Rank.GENUS),
+    SeedTaxon("Testella exempli", "", Rank.SPECIES, "Testella"),
+    SeedTaxon("Mockia", "", Rank.GENUS),
+    SeedTaxon("Mockia vulgaris", "", Rank.SPECIES, "Mockia"),
 )
 # (name, rows, cols), the names seed_dev uses too.
 BOX_TYPES = (("81-place cryobox (9 x 9)", 9, 9), ("100-place cryobox (10 x 10)", 10, 10))
@@ -183,7 +185,7 @@ class Command(BaseCommand):
             seed_labs.member(other, seed_users.user(OTHER_MANAGER, None), Role.MANAGER)
             seed_labs.member(other, seed_users.user(OUTSIDER, password), Role.VIEWER)
             for row in TAXA:
-                self._taxon(*row)
+                seed_taxa.taxon(row)
             self._deposit(lab, curator=User.objects.get(username=CURATOR), manager=user)
             for name, rows, cols in BOX_TYPES:
                 if not BoxType.objects.filter(name__iexact=name).exists():
@@ -212,30 +214,6 @@ class Command(BaseCommand):
             f" by {APPROVER}, who is in no lab; {OUTSIDER} views {OTHER_LAB_NAME}, which"
             f" {OTHER_MANAGER} manages"
         )
-
-    def _taxon(  # noqa: PLR0917 (one row of TAXA, spread)
-        self,
-        name: str,
-        authority: str,
-        rank: Rank,
-        parent: str | None,
-        accepted: str | None,
-        ncbi: str | None,
-    ) -> None:
-        """Created when missing, never changed: staff may have edited the seed's taxa."""
-        if Taxon.objects.filter(name=name, rank=rank).exists():
-            return
-        taxon = taxonomy.taxon_create(
-            fields=taxonomy.TaxonFields(
-                name=name,
-                authority=authority,
-                rank=rank,
-                parent=Taxon.objects.get(name=parent) if parent else None,
-                accepted=Taxon.objects.get(name=accepted) if accepted else None,
-            )
-        )
-        if ncbi:
-            taxonomy.taxon_identifier_add(taxon=taxon, system=IdentifierSystem.NCBI, value=ncbi)
 
     def _deposit(self, lab: Lab, *, curator: User, manager: User) -> None:
         """The depositor, the MTA and one accepted deposit, created through the services."""
