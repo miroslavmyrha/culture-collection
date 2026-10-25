@@ -80,9 +80,9 @@ from cultures.deposits.models import (
 from cultures.distribution import seeding
 from cultures.distribution import services as distribution
 from cultures.distribution.models import DistributionRequest, PermitKind, RequestStatus
-from cultures.labs import services
+from cultures.labs import seeding as seed_labs
 from cultures.labs.access import access_for
-from cultures.labs.models import Lab, LocationGrant, Membership
+from cultures.labs.models import Lab
 from cultures.labs.permissions import Role
 from cultures.lineage import services as lineage
 from cultures.lineage.models import (
@@ -171,23 +171,17 @@ class Command(BaseCommand):
         ):
             user = seed_users.user(username, password)
             colleague = seed_users.user(COLLEAGUE, None)
-            lab = Lab.objects.filter(code=LAB_CODE).first() or services.lab_create(
-                name=LAB_NAME, code=LAB_CODE
-            )
-            self._role(lab, user, Role.MANAGER)
-            for membership in Membership.objects.filter(lab=lab, user=colleague):
-                services.membership_delete(membership=membership)
-            self._role(lab, seed_users.user(CURATOR, password), Role.CURATOR)
-            self._role(lab, seed_users.user(TECHNICIAN, password), Role.TECHNICIAN)
-            self._role(lab, seed_users.user(VIEWER, password), Role.VIEWER)
+            lab = seed_labs.lab(LAB_NAME, LAB_CODE)
+            seed_labs.member(lab, user, Role.MANAGER)
+            seed_labs.no_member(lab, colleague)
+            seed_labs.member(lab, seed_users.user(CURATOR, password), Role.CURATOR)
+            seed_labs.member(lab, seed_users.user(TECHNICIAN, password), Role.TECHNICIAN)
+            seed_labs.member(lab, seed_users.user(VIEWER, password), Role.VIEWER)
             approver = seed_users.user(APPROVER, password)
-            for membership in Membership.objects.filter(lab=lab, user=approver):
-                services.membership_delete(membership=membership)
-            other = Lab.objects.filter(code=OTHER_LAB_CODE).first() or services.lab_create(
-                name=OTHER_LAB_NAME, code=OTHER_LAB_CODE
-            )
-            self._role(other, seed_users.user(OTHER_MANAGER, None), Role.MANAGER)
-            self._role(other, seed_users.user(OUTSIDER, password), Role.VIEWER)
+            seed_labs.no_member(lab, approver)
+            other = seed_labs.lab(OTHER_LAB_NAME, OTHER_LAB_CODE)
+            seed_labs.member(other, seed_users.user(OTHER_MANAGER, None), Role.MANAGER)
+            seed_labs.member(other, seed_users.user(OUTSIDER, password), Role.VIEWER)
             for row in TAXA:
                 self._taxon(*row)
             self._deposit(lab, curator=User.objects.get(username=CURATOR), manager=user)
@@ -367,15 +361,12 @@ class Command(BaseCommand):
                     box=box,
                 ),
             )
-        if not LocationGrant.objects.filter(
-            lab=lab, user=manager, revoked_at__isnull=True
-        ).exists():
-            services.location_grant_add(
-                access=access_for(manager),
-                lab=lab,
-                membership=Membership.objects.get(lab=lab, user=manager),
-                reason="Keeps the register of the e2e lab (invented example).",
-            )
+        seed_labs.location_grant(
+            lab,
+            manager,
+            granted_by=manager,
+            reason="Keeps the register of the e2e lab (invented example).",
+        )
 
     def _released(self, lab: Lab, *, curator: User, technician: User) -> None:
         """A batch of the seeded strain, checked by the technician and released by the curator."""
@@ -502,7 +493,7 @@ class Command(BaseCommand):
         ).exists():
             return
         # A manager for this one approval: the lab keeps the e2e user as its only manager.
-        self._role(lab, approver, Role.MANAGER)
+        seed_labs.member(lab, approver, Role.MANAGER)
         seeding.request(
             access,
             lab,
@@ -518,7 +509,7 @@ class Command(BaseCommand):
             ),
             approver=access_for(approver),
         )
-        services.membership_delete(membership=Membership.objects.get(lab=lab, user=approver))
+        seed_labs.no_member(lab, approver)
 
     def _supply(  # noqa: PLR0917 (one strain of the seed, spread)
         self,
@@ -603,10 +594,3 @@ class Command(BaseCommand):
         lineage.batch_release(
             access=access_for(curator), batch=batch, reason="All three checks passed."
         )
-
-    def _role(self, lab: Lab, user: User, role: Role) -> None:
-        membership = Membership.objects.filter(lab=lab, user=user).first()
-        if membership is None:
-            services.membership_create(lab=lab, user=user, role=role)
-        elif membership.role != role:
-            services.membership_set_role(membership=membership, role=role)

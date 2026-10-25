@@ -89,9 +89,9 @@ from cultures.deposits.models import (
 from cultures.distribution import seeding
 from cultures.distribution import services as distribution
 from cultures.distribution.models import LegalForm, PermitKind
-from cultures.labs import services as labs
+from cultures.labs import seeding as seed_labs
 from cultures.labs.access import Access, access_for
-from cultures.labs.models import Lab, LocationGrant, Membership
+from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
 from cultures.lineage import services as lineage
 from cultures.lineage.models import (
@@ -275,19 +275,10 @@ class Command(BaseCommand):
 
     # Users and labs.
 
-    def _role(self, lab: Lab, user: User, role: Role) -> None:
-        membership = Membership.objects.filter(lab=lab, user=user).first()
-        if membership is None:
-            labs.membership_create(lab=lab, user=user, role=role)
-        elif membership.role != role:
-            labs.membership_set_role(membership=membership, role=role)
-
     def _lab(self, row: dict[str, Any], password: str) -> Lab:
-        lab = Lab.objects.filter(code=row["code"]).first() or labs.lab_create(
-            name=row["name"], code=row["code"]
-        )
+        lab = seed_labs.lab(row["name"], row["code"])
         for role in LAB_ROLES:
-            self._role(lab, seed_users.user(lab_username(lab.code, role), password), role)
+            seed_labs.member(lab, seed_users.user(lab_username(lab.code, role), password), role)
         for permit in row["authorisations"]:
             self._authorisation(lab, permit)
         return lab
@@ -322,7 +313,7 @@ class Command(BaseCommand):
             missing = not Membership.objects.filter(lab=lab_by_code[code], user=user).exists()
             if missing and not user.is_active:
                 user = users.user_activate(user=user)  # memberships need an active user
-            self._role(lab_by_code[code], user, role)
+            seed_labs.member(lab_by_code[code], user, role)
         inactive.refresh_from_db()
         if inactive.is_active:
             users.user_deactivate(user=inactive)
@@ -614,14 +605,10 @@ class Command(BaseCommand):
 
     def _location_grant(self, lab: Lab, row: dict[str, Any]) -> None:
         """ADR 0009: who may see where the lab's regulated strains are, granted by its manager."""
-        user = User.objects.get(username=row["user"])
-        if LocationGrant.objects.filter(lab=lab, user=user, revoked_at__isnull=True).exists():
-            return
-        manager = User.objects.get(username=lab_username(lab.code, Role.MANAGER))
-        labs.location_grant_add(
-            access=access_for(manager),
-            lab=lab,
-            membership=Membership.objects.get(lab=lab, user=user),
+        seed_labs.location_grant(
+            lab,
+            User.objects.get(username=row["user"]),
+            granted_by=User.objects.get(username=lab_username(lab.code, Role.MANAGER)),
             reason=row["reason"],
         )
 
