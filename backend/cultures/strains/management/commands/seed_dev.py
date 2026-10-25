@@ -76,14 +76,12 @@ from cultures.audit.models import ActorKind, AuditEvent, Channel
 from cultures.audit.registry import LAB_CREATED
 from cultures.biosafety import seeding as seed_biosafety
 from cultures.biosafety.models import AuthorisationKind, RestrictionKind
+from cultures.deposits import seeding as seed_deposits
 from cultures.deposits import services as deposits
 from cultures.deposits.models import (
     AbsScope,
     Condition,
     Decision,
-    Deposit,
-    Depositor,
-    MtaTemplate,
     Use,
 )
 from cultures.distribution import seeding
@@ -114,7 +112,7 @@ from cultures.strains import seeding as seed_strains
 from cultures.strains import services as strains
 from cultures.strains.models import Pathogenicity, Strain
 from cultures.taxonomy import seeding as seed_taxa
-from cultures.taxonomy.models import Rank, Taxon
+from cultures.taxonomy.models import Rank
 from cultures.users import seeding as seed_users
 from cultures.users import services as users
 from cultures.users.models import User
@@ -290,92 +288,25 @@ class Command(BaseCommand):
     # Depositors, MTA versions and deposits, through the deposit services.
 
     def _intake(self, data: dict[str, Any], lab_by_code: dict[str, Lab]) -> None:
-        def staff(code: str, role: Role) -> Access:
-            return access_for(User.objects.get(username=lab_username(code, role)))
-
         for row in data["depositors"]:
-            lab = lab_by_code[row["lab"]]
-            if not Depositor.objects.filter(lab=lab, contact__name=row["name"]).exists():
-                deposits.depositor_create(
-                    access=staff(lab.code, Role.CURATOR),
-                    lab=lab,
-                    contact=deposits.ContactInput(row["name"], row["email"], row["postal_address"]),
-                    institution=row["institution"],
-                )
+            seed_deposits.depositor(
+                staff(row["lab"], Role.CURATOR),
+                lab_by_code[row["lab"]],
+                deposits.ContactInput(row["name"], row["email"], row["postal_address"]),
+                row["institution"],
+            )
         for (code, mta_code), rows in _grouped(data["mta_templates"]).items():
-            lab = lab_by_code[code]
-            published = MtaTemplate.objects.filter(lab=lab, code=mta_code).count()
-            for row in rows[published:]:
-                deposits.mta_template_publish(
-                    access=staff(code, Role.MANAGER),
-                    lab=lab,
-                    code=mta_code,
-                    title=row["title"],
-                    text=row["text"],
-                )
+            seed_deposits.mta_versions(
+                staff(code, Role.MANAGER),
+                lab_by_code[code],
+                mta_code,
+                [seed_deposits.SeedMta(row["title"], row["text"]) for row in rows],
+            )
         for row in data["deposits"]:
-            self._deposit(row, lab_by_code[row["lab"]], staff(row["lab"], Role.CURATOR), data)
-
-    def _deposit(self, row: dict[str, Any], lab: Lab, access: Access, data: dict[str, Any]) -> None:
-        if Deposit.objects.filter(lab=lab, name_as_received=row["name_as_received"]).exists():
-            self.deposits.found += 1
-            return
-        terms = row["terms"]
-        mta = (
-            MtaTemplate.objects.get(lab=lab, code=row["mta"][0], version=row["mta"][1])
-            if row["mta"]
-            else None
-        )
-        deposit = deposits.deposit_receive(
-            access=access,
-            lab=lab,
-            data=deposits.NewDeposit(
-                depositor=Depositor.objects.get(lab=lab, contact__name=row["depositor"]),
-                received_on=date.fromisoformat(row["received_on"]),
-                condition=Condition(row["condition"]),
-                condition_note=row.get("condition_note", ""),
-                name_as_received=row["name_as_received"],
-                depositor_passages=row.get("depositor_passages"),
-                terms=deposits.TermsInput(
-                    abs_scope=AbsScope(terms["abs_scope"]),
-                    uses=[(Use(u), Decision(d)) for u, d in terms["uses"].items()],
-                    mta=mta,
-                    country_of_origin=terms.get("country_of_origin", ""),
-                    collection_date=terms.get("collection_date", ""),
-                    pic_reference=terms.get("pic_reference", ""),
-                    mat_reference=terms.get("mat_reference", ""),
-                    permit_reference=terms.get("permit_reference", ""),
-                ),
-            ),
-        )
-        self.deposits.created += 1
-        if row["state"] == "received":
-            return
-        deposit = deposits.deposit_start_check(access=access, deposit=deposit)
-        if row["state"] == "rejected":
-            deposits.deposit_reject(access=access, deposit=deposit, reason=row["rejection_reason"])
-        if row["state"] != "accepted":
-            return
-        strain = row["strain"]
-        facts = strain_facts(
-            {**strain, "history": [], "name_as_received": row["name_as_received"]}, data["taxa"]
-        )
-        deposits.deposit_accept(
-            access=access,
-            deposit=deposit,
-            facts=deposits.StrainFacts(
-                taxon=Taxon.objects.get(name=strain["taxon"]),
-                identified_on=date.fromisoformat(strain["identified_on"]),
-                identification_method=strain["method"],
-                risk_group=facts.risk_group,
-                animal_pathogenicity=facts.animal,
-                plant_pathogenicity=facts.plant,
-                isolation_source=strain["isolation_source"],
-                country_of_origin=strain["country_of_origin"],
-                isolation_date=strain["isolation_date"],
-                restrictions=[restriction(r) for r in strain.get("restrictions", [])],
-            ),
-        )
+            _, created = seed_deposits.deposit(
+                staff(row["lab"], Role.CURATOR), lab_by_code[row["lab"]], deposit(row, data["taxa"])
+            )
+            self.deposits.add(created)
 
     # Storage: box types and units created when missing, never changed afterwards.
 
@@ -423,8 +354,7 @@ class Command(BaseCommand):
     def _batches(self, lab: Lab, deposit_name: str, rows: list[dict[str, Any]]) -> None:
         technician = User.objects.get(username=lab_username(lab.code, Role.TECHNICIAN))
         access = access_for(technician)
-        strain = Deposit.objects.get(lab=lab, name_as_received=deposit_name).strain
-        assert strain is not None  # noqa: S101 (the file lists accepted deposits only)
+        strain = seed_deposits.accepted_strain(lab, deposit_name)
         made = Batch.objects.filter(strain=strain).count()
         self.batches.found += min(made, len(rows))
         for row in rows[made:]:
@@ -566,9 +496,7 @@ class Command(BaseCommand):
         approver = member(row.get("approved_by"))
         lines = []
         for line in row["lines"]:
-            strain = Deposit.objects.get(lab=lab, name_as_received=line["deposit"]).strain
-            assert strain is not None  # noqa: S101 (an accepted deposit)
-            lines.append((strain, line["quantity"]))
+            lines.append((seed_deposits.accepted_strain(lab, line["deposit"]), line["quantity"]))
         seeding.request(
             curator,
             lab,
@@ -738,6 +666,36 @@ def step(row: dict[str, Any]) -> seed_strains.Step:
             kind=ending["kind"], reference=ending["reference"], reason=row["reason"]
         )
     raise CommandError(f"Unknown step in {DATA.name}: {sorted(row)}")
+
+
+def deposit(row: dict[str, Any], taxa: list[dict[str, Any]]) -> seed_deposits.SeedDeposit:
+    terms = row["terms"]
+    accepted = row["state"] == "accepted"
+    return seed_deposits.SeedDeposit(
+        name_as_received=row["name_as_received"],
+        depositor=row["depositor"],
+        received_on=date.fromisoformat(row["received_on"]),
+        condition=Condition(row["condition"]),
+        condition_note=row.get("condition_note", ""),
+        depositor_passages=row.get("depositor_passages"),
+        terms=seed_deposits.SeedTerms(
+            abs_scope=AbsScope(terms["abs_scope"]),
+            uses=tuple((Use(u), Decision(d)) for u, d in terms["uses"].items()),
+            mta=(row["mta"][0], row["mta"][1]) if row["mta"] else None,
+            country_of_origin=terms.get("country_of_origin", ""),
+            collection_date=terms.get("collection_date", ""),
+            pic_reference=terms.get("pic_reference", ""),
+            mat_reference=terms.get("mat_reference", ""),
+            permit_reference=terms.get("permit_reference", ""),
+        ),
+        state=row["state"],
+        rejection_reason=row["rejection_reason"] if row["state"] == "rejected" else "",
+        strain=facts(
+            {**row["strain"], "history": [], "name_as_received": row["name_as_received"]}, taxa
+        )
+        if accepted
+        else None,
+    )
 
 
 def restriction(row: dict[str, Any]) -> strains.RestrictionInput:

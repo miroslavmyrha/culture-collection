@@ -57,6 +57,7 @@ through the services with their audit events (channel command, actor kind
 system).
 """
 
+from dataclasses import replace
 from datetime import date
 from typing import Any
 
@@ -67,14 +68,12 @@ from config.env import env_secret, env_str
 from cultures.audit.context import audit_context
 from cultures.audit.models import ActorKind, Channel
 from cultures.biosafety.models import RestrictionKind
+from cultures.deposits import seeding as seed_deposits
 from cultures.deposits import services as deposits
 from cultures.deposits.models import (
     AbsScope,
     Condition,
     Decision,
-    Deposit,
-    Depositor,
-    MtaTemplate,
     Use,
 )
 from cultures.distribution import seeding
@@ -102,8 +101,9 @@ from cultures.storage import services as storage
 from cultures.storage.models import BoxType, StorageUnit, UnitKind
 from cultures.strains import services as strains
 from cultures.strains.models import Strain
+from cultures.strains.seeding import SeedFacts
 from cultures.taxonomy import seeding as seed_taxa
-from cultures.taxonomy.models import Rank, Taxon
+from cultures.taxonomy.models import Rank
 from cultures.taxonomy.seeding import SeedTaxon
 from cultures.users import seeding as seed_users
 from cultures.users.models import User
@@ -150,6 +150,15 @@ TAXA: tuple[SeedTaxon, ...] = (
     SeedTaxon("Mockia", "", Rank.GENUS),
     SeedTaxon("Mockia vulgaris", "", Rank.SPECIES, "Mockia"),
 )
+MTA = seed_deposits.SeedMta(
+    "Standard MTA (invented example)",
+    "The recipient uses the material for research only. (Invented example.)",
+)
+# Every use permitted, outside the ABS scope; the supply strains' terms also name MTA STD.
+ALL_PERMITTED = seed_deposits.SeedTerms(
+    AbsScope.NOT_IN_SCOPE, tuple((Use(use), Decision.PERMIT) for use in Use.values)
+)
+SEQUENCED = "16S rRNA gene sequence"
 # (name, rows, cols), the names seed_dev uses too.
 BOX_TYPES = (("81-place cryobox (9 x 9)", 9, 9), ("100-place cryobox (10 x 10)", 10, 10))
 FREEZER = "E2E freezer"
@@ -218,44 +227,19 @@ class Command(BaseCommand):
     def _deposit(self, lab: Lab, *, curator: User, manager: User) -> None:
         """The depositor, the MTA and one accepted deposit, created through the services."""
         access = access_for(curator)
-        depositor = Depositor.objects.filter(lab=lab, contact__name=DEPOSITOR.name).first()
-        if depositor is None:
-            depositor = deposits.depositor_create(
-                access=access, lab=lab, contact=DEPOSITOR, institution="Example University"
-            )
-        if not MtaTemplate.objects.filter(lab=lab, code="STD").exists():
-            deposits.mta_template_publish(
-                access=access_for(manager),
-                lab=lab,
-                code="STD",
-                title="Standard MTA (invented example)",
-                text="The recipient uses the material for research only. (Invented example.)",
-            )
-        if Deposit.objects.filter(lab=lab, name_as_received=SEEDED_DEPOSIT).exists():
-            return
-        deposit = deposits.deposit_receive(
-            access=access,
-            lab=lab,
-            data=deposits.NewDeposit(
-                depositor=depositor,
-                received_on=date(2026, 10, 1),
-                condition=Condition.INTACT,
-                name_as_received=SEEDED_DEPOSIT,
-                terms=deposits.TermsInput(
-                    abs_scope=AbsScope.NOT_IN_SCOPE,
-                    uses=[(Use(use), Decision.PERMIT) for use in Use.values],
-                ),
-            ),
-        )
-        deposit = deposits.deposit_start_check(access=access, deposit=deposit)
-        deposits.deposit_accept(
-            access=access,
-            deposit=deposit,
-            facts=deposits.StrainFacts(
-                taxon=Taxon.objects.get(name="Bacillus subtilis"),
-                identified_on=date(2026, 10, 2),
-                identification_method="16S rRNA gene sequence",
-                risk_group=1,
+        seed_deposits.depositor(access, lab, DEPOSITOR, "Example University")
+        seed_deposits.mta_versions(access_for(manager), lab, "STD", (MTA,))
+        seed_deposits.deposit(
+            access,
+            lab,
+            seed_deposits.SeedDeposit(
+                SEEDED_DEPOSIT,
+                DEPOSITOR.name,
+                date(2026, 10, 1),
+                Condition.INTACT,
+                ALL_PERMITTED,
+                "accepted",
+                strain=SeedFacts("Bacillus subtilis", date(2026, 10, 2), SEQUENCED, risk_group=1),
             ),
         )
 
@@ -279,37 +263,29 @@ class Command(BaseCommand):
     def _regulated(self, lab: Lab, *, curator: User, manager: User) -> None:
         """A regulated strain with two placed vials, and the manager's location grant."""
         access = access_for(curator)
-        deposit = Deposit.objects.filter(lab=lab, name_as_received=REGULATED_DEPOSIT).first()
-        if deposit is None:
-            received = deposits.deposit_receive(
-                access=access,
-                lab=lab,
-                data=deposits.NewDeposit(
-                    depositor=Depositor.objects.get(lab=lab, contact__name=DEPOSITOR.name),
-                    received_on=date(2026, 10, 3),
-                    condition=Condition.INTACT,
-                    name_as_received=REGULATED_DEPOSIT,
-                    terms=deposits.TermsInput(
-                        abs_scope=AbsScope.NOT_IN_SCOPE,
-                        uses=[(Use(use), Decision.PERMIT) for use in Use.values],
-                    ),
-                ),
-            )
-            deposit = deposits.deposit_accept(
-                access=access,
-                deposit=deposits.deposit_start_check(access=access, deposit=received),
-                facts=deposits.StrainFacts(
-                    taxon=Taxon.objects.get(name="Testella exempli"),
-                    identified_on=date(2026, 10, 4),
-                    identification_method="16S rRNA gene sequence",
+        deposit, _ = seed_deposits.deposit(
+            access,
+            lab,
+            seed_deposits.SeedDeposit(
+                REGULATED_DEPOSIT,
+                DEPOSITOR.name,
+                date(2026, 10, 3),
+                Condition.INTACT,
+                ALL_PERMITTED,
+                "accepted",
+                strain=SeedFacts(
+                    "Testella exempli",
+                    date(2026, 10, 4),
+                    SEQUENCED,
                     risk_group=1,
-                    restrictions=[
+                    restrictions=(
                         strains.RestrictionInput(
                             RestrictionKind.CZ_RAT, "Příloha 2 (invented example)"
-                        )
-                    ],
+                        ),
+                    ),
                 ),
-            )
+            ),
+        )
         strain = deposit.strain
         assert strain is not None  # noqa: S101 (accepted above)
         rack = StorageUnit.objects.get(lab=lab, parent__name=FREEZER, name="Rack 1")
@@ -348,8 +324,7 @@ class Command(BaseCommand):
 
     def _released(self, lab: Lab, *, curator: User, technician: User) -> None:
         """A batch of the seeded strain, checked by the technician and released by the curator."""
-        strain = Deposit.objects.get(lab=lab, name_as_received=SEEDED_DEPOSIT).strain
-        assert strain is not None  # noqa: S101 (accepted in _deposit)
+        strain = seed_deposits.accepted_strain(lab, SEEDED_DEPOSIT)
         if Batch.objects.filter(strain=strain, status=BatchStatus.RELEASED).exists():
             return
         bench = access_for(technician)
@@ -389,19 +364,16 @@ class Command(BaseCommand):
     def _distribution(self, lab: Lab, *, curator: User, technician: User, approver: User) -> None:
         """Strains that may go out, the requesters and the five requests (#18, #88, #89)."""
         access = access_for(curator)
-        mta = MtaTemplate.objects.get(lab=lab, code="STD", version=1)
-        supply = self._supply(lab, SUPPLY, "Testella exempli", (), mta, curator, technician)
+        supply = self._supply(lab, SUPPLY, "Testella exempli", (), curator, technician)
         regulated = self._supply(
             lab,
             REGULATED_SUPPLY,
             "Mockia vulgaris",
             (strains.RestrictionInput(RestrictionKind.DUAL_USE, "1C351.c", act="(EU) 2025/2003"),),
-            mta,
             curator,
             technician,
         )
-        rat = Deposit.objects.get(lab=lab, name_as_received=REGULATED_DEPOSIT).strain
-        assert rat is not None  # noqa: S101 (accepted in _regulated)
+        rat = seed_deposits.accepted_strain(lab, REGULATED_DEPOSIT)
         scientist = distribution.ContactInput(
             "E2E Scientist", "e2e.scientist@example.org", "Microbiology laboratory\nE2E street 2"
         )
@@ -495,40 +467,26 @@ class Command(BaseCommand):
         name: str,
         taxon: str,
         restrictions: tuple[strains.RestrictionInput, ...],
-        mta: MtaTemplate,
         curator: User,
         technician: User,
     ) -> Strain:
         """An accepted deposit whose terms name the MTA, with released distribution stock."""
         access = access_for(curator)
-        deposit = Deposit.objects.filter(lab=lab, name_as_received=name).first()
-        if deposit is None:
-            received = deposits.deposit_receive(
-                access=access,
-                lab=lab,
-                data=deposits.NewDeposit(
-                    depositor=Depositor.objects.get(lab=lab, contact__name=DEPOSITOR.name),
-                    received_on=date(2026, 10, 3),
-                    condition=Condition.INTACT,
-                    name_as_received=name,
-                    terms=deposits.TermsInput(
-                        abs_scope=AbsScope.NOT_IN_SCOPE,
-                        uses=[(Use(use), Decision.PERMIT) for use in Use.values],
-                        mta=mta,
-                    ),
+        deposit, _ = seed_deposits.deposit(
+            access,
+            lab,
+            seed_deposits.SeedDeposit(
+                name,
+                DEPOSITOR.name,
+                date(2026, 10, 3),
+                Condition.INTACT,
+                replace(ALL_PERMITTED, mta=("STD", 1)),
+                "accepted",
+                strain=SeedFacts(
+                    taxon, date(2026, 10, 4), SEQUENCED, risk_group=1, restrictions=restrictions
                 ),
-            )
-            deposit = deposits.deposit_accept(
-                access=access,
-                deposit=deposits.deposit_start_check(access=access, deposit=received),
-                facts=deposits.StrainFacts(
-                    taxon=Taxon.objects.get(name=taxon),
-                    identified_on=date(2026, 10, 4),
-                    identification_method="16S rRNA gene sequence",
-                    risk_group=1,
-                    restrictions=list(restrictions),
-                ),
-            )
+            ),
+        )
         strain = deposit.strain
         assert strain is not None  # noqa: S101 (accepted above)
         free = Vial.objects.filter(
