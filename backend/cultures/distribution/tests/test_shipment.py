@@ -69,6 +69,7 @@ from .support import (
     approve,
     as_actor,
     confirm,
+    next_permit_day,
     prepare,
     reserved,
     ship,
@@ -238,7 +239,7 @@ def test_a_permit_that_expired_since_the_approval_blocks_the_shipment(
     add_permit(curator, requester, PermitKind.SUJB_RAT_NOTICE, expires_on=today)
     request = approved(strain, by=manager, reason="A notified requester.")
     refused(services.SecondPersonRequired, "second_person_required", lambda: ship(curator, request))
-    with time_machine.travel(timezone.now() + timedelta(days=1), tick=False):
+    with time_machine.travel(next_permit_day(), tick=False):
         assert permit_today() == today + timedelta(days=1)
         error = refused(
             services.ShipmentBlocked, "shipment_blocked", lambda: ship(curator, request)

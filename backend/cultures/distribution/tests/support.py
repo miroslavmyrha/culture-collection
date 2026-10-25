@@ -9,11 +9,12 @@ institutions at example.org addresses. Documents are a few bytes with a real PDF
 import hashlib
 from collections.abc import Callable
 from contextlib import AbstractContextManager
-from datetime import date
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from cultures.audit.context import AuditContext, audit_context
 from cultures.audit.models import AuditEvent, Channel, RowChange
+from cultures.biosafety.policy import PERMIT_TIME_ZONE, permit_today
 from cultures.deposits.models import Contact, Use
 from cultures.distribution import services
 from cultures.distribution.models import (
@@ -274,3 +275,9 @@ def snapshot() -> tuple[Any, ...]:
 MakeRequester = Callable[..., Requester]
 Supply = Callable[..., Strain]
 Regulated = Callable[..., DistributionRequest]
+
+
+def next_permit_day() -> datetime:
+    """Noon of the next Czech day, to travel to. Not now + 24 hours: on the night summer time
+    ends, 00:30 plus 24 hours is 23:30 of the same Czech day."""
+    return datetime.combine(permit_today() + timedelta(days=1), time(12), tzinfo=PERMIT_TIME_ZONE)
