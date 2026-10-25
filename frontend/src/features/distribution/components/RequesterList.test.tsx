@@ -81,6 +81,121 @@ describe('the requesters page', { timeout: 30_000 }, () => {
     expect(sentFile instanceof File && sentFile.name).toBe('authorisation.pdf')
   })
 
+  it.each([
+    ['plant_health_loa', 'Quantity allowed', ['12x', '-1', '1,5', '100001'], 'Enter a whole number of 1 or more'],
+    ['plant_health_loa', 'Sendings allowed', ['12x', '0', '1001'], 'Enter a whole number of 1 or more'],
+    ['gmo_contained_use', 'Category', ['2x', '0', '5'], 'Enter a category from 1 to 4'],
+    ['pathogen_work_permit', 'Highest risk group', ['3x', '0', '5'], 'Enter a risk group from 1 to 4'],
+  ] as const)('does not add a permit with the last valid %s while it shows an invalid one (#111)', async (kind, label, invalid, message) => {
+    signedIn()
+    mockApi('get', LIST, page([institute]))
+    renderApp({ path: `/labs/${LAB_ID}/requesters` })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Add a permit of Example Institute' }, { timeout: 5000 }))
+    const dialog = await screen.findByRole('dialog', { name: 'Add a permit of Example Institute' })
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Kind' }), kind)
+    await user.type(within(dialog).getByRole('textbox', { name: 'Issued by' }), 'Authority')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reference' }), 'DEV/1')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Valid from' }), '2026-01-01')
+    if (kind === 'plant_health_loa') {
+      await user.type(within(dialog).getByRole('textbox', { name: 'Agents or pests it names' }), 'Mockia vulgaris')
+      await user.type(within(dialog).getByRole('textbox', { name: label === 'Quantity allowed' ? 'Sendings allowed' : 'Quantity allowed' }), '2')
+    }
+    const field = within(dialog).getByRole('textbox', { name: label })
+    await user.type(field, '2')
+    await user.upload(within(dialog).getByLabelText('File of the document'), new File(['%PDF-1.4'], 'authorisation.pdf', { type: 'application/pdf' }))
+    const post = vi.spyOn(api, 'POST').mockResolvedValue({ data: makePermit(), response: new Response('{}', { status: 201 }) })
+    for (const typed of invalid) {
+      await user.clear(field)
+      await user.type(field, typed)
+      await user.click(within(dialog).getByRole('button', { name: 'Add the permit' }))
+      await waitFor(() => expect(field).toHaveAccessibleDescription(expect.stringContaining(message)))
+      expect(field).toHaveValue(typed)
+      expect(post).not.toHaveBeenCalled()
+    }
+    post.mockRestore()
+  })
+
+  it('adds no requester with the last valid confirmation date while the field shows an invalid one (#111)', async () => {
+    signedIn()
+    mockApi('get', LIST, page([institute]))
+    const calls = mockApi('post', LIST, makeRequester())
+    renderApp({ path: `/labs/${LAB_ID}/requesters` })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Add a requester' }, { timeout: 5000 }))
+    const dialog = await screen.findByRole('dialog', { name: 'Add a requester' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Institution' }), 'Example Date Institute')
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Legal form' }), 'legal_person')
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Country' }), 'CZ')
+    await user.type(within(dialog).getByRole('textbox', { name: 'How the laboratory was confirmed' }), 'The department page.')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Responsible scientist' }), 'Petra Ukázková')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Delivery address of the laboratory' }), 'Testovací 5, Brno')
+    const day = within(dialog).getByRole('textbox', { name: 'Confirmed on' })
+    await user.clear(day)
+    await user.type(day, '2026-10-01')
+    for (const typed of ['2026-13-45', '12.10.2026', '2026-10']) {
+      await user.clear(day)
+      await user.type(day, typed)
+      await user.click(within(dialog).getByRole('button', { name: 'Add the requester' }))
+      await waitFor(() => expect(day).toHaveAccessibleDescription(expect.stringContaining('Enter a date as YYYY-MM-DD')))
+      expect(day).toHaveValue(typed)
+      expect(calls).toHaveLength(0)
+    }
+  })
+
+  it('adds no permit with the last valid date while a date field shows an invalid one (#111)', async () => {
+    signedIn()
+    mockApi('get', LIST, page([institute]))
+    renderApp({ path: `/labs/${LAB_ID}/requesters` })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Add a permit of Example Institute' }, { timeout: 5000 }))
+    const dialog = await screen.findByRole('dialog', { name: 'Add a permit of Example Institute' })
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Kind' }), 'gmo_contained_use')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Issued by' }), 'Authority')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reference' }), 'DEV/1')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Category' }), '2')
+    await user.upload(within(dialog).getByLabelText('File of the document'), new File(['%PDF-1.4'], 'authorisation.pdf', { type: 'application/pdf' }))
+    await user.type(within(dialog).getByRole('textbox', { name: 'Valid from' }), '2026-01-01')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Expires on' }), '2026-12-31')
+    const post = vi.spyOn(api, 'POST').mockResolvedValue({ data: makePermit(), response: new Response('{}', { status: 201 }) })
+    for (const label of ['Valid from', 'Expires on']) {
+      const day = within(dialog).getByRole('textbox', { name: label })
+      const valid = label === 'Valid from' ? '2026-01-01' : '2026-12-31'
+      for (const typed of ['2026-13-45', '12.10.2026']) {
+        await user.clear(day)
+        await user.type(day, typed)
+        await user.click(within(dialog).getByRole('button', { name: 'Add the permit' }))
+        await waitFor(() => expect(day).toHaveAccessibleDescription(expect.stringContaining('Enter a date as YYYY-MM-DD')))
+        expect(day).toHaveValue(typed)
+        expect(post).not.toHaveBeenCalled()
+      }
+      await user.clear(day)
+      await user.type(day, valid)
+    }
+    post.mockRestore()
+  })
+
+  it('ends no permit on the last valid day while the field shows an invalid one (#111)', async () => {
+    signedIn()
+    mockApi('get', LIST, page([institute]))
+    const calls = recordRequests('post', `${PERMITS}{public_id}/end/` as '/api/v1/labs/{lab_public_id}/recipient-permits/{public_id}/end/')
+    renderApp({ path: `/labs/${LAB_ID}/requesters` })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'End LoA DEV/1' }, { timeout: 5000 }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'End LoA DEV/1?' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'withdrawn')
+    const day = within(dialog).getByRole('textbox', { name: 'First day it no longer holds' })
+    expect(day).toHaveValue(new Date().toLocaleDateString('sv'))
+    for (const typed of ['2026-13-45', '12.10.2026']) {
+      await user.clear(day)
+      await user.type(day, typed)
+      await user.click(within(dialog).getByRole('button', { name: 'End the permit' }))
+      await waitFor(() => expect(day).toHaveAccessibleDescription(expect.stringContaining('Enter a date as YYYY-MM-DD')))
+      expect(day).toHaveValue(typed)
+      expect(calls).toHaveLength(0)
+    }
+  })
+
   it('adds a requester with its registered office, the address in the business register', async () => {
     signedIn()
     mockApi('get', LIST, page([institute]))

@@ -227,6 +227,35 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
     expect(dialog).toBeInTheDocument()
   })
 
+  it('preserves nothing with the last valid vial count or date while the field shows an invalid one (#111)', async () => {
+    mockMaterial()
+    const calls = mockApi('post', BATCHES, makeBatch({ number: 2 }))
+    await render()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Preserve a batch' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Preserve a batch of MYC 42' })
+    const today = new Date().toLocaleDateString('sv')
+    const cases: readonly (readonly [string, string, readonly string[], RegExp])[] = [
+      ['Number of vials', '5', ['5x', '0', '-1', '1,5', '201'], /Enter a whole number|A batch has 1 to 200 vials/],
+      ['Preserved on', today, ['2026-13-45', '12.10.2026', '2999-01-01'], /Enter a date as YYYY-MM-DD|This date is in the future/],
+    ]
+    for (const [label, valid, invalid, message] of cases) {
+      const input = within(dialog).getByRole('textbox', { name: label })
+      await user.clear(input)
+      await user.type(input, valid)
+      for (const typed of invalid) {
+        await user.clear(input)
+        await user.type(input, typed)
+        await user.click(within(dialog).getByRole('button', { name: 'Preserve batch' }))
+        await waitFor(() => expect(input).toHaveAccessibleDescription(message))
+        expect(input).toHaveValue(typed)
+        expect(calls).toHaveLength(0)
+      }
+      await user.clear(input)
+      await user.type(input, valid)
+    }
+  })
+
   it('moves a vial to a position chosen by box, row and column', async () => {
     mockMaterial()
     const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/place/', placed)

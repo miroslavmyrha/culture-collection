@@ -219,6 +219,72 @@ describe('UnitDetail', { timeout: 20_000 }, () => {
     expect(treeCalls).toHaveLength(2)
   })
 
+  it('adds no box with the last valid slot while the field shows an invalid one (#111)', async () => {
+    mockApi('get', DETAIL, rack)
+    mockApi('get', '/api/v1/box-types/', page([cryobox]))
+    const calls = mockApi('post', TREE, box)
+    await render()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Add a box' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Add a box to Rack 1' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Name' }), 'Box 1')
+    await within(dialog).findByRole('option', { name: '81-place cryobox (9 x 9)' })
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Box type' }), cryobox.public_id)
+    const slot = within(dialog).getByRole('textbox', { name: 'Slot' })
+    await user.type(slot, '1')
+    for (const typed of ['1x', '0', '-1', '1,5', '32768']) {
+      await user.clear(slot)
+      await user.type(slot, typed)
+      await user.click(within(dialog).getByRole('button', { name: 'Add' }))
+      await waitFor(() => expect(slot).toHaveAccessibleDescription(expect.stringContaining('Enter a slot number from 1')))
+      expect(slot).toHaveValue(typed)
+      expect(calls).toHaveLength(0)
+    }
+  })
+
+  it('saves no temperature while the field shows an invalid one (#111)', async () => {
+    const frozen = makeUnit({ public_id: freezer.public_id, kind: 'freezer', name: 'Freezer A', temperature_c: -80, max_risk_group: 2, parent: null, slot: null })
+    mockApi('get', DETAIL, frozen)
+    const calls = mockApi('post', `${DETAIL}edit/` as '/api/v1/labs/{lab_public_id}/storage-units/{public_id}/edit/', frozen)
+    await render(frozen)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Change' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Change Freezer A' })
+    const temperature = within(dialog).getByRole('textbox', { name: 'Temperature (°C)' })
+    expect(temperature).toHaveValue('-80')
+    for (const typed of ['-80x', '-80.5', '-80,5', '-274', '101']) {
+      await user.clear(temperature)
+      await user.type(temperature, typed)
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+      await waitFor(() => expect(temperature).toHaveAccessibleDescription(expect.stringContaining('Enter whole degrees from -273 to 100')))
+      expect(temperature).toHaveValue(typed)
+      expect(calls).toHaveLength(0)
+    }
+  })
+
+  it('moves nothing into a slot while the field shows an invalid one (#111)', async () => {
+    const tank = makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000f2', kind: 'ln2_tank', name: 'Tank B' })
+    mockApi('get', DETAIL, rack)
+    mockApi('get', TREE, [makeUnitRow({ ...freezer, name: 'Freezer A' }), tank])
+    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/storage-units/{public_id}/move/', rack)
+    await render()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Move' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Move Rack 1' })
+    await within(dialog).findByRole('option', { name: 'Tank B' })
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Into' }), tank.public_id)
+    const slot = within(dialog).getByRole('textbox', { name: 'Slot' })
+    await user.type(slot, '3')
+    for (const typed of ['3x', '0', '-3', '2,5', '40000']) {
+      await user.clear(slot)
+      await user.type(slot, typed)
+      await user.click(within(dialog).getByRole('button', { name: 'Move' }))
+      await waitFor(() => expect(slot).toHaveAccessibleDescription(expect.stringContaining('Enter a slot number from 1')))
+      expect(slot).toHaveValue(typed)
+      expect(calls).toHaveLength(0)
+    }
+  })
+
   it('puts the unit out of service with a reason, asked before any request', async () => {
     mockApi('get', DETAIL, rack)
     const held = holdApi('post', '/api/v1/labs/{lab_public_id}/storage-units/{public_id}/status/')

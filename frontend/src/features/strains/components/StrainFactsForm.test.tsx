@@ -152,6 +152,31 @@ describe('StrainFactsForm', { timeout: 20_000 }, () => {
     expect(calls).toHaveLength(0)
   })
 
+  it('sends nothing with the last valid date while the field shows an invalid one (#111)', async () => {
+    const calls = mockApi('post', PATH, makeDeposit({ status: 'accepted' }))
+    const { user } = await setup()
+    await fillRequired(user)
+    const cases: readonly (readonly [string, string, readonly string[], string])[] = [
+      ['Identified on', '2026-01-10', ['2026-13-45', '10.1.2026', '2026-01'], 'Enter a date as YYYY-MM-DD'],
+      ['Isolation date', '2019-05', ['2019-5', '19-05-01', '2019-05-01x'], 'Use YYYY, YYYY-MM or YYYY-MM-DD'],
+    ]
+    for (const [label, valid, invalid, message] of cases) {
+      const input = field(label)
+      await user.clear(input)
+      await user.type(input, valid)
+      for (const typed of invalid) {
+        await user.clear(input)
+        await user.type(input, typed)
+        await submit(user)
+        await waitFor(() => expect(input).toHaveAccessibleDescription(expect.stringContaining(message)))
+        expect(input).toHaveValue(typed)
+        expect(calls).toHaveLength(0)
+      }
+      await user.clear(input)
+      await user.type(input, valid)
+    }
+  })
+
   it('shows the risk group 4 refusal on the risk group, focused, in its own words', async () => {
     // The domain code on top, as the API sends it for this refusal.
     mockApiError('post', PATH, 400, { ...problem(400, { code: 'risk_group_4_refused', detail: 'server words' }), errors: [{ attr: 'risk_group', code: 'risk_group_4_refused', detail: 'server words' }] })
