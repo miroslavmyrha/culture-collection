@@ -3,7 +3,9 @@ from pathlib import Path
 
 import pytest
 from django.conf import settings
-from gunicorn.config import validate_string_to_addr_list
+from gunicorn.config import Config, validate_string_to_addr_list
+from gunicorn.http.errors import InvalidSchemeHeaders
+from gunicorn.http.parser import RequestParser
 
 CONF = Path(settings.BASE_DIR) / "gunicorn.conf.py"
 
@@ -68,3 +70,40 @@ def test_a_bad_number_stops_startup(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GUNICORN_WORKERS", "four")
     with pytest.raises(SystemExit, match="GUNICORN_WORKERS"):
         runpy.run_path(str(CONF))
+
+
+def scheme(cfg: Config, *headers: str) -> str:
+    """The scheme gunicorn's parser gives a request from the proxy at 10.0.0.5."""
+    raw = "GET / HTTP/1.1\r\nHost: app.example.com\r\n" + "".join(f"{h}\r\n" for h in headers)
+    request = next(iter(RequestParser(cfg, iter([(raw + "\r\n").encode()]), ("10.0.0.5", 4711))))
+    return str(request.scheme)
+
+
+def effective(monkeypatch: pytest.MonkeyPatch) -> Config:
+    monkeypatch.setenv("DJANGO_TRUSTED_PROXIES", "10.0.0.5")
+    conf = runpy.run_path(str(CONF))
+    cfg = Config()
+    for name in ("forwarded_allow_ips", "secure_scheme_headers"):
+        cfg.set(name, conf[name])
+    return cfg
+
+
+def test_only_x_forwarded_proto_states_the_scheme(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = effective(monkeypatch)
+    assert scheme(cfg, "X-Forwarded-Proto: https") == "https"
+    assert scheme(cfg, "X-Forwarded-Proto: http") == "http"
+    # gunicorn's default trusts these two as well; sent by a client and passed on by the
+    # proxy, they would make a plain request https for Django.
+    assert scheme(cfg, "X-Forwarded-Ssl: on") == "http"
+    assert scheme(cfg, "X-Forwarded-Protocol: ssl") == "http"
+    assert scheme(cfg) == "http"
+
+
+def test_a_client_scheme_header_cannot_fail_the_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    headers = ("X-Forwarded-Proto: https", "X-Forwarded-Ssl: off")
+    assert scheme(effective(monkeypatch), *headers) == "https"
+    # Under gunicorn's default the second header contradicts the first: a 400.
+    default = Config()
+    default.set("forwarded_allow_ips", "10.0.0.5")
+    with pytest.raises(InvalidSchemeHeaders):
+        scheme(default, *headers)

@@ -36,6 +36,11 @@ forwarded_allow_ips = ",".join(
     for entry in os.environ.get("DJANGO_TRUSTED_PROXIES", "").split(",")
     if entry.strip()
 )
+# The proxy states the scheme in X-Forwarded-Proto only, the header Django reads
+# (SECURE_PROXY_SSL_HEADER). gunicorn's default also trusts X-Forwarded-Protocol and
+# X-Forwarded-Ssl: a client header the proxy passes on would then turn http into https
+# for Django when X-Forwarded-Proto is missing, or fail the request as contradictory.
+secure_scheme_headers = {"X-FORWARDED-PROTO": "https"}
 # Heartbeat files in memory: works with a read-only root filesystem.
 worker_tmp_dir = os.environ.get("GUNICORN_WORKER_TMP_DIR", "/dev/shm")  # noqa: S108
 # gunicorn 25.1+ opens a control socket in $HOME/.gunicorn by default (gunicorn/config.py,
