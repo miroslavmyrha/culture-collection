@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { components } from '@/api/schema'
 import { pageDefaults } from '@/lib/paging'
-import { isCountry } from '@/lib/countries'
+import { COUNTRY_CODES, isCountry } from '@/lib/countries'
 
 type Schemas = components['schemas']
 export type StrainRow = Schemas['StrainListOutput']
@@ -74,6 +74,9 @@ export const strainListDefaults = {
   status: undefined,
   restriction: undefined,
   search: undefined,
+  isolation_source: undefined,
+  country: undefined,
+  depositor: undefined,
 }
 export const strainListSearch = z.object({
   limit: z.number().int().min(1).max(200).default(pageDefaults.limit).catch(pageDefaults.limit),
@@ -83,11 +86,21 @@ export const strainListSearch = z.object({
   status: z.enum(['pending', 'active', 'restricted', 'deaccessioned']).optional().catch(undefined),
   restriction: z.enum(['cz_vrat', 'cz_rat', 'dual_use', 'quarantine_pest', 'gmo']).optional().catch(undefined),
   search: z.string().trim().max(200).optional().catch(undefined),
+  isolation_source: z.string().trim().max(200).optional().catch(undefined),
+  country: z.literal(COUNTRY_CODES).optional().catch(undefined),
+  depositor: uuid.optional().catch(undefined),
 })
 export type StrainListParams = z.output<typeof strainListSearch>
 export type StrainFilters = Omit<StrainListParams, 'limit' | 'offset'>
 export const hasFilters = (params: StrainListParams) =>
-  params.taxon !== undefined || params.risk_group !== undefined || params.status !== undefined || params.restriction !== undefined || Boolean(params.search)
+  params.taxon !== undefined ||
+  params.risk_group !== undefined ||
+  params.status !== undefined ||
+  params.restriction !== undefined ||
+  params.country !== undefined ||
+  params.depositor !== undefined ||
+  Boolean(params.search) ||
+  Boolean(params.isolation_source)
 
 // Forms. Limits mirror the backend; the server still decides and its errors map back.
 const required = (message: string) => z.string().trim().min(1, message)
