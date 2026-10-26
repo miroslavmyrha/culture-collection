@@ -1,5 +1,6 @@
 import { getRouteApi } from '@tanstack/react-router'
 import { Link, PageTitle, Stack, Typography } from '@/components/ui'
+import { DepositorFilterField } from '@/features/deposits/components/DepositorFilterField'
 import { LabGate } from '@/features/labs/components/LabGate'
 import { canHandleDeposits } from '@/lib/roles'
 import { StrainFilters } from '@/features/strains/components/StrainFilters'
@@ -32,6 +33,11 @@ export function StrainListPage() {
             )}
             <StrainFilters
               filters={filters}
+              renderDepositor={
+                canHandleDeposits(lab.my_role)
+                  ? (value, onPick) => <DepositorFilterField labId={labId} value={value} onChange={onPick} />
+                  : undefined
+              }
               onChange={(update) => void navigate({ search: (prev) => { const { limit: keep, offset: _dropped, ...current } = prev; return { ...update(current), limit: keep, offset: 0 } } })}
             />
             <StrainList

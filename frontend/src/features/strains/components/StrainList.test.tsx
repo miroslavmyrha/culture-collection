@@ -1,9 +1,11 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 import { allowConsole } from '@/test/console'
-import { makeLab, makeMe, makeStrainRow, makeTaxon, page, problem } from '@/test/factories'
+import { makeLab, makeMe, makeDepositor, makeStrainRow, makeTaxon, page, problem } from '@/test/factories'
 import { mockApi, mockApiError } from '@/test/mockApi'
+import { server } from '@/test/server'
 import { renderApp, renderWithProviders } from '@/test/render'
 import { strainListOptions } from '../api/queries'
 import type { StrainListParams } from '../schemas'
@@ -14,6 +16,7 @@ const LIST = '/api/v1/labs/{lab_public_id}/strains/'
 const PARAMS: StrainListParams = { limit: 25, offset: 0 }
 // Invented taxa: the tests pair them with restrictions and risk groups, which no real
 // organism should be shown with unless the facts hold.
+const JANA = makeDepositor({ public_id: '00000000-0000-4000-8000-0000000000d1', name: 'Jana Vzorová', institution: 'Example University' })
 const testella = makeTaxon({ public_id: '00000000-0000-4000-8000-0000000000b1', name: 'Testella', rank: 'genus' })
 
 function renderList(params: StrainListParams = PARAMS) {
@@ -91,7 +94,7 @@ describe('StrainList', { timeout: 20_000 }, () => {
 
   it('asks for the lab and every filter of the URL, and keeps them in the query key', async () => {
     const calls = mockApi('get', LIST, page([]))
-    const params: StrainListParams = { ...PARAMS, taxon: testella.public_id, risk_group: 2, status: 'active', restriction: 'gmo', search: 'MYC' }
+    const params: StrainListParams = { ...PARAMS, taxon: testella.public_id, risk_group: 2, status: 'active', restriction: 'gmo', search: 'MYC', isolation_source: 'soil', country: 'CZ', depositor: JANA.public_id }
     const { view } = renderList(params)
     const { client } = await view
     await screen.findByText(/No strain matches/)
@@ -104,11 +107,16 @@ describe('StrainList', { timeout: 20_000 }, () => {
       status: 'active',
       restriction: 'gmo',
       search: 'MYC',
+      isolation_source: 'soil',
+      country: 'CZ',
+      depositor: JANA.public_id,
     })
     expect(client.getQueryData(strainListOptions(LAB_ID, params).queryKey)).toBeDefined()
   })
 })
 
+/** The accession numbers on screen, once the list has any. */
+const shown = async () => (await screen.findAllByRole('link', { name: /^MYC \d$/ }, { timeout: 5000 })).map((link) => link.textContent)
 const form = () => screen.getByRole('form', { name: 'Filter strains' })
 
 function signedInApp(role: 'viewer' | 'curator' = 'viewer') {
@@ -159,6 +167,82 @@ describe('the strains page', { timeout: 20_000 }, () => {
     expect(text).toHaveFocus() // the button went with the filters
   })
 
+  it('keeps the isolation source, the country and the depositor in the URL, and the list follows them', async () => {
+    signedIn('curator')
+    // A list that narrows by what the request asks, as the API does.
+    const rows = [
+      { row: makeStrainRow({ accession_number: 'MYC 1', name_as_received: 'forest strain' }), source: 'Forest soil', country: 'CZ', depositor: JANA.public_id },
+      { row: makeStrainRow({ accession_number: 'MYC 2', name_as_received: 'garden strain' }), source: 'garden soil', country: 'DE', depositor: 'other' },
+      { row: makeStrainRow({ accession_number: 'MYC 3', name_as_received: 'river strain' }), source: 'river water', country: 'CZ', depositor: 'other' },
+    ]
+    const asked: URL[] = []
+    server.use(
+      http.get('*/api/v1/labs/:lab/strains/', ({ request }) => {
+        const url = new URL(request.url)
+        asked.push(url)
+        const { searchParams: q } = url
+        const found = rows.filter(
+          (r) =>
+            (!q.get('isolation_source') || r.source.toLowerCase().includes((q.get('isolation_source') ?? '').toLowerCase())) &&
+            (!q.get('country') || r.country === q.get('country')) &&
+            (!q.get('depositor') || r.depositor === q.get('depositor')),
+        )
+        return HttpResponse.json(page(found.map((r) => r.row)))
+      }),
+    )
+    mockApi('get', '/api/v1/labs/{lab_public_id}/depositors/{public_id}/', JANA)
+    mockApi('get', '/api/v1/labs/{lab_public_id}/depositors/', page([JANA]))
+    const { router } = renderApp({ path: `/labs/${LAB_ID}/strains` })
+    const user = userEvent.setup()
+    await screen.findByRole('form', { name: 'Filter strains' }, { timeout: 5000 })
+    expect(await shown()).toEqual(['MYC 1', 'MYC 2', 'MYC 3'])
+
+    // Country: a selection applies at once.
+    await user.selectOptions(within(form()).getByRole('combobox', { name: 'Country of origin' }), 'CZ')
+    await waitFor(() => expect(router.state.location.search).toEqual({ country: 'CZ' }))
+    await waitFor(() => expect(asked.at(-1)?.searchParams.get('country')).toBe('CZ'))
+    await waitFor(async () => expect(await shown()).toEqual(['MYC 1', 'MYC 3']))
+
+    // Isolation source: the text goes with Search, as the name does.
+    await user.type(within(form()).getByRole('searchbox', { name: 'Isolation source' }), ' SOIL {Enter}')
+    await waitFor(() => expect(router.state.location.search).toEqual({ country: 'CZ', isolation_source: 'SOIL' }))
+    await waitFor(async () => expect(await shown()).toEqual(['MYC 1']))
+
+    // Depositor: picked in the combobox by keyboard; the URL holds the id.
+    await user.click(within(form()).getByRole('button', { name: 'Clear filters' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({}))
+    const depositor = within(form()).getByRole('combobox', { name: 'Depositor' })
+    await user.click(depositor)
+    await user.keyboard('Jan')
+    await screen.findByRole('option', { name: /Jana Vzorová/ }, { timeout: 4000 })
+    await user.keyboard('{ArrowDown}{Enter}')
+    await waitFor(() => expect(router.state.location.search).toEqual({ depositor: JANA.public_id }))
+    await waitFor(async () => expect(await shown()).toEqual(['MYC 1']))
+    expect(asked.at(-1)?.searchParams.get('depositor')).toBe(JANA.public_id)
+  })
+
+  it('shows the filters of the URL after a reload, and only offers the depositor to those who open deposits', async () => {
+    signedIn('curator')
+    const calls = mockApi('get', LIST, page([makeStrainRow()]))
+    mockApi('get', '/api/v1/labs/{lab_public_id}/depositors/{public_id}/', JANA)
+    renderApp({ path: `/labs/${LAB_ID}/strains`, search: { isolation_source: 'soil', country: 'CZ', depositor: JANA.public_id } })
+    await screen.findByRole('form', { name: 'Filter strains' }, { timeout: 5000 })
+    expect(within(form()).getByRole('searchbox', { name: 'Isolation source' })).toHaveValue('soil')
+    expect(within(form()).getByRole('combobox', { name: 'Country of origin' })).toHaveValue('CZ')
+    await waitFor(() => expect(within(form()).getByRole('combobox', { name: 'Depositor' })).toHaveValue('Jana Vzorová, Example University'), { timeout: 5000 })
+    expect(Object.fromEntries(calls[0]?.url.searchParams ?? [])).toMatchObject({ isolation_source: 'soil', country: 'CZ', depositor: JANA.public_id })
+  })
+
+  it('offers a viewer no depositor filter: a depositor is a person', async () => {
+    signedIn('viewer')
+    mockApi('get', LIST, page([makeStrainRow()]))
+    renderApp({ path: `/labs/${LAB_ID}/strains` })
+    await screen.findByRole('form', { name: 'Filter strains' }, { timeout: 5000 })
+    expect(within(form()).getByRole('searchbox', { name: 'Isolation source' })).toBeInTheDocument()
+    expect(within(form()).getByRole('combobox', { name: 'Country of origin' })).toBeInTheDocument()
+    expect(within(form()).queryByRole('combobox', { name: 'Depositor' })).not.toBeInTheDocument()
+  })
+
   it('picks a taxon filter by keyboard in the combobox', async () => {
     signedIn()
     mockApi('get', LIST, page([makeStrainRow()]))
@@ -196,7 +280,7 @@ describe('the strains page', { timeout: 20_000 }, () => {
   it('falls back to no filter for a junk value in the URL', async () => {
     signedIn()
     const calls = mockApi('get', LIST, page([makeStrainRow()]))
-    const { router } = renderApp({ path: `/labs/${LAB_ID}/strains`, search: { risk_group: 9, status: 'lost', taxon: 'x', limit: 'many' } })
+    const { router } = renderApp({ path: `/labs/${LAB_ID}/strains`, search: { risk_group: 9, status: 'lost', taxon: 'x', country: 'XX', depositor: 'y', limit: 'many' } })
     await screen.findByRole('table', { name: 'Strains' }, { timeout: 5000 })
     expect(router.state.location.search).toEqual({})
     expect(calls[0]?.url.searchParams.toString()).toBe('limit=25&offset=0')

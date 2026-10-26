@@ -3,6 +3,7 @@
 from django.db.models import F, Prefetch, Q, QuerySet
 
 from cultures.biosafety.models import RestrictionKind
+from cultures.deposits.models import Depositor
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
@@ -101,3 +102,16 @@ def matching(strains: QuerySet[Strain], text: str) -> QuerySet[Strain]:
         | Q(name_as_received__icontains=text)
         | Q(taxon__name__icontains=text)
     )
+
+
+def with_isolation_source(strains: QuerySet[Strain], text: str) -> QuerySet[Strain]:
+    """The isolation source contains the text, ignoring case ("soil" finds "forest soil")."""
+    text = " ".join(text.split())
+    if not text:
+        return strains
+    return strains.filter(isolation_source__icontains=text)
+
+
+def from_depositor(strains: QuerySet[Strain], depositor: Depositor) -> QuerySet[Strain]:
+    """Strains accepted from a deposit of the depositor (Deposit.strain, one to one)."""
+    return strains.filter(deposit__depositor=depositor)

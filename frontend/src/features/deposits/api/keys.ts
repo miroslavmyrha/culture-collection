@@ -18,6 +18,7 @@ export const depositorKeys = {
   lab: (labId: string) => [...depositorKeys.all, labId] as const,
   lists: (labId: string) => [...depositorKeys.lab(labId), 'list'] as const,
   list: (labId: string, params: DepositorListParams) => [...depositorKeys.lists(labId), params] as const,
+  detail: (labId: string, depositorId: string) => [...depositorKeys.lab(labId), 'detail', depositorId] as const,
 }
 
 export const mtaKeys = {

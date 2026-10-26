@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
+import { type ReactNode, useRef, useState } from 'react'
 import { Box, Button, SelectField, Stack, TextField } from '@/components/ui'
+import { COUNTRY_CODES, countryOptions } from '@/lib/countries'
 import { useTaxon } from '../api/queries'
 import {
   options,
@@ -16,11 +17,19 @@ type Props = {
   filters: Filters
   /** The page owns the URL: it turns new filters into a navigation (back to the first page). */
   onChange: (update: (current: Filters) => Filters) => void
+  /**
+   * The depositor filter, drawn by the deposits feature (a render prop, so strains do not import
+   * it) and given only to those who may open deposits: a depositor is a person's contact.
+   */
+  renderDepositor?: (value: string | undefined, onPick: (depositor: string | undefined) => void) => ReactNode
 }
 
 const ALL = { value: '', label: 'All' }
 const RISK = [ALL, ...RISK_GROUPS.map((group) => ({ value: String(group), label: String(group) }))]
 const KINDS = [ALL, ...options(RESTRICTION_LABELS, RESTRICTION_KINDS)]
+
+const COUNTRIES = [ALL, ...countryOptions().slice(1)] // without "Unknown": no code means no filter
+const countryOf = (value: string) => COUNTRY_CODES.find((code) => code === value)
 
 const riskGroupOf = (value: string) => RISK_GROUPS.find((group) => String(group) === value)
 const STATUSES: StrainStatus[] = ['pending', 'active', 'restricted', 'deaccessioned']
@@ -32,7 +41,7 @@ const kindOf = (value: string) => RESTRICTION_KINDS.find((kind) => kind === valu
  * The list's filters, all in the URL: a selection applies at once, the text when submitted
  * (Enter or Search). The taxon filter takes the taxon, everything below it and the synonyms.
  */
-export function StrainFilters({ filters, onChange }: Props) {
+export function StrainFilters({ filters, onChange, renderDepositor }: Props) {
   const [text, setText] = useState(filters.search ?? '')
   // The URL changed (back, forward, Clear filters): the text follows it. Adjusted while
   // rendering, not by remounting the form, which would drop the focus of the control in use.
@@ -40,6 +49,12 @@ export function StrainFilters({ filters, onChange }: Props) {
   if (shown !== filters.search) {
     setShown(filters.search)
     setText(filters.search ?? '')
+  }
+  const [source, setSource] = useState(filters.isolation_source ?? '')
+  const [shownSource, setShownSource] = useState(filters.isolation_source)
+  if (shownSource !== filters.isolation_source) {
+    setShownSource(filters.isolation_source)
+    setSource(filters.isolation_source ?? '')
   }
   const taxon = useTaxon(filters.taxon)
   const textField = useRef<HTMLInputElement>(null)
@@ -50,7 +65,7 @@ export function StrainFilters({ filters, onChange }: Props) {
       aria-label="Filter strains"
       onSubmit={(event) => {
         event.preventDefault()
-        onChange((current) => ({ ...current, search: text.trim() || undefined }))
+        onChange((current) => ({ ...current, search: text.trim() || undefined, isolation_source: source.trim() || undefined }))
       }}
       sx={{ mb: 3 }}
     >
@@ -87,6 +102,15 @@ export function StrainFilters({ filters, onChange }: Props) {
           value={filters.status ?? ''}
           onChange={(event) => onChange((current) => ({ ...current, status: statusOf(event.target.value) }))}
         />
+        <TextField label="Isolation source" hint="For example soil or river water" type="search" autoComplete="off" value={source} onChange={(event) => setSource(event.target.value)} />
+        <SelectField
+          sx={{ minWidth: { md: 180 } }}
+          label="Country of origin"
+          options={COUNTRIES}
+          value={filters.country ?? ''}
+          onChange={(event) => onChange((current) => ({ ...current, country: countryOf(event.target.value) }))}
+        />
+        {renderDepositor && <Box sx={{ minWidth: { md: 260 } }}>{renderDepositor(filters.depositor, (depositor) => onChange((current) => ({ ...current, depositor })))}</Box>}
         <Stack direction="row" spacing={1} sx={{ pt: 1 }}>
           <Button type="submit" variant="outlined">
             Search
@@ -95,6 +119,7 @@ export function StrainFilters({ filters, onChange }: Props) {
             <Button
               onClick={() => {
                 setText('')
+                setSource('')
                 onChange(() => ({}))
                 // The button goes with the filters: focus moves to the first one.
                 textField.current?.focus()

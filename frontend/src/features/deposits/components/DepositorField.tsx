@@ -5,6 +5,8 @@ import { type Depositor, depositorLabel } from '../schemas'
 
 type Props = {
   labId: string
+  label?: string
+  hint?: string
   error?: string | undefined
   value: Depositor | null
   onChange: (depositor: Depositor | null) => void
@@ -25,7 +27,7 @@ function useSettled(text: string): string {
 }
 
 /** A depositor of the lab, found by name or institution. Erased contacts cannot deposit. */
-export function DepositorField({ labId, error, value, onChange, onBlur, name, ref }: Props) {
+export function DepositorField({ labId, label = 'Depositor', hint = 'Type part of the name or institution, then choose. Or add a new one.', error, value, onChange, onBlur, name, ref }: Props) {
   const [text, setText] = useState(value ? depositorLabel(value) : '')
   const [shown, setShown] = useState(value?.public_id)
   if (shown !== value?.public_id) {
@@ -38,8 +40,8 @@ export function DepositorField({ labId, error, value, onChange, onBlur, name, re
   const results = (found.data?.results ?? []).filter((d) => !d.erased)
   return (
     <AutocompleteField<Depositor>
-      label="Depositor"
-      hint="Type part of the name or institution, then choose. Or add a new one."
+      label={label}
+      hint={hint}
       error={error}
       name={name}
       ref={ref}

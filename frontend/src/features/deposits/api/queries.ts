@@ -29,6 +29,15 @@ export const depositorListOptions = (labId: string, params: DepositorListParams)
     placeholderData: keepPreviousData,
   })
 
+export const depositorOptions = (labId: string, depositorId: string) =>
+  queryOptions({
+    queryKey: depositorKeys.detail(labId, depositorId),
+    queryFn: ({ signal }) =>
+      unwrap(
+        api.GET('/api/v1/labs/{lab_public_id}/depositors/{public_id}/', { signal, params: { path: { lab_public_id: labId, public_id: depositorId } } }),
+      ),
+  })
+
 /** A lab has a few MTA codes with a few versions each: one page of 200 holds them. */
 export const MTA_ALL = { limit: 200, offset: 0 }
 
@@ -53,6 +62,8 @@ export const useDepositList = (labId: string, params: DepositListParams) => useQ
 export const useDeposit = (labId: string, depositId: string) => useQuery(depositDetailOptions(labId, depositId))
 export const useDepositorList = (labId: string, params: DepositorListParams, enabled = true) =>
   useQuery({ ...depositorListOptions(labId, params), enabled })
+export const useDepositor = (labId: string, depositorId: string | undefined) =>
+  useQuery({ ...depositorOptions(labId, depositorId ?? ''), enabled: depositorId !== undefined })
 export const useMtaList = (labId: string, params?: { limit: number; offset: number }) => useQuery(mtaListOptions(labId, params))
 export const useMtaTemplate = (labId: string, templateId: string | undefined) =>
   useQuery({ ...mtaDetailOptions(labId, templateId ?? ''), enabled: templateId !== undefined })

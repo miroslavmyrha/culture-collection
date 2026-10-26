@@ -353,6 +353,49 @@ def test_the_other_filters_narrow_within_the_lab(viewer: User, make_strain: Make
     assert listed(viewer, risk_group=1, restriction="dual_use") == ["sub"]
 
 
+@pytest.fixture
+def origins(*, make_strain: MakeStrain, other_lab: Lab, outsider: User) -> None:
+    make_strain(name_as_received="a", isolation_source="Forest soil", country_of_origin="CZ")
+    make_strain(name_as_received="b", isolation_source="garden soil", country_of_origin="DE")
+    make_strain(name_as_received="c", isolation_source="river water", country_of_origin="CZ")
+    make_strain(name_as_received="d")  # origin unknown
+    make_strain(
+        lab=other_lab,
+        actor=outsider,
+        name_as_received="other lab",
+        isolation_source="soil",
+        country_of_origin="CZ",
+    )
+
+
+@pytest.mark.usefixtures("origins")
+def test_the_isolation_source_filter_finds_the_text_ignoring_case_within_the_lab(
+    viewer: User,
+) -> None:
+    assert listed(viewer, isolation_source="soil") == ["a", "b"]
+    assert listed(viewer, isolation_source=" FOREST  soil ") == ["a"]
+    assert listed(viewer, isolation_source="water") == ["c"]
+    assert listed(viewer, isolation_source="sand") == []
+    # Blank is no filter, as for the search text.
+    assert listed(viewer, isolation_source=" ") == ["a", "b", "c", "d"]
+
+
+@pytest.mark.usefixtures("origins")
+def test_the_country_filter_matches_the_code_exactly_within_the_lab(viewer: User) -> None:
+    assert listed(viewer, country="CZ") == ["a", "c"]
+    assert listed(viewer, country="DE") == ["b"]
+    assert listed(viewer, country="FR") == []
+    assert listed(viewer, country="CZ", isolation_source="soil") == ["a"]
+
+
+@pytest.mark.usefixtures("origins")
+@pytest.mark.parametrize(
+    ("params", "attr"), [({"country": "XX"}, "country"), ({"country": "cz"}, "country")]
+)
+def test_an_unknown_country_is_400(viewer: User, params: dict[str, Any], attr: str) -> None:
+    assert_problem(logged_in(viewer).get(STRAINS_URL, params), 400, "invalid", attr=attr)
+
+
 @pytest.mark.usefixtures("collection")
 def test_an_ended_restriction_no_longer_matches(viewer: User, curator: User, manager: User) -> None:
     gmo = StrainRestriction.objects.get(kind="gmo")
@@ -424,6 +467,15 @@ def test_the_list_query_count_is_exact_and_flat(
         response = client.get(STRAINS_URL, params)
     assert response.json()["count"] == rows
     assert scoped(captured.captured_queries)
+
+
+@pytest.mark.usefixtures("origins")
+def test_the_origin_filters_add_no_query(viewer: User, query_baseline: QueryBaseline) -> None:
+    client = logged_in(viewer)
+    # The same queries as the unfiltered list: the filters are in the SQL of the page.
+    with query_baseline("strain_list"):
+        response = client.get(STRAINS_URL, {"isolation_source": "soil", "country": "CZ"})
+    assert response.json()["count"] == 1
 
 
 @pytest.mark.parametrize("identifications", [1, 5])
