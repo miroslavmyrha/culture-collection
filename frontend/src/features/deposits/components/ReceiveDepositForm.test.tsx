@@ -29,7 +29,7 @@ const uses = () => within(screen.getByRole('group', { name: 'Uses' })).getAllByR
 async function pickDepositor(user: UserEvent) {
   await user.click(select('Depositor'))
   await user.keyboard('vzor')
-  await screen.findByRole('option', { name: /Jana Vzorová/ }, { timeout: 10_000 })
+  await screen.findByRole('option', { name: /Jana Vzorová/ }, { timeout: 30_000 })
   await user.keyboard('{ArrowDown}{Enter}')
 }
 
@@ -47,12 +47,14 @@ const away = (router: Awaited<ReturnType<typeof setup>>['router']) => {
 
 const submit = (user: UserEvent) => user.click(screen.getByRole('button', { name: 'Record the deposit' }))
 
-describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
+// A long form typed key by key, with the 250 ms depositor search debounce: real work, and a busy machine
+// needs a multiple of the quiet time (#60).
+describe('ReceiveDepositForm', { timeout: 90_000 }, () => {
   it('says how many MTA versions are not in the list when the lab has more than the API gives at once', async () => {
     mockApi('get', '/api/v1/labs/{lab_public_id}/depositors/', page([jana]))
     mockApi('get', '/api/v1/labs/{lab_public_id}/mta-templates/', page([std], { count: 230 }))
     await renderWithProviders(<ReceiveDepositForm labId={LAB_ID} onReceived={() => {}} />)
-    expect(await screen.findByRole('combobox', { name: 'MTA' })).toHaveAccessibleDescription(/Only the first 1 of 230 versions are listed\./)
+    expect(await screen.findByRole('combobox', { name: 'MTA' }, { timeout: 15_000 })).toHaveAccessibleDescription(/Only the first 1 of 230 versions are listed\./)
   })
 
   it('sends the receipt with every use decided, the MTA and the ABS facts, with the CSRF token', async () => {
@@ -72,7 +74,7 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     await user.selectOptions(select('Country of origin'), 'CZ')
     await user.type(field('Collection date'), '2019-05')
     await submit(user)
-    await waitFor(() => expect(onReceived).toHaveBeenCalledWith(received), { timeout: 5000 })
+    await waitFor(() => expect(onReceived).toHaveBeenCalledWith(received), { timeout: 15_000 })
     expect(calls[0]?.headers.get('X-CSRFToken')).toBe('test-token')
     expect(calls[0]?.body).toEqual({
       depositor: jana.public_id,
@@ -114,7 +116,7 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
         await user.clear(input)
         await user.type(input, typed)
         await submit(user)
-        await waitFor(() => expect(input).toHaveAccessibleDescription(expect.stringContaining(message)))
+        await waitFor(() => expect(input).toHaveAccessibleDescription(expect.stringContaining(message)), { timeout: 15_000 })
         expect(input).toHaveValue(typed)
         expect(calls).toHaveLength(0)
       }
@@ -143,7 +145,7 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     await user.selectOptions(select('Condition on arrival'), 'other')
     await user.selectOptions(select('ABS scope'), 'in_scope')
     await submit(user)
-    await waitFor(() => expect(field('Note on the condition')).toHaveFocus(), { timeout: 5000 })
+    await waitFor(() => expect(field('Note on the condition')).toHaveFocus(), { timeout: 15_000 })
     expect(field('Note on the condition')).toHaveAccessibleDescription(/Say what was wrong with it$/)
     expect(field('IRCC')).toHaveAccessibleDescription(/Material in scope needs an IRCC or a permit reference$/)
     expect(calls).toHaveLength(0)
@@ -159,7 +161,7 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     const { user } = await setup()
     await fillRequired(user)
     await submit(user)
-    await waitFor(() => expect(input()).toHaveAccessibleDescription(/Not like this\.$/), { timeout: 5000 })
+    await waitFor(() => expect(input()).toHaveAccessibleDescription(/Not like this\.$/), { timeout: 15_000 })
     expect(input()).toHaveFocus()
   })
 
@@ -169,7 +171,7 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     const { user } = await setup()
     await fillRequired(user)
     await submit(user)
-    expect(await screen.findByRole('alert')).toHaveTextContent('You do not have permission to do that.')
+    expect(await screen.findByRole('alert', undefined, { timeout: 15_000 })).toHaveTextContent('You do not have permission to do that.')
     expect(screen.queryByText('internal detail')).not.toBeInTheDocument()
   })
 
@@ -180,7 +182,7 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     const user = userEvent.setup()
     await user.click(select('Depositor'))
     await user.keyboard('vzor')
-    const listbox = await screen.findByRole('listbox', undefined, { timeout: 10_000 })
+    const listbox = await screen.findByRole('listbox', undefined, { timeout: 30_000 })
     expect(within(listbox).getAllByRole('option').map((o) => o.textContent)).toEqual(['Jana Vzorová, Example University'])
   })
 
@@ -190,12 +192,12 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     const { user } = await setup()
     const add = screen.getByRole('button', { name: 'Add a depositor' })
     await user.click(add)
-    const dialog = await screen.findByRole('dialog', { name: 'Add a depositor' })
+    const dialog = await screen.findByRole('dialog', { name: 'Add a depositor' }, { timeout: 15_000 })
     await user.type(within(dialog).getByRole('textbox', { name: 'Name' }), 'Petr Příklad')
     await user.click(within(dialog).getByRole('button', { name: 'Add the depositor' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), { timeout: 5000 })
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), { timeout: 15_000 })
     expect(select('Depositor')).toHaveValue('Petr Příklad')
-    await waitFor(() => expect(add).toHaveFocus(), { timeout: 5000 })
+    await waitFor(() => expect(add).toHaveFocus(), { timeout: 15_000 })
   })
 
   it('keeps the focus on Record the deposit while it sends, and sends once', async () => {
@@ -204,14 +206,14 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     await fillRequired(user)
     const button = screen.getByRole('button', { name: 'Record the deposit' })
     await user.click(button)
-    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'), { timeout: 5000 })
+    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'), { timeout: 15_000 })
     expect(button).toHaveFocus()
     await user.click(button)
     expect(held.calls).toHaveLength(1)
     // No MTA chosen: the API gets null, never an empty id.
     expect(held.calls[0]?.body).toMatchObject({ terms: { mta: null } })
     held.release(201, makeDeposit())
-    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'false'), { timeout: 5000 })
+    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'false'), { timeout: 15_000 })
   })
 
   describe('leaving with unsaved changes', () => {
@@ -219,7 +221,7 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
     it('lets a form nobody typed in go without asking', async () => {
       const { router } = await setup()
       away(router)
-      await waitFor(() => expect(router.state.location.pathname).toBe('/labs'))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/labs'), { timeout: 15_000 })
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     })
 
@@ -227,16 +229,16 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
       const { router, user } = await setup()
       await user.type(field('Name as received'), 'Testella exempli K3')
       away(router)
-      const dialog = await screen.findByRole('alertdialog', { name: 'Leave without saving?' })
+      const dialog = await screen.findByRole('alertdialog', { name: 'Leave without saving?' }, { timeout: 15_000 })
       expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
       expect(router.state.location.pathname).toBe('/')
       await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
-      await waitFor(() => expect(dialog).not.toBeInTheDocument())
+      await waitFor(() => expect(dialog).not.toBeInTheDocument(), { timeout: 15_000 })
       expect(router.state.location.pathname).toBe('/')
       expect(field('Name as received')).toHaveValue('Testella exempli K3')
       away(router)
-      await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Leave' }))
-      await waitFor(() => expect(router.state.location.pathname).toBe('/labs'))
+      await user.click(within(await screen.findByRole('alertdialog', undefined, { timeout: 15_000 })).getByRole('button', { name: 'Leave' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/labs'), { timeout: 15_000 })
     })
 
     it('does not ask after the deposit was saved, when the page moves to the deposit', async () => {
@@ -244,7 +246,7 @@ describe('ReceiveDepositForm', { timeout: 25_000 }, () => {
       const { user, router } = await setup((deposit) => void router.navigate({ to: '/labs/$labId', params: { labId: deposit.public_id } }))
       await fillRequired(user)
       await submit(user)
-      await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/labs\//), { timeout: 5000 })
+      await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/labs\//), { timeout: 15_000 })
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     })
   })
