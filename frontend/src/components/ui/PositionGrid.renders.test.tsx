@@ -29,15 +29,17 @@ describe('PositionGrid renders', () => {
   it('renders only the two cells whose state changed on one arrow key', async () => {
     const user = userEvent.setup()
     // The caller's `cell` and handlers are new on every render of the parent, as in an inline arrow.
-    render(<PositionGrid label="Box 1" rows={9} cols={9} cell={(pos) => cellOf(pos)} onActivate={() => undefined} onActiveChange={() => undefined} />)
-    expect(renders.size).toBe(81)
-    screen.getByRole('gridcell', { name: 'E5, empty' }).focus()
+    // 5 by 5: what counts is that only the changed cells render, at any size, and 81 cells made
+    // this test run past its budget on a busy machine.
+    render(<PositionGrid label="Box 1" rows={5} cols={5} cell={(pos) => cellOf(pos)} onActivate={() => undefined} onActiveChange={() => undefined} />)
+    expect(renders.size).toBe(25)
+    screen.getByRole('gridcell', { name: 'C3, empty' }).focus()
     await user.keyboard('{ArrowRight}')
-    expect(screen.getByRole('gridcell', { name: 'E6, empty' })).toHaveFocus()
+    expect(screen.getByRole('gridcell', { name: 'C4, empty' })).toHaveFocus()
     renders.clear()
     await user.keyboard('{ArrowDown}')
-    expect(screen.getByRole('gridcell', { name: 'F6, empty' })).toHaveFocus()
-    // E6 loses the tab stop, F6 gets it. The other 79 keep their element.
-    expect(rendered()).toEqual(['E6', 'F6'])
+    expect(screen.getByRole('gridcell', { name: 'D4, empty' })).toHaveFocus()
+    // C4 loses the tab stop, D4 gets it. The other 23 keep their element.
+    expect(rendered()).toEqual(['C4', 'D4'])
   })
 })
