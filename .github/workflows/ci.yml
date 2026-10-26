@@ -6,7 +6,7 @@ on:
   push:
     branches: [develop, main]
   schedule:
-    - cron: "17 5 * * 1" # Monday: dependency audit, so new advisories show up without a code change
+    - cron: "17 5 * * *" # daily dependency audit, so new advisories show up without a code change
   workflow_dispatch:
 
 permissions:
@@ -82,8 +82,34 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  # A pull request that changes a lock file is audited before it reaches develop (#132).
+  locks:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if git diff --name-only "$BASE" HEAD | grep -qxE 'backend/uv\.lock|frontend/package-lock\.json'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
   audit:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: [locks]
+    # always(): on a schedule or a manual run the locks job is skipped, and a skipped need
+    # would skip this job too.
+    if: >-
+      always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      || needs.locks.outputs.changed == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
