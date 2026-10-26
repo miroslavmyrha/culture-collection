@@ -48,6 +48,10 @@ export function BoxPositions({ labId, boxId, boxName, canHandle }: Props) {
   const positions = grid.data?.positions ?? []
   const taken = new Map(positions.map((p) => [keyOf(p.row, p.col), p]))
   const at = (pos: GridPos) => taken.get(keyOf(pos.row + 1, pos.col + 1))
+  // One element per vial, kept while the positions are the same: a cell whose content is a new
+  // element on every render could not be skipped when a key moves the focus (#128).
+  const lines = new Map<BoxPosition, ReactNode>()
+  for (const p of positions) if (p.vial) lines.set(p, <VialLines vial={p.vial} />)
   const rows = grid.data?.rows ?? 0
   const cols = grid.data?.cols ?? 0
 
@@ -137,13 +141,7 @@ export function BoxPositions({ labId, boxId, boxName, canHandle }: Props) {
       tone: 'taken',
       selected: source,
       disabled: refused,
-      content: (
-        <>
-          <Line strong>{v.accession_number}</Line>
-          <Line>{v.label.split(' / ').slice(-2).join(' / ')}</Line>
-          {v.status !== 'available' && <Line>{state}</Line>}
-        </>
-      ),
+      content: lines.get(position),
     }
   }
 
@@ -230,6 +228,18 @@ function Details({ labId, here, position }: { labId: string; here: string; posit
         Strain {v.accession_number}
       </Link>
     </Typography>
+  )
+}
+
+/** What a taken position shows: the accession, the label's last two parts, the state when not available. */
+function VialLines({ vial: v }: { vial: NonNullable<BoxPosition['vial']> }) {
+  const state = VIAL_STATUS_LABELS[v.status].toLowerCase()
+  return (
+    <>
+      <Line strong>{v.accession_number}</Line>
+      <Line>{v.label.split(' / ').slice(-2).join(' / ')}</Line>
+      {v.status !== 'available' && <Line>{state}</Line>}
+    </>
   )
 }
 

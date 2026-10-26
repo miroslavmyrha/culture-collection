@@ -1,5 +1,5 @@
 import { Box, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material'
-import { type KeyboardEvent, type ReactNode, type Ref, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, memo, type ReactNode, type Ref, useCallback, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import { clampPos, type GridPos, moveFocus, samePos } from '@/lib/grid'
 
 export type GridCell = {
@@ -55,10 +55,17 @@ export function PositionGrid({ label, rows, cols, cell, onActivate, onEscape, on
   const pendingFocus = useRef(false) // DOM focus moves only after a key or focus() moved the state
   const readOnly = onActivate === undefined
 
-  const setActive = (pos: GridPos) => {
+  // The cells get handlers that keep their identity: a caller's callbacks are new on most renders,
+  // and a new handler would make every cell render again. They read the latest callbacks here.
+  const latest = useRef({ onActivate, onActiveChange })
+  useLayoutEffect(() => {
+    latest.current = { onActivate, onActiveChange }
+  })
+  const setActive = useCallback((pos: GridPos) => {
     setStored(pos)
-    onActiveChange?.(pos)
-  }
+    latest.current.onActiveChange?.(pos)
+  }, [])
+  const activate = useCallback((pos: GridPos) => latest.current.onActivate?.(pos), [])
 
   useLayoutEffect(() => {
     if (!pendingFocus.current) return
@@ -125,32 +132,26 @@ export function PositionGrid({ label, rows, cols, cell, onActivate, onEscape, on
         <TableBody>
           {rowIndexes.map((row) => (
             <TableRow key={row}>
-              <TableCell component="th" scope="row" sx={{ border: 0, px: 1, py: 0, fontWeight: 'bold', textAlign: 'center' }}>
-                {String.fromCodePoint(65 + row)}
-              </TableCell>
+              <RowHeader row={row} />
               {colIndexes.map((col) => {
                 const pos = { row, col }
                 const c = cell(pos)
-                const isActive = samePos(pos, active)
                 return (
-                  <TableCell
+                  <PositionCell
                     key={col}
-                    // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- explicit: jsdom and aria-query map td to cell, not gridcell
-                    role="gridcell"
-                    data-pos={gridLabel(pos)}
-                    data-tone={c.tone}
-                    tabIndex={isActive ? 0 : -1}
-                    aria-label={c.name}
-                    aria-selected={readOnly ? undefined : (c.selected ?? false)}
-                    aria-disabled={c.disabled || undefined}
-                    onFocus={() => {
-                      if (!isActive) setActive(pos)
-                    }}
-                    onClick={onActivate ? () => onActivate(pos) : undefined}
-                    sx={CELL}
-                  >
-                    {c.content}
-                  </TableCell>
+                    row={row}
+                    col={col}
+                    label={gridLabel(pos)}
+                    name={c.name}
+                    tone={c.tone}
+                    selected={c.selected ?? false}
+                    disabled={c.disabled ?? false}
+                    content={c.content}
+                    isActive={samePos(pos, active)}
+                    readOnly={readOnly}
+                    onActivate={readOnly ? undefined : activate}
+                    onActive={setActive}
+                  />
                 )
               })}
             </TableRow>
@@ -160,6 +161,58 @@ export function PositionGrid({ label, rows, cols, cell, onActivate, onEscape, on
     </Box>
   )
 }
+
+/** A row's letter. Memo for the same reason as the cells: it never changes with a key. */
+const RowHeader = memo(function RowHeader({ row }: { row: number }) {
+  return (
+    <TableCell component="th" scope="row" sx={{ border: 0, px: 1, py: 0, fontWeight: 'bold', textAlign: 'center' }}>
+      {String.fromCodePoint(65 + row)}
+    </TableCell>
+  )
+})
+
+type CellProps = {
+  row: number
+  col: number
+  /** The position as people write it, "B3": the data-pos the focus effect finds. */
+  label: string
+  name: string
+  tone: GridCell['tone']
+  selected: boolean
+  disabled: boolean
+  content: ReactNode
+  isActive: boolean
+  readOnly: boolean
+  onActivate: ((pos: GridPos) => void) | undefined
+  onActive: (pos: GridPos) => void
+}
+
+/**
+ * One position. Only plain props, so memo skips it when a key changed some other cell: the
+ * React Compiler keeps the elements of a loop only as one block, it cannot keep one per cell.
+ * `content` must keep its identity between renders for that to hold.
+ */
+const PositionCell = memo(function PositionCell({ row, col, label, name, tone, selected, disabled, content, isActive, readOnly, onActivate, onActive }: CellProps) {
+  return (
+    <TableCell
+      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- explicit: jsdom and aria-query map td to cell, not gridcell
+      role="gridcell"
+      data-pos={label}
+      data-tone={tone}
+      tabIndex={isActive ? 0 : -1}
+      aria-label={name}
+      aria-selected={readOnly ? undefined : selected}
+      aria-disabled={disabled || undefined}
+      onFocus={() => {
+        if (!isActive) onActive({ row, col })
+      }}
+      onClick={onActivate ? () => onActivate({ row, col }) : undefined}
+      sx={CELL}
+    >
+      {content}
+    </TableCell>
+  )
+})
 
 /**
  * Light and dark come from the theme's variables. Every boundary and state is 3:1 or more against
