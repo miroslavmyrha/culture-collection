@@ -244,12 +244,14 @@ def test_a_box_of_another_lab_is_unknown(
     )
 
 
+# The changes are built when the test runs: a date taken while the tests are collected goes
+# stale when the run crosses midnight (CI on 2026-10-25 collected at 23:55 and ran after 00:00).
 @pytest.mark.parametrize(
     ("changes", "attr", "code"),
     [
-        ({"vial_count": 0}, "vial_count", "invalid"),
-        ({"vial_count": 201}, "vial_count", "invalid"),
-        ({"preserved_on": permit_today() + timedelta(days=1)}, "preserved_on", "invalid"),
+        (lambda: {"vial_count": 0}, "vial_count", "invalid"),
+        (lambda: {"vial_count": 201}, "vial_count", "invalid"),
+        (lambda: {"preserved_on": permit_today() + timedelta(days=1)}, "preserved_on", "invalid"),
     ],
 )
 def test_preservation_checks_its_input(
@@ -257,11 +259,11 @@ def test_preservation_checks_its_input(
     as_technician: AuditContext,
     technician: User,
     passage0: Passage,
-    changes: dict[str, Any],
+    changes: Callable[[], dict[str, Any]],
     attr: str,
     code: str,
 ) -> None:
-    refused(services.InvalidVial, code, lambda: preserve(technician, passage0, **changes), attr)
+    refused(services.InvalidVial, code, lambda: preserve(technician, passage0, **changes()), attr)
 
 
 def test_preserving_today_is_allowed(
