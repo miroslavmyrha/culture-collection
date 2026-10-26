@@ -23,6 +23,7 @@ const REQUESTS = '/api/v1/labs/{lab_public_id}/requests/'
 const REQUEST = '/api/v1/labs/{lab_public_id}/requests/{public_id}/'
 const SHIPMENT_DOCUMENT = '/api/v1/labs/{lab_public_id}/shipment-documents/{public_id}/'
 const REQUESTERS = '/api/v1/labs/{lab_public_id}/requesters/'
+const PERMITS = '/api/v1/labs/{lab_public_id}/permits/'
 const signedIn = (username = 'lab-tech') => void mockApi('get', '/api/v1/auth/me/', makeMe({ username }))
 /** The strain page's passages, batches and vials, and the boxes for its forms: all empty. */
 const material = () => {
@@ -85,6 +86,9 @@ describe('page titles (WCAG 2.4.2)', { timeout: 20_000 }, () => {
     [`/labs/${LAB_ID}/shipment-documents/${STRAIN_ID}`, 'Delivery note, request 2026/7', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', SHIPMENT_DOCUMENT, makeShipmentDocument({ request_number: '2026/7' })))],
     [`/labs/${LAB_ID}/shipment-documents/${STRAIN_ID}`, 'Document not found', () => (signedIn(), lab({ my_role: 'viewer' }), mockApiError('get', SHIPMENT_DOCUMENT, 404, problem(404)))],
     [`/labs/${LAB_ID}/shipment-documents/${STRAIN_ID}`, 'Could not load the document', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', SHIPMENT_DOCUMENT, 500))],
+    [`/labs/${LAB_ID}/permits`, 'Permits of Mycology', () => (signedIn(), lab({ my_role: 'manager' }), mockApi('get', PERMITS, []))],
+    [`/labs/${LAB_ID}/permits`, 'Permits of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', PERMITS, 403, problem(403)))],
+    [`/labs/${LAB_ID}/permits`, 'Lab not found', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApiError('get', PERMITS, 404, problem(404)))],
     ['/no-such-page', 'Page not found', () => undefined],
   ])('%s shows "%s | Culture collection"', async (path, title, setup) => {
     allowConsole(/API error 500/)

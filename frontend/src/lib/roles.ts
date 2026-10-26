@@ -8,3 +8,10 @@ type Role = components['schemas']['Role']
  * buttons. The server decides; this only hides what it would refuse.
  */
 export const canHandleDeposits = (role: Role | undefined): boolean => role === 'curator' || role === 'manager'
+
+/**
+ * Managers read the lab's permits (biosafety.view_permits, #82): they answer to the authority
+ * for them. Staff record and end them in the Django admin. The server decides; this only hides
+ * what it would refuse.
+ */
+export const canSeePermits = (role: Role | undefined): boolean => role === 'manager'

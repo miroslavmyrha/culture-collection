@@ -11,7 +11,7 @@ const OTHER_ID = '00000000-0000-4000-8000-00000000000b'
 const STRAINS = '/api/v1/labs/{lab_public_id}/strains/'
 const signedIn = () => void mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))
 const labs = () => mockApi('get', '/api/v1/labs/', page([makeLab({ public_id: LAB_ID, name: 'Mycology' }), makeLab({ public_id: OTHER_ID, name: 'Bacteriology' })]))
-const lab = (role: 'viewer' | 'curator' = 'viewer') => mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: role }))
+const lab = (role: 'viewer' | 'curator' | 'manager' = 'viewer') => mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: role }))
 const scheme = () => document.documentElement.getAttribute('data-color-scheme')
 
 /** jsdom has no matchMedia: the stub answers the prefers-color-scheme query. */
@@ -224,6 +224,17 @@ describe('the lab tabs', () => {
     renderApp({ path: `/labs/${LAB_ID}/strains` })
     const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 5000 })
     await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests', 'Deposits', 'Depositors', 'MTA templates']))
+  })
+
+  it('adds Permits for a manager, after the curator sections (#82)', async () => {
+    signedIn()
+    labs()
+    lab('manager')
+    mockApi('get', STRAINS, page([]))
+    renderApp({ path: `/labs/${LAB_ID}/strains` })
+    const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 5000 })
+    await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests', 'Deposits', 'Depositors', 'MTA templates', 'Permits']))
+    expect(within(nav).getByRole('link', { name: 'Permits' })).toHaveAttribute('href', `/labs/${LAB_ID}/permits`)
   })
 
   it('counts on Requests and Deposits what waits for the person, from the overview (#69)', async () => {

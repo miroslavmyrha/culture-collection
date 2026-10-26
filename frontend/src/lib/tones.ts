@@ -17,3 +17,4 @@ export const VIAL_TONES: Record<string, Tone> = {
   entered_in_error: 'neutral',
 }
 export const UNIT_TONES: Record<string, Tone> = { out_of_service: 'warning', retired: 'neutral' }
+export const PERMIT_TONES: Record<string, Tone> = { expires_soon: 'warning', not_yet_valid: 'info', expired: 'danger', ended: 'neutral' }

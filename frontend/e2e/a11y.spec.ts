@@ -411,6 +411,7 @@ test.describe('keyboard walk through every page', () => {
       'a:Deposits',
       'a:Depositors',
       'a:MTA templates',
+      'a:Permits',
       `button:Change role of ${username}`,
       `button:Revoke regulated locations for ${username}`,
       `button:Remove ${username}`,
@@ -436,6 +437,7 @@ test.describe('keyboard walk through every page', () => {
       'a:Deposits',
       'a:Depositors',
       'a:MTA templates',
+      'a:Permits',
       'button:Add a freezer or tank',
       'li:E2E freezer, freezer, -20\u00a0°C',
     ])
@@ -462,6 +464,7 @@ test.describe('keyboard walk through every page', () => {
       'a:Deposits',
       'a:Depositors',
       'a:MTA templates',
+      'a:Permits',
       'a:Storage of E2E lab',
       'a:E2E freezer',
       'a:Rack 1',
