@@ -1,6 +1,10 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
 import { axe, signedInAs, username, watchCsp } from './support.js'
 
+// Each test walks several pages and scans them with axe: real work, 5 to 25 s on a quiet machine and over
+// the 30 s default on a busy one (#60).
+test.describe.configure({ timeout: 120_000 })
+
 // Requests for material (#18, part A) against the real API. seed_e2e made two strains that may
 // go out (Testella exempli and Mockia vulgaris e2e supply, invented taxa, the second with a
 // dual-use restriction so a manager approves it), the requesters E2E Institute of Microbiology

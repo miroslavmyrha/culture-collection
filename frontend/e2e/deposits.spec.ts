@@ -1,6 +1,10 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
 import { axe, signedInAs, watchCsp } from './support.js'
 
+// Each test walks several pages and scans them with axe: real work, 5 to 25 s on a quiet machine and over
+// the 30 s default on a busy one (#60).
+test.describe.configure({ timeout: 120_000 })
+
 // Deposit intake against the real API (seed_e2e: e2e-curator and e2e-viewer in "E2E lab", the
 // depositor "E2E Depositor", MTA STD version 1, no permits). Each run adds deposits and strains:
 // numbers are never reused and nothing is deleted, so the tests find theirs by a name made

@@ -1,6 +1,10 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
 import { axe, signedInAs, watchCsp } from './support.js'
 
+// Each test walks several pages and scans them with axe: real work, 5 to 25 s on a quiet machine and over
+// the 30 s default on a busy one (#60).
+test.describe.configure({ timeout: 120_000 })
+
 // The strain registry against the real API (seed_e2e: e2e-curator and e2e-viewer in "E2E lab",
 // a few taxa, no permits, and one strain from an accepted deposit, B. subtilis, risk group 1).
 // Strains come from accepted deposits: deposits.spec.ts adds them. These tests change no data.

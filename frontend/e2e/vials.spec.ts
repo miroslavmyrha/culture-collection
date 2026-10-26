@@ -1,6 +1,10 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
 import { axe, signedInAs, username, watchCsp } from './support.js'
 
+// Each test walks several pages and scans them with axe: real work, 5 to 25 s on a quiet machine and over
+// the 30 s default on a busy one (#60).
+test.describe.configure({ timeout: 120_000 })
+
 // Batches and vials against the real API (seed_e2e: the B. subtilis strain from the seeded
 // deposit has its passage 0; a regulated Testella exempli strain has two vials in E2E freezer >
 // Rack 1 > Box R; the e2e user holds the lab's location grant, e2e-curator does not). Vials and

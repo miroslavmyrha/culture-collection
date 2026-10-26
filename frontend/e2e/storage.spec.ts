@@ -1,6 +1,10 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
 import { axe, signedInAs, username, watchCsp } from './support.js'
 
+// Each test walks several pages and scans them with axe: real work, 5 to 25 s on a quiet machine and over
+// the 30 s default on a busy one (#60).
+test.describe.configure({ timeout: 120_000 })
+
 // The storage tree against the real API (seed_e2e: the e2e user manages "E2E lab", e2e-viewer
 // views it, and two box types exist). Units are never deleted, so each run builds its own
 // freezer, named uniquely per run, and finds it by that name. It works as the sessions

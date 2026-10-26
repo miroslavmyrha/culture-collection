@@ -1,6 +1,10 @@
 import { type Browser, expect, type Locator, type Page, test } from '@playwright/test'
 import { axe, channels, ratio, ring, signedInAs, surfaceOf, tabTo, username, watchCsp } from './support.js'
 
+// Each test walks several pages and scans them with axe: real work, 5 to 25 s on a quiet machine and over
+// the 30 s default on a busy one (#60).
+test.describe.configure({ timeout: 120_000 })
+
 // Checks that need a browser: reflow at 320 px (WCAG 1.4.10), the focus ring and its contrast
 // (2.4.7, 1.4.11; axe does not test focus rings), titles and focus after navigation (2.4.2,
 // 2.4.3), and a keyboard walk through every page. Nothing here changes data, so it runs next to
