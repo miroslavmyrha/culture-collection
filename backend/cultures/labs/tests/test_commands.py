@@ -1,5 +1,6 @@
 """seed_e2e: the data Playwright signs in with, the same locally and in CI."""
 
+from datetime import date
 from io import StringIO
 
 import pytest
@@ -10,6 +11,8 @@ from django.test import override_settings
 
 from cultures.audit.context import audit_context
 from cultures.audit.models import ActorKind, AuditEvent, Channel, RowChange
+from cultures.biosafety.models import LabAuthorisation
+from cultures.biosafety.policy import permit_today, valid_on
 from cultures.deposits.models import Deposit, MtaTemplate
 from cultures.distribution import services as distribution
 from cultures.distribution.models import DistributionRequest, Requester
@@ -56,7 +59,8 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
     assert seed() == (
         "e2e-user manages E2E lab; e2e-curator, e2e-technician and e2e-viewer are its curator,"
         " technician and viewer;"
-        " e2e-colleague is in no lab; 10 taxa; a depositor, MTA STD and one accepted deposit;"
+        " e2e-colleague is in no lab; an ended permit; 10 taxa; a depositor, MTA STD and one"
+        " accepted deposit;"
         " 2 box types; E2E freezer > Rack 1 > Box 1; a regulated strain with two vials in"
         " Box R, revealed by e2e-user; a released batch of the seeded strain; two strains that"
         " may go out, two requesters and five requests, two approved, one of them regulated and"
@@ -208,6 +212,9 @@ def test_its_writes_are_audited_as_the_command() -> None:
         "member_added",
         "user_created",
         "member_added",
+        # The lab's one permit, ended (#82)
+        "lab_authorisation_added",
+        "lab_authorisation_ended",
         *["taxon_created", "taxon_identifier_added"] * 2,
         "taxon_created",
         *["taxon_created", "taxon_identifier_added"] * 2,
@@ -259,6 +266,17 @@ def test_one_requester_has_an_invented_seat_and_the_other_none() -> None:
         INSTITUTE: "E2E street 1, 602 00 Brno (invented example)",
         UNNOTIFIED: "",
     }
+
+
+@pytest.mark.usefixtures("env")
+def test_the_lab_holds_one_ended_permit_and_no_valid_one() -> None:
+    """The permits screen has a row to show; the deposit test's VRAT refusal still holds."""
+    seed()
+    lab = Lab.objects.get(code=LAB_CODE)
+    assert list(
+        LabAuthorisation.objects.filter(lab=lab).values_list("permit_reference", "ended_on")
+    ) == [("SÚJB/DEV/E2E/1 (invented example)", date(2025, 6, 30))]
+    assert not LabAuthorisation.objects.filter(valid_on(permit_today()), lab=lab).exists()
 
 
 @pytest.mark.usefixtures("env")

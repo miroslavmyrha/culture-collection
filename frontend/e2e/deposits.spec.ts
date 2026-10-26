@@ -6,7 +6,7 @@ import { axe, signedInAs, watchCsp } from './support.js'
 test.describe.configure({ timeout: 120_000 })
 
 // Deposit intake against the real API (seed_e2e: e2e-curator and e2e-viewer in "E2E lab", the
-// depositor "E2E Depositor", MTA STD version 1, no permits). Each run adds deposits and strains:
+// depositor "E2E Depositor", MTA STD version 1, no valid permit). Each run adds deposits and strains:
 // numbers are never reused and nothing is deleted, so the tests find theirs by a name made
 // unique per run. B. subtilis is risk group 1 (LPSN, DSMZ); the permit gate is tried on the
 // invented Testella exempli. It works as the sessions auth.setup.ts signed in.
