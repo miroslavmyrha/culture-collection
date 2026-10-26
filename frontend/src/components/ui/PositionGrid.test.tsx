@@ -15,8 +15,12 @@ function cellOf(pos: GridPos, selected: string | null): GridCell {
   return { name: `${at}, empty`, tone: 'empty', selected: false }
 }
 
-/** A grid that selects the position it is given: the selection lives in the parent, as in the app. */
-function Selecting({ onActivate, onEscape, handle }: { onActivate?: (pos: GridPos) => void; onEscape?: () => void; handle?: Ref<PositionGridHandle> }) {
+/**
+ * A grid that selects the position it is given: the selection lives in the parent, as in the app.
+ * 5 by 5 unless a test needs the full box: the keys and the selection behave the same at any size,
+ * and 81 cells made these tests run past their budget on a busy machine (#60, #128).
+ */
+function Selecting({ onActivate, onEscape, handle, size = 5 }: { onActivate?: (pos: GridPos) => void; onEscape?: () => void; handle?: Ref<PositionGridHandle>; size?: number }) {
   const [selected, setSelected] = useState<string | null>(null)
   return (
     <>
@@ -24,8 +28,8 @@ function Selecting({ onActivate, onEscape, handle }: { onActivate?: (pos: GridPo
       <PositionGrid
         ref={handle}
         label="Box 1"
-        rows={9}
-        cols={9}
+        rows={size}
+        cols={size}
         cell={(pos) => cellOf(pos, selected)}
         onActivate={(pos) => {
           setSelected(gridLabel(pos))
@@ -45,13 +49,22 @@ const stops = () => grid().querySelectorAll('[tabindex="0"]')
 describe('PositionGrid', () => {
   it('names every position by its label and what it holds, with letters for rows and numbers for columns', () => {
     render(<Selecting />)
-    expect(within(grid()).getAllByRole('gridcell')).toHaveLength(81)
-    expect(within(grid()).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9'])
-    expect(within(grid()).getAllByRole('rowheader').map((h) => h.textContent)).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'])
+    expect(grid().querySelectorAll('[role="gridcell"]')).toHaveLength(25)
     expect(cell('A1, empty')).toBeInTheDocument()
     expect(cell('B3, MYC 42 / 1 / 1, available')).toHaveTextContent('MYC 42 / 1 / 1')
     expect(cell('C4, occupied, regulated')).toHaveTextContent('Hidden')
     expect(grid()).not.toHaveAttribute('aria-readonly')
+  })
+
+  it('labels a full box: rows A to I and columns 1 to 9', () => {
+    // Two narrow boxes instead of one of 81 cells: the labels are the same, the render is cheaper.
+    const { unmount } = render(<PositionGrid label="Box 1" rows={9} cols={2} cell={(pos) => cellOf(pos, null)} />)
+    expect(within(grid()).getAllByRole('rowheader').map((h) => h.textContent)).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'])
+    expect(grid().querySelector('[data-pos="I2"]')).toHaveAccessibleName('I2, empty')
+    unmount()
+    render(<PositionGrid label="Box 1" rows={2} cols={9} cell={(pos) => cellOf(pos, null)} />)
+    expect(within(grid()).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9'])
+    expect(grid().querySelector('[data-pos="B9"]')).toHaveAccessibleName('B9, empty')
   })
 
   it('is one tab stop: Tab enters on A1, the next Tab leaves, Shift+Tab comes back to the same position', async () => {
@@ -70,7 +83,7 @@ describe('PositionGrid', () => {
     expect(stops()).toHaveLength(1)
   })
 
-  it('moves with the arrows, Home, End, Ctrl+Home, Ctrl+End, PageUp and PageDown, and stops at the edges', async () => {
+  it('moves with the arrows and stops at the edges', async () => {
     const user = userEvent.setup()
     render(<Selecting />)
     cell('A1, empty').focus()
@@ -78,20 +91,27 @@ describe('PositionGrid', () => {
     expect(cell('A1, empty')).toHaveFocus()
     await user.keyboard('{ArrowDown}{ArrowRight}{ArrowRight}')
     expect(cell(/^B3,/)).toHaveFocus()
+    expect(stops()).toHaveLength(1)
+  })
+
+  it('moves with Home, End, Ctrl+Home, Ctrl+End, PageUp and PageDown, and never wraps', async () => {
+    const user = userEvent.setup()
+    render(<Selecting />)
+    cell('B1, empty').focus()
     await user.keyboard('{End}')
-    expect(cell('B9, empty')).toHaveFocus()
+    expect(cell('B5, empty')).toHaveFocus()
     await user.keyboard('{ArrowRight}')
-    expect(cell('B9, empty')).toHaveFocus() // no wrap to C1
+    expect(cell('B5, empty')).toHaveFocus() // no wrap to C1
     await user.keyboard('{Home}')
     expect(cell('B1, empty')).toHaveFocus()
     await user.keyboard('{PageDown}')
-    expect(cell('I1, empty')).toHaveFocus()
+    expect(cell('E1, empty')).toHaveFocus()
     await user.keyboard('{ArrowDown}')
-    expect(cell('I1, empty')).toHaveFocus() // no wrap to A1
+    expect(cell('E1, empty')).toHaveFocus() // no wrap to A1
     await user.keyboard('{PageUp}')
     expect(cell('A1, empty')).toHaveFocus()
     await user.keyboard('{Control>}{End}{/Control}')
-    expect(cell('I9, empty')).toHaveFocus()
+    expect(cell('E5, empty')).toHaveFocus()
     await user.keyboard('{Control>}{Home}{/Control}')
     expect(cell('A1, empty')).toHaveFocus()
     expect(stops()).toHaveLength(1)
@@ -137,11 +157,11 @@ describe('PositionGrid', () => {
   it('a click moves the tab stop to the clicked position', async () => {
     const user = userEvent.setup()
     render(<Selecting />)
-    await user.click(cell('D7, empty'))
-    expect(cell('D7, empty')).toHaveAttribute('tabindex', '0')
+    await user.click(cell('D5, empty'))
+    expect(cell('D5, empty')).toHaveAttribute('tabindex', '0')
     expect(stops()).toHaveLength(1)
     await user.keyboard('{ArrowUp}')
-    expect(cell(/^C7,/)).toHaveFocus()
+    expect(cell(/^C5,/)).toHaveFocus()
   })
 
   it('Escape goes to the parent, which can put the focus on any position', async () => {
@@ -159,7 +179,7 @@ describe('PositionGrid', () => {
 
   it('read only: no selection state, no activation, and the arrows still move', async () => {
     const user = userEvent.setup()
-    render(<PositionGrid label="Box 1" rows={9} cols={9} cell={(pos) => cellOf(pos, null)} />)
+    render(<PositionGrid label="Box 1" rows={5} cols={5} cell={(pos) => cellOf(pos, null)} />)
     expect(grid()).toHaveAttribute('aria-readonly', 'true')
     expect(grid().querySelectorAll('[aria-selected]')).toHaveLength(0)
     cell('A1, empty').focus()
@@ -179,8 +199,8 @@ describe('PositionGrid', () => {
   })
 
   it('keeps the tab stop inside a box that became smaller', () => {
-    const { rerender } = render(<PositionGrid label="Box 1" rows={9} cols={9} cell={(pos) => cellOf(pos, null)} />)
-    act(() => cell('I9, empty').focus())
+    const { rerender } = render(<PositionGrid label="Box 1" rows={5} cols={5} cell={(pos) => cellOf(pos, null)} />)
+    act(() => cell('E5, empty').focus())
     rerender(<PositionGrid label="Box 1" rows={2} cols={2} cell={(pos) => cellOf(pos, null)} />)
     expect(cell('B2, empty')).toHaveAttribute('tabindex', '0')
     expect(stops()).toHaveLength(1)
