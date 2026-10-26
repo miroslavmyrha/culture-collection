@@ -1,6 +1,10 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
 import { axe, contrast, signedInAs, watchCsp } from './support.js'
 
+// Each test walks several pages and scans them with axe: real work, 5 to 25 s on a quiet machine and over
+// the 30 s default on a busy one (#60).
+test.describe.configure({ timeout: 120_000 })
+
 // Checks of a batch and its release (#17) against the real API. Each test makes a strain of
 // its own through deposit intake (received, checked, accepted as Bacillus subtilis, risk group
 // 1 as LPSN and the DSMZ catalogue state for the species), named for the run, and preserves a

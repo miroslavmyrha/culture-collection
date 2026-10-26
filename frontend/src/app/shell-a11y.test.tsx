@@ -38,7 +38,9 @@ const strainTabs = () => {
 const lab = (overrides = {}) => mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', ...overrides }))
 const members = (count = 1) => mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([makeMember()], { count }))
 
-describe('page titles (WCAG 2.4.2)', () => {
+// Each case renders the whole app and waits for a lazy route: real work, 0.2 to 1.5 s on a quiet
+// machine, so a busy one runs past the 5 s default (#60).
+describe('page titles (WCAG 2.4.2)', { timeout: 20_000 }, () => {
   // Every state a page can be in, also errors and not found: a tab keeps the previous page's
   // title when a state renders none.
   it.each([
@@ -115,7 +117,7 @@ describe('page titles (WCAG 2.4.2)', () => {
   })
 })
 
-describe('focus after navigation (WCAG 2.4.3)', () => {
+describe('focus after navigation (WCAG 2.4.3)', { timeout: 20_000 }, () => {
   it('leaves the focus alone on the first load', async () => {
     signedIn()
     mockApi('get', '/api/v1/labs/', page([makeLab()]))
@@ -207,7 +209,7 @@ describe('focus after navigation (WCAG 2.4.3)', () => {
   })
 })
 
-describe('focus after a retry on the route error screen', () => {
+describe('focus after a retry on the route error screen', { timeout: 20_000 }, () => {
   it('goes to the h1 of the page that loaded', async () => {
     allowConsole(/API error 500|Error in route match/)
     mockApiError('get', '/api/v1/auth/me/', 500)
@@ -220,7 +222,7 @@ describe('focus after a retry on the route error screen', () => {
   })
 })
 
-describe('the account menu', () => {
+describe('the account menu', { timeout: 20_000 }, () => {
   it('is a named menu button with the user as its label', async () => {
     signedIn('lab-tech')
     renderApp({ path: '/' })
@@ -285,7 +287,7 @@ describe('the account menu', () => {
   })
 })
 
-describe('global notices', () => {
+describe('global notices', { timeout: 20_000 }, () => {
   it('show in the shell, above the page, and focus goes to the h1 when the last is dismissed', async () => {
     signedIn()
     mockApi('get', '/api/v1/labs/', page([makeLab()]))

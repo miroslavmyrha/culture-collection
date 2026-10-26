@@ -67,9 +67,9 @@ async function strainWithManyVials(page: Page, name: string) {
 }
 
 test('a strain opens on its overview, its tabs switch by keyboard, every one of 230 vials is a page away, and its history reads', async ({ browser }) => {
-  // 230 vials made through the API and eight pages checked with axe: 25 s on a shared machine,
-  // and over the default 30 s on the first run against a fresh stack (measured twice).
-  test.setTimeout(60_000)
+  // 230 vials made through the API and eight pages checked with axe: 21 s on a quiet machine, over the
+  // default 30 s on the first run against a fresh stack (measured twice), and over 60 s on a busy one (#60).
+  test.setTimeout(180_000)
   const context = await browser.newContext({ storageState: signedInAs(username), viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
   const violations = await watchCsp(page)

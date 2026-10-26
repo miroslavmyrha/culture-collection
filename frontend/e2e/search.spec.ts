@@ -1,6 +1,10 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
 import { axe, signedInAs, watchCsp } from './support.js'
 
+// Each test walks several pages and scans them with axe: real work, 5 to 25 s on a quiet machine and over
+// the 30 s default on a busy one (#60).
+test.describe.configure({ timeout: 120_000 })
+
 // The top bar's search (#76) against the real API (seed_e2e: "E2E lab" with its seeded strain
 // E2E 1, e2e-viewer and e2e-technician in it; e2e-outsider views only "E2E other lab"). The scan
 // test makes a strain of this run with one vial and a barcode unique to the run, through the API

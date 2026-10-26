@@ -1,6 +1,10 @@
 import { expect, type Page, test } from '@playwright/test'
 import { accountButton, axe, contrast, openLabList, signedInAs, username, watchCsp } from './support.js'
 
+// Each test walks several pages and scans them with axe: real work, 5 to 25 s on a quiet machine and over
+// the 30 s default on a busy one (#60).
+test.describe.configure({ timeout: 120_000 })
+
 test.use({ storageState: signedInAs(username) })
 
 async function signIn(page: Page) {

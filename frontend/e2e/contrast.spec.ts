@@ -1,6 +1,10 @@
 import { type Browser, expect, type Locator, type Page, test } from '@playwright/test'
 import { axe, channels, ratio, signedInAs, surfaceOf, tabTo, username } from './support.js'
 
+// Each test walks several pages and scans them with axe: real work, 5 to 25 s on a quiet machine and over
+// the 30 s default on a busy one (#60).
+test.describe.configure({ timeout: 120_000 })
+
 // Colours and target sizes as the browser draws them, in both schemes: text on hover and focus,
 // links, the status chips, and axe on the shell. src/app/theme.test.ts checks the tokens; this
 // checks what reaches the screen (a hover tint over a dialog's paper, a row's hover over a link).

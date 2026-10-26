@@ -46,7 +46,7 @@ const select = (name: string) => screen.getByRole('combobox', { name })
 async function pickTaxon(user: UserEvent, text = 'exem') {
   await user.click(select('Taxon'))
   await user.keyboard(text)
-  await screen.findByRole('option', { name: /Testella exempli/ }, { timeout: 10_000 })
+  await screen.findByRole('option', { name: /Testella exempli/ }, { timeout: 30_000 })
   await user.keyboard('{ArrowDown}{Enter}')
 }
 
@@ -60,8 +60,9 @@ async function fillRequired(user: UserEvent) {
 
 const submit = (user: UserEvent) => user.click(screen.getByRole('button', { name: 'Accept' }))
 
-// Long forms typed key by key, beside other test files: more than the default 5 s per test.
-describe('StrainFactsForm', { timeout: 20_000 }, () => {
+// Long forms typed key by key, beside other test files: more than the default 5 s per test. The taxon
+// search waits out its 250 ms debounce, and a busy machine needs a multiple of the quiet time (#60).
+describe('StrainFactsForm', { timeout: 60_000 }, () => {
   it('sends the facts with their restrictions and the CSRF token, never a name', async () => {
     const calls = mockApi('post', PATH, makeDeposit({ status: 'accepted' }))
     const { user, onDone } = await setup()
@@ -114,7 +115,7 @@ describe('StrainFactsForm', { timeout: 20_000 }, () => {
     const taxon = select('Taxon')
     await user.click(taxon)
     await user.keyboard('exem')
-    const listbox = await screen.findByRole('listbox', undefined, { timeout: 10_000 })
+    const listbox = await screen.findByRole('listbox', undefined, { timeout: 30_000 })
     expect(within(listbox).getAllByRole('option').map((o) => o.textContent)).toEqual([
       'Testella exempli Doe 2001 (species)',
       'Fictivibrio exempli  (synonym, species)',

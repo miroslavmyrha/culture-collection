@@ -1,6 +1,10 @@
 import { type Browser, expect, type Locator, type Page, test } from '@playwright/test'
 import { axe, ratio, ring, signedInAs, surfaceOf, tabTo, username, watchCsp } from './support.js'
 
+// Each test walks several pages and scans them with axe: real work, 5 to 25 s on a quiet machine and over
+// the 30 s default on a busy one (#60).
+test.describe.configure({ timeout: 120_000 })
+
 // The box grid (#15) against the real API. seed_e2e: the B. subtilis strain has its passage 0,
 // the regulated Testella exempli strain has two vials in E2E freezer > Rack 1 > Box R (A1, A2),
 // e2e-user holds the lab's location grant, e2e-technician handles vials, e2e-viewer reads.

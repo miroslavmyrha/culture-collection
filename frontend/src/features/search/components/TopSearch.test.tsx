@@ -41,10 +41,14 @@ const box = () => screen.getByRole('combobox', { name: 'Search' })
 const listbox = () => screen.findByRole('listbox', { name: 'Search results' }, { timeout: 5000 })
 const render = (compact = false) => renderWithProviders(<TopSearch compact={compact} />)
 
-describe('the top bar search', () => {
+// The debounce of the search box is real time: 250 ms of it, then the request and the render. A busy
+// machine runs past the 5 s default (#60).
+describe('the top bar search', { timeout: 20_000 }, () => {
   it('asks once typing pauses, with the text folded, and nothing for one character', async () => {
     const calls = mockApi('get', SEARCH, { groups: [strains()] })
-    const user = userEvent.setup()
+    // No pause between keys: on a busy machine a pause of 250 ms between two keys would send a request
+    // mid-word, and this test is about the one request after the last key (#60).
+    const user = userEvent.setup({ delay: null })
     await render()
     await user.type(box(), 'B')
     await new Promise((resolve) => setTimeout(resolve, 400))

@@ -34,7 +34,9 @@ async function setup() {
   return { ...view, bob, lists, user: userEvent.setup() }
 }
 
-describe('changing a role', () => {
+// Each case opens a MUI dialog and waits for the table to refetch, 1 to 1.5 s on a quiet machine:
+// real work, so a busy one runs past the 5 s default (#60).
+describe('changing a role', { timeout: 20_000 }, () => {
   it('sends the new role, closes and refreshes the lab', async () => {
     const { bob, user, lists } = await setup()
     const calls = mockApi('patch', DETAIL, { ...bob, role: 'curator' })
@@ -92,7 +94,7 @@ describe('changing a role', () => {
   })
 })
 
-describe('removing a member', () => {
+describe('removing a member', { timeout: 20_000 }, () => {
   it('asks first, with the focus on Cancel, and sends nothing on cancel', async () => {
     const { user } = await setup()
     const calls = recordRequests('delete', DETAIL)
@@ -185,7 +187,7 @@ async function remove(user: ReturnType<typeof userEvent.setup>, username: string
 
 // Where focus goes after a dialog: never to the body (WCAG 2.4.3). MUI would return it to the
 // trigger, which a removal has just taken out of the table.
-describe('focus after a dialog', () => {
+describe('focus after a dialog', { timeout: 20_000 }, () => {
   it('goes to the same button in the next row after a removal', async () => {
     const { people, user } = await three()
     await remove(user, 'bob', [people[0], people[2]].filter((m) => m !== undefined))
@@ -235,7 +237,7 @@ describe('focus after a dialog', () => {
   })
 })
 
-describe('focus after a retry of the members', () => {
+describe('focus after a retry of the members', { timeout: 20_000 }, () => {
   it('goes to the Members heading when the list loads, not the body', async () => {
     allowConsole(/API error 503/)
     mockApiError('get', '/api/v1/labs/{lab_public_id}/members/', 503)
@@ -250,7 +252,7 @@ describe('focus after a retry of the members', () => {
   })
 })
 
-describe('focus after "Go to the first page"', () => {
+describe('focus after "Go to the first page"', { timeout: 20_000 }, () => {
   it('goes to the Members heading, not the body, when the empty page is replaced', async () => {
     mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([], { count: 3 }))
     const onOffsetChange = vi.fn<(offset: number) => void>()

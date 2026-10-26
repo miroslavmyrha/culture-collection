@@ -22,7 +22,9 @@ function renderList(params: StrainListParams = PARAMS) {
   return { onOffsetChange, onClearFilters, view: renderWithProviders(<StrainList labId={LAB_ID} params={params} onOffsetChange={onOffsetChange} onClearFilters={onClearFilters} />) }
 }
 
-describe('StrainList', () => {
+// Each case renders the list with its filters, and the taxon filter waits for its debounced search:
+// real work, so a busy machine runs past the 5 s default (#60).
+describe('StrainList', { timeout: 20_000 }, () => {
   it('shows each strain with its number linked, the taxon, the risk group and the restrictions', async () => {
     const strain = makeStrainRow({
       accession_number: 'MYC 7',
@@ -115,7 +117,7 @@ function signedInApp(role: 'viewer' | 'curator' = 'viewer') {
 }
 
 // Through the real routes: the filters live in the URL, and the pager keeps the focus.
-describe('the strains page', () => {
+describe('the strains page', { timeout: 20_000 }, () => {
   const signedIn = signedInApp
 
   it('keeps a chosen filter when Search is pressed right after choosing it', async () => {
