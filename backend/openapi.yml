@@ -2769,6 +2769,104 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/permits/:
+    get:
+      operationId: labs_permits_list
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LabPermitOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/permits/{public_id}/:
+    get:
+      operationId: labs_permits_retrieve
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabPermitOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/recipient-permits/:
     get:
       operationId: labs_recipient_permits_list
@@ -8409,6 +8507,14 @@ components:
       - public_id
       - reason
       - taxon
+    IssuerEnum:
+      enum:
+      - sujb
+      - ukzuz
+      type: string
+      description: |-
+        * `sujb` - SÚJB
+        * `ukzuz` - ÚKZÚZ
     LabOutput:
       type: object
       description: A lab and the caller's role in it (annotated by the selector, never
@@ -8433,6 +8539,87 @@ components:
       - my_role
       - name
       - public_id
+    LabPermitOutput:
+      type: object
+      description: A lab permit as staff recorded it, with where it stands on the
+        selector's day.
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/LabPermitOutputKindEnum'
+          readOnly: true
+        kind_label:
+          type: string
+          readOnly: true
+        issuer:
+          allOf:
+          - $ref: '#/components/schemas/IssuerEnum'
+          readOnly: true
+        issuer_label:
+          type: string
+          readOnly: true
+        permit_reference:
+          type: string
+          readOnly: true
+        valid_from:
+          type: string
+          format: date
+          readOnly: true
+        expires_on:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        ended_on:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        end_reason:
+          type: string
+          readOnly: true
+        standing:
+          allOf:
+          - $ref: '#/components/schemas/StandingEnum'
+          readOnly: true
+        last_valid_day:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        days_left:
+          type: integer
+          nullable: true
+          description: |-
+            Whole days from today to the last valid day (0 on that day itself), only for a
+            permit in force that states one.
+          readOnly: true
+      required:
+      - days_left
+      - end_reason
+      - ended_on
+      - expires_on
+      - issuer
+      - issuer_label
+      - kind
+      - kind_label
+      - last_valid_day
+      - permit_reference
+      - public_id
+      - standing
+      - valid_from
+    LabPermitOutputKindEnum:
+      enum:
+      - cz_vrat
+      - quarantine_pest
+      type: string
+      description: |-
+        * `cz_vrat` - Permit to handle highly risky agents (VRAT)
+        * `quarantine_pest` - Permit to hold quarantine pests
     LatestChecks:
       type: object
       description: |-
@@ -10725,6 +10912,20 @@ components:
         * `deposit` - deposit
         * `passage` - passage
         * `vial` - vial
+    StandingEnum:
+      enum:
+      - ended
+      - expired
+      - not_yet_valid
+      - expires_soon
+      - valid
+      type: string
+      description: |-
+        * `ended` - ended
+        * `expired` - expired
+        * `not_yet_valid` - not_yet_valid
+        * `expires_soon` - expires_soon
+        * `valid` - valid
     StrainBrief:
       type: object
       properties:

@@ -7,8 +7,9 @@ construction: GRANTS lists only what a role adds.
 Enforced today: view the lab and its members, manage members (#9), view strains
 and manage them (#11), view and manage depositors and deposits, publish MTA
 versions (#10, #12), view and manage storage (#14), handle vials (#16), release
-and hold batches (#17), read, enter and decide requests (#18). The others are named now so
-later features plug into the same map instead of inventing their own checks.
+and hold batches (#17), read, enter and decide requests (#18), read the lab's permits (#82).
+The others are named now so later features plug into the same map instead of inventing their
+own checks.
 """
 
 from enum import StrEnum
@@ -69,6 +70,10 @@ class Perm(StrEnum):
     # #17: releasing a batch for use, or holding it. Recording its checks is bench work
     # (HANDLE_VIALS); deciding on them is the curators' (ADR 0008, D16).
     RELEASE_BATCHES = "batches.release"
+    # #82: reading the lab's permits (biosafety.LabAuthorisation) and when they expire. Staff
+    # record and end them in Django admin; managers answer to the authority for them, as they do
+    # for a regulated approval, so the list is theirs.
+    VIEW_LAB_PERMITS = "biosafety.view_permits"
 
 
 # What each role adds to the roles below it.
@@ -101,6 +106,7 @@ GRANTS: dict[Role, frozenset[Perm]] = {
             Perm.MANAGE_MTA,
             Perm.APPROVE_REGULATED,
             Perm.CONFIRM_RESTRICTION_END,
+            Perm.VIEW_LAB_PERMITS,
         }
     ),
 }

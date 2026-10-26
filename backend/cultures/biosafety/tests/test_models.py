@@ -9,7 +9,7 @@ from django.db import IntegrityError, transaction
 from cultures.biosafety.models import AuthorisationKind, Issuer, LabAuthorisation
 from cultures.labs.models import Lab
 
-from .conftest import make_permit
+from .support import make_permit
 
 pytestmark = pytest.mark.django_db
 

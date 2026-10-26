@@ -21,6 +21,12 @@ from .models import AuthorisationKind, LabAuthorisation, RestrictionKind
 
 PERMIT_TIME_ZONE = ZoneInfo("Europe/Prague")
 NEEDS_PERMIT = frozenset(AuthorisationKind.values)
+# A permit whose last valid day is at most this many days ahead "expires soon": Home lists it
+# for the managers and the permits screen puts it first. A planning choice, not a legal rule:
+# 30 days is the general deadline for an authority's decision from the start of the proceedings
+# (act 500/2004 Sb., § 71(3)), so a renewal applied for on the first day of the window can be
+# decided before the old permit ends; a special act may set another deadline.
+EXPIRES_SOON_DAYS = 30
 
 _WHAT = {
     AuthorisationKind.CZ_VRAT: "SÚJB permit for highly risky agents (VRAT)",

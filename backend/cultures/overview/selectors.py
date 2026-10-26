@@ -40,7 +40,7 @@ from django.db.models import (
 from django.db.models.functions import Coalesce, RowNumber
 
 from cultures.biosafety.models import LabAuthorisation
-from cultures.biosafety.policy import PERMIT_TIME_ZONE, permit_today
+from cultures.biosafety.policy import EXPIRES_SOON_DAYS, PERMIT_TIME_ZONE, permit_today
 from cultures.deposits.models import Condition, Deposit, DepositStatus
 from cultures.distribution.models import (
     DistributionRequest,
@@ -58,7 +58,8 @@ from cultures.storage.models import StorageUnit, UnitKind
 from cultures.strains.models import Strain
 
 WAITING_LIMIT = 20  # rows per kind; the group's total says how many wait
-EXPIRY_DAYS = 30  # a permit that ends within this many days waits for a manager
+# A permit that ends within this many days waits for a manager: the window of the permits screen.
+EXPIRY_DAYS = EXPIRES_SOON_DAYS
 OPEN_REQUESTS = (
     RequestStatus.SUBMITTED,
     RequestStatus.APPROVED,

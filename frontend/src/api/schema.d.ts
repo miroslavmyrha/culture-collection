@@ -606,6 +606,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/permits/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_permits_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/permits/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_permits_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/recipient-permits/": {
         parameters: {
             query?: never;
@@ -2150,6 +2182,12 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        /**
+         * @description * `sujb` - SÚJB
+         *     * `ukzuz` - ÚKZÚZ
+         * @enum {string}
+         */
+        IssuerEnum: "sujb" | "ukzuz";
         /** @description A lab and the caller's role in it (annotated by the selector, never one query per row). */
         LabOutput: {
             /** Format: uuid */
@@ -2158,6 +2196,37 @@ export interface components {
             readonly code: string;
             readonly my_role: components["schemas"]["Role"];
         };
+        /** @description A lab permit as staff recorded it, with where it stands on the selector's day. */
+        LabPermitOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly kind: components["schemas"]["LabPermitOutputKindEnum"];
+            readonly kind_label: string;
+            readonly issuer: components["schemas"]["IssuerEnum"];
+            readonly issuer_label: string;
+            readonly permit_reference: string;
+            /** Format: date */
+            readonly valid_from: string;
+            /** Format: date */
+            readonly expires_on: string | null;
+            /** Format: date */
+            readonly ended_on: string | null;
+            readonly end_reason: string;
+            readonly standing: components["schemas"]["StandingEnum"];
+            /** Format: date */
+            readonly last_valid_day: string | null;
+            /**
+             * @description Whole days from today to the last valid day (0 on that day itself), only for a
+             *     permit in force that states one.
+             */
+            readonly days_left: number | null;
+        };
+        /**
+         * @description * `cz_vrat` - Permit to handle highly risky agents (VRAT)
+         *     * `quarantine_pest` - Permit to hold quarantine pests
+         * @enum {string}
+         */
+        LabPermitOutputKindEnum: "cz_vrat" | "quarantine_pest";
         /**
          * @description The result of the batch's latest valid check of each kind, null when there is none
          *     (selectors.batch_list).
@@ -3113,6 +3182,15 @@ export interface components {
          * @enum {string}
          */
         SourceKindEnum: "deposit" | "passage" | "vial";
+        /**
+         * @description * `ended` - ended
+         *     * `expired` - expired
+         *     * `not_yet_valid` - not_yet_valid
+         *     * `expires_soon` - expires_soon
+         *     * `valid` - valid
+         * @enum {string}
+         */
+        StandingEnum: "ended" | "expired" | "not_yet_valid" | "expires_soon" | "valid";
         StrainBrief: {
             /** Format: uuid */
             readonly public_id: string;
@@ -6409,6 +6487,113 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PassageOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_permits_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabPermitOutput"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_permits_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabPermitOutput"];
                 };
             };
             401: {
