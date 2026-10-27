@@ -98,11 +98,14 @@ test('V8 find soil isolates from Czechia', async ({ browser }, info) => {
   await w.start()
   await openLab(w, LAB)
   await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Strains' }))
-  await w.type(w.page.getByRole('searchbox', { name: 'Number or name' }), 'soil')
-  await w.press('Enter')
+  // The isolation source and country filters (#84). seed_dev: BAC has soil isolates from CZ (garden, forest) and DE (arable).
+  await w.type(w.page.getByRole('searchbox', { name: 'Isolation source' }), 'soil')
+  await w.choose(w.page.getByRole('combobox', { name: 'Country of origin' }), 'Czechia')
+  await w.click(w.page.getByRole('button', { name: 'Search' }))
   w.look()
-  await expect(w.page.getByRole('table', { name: 'Strains' }).getByRole('row', { name: /soil/ }).first()).toBeVisible()
-  w.impossible('The search reads the number, the name as received and the taxon, not the isolation source or the country: a soil isolate whose name does not say so is not found')
+  const strains = w.page.getByRole('table', { name: 'Strains' })
+  await expect(strains.getByRole('row', { name: /forest isolate/ })).toBeVisible()
+  await expect(strains.getByRole('row', { name: /megaterium/ })).toHaveCount(0)
   await w.done()
 })
 
