@@ -22,3 +22,10 @@ export const canSeePermits = (role: Role | undefined): boolean => role === 'mana
  * this only hides what it would refuse.
  */
 export const canManageMedia = (role: Role | undefined): boolean => role === 'curator' || role === 'manager'
+
+/**
+ * Managers read who revealed where the lab's regulated vials are (vials.view_reveals, #83): they
+ * grant and revoke the location grant, so they read what the holders did with it. Holding the
+ * grant gives no access to this log. The server decides; this only hides what it would refuse.
+ */
+export const canSeeReveals = (role: Role | undefined): boolean => role === 'manager'

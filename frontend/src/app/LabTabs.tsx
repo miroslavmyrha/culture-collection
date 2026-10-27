@@ -3,7 +3,7 @@ import { TabRow, tabSx } from '@/components/TabRow'
 import { Box, Container, Link } from '@/components/ui'
 import { overviewOptions } from '@/features/home/api/queries'
 import { useLab } from '@/features/labs/api/queries'
-import { canHandleDeposits, canManageMedia, canSeePermits } from '@/lib/roles'
+import { canHandleDeposits, canManageMedia, canSeePermits, canSeeReveals } from '@/lib/roles'
 
 /**
  * The tabs of a lab's sections under the top bar, on every page of the lab. Navigation links, not
@@ -11,7 +11,7 @@ import { canHandleDeposits, canManageMedia, canSeePermits } from '@/lib/roles'
  * section stays active on its detail pages). On a narrow screen the row scrolls sideways inside
  * itself and the active tab is brought into view; the page does not (WCAG 1.4.10). Deposits,
  * Depositors, MTA templates and Media show for curators and managers once the lab's role is known,
- * Permits for managers.
+ * Permits and Reveals for managers.
  * The row and the tab style are shared with the strain page's tabs (components/TabRow).
  *
  * Requests and Deposits carry how many wait for the person (#69): requests to decide, deposits
@@ -64,6 +64,11 @@ export function LabTabs({ labId }: { labId: string }) {
           {canSeePermits(role) && (
             <Link to="/labs/$labId/permits" params={params} underline="none" sx={tabSx}>
               Permits
+            </Link>
+          )}
+          {canSeeReveals(role) && (
+            <Link to="/labs/$labId/reveals" params={params} underline="none" sx={tabSx}>
+              Reveals
             </Link>
           )}
         </TabRow>

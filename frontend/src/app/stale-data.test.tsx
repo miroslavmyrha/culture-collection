@@ -32,6 +32,7 @@ import {
   makeMyLab,
   makeOverview,
   makeLabPermit,
+  makeReveal,
   makeWaitingGroup,
   makeWaitingItem,
   page,
@@ -62,6 +63,7 @@ const MTAS = '/api/v1/labs/{lab_public_id}/mta-templates/'
 const MTA = '/api/v1/labs/{lab_public_id}/mta-templates/{public_id}/'
 const MEDIA = '/api/v1/labs/{lab_public_id}/media/'
 const PERMITS = '/api/v1/labs/{lab_public_id}/permits/'
+const REVEALS = '/api/v1/labs/{public_id}/reveals/'
 const TERMS = '/api/v1/labs/{lab_public_id}/strains/{public_id}/terms/'
 const HISTORY = '/api/v1/labs/{lab_public_id}/strains/{public_id}/history/'
 const MATERIAL = `/labs/${LAB_ID}/strains/${STRAIN_ID}/material`
@@ -411,6 +413,7 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     ['MtaTemplateList', `/labs/${LAB_ID}/mta-templates`, MTAS, 'the MTA templates', () => mockApi('get', MTAS, page([template])), () => screen.findByRole('link', { name: 'MTA-A version 1' })],
     ['MediaList', `/labs/${LAB_ID}/media`, MEDIA, 'the media', () => mockApi('get', MEDIA, page([makeMedium({ name: 'LB' })])), () => screen.findByRole('cell', { name: 'LB' })],
     ['PermitList', `/labs/${LAB_ID}/permits`, PERMITS, 'the permits', () => mockApi('get', PERMITS, [makeLabPermit({ permit_reference: 'DEV/VRAT/1' })]), () => screen.findByText('SÚJB DEV/VRAT/1')],
+    ['RevealLog', `/labs/${LAB_ID}/reveals`, REVEALS, 'the reveals', () => mockApi('get', REVEALS, page([makeReveal({ vial_label: 'MYC 42 / 1 / 1' })])), () => screen.findByRole('link', { name: 'MYC 42 / 1 / 1' })],
     ['LabList', '/labs', '/api/v1/labs/', 'your labs', () => mockApi('get', '/api/v1/labs/', page([makeLab({ public_id: LAB_ID, name: 'Mycology' })])), () => screen.findByRole('link', { name: 'Mycology' })],
   ] as const)('%s keeps its rows and says they may be out of date', async (_, path, fails, what, data, shown) => {
     allowConsole(/API error 500/)

@@ -26,6 +26,7 @@ import {
   makeVial,
   makeRequest,
   makeOverview,
+  makeReveal,
   page,
 } from '@/test/factories'
 import { mockApi } from '@/test/mockApi'
@@ -422,6 +423,27 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     await router.navigate(toTab('material'))
     await waitFor(() => expect(vials).toHaveLength(1), { timeout: 15_000 })
     await waitFor(() => expect(within(vialRow() ?? document.body).queryAllByRole('button', { name: /Reveal the location/ })).toHaveLength(after ? 1 : 0), { timeout: 15_000 })
+  })
+
+  it('a reveal on the strain page refreshes the lab\'s reveal log (#83)', async () => {
+    signedIn('manager')
+    const REVEALS = '/api/v1/labs/{public_id}/reveals/'
+    const before = mockApi('get', REVEALS, page([]))
+    const { router } = renderApp({ path: `/labs/${LAB_ID}/reveals` })
+    expect(await screen.findByText('Nobody has revealed where a regulated vial of this lab is stored.', {}, { timeout: 15_000 })).toBeInTheDocument()
+    expect(before).toHaveLength(1)
+    strainPage(regulated, { ...masked, can_reveal: true })
+    mockApi('get', UNITS, [freezer, box])
+    await router.navigate({ to: '/labs/$labId/strains/$strainId/material', params: { labId: LAB_ID, strainId: STRAIN_ID } })
+    const user = userEvent.setup()
+    mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/reveal-location/', { location: where('Freezer A') }, { status: 200 })
+    await user.click(await screen.findByRole('button', { name: 'Reveal the location of vial MYC 42 / 1 / 1' }, { timeout: 15_000 }))
+    await screen.findByText('Freezer A / Box 1, A1', {}, { timeout: 15_000 })
+    // The answer after the reveal, registered only now: the log loaded above stays as it was.
+    const after = mockApi('get', REVEALS, page([makeReveal({ vial_label: 'MYC 42 / 1 / 1', strain: STRAIN_ID })]))
+    await router.navigate({ to: '/labs/$labId/reveals', params: { labId: LAB_ID } })
+    await waitFor(() => expect(after).toHaveLength(1), { timeout: 15_000 })
+    expect(await screen.findByRole('link', { name: 'MYC 42 / 1 / 1' }, { timeout: 15_000 })).toBeInTheDocument()
   })
 
   it('accepting a deposit refreshes the lab\'s strain lists', async () => {
