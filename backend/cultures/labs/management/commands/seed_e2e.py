@@ -22,7 +22,9 @@ Brings the database to this state, whatever it was before:
 - a few taxa for the strain form: two genera, a species in each with its NCBI id, and a
   synonym of each species (its basionym), plus an invented genus and species (Testella
   exempli) for the tests of the restriction gates, so no real organism is entered with a
-  legal status it does not have. The lab holds no permit, so a VRAT strain is refused there;
+  legal status it does not have. The lab holds no valid permit, so a VRAT strain is refused
+  there: its one permit, an invented SÚJB permit for VRAT, ended in 2025 (the permits screen
+  of #82 shows it as ended);
 - for the deposit tests: a depositor (an invented person at example.org), the lab's MTA
   "STD" version 1, and one deposit accepted as a Bacillus subtilis strain (risk group 1,
   as LPSN and the DSMZ catalogue state for the species), so the strain pages have a row
@@ -67,7 +69,8 @@ from django.core.management.base import BaseCommand, CommandError
 from config.env import env_secret, env_str
 from cultures.audit.context import audit_context
 from cultures.audit.models import ActorKind, Channel
-from cultures.biosafety.models import RestrictionKind
+from cultures.biosafety import seeding as seed_biosafety
+from cultures.biosafety.models import AuthorisationKind, RestrictionKind
 from cultures.deposits import seeding as seed_deposits
 from cultures.deposits import services as deposits
 from cultures.deposits.models import (
@@ -119,6 +122,16 @@ INSTITUTE, UNNOTIFIED = "E2E Institute of Microbiology", "E2E Unnotified Laborat
 READY_TO_PREPARE = "E2E seed: research on a dual-use strain, approved and ready to prepare."
 # Fewer free vials than this, and the next run releases another batch: the tests reserve some.
 MIN_FREE = 10
+
+# Ended, so it allows nothing: the deposit test still sees a VRAT strain refused.
+ENDED_PERMIT = seed_biosafety.SeedAuthorisation(
+    AuthorisationKind.CZ_VRAT,
+    "SÚJB/DEV/E2E/1 (invented example)",
+    valid_from=date(2025, 1, 1),
+    expires_on=date(2025, 12, 31),
+    ended_on=date(2025, 6, 30),
+    end_reason="Surrendered (invented example).",
+)
 
 # Created when missing; one found (in any case) keeps what staff gave it and only gains a
 # missing parent (cultures/taxonomy/seeding.py). Facts from LPSN
@@ -207,6 +220,7 @@ class Command(BaseCommand):
             other = seed_labs.lab(OTHER_LAB_NAME, OTHER_LAB_CODE)
             seed_labs.member(other, seed_users.user(OTHER_MANAGER, None), Role.MANAGER)
             seed_labs.member(other, seed_users.user(OUTSIDER, password), Role.VIEWER)
+            seed_biosafety.authorisation(lab, ENDED_PERMIT)
             for row in TAXA:
                 seed_taxa.taxon(row)
             self._deposit(lab, curator=User.objects.get(username=CURATOR), manager=user)
@@ -228,8 +242,8 @@ class Command(BaseCommand):
         self.stdout.write(
             f"{username} manages {lab.name}; {CURATOR}, {TECHNICIAN} and {VIEWER} are its"
             " curator, technician and viewer;"
-            f" {COLLEAGUE} is in no lab; {len(TAXA)} taxa; a depositor, MTA STD and"
-            f" one accepted deposit; {len(BOX_TYPES)} box types; {FREEZER} > Rack 1 > Box 1;"
+            f" {COLLEAGUE} is in no lab; an ended permit; {len(TAXA)} taxa; a depositor, MTA STD"
+            f" and one accepted deposit; {len(BOX_TYPES)} box types; {FREEZER} > Rack 1 > Box 1;"
             f" a regulated strain with two vials in {REGULATED_BOX}, revealed by {username};"
             " a released batch of the seeded strain; two strains that may go out, two"
             f" requesters and five requests, two approved, one of them regulated and approved"

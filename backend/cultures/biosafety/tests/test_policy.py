@@ -10,7 +10,7 @@ from cultures.biosafety.models import AuthorisationKind, LabAuthorisation, Restr
 from cultures.biosafety.policy import AuthorisationRequired, permit_today, require_authorisation
 from cultures.labs.models import Lab
 
-from .conftest import make_permit
+from .support import make_permit
 
 pytestmark = pytest.mark.django_db
 VRAT = [(RestrictionKind.CZ_VRAT, "restrictions.0.kind")]

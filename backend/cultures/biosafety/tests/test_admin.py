@@ -12,7 +12,7 @@ from cultures.core.testing import logged_in
 from cultures.labs.models import Lab
 from cultures.users.models import User
 
-from .conftest import make_permit
+from .support import make_permit
 
 pytestmark = pytest.mark.django_db
 

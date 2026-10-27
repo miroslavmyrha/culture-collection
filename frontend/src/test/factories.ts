@@ -667,3 +667,26 @@ export function makeSearchGroup(overrides: Partial<SearchGroup> = {}): SearchGro
   const total = overrides.total ?? hits.length
   return { kind: 'strain', total, labs: [{ lab: SEARCH_LAB, lab_code: 'BAC', total }], hits, ...overrides }
 }
+
+export type LabPermit = Schemas['LabPermitOutput']
+
+/** A valid SÚJB permit of the lab with an invented reference, no expiry stated. */
+export function makeLabPermit(overrides: Partial<LabPermit> = {}): LabPermit {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    kind: 'cz_vrat',
+    kind_label: 'Permit to handle highly risky agents (VRAT)',
+    issuer: 'sujb',
+    issuer_label: 'SÚJB',
+    permit_reference: `DEV/VRAT/${n}`,
+    valid_from: '2026-01-01',
+    expires_on: null,
+    ended_on: null,
+    end_reason: '',
+    standing: 'valid',
+    last_valid_day: null,
+    days_left: null,
+    ...overrides,
+  }
+}

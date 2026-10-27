@@ -1,45 +1,26 @@
-"""A lab, staff acting outside a request, and permits built with only the fields that matter."""
+"""The labs and people of the labs tests (labs/tests/conftest.py: Mycology with one member of
+every role, Bacteriology managed by `outsider`), and staff acting outside a request. Helpers:
+support.py."""
 
 from collections.abc import Iterator
-from datetime import date
-from typing import Any
 
 import pytest
 from model_bakery import baker
 
 from cultures.audit.context import AuditContext, audit_context
 from cultures.audit.models import Channel
-from cultures.biosafety.models import ISSUER_OF, AuthorisationKind, LabAuthorisation
-from cultures.labs.models import Lab
+from cultures.labs.tests.conftest import (  # noqa: F401 (fixtures)
+    _no_last_login_update,
+    curator,
+    lab,
+    manager,
+    other_lab,
+    outsider,
+    team,
+    technician,
+    viewer,
+)
 from cultures.users.models import User
-
-
-def make_permit(
-    lab: Lab, kind: AuthorisationKind = AuthorisationKind.CZ_VRAT, **fields: Any
-) -> LabAuthorisation:
-    values: dict[str, Any] = {
-        "lab": lab,
-        "kind": kind,
-        "issuer": ISSUER_OF[kind],
-        "permit_reference": "SÚJB/2026/001",
-        "valid_from": date(2026, 1, 1),
-        "expires_on": date(2026, 12, 31),
-        **fields,
-    }
-    permit: LabAuthorisation = baker.make(LabAuthorisation, **values)
-    return permit
-
-
-@pytest.fixture
-def lab() -> Lab:
-    found: Lab = baker.make(Lab, name="Mycology", code="MYC")
-    return found
-
-
-@pytest.fixture
-def other_lab() -> Lab:
-    found: Lab = baker.make(Lab, name="Bacteriology", code="BAC")
-    return found
 
 
 @pytest.fixture
