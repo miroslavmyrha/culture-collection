@@ -19,6 +19,7 @@ from django.db.models.lookups import Exact
 
 from cultures.core.models import PublicModel
 from cultures.deposits.models import Deposit
+from cultures.growth.models import GrowthConditions, growth_constraints, medium_index
 from cultures.labs.models import Lab
 from cultures.labs.querysets import LabScopedQuerySet
 from cultures.storage.models import StorageUnit
@@ -35,7 +36,7 @@ MAX_VIALS_PER_BATCH = 200
 TRIMMED = r"^\S(.*\S)?$"
 
 
-class Passage(PublicModel):
+class Passage(PublicModel, GrowthConditions):
     lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="+")
     strain = models.ForeignKey(Strain, on_delete=models.PROTECT, related_name="passages")
     # Counted from receipt: the material as received is 0 (ADR 0008, D3).
@@ -54,8 +55,10 @@ class Passage(PublicModel):
     objects = LabScopedQuerySet["Passage"].as_manager()
 
     class Meta(PublicModel.Meta):
+        indexes = [medium_index("passage_growth_medium_idx")]
         constraints = [
             *PublicModel.Meta.constraints,
+            *growth_constraints("lineage_passage"),
             models.CheckConstraint(
                 condition=Exact(
                     Func(

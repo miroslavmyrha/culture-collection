@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "cultures.audit",
     "cultures.taxonomy",
     "cultures.biosafety",
+    "cultures.growth",
     "cultures.strains",
     "cultures.deposits",
     "cultures.lineage",

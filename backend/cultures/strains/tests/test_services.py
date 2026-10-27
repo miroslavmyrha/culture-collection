@@ -14,6 +14,7 @@ from cultures.audit.models import AuditEvent, RowChange
 from cultures.biosafety.models import AuthorisationKind, RestrictionKind
 from cultures.biosafety.policy import AuthorisationRequired, permit_today
 from cultures.core.exceptions import DomainError, Forbidden, RuleViolation
+from cultures.growth.services import Growth
 from cultures.labs.access import Access, access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
@@ -667,6 +668,9 @@ SCENARIOS: dict[str, Scenario] = {
     ),
     "strain_set_risk_group": lambda strain, access, taxon: services.strain_set_risk_group(
         access=access, strain=strain, risk_group=3, reason="reassessed"
+    ),
+    "strain_set_growth": lambda strain, access, taxon: services.strain_set_growth(
+        access=access, strain=strain, growth=Growth(temperature_low_c=30), reason="refined"
     ),
     "strain_restriction_add": lambda strain, access, taxon: services.strain_restriction_add(
         access=access, strain=strain, restriction=DUAL_USE, reason="listed"

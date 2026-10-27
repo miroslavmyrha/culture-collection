@@ -19,6 +19,7 @@ from django.test.utils import CaptureQueriesContext
 from cultures.audit.context import AuditContext
 from cultures.biosafety import services as biosafety
 from cultures.biosafety.models import AuthorisationKind
+from cultures.growth.services import Growth
 from cultures.labs.access import Access, access_for
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Role
@@ -62,6 +63,14 @@ def strain_set_risk_group(f: Fixtures) -> Callable[[], object]:
     strain = make()
     return lambda: strains.strain_set_risk_group(
         access=access, strain=strain, risk_group=2, reason="r"
+    )
+
+
+def strain_set_growth(f: Fixtures) -> Callable[[], object]:
+    _, access, _, make = f
+    strain = make()
+    return lambda: strains.strain_set_growth(
+        access=access, strain=strain, growth=Growth(temperature_low_c=30), reason="r"
     )
 
 
@@ -129,6 +138,7 @@ SCENARIOS: dict[str, Scenario] = {
         strain_create,
         strain_reclassify,
         strain_set_risk_group,
+        strain_set_growth,
         strain_restriction_add,
         strain_restriction_end_propose,
         strain_restriction_end_confirm,

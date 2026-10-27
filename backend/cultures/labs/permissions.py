@@ -37,6 +37,9 @@ class Perm(StrEnum):
     # #11: strains. Viewing them and their restrictions; creating, reclassifying, changing
     # the risk group or the restrictions.
     VIEW_STRAINS = "strains.view"
+    # #79: the lab's list of growth media. Everyone who sees strains reads it; curators add,
+    # rename and retire media, because a medium names what the strains are grown on.
+    MANAGE_MEDIA = "growth.manage_media"
     # Later features check these through the same map.
     HANDLE_VIALS = "vials.handle"
     # #14: storage. Viewing the units; adding, changing, moving and retiring them. The tree
@@ -92,6 +95,7 @@ GRANTS: dict[Role, frozenset[Perm]] = {
     Role.CURATOR: frozenset(
         {
             Perm.MANAGE_STRAINS,
+            Perm.MANAGE_MEDIA,
             Perm.MANAGE_STORAGE,
             Perm.VIEW_DEPOSITS,
             Perm.MANAGE_DEPOSITS,
