@@ -132,9 +132,12 @@ test('M8 review who revealed regulated locations this month', async ({ browser }
   const w = await Walk.as(browser, info, 'reg-manager', manager('M8', 'Review who revealed regulated locations this month'))
   await w.start()
   await openLab(w, REG)
+  // The reveal log for managers (#83). seed_dev records no reveal, so this month's answer is "nobody".
+  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Reveals' }))
+  await expect(w.page.getByRole('heading', { level: 1, name: /^Reveals of / })).toBeVisible()
+  await w.click(w.page.getByRole('button', { name: 'This month' }))
   w.look()
-  await expect(w.page.getByRole('link', { name: /reveal|audit|history/i })).toHaveCount(0)
-  w.impossible('Every reveal is recorded, but no screen shows the record: only a database query does')
+  await expect(w.page.getByText('No reveal matches these filters.').or(w.page.getByRole('table'))).toBeVisible()
   await w.done()
 })
 
