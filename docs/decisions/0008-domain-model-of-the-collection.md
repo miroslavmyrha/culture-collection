@@ -779,3 +779,46 @@ trail: ADR 0009, amendment of the same day.
 
 Revisit when: a shipment goes in parts, or a document must be corrected after it was sent (a
 correction would be a new document that names the one it replaces, never a change).
+
+## Amendment 2026-10-27: how a strain is grown (#79)
+
+A strain records its growth conditions and a passage records the ones it used. Walkthroughs V9
+(look up the medium and temperature to grow a strain) and T6 (revive a vial to start a
+subculture) had nowhere to read or write them. The sources agree that they belong to the strain
+record: the OECD Best Practice Guidelines for BRCs (2007) list culture medium and growth
+conditions in the minimum data set (General Best Practice Guideline 10.2; the microorganism
+domain, section 7 and Table 2), and the WFCC Guidelines, 3rd ed. (2010), section 11.1, include
+growth medium and temperature in the minimum strain record.
+
+- **A new app, `growth`**, so that `strains` and `lineage` both point at it without a cycle.
+  `growth.GrowthMedium(lab, name, composition_reference, retired_at)`: the lab's list of media.
+  The name is unique per lab in any case. The reference is free text for the number in a public
+  catalogue, such as a DSMZ medium number. A medium is never deleted (a trigger refuses it), it
+  is retired with a reason, and a retired row never changes. A strain or passage that names a
+  retired medium keeps it, and nothing new is given one.
+- **Four columns on `Strain` and on `Passage`** (the abstract `GrowthConditions`):
+  `growth_medium` (protected FK, null), `growth_temperature_low_c` and
+  `growth_temperature_high_c` (whole degrees, both null or both set, 0 to 125 and low <= high;
+  one value is a range with both ends equal, as CCM and ATCC print it), and `growth_atmosphere`
+  (empty or one of `aerobic`, `microaerophilic`, `anaerobic`). The range limit of 125 is a bound
+  on typing errors that the hyperthermophiles fit: the highest growth temperature known is
+  122 C (Methanopyrus kandleri, Takai et al., PNAS 105, 2008). The atmosphere words are the ones
+  the collections print: DSMZ MediaDive ("aerobic", "anaerobic"), CCM ("microaerophilic", e.g.
+  Campylobacter sputorum, Medium 50, 37 C), ATCC product sheets ("Atmosphere: Anaerobic"). No
+  finer vocabulary (CO2 percentages, capnophilic) is invented: a collection that needs one
+  adds it from its own source. Both constraints are built from the Python constants.
+- **Writes.** `growth.services.medium_create`, `medium_update` and `medium_retire` need
+  `MANAGE_MEDIA` (curator, so also manager) and record `medium_created`, `medium_changed` and
+  `medium_retired` (reason required). `strains.services.strain_set_growth` needs
+  `MANAGE_STRAINS`, records `strain_growth_changed` with the changed fields and a required
+  reason, and records nothing when nothing changed. `passage_subculture` and `vial_revive` take
+  an optional growth and copy the strain's current conditions when none is given. Passage 0
+  (the deposit) has none: nobody grew it here. The passage table is insert-only, so what it
+  recorded cannot change; a later correction of the strain does not rewrite its history.
+- **Lock order unchanged**: lab, then the strain, the vial and so on. The medium is read again
+  under the lab lock; one of another lab is a field error, and a trigger holds the same rule
+  for rows written past the services. The two new reason-required event types extend the audit
+  CHECK in the usual two migrations (add NOT VALID, then VALIDATE).
+
+Revisit when: a collection needs a medium per growth phase, a recorded growth result, or a
+finer atmosphere vocabulary.
