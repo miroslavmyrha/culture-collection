@@ -95,6 +95,10 @@ export function makeStrain(overrides: Partial<Strain> = {}): Strain {
     ],
     restriction_history: [],
     growth: noGrowth(),
+    // An active restriction of any kind makes it regulated (ADR 0009), as the server says.
+    regulated: (overrides.restriction_history ?? []).some((r) => r.ended_at === null),
+    deaccession: null,
+    deaccession_proposal: null,
     ...overrides,
   }
 }

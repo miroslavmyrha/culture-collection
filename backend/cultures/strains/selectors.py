@@ -1,6 +1,6 @@
 """Reads of strains. Every one takes the access object, so the lab scope is in the signature."""
 
-from django.db.models import F, Prefetch, Q, QuerySet
+from django.db.models import Exists, F, OuterRef, Prefetch, Q, QuerySet
 
 from cultures.biosafety.models import RestrictionKind
 from cultures.deposits.models import Depositor
@@ -10,7 +10,14 @@ from cultures.labs.permissions import Perm
 from cultures.taxonomy.models import Taxon
 from cultures.taxonomy.selectors import taxon_and_below
 
-from .models import RestrictionEndProposal, Strain, StrainIdentification, StrainRestriction
+from .models import (
+    RestrictionEndProposal,
+    Strain,
+    StrainDeaccessionProposal,
+    StrainIdentification,
+    StrainRestriction,
+    StrainStatus,
+)
 
 
 def regulating_restrictions() -> QuerySet[StrainRestriction]:
@@ -26,8 +33,14 @@ def strain_rows(*, access: Access, lab: Lab) -> QuerySet[Strain]:
     return Strain.objects.for_access(access, Perm.VIEW_STRAINS).filter(lab=lab).order_by("pk")
 
 
+def in_collection(strains: QuerySet[Strain]) -> QuerySet[Strain]:
+    """Without the deaccessioned ones (#20): what a list shows unless asked for them."""
+    return strains.exclude(status=StrainStatus.DEACCESSIONED)
+
+
 def strain_list(*, access: Access, lab: Lab) -> QuerySet[Strain]:
-    """The strains of one lab the user may view, by accession number (numbered first)."""
+    """The strains of one lab the user may view, by accession number (numbered first). Every
+    status: the list's filter leaves out the deaccessioned ones unless asked (filters)."""
     return (
         Strain.objects.for_access(access, Perm.VIEW_STRAINS)
         .filter(lab=lab)
@@ -46,10 +59,12 @@ def strain_list(*, access: Access, lab: Lab) -> QuerySet[Strain]:
 
 
 def strain_detail(*, access: Access, lab: Lab) -> QuerySet[Strain]:
-    """The same rows with their whole history: every identification and every restriction."""
+    """The same rows with their whole history: every identification and every restriction,
+    whether the strain is regulated, and the open proposal to deaccession it (#20)."""
     history = (
         strain_list(access=access, lab=lab)
         .select_related("growth_medium")
+        .annotate(regulated=Exists(regulating_restrictions().filter(strain=OuterRef("pk"))))
         .prefetch_related(
             Prefetch(
                 "identifications",
@@ -60,6 +75,15 @@ def strain_detail(*, access: Access, lab: Lab) -> QuerySet[Strain]:
         )
     )
     return history.prefetch_related(
+        # At most one is open (a unique index).
+        Prefetch(
+            "deaccession_proposals",
+            queryset=StrainDeaccessionProposal.objects.filter(
+                confirmed_at__isnull=True, withdrawn_at__isnull=True
+            ),
+            to_attr="open_deaccession_proposals",
+        )
+    ).prefetch_related(
         Prefetch(
             "restrictions",
             # Active first, then the ended ones in the order they ended.

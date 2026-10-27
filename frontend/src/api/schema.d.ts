@@ -1070,6 +1070,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/deaccession/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The strain leaves the collection, with the cause and the reason (#20): its open
+         *     requests are cancelled and its vials still held are marked for destruction. The strain,
+         *     its number and its history stay. A regulated strain is proposed instead.
+         */
+        post: operations["labs_strains_deaccession_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/deaccession-proposal/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Proposes to deaccession a regulated strain (#20, ADR 0009). Nothing changes for it
+         *     until a manager other than the proposer confirms the proposal.
+         */
+        post: operations["labs_strains_deaccession_proposal_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/deaccession-proposal/confirm/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A manager other than the proposer confirms the proposal they read: the strain leaves
+         *     now, with the proposal's cause, reason and final use.
+         */
+        post: operations["labs_strains_deaccession_proposal_confirm_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/deaccession-proposal/withdraw/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Withdraws the open proposal the caller read, with a reason. The strain stays. */
+        post: operations["labs_strains_deaccession_proposal_withdraw_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/strains/{public_id}/growth/": {
         parameters: {
             query?: never;
@@ -1207,6 +1285,26 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["labs_strains_risk_group_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/shipments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Where the strain's distributed vials went, oldest shipment first, a page at a time
+         *     (#20): the request, the institution, when and how many vials. Names no person.
+         */
+        get: operations["labs_strains_shipments_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1699,6 +1797,17 @@ export interface components {
             strain: string;
             accession_number: string;
         };
+        /**
+         * @description * `non_viable` - No longer grows
+         *     * `contaminated` - Contaminated
+         *     * `misidentified` - Misidentified
+         *     * `duplicate` - Duplicate of another strain
+         *     * `depositor_request` - The depositor asked for it
+         *     * `legal` - Legal reason
+         *     * `lost` - Lost
+         * @enum {string}
+         */
+        CauseEnum: "non_viable" | "contaminated" | "misidentified" | "duplicate" | "depositor_request" | "legal" | "lost";
         CheckErrorInputRequest: {
             /** @description Why, in a sentence. Stored for good: name no person. */
             reason: string;
@@ -2070,6 +2179,68 @@ export interface components {
          * @enum {string}
          */
         CountryCode: "AD" | "AE" | "AF" | "AG" | "AI" | "AL" | "AM" | "AO" | "AQ" | "AR" | "AS" | "AT" | "AU" | "AW" | "AX" | "AZ" | "BA" | "BB" | "BD" | "BE" | "BF" | "BG" | "BH" | "BI" | "BJ" | "BL" | "BM" | "BN" | "BO" | "BQ" | "BR" | "BS" | "BT" | "BV" | "BW" | "BY" | "BZ" | "CA" | "CC" | "CD" | "CF" | "CG" | "CH" | "CI" | "CK" | "CL" | "CM" | "CN" | "CO" | "CR" | "CU" | "CV" | "CW" | "CX" | "CY" | "CZ" | "DE" | "DJ" | "DK" | "DM" | "DO" | "DZ" | "EC" | "EE" | "EG" | "EH" | "ER" | "ES" | "ET" | "FI" | "FJ" | "FK" | "FM" | "FO" | "FR" | "GA" | "GB" | "GD" | "GE" | "GF" | "GG" | "GH" | "GI" | "GL" | "GM" | "GN" | "GP" | "GQ" | "GR" | "GS" | "GT" | "GU" | "GW" | "GY" | "HK" | "HM" | "HN" | "HR" | "HT" | "HU" | "ID" | "IE" | "IL" | "IM" | "IN" | "IO" | "IQ" | "IR" | "IS" | "IT" | "JE" | "JM" | "JO" | "JP" | "KE" | "KG" | "KH" | "KI" | "KM" | "KN" | "KP" | "KR" | "KW" | "KY" | "KZ" | "LA" | "LB" | "LC" | "LI" | "LK" | "LR" | "LS" | "LT" | "LU" | "LV" | "LY" | "MA" | "MC" | "MD" | "ME" | "MF" | "MG" | "MH" | "MK" | "ML" | "MM" | "MN" | "MO" | "MP" | "MQ" | "MR" | "MS" | "MT" | "MU" | "MV" | "MW" | "MX" | "MY" | "MZ" | "NA" | "NC" | "NE" | "NF" | "NG" | "NI" | "NL" | "NO" | "NP" | "NR" | "NU" | "NZ" | "OM" | "PA" | "PE" | "PF" | "PG" | "PH" | "PK" | "PL" | "PM" | "PN" | "PR" | "PS" | "PT" | "PW" | "PY" | "QA" | "RE" | "RO" | "RS" | "RU" | "RW" | "SA" | "SB" | "SC" | "SD" | "SE" | "SG" | "SH" | "SI" | "SJ" | "SK" | "SL" | "SM" | "SN" | "SO" | "SR" | "SS" | "ST" | "SV" | "SX" | "SY" | "SZ" | "TC" | "TD" | "TF" | "TG" | "TH" | "TJ" | "TK" | "TL" | "TM" | "TN" | "TO" | "TR" | "TT" | "TV" | "TW" | "TZ" | "UA" | "UG" | "UM" | "US" | "UY" | "UZ" | "VA" | "VC" | "VE" | "VG" | "VI" | "VN" | "VU" | "WF" | "WS" | "YE" | "YT" | "ZA" | "ZM" | "ZW";
+        DeaccessionConfirmInputRequest: {
+            /**
+             * Format: uuid
+             * @description The public id of the proposal the manager read.
+             */
+            proposal: string;
+        };
+        /** @description For one step (a strain that is not regulated) and for a proposal (a regulated one). */
+        DeaccessionInputRequest: {
+            cause: components["schemas"]["CauseEnum"];
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+            /**
+             * @description A quarantine pest only: what becomes of its material.
+             *
+             *     * `destruction` - Destruction
+             *     * `collection` - Transfer to a collection
+             *     * `storage` - Storage
+             * @default
+             */
+            final_use: components["schemas"]["FinalUseEnum"] | components["schemas"]["BlankEnum"];
+        };
+        /**
+         * @description How the strain left the collection (#20): when, why and for a quarantine pest the final
+         *     use. It names nobody.
+         */
+        DeaccessionOutput: {
+            /** Format: date-time */
+            readonly deaccessioned_at: string;
+            readonly cause: components["schemas"]["CauseEnum"];
+            readonly reason: string;
+            readonly final_use: components["schemas"]["FinalUseEnum"] | components["schemas"]["BlankEnum"];
+        };
+        /**
+         * @description The open proposal to deaccession a regulated strain (#20). It names nobody:
+         *     `confirm_refusal` says the caller proposed it and so may not confirm it (ADR 0009); null when
+         *     they may, as far as identity goes (confirming is a manager's, strains.confirm_deaccession).
+         */
+        DeaccessionProposalOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly cause: components["schemas"]["CauseEnum"];
+            readonly reason: string;
+            readonly final_use: components["schemas"]["FinalUseEnum"] | components["schemas"]["BlankEnum"];
+            /** Format: date-time */
+            readonly proposed_at: string;
+            readonly confirm_refusal: (components["schemas"]["DeaccessionProposalOutputConfirmRefusalEnum"] | components["schemas"]["NullEnum"]) | null;
+        };
+        /**
+         * @description * `confirm_own_deaccession` - confirm_own_deaccession
+         * @enum {string}
+         */
+        DeaccessionProposalOutputConfirmRefusalEnum: "confirm_own_deaccession";
+        DeaccessionWithdrawInputRequest: {
+            /**
+             * Format: uuid
+             * @description The public id of the proposal the manager read.
+             */
+            proposal: string;
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
         /**
          * @description * `permit` - Permitted
          *     * `deny` - Not permitted
@@ -2212,6 +2383,13 @@ export interface components {
             /** @description Why, in a sentence. Stored for good: name no person. */
             reason: string;
         };
+        /**
+         * @description * `destruction` - Destruction
+         *     * `collection` - Transfer to a collection
+         *     * `storage` - Storage
+         * @enum {string}
+         */
+        FinalUseEnum: "destruction" | "collection" | "storage";
         Finding: {
             code: string;
             severity: components["schemas"]["SeverityEnum"];
@@ -2747,6 +2925,21 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["StrainListOutput"][];
+        };
+        PaginatedStrainShipmentOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["StrainShipmentOutput"][];
         };
         PaginatedTaxonOutputList: {
             /** @example 123 */
@@ -3356,6 +3549,9 @@ export interface components {
             readonly growth: components["schemas"]["GrowthOutput"];
             readonly identifications: components["schemas"]["IdentificationOutput"][];
             readonly restriction_history: components["schemas"]["RestrictionOutput"][];
+            readonly regulated: boolean;
+            readonly deaccession: components["schemas"]["DeaccessionOutput"] | null;
+            readonly deaccession_proposal: components["schemas"]["DeaccessionProposalOutput"] | null;
         };
         /**
          * @description What a check of a deposit found: everything a new strain needs but its name as
@@ -3403,6 +3599,20 @@ export interface components {
             readonly restrictions: components["schemas"]["RestrictionBrief"][];
             /** Format: date-time */
             readonly created_at: string;
+        };
+        /**
+         * @description Where distributed vials of the strain went (#20): the request, the institution, when and
+         *     how many. Names no person.
+         */
+        StrainShipmentOutput: {
+            /** Format: uuid */
+            readonly request: string;
+            readonly number: string;
+            readonly institution: string;
+            readonly country: string;
+            /** Format: date-time */
+            readonly shipped_at: string;
+            readonly vials: number;
         };
         /**
          * @description * `pending` - Pending
@@ -9443,6 +9653,340 @@ export interface operations {
             };
         };
     };
+    labs_strains_deaccession_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeaccessionInputRequest"];
+                "multipart/form-data": components["schemas"]["DeaccessionInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainDetailOutput"];
+                };
+            };
+            /** @description Invalid input; final_use_required: a quarantine pest states its final use; final_use_not_applicable: only a quarantine pest does (both on final_use) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description strain_deaccessioned: it left already; deaccession_proposed: a proposal waits; request_awaits_confirmation: a shipment of the strain waits for its second person */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required; second_person_required: the strain is regulated, propose it; deaccession_in_one_step: the strain is not regulated, deaccession it in one step */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_deaccession_proposal_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeaccessionInputRequest"];
+                "multipart/form-data": components["schemas"]["DeaccessionInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainDetailOutput"];
+                };
+            };
+            /** @description Invalid input; final_use_required: a quarantine pest states its final use; final_use_not_applicable: only a quarantine pest does (both on final_use) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description strain_deaccessioned: it left already; deaccession_proposed: a proposal waits; request_awaits_confirmation: a shipment of the strain waits for its second person */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required; second_person_required: the strain is regulated, propose it; deaccession_in_one_step: the strain is not regulated, deaccession it in one step */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_deaccession_proposal_confirm_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeaccessionConfirmInputRequest"];
+                "multipart/form-data": components["schemas"]["DeaccessionConfirmInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainDetailOutput"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description permission_denied: confirming is a manager's; confirm_own_deaccession: the caller proposed it, a different manager confirms */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description strain_deaccessioned; deaccession_not_proposed: no proposal is open; deaccession_proposal_changed: another proposal is open than the one named; deaccession_proposal_outdated: the restrictions changed since; request_awaits_confirmation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_deaccession_proposal_withdraw_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeaccessionWithdrawInputRequest"];
+                "multipart/form-data": components["schemas"]["DeaccessionWithdrawInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainDetailOutput"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description strain_deaccessioned; deaccession_not_proposed: no proposal is open; deaccession_proposal_changed: another proposal is open than the one named; deaccession_proposal_outdated: the restrictions changed since; request_awaits_confirmation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     labs_strains_growth_create: {
         parameters: {
             query?: never;
@@ -10042,6 +10586,342 @@ export interface operations {
             };
             /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_shipments_list: {
+        parameters: {
+            query?: {
+                /**
+                 * @description * `AD` - AD
+                 *     * `AE` - AE
+                 *     * `AF` - AF
+                 *     * `AG` - AG
+                 *     * `AI` - AI
+                 *     * `AL` - AL
+                 *     * `AM` - AM
+                 *     * `AO` - AO
+                 *     * `AQ` - AQ
+                 *     * `AR` - AR
+                 *     * `AS` - AS
+                 *     * `AT` - AT
+                 *     * `AU` - AU
+                 *     * `AW` - AW
+                 *     * `AX` - AX
+                 *     * `AZ` - AZ
+                 *     * `BA` - BA
+                 *     * `BB` - BB
+                 *     * `BD` - BD
+                 *     * `BE` - BE
+                 *     * `BF` - BF
+                 *     * `BG` - BG
+                 *     * `BH` - BH
+                 *     * `BI` - BI
+                 *     * `BJ` - BJ
+                 *     * `BL` - BL
+                 *     * `BM` - BM
+                 *     * `BN` - BN
+                 *     * `BO` - BO
+                 *     * `BQ` - BQ
+                 *     * `BR` - BR
+                 *     * `BS` - BS
+                 *     * `BT` - BT
+                 *     * `BV` - BV
+                 *     * `BW` - BW
+                 *     * `BY` - BY
+                 *     * `BZ` - BZ
+                 *     * `CA` - CA
+                 *     * `CC` - CC
+                 *     * `CD` - CD
+                 *     * `CF` - CF
+                 *     * `CG` - CG
+                 *     * `CH` - CH
+                 *     * `CI` - CI
+                 *     * `CK` - CK
+                 *     * `CL` - CL
+                 *     * `CM` - CM
+                 *     * `CN` - CN
+                 *     * `CO` - CO
+                 *     * `CR` - CR
+                 *     * `CU` - CU
+                 *     * `CV` - CV
+                 *     * `CW` - CW
+                 *     * `CX` - CX
+                 *     * `CY` - CY
+                 *     * `CZ` - CZ
+                 *     * `DE` - DE
+                 *     * `DJ` - DJ
+                 *     * `DK` - DK
+                 *     * `DM` - DM
+                 *     * `DO` - DO
+                 *     * `DZ` - DZ
+                 *     * `EC` - EC
+                 *     * `EE` - EE
+                 *     * `EG` - EG
+                 *     * `EH` - EH
+                 *     * `ER` - ER
+                 *     * `ES` - ES
+                 *     * `ET` - ET
+                 *     * `FI` - FI
+                 *     * `FJ` - FJ
+                 *     * `FK` - FK
+                 *     * `FM` - FM
+                 *     * `FO` - FO
+                 *     * `FR` - FR
+                 *     * `GA` - GA
+                 *     * `GB` - GB
+                 *     * `GD` - GD
+                 *     * `GE` - GE
+                 *     * `GF` - GF
+                 *     * `GG` - GG
+                 *     * `GH` - GH
+                 *     * `GI` - GI
+                 *     * `GL` - GL
+                 *     * `GM` - GM
+                 *     * `GN` - GN
+                 *     * `GP` - GP
+                 *     * `GQ` - GQ
+                 *     * `GR` - GR
+                 *     * `GS` - GS
+                 *     * `GT` - GT
+                 *     * `GU` - GU
+                 *     * `GW` - GW
+                 *     * `GY` - GY
+                 *     * `HK` - HK
+                 *     * `HM` - HM
+                 *     * `HN` - HN
+                 *     * `HR` - HR
+                 *     * `HT` - HT
+                 *     * `HU` - HU
+                 *     * `ID` - ID
+                 *     * `IE` - IE
+                 *     * `IL` - IL
+                 *     * `IM` - IM
+                 *     * `IN` - IN
+                 *     * `IO` - IO
+                 *     * `IQ` - IQ
+                 *     * `IR` - IR
+                 *     * `IS` - IS
+                 *     * `IT` - IT
+                 *     * `JE` - JE
+                 *     * `JM` - JM
+                 *     * `JO` - JO
+                 *     * `JP` - JP
+                 *     * `KE` - KE
+                 *     * `KG` - KG
+                 *     * `KH` - KH
+                 *     * `KI` - KI
+                 *     * `KM` - KM
+                 *     * `KN` - KN
+                 *     * `KP` - KP
+                 *     * `KR` - KR
+                 *     * `KW` - KW
+                 *     * `KY` - KY
+                 *     * `KZ` - KZ
+                 *     * `LA` - LA
+                 *     * `LB` - LB
+                 *     * `LC` - LC
+                 *     * `LI` - LI
+                 *     * `LK` - LK
+                 *     * `LR` - LR
+                 *     * `LS` - LS
+                 *     * `LT` - LT
+                 *     * `LU` - LU
+                 *     * `LV` - LV
+                 *     * `LY` - LY
+                 *     * `MA` - MA
+                 *     * `MC` - MC
+                 *     * `MD` - MD
+                 *     * `ME` - ME
+                 *     * `MF` - MF
+                 *     * `MG` - MG
+                 *     * `MH` - MH
+                 *     * `MK` - MK
+                 *     * `ML` - ML
+                 *     * `MM` - MM
+                 *     * `MN` - MN
+                 *     * `MO` - MO
+                 *     * `MP` - MP
+                 *     * `MQ` - MQ
+                 *     * `MR` - MR
+                 *     * `MS` - MS
+                 *     * `MT` - MT
+                 *     * `MU` - MU
+                 *     * `MV` - MV
+                 *     * `MW` - MW
+                 *     * `MX` - MX
+                 *     * `MY` - MY
+                 *     * `MZ` - MZ
+                 *     * `NA` - NA
+                 *     * `NC` - NC
+                 *     * `NE` - NE
+                 *     * `NF` - NF
+                 *     * `NG` - NG
+                 *     * `NI` - NI
+                 *     * `NL` - NL
+                 *     * `NO` - NO
+                 *     * `NP` - NP
+                 *     * `NR` - NR
+                 *     * `NU` - NU
+                 *     * `NZ` - NZ
+                 *     * `OM` - OM
+                 *     * `PA` - PA
+                 *     * `PE` - PE
+                 *     * `PF` - PF
+                 *     * `PG` - PG
+                 *     * `PH` - PH
+                 *     * `PK` - PK
+                 *     * `PL` - PL
+                 *     * `PM` - PM
+                 *     * `PN` - PN
+                 *     * `PR` - PR
+                 *     * `PS` - PS
+                 *     * `PT` - PT
+                 *     * `PW` - PW
+                 *     * `PY` - PY
+                 *     * `QA` - QA
+                 *     * `RE` - RE
+                 *     * `RO` - RO
+                 *     * `RS` - RS
+                 *     * `RU` - RU
+                 *     * `RW` - RW
+                 *     * `SA` - SA
+                 *     * `SB` - SB
+                 *     * `SC` - SC
+                 *     * `SD` - SD
+                 *     * `SE` - SE
+                 *     * `SG` - SG
+                 *     * `SH` - SH
+                 *     * `SI` - SI
+                 *     * `SJ` - SJ
+                 *     * `SK` - SK
+                 *     * `SL` - SL
+                 *     * `SM` - SM
+                 *     * `SN` - SN
+                 *     * `SO` - SO
+                 *     * `SR` - SR
+                 *     * `SS` - SS
+                 *     * `ST` - ST
+                 *     * `SV` - SV
+                 *     * `SX` - SX
+                 *     * `SY` - SY
+                 *     * `SZ` - SZ
+                 *     * `TC` - TC
+                 *     * `TD` - TD
+                 *     * `TF` - TF
+                 *     * `TG` - TG
+                 *     * `TH` - TH
+                 *     * `TJ` - TJ
+                 *     * `TK` - TK
+                 *     * `TL` - TL
+                 *     * `TM` - TM
+                 *     * `TN` - TN
+                 *     * `TO` - TO
+                 *     * `TR` - TR
+                 *     * `TT` - TT
+                 *     * `TV` - TV
+                 *     * `TW` - TW
+                 *     * `TZ` - TZ
+                 *     * `UA` - UA
+                 *     * `UG` - UG
+                 *     * `UM` - UM
+                 *     * `US` - US
+                 *     * `UY` - UY
+                 *     * `UZ` - UZ
+                 *     * `VA` - VA
+                 *     * `VC` - VC
+                 *     * `VE` - VE
+                 *     * `VG` - VG
+                 *     * `VI` - VI
+                 *     * `VN` - VN
+                 *     * `VU` - VU
+                 *     * `WF` - WF
+                 *     * `WS` - WS
+                 *     * `YE` - YE
+                 *     * `YT` - YT
+                 *     * `ZA` - ZA
+                 *     * `ZM` - ZM
+                 *     * `ZW` - ZW
+                 */
+                country?: "AD" | "AE" | "AF" | "AG" | "AI" | "AL" | "AM" | "AO" | "AQ" | "AR" | "AS" | "AT" | "AU" | "AW" | "AX" | "AZ" | "BA" | "BB" | "BD" | "BE" | "BF" | "BG" | "BH" | "BI" | "BJ" | "BL" | "BM" | "BN" | "BO" | "BQ" | "BR" | "BS" | "BT" | "BV" | "BW" | "BY" | "BZ" | "CA" | "CC" | "CD" | "CF" | "CG" | "CH" | "CI" | "CK" | "CL" | "CM" | "CN" | "CO" | "CR" | "CU" | "CV" | "CW" | "CX" | "CY" | "CZ" | "DE" | "DJ" | "DK" | "DM" | "DO" | "DZ" | "EC" | "EE" | "EG" | "EH" | "ER" | "ES" | "ET" | "FI" | "FJ" | "FK" | "FM" | "FO" | "FR" | "GA" | "GB" | "GD" | "GE" | "GF" | "GG" | "GH" | "GI" | "GL" | "GM" | "GN" | "GP" | "GQ" | "GR" | "GS" | "GT" | "GU" | "GW" | "GY" | "HK" | "HM" | "HN" | "HR" | "HT" | "HU" | "ID" | "IE" | "IL" | "IM" | "IN" | "IO" | "IQ" | "IR" | "IS" | "IT" | "JE" | "JM" | "JO" | "JP" | "KE" | "KG" | "KH" | "KI" | "KM" | "KN" | "KP" | "KR" | "KW" | "KY" | "KZ" | "LA" | "LB" | "LC" | "LI" | "LK" | "LR" | "LS" | "LT" | "LU" | "LV" | "LY" | "MA" | "MC" | "MD" | "ME" | "MF" | "MG" | "MH" | "MK" | "ML" | "MM" | "MN" | "MO" | "MP" | "MQ" | "MR" | "MS" | "MT" | "MU" | "MV" | "MW" | "MX" | "MY" | "MZ" | "NA" | "NC" | "NE" | "NF" | "NG" | "NI" | "NL" | "NO" | "NP" | "NR" | "NU" | "NZ" | "OM" | "PA" | "PE" | "PF" | "PG" | "PH" | "PK" | "PL" | "PM" | "PN" | "PR" | "PS" | "PT" | "PW" | "PY" | "QA" | "RE" | "RO" | "RS" | "RU" | "RW" | "SA" | "SB" | "SC" | "SD" | "SE" | "SG" | "SH" | "SI" | "SJ" | "SK" | "SL" | "SM" | "SN" | "SO" | "SR" | "SS" | "ST" | "SV" | "SX" | "SY" | "SZ" | "TC" | "TD" | "TF" | "TG" | "TH" | "TJ" | "TK" | "TL" | "TM" | "TN" | "TO" | "TR" | "TT" | "TV" | "TW" | "TZ" | "UA" | "UG" | "UM" | "US" | "UY" | "UZ" | "VA" | "VC" | "VE" | "VG" | "VI" | "VN" | "VU" | "WF" | "WS" | "YE" | "YT" | "ZA" | "ZM" | "ZW";
+                depositor?: string;
+                isolation_source?: string;
+                /** @description At most 200 */
+                limit?: number;
+                offset?: number;
+                /**
+                 * @description * `cz_vrat` - Highly risky agent (VRAT), decree 474/2002 Sb., Annex 1
+                 *     * `cz_rat` - Risky agent (RAT), decree 474/2002 Sb., Annex 2
+                 *     * `dual_use` - Dual-use item, Regulation (EU) 2021/821, Annex I
+                 *     * `quarantine_pest` - Union quarantine pest, Regulation (EU) 2019/2072, Annex II
+                 *     * `gmo` - Genetically modified organism in contained use, act 78/2004 Sb.
+                 */
+                restriction?: "cz_rat" | "cz_vrat" | "dual_use" | "gmo" | "quarantine_pest";
+                /**
+                 * @description * `1` - 1
+                 *     * `2` - 2
+                 *     * `3` - 3
+                 *     * `4` - 4
+                 */
+                risk_group?: 1 | 2 | 3 | 4;
+                search?: string;
+                /**
+                 * @description * `pending` - Pending
+                 *     * `active` - Active
+                 *     * `restricted` - Restricted
+                 *     * `deaccessioned` - Deaccessioned
+                 */
+                status?: "active" | "deaccessioned" | "pending" | "restricted";
+                taxon?: string;
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedStrainShipmentOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -102,6 +102,10 @@ EXEMPT: dict[str, str] = {
         "distribution's step, called under its lab and batch locks"
         " (distribution/tests/test_lock_invariant.py)"
     ),
+    "strain_vials_leave_locked": (
+        "the deaccession's step, called under its lab and strain locks"
+        " (strains/tests/test_lock_invariant.py)"
+    ),
 }
 # Services that write nothing to a lineage table (the reveal writes only its event).
 NO_LINEAGE_WRITE = {"vial_reveal_location"}

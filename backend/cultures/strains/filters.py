@@ -28,7 +28,8 @@ def lab_depositors(request: Request) -> QuerySet[Depositor]:
 class StrainFilter(django_filters.FilterSet):  # type: ignore[misc]  # FilterSet is Any: no types
     """Applied by DjangoFilterBackend to the viewset's scoped queryset, never to all rows.
 
-    Explicit fields only. An unknown value answers 400, never the whole list. Taxa are global,
+    Explicit fields only. An unknown value answers 400, never the whole list. Without a status,
+    the deaccessioned strains are left out (#20); status=deaccessioned lists them. Taxa are global,
     so the taxon filter resolves against every taxon: it cannot reveal another lab's rows,
     because the queryset it narrows is already the lab's.
     """
@@ -60,6 +61,16 @@ class StrainFilter(django_filters.FilterSet):  # type: ignore[misc]  # FilterSet
             "country",
             "depositor",
         )
+
+    def filter_queryset(self, queryset: QuerySet[Strain]) -> QuerySet[Strain]:
+        """The list shows deaccessioned strains only when the status filter asks for them (#20):
+        they left the collection. A strain's own page loads through here too (get_object), so it
+        stays reachable by link and by number."""
+        filtered: QuerySet[Strain] = super().filter_queryset(queryset)
+        listing = getattr(self.request.parser_context["view"], "action", None) == "list"
+        if listing and not self.form.cleaned_data.get("status"):
+            filtered = selectors.in_collection(filtered)
+        return filtered
 
     def filter_taxon(self, queryset: QuerySet[Strain], name: str, value: Taxon) -> QuerySet[Strain]:
         return selectors.under_taxon(queryset, value)

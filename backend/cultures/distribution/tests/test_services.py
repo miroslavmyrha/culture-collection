@@ -781,12 +781,15 @@ SCENARIOS: dict[str, Callable[..., object]] = {
     ),
 }
 NOT_A_WRITE = {"document_type", "normalised"}
+# The deaccession's step (#20): no role check of its own, written under the locks of
+# strains.services; its effects are tested in test_deaccession.py.
+STRAIN_STEPS = {"requests_cancel_for_deaccession_locked"}
 
 
 def test_every_service_has_a_scenario_here() -> None:
     found = public_services(services)
     assert {"request_submit", "request_approve"} <= found
-    assert found - NOT_A_WRITE == set(SCENARIOS)
+    assert found - NOT_A_WRITE - STRAIN_STEPS == set(SCENARIOS)
 
 
 @pytest.mark.parametrize("name", sorted(SCENARIOS))

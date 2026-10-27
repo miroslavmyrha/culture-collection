@@ -3,11 +3,13 @@
 from django.utils import timezone
 
 from cultures.audit.context import audited_atomic
-from cultures.audit.events import Change, record_event
+from cultures.audit.events import Change, record_batch, record_event
 from cultures.audit.registry import (
     VIAL_BARCODE_SET,
     VIAL_MOVED,
     VIAL_PLACED,
+    VIAL_STATUS_CHANGED,
+    VIALS_MARKED_FOR_DESTRUCTION,
 )
 from cultures.labs.access import Access
 from cultures.labs.locks import lock_lab
@@ -159,6 +161,56 @@ def vial_ship_locked(*, access: Access, vial: Vial, reason: str) -> None:
     if vial.status != VialStatus.RESERVED:
         raise VialNotAvailable("This vial is not reserved.")
     _transition(vial, VialStatus.DISTRIBUTED, _check_reason(reason), access)
+
+
+# The states of a vial the collection still holds for use: a strain that leaves it (#20) leaves
+# none of its vials in them.
+HELD: tuple[VialStatus, ...] = (VialStatus.AVAILABLE, VialStatus.RESERVED, VialStatus.QUARANTINED)
+
+
+def strain_vials_leave_locked(
+    *, access: Access, strain: Strain, reason: str, destroy: bool
+) -> list[Vial]:
+    """The strain's step when it is deaccessioned (#20, strains.services). With `destroy`, every
+    vial still held (available, reserved, quarantined) is marked to_destroy where it is: one
+    vial_status_changed each and one vials_marked_for_destruction, with the reason. The
+    destruction itself is a later record. Without it (a quarantine pest whose final use keeps
+    the material, collection or storage), a reserved vial is available again and the rest stay.
+
+    The caller holds the lab lock and the strain's row and has ended the vials' reservations
+    (distribution.services.requests_cancel_for_deaccession_locked); the vials are locked here,
+    in pk order. Returns the vials that changed."""
+    reason = _check_reason(reason)
+    vials = list(
+        Vial.objects.select_for_update(of=("self",))
+        .select_related("batch__strain")
+        .filter(batch__strain=strain, status__in=HELD)
+        .order_by("pk")
+    )
+    if not destroy:
+        reserved = [v for v in vials if v.status == VialStatus.RESERVED]
+        for vial in reserved:
+            _transition(vial, VialStatus.AVAILABLE, reason, access)
+        return reserved
+    now = timezone.now()
+    changes = []
+    for vial in vials:
+        # Every held state leads to to_destroy (EDGES), and the vial trigger checks it again.
+        old = VialStatus(vial.status)
+        vial.status, vial.status_changed_at = VialStatus.TO_DESTROY, now
+        vial.save(update_fields=["status", "status_changed_at", "updated_at"])
+        changes.append(
+            Change(
+                VIAL,
+                vial.public_id,
+                {"status": [old, VialStatus.TO_DESTROY]},
+                lab_id=vial.lab_id,
+                strain_id=strain.public_id,
+            )
+        )
+    if changes:
+        record_batch(VIAL_STATUS_CHANGED, VIALS_MARKED_FOR_DESTRUCTION, changes, reason=reason)
+    return vials
 
 
 def batch_exhaust_if_emptied_locked(*, batch: Batch, reason: str) -> bool:

@@ -64,6 +64,9 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     # #105: a proposal to end a restriction is confirmed or withdrawn once, never deleted (its
     # trigger).
     "strains_restrictionendproposal": ("SELECT", "INSERT", "UPDATE"),
+    # #20: a proposal to deaccession a strain is confirmed or withdrawn once, never deleted (its
+    # trigger).
+    "strains_straindeaccessionproposal": ("SELECT", "INSERT", "UPDATE"),
     # Depositors, deposits, terms, MTA versions and passages are never deleted (#10, #12):
     # a contact is erased in place, the rest is history. Guard triggers refuse deletes too.
     "deposits_contact": ("SELECT", "INSERT", "UPDATE"),

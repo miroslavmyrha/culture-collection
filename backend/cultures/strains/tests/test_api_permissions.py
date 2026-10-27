@@ -1,7 +1,7 @@
 """Every action of the strain API for every caller: 401 anonymous, 404 outside the lab,
 403 for a role without the permission, success for viewer and up reading, for curator and up
-writing, and for a manager confirming the end of a restriction (#105). A refused write changes
-no row and records no event."""
+writing, and for a manager confirming the end of a restriction (#105) or the deaccession of a
+regulated strain (#20). A refused write changes no row and records no event."""
 
 from dataclasses import dataclass, field
 from typing import Any
@@ -17,15 +17,17 @@ from cultures.labs.permissions import Role
 from cultures.labs.tests.conftest import member_of
 from cultures.strains import services
 from cultures.strains.models import (
+    DeaccessionCause,
     RestrictionEndProposal,
     Strain,
+    StrainDeaccessionProposal,
     StrainIdentification,
     StrainRestriction,
 )
 from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
 
-from .conftest import GMO, STRAINS_URL, MakeStrain
+from .conftest import GMO, STRAINS_URL, MakeStrain, end_restriction
 
 pytestmark = pytest.mark.django_db
 
@@ -41,10 +43,15 @@ class Call:
     write: bool
     allowed: frozenset[Role] = field(default=WRITERS)
     proposed: bool = False  # acts on an open proposal to end the restriction
+    leaving: bool = False  # acts on an open proposal to deaccession the strain (#20)
+    plain: bool = False  # needs the strain not regulated: its restriction ended first (#20)
 
     def body(self, taxon: Taxon) -> dict[str, Any]:
         proposal = RestrictionEndProposal.objects.filter(confirmed_at=None, withdrawn_at=None)
         named = {"proposal": str(proposal.get().public_id)} if proposal.exists() else {}
+        leaving = StrainDeaccessionProposal.objects.filter(confirmed_at=None, withdrawn_at=None)
+        if leaving.exists():
+            named = {"proposal": str(leaving.get().public_id)}
         bodies: dict[str, dict[str, Any]] = {
             "reclassify": {
                 "taxon": str(taxon.public_id),
@@ -62,6 +69,10 @@ class Call:
             "propose_end": {"reason": "delisted"},
             "confirm_end": named,
             "withdraw_end": {**named, "reason": "still listed"},
+            "deaccession": {"cause": "non_viable", "reason": "no growth"},
+            "propose_deaccession": {"cause": "non_viable", "reason": "no growth"},
+            "confirm_deaccession": named,
+            "withdraw_deaccession": {**named, "reason": "it grew"},
         }
         return bodies.get(self.name, {})
 
@@ -91,21 +102,50 @@ CALLS = [
         write=True,
         proposed=True,
     ),
+    Call("shipments", "get", "{strain}/shipments/", write=False),
+    Call("deaccession", "post", "{strain}/deaccession/", write=True, plain=True),
+    Call("propose_deaccession", "post", "{strain}/deaccession-proposal/", write=True),
+    Call(
+        "confirm_deaccession",
+        "post",
+        "{strain}/deaccession-proposal/confirm/",
+        write=True,
+        allowed=frozenset({Role.MANAGER}),
+        leaving=True,
+    ),
+    Call(
+        "withdraw_deaccession",
+        "post",
+        "{strain}/deaccession-proposal/withdraw/",
+        write=True,
+        leaving=True,
+    ),
 ]
 ROLES = [Role.VIEWER, Role.TECHNICIAN, Role.CURATOR, Role.MANAGER]
 
 
 def ready(call: Call) -> None:
-    """An open proposal for the calls that act on one, by a curator who is none of the team."""
-    if not call.proposed:
+    """An open proposal for the calls that act on one, by a curator who is none of the team;
+    for the one-step deaccession, the restriction ended by two people who are none of it."""
+    if not (call.proposed or call.leaving or call.plain):
         return
     strain = Strain.objects.get()
     proposer = member_of(strain.lab, Role.CURATOR, "proposer")
+    restriction = StrainRestriction.objects.get(strain=strain)
+    if call.plain:
+        confirmer = member_of(strain.lab, Role.MANAGER, "confirmer")
+        end_restriction(restriction, proposer=proposer, confirmer=confirmer)
+        return
     with audit_context(channel=Channel.API, actor=proposer, request_id="req-propose"):
+        if call.leaving:
+            services.strain_deaccession_propose(
+                access=access_for(proposer),
+                strain=strain,
+                data=services.Deaccession(DeaccessionCause.NON_VIABLE, "no growth"),
+            )
+            return
         services.strain_restriction_end_propose(
-            access=access_for(proposer),
-            restriction=StrainRestriction.objects.get(strain=strain),
-            reason="delisted",
+            access=access_for(proposer), restriction=restriction, reason="delisted"
         )
 
 
@@ -117,7 +157,13 @@ def strain(make_strain: MakeStrain) -> Strain:
 def state() -> tuple[Any, ...]:
     rows = tuple(
         list(m._default_manager.order_by("pk").values())
-        for m in (Strain, StrainIdentification, StrainRestriction, RestrictionEndProposal)
+        for m in (
+            Strain,
+            StrainIdentification,
+            StrainRestriction,
+            RestrictionEndProposal,
+            StrainDeaccessionProposal,
+        )
     )
     return (*rows, AuditEvent.objects.count())
 

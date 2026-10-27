@@ -99,6 +99,11 @@ SHOWN: dict[str, Shown] = {
     ),
     "strain_restriction_ended": Shown(S, "ended a restriction of {subject}", STRAIN),
     "strain_growth_changed": Shown(S, "changed how {subject} is grown", STRAIN),
+    "strain_deaccessioned": Shown(S, "deaccessioned {subject}", STRAIN),
+    "strain_deaccession_proposed": Shown(S, "proposed to deaccession {subject}", STRAIN),
+    "strain_deaccession_withdrawn": Shown(
+        S, "withdrew a proposal to deaccession {subject}", STRAIN
+    ),
     "medium_created": Shown(S, "added a growth medium", None),
     "medium_changed": Shown(S, "changed a growth medium", None),
     "medium_retired": Shown(S, "retired a growth medium", None),
@@ -122,6 +127,9 @@ SHOWN: dict[str, Shown] = {
     # Where it went is in the event, never on the line (ADR 0009).
     "vial_placed": Shown(S, "placed vial {subject}", VIAL),
     "vials_placed": Shown(S, "placed {count} vials of {subject}", STRAIN),
+    "vials_marked_for_destruction": Shown(
+        S, "marked {count} vials of {subject} for destruction", STRAIN
+    ),
     "vial_moved": Shown(S, "moved vial {subject}", VIAL),
     "vial_status_changed": Shown(S, "set vial {subject} to {status}", VIAL),
     "vial_barcode_set": Shown(S, "set the barcode of vial {subject}", VIAL),

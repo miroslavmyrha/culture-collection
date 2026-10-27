@@ -15,6 +15,7 @@ from cultures.core.errors import ProblemSerializer
 from cultures.core.exceptions import NotFound
 from cultures.deposits import selectors as deposits
 from cultures.deposits.api.serializers import StrainTermsOutputSerializer
+from cultures.distribution import selectors as distribution
 from cultures.growth.api.serializers import StrainGrowthInputSerializer
 from cultures.growth.services import Growth
 from cultures.labs import selectors as labs
@@ -25,9 +26,12 @@ from cultures.overview import activity
 from cultures.overview.api.serializers import HistoryLineSerializer, HistoryPageSerializer
 from cultures.strains import selectors, services
 from cultures.strains.filters import StrainFilter
-from cultures.strains.models import Strain, StrainRestriction
+from cultures.strains.models import DeaccessionCause, FinalUse, Strain, StrainRestriction
 
 from .serializers import (
+    DeaccessionConfirmInputSerializer,
+    DeaccessionInputSerializer,
+    DeaccessionWithdrawInputSerializer,
     EndConfirmInputSerializer,
     EndProposeInputSerializer,
     EndWithdrawInputSerializer,
@@ -36,6 +40,7 @@ from .serializers import (
     RiskGroupInputSerializer,
     StrainDetailOutputSerializer,
     StrainListOutputSerializer,
+    StrainShipmentOutputSerializer,
 )
 
 # 401, 403, 404 and 429 with the Problem body are added to every operation by core.schema.
@@ -61,6 +66,33 @@ SETTLED = OpenApiResponse(
 OWN = OpenApiResponse(
     ProblemSerializer,
     "permission_denied: confirming is a manager's; confirm_own_end_proposal: the caller proposed"
+    " it, a different manager confirms",
+)
+LEAVES = OpenApiResponse(
+    ProblemSerializer,
+    "Invalid input; final_use_required: a quarantine pest states its final use;"
+    " final_use_not_applicable: only a quarantine pest does (both on final_use)",
+)
+LEAVE_RULE = OpenApiResponse(
+    ProblemSerializer,
+    "reason_required; second_person_required: the strain is regulated, propose it;"
+    " deaccession_in_one_step: the strain is not regulated, deaccession it in one step",
+)
+LEAVE_STATE = OpenApiResponse(
+    ProblemSerializer,
+    "strain_deaccessioned: it left already; deaccession_proposed: a proposal waits;"
+    " request_awaits_confirmation: a shipment of the strain waits for its second person",
+)
+DEACCESSION_SETTLED = OpenApiResponse(
+    ProblemSerializer,
+    "strain_deaccessioned; deaccession_not_proposed: no proposal is open;"
+    " deaccession_proposal_changed: another proposal is open than the one named;"
+    " deaccession_proposal_outdated: the restrictions changed since;"
+    " request_awaits_confirmation",
+)
+DEACCESSION_OWN = OpenApiResponse(
+    ProblemSerializer,
+    "permission_denied: confirming is a manager's; confirm_own_deaccession: the caller proposed"
     " it, a different manager confirms",
 )
 LAB_PARAMETER = OpenApiParameter("lab_public_id", OpenApiTypes.UUID, OpenApiParameter.PATH)
@@ -104,6 +136,12 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         "propose_end": Perm.MANAGE_STRAINS,
         "confirm_end": Perm.CONFIRM_RESTRICTION_END,
         "withdraw_end": Perm.MANAGE_STRAINS,
+        # #20: one person deaccessions a strain that is not regulated, two a regulated one.
+        "deaccession": Perm.MANAGE_STRAINS,
+        "propose_deaccession": Perm.MANAGE_STRAINS,
+        "confirm_deaccession": Perm.CONFIRM_DEACCESSION,
+        "withdraw_deaccession": Perm.MANAGE_STRAINS,
+        "shipments": Perm.VIEW_DISTRIBUTION,
         "history": Perm.VIEW_STRAINS,
         "terms": Perm.VIEW_TERMS,
     }
@@ -120,7 +158,7 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         access = access_of(self.request)
         if self.action == "list":
             return selectors.strain_list(access=access, lab=self.lab)
-        if self.action in ("history", "terms"):
+        if self.action in ("history", "terms", "shipments"):
             return selectors.strain_rows(access=access, lab=self.lab)
         return selectors.strain_detail(access=access, lab=self.lab)
 
@@ -317,6 +355,112 @@ class StrainViewSet(ScopedReadOnlyViewSet):
             reason=data.validated_data["reason"],
         )
         return self._detail(strain)
+
+    @staticmethod
+    def _leaving(values: dict[str, Any]) -> services.Deaccession:
+        final_use = values["final_use"]
+        return services.Deaccession(
+            cause=DeaccessionCause(values["cause"]),
+            reason=values["reason"],
+            final_use=FinalUse(final_use) if final_use else None,
+        )
+
+    @extend_schema(
+        request=DeaccessionInputSerializer,
+        responses={
+            200: StrainDetailOutputSerializer,
+            (400, PROBLEM): LEAVES,
+            (409, PROBLEM): LEAVE_STATE,
+            (422, PROBLEM): LEAVE_RULE,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="deaccession")
+    def deaccession(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """The strain leaves the collection, with the cause and the reason (#20): its open
+        requests are cancelled and its vials still held are marked for destruction. The strain,
+        its number and its history stay. A regulated strain is proposed instead."""
+        strain: Strain = self.get_object()
+        data = DeaccessionInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.strain_deaccession(
+            access=access_of(request), strain=strain, data=self._leaving(data.validated_data)
+        )
+        return self._detail(strain)
+
+    @extend_schema(
+        request=DeaccessionInputSerializer,
+        responses={
+            200: StrainDetailOutputSerializer,
+            (400, PROBLEM): LEAVES,
+            (409, PROBLEM): LEAVE_STATE,
+            (422, PROBLEM): LEAVE_RULE,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="deaccession-proposal")
+    def propose_deaccession(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Proposes to deaccession a regulated strain (#20, ADR 0009). Nothing changes for it
+        until a manager other than the proposer confirms the proposal."""
+        strain: Strain = self.get_object()
+        data = DeaccessionInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.strain_deaccession_propose(
+            access=access_of(request), strain=strain, data=self._leaving(data.validated_data)
+        )
+        return self._detail(strain)
+
+    @extend_schema(
+        request=DeaccessionConfirmInputSerializer,
+        responses={
+            200: StrainDetailOutputSerializer,
+            (403, PROBLEM): DEACCESSION_OWN,
+            (409, PROBLEM): DEACCESSION_SETTLED,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="deaccession-proposal/confirm")
+    def confirm_deaccession(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """A manager other than the proposer confirms the proposal they read: the strain leaves
+        now, with the proposal's cause, reason and final use."""
+        strain: Strain = self.get_object()
+        data = DeaccessionConfirmInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.strain_deaccession_confirm(
+            access=access_of(request), strain=strain, proposal=data.validated_data["proposal"]
+        )
+        return self._detail(strain)
+
+    @extend_schema(
+        request=DeaccessionWithdrawInputSerializer,
+        responses={
+            200: StrainDetailOutputSerializer,
+            (409, PROBLEM): DEACCESSION_SETTLED,
+            (422, PROBLEM): RULE,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="deaccession-proposal/withdraw")
+    def withdraw_deaccession(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Withdraws the open proposal the caller read, with a reason. The strain stays."""
+        strain: Strain = self.get_object()
+        data = DeaccessionWithdrawInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.strain_deaccession_withdraw(
+            access=access_of(request),
+            strain=strain,
+            proposal=data.validated_data["proposal"],
+            reason=data.validated_data["reason"],
+        )
+        return self._detail(strain)
+
+    @extend_schema(
+        parameters=PAGE_PARAMETERS, responses={200: StrainShipmentOutputSerializer(many=True)}
+    )
+    @action(detail=True, methods=["get"], url_path="shipments")
+    def shipments(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Where the strain's distributed vials went, oldest shipment first, a page at a time
+        (#20): the request, the institution, when and how many vials. Names no person."""
+        strain: Strain = self.get_object()
+        rows = distribution.strain_shipments(access=access_of(request), strain=strain)
+        page = self.paginate_queryset(rows) or []
+        return self.get_paginated_response([StrainShipmentOutputSerializer(r).data for r in page])
 
     @extend_schema(parameters=PAGE_PARAMETERS, responses={200: HistoryPageSerializer})
     @action(detail=True, methods=["get"], url_path="history")
