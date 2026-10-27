@@ -4,6 +4,7 @@ import { api, ensureCsrf, unwrap } from '@/lib/api'
 import { vialKeys } from './keys'
 
 type Schemas = components['schemas']
+type GrowthBody = Schemas['GrowthInputRequest']
 
 // Each dialog shows its own failure (meta.handlesError), so the global message stays quiet.
 // onSuccess returns the invalidation of the strain's material and of the box grids (a vial may
@@ -31,9 +32,10 @@ export function usePreserve(labId: string, strainId: string) {
   )
 }
 
+/** The conditions are sent only when they differ from the strain's: left out, the server records the strain's. */
 export function useSubculture(labId: string, strainId: string) {
-  return useStrainWrite(labId, strainId, (sourcePassage: string) =>
-    unwrap(api.POST('/api/v1/labs/{lab_public_id}/passages/', { params: lab(labId), body: { source_passage: sourcePassage } })),
+  return useStrainWrite(labId, strainId, ({ sourcePassage, growth }: { sourcePassage: string; growth: GrowthBody | undefined }) =>
+    unwrap(api.POST('/api/v1/labs/{lab_public_id}/passages/', { params: lab(labId), body: { source_passage: sourcePassage, ...(growth ? { growth } : {}) } })),
   )
 }
 
@@ -50,8 +52,8 @@ export function useSetVialStatus(labId: string, strainId: string) {
 }
 
 export function useRevive(labId: string, strainId: string) {
-  return useStrainWrite(labId, strainId, (vialId: string) =>
-    unwrap(api.POST('/api/v1/labs/{lab_public_id}/vials/{public_id}/revive/', { params: vial(labId, vialId) })),
+  return useStrainWrite(labId, strainId, ({ vialId, growth }: { vialId: string; growth: GrowthBody | undefined }) =>
+    unwrap(api.POST('/api/v1/labs/{lab_public_id}/vials/{public_id}/revive/', { params: vial(labId, vialId), body: growth ? { growth } : {} })),
   )
 }
 

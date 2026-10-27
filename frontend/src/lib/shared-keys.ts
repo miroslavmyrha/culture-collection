@@ -15,6 +15,8 @@ import { api, unwrap } from './api'
  * - accepting a deposit creates a strain: strainLists;
  * - a new terms version of an accepted deposit changes its strain's terms and history:
  *   strainTerms and strainHistory;
+ * - a medium renamed or retired changes how it shows on the strains and passages that use it:
+ *   strains and material;
  * - a deposit or a request that changes what waits (received, checked, decided, shipped) changes
  *   Home and the counts on the lab tabs: overview.
  *
@@ -38,6 +40,9 @@ export const sharedKeys = {
   strainHistory: (labId: string, strainId: string) => [...sharedKeys.strainMaterial(labId, strainId), 'history'] as const,
   /** A strain's terms of use (#19): a new terms version of its deposit changes them. */
   strainTerms: (labId: string, strainId: string) => [...sharedKeys.strains(labId), 'terms', strainId] as const,
+  /** The lab's media (#79): the strain and passage dialogs choose from them, the media screen manages them. */
+  media: (labId: string) => ['media', labId] as const,
+  mediaList: (labId: string, params: { limit: number; offset: number }) => [...sharedKeys.media(labId), 'list', params] as const,
   /** What waits for the signed-in person across their labs, and each lab's figures (#69). */
   overview: () => ['overview'] as const,
 }

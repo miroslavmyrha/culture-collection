@@ -3,6 +3,7 @@ import { LoadError } from '@/components/LoadError'
 import { Pager, PastTheEnd } from '@/components/Pager'
 import { StaleNotice } from '@/components/StaleNotice'
 import { ActionMenu, type ActionItem, Box, Button, Mono, Paper, SelectField, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
+import { type Growth, growthText, noGrowth } from '@/lib/growth'
 import { BATCH_TONES, VIAL_TONES } from '@/lib/tones'
 import { type FocusReturn, focusTarget, rememberFocus, useFocusReturnOnUnmount } from '@/lib/focus'
 import { batchVialsPage, useBatches, useBoxes, usePassages, useVialPage } from '../api/queries'
@@ -33,6 +34,8 @@ type Props = {
   labId: string
   strainId: string
   accession: string
+  /** The strain's own growth conditions: a revival or a subculture starts from them (#79). */
+  strainGrowth: Growth | undefined
   canHandle: boolean
   canRelease: boolean
   /** The page of the vials the URL holds, and how to ask for another (#72). */
@@ -56,7 +59,7 @@ type Open =
  * reveals one (ADR 0009). A batch's checks open in its row (D16): technicians record them,
  * curators release and hold.
  */
-export function StrainMaterial({ labId, strainId, accession, canHandle, canRelease, vialPage, onVialPage }: Props) {
+export function StrainMaterial({ labId, strainId, accession, strainGrowth, canHandle, canRelease, vialPage, onVialPage }: Props) {
   const passages = usePassages(labId, strainId)
   const batches = useBatches(labId, strainId)
   const vials = useVialPage(labId, strainId, vialPage)
@@ -325,12 +328,12 @@ export function StrainMaterial({ labId, strainId, accession, canHandle, canRelea
       {open?.kind === 'preserve' && (
         <PreserveBatchDialog {...common} accession={accession} passages={passageRows} boxes={boxList} boxesFailed={boxesFailed} open={open.open} />
       )}
-      {open?.kind === 'subculture' && <SubcultureDialog {...common} passage={open.passage} open={open.open} />}
+      {open?.kind === 'subculture' && strainGrowth && <SubcultureDialog {...common} passage={open.passage} strainGrowth={strainGrowth} open={open.open} />}
       {open?.kind === 'place' && (
         <PlaceVialDialog {...common} vial={open.vial} boxes={boxList} boxesFailed={boxesFailed} open={open.open} onPlaced={() => moved(open.vial.public_id)} />
       )}
       {open?.kind === 'status' && <VialStatusDialog {...common} vial={open.vial} open={open.open} />}
-      {open?.kind === 'revive' && <ReviveDialog {...common} vial={open.vial} open={open.open} />}
+      {open?.kind === 'revive' && strainGrowth && <ReviveDialog {...common} vial={open.vial} strainGrowth={strainGrowth} open={open.open} />}
       {open?.kind === 'check' && (
         <RecordCheckDialog {...common} batch={open.batch} vials={batchVials.data?.results ?? (batchVials.isError ? [] : undefined)} vialsTotal={batchVials.data?.count} checks={open.checks} open={open.open} />
       )}
@@ -364,6 +367,11 @@ function PassageItem({ node, passages, subculture }: PassageItemProps) {
           </Button>
         )}
       </Box>
+      {!noGrowth(p.growth) && (
+        <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+          Grown on: {growthText(p.growth)}
+        </Typography>
+      )}
       {node.children.length > 0 && (
         <Box component="ul" aria-label={`Grown from passage ${p.number}`} sx={{ listStyle: 'none', m: 0, pl: { xs: 1.5, sm: 3 }, ml: 1, borderLeft: 1, borderColor: 'divider' }}>
           {node.children.map((child) => (

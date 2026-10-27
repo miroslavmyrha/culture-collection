@@ -223,7 +223,7 @@ describe('the lab tabs', () => {
     mockApi('get', STRAINS, page([]))
     renderApp({ path: `/labs/${LAB_ID}/strains` })
     const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 5000 })
-    await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests', 'Deposits', 'Depositors', 'MTA templates']))
+    await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests', 'Deposits', 'Depositors', 'MTA templates', 'Media']))
   })
 
   it('adds Permits for a manager, after the curator sections (#82)', async () => {
@@ -233,7 +233,7 @@ describe('the lab tabs', () => {
     mockApi('get', STRAINS, page([]))
     renderApp({ path: `/labs/${LAB_ID}/strains` })
     const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 5000 })
-    await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests', 'Deposits', 'Depositors', 'MTA templates', 'Permits']))
+    await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests', 'Deposits', 'Depositors', 'MTA templates', 'Media', 'Permits']))
     expect(within(nav).getByRole('link', { name: 'Permits' })).toHaveAttribute('href', `/labs/${LAB_ID}/permits`)
   })
 

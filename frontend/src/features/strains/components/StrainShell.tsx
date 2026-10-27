@@ -7,7 +7,7 @@ import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { STRAIN_TONES } from '@/lib/tones'
 import { useStrain } from '../api/queries'
 import { RESTRICTION_LABELS, STATUS_LABELS, type Strain } from '../schemas'
-import { AddRestrictionDialog, ReclassifyDialog, RiskGroupDialog } from './StrainDialogs'
+import { AddRestrictionDialog, GrowthDialog, ReclassifyDialog, RiskGroupDialog } from './StrainDialogs'
 
 type Props = {
   labId: string
@@ -17,7 +17,7 @@ type Props = {
   children: (strain: Strain) => ReactNode
 }
 
-type Open = { kind: 'reclassify' | 'risk' | 'add'; open: boolean } | null
+type Open = { kind: 'reclassify' | 'risk' | 'add' | 'growth'; open: boolean } | null
 
 /** A risk group as a chip: group 1 plain, group 2 to look at, 3 and 4 a warning to everyone. */
 const RISK_TONES: Record<number, Tone> = { 1: 'neutral', 2: 'warning', 3: 'danger', 4: 'danger' }
@@ -92,6 +92,7 @@ export function StrainShell({ labId, strainId, canManage, children }: Props) {
                 { label: 'Reclassify', onSelect: show('reclassify') },
                 { label: 'Change risk group', onSelect: show('risk') },
                 { label: 'Add a restriction', onSelect: show('add') },
+                { label: 'Change growth conditions', onSelect: show('growth') },
               ]}
             />
           )}
@@ -116,6 +117,7 @@ export function StrainShell({ labId, strainId, canManage, children }: Props) {
       {/* Mounted until they have faded out, so onExited can place the focus. */}
       {open?.kind === 'reclassify' && <ReclassifyDialog labId={labId} strain={s} open={open.open} onClose={close} onExited={exited} />}
       {open?.kind === 'risk' && <RiskGroupDialog labId={labId} strain={s} open={open.open} onClose={close} onExited={exited} />}
+      {open?.kind === 'growth' && <GrowthDialog labId={labId} strain={s} open={open.open} onClose={close} onExited={exited} />}
       {open?.kind === 'add' && <AddRestrictionDialog labId={labId} strain={s} open={open.open} onClose={close} onExited={exited} />}
     </>
   )

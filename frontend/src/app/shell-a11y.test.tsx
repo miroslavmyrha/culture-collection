@@ -23,6 +23,7 @@ const REQUESTS = '/api/v1/labs/{lab_public_id}/requests/'
 const REQUEST = '/api/v1/labs/{lab_public_id}/requests/{public_id}/'
 const SHIPMENT_DOCUMENT = '/api/v1/labs/{lab_public_id}/shipment-documents/{public_id}/'
 const REQUESTERS = '/api/v1/labs/{lab_public_id}/requesters/'
+const MEDIA = '/api/v1/labs/{lab_public_id}/media/'
 const PERMITS = '/api/v1/labs/{lab_public_id}/permits/'
 const signedIn = (username = 'lab-tech') => void mockApi('get', '/api/v1/auth/me/', makeMe({ username }))
 /** The strain page's passages, batches and vials, and the boxes for its forms: all empty. */
@@ -66,6 +67,7 @@ describe('page titles (WCAG 2.4.2)', { timeout: 20_000 }, () => {
     [`/labs/${LAB_ID}/mta-templates/${STRAIN_ID}`, 'STD version 1', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', MTA, makeMtaTemplate()))],
     [`/labs/${LAB_ID}/mta-templates/${STRAIN_ID}`, 'MTA not found', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', MTA, 404, problem(404)))],
     [`/labs/${LAB_ID}/mta-templates/${STRAIN_ID}`, 'MTA template', () => (signedIn(), lab({ my_role: 'viewer' }), mockApiError('get', MTA, 404, problem(404)))],
+    [`/labs/${LAB_ID}/media`, 'Media of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', MEDIA, page([])))],
     [`/labs/${LAB_ID}/deposits`, 'Deposits of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', DEPOSITS, page([])))],
     [`/labs/${LAB_ID}/deposits/new`, 'Receive a deposit in Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', MTAS, page([])))],
     [`/labs/${LAB_ID}/deposits/${STRAIN_ID}`, 'Deposit Testella K3', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', DEPOSIT, makeDeposit({ name_as_received: 'Testella K3' })))],

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canHandleDeposits } from './roles'
+import { canHandleDeposits, canManageMedia } from './roles'
 
 describe('canHandleDeposits (invariant)', () => {
   it.each([
@@ -10,5 +10,17 @@ describe('canHandleDeposits (invariant)', () => {
     [undefined, false],
   ] as const)('%s: %s', (role, expected) => {
     expect(canHandleDeposits(role)).toBe(expected)
+  })
+})
+
+describe('canManageMedia (invariant)', () => {
+  it.each([
+    ['viewer', false],
+    ['technician', false],
+    ['curator', true],
+    ['manager', true],
+    [undefined, false],
+  ] as const)('%s: %s', (role, expected) => {
+    expect(canManageMedia(role)).toBe(expected)
   })
 })

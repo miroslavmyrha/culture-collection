@@ -1,6 +1,7 @@
 import { type MouseEvent, useRef, useState } from 'react'
 import { Box, Button, Link, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { type FocusReturn, rememberFocus } from '@/lib/focus'
+import { ATMOSPHERE_LABELS, temperatureText } from '@/lib/growth'
 import { STRAIN_TONES } from '@/lib/tones'
 import { countryName, GMO_CATEGORY_LABELS, PATHOGENICITY_LABELS, RESTRICTION_LABELS, STATUS_LABELS, type Strain } from '../schemas'
 import { day, Facts, scrollable, Section } from './parts'
@@ -47,6 +48,16 @@ export function StrainOverview({ labId, strain: s, canManage, canConfirm }: Prop
             ['Country of origin', s.country_of_origin ? countryName(s.country_of_origin) : 'Unknown'],
             ['Isolation date', s.isolation_date || 'Unknown'],
             ['Accessioned', day(s.created_at)],
+          ]}
+        />
+      </Section>
+
+      <Section title="Growth conditions">
+        <Facts
+          rows={[
+            ['Medium', s.growth.medium ? `${s.growth.medium.name}${s.growth.medium.composition_reference ? `, ${s.growth.medium.composition_reference}` : ''}${s.growth.medium.retired_at ? ' (retired)' : ''}` : 'Not recorded'],
+            ['Temperature', temperatureText(s.growth) || 'Not recorded'],
+            ['Atmosphere', s.growth.atmosphere ? ATMOSPHERE_LABELS[s.growth.atmosphere] : 'Not recorded'],
           ]}
         />
       </Section>

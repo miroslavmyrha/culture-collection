@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it } from 'vitest'
 import { allowConsole } from '@/test/console'
-import { makeBatch, makeBoxGrid, makePassage, makeUnitRow, makeVial, page, problem, validationProblem } from '@/test/factories'
+import { makeBatch, makeBoxGrid, makeMedium, makePassage, makeUnitRow, makeVial, mediumBrief, noGrowth, page, problem, validationProblem, type Growth } from '@/test/factories'
 import { holdApi, mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { vialAction } from '@/test/actions'
 import { renderWithProviders } from '@/test/render'
@@ -14,14 +14,20 @@ import { StrainMaterial } from './StrainMaterial'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const STRAIN_ID = '00000000-0000-4000-8000-0000000000d1'
+const REVIVE = '/api/v1/labs/{lab_public_id}/vials/{public_id}/revive/'
 const PASSAGES = '/api/v1/labs/{lab_public_id}/passages/'
 const BATCHES = '/api/v1/labs/{lab_public_id}/batches/'
 const VIALS = '/api/v1/labs/{lab_public_id}/vials/'
 const UNITS = '/api/v1/labs/{lab_public_id}/storage-units/'
+const MEDIA = '/api/v1/labs/{lab_public_id}/media/'
 const REVEAL = '/api/v1/labs/{lab_public_id}/vials/{public_id}/reveal-location/'
 
 const zero = makePassage({ number: 0 })
 const one = makePassage({ number: 1, source_kind: 'passage', source_passage: zero.public_id, parent: zero.public_id })
+const lb = makeMedium({ name: 'LB' })
+const r2a = makeMedium({ name: 'R2A' })
+const old = makeMedium({ name: 'Old agar', retired_at: '2026-10-01T10:00:00Z' })
+const lbGrowth: Growth = { medium: mediumBrief(lb), temperature_low_c: 28, temperature_high_c: 28, atmosphere: 'aerobic' }
 const freezer = makeUnitRow({ name: 'Freezer A' })
 const rack = makeUnitRow({ kind: 'rack', name: 'Rack 1', parent: freezer.public_id, max_risk_group: null })
 const box = makeUnitRow({ kind: 'box', name: 'Box 1', parent: rack.public_id, rows: 3, cols: 4, max_risk_group: null })
@@ -38,18 +44,19 @@ function mockMaterial(vials = [placed, loose, consumed]) {
   mockApi('get', BATCHES, page([makeBatch({ number: 1, vials_available: 2 })]))
   mockApi('get', VIALS, page(vials))
   mockApi('get', UNITS, [freezer, rack, box])
+  mockApi('get', MEDIA, page([lb, r2a, old]))
 }
 
 /** Vials number `from` to `to` of a strain with 200 in batch 1 and the rest in batch 2. */
 const many = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => makeVial({ label: `MYC 42 / ${from + i > 200 ? 2 : 1} / ${((from + i - 1) % 200) + 1}` }))
 
 /** The tab as the page drives it: the page of the vials in the page's state (the URL there). */
-function Material({ canHandle, limit = 50, vial }: { canHandle: boolean; limit?: number; vial?: string }) {
+function Material({ canHandle, limit = 50, vial, strainGrowth = noGrowth() }: { canHandle: boolean; limit?: number; vial?: string; strainGrowth?: Growth }) {
   const [vialPage, setVialPage] = useState<VialPage>({ limit, offset: 0, batch: undefined, vial })
-  return <StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} canRelease={canHandle} vialPage={vialPage} onVialPage={(next) => setVialPage((current) => ({ ...current, ...next }))} />
+  return <StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} canRelease={canHandle} strainGrowth={strainGrowth} vialPage={vialPage} onVialPage={(next) => setVialPage((current) => ({ ...current, ...next }))} />
 }
 
-const render = (canHandle = true, limit = 50) => renderWithProviders(<Material canHandle={canHandle} limit={limit} />)
+const render = (canHandle = true, limit = 50, strainGrowth: Growth = noGrowth()) => renderWithProviders(<Material canHandle={canHandle} limit={limit} strainGrowth={strainGrowth} />)
 
 describe('StrainMaterial', { timeout: 20_000 }, () => {
   it('shows the passages, the batches and where each vial is', async () => {
@@ -381,6 +388,65 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
     await user.click(within(dialog).getByRole('button', { name: 'Revive vial' }))
     await waitFor(() => expect(dialog).not.toBeInTheDocument())
     expect(calls).toHaveLength(1)
+    expect(calls[0]?.body).toEqual({})
+  })
+
+  it('starts a revival from the growth conditions of the strain and sends none while they are unchanged (T6)', async () => {
+    mockMaterial()
+    const calls = mockApi('post', REVIVE, makePassage({ number: 2, source_kind: 'vial' }))
+    await render(true, 50, lbGrowth)
+    const user = userEvent.setup()
+    await vialAction(user, 'MYC 42 / 1 / 2', 'Revive')
+    const dialog = await screen.findByRole('alertdialog', { name: 'Revive vial MYC 42 / 1 / 2?' })
+    await waitFor(() => expect(within(dialog).getByRole('combobox', { name: 'Medium' })).toHaveDisplayValue('LB'))
+    expect(within(dialog).getByRole('textbox', { name: 'Temperature °C' })).toHaveValue('28')
+    expect(within(dialog).getByRole('combobox', { name: 'Atmosphere' })).toHaveDisplayValue('Aerobic')
+    await user.click(within(dialog).getByRole('button', { name: 'Revive vial' }))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    expect(calls[0]?.body).toEqual({})
+  })
+
+  it('records the growth conditions a revival used when the person changes them (T6)', async () => {
+    mockMaterial()
+    const calls = mockApi('post', REVIVE, makePassage({ number: 2, source_kind: 'vial' }))
+    await render(true, 50, lbGrowth)
+    const user = userEvent.setup()
+    await vialAction(user, 'MYC 42 / 1 / 2', 'Revive')
+    const dialog = await screen.findByRole('alertdialog', { name: 'Revive vial MYC 42 / 1 / 2?' })
+    await waitFor(() => expect(within(dialog).getByRole('combobox', { name: 'Medium' })).toHaveDisplayValue('LB'))
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Medium' }), 'R2A')
+    await user.clear(within(dialog).getByRole('textbox', { name: 'Temperature °C' }))
+    await user.type(within(dialog).getByRole('textbox', { name: 'Temperature °C' }), '30')
+    await user.click(within(dialog).getByRole('button', { name: 'Revive vial' }))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    expect(calls[0]?.body).toEqual({ growth: { medium: r2a.public_id, temperature_low_c: 30, temperature_high_c: null, atmosphere: 'aerobic' } })
+  })
+
+  it('keeps the dialog open and names the field when the server refuses the temperature', async () => {
+    mockMaterial()
+    mockApiError('post', REVIVE, 400, validationProblem([{ attr: 'temperature_low_c', code: 'invalid', detail: 'Use whole degrees.' }]))
+    await render(true, 50, lbGrowth)
+    const user = userEvent.setup()
+    await vialAction(user, 'MYC 42 / 1 / 2', 'Revive')
+    const dialog = await screen.findByRole('alertdialog', { name: 'Revive vial MYC 42 / 1 / 2?' })
+    await waitFor(() => expect(within(dialog).getByRole('combobox', { name: 'Medium' })).toHaveDisplayValue('LB'))
+    await user.clear(within(dialog).getByRole('textbox', { name: 'Temperature °C' }))
+    await user.type(within(dialog).getByRole('textbox', { name: 'Temperature °C' }), '30')
+    await user.click(within(dialog).getByRole('button', { name: 'Revive vial' }))
+    await waitFor(() => expect(within(dialog).getByRole('textbox', { name: 'Temperature °C' })).toHaveAccessibleDescription(/Use whole degrees\.$/))
+    expect(dialog).toBeInTheDocument()
+  })
+
+  it('shows what each passage was grown on, and nothing for a passage with none recorded (V9)', async () => {
+    mockApi('get', PASSAGES, page([{ ...zero, growth: lbGrowth }, one]))
+    mockApi('get', BATCHES, page([]))
+    mockApi('get', VIALS, page([]))
+    mockApi('get', UNITS, [])
+    mockApi('get', MEDIA, page([lb]))
+    await render()
+    const root = await screen.findByRole('listitem', { name: 'Passage 0' })
+    expect(within(root).getByText('Grown on: LB, 28 °C, Aerobic')).toBeInTheDocument()
+    expect(within(root).getAllByText(/Grown on:/)).toHaveLength(1)
   })
 
   it('records a subculture of a passage', async () => {
@@ -393,6 +459,30 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
     await user.click(within(dialog).getByRole('button', { name: 'Record subculture' }))
     await waitFor(() => expect(dialog).not.toBeInTheDocument())
     expect(calls[0]?.body).toEqual({ source_passage: one.public_id })
+  })
+
+  it('records a subculture on other conditions than the strain\'s when the person changes them', async () => {
+    mockMaterial()
+    const calls = mockApi('post', PASSAGES, makePassage({ number: 2, source_kind: 'passage' }))
+    await render(true, 50, lbGrowth)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Subculture passage 1' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Subculture passage 1' })
+    await waitFor(() => expect(within(dialog).getByRole('combobox', { name: 'Atmosphere' })).toHaveDisplayValue('Aerobic'))
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Atmosphere' }), 'Anaerobic')
+    await user.click(within(dialog).getByRole('button', { name: 'Record subculture' }))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    expect(calls[0]?.body).toEqual({ source_passage: one.public_id, growth: { medium: lb.public_id, temperature_low_c: 28, temperature_high_c: null, atmosphere: 'anaerobic' } })
+  })
+
+  it('offers a retired medium only when the strain is on it', async () => {
+    mockMaterial()
+    await render(true, 50, { ...lbGrowth, medium: mediumBrief(old) })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Subculture passage 1' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Subculture passage 1' })
+    await waitFor(() => expect(within(dialog).getByRole('combobox', { name: 'Medium' })).toHaveDisplayValue('Old agar (retired)'))
+    expect(within(within(dialog).getByRole('combobox', { name: 'Medium' })).getAllByRole('option').map((o) => o.textContent)).toEqual(['No medium', 'LB', 'R2A', 'Old agar (retired)'])
   })
 })
 
