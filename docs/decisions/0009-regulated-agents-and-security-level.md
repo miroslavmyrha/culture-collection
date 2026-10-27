@@ -568,3 +568,21 @@ or a deaccession of a VRAT or RAT strain, nor for GMO or dual-use items (s11). T
 itself, its register entry and the yearly quantities are a later issue.
 
 Migration impact: as in ADR 0008, amendment of the same day.
+
+## Amendment 2026-10-27: the reveal log (#83)
+
+Who reads the trail of reveals, left open above ("readable only by those who read the audit
+trail"): the lab's managers. They grant and revoke the location grant, so they read what the
+holders did with it. A new permission, `vials.view_reveals`, in the managers' `GRANTS`; holding
+the location grant does not give it, and it does not give the grant.
+
+`GET /labs/<lab>/reveals/` (an action of the lab, so a non-member gets 404 and another role 403)
+lists the lab's `vial_location_revealed` events, newest first, a page at a time: who, which vial
+(its label and the strain's accession number) and when. Filters: `since` and `until`, Czech days
+(Europe/Prague) with both ends included, and `person`, a user's public id, so the URL holds no
+name. The events hold no location, and the answer names no box, path or position. The person is
+read through the event's actor at read time (ADR 0005): an erased person reads as erased. A reveal
+records no reason, so the log shows none. Home's activity still leaves reveals out
+(`overview.activity.HIDDEN`).
+
+Migration impact: none, a permission in code and a read.
