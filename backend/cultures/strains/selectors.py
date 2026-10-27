@@ -47,12 +47,16 @@ def strain_list(*, access: Access, lab: Lab) -> QuerySet[Strain]:
 
 def strain_detail(*, access: Access, lab: Lab) -> QuerySet[Strain]:
     """The same rows with their whole history: every identification and every restriction."""
-    history = strain_list(access=access, lab=lab).prefetch_related(
-        Prefetch(
-            "identifications",
-            queryset=StrainIdentification.objects.select_related("taxon").order_by(
-                "-is_current", "-identified_on", "-created_at", "-pk"
-            ),
+    history = (
+        strain_list(access=access, lab=lab)
+        .select_related("growth_medium")
+        .prefetch_related(
+            Prefetch(
+                "identifications",
+                queryset=StrainIdentification.objects.select_related("taxon").order_by(
+                    "-is_current", "-identified_on", "-created_at", "-pk"
+                ),
+            )
         )
     )
     return history.prefetch_related(

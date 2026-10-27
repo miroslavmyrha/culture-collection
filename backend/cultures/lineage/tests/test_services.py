@@ -297,7 +297,16 @@ def test_a_subculture_is_one_passage_more_and_an_event(
         strain.public_id,
         second.public_id,
     )
-    assert event.changes == {"number": [None, 2], "source_passage": [None, str(first.public_id)]}
+    assert event.changes == {
+        "number": [None, 2],
+        "source_passage": [None, str(first.public_id)],
+        **{
+            "growth_medium": [None, None],
+            "growth_temperature_low_c": [None, None],
+            "growth_temperature_high_c": [None, None],
+            "growth_atmosphere": [None, ""],
+        },
+    }
 
 
 def test_a_revival_consumes_the_vial_and_starts_a_passage(
@@ -325,7 +334,16 @@ def test_a_revival_consumes_the_vial_and_starts_a_passage(
         "status": ["available", "consumed"],
         "location": [{"box": str(tree.box.public_id), "row": 1, "col": 1}, None],
     }
-    assert recorded[1].changes == {"number": [None, 2], "source_vial": [None, str(vial.public_id)]}
+    assert recorded[1].changes == {
+        "number": [None, 2],
+        "source_vial": [None, str(vial.public_id)],
+        **{
+            "growth_medium": [None, None],
+            "growth_temperature_low_c": [None, None],
+            "growth_temperature_high_c": [None, None],
+            "growth_atmosphere": [None, ""],
+        },
+    }
     assert {e.strain_id for e in recorded} == {strain.public_id}
     refused(
         services.EdgeNotAllowed,

@@ -13,6 +13,7 @@ from rest_framework.request import Request
 
 from cultures.biosafety.models import RestrictionKind
 from cultures.core.api import ScopedRelatedField
+from cultures.growth.api.serializers import GrowthOutputSerializer
 from cultures.strains.countries import COUNTRY_CODES
 from cultures.strains.models import (
     Pathogenicity,
@@ -136,6 +137,7 @@ class RestrictionOutputSerializer(serializers.ModelSerializer[StrainRestriction]
 class StrainDetailOutputSerializer(StrainListOutputSerializer):
     animal_pathogenicity = serializers.ChoiceField(choices=Pathogenicity.choices, read_only=True)
     plant_pathogenicity = serializers.ChoiceField(choices=Pathogenicity.choices, read_only=True)
+    growth = GrowthOutputSerializer(source="*", read_only=True)
     identifications = IdentificationOutputSerializer(many=True, read_only=True)
     restriction_history = RestrictionOutputSerializer(
         source="all_restrictions", many=True, read_only=True
@@ -149,6 +151,7 @@ class StrainDetailOutputSerializer(StrainListOutputSerializer):
             "isolation_source",
             "country_of_origin",
             "isolation_date",
+            "growth",
             "identifications",
             "restriction_history",
         )

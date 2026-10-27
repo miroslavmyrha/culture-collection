@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from cultures.core.api import ScopedReadOnlyViewSet
 from cultures.core.errors import PROBLEM_CONTENT_TYPE as PROBLEM
 from cultures.core.errors import ProblemSerializer
+from cultures.growth.services import Growth
 from cultures.labs import selectors as labs
 from cultures.labs.access import access_of
 from cultures.labs.models import Lab
@@ -45,6 +46,7 @@ from .serializers import (
     BoxOutputSerializer,
     CheckErrorInputSerializer,
     CheckInputSerializer,
+    GrowthOverrideInputSerializer,
     LocationSerializer,
     PassageOutputSerializer,
     PlaceInputSerializer,
@@ -84,6 +86,18 @@ CHECK_CONFLICT = OpenApiResponse(
     "batch_exhausted; vial_not_available; check_entered_in_error; vial_not_in_collection",
 )
 LAB_PARAMETER = OpenApiParameter("lab_public_id", OpenApiTypes.UUID, OpenApiParameter.PATH)
+
+
+def growth_of(values: dict[str, Any] | None) -> Growth | None:
+    """The conditions the caller gave, or None: the passage then records the strain's."""
+    if values is None:
+        return None
+    return Growth(
+        medium=values["medium"],
+        temperature_low_c=values["temperature_low_c"],
+        temperature_high_c=values["temperature_high_c"],
+        atmosphere=values["atmosphere"],
+    )
 
 
 class LabNested(ScopedReadOnlyViewSet, abstract=True):
@@ -137,7 +151,11 @@ class PassageViewSet(LabNested):
             raise services.InvalidVial(
                 "Invalid passage.", code="does_not_exist", attr="source_passage"
             )
-        passage = services.passage_subculture(access=access_of(request), parent=parent)
+        passage = services.passage_subculture(
+            access=access_of(request),
+            parent=parent,
+            growth=growth_of(data.validated_data["growth"]),
+        )
         fresh = self.scoped_queryset().get(pk=passage.pk)
         return Response(PassageOutputSerializer(fresh).data, status=status.HTTP_201_CREATED)
 
@@ -422,7 +440,7 @@ class VialViewSet(LabNested):
         return self._detail(vial)
 
     @extend_schema(
-        request=None,
+        request=GrowthOverrideInputSerializer,
         responses={
             201: PassageOutputSerializer,
             (400, PROBLEM): INVALID,
@@ -432,7 +450,13 @@ class VialViewSet(LabNested):
     @action(detail=True, methods=["post"], url_path="revive")
     def revive(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         vial: Vial = self.get_object()
-        passage = services.vial_revive(access=access_of(request), vial=vial)
+        data = GrowthOverrideInputSerializer(
+            data=request.data, context=self.get_serializer_context()
+        )
+        data.is_valid(raise_exception=True)
+        passage = services.vial_revive(
+            access=access_of(request), vial=vial, growth=growth_of(data.validated_data["growth"])
+        )
         fresh = selectors.passage_list(access=access_of(request), lab=self.lab).get(pk=passage.pk)
         return Response(PassageOutputSerializer(fresh).data, status=status.HTTP_201_CREATED)
 

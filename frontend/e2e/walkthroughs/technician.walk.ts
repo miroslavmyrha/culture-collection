@@ -135,9 +135,14 @@ test('T6 revive a vial to start a subculture', async ({ browser }, info) => {
   await openTab(w, 'Material')
   await vialAction(w, labels[0] ?? '', 'Revive')
   const dialog = w.page.getByRole('alertdialog', { name: `Revive vial ${labels[0] ?? ''}?` })
+  // The strain has no conditions, so the form starts empty: the technician records what the plate got (#79).
+  await w.choose(dialog.getByRole('combobox', { name: 'Medium' }), 'Nutrient agar')
+  await w.type(dialog.getByRole('textbox', { name: 'Temperature °C' }), '30')
+  await w.choose(dialog.getByRole('combobox', { name: 'Atmosphere' }), 'Aerobic')
   await w.click(dialog.getByRole('button', { name: 'Revive vial' }))
   await expect(w.page.getByRole('list', { name: 'Passages from the deposit' }).getByRole('listitem', { name: /^Passage \d+$/ })).toHaveCount(2)
-  w.note('The revival records no medium, temperature or growth result: the passage has no field for them')
+  await expect(w.page.getByText('Grown on: Nutrient agar, 30 °C, Aerobic')).toBeVisible()
+  w.note('The revival records the medium, temperature and atmosphere but not whether the culture grew: a growth result has no field')
   await w.done()
 })
 

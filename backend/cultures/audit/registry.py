@@ -149,6 +149,17 @@ STRAIN_RESTRICTION_END_WITHDRAWN = register(
 STRAIN_RESTRICTION_ENDED = register(
     EventType("strain_restriction_ended", "{actor} ended a restriction", reason_required=True)
 )
+# #79: how a strain is grown, and the lab's list of media. A medium is retired, never deleted.
+STRAIN_GROWTH_CHANGED = register(
+    EventType(
+        "strain_growth_changed", "{actor} changed how the strain is grown", reason_required=True
+    )
+)
+MEDIUM_CREATED = register(EventType("medium_created", "{actor} added medium {name}"))
+MEDIUM_CHANGED = register(EventType("medium_changed", "{actor} changed a medium"))
+MEDIUM_RETIRED = register(
+    EventType("medium_retired", "{actor} retired a medium", reason_required=True)
+)
 
 # Depositors, MTA templates and deposits (#10, #12). A depositor event records a field of
 # its contact as "changed" (PERSONAL_FIELDS). Deposit events name the strain from acceptance
@@ -392,6 +403,24 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "isolation_source",
             "country_of_origin",
             "isolation_date",
+            "growth_medium_id",
+            "growth_temperature_low_c",
+            "growth_temperature_high_c",
+            "growth_atmosphere",
+        ),
+    ),
+    # #79. The name and the reference of a medium name no person.
+    "growth_growthmedium": RowAudit(
+        label="growth.growthmedium",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "name",
+            "composition_reference",
+            "retired_at",
         ),
     ),
     # A counter changed outside the accession service would hand out a number twice.
@@ -586,6 +615,10 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "source_deposit_id",
             "source_passage_id",
             "source_vial_id",
+            "growth_medium_id",
+            "growth_temperature_low_c",
+            "growth_temperature_high_c",
+            "growth_atmosphere",
         ),
     ),
     # #16. Free text (the protectant) names nobody; placed_by and removed_by are internal

@@ -56,6 +56,8 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     # Strains and their history are never deleted: numbers are never reused (ADR 0008, D2),
     # identifications and restrictions are history. A trigger refuses deletes too.
     "strains_strain": ("SELECT", "INSERT", "UPDATE"),
+    # #79: a medium is added, renamed and retired, never deleted (its trigger refuses it too).
+    "growth_growthmedium": ("SELECT", "INSERT", "UPDATE"),
     "strains_straincounter": ("SELECT", "INSERT", "UPDATE"),
     "strains_strainidentification": ("SELECT", "INSERT", "UPDATE"),
     "strains_strainrestriction": ("SELECT", "INSERT", "UPDATE"),

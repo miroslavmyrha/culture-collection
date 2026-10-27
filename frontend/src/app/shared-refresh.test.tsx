@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
+import { strainKeys } from '@/features/strains/api/keys'
 import { vialKeys } from '@/features/vials/api/keys'
 import {
   makeBatch,
@@ -9,6 +10,7 @@ import {
   makeLab,
   makeLocationGrant,
   makeMe,
+  makeMedium,
   makeMyLab,
   makeMember,
   makePassage,
@@ -223,6 +225,22 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     // Within the stale time: only the invalidation makes Material ask again when it opens.
     await router.navigate(toTab('material'))
     await waitFor(() => expect(vials).toHaveLength(1), { timeout: 15_000 })
+  })
+
+  it('retiring a medium marks the strain and its material stale, since both show the medium', async () => {
+    const lb = makeMedium({ name: 'LB' })
+    const { client, router, user } = await openStrainPage('manager')
+    expect(client.getQueryState(strainKeys.detail(LAB_ID, STRAIN_ID))?.isInvalidated).toBe(false)
+    mockApi('get', '/api/v1/labs/{lab_public_id}/media/', page([lb]))
+    await router.navigate({ to: '/labs/$labId/media', params: { labId: LAB_ID } })
+    mockApi('post', '/api/v1/labs/{lab_public_id}/media/{public_id}/retire/', { ...lb, retired_at: '2026-10-02T10:00:00Z' })
+    await user.click(await screen.findByRole('button', { name: 'Retire medium LB' }, { timeout: 15_000 }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Retire LB?' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'replaced')
+    await user.click(within(dialog).getByRole('button', { name: 'Retire medium' }))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument(), { timeout: 15_000 })
+    expect(client.getQueryState(strainKeys.detail(LAB_ID, STRAIN_ID))?.isInvalidated).toBe(true)
+    expect(client.getQueryState(vialKeys.passages(LAB_ID, STRAIN_ID))?.isInvalidated).toBe(true)
   })
 
   it("a strain write refreshes the strain's history on screen", async () => {

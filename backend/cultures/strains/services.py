@@ -37,6 +37,7 @@ from cultures.audit.context import audited_atomic
 from cultures.audit.events import Change, record_event
 from cultures.audit.registry import (
     STRAIN_CREATED,
+    STRAIN_GROWTH_CHANGED,
     STRAIN_RECLASSIFIED,
     STRAIN_RESTRICTION_ADDED,
     STRAIN_RESTRICTION_END_PROPOSED,
@@ -47,6 +48,7 @@ from cultures.audit.registry import (
 from cultures.biosafety.models import RestrictionKind
 from cultures.biosafety.policy import permit_today, require_authorisation
 from cultures.core.exceptions import Conflict, DomainError, Forbidden, NotFound, RuleViolation
+from cultures.growth.services import Growth, growth_fields, growth_of, growth_values, locked_growth
 from cultures.labs.access import Access
 from cultures.labs.locks import lock_lab
 from cultures.labs.models import Lab, Membership
@@ -493,6 +495,39 @@ def strain_set_risk_group(
             reason=reason,
         )
         locked.save(update_fields=["risk_group", "updated_at"])
+    return locked
+
+
+def strain_set_growth(*, access: Access, strain: Strain, growth: Growth, reason: str) -> Strain:
+    """How the strain is grown (OECD BRC guidelines 2007, Microorganism domain, section 7;
+    WFCC guidelines 2010, 11.1): the medium from the lab's list, the temperature as a range of
+    whole degrees, the atmosphere. Replaces all four at once, each may be unknown. The same
+    conditions again change nothing and record nothing. Passages already recorded keep the
+    conditions they were grown under."""
+    with audited_atomic():
+        lock_lab(strain.lab_id)
+        _require_role(access, strain.lab_id)
+        locked = _locked_strain(strain)
+        before = growth_of(locked)
+        after = locked_growth(growth, lab_id=locked.lab_id, current=before)
+        old, new = growth_values(before), growth_values(after)
+        changes = {k: [old[k], new[k]] for k in new if old[k] != new[k]}
+        if not changes:
+            return locked
+        for column, value in growth_fields(after).items():
+            setattr(locked, column, value)
+        record_event(
+            STRAIN_GROWTH_CHANGED,
+            Change(
+                STRAIN,
+                locked.public_id,
+                changes,
+                lab_id=locked.lab_id,
+                strain_id=locked.public_id,
+            ),
+            reason=reason,
+        )
+        locked.save(update_fields=[*growth_fields(after), "updated_at"])
     return locked
 
 

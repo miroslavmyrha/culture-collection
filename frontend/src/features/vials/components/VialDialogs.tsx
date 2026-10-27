@@ -1,9 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQuery } from '@tanstack/react-query'
 import { useId, useState } from 'react'
 import { type FieldValues, type Path, type UseFormSetError, useForm, useWatch } from 'react-hook-form'
+import { GrowthFields } from '@/components/GrowthFields'
 import { ConfirmDialog, SelectField, Stack, TextField, Typography } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
+import { type Growth, type GrowthBody, type GrowthForm, GROWTH_FIELDS, growthBody, growthDefaults, growthSchema, mediaListOptions } from '@/lib/growth'
 import { usePlace, usePreserve, useRevive, useSetVialStatus, useSubculture } from '../api/mutations'
 import {
   type BoxChoice,
@@ -262,43 +265,90 @@ export function VialStatusDialog({ labId, strainId, vial, open, onClose, onExite
   )
 }
 
-export function ReviveDialog({ labId, strainId, vial, open, onClose, onExited }: VialProps) {
-  const revive = useRevive(labId, strainId)
+type StepProps = Common & {
+  /** The strain's own conditions: what the new passage records unless the person changes them. */
+  strainGrowth: Growth
+  title: string
+  description: string
+  confirmLabel: string
+  label: string
+  destructive?: boolean
+  pending: boolean
+  send: (growth: GrowthBody | undefined, options: { onSuccess: () => void; onError: (error: unknown) => void }) => void
+}
+
+/**
+ * A revival or a subculture starts a passage (#79). It records the medium, temperature and
+ * atmosphere it used: the fields start as the strain's. Left as they are, nothing is sent and
+ * the server records the strain's; changed, the conditions of this passage are sent whole.
+ */
+function GrowthStepDialog({ labId, strainGrowth, title, description, confirmLabel, label, destructive, pending, send, open, onClose, onExited }: StepProps) {
+  const media = useQuery(mediaListOptions(labId))
+  const formId = useId()
   const [failure, setFailure] = useState<string>()
+  const { register, handleSubmit, formState, setError } = useForm<GrowthForm>({ resolver: zodResolver(growthSchema), defaultValues: growthDefaults(strainGrowth) })
+  const onSubmit = handleSubmit((values) => {
+    setFailure(undefined)
+    const body = growthBody(values)
+    const unchanged = JSON.stringify(body) === JSON.stringify(growthBody(growthDefaults(strainGrowth)))
+    send(unchanged ? undefined : body, { onSuccess: onClose, onError: (error) => setFailure(placeError(error, GROWTH_FIELDS, setError)) })
+  })
   return (
     <ConfirmDialog
       open={open}
+      title={title}
+      description={description}
+      confirmLabel={confirmLabel}
+      destructive={destructive ?? false}
+      form={formId}
+      pending={pending}
+      error={failure}
+      onClose={onClose}
+      onExited={onExited}
+    >
+      <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label={label} spacing={2} sx={{ mt: 2 }}>
+        {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
+        <GrowthFields register={(name) => register(name)} errors={formState.errors} media={media.data?.results} mediaFailed={media.isError && media.data === undefined} current={strainGrowth.medium} autoFocus={!destructive} />
+      </Stack>
+    </ConfirmDialog>
+  )
+}
+
+export function ReviveDialog({ labId, strainId, vial, strainGrowth, open, onClose, onExited }: VialProps & { strainGrowth: Growth }) {
+  const revive = useRevive(labId, strainId)
+  return (
+    <GrowthStepDialog
+      labId={labId}
+      strainId={strainId}
+      strainGrowth={strainGrowth}
       title={`Revive vial ${vial.label}?`}
-      description="The vial is used up and leaves its position, and a new passage starts from it. This cannot be undone."
+      description="The vial is used up and leaves its position, and a new passage starts from it. This cannot be undone. Record how the culture is grown."
       confirmLabel="Revive vial"
+      label="Growth conditions of the revival"
       destructive
       pending={revive.isPending}
-      error={failure}
-      onConfirm={() => {
-        setFailure(undefined)
-        revive.mutate(vial.public_id, { onSuccess: onClose, onError: (error) => setFailure(vialError(error)) })
-      }}
+      send={(growth, options) => revive.mutate({ vialId: vial.public_id, growth }, options)}
+      open={open}
       onClose={onClose}
       onExited={onExited}
     />
   )
 }
 
-export function SubcultureDialog({ labId, strainId, passage, open, onClose, onExited }: Common & { passage: Passage }) {
+export function SubcultureDialog({ labId, strainId, passage, strainGrowth, open, onClose, onExited }: Common & { passage: Passage; strainGrowth: Growth }) {
   const subculture = useSubculture(labId, strainId)
-  const [failure, setFailure] = useState<string>()
   return (
-    <ConfirmDialog
-      open={open}
+    <GrowthStepDialog
+      labId={labId}
+      strainId={strainId}
+      strainGrowth={strainGrowth}
       title={`Subculture passage ${passage.number}`}
-      description={`Records passage ${passage.number + 1}, grown from passage ${passage.number}.`}
+      description={`Records passage ${passage.number + 1}, grown from passage ${passage.number}. Record how the culture is grown.`}
       confirmLabel="Record subculture"
+      label="Growth conditions of the subculture"
       pending={subculture.isPending}
-      error={failure}
-      onConfirm={() => {
-        setFailure(undefined)
-        subculture.mutate(passage.public_id, { onSuccess: onClose, onError: (error) => setFailure(vialError(error)) })
-      }}
+      send={(growth, options) => subculture.mutate({ sourcePassage: passage.public_id, growth }, options)}
+      open={open}
       onClose={onClose}
       onExited={onExited}
     />

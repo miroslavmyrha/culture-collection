@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { allowConsole } from '@/test/console'
-import { makeMtaTemplate, makeStrain, makeTaxon, makeTerms, page, problem, validationProblem } from '@/test/factories'
+import { makeMedium, makeMtaTemplate, makeStrain, mediumBrief, makeTaxon, makeTerms, page, problem, validationProblem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
 import { renderWithProviders } from '@/test/render'
 import { strainKeys } from '../api/keys'
@@ -100,6 +100,9 @@ describe('StrainShell with the Overview tab', { timeout: 20_000 }, () => {
       'Country of origin': 'Czechia',
       'Isolation date': '2019-05',
       Accessioned: '2026-01-10',
+      Medium: 'Not recorded',
+      Temperature: 'Not recorded',
+      Atmosphere: 'Not recorded',
     })
     const current = screen.getByRole('table', { name: 'Current restrictions' })
     expect(within(current).getAllByRole('row')[1]).toHaveTextContent('GMO in contained useMŽP 2026/12, category II2026-02-01Propose to end')
@@ -186,7 +189,7 @@ describe('StrainShell with the Overview tab', { timeout: 20_000 }, () => {
     const menu = await screen.findByRole('menu', { name: 'Actions for MYC 42' })
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
     expect(trigger).toHaveAttribute('aria-controls', menu.id)
-    expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Reclassify', 'Change risk group', 'Add a restriction'])
+    expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Reclassify', 'Change risk group', 'Add a restriction', 'Change growth conditions'])
     await waitFor(() => expect(within(menu).getByRole('menuitem', { name: 'Reclassify' })).toHaveFocus())
     await user.keyboard('{Enter}')
     const dialog = await screen.findByRole('dialog', { name: 'Reclassify MYC 42' })
@@ -230,6 +233,60 @@ describe('StrainShell with the Overview tab', { timeout: 20_000 }, () => {
       expect(day).toHaveValue(typed)
       expect(calls).toHaveLength(0)
     }
+  })
+
+  it('shows the growth conditions of the strain on the Overview (V9)', async () => {
+    const lb = makeMedium({ name: 'LB', composition_reference: 'DSMZ medium 381' })
+    mockApi('get', DETAIL, { ...strain, growth: { medium: mediumBrief(lb), temperature_low_c: 25, temperature_high_c: 30, atmosphere: 'microaerophilic' } })
+    terms()
+    await render()
+    await screen.findByRole('heading', { level: 1, name: 'MYC 42' })
+    const facts = Object.fromEntries([...document.querySelectorAll('dt')].map((dt) => [dt.textContent, dt.nextElementSibling?.textContent]))
+    expect(facts).toMatchObject({ Medium: 'LB, DSMZ medium 381', Temperature: '25 to 30 °C', Atmosphere: 'Microaerophilic' })
+  })
+
+  it('records the growth conditions of the strain with a reason, and shows them', async () => {
+    const lb = makeMedium({ name: 'LB' })
+    const grown = { ...strain, growth: { medium: mediumBrief(lb), temperature_low_c: 28, temperature_high_c: null, atmosphere: 'aerobic' as const } }
+    mockApi('get', DETAIL, strain)
+    mockApi('get', '/api/v1/labs/{lab_public_id}/media/', page([lb, makeMedium({ name: 'Old', retired_at: '2026-10-01T10:00:00Z' })]))
+    terms()
+    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/growth/', grown)
+    const { client } = await render()
+    const user = userEvent.setup()
+    await action(user, 'Change growth conditions')
+    const dialog = await screen.findByRole('dialog', { name: 'Growth conditions of MYC 42' })
+    const medium = within(dialog).getByRole('combobox', { name: 'Medium' })
+    await waitFor(() => expect(medium).toHaveFocus())
+    expect(within(medium).getAllByRole('option').map((o) => o.textContent)).toEqual(['No medium', 'LB'])
+    await user.selectOptions(medium, 'LB')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Temperature °C' }), '28')
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Atmosphere' }), 'Aerobic')
+    await user.click(within(dialog).getByRole('button', { name: 'Save growth conditions' }))
+    await waitFor(() => expect(within(dialog).getByRole('textbox', { name: 'Reason' })).toHaveAccessibleDescription(/\S/))
+    expect(calls).toHaveLength(0)
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'DSMZ medium 381 at 28 °C')
+    await user.click(within(dialog).getByRole('button', { name: 'Save growth conditions' }))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    expect(calls[0]?.body).toEqual({ medium: lb.public_id, temperature_low_c: 28, temperature_high_c: null, atmosphere: 'aerobic', reason: 'DSMZ medium 381 at 28 °C' })
+    expect(client.getQueryData(strainKeys.detail(LAB_ID, STRAIN_ID))).toEqual(grown)
+    expect(await screen.findByText('28 °C')).toBeInTheDocument()
+  })
+
+  it('puts a temperature the server refuses on its field and keeps the dialog open', async () => {
+    mockApi('get', DETAIL, strain)
+    mockApi('get', '/api/v1/labs/{lab_public_id}/media/', page([]))
+    terms()
+    mockApiError('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/growth/', 400, validationProblem([{ attr: 'temperature_high_c', code: 'invalid', detail: 'The high end is below the low end.' }]))
+    await render()
+    const user = userEvent.setup()
+    await action(user, 'Change growth conditions')
+    const dialog = await screen.findByRole('dialog', { name: 'Growth conditions of MYC 42' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Temperature °C' }), '30')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'x')
+    await user.click(within(dialog).getByRole('button', { name: 'Save growth conditions' }))
+    await waitFor(() => expect(within(dialog).getByRole('textbox', { name: 'Up to °C' })).toHaveAccessibleDescription(/The high end is below the low end\.$/))
+    expect(dialog).toBeInTheDocument()
   })
 
   it('refuses risk group 4 inside the dialog, on the field, and stays open', async () => {

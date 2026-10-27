@@ -27,6 +27,12 @@ class TestStrainContract(ViewsetContract):
     writes = (
         Write("risk-group/", {"risk_group": 2, "reason": "reassessed"}, changes=Strain, status=200),
         Write(
+            "growth/",
+            {"temperature_low_c": 30, "atmosphere": "aerobic", "reason": "from the sheet"},
+            changes=Strain,
+            status=200,
+        ),
+        Write(
             "restrictions/",
             {"kind": "cz_rat", "reference": "Příloha 2, bod 3", "reason": "listed"},
             changes=StrainRestriction,

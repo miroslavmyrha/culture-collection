@@ -24,6 +24,7 @@ from django.db.models.functions import Upper
 
 from cultures.biosafety.models import RestrictionKind
 from cultures.core.models import PublicModel
+from cultures.growth.models import GrowthConditions, growth_constraints, medium_index
 from cultures.labs.models import Lab
 from cultures.labs.querysets import LabScopedQuerySet
 from cultures.taxonomy.models import Taxon
@@ -89,7 +90,7 @@ class StrainCounter(models.Model):
         return f"{self.lab_id}: {self.last_seq}"
 
 
-class Strain(PublicModel):
+class Strain(PublicModel, GrowthConditions):
     # No index of its own: the unique (lab, accession_seq) below leads with lab.
     lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="strains", db_index=False)
     # "MYC 42". Null only while pending (#12). Unique per lab ignoring case (see Meta).
@@ -111,10 +112,12 @@ class Strain(PublicModel):
     objects = LabScopedQuerySet["Strain"].as_manager()
 
     class Meta(PublicModel.Meta):
+        indexes = [medium_index("strains_growth_medium_idx")]
         constraints = [
             *PublicModel.Meta.constraints,
             # One expression first and lab second: django-migration-linter 6.0.0 misreads
             # the table of an index whose definition has a second "(".
+            *growth_constraints("strains_strain"),
             models.UniqueConstraint(Upper("accession_number"), "lab", name=ACCESSION_NUMBER_UNIQUE),
             models.UniqueConstraint(fields=["lab", "accession_seq"], name=ACCESSION_SEQ_UNIQUE),
             models.CheckConstraint(

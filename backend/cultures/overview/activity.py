@@ -98,6 +98,10 @@ SHOWN: dict[str, Shown] = {
         S, "withdrew a proposal to end a restriction of {subject}", STRAIN
     ),
     "strain_restriction_ended": Shown(S, "ended a restriction of {subject}", STRAIN),
+    "strain_growth_changed": Shown(S, "changed how {subject} is grown", STRAIN),
+    "medium_created": Shown(S, "added a growth medium", None),
+    "medium_changed": Shown(S, "changed a growth medium", None),
+    "medium_retired": Shown(S, "retired a growth medium", None),
     "depositor_created": Shown(D, "added a depositor", None),
     "depositor_changed": Shown(D, "changed a depositor", None),
     "mta_template_published": Shown(D, "published {subject}", MTA),

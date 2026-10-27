@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { components } from '@/api/schema'
 import { pageDefaults } from '@/lib/paging'
 import { COUNTRY_CODES, isCountry } from '@/lib/countries'
+import { checkTemperatures, growthShape } from '@/lib/growth'
 
 type Schemas = components['schemas']
 export type StrainRow = Schemas['StrainListOutput']
@@ -179,3 +180,7 @@ export function restrictionBody(value: RestrictionForm) {
     gmo_category: value.kind === 'gmo' && value.gmo_category ? Number(value.gmo_category) : null,
   }
 }
+
+/** The strain's growth conditions with the reason for the change (#79). */
+export const strainGrowthSchema = z.object({ ...growthShape, reason: reasonSchema }).superRefine(checkTemperatures)
+export type StrainGrowthForm = z.input<typeof strainGrowthSchema>

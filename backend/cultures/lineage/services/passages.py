@@ -19,6 +19,14 @@ from cultures.audit.registry import (
 )
 from cultures.biosafety.policy import permit_today
 from cultures.core.exceptions import NotFound
+from cultures.growth.services import (
+    Growth,
+    check_growth,
+    growth_fields,
+    growth_of,
+    growth_values,
+    locked_growth,
+)
 from cultures.labs.access import Access
 from cultures.labs.locks import lock_lab
 from cultures.storage.models import StorageUnit
@@ -71,9 +79,22 @@ class NewBatch:
 # Passages.
 
 
-def _new_passage(strain: Strain, number: int, **source: Any) -> Passage:
-    passage = Passage.objects.create(lab_id=strain.lab_id, strain=strain, number=number, **source)
-    values = {"number": number, **{k: _ref(v) for k, v in source.items()}}
+def _new_passage(
+    strain: Strain, number: int, growth: Growth | None = None, **source: Any
+) -> Passage:
+    """A passage from a locked strain, grown under `growth`, or under the strain's own
+    conditions as they are now when none is given. Insert-only: the conditions it records are
+    the ones it was grown under, whatever the strain is given later."""
+    strain_growth = growth_of(strain)
+    used = (
+        strain_growth
+        if growth is None
+        else locked_growth(growth, lab_id=strain.lab_id, current=strain_growth)
+    )
+    passage = Passage.objects.create(
+        lab_id=strain.lab_id, strain=strain, number=number, **growth_fields(used), **source
+    )
+    values = {"number": number, **{k: _ref(v) for k, v in source.items()}, **growth_values(used)}
     record_event(
         PASSAGE_CREATED,
         Change(
@@ -87,8 +108,11 @@ def _new_passage(strain: Strain, number: int, **source: Any) -> Passage:
     return passage
 
 
-def passage_subculture(*, access: Access, parent: Passage) -> Passage:
-    """A subculture of a passage: the same strain, the parent's number plus one (D3)."""
+def passage_subculture(*, access: Access, parent: Passage, growth: Growth | None = None) -> Passage:
+    """A subculture of a passage: the same strain, the parent's number plus one (D3). It is
+    grown under `growth`, or under the strain's conditions when none is given."""
+    if growth is not None:
+        growth = check_growth(growth)
     with audited_atomic():
         lock_lab(parent.lab_id)
         _require(access, parent.lab_id)
@@ -96,12 +120,15 @@ def passage_subculture(*, access: Access, parent: Passage) -> Passage:
         if fresh is None:
             raise NotFound
         strain = _living_strain(fresh.strain_id)
-        return _new_passage(strain, fresh.number + 1, source_passage=fresh)
+        return _new_passage(strain, fresh.number + 1, growth, source_passage=fresh)
 
 
-def vial_revive(*, access: Access, vial: Vial) -> Passage:
+def vial_revive(*, access: Access, vial: Vial, growth: Growth | None = None) -> Passage:
     """A vial is thawed or rehydrated and grown: it is consumed, and a passage starts from it,
-    numbered one more than the passage its batch was preserved from."""
+    numbered one more than the passage its batch was preserved from. It is grown under
+    `growth`, or under the strain's conditions when none is given (walkthrough T6)."""
+    if growth is not None:
+        growth = check_growth(growth)
     with audited_atomic():
         lock_lab(vial.lab_id)
         _require(access, vial.lab_id)
@@ -109,7 +136,7 @@ def vial_revive(*, access: Access, vial: Vial) -> Passage:
         locked = _locked_vial(vial)
         number = Passage.objects.get(pk=locked.batch.passage_id).number + 1
         _transition(locked, VialStatus.CONSUMED, f"Revived as passage {number}.", access)
-        return _new_passage(strain, number, source_vial=locked)
+        return _new_passage(strain, number, growth, source_vial=locked)
 
 
 # Batches.

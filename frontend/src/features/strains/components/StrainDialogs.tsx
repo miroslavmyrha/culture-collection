@@ -1,10 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQuery } from '@tanstack/react-query'
 import { useId, useState } from 'react'
 import { type FieldValues, type Path, type UseFormSetError, useController, useForm, useWatch } from 'react-hook-form'
+import { GrowthFields } from '@/components/GrowthFields'
 import { ConfirmDialog, SelectField, Stack, TextField, Typography } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
-import { useAddRestriction, useConfirmEnd, useProposeEnd, useReclassify, useSetRiskGroup, useWithdrawEnd } from '../api/mutations'
+import { GROWTH_FIELDS, growthBody, growthDefaults, mediaListOptions } from '@/lib/growth'
+import { useAddRestriction, useConfirmEnd, useProposeEnd, useReclassify, useSetGrowth, useSetRiskGroup, useWithdrawEnd } from '../api/mutations'
 import {
   type AddRestrictionForm,
   addRestrictionSchema,
@@ -21,6 +24,8 @@ import {
   reclassifySchema,
   restrictionBody,
   type RiskGroupForm,
+  type StrainGrowthForm,
+  strainGrowthSchema,
   riskGroupSchema,
   type RiskGroupValues,
   type Strain,
@@ -300,6 +305,44 @@ export function WithdrawEndDialog({ labId, strain, restriction, proposal, open, 
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Withdraw the proposal" spacing={2} sx={{ mt: 2 }}>
         {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
         <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} autoFocus error={formState.errors.reason?.message} {...register('reason')} />
+      </Stack>
+    </ConfirmDialog>
+  )
+}
+
+export function GrowthDialog({ labId, strain, open, onClose, onExited }: Common) {
+  const change = useSetGrowth(labId, strain.public_id)
+  const media = useQuery(mediaListOptions(labId))
+  const formId = useId()
+  const [failure, setFailure] = useState<string>()
+  const { register, handleSubmit, formState, setError } = useForm<StrainGrowthForm>({
+    resolver: zodResolver(strainGrowthSchema),
+    defaultValues: { ...growthDefaults(strain.growth), reason: '' },
+  })
+  const errors = formState.errors
+  const onSubmit = handleSubmit((values) => {
+    setFailure(undefined)
+    change.mutate(
+      { ...growthBody(values), reason: values.reason.trim() },
+      { onSuccess: onClose, onError: (error) => setFailure(placeError(error, [...GROWTH_FIELDS, 'reason'], setError, () => setError('reason', missing, { shouldFocus: true }))) },
+    )
+  })
+  return (
+    <ConfirmDialog
+      open={open}
+      title={`Growth conditions of ${strain.accession_number ?? 'the strain'}`}
+      description="The medium, temperature and atmosphere the strain is grown in. A passage records its own, starting from these. The change and the reason go into the strain's history."
+      confirmLabel="Save growth conditions"
+      form={formId}
+      pending={change.isPending}
+      error={failure}
+      onClose={onClose}
+      onExited={onExited}
+    >
+      <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Growth conditions" spacing={2} sx={{ mt: 2 }}>
+        {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
+        <GrowthFields register={(name) => register(name)} errors={errors} media={media.data?.results} mediaFailed={media.isError && media.data === undefined} current={strain.growth.medium} autoFocus />
+        <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} error={errors.reason?.message} {...register('reason')} />
       </Stack>
     </ConfirmDialog>
   )

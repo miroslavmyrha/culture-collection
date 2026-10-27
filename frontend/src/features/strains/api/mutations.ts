@@ -116,3 +116,16 @@ export function useWithdrawEnd(labId: string, strainId: string) {
     onSuccess: (strain) => settle(qc, labId, strain),
   })
 }
+
+/** Where and how the strain is grown (#79). A passage that follows records the strain's values at that moment. */
+export function useSetGrowth(labId: string, strainId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: Schemas['StrainGrowthInputRequest']) => {
+      await ensureCsrf()
+      return unwrap(api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/growth/', { params: path(labId, strainId), body }))
+    },
+    meta: { handlesError: true },
+    onSuccess: (strain) => settle(qc, labId, strain),
+  })
+}

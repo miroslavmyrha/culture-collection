@@ -5,12 +5,14 @@ import { LeaveDialog } from '@/components/UnsavedGuard'
 import { RejectDialog } from '@/features/deposits/components/DepositDialogs'
 import { CancelDialog, ConfirmShipmentDialog, WithdrawShipmentDialog } from '@/features/distribution/components/RequestDialogs'
 import { EndPermitDialog } from '@/features/distribution/components/RequesterDialogs'
+import { RetireMediumDialog } from '@/features/growth/components/MediumDialogs'
 import { RemoveMemberDialog } from '@/features/labs/components/RemoveMemberDialog'
 import { UnitStatusDialog } from '@/features/storage/components/UnitDialogs'
 import { ConfirmEndDialog } from '@/features/strains/components/StrainDialogs'
 import { CheckErrorDialog } from '@/features/vials/components/CheckDialogs'
 import { ReviveDialog } from '@/features/vials/components/VialDialogs'
-import { makeCheck, makeDeposit, makeMember, makePermit, makePreparation, makeRequest, makeRequestLine, makeStrain, makeUnit, makeVial } from '@/test/factories'
+import { makeCheck, makeDeposit, makeMedium, makeMember, makePermit, makePreparation, makeRequest, makeRequestLine, makeStrain, makeUnit, makeVial, noGrowth, page } from '@/test/factories'
+import { mockApi } from '@/test/mockApi'
 import { renderWithProviders } from '@/test/render'
 
 /**
@@ -73,6 +75,7 @@ const DESTRUCTIVE: Record<string, Entry | Entry[]> = {
         labId="00000000-0000-4000-8000-00000000000a"
         strainId="00000000-0000-4000-8000-0000000000d1"
         vial={makeVial({ label: 'MYC 42 / 1 / 3' })}
+        strainGrowth={noGrowth()}
         open
         onClose={() => {}}
         onExited={() => {}}
@@ -158,6 +161,13 @@ const DESTRUCTIVE: Record<string, Entry | Entry[]> = {
     name: 'End the restriction Příloha 1, bod 2?',
     consequence: "the strain leaves the rules of a regulated agent. Its vials' places show again",
   },
+  '/src/features/growth/components/MediumDialogs.tsx': {
+    render: () => (
+      <RetireMediumDialog labId="00000000-0000-4000-8000-00000000000a" medium={makeMedium({ name: 'LB' })} open onClose={() => {}} onExited={() => {}} />
+    ),
+    name: 'Retire LB?',
+    consequence: 'It is never deleted.',
+  },
   '/src/features/distribution/components/RequesterDialogs.tsx': {
     render: () => (
       <EndPermitDialog labId="00000000-0000-4000-8000-00000000000a" permit={makePermit({ reference: 'DEV/9' })} open onClose={() => {}} onExited={() => {}} />
@@ -184,6 +194,8 @@ describe('destructive confirmations (invariant)', () => {
 
   const entries = Object.entries(DESTRUCTIVE).flatMap(([file, entry]) => (Array.isArray(entry) ? entry : [entry]).map((e) => [`${file}: ${e.name}`, e] as const))
   it.each(entries)('%s describes its alertdialog by the consequence', async (_, { render, name, consequence }) => {
+    // The revival dialog offers the lab's media.
+    mockApi('get', '/api/v1/labs/{lab_public_id}/media/', page([]))
     await renderWithProviders(render())
     const dialog = await screen.findByRole('alertdialog', { name })
     expect(dialog).toHaveAccessibleDescription(expect.stringContaining(consequence))

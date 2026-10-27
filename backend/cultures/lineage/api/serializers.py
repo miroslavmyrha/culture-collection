@@ -18,6 +18,7 @@ from rest_framework import serializers
 from rest_framework.request import Request
 
 from cultures.core.api import ScopedRelatedField
+from cultures.growth.api.serializers import GrowthInputSerializer, GrowthOutputSerializer
 from cultures.labs.access import access_of
 from cultures.lineage import selectors
 from cultures.lineage.models import (
@@ -72,6 +73,8 @@ class PassageOutputSerializer(serializers.ModelSerializer[Passage]):
     parent = serializers.SerializerMethodField()  # type: ignore[assignment]  # Field.parent
     # The revived vial's label, for a revival.
     source_vial_label = serializers.SerializerMethodField()
+    # How it was grown (#79): the strain's conditions unless the caller gave others.
+    growth = GrowthOutputSerializer(source="*", read_only=True)
 
     class Meta:
         model = Passage
@@ -84,6 +87,7 @@ class PassageOutputSerializer(serializers.ModelSerializer[Passage]):
             "source_vial",
             "parent",
             "source_vial_label",
+            "growth",
             "created_at",
         )
         read_only_fields = fields
@@ -110,7 +114,14 @@ class PassageOutputSerializer(serializers.ModelSerializer[Passage]):
         return "passage" if passage.source_passage_id is not None else "vial"
 
 
-class SubcultureInputSerializer(serializers.Serializer[None]):
+class GrowthOverrideInputSerializer(serializers.Serializer[None]):
+    """The conditions a subculture or a revival used, when they are not the strain's. Left out,
+    the passage records the strain's own."""
+
+    growth = GrowthInputSerializer(required=False, allow_null=True, default=None)
+
+
+class SubcultureInputSerializer(GrowthOverrideInputSerializer):
     source_passage = ScopedRelatedField(model=Passage, scope=passages_to_preserve)
 
 

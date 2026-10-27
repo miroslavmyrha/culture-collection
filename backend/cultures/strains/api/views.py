@@ -15,6 +15,8 @@ from cultures.core.errors import ProblemSerializer
 from cultures.core.exceptions import NotFound
 from cultures.deposits import selectors as deposits
 from cultures.deposits.api.serializers import StrainTermsOutputSerializer
+from cultures.growth.api.serializers import StrainGrowthInputSerializer
+from cultures.growth.services import Growth
 from cultures.labs import selectors as labs
 from cultures.labs.access import access_of
 from cultures.labs.models import Lab
@@ -96,6 +98,7 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         "retrieve": Perm.VIEW_STRAINS,
         "reclassify": Perm.MANAGE_STRAINS,
         "risk_group": Perm.MANAGE_STRAINS,
+        "growth": Perm.MANAGE_STRAINS,
         "add_restriction": Perm.MANAGE_STRAINS,
         # #105: a restriction ends in two steps, by two people (ADR 0009).
         "propose_end": Perm.MANAGE_STRAINS,
@@ -184,6 +187,33 @@ class StrainViewSet(ScopedReadOnlyViewSet):
             strain=strain,
             risk_group=data.validated_data["risk_group"],
             reason=data.validated_data["reason"],
+        )
+        return self._detail(strain)
+
+    @extend_schema(
+        request=StrainGrowthInputSerializer,
+        responses={
+            200: StrainDetailOutputSerializer,
+            (400, PROBLEM): INVALID,
+            (422, PROBLEM): RULE,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="growth")
+    def growth(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        strain: Strain = self.get_object()
+        data = StrainGrowthInputSerializer(data=request.data, context=self.get_serializer_context())
+        data.is_valid(raise_exception=True)
+        values = data.validated_data
+        services.strain_set_growth(
+            access=access_of(request),
+            strain=strain,
+            growth=Growth(
+                medium=values["medium"],
+                temperature_low_c=values["temperature_low_c"],
+                temperature_high_c=values["temperature_high_c"],
+                atmosphere=values["atmosphere"],
+            ),
+            reason=values["reason"],
         )
         return self._detail(strain)
 

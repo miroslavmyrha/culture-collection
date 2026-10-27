@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date
 
+from cultures.growth import seeding as seed_growth
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.taxonomy import seeding as seed_taxa
@@ -64,7 +65,15 @@ class EndRestriction:
     reason: str
 
 
-Step = Reclassify | SetRiskGroup | AddRestriction | EndRestriction
+@dataclass(frozen=True)
+class SetGrowth:
+    """How the strain is grown, from the lab's list of media."""
+
+    growth: seed_growth.SeedGrowth
+    reason: str
+
+
+Step = Reclassify | SetRiskGroup | AddRestriction | EndRestriction | SetGrowth
 
 
 @dataclass(frozen=True)
@@ -102,8 +111,21 @@ def strain(curator: Access, manager: Access, lab: Lab, data: SeedStrain) -> bool
     return True
 
 
+def set_growth(curator: Access, strain: Strain, step: SetGrowth) -> Strain:
+    """The strain's growth conditions, set by `curator`. The same conditions again change
+    nothing, so a deposit's strain can be given its conditions on every run."""
+    return services.strain_set_growth(
+        access=curator,
+        strain=strain,
+        growth=seed_growth.growth(strain.lab, step.growth),
+        reason=step.reason,
+    )
+
+
 def _step(curator: Access, manager: Access, strain: Strain, step: Step) -> Strain:
     match step:
+        case SetGrowth():
+            return set_growth(curator, strain, step)
         case Reclassify():
             return services.strain_reclassify(
                 access=curator,

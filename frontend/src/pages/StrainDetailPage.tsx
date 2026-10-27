@@ -77,6 +77,7 @@ export function StrainMaterialPage() {
         labId={labId}
         strainId={strainId}
         accession={strain?.accession_number ?? 'the strain'}
+        strainGrowth={strain?.growth}
         canHandle={canHandleVials(role)}
         canRelease={canReleaseBatches(role)}
         vialPage={page}

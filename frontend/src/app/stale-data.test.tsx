@@ -14,6 +14,7 @@ import {
   makeLocationGrant,
   makeMe,
   makeMember,
+  makeMedium,
   makeMtaTemplate,
   makePassage,
   makeStrain,
@@ -59,6 +60,7 @@ const DEPOSITS = '/api/v1/labs/{lab_public_id}/deposits/'
 const STRAINS = '/api/v1/labs/{lab_public_id}/strains/'
 const MTAS = '/api/v1/labs/{lab_public_id}/mta-templates/'
 const MTA = '/api/v1/labs/{lab_public_id}/mta-templates/{public_id}/'
+const MEDIA = '/api/v1/labs/{lab_public_id}/media/'
 const PERMITS = '/api/v1/labs/{lab_public_id}/permits/'
 const TERMS = '/api/v1/labs/{lab_public_id}/strains/{public_id}/terms/'
 const HISTORY = '/api/v1/labs/{lab_public_id}/strains/{public_id}/history/'
@@ -383,6 +385,7 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
   it.each([
     ['MtaTemplateDetail', `/labs/${LAB_ID}/mta-templates/${template.public_id}`, MTA, 'the MTA', () => mockApi('get', MTA, template), () => screen.findByText(template.text)],
     ['MtaTemplateList', `/labs/${LAB_ID}/mta-templates`, MTAS, 'the MTA templates', () => mockApi('get', MTAS, page([template])), () => screen.findByRole('link', { name: 'MTA-A version 1' })],
+    ['MediaList', `/labs/${LAB_ID}/media`, MEDIA, 'the media', () => mockApi('get', MEDIA, page([makeMedium({ name: 'LB' })])), () => screen.findByRole('cell', { name: 'LB' })],
     ['PermitList', `/labs/${LAB_ID}/permits`, PERMITS, 'the permits', () => mockApi('get', PERMITS, [makeLabPermit({ permit_reference: 'DEV/VRAT/1' })]), () => screen.findByText('SÚJB DEV/VRAT/1')],
     ['LabList', '/labs', '/api/v1/labs/', 'your labs', () => mockApi('get', '/api/v1/labs/', page([makeLab({ public_id: LAB_ID, name: 'Mycology' })])), () => screen.findByRole('link', { name: 'Mycology' })],
   ] as const)('%s keeps its rows and says they may be out of date', async (_, path, fails, what, data, shown) => {

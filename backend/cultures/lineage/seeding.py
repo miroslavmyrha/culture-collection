@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 
+from cultures.growth import seeding as seed_growth
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.storage.seeding import unit_at
@@ -50,6 +51,9 @@ class SeedBatch:
     cryoprotectant: str = ""
     passage: int = 0  # grown by subculture from the one before when the strain lacks it
     box: Sequence[str] = field(default_factory=tuple)  # the box's path of names; empty: unplaced
+    # The conditions the batch's passage is grown under when it is made here: the strain's when
+    # none. A passage found keeps its own.
+    growth: seed_growth.SeedGrowth | None = None
 
 
 @dataclass(frozen=True)
@@ -66,17 +70,27 @@ class SeedCheck:
     note: str = ""
 
 
-def passage(access: Access, strain: Strain, number: int) -> Passage:
-    """The strain's passage with this number, grown by subculture from the one before."""
+def passage(
+    access: Access,
+    strain: Strain,
+    number: int,
+    growth: seed_growth.SeedGrowth | None = None,
+) -> Passage:
+    """The strain's passage with this number, grown by subculture from the one before, under
+    `growth` or the strain's conditions. Passages made on the way take the strain's."""
     found = Passage.objects.filter(strain=strain, number=number).order_by("pk").first()
     if found is not None:
         return found
     parent = passage(access, strain, number - 1)
-    return services.passage_subculture(access=access, parent=parent)
+    return services.passage_subculture(
+        access=access,
+        parent=parent,
+        growth=seed_growth.growth(strain.lab, growth) if growth is not None else None,
+    )
 
 
 def _preserve(access: Access, strain: Strain, data: SeedBatch) -> Batch:
-    grown = passage(access, strain, data.passage)
+    grown = passage(access, strain, data.passage, data.growth)
     return services.batch_preserve(
         access=access,
         passage=grown,

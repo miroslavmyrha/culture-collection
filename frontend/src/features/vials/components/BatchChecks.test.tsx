@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { allowConsole } from '@/test/console'
-import { makeBatch, makeCheck, makePassage, makeVial, page, problem, validationProblem } from '@/test/factories'
+import { makeBatch, makeCheck, makePassage, makeVial, noGrowth, page, problem, validationProblem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { server } from '@/test/server'
 import { renderWithProviders } from '@/test/render'
@@ -65,7 +65,7 @@ function mockMaterial(batches: Batch[] = [pending, ready, released, held]) {
 
 const FIRST_PAGE = { limit: 50, offset: 0, batch: undefined }
 const render = ({ canHandle = true, canRelease = false } = {}) =>
-  renderWithProviders(<StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} canRelease={canRelease} vialPage={FIRST_PAGE} onVialPage={() => undefined} />)
+  renderWithProviders(<StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} canRelease={canRelease} strainGrowth={noGrowth()} vialPage={FIRST_PAGE} onVialPage={() => undefined} />)
 
 async function openChecks(number: number) {
   const user = userEvent.setup()
