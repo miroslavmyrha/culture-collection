@@ -10,6 +10,8 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from django.utils import timezone
+
 from cultures.audit.models import AuditEvent, RowChange
 from cultures.labs.access import access_for
 from cultures.lineage import services
@@ -28,6 +30,7 @@ from cultures.lineage.models import (
     VialPlacement,
 )
 from cultures.storage.models import StorageUnit
+from cultures.strains.models import DeaccessionCause, Strain, StrainStatus
 from cultures.strains.tests.conftest import LAB_ID
 from cultures.users.models import User
 
@@ -118,3 +121,16 @@ def snapshot() -> tuple[Any, ...]:
 
 
 MakeBatch = Callable[..., Batch]
+
+
+def deaccessioned_past_the_service(strain: Strain, by: User) -> None:
+    """The strain's row as a deaccession leaves it (#20), but its vials untouched: what the
+    service would mark for destruction stays, so a test sees a selector or a gate decide by the
+    strain's status alone. The strain is not regulated (the guard asks no second person)."""
+    Strain.objects.filter(pk=strain.pk).update(
+        status=StrainStatus.DEACCESSIONED,
+        deaccessioned_at=timezone.now(),
+        deaccessioned_by=by,
+        deaccession_cause=DeaccessionCause.NON_VIABLE,
+        deaccession_reason="No growth after three revivals.",
+    )

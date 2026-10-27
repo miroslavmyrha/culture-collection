@@ -22,6 +22,18 @@ export function strainError(error: unknown): string {
   if (isApiError(error, 409) && (error.code === 'end_not_proposed' || error.code === 'end_proposal_changed'))
     return 'The proposal changed meanwhile. Close this and read it again before you decide.'
   if (isApiError(error, 403) && error.code === 'confirm_own_end_proposal') return 'You proposed to end this restriction: a different manager confirms it.'
+  if (isApiError(error, 409) && error.code === 'strain_deaccessioned') return 'This strain has left the collection already. Reload to see it.'
+  if (isApiError(error, 422) && error.code === 'second_person_required')
+    return 'This strain is regulated now: close this and propose the deaccession, a manager other than you confirms it.'
+  if (isApiError(error, 422) && error.code === 'deaccession_in_one_step') return 'This strain is no longer regulated: close this and deaccession it in one step.'
+  if (isApiError(error, 409) && error.code === 'deaccession_proposed') return 'Someone has proposed to deaccession this strain already. Close this and look at it again.'
+  if (isApiError(error, 409) && (error.code === 'deaccession_not_proposed' || error.code === 'deaccession_proposal_changed'))
+    return 'The proposal changed meanwhile. Close this and read it again before you decide.'
+  if (isApiError(error, 409) && error.code === 'deaccession_proposal_outdated')
+    return "The strain's restrictions changed since the proposal. Withdraw it and propose the deaccession again."
+  if (isApiError(error, 409) && error.code === 'request_awaits_confirmation')
+    return 'A shipment of this strain waits for its second person. Withdraw the prepared shipment on its request first, then deaccession the strain.'
+  if (isApiError(error, 403) && error.code === 'confirm_own_deaccession') return 'You proposed to deaccession this strain: a different manager confirms it.'
   return errorMessage(error)
 }
 

@@ -15,6 +15,11 @@ Biosafety (ADR 0009): a risk group 1 to 4, pathogenicity for animals and for
 plants as separate fields, and any number of restrictions. A restriction ends only through a
 proposal a second person confirms (#105): one person lifting it alone would take the strain out
 of every rule that reads "regulated" from the active restrictions.
+
+Deaccession (#20, ADR 0008, D8): a strain leaves the collection with a cause, a reason, who and
+when, set if and only if its status is deaccessioned, which is terminal. The row stays, and so
+does its number. A regulated strain leaves only through a proposal a second person confirms
+(ADR 0009), like the end of a restriction.
 """
 
 from django.conf import settings
@@ -36,6 +41,7 @@ ACCESSION_SEQ_UNIQUE = "strains_strain_lab_accession_seq_uniq"
 ONE_CURRENT_IDENTIFICATION = "strains_identification_one_current"
 ACTIVE_RESTRICTION_UNIQUE = "strains_restriction_active_uniq"
 ONE_OPEN_END_PROPOSAL = "strains_endproposal_one_open"
+ONE_OPEN_DEACCESSION_PROPOSAL = "strains_deaccessionproposal_one_open"
 
 # ISO 8601 calendar dates of reduced precision: a year, a year and a month, or a full date
 # (the precision Darwin Core's eventDate allows). An isolation date is often known to the
@@ -56,6 +62,34 @@ class StrainStatus(models.TextChoices):
     ACTIVE = "active"
     RESTRICTED = "restricted"
     DEACCESSIONED = "deaccessioned"
+
+
+class DeaccessionCause(models.TextChoices):
+    """Why a strain leaves the collection (#20). The codes of the design study (s3, section 7);
+    the reason says the rest in words."""
+
+    NON_VIABLE = "non_viable", "No longer grows"
+    CONTAMINATED = "contaminated", "Contaminated"
+    MISIDENTIFIED = "misidentified", "Misidentified"
+    DUPLICATE = "duplicate", "Duplicate of another strain"
+    DEPOSITOR_REQUEST = "depositor_request", "The depositor asked for it"
+    LEGAL = "legal", "Legal reason"
+    LOST = "lost", "Lost"
+
+
+class FinalUse(models.TextChoices):
+    """What becomes of a quarantine pest's material when it leaves the collection: the final use
+    the authorisation states, in the words of Regulation (EU) 2019/829, Annex I (h)
+    ("destruction, collection or storage"). Recorded for a strain with an active quarantine pest
+    restriction only."""
+
+    DESTRUCTION = "destruction", "Destruction"
+    COLLECTION = "collection", "Transfer to a collection"
+    STORAGE = "storage", "Storage"
+
+
+# The final uses that keep the material: its vials are not marked for destruction.
+KEEPS_MATERIAL: frozenset[FinalUse] = frozenset({FinalUse.COLLECTION, FinalUse.STORAGE})
 
 
 class Pathogenicity(models.TextChoices):
@@ -108,6 +142,27 @@ class Strain(PublicModel, GrowthConditions):
     isolation_source = models.CharField(max_length=200, blank=True)
     country_of_origin = models.CharField(max_length=2, blank=True)  # ISO 3166-1 alpha-2
     isolation_date = models.CharField(max_length=10, blank=True)  # PARTIAL_DATE
+    # Deaccession (#20): all set, or none, with the status deaccessioned (the check below). The
+    # one who deaccessioned it, or for a regulated strain the manager who confirmed the proposal
+    # (StrainDeaccessionProposal). No index: users are never deleted and nothing reads by it.
+    deaccessioned_at = models.DateTimeField(null=True, blank=True)
+    deaccessioned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="+",
+        null=True,
+        blank=True,
+        db_index=False,
+    )
+    deaccession_cause = models.CharField(
+        max_length=20, choices=DeaccessionCause.choices, blank=True, default="", db_default=""
+    )
+    # Why, in words. Names nobody.
+    deaccession_reason = models.TextField(blank=True, default="", db_default="")
+    # A quarantine pest only (the strain guard, migration 0009).
+    final_use = models.CharField(
+        max_length=20, choices=FinalUse.choices, blank=True, default="", db_default=""
+    )
 
     objects = LabScopedQuerySet["Strain"].as_manager()
 
@@ -167,6 +222,31 @@ class Strain(PublicModel, GrowthConditions):
             models.CheckConstraint(
                 condition=Q(isolation_source="") | Q(isolation_source__regex=r"^\S(.*\S)?$"),
                 name="strains_strain_isolation_source_trimmed",
+            ),
+            # isnull=False spelled out: a CHECK passes when its condition is NULL.
+            models.CheckConstraint(
+                condition=Q(
+                    status=StrainStatus.DEACCESSIONED,
+                    deaccessioned_at__isnull=False,
+                    deaccessioned_by__isnull=False,
+                    deaccession_cause__in=DeaccessionCause.values,
+                    deaccession_reason__regex=r"\S",
+                )
+                | (
+                    ~Q(status=StrainStatus.DEACCESSIONED)
+                    & Q(
+                        deaccessioned_at__isnull=True,
+                        deaccessioned_by__isnull=True,
+                        deaccession_cause="",
+                        deaccession_reason="",
+                        final_use="",
+                    )
+                ),
+                name="strains_strain_deaccession_iff_status",
+            ),
+            models.CheckConstraint(
+                condition=Q(final_use="") | Q(final_use__in=FinalUse.values),
+                name="strains_strain_final_use_valid",
             ),
         ]
 
@@ -355,3 +435,92 @@ class RestrictionEndProposal(PublicModel):
 
     def __str__(self) -> str:
         return f"end proposal {self.public_id}"
+
+
+class StrainDeaccessionProposal(PublicModel):
+    """A proposal to deaccession a regulated strain, with the cause, the reason and for a
+    quarantine pest the final use (#20, ADR 0009). A manager other than the proposer confirms it,
+    which deaccessions the strain with these at the confirmation's time; or someone withdraws it
+    with a reason of their own. Inserted open; the one later change is the confirmation or the
+    withdrawal, written once (the trigger). Never deleted. At most one per strain is not
+    withdrawn (a partial unique index): the open one, or the one that deaccessioned it."""
+
+    lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="+")
+    strain = models.ForeignKey(
+        Strain, on_delete=models.PROTECT, related_name="deaccession_proposals"
+    )
+    cause = models.CharField(max_length=20, choices=DeaccessionCause.choices)
+    # Why, in words. It becomes the strain's deaccession_reason. Names nobody.
+    reason = models.TextField()
+    final_use = models.CharField(max_length=20, choices=FinalUse.choices, blank=True)
+    proposed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    proposed_at = models.DateTimeField()
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    withdrawn_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    withdrawn_at = models.DateTimeField(null=True, blank=True)
+    # Why it was withdrawn. Names nobody.
+    withdraw_reason = models.TextField(blank=True)
+
+    objects = LabScopedQuerySet["StrainDeaccessionProposal"].as_manager()
+
+    class Meta(PublicModel.Meta):
+        constraints = [
+            *PublicModel.Meta.constraints,
+            models.UniqueConstraint(
+                fields=["strain"],
+                condition=Q(withdrawn_at__isnull=True),
+                name=ONE_OPEN_DEACCESSION_PROPOSAL,
+            ),
+            models.CheckConstraint(
+                condition=Q(cause__in=DeaccessionCause.values),
+                name="strains_deaccessionproposal_cause_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(reason__regex=r"\S"),
+                name="strains_deaccessionproposal_reason_given",
+            ),
+            models.CheckConstraint(
+                condition=Q(final_use="") | Q(final_use__in=FinalUse.values),
+                name="strains_deaccessionproposal_final_use_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(confirmed_at__isnull=True, confirmed_by__isnull=True)
+                | Q(confirmed_at__isnull=False, confirmed_by__isnull=False),
+                name="strains_deaccessionproposal_confirmation_complete",
+            ),
+            models.CheckConstraint(
+                condition=Q(
+                    withdrawn_at__isnull=True, withdrawn_by__isnull=True, withdraw_reason=""
+                )
+                | Q(
+                    withdrawn_at__isnull=False,
+                    withdrawn_by__isnull=False,
+                    withdraw_reason__regex=r"\S",
+                ),
+                name="strains_deaccessionproposal_withdrawal_complete",
+            ),
+            models.CheckConstraint(
+                condition=Q(confirmed_at__isnull=True) | Q(withdrawn_at__isnull=True),
+                name="strains_deaccessionproposal_confirmed_or_withdrawn",
+            ),
+            models.CheckConstraint(
+                # Spelled with isnull: a CHECK passes when its condition is NULL.
+                condition=Q(confirmed_by__isnull=True) | ~Q(confirmed_by=F("proposed_by")),
+                name="strains_deaccessionproposal_second_person",
+            ),
+            models.CheckConstraint(
+                condition=(Q(confirmed_at__isnull=True) | Q(confirmed_at__gte=F("proposed_at")))
+                & (Q(withdrawn_at__isnull=True) | Q(withdrawn_at__gte=F("proposed_at"))),
+                name="strains_deaccessionproposal_outcome_after_proposal",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"deaccession proposal {self.public_id}"

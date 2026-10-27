@@ -257,11 +257,20 @@ test('C11 record a request that came by e-mail, with the signed MTA', async ({ b
 })
 
 test('C10 deaccession a strain that no longer grows', async ({ browser }, info) => {
+  // A strain of this run with no restriction: one person may deaccession it (#20).
+  const name = `Bacillus subtilis dead ${RUN}`
+  const setup = await setupAs(browser, 'bac-curator')
+  await acceptedStrain(setup.page, await labId(setup.page, LAB), name, 'Bacillus subtilis')
+  await setup.close()
+
   const w = await Walk.as(browser, info, 'bac-curator', curator('C10', 'Deaccession a strain that no longer grows'))
   await w.start()
-  await searchStrain(w, 'BAC 14')
-  w.look()
-  await expect(w.page.getByRole('button', { name: /Deaccession/ })).toHaveCount(0)
-  w.impossible('No deaccession: the strain list filters by "Deaccessioned" but no screen sets it', '#20')
+  await searchStrain(w, name, new RegExp(`^BAC \\d+, BAC, Active\\. .*${name}`))
+  await strainAction(w, 'Deaccession')
+  const dialog = w.page.getByRole('alertdialog', { name: /^Deaccession BAC \d+\?$/ })
+  await w.choose(dialog.getByRole('combobox', { name: 'Cause' }), 'No longer grows')
+  await w.type(dialog.getByRole('textbox', { name: 'Reason' }), 'No growth after three revivals on two media.')
+  await w.click(dialog.getByRole('button', { name: 'Deaccession', exact: true }))
+  await expect(w.page.getByRole('list', { name: 'Biosafety and status' }).getByText('Deaccessioned')).toBeVisible()
   await w.done()
 })

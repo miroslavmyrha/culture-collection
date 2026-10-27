@@ -104,3 +104,14 @@ class PreparationChanged(Conflict):
 class PreparedMeanwhile(Conflict):
     default_code = "preparation_exists"
     default_detail = "Someone prepared this shipment at the same moment. Reload the request."
+
+
+class RequestAwaitsConfirmation(Conflict):
+    """#20: a strain leaves the collection only once no shipment of it waits for a second person:
+    a request awaiting confirmation is not cancelled before its preparation is withdrawn."""
+
+    default_code = "request_awaits_confirmation"
+    default_detail = (
+        "A request with this strain waits for the confirmation of its shipment: withdraw the"
+        " prepared shipment first."
+    )

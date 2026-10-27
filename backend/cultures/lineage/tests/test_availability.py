@@ -13,10 +13,10 @@ from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
 from cultures.lineage import selectors, services
 from cultures.lineage.models import Batch, BatchStatus, Passage, Purpose, Vial, VialStatus
-from cultures.strains.models import Strain, StrainStatus
+from cultures.strains.models import Strain
 from cultures.users.models import User
 
-from .support import MakeBatch, pass_all, vials_of
+from .support import MakeBatch, deaccessioned_past_the_service, pass_all, vials_of
 
 pytestmark = pytest.mark.django_db
 REASON = "all three checks after preservation passed"
@@ -104,9 +104,10 @@ def test_a_deaccessioned_strain_gives_nothing(
     make_batch: MakeBatch,
     strain: Strain,
 ) -> None:
-    """Past the service: deaccession comes with #20, and a pending strain has no batch."""
+    """Past the service, which would mark the vials for destruction (#20): the selector alone
+    leaves the strain out. A pending strain has no batch."""
     batch = released(technician, curator, make_batch(passage0, vial_count=2))
-    Strain.objects.filter(pk=strain.pk).update(status=StrainStatus.DEACCESSIONED)
+    deaccessioned_past_the_service(strain, curator)
     assert distributable(viewer, lab) == set()
     assert figures(viewer, lab) == {batch.pk: 0}
 

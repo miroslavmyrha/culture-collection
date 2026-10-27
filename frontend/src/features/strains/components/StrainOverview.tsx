@@ -3,12 +3,24 @@ import { Box, Button, Link, Stack, StatusChip, Table, TableBody, TableCell, Tabl
 import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { ATMOSPHERE_LABELS, temperatureText } from '@/lib/growth'
 import { STRAIN_TONES } from '@/lib/tones'
-import { countryName, GMO_CATEGORY_LABELS, PATHOGENICITY_LABELS, RESTRICTION_LABELS, STATUS_LABELS, type Strain } from '../schemas'
+import {
+  CAUSE_LABELS,
+  countryName,
+  type DeaccessionProposal,
+  FINAL_USE_LABELS,
+  GMO_CATEGORY_LABELS,
+  PATHOGENICITY_LABELS,
+  RESTRICTION_LABELS,
+  STATUS_LABELS,
+  type Strain,
+} from '../schemas'
 import { day, Facts, scrollable, Section } from './parts'
-import { ConfirmEndDialog, ProposeEndDialog, WithdrawEndDialog } from './StrainDialogs'
+import { ConfirmDeaccessionDialog, ConfirmEndDialog, ProposeEndDialog, WithdrawDeaccessionDialog, WithdrawEndDialog } from './StrainDialogs'
+import { StrainShipments } from './StrainShipments'
 import { ActiveTerms } from './StrainTerms'
 
-type Props = { labId: string; strain: Strain; canManage: boolean; canConfirm: boolean }
+type Props = { labId: string; strain: Strain; canManage: boolean; canConfirm: boolean; canConfirmLeave?: boolean }
+type Settle = { step: 'confirm' | 'withdraw'; proposal: DeaccessionProposal; open: boolean } | null
 
 type Restriction = Strain['restriction_history'][number]
 type Step = 'propose' | 'confirm' | 'withdraw'
@@ -19,8 +31,9 @@ type Act = (step: Step, r: Restriction) => (event: MouseEvent<HTMLButtonElement>
  * What the strain is (#19): its facts, its restrictions, the terms of use in force and how it was
  * identified, from the strain the page already holds; only the terms are a read of their own.
  */
-export function StrainOverview({ labId, strain: s, canManage, canConfirm }: Props) {
+export function StrainOverview({ labId, strain: s, canManage, canConfirm, canConfirmLeave = false }: Props) {
   const [open, setOpen] = useState<Open>(null)
+  const [settling, setSettling] = useState<Settle>(null)
   const spot = useRef<FocusReturn | null>(null)
   const act: Act = (step, restriction) => (event) => {
     spot.current = rememberFocus(event.currentTarget)
@@ -31,11 +44,35 @@ export function StrainOverview({ labId, strain: s, canManage, canConfirm }: Prop
     spot.current?.restore()
     spot.current = null
     setOpen(null)
+    setSettling(null)
   }
+  const settle = (step: 'confirm' | 'withdraw', proposal: DeaccessionProposal) => (event: MouseEvent<HTMLButtonElement>) => {
+    spot.current = rememberFocus(event.currentTarget)
+    setSettling({ step, proposal, open: true })
+  }
+  const closeSettling = () => setSettling((current) => current && { ...current, open: false })
   const active = s.restriction_history.filter((r) => r.ended_at === null)
   const ended = s.restriction_history.filter((r) => r.ended_at !== null)
   return (
     <>
+      {s.deaccession && (
+        <Section title="Deaccession">
+          <Facts
+            rows={[
+              ['Left the collection', day(s.deaccession.deaccessioned_at)],
+              ['Cause', CAUSE_LABELS[s.deaccession.cause]],
+              ['Reason', s.deaccession.reason],
+              ...(s.deaccession.final_use ? [['Final use', FINAL_USE_LABELS[s.deaccession.final_use]] as [string, string]] : []),
+            ]}
+          />
+          <Typography>Its number is never given to another strain, and its history stays.</Typography>
+        </Section>
+      )}
+      {s.deaccession_proposal && (
+        <ProposedDeaccession proposal={s.deaccession_proposal} canManage={canManage} canConfirm={canConfirmLeave} onSettle={settle} />
+      )}
+      {s.deaccession && <StrainShipments labId={labId} strainId={s.public_id} />}
+
       <Section title="Facts">
         <Facts
           rows={[
@@ -112,6 +149,12 @@ export function StrainOverview({ labId, strain: s, canManage, canConfirm }: Prop
 
       {/* Mounted until it has faded out, so onExited can place the focus. */}
       {open && <EndDialog labId={labId} strain={s} at={open} onClose={close} onExited={exited} />}
+      {settling?.step === 'confirm' && (
+        <ConfirmDeaccessionDialog labId={labId} strain={s} proposal={settling.proposal} open={settling.open} onClose={closeSettling} onExited={exited} />
+      )}
+      {settling?.step === 'withdraw' && (
+        <WithdrawDeaccessionDialog labId={labId} strain={s} proposal={settling.proposal} open={settling.open} onClose={closeSettling} onExited={exited} />
+      )}
     </>
   )
 }
@@ -214,5 +257,38 @@ function Actions({ restriction: r, act, canManage, canConfirm }: { restriction: 
         </Button>
       )}
     </Stack>
+  )
+}
+
+type ProposedProps = {
+  proposal: DeaccessionProposal
+  canManage: boolean
+  canConfirm: boolean
+  onSettle: (step: 'confirm' | 'withdraw', proposal: DeaccessionProposal) => (event: MouseEvent<HTMLButtonElement>) => void
+}
+
+/** A proposal to deaccession the regulated strain, waiting for a second person (#20). */
+function ProposedDeaccession({ proposal, canManage, canConfirm, onSettle }: ProposedProps) {
+  const own = proposal.confirm_refusal === 'confirm_own_deaccession'
+  return (
+    <Section title="Proposed deaccession">
+      <Facts
+        rows={[
+          ['Proposed', day(proposal.proposed_at)],
+          ['Cause', CAUSE_LABELS[proposal.cause]],
+          ['Reason', proposal.reason],
+          ...(proposal.final_use ? [['Final use', FINAL_USE_LABELS[proposal.final_use]] as [string, string]] : []),
+        ]}
+      />
+      <Typography color="text.secondary">
+        {own ? 'You proposed it: a different manager confirms.' : canConfirm ? 'Waiting for your confirmation.' : 'Waiting for a manager to confirm.'}
+      </Typography>
+      {(canManage || canConfirm) && (
+        <Stack direction="row" spacing={1}>
+          {canConfirm && !own && <Button onClick={onSettle('confirm', proposal)}>Confirm deaccession</Button>}
+          {canManage && <Button onClick={onSettle('withdraw', proposal)}>Withdraw the proposal</Button>}
+        </Stack>
+      )}
+    </Section>
   )
 }

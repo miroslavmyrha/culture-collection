@@ -34,10 +34,18 @@ from cultures.storage.models import BoxType, StorageUnit, UnitKind, UnitStatus
 from cultures.storage.policy import may_store
 from cultures.storage.tests.conftest import MakeUnit, Tree
 from cultures.strains import services as strains
-from cultures.strains.models import Strain, StrainStatus
+from cultures.strains.models import Strain
 from cultures.users.models import User
 
-from .support import MakeBatch, new_batch, open_place, preserve, snapshot, vials_of
+from .support import (
+    MakeBatch,
+    deaccessioned_past_the_service,
+    new_batch,
+    open_place,
+    preserve,
+    snapshot,
+    vials_of,
+)
 from .test_checks import CHECK_SCENARIOS
 from .test_constraints import PATHS
 
@@ -275,9 +283,9 @@ def test_preserving_today_is_allowed(
 
 
 def test_a_deaccessioned_strain_is_not_preserved(
-    as_technician: AuditContext, technician: User, passage0: Passage
+    as_technician: AuditContext, technician: User, curator: User, passage0: Passage
 ) -> None:
-    Strain.objects.filter(pk=passage0.strain_id).update(status=StrainStatus.DEACCESSIONED)
+    deaccessioned_past_the_service(passage0.strain, curator)
     refused(services.StrainNotActive, "strain_not_active", lambda: preserve(technician, passage0))
 
 
@@ -711,6 +719,9 @@ DISTRIBUTION_STEPS = {
     "vial_ship_locked",
     "batch_exhaust_if_emptied_locked",
 }
+# The deaccession's step (#20): written under its locks, walked by
+# strains/tests/test_lock_invariant.py and distribution/tests/test_deaccession.py.
+STRAIN_STEPS = {"strain_vials_leave_locked"}
 # Viewers may reveal (strains.view): the grant decides, tested in test_masking.py.
 VIEWER_MAY = {"vial_reveal_location"}
 
@@ -719,7 +730,9 @@ def test_every_service_has_a_scenario_here() -> None:
     """The check services have theirs in test_checks.py (their setup needs a batch)."""
     found = public_services(services)
     assert {"batch_preserve", "vial_place", "check_record"} <= found  # the walk found them
-    assert found - NOT_A_WRITE - DISTRIBUTION_STEPS == set(SCENARIOS) | set(CHECK_SCENARIOS)
+    assert found - NOT_A_WRITE - DISTRIBUTION_STEPS - STRAIN_STEPS == set(SCENARIOS) | set(
+        CHECK_SCENARIOS
+    )
     assert not set(SCENARIOS) & set(CHECK_SCENARIOS)
 
 

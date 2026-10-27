@@ -17,6 +17,8 @@ export const strainKeys = {
   /** Shared roots (#19): a deposit's new terms version changes the terms, any write the history. */
   terms: sharedKeys.strainTerms,
   history: (labId: string, strainId: string, page: PageParams) => [...sharedKeys.strainHistory(labId, strainId), page] as const,
+  /** Where the strain's distributed vials went (#20): shipments change through requests. */
+  shipments: (labId: string, strainId: string, page: PageParams) => [...sharedKeys.requests(labId), 'strain-shipments', strainId, page] as const,
 }
 
 /** Taxa are global: no lab in their keys. */

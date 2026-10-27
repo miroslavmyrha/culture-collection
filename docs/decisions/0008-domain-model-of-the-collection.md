@@ -822,3 +822,68 @@ growth medium and temperature in the minimum strain record.
 
 Revisit when: a collection needs a medium per growth phase, a recorded growth result, or a
 finer atmosphere vocabulary.
+
+## Amendment 2026-10-27: deaccession (#20)
+
+A strain leaves the collection without losing its history (D8: `active` or `restricted` >
+`deaccessioned`, terminal). Walkthrough C10 (deaccession a strain that no longer grows) had no
+screen for it: the strain list filtered by "Deaccessioned", nothing set it. The design is the lab
+domain study (s3, section 7) and the duties the sources ask at deaccession (s11).
+
+- **The strain records how it left**: `deaccessioned_at`, `deaccessioned_by`, a cause
+  (`deaccession_cause`: `non_viable`, `contaminated`, `misidentified`, `duplicate`,
+  `depositor_request`, `legal`, `lost`) and a reason in words (`deaccession_reason`, names
+  nobody). The study called the code the reason; here it is the cause, because `reason` is the
+  free text everywhere else in the app. A check constraint holds all four set if and only if the
+  status is deaccessioned (`strains_strain_deaccession_iff_status`). The row, its number and its
+  history stay (D2: a number is never given again).
+- **A quarantine pest records its final use** (`final_use`: `destruction`, `collection`,
+  `storage`), the words of Regulation (EU) 2019/829, Annex I (h) ("the final use of the specified
+  material on completion of the specified activity e.g.; destruction, collection or storage").
+  Only a strain with an active `quarantine_pest` restriction has one; the service and the strain
+  trigger both refuse it missing and refuse it on any other strain.
+- **One transaction, lock order lab, strain, requests, vials** (`strains.services`): every open
+  request with a line of the strain (submitted or approved) is cancelled with the reason, which
+  names the strain (`distribution.services.requests_cancel_for_deaccession_locked`); the
+  reservations of its vials end as `deaccessioned`, those of the request's other strains as
+  `cancelled` with their vials available again; the strain's vials still held (available,
+  reserved, quarantined) become `to_destroy` where they are (`lineage.services.
+  strain_vials_leave_locked`), one `vial_status_changed` each and one
+  `vials_marked_for_destruction` batch event. A final use of `collection` or `storage` keeps the
+  material: its vials are not marked, a reserved one is available again. Distributed vials stay
+  as they went. A request awaiting the confirmation of its shipment is refused
+  (`request_awaits_confirmation`, 409): the edge `awaiting_confirmation > cancelled` does not
+  exist, so one of its two people withdraws the preparation first.
+- **Request lines are not cancelled one by one.** Lines have no status, and a request ships all
+  its lines at once (#88), so the whole open request is cancelled, also its lines of other
+  strains; the curator enters a new request for the others. Decided 2026-10-27: a cancellation
+  of single lines would touch the gates, the shipment, the documents and their triggers. The
+  final use of a quarantine pest decides its vials (destruction marks them, collection and
+  storage keep them), as Regulation (EU) 2019/829 Art. 5(d) allows, decided the same day.
+- **Terminal.** The strain services refuse every change of a deaccessioned strain
+  (`strain_deaccessioned`, 409): reclassification, risk group, growth, a new restriction. The
+  end of a restriction still works, because its vials wait for destruction and stay regulated.
+  The strain trigger refuses any change of the status or of the deaccession once deaccessioned,
+  a deaccession from any status but active or restricted, and an INSERT of a deaccessioned
+  strain. `request_submit` refuses a deaccessioned strain (`strain_deaccessioned` on the line).
+- **What people see.** The strain list leaves deaccessioned strains out unless the status filter
+  asks for them; their page stays reachable by link and by number. The page shows how the strain
+  left and, from `GET .../strains/<id>/shipments/` (paginated, `distribution.view`), where its
+  distributed vials went: request, institution, country, day and how many, for a notice to the
+  recipients after a contamination or a misidentification (s3, section 7).
+- **Who.** A strain that is not regulated is deaccessioned by one person with `strains.manage`
+  (curator and up): the curator walkthrough holds the task (C10), and curators accession strains.
+  A regulated one takes two people (ADR 0009, amendment of the same day).
+
+Out of scope, for a later issue: the destruction itself (method, who, a witness, the VRAT/RAT
+register entry), `to_destroy > destroyed` with the placement closed.
+
+Migration impact: additive. `strains` 0008 adds the five nullable or defaulted columns with their
+two check constraints (a scan of `strains_strain` under its lock, small) and the proposal table;
+0009 attaches its row audit and its trigger and replaces the strain guard of 0003, now also on
+INSERT; `audit` 0026 adds the four event types to `audit_auditevent_reason_required` NOT VALID and
+0027 validates it. Reversible while no strain is deaccessioned and no proposal exists:
+`migrate strains 0007` and `migrate audit 0025`.
+
+Revisit when: a single line of a request must be cancelled, the destruction record lands, or a
+strain must come back (a deaccession entered in error).

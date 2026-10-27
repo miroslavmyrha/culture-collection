@@ -26,7 +26,7 @@ from cultures.labs.permissions import Role
 from cultures.labs.tests.conftest import member_of
 from cultures.labs.tests.test_lock_invariant import first, locks, public_services
 from cultures.strains import services as strains
-from cultures.strains.models import StrainRestriction
+from cultures.strains.models import DeaccessionCause, Strain, StrainRestriction
 from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
 
@@ -114,6 +114,43 @@ def strain_restriction_end_withdraw(f: Fixtures) -> Callable[[], object]:
     )
 
 
+DEAD = strains.Deaccession(DeaccessionCause.NON_VIABLE, "r")
+
+
+def strain_deaccession(f: Fixtures) -> Callable[[], object]:
+    _, access, _, make = f
+    strain = make()
+    return lambda: strains.strain_deaccession(access=access, strain=strain, data=DEAD)
+
+
+def strain_deaccession_propose(f: Fixtures) -> Callable[[], object]:
+    _, access, _, make = f
+    strain = make(restrictions=[GMO])
+    return lambda: strains.strain_deaccession_propose(access=access, strain=strain, data=DEAD)
+
+
+def _deaccession_proposed(f: Fixtures) -> tuple[Strain, UUID]:
+    _, access, _, make = f
+    strain = make(restrictions=[GMO])
+    proposal = strains.strain_deaccession_propose(access=access, strain=strain, data=DEAD)
+    return strain, proposal.public_id
+
+
+def strain_deaccession_confirm(f: Fixtures) -> Callable[[], object]:
+    strain, proposal = _deaccession_proposed(f)
+    confirmer = access_for(member_of(f[0], Role.MANAGER, "confirmer"))
+    return lambda: strains.strain_deaccession_confirm(
+        access=confirmer, strain=strain, proposal=proposal
+    )
+
+
+def strain_deaccession_withdraw(f: Fixtures) -> Callable[[], object]:
+    strain, proposal = _deaccession_proposed(f)
+    return lambda: strains.strain_deaccession_withdraw(
+        access=f[1], strain=strain, proposal=proposal, reason="r"
+    )
+
+
 def authorisation_create(f: Fixtures) -> Callable[[], object]:
     lab = f[0]
     return lambda: biosafety.authorisation_create(
@@ -143,6 +180,10 @@ SCENARIOS: dict[str, Scenario] = {
         strain_restriction_end_propose,
         strain_restriction_end_confirm,
         strain_restriction_end_withdraw,
+        strain_deaccession,
+        strain_deaccession_propose,
+        strain_deaccession_confirm,
+        strain_deaccession_withdraw,
         authorisation_create,
         authorisation_end,
     )

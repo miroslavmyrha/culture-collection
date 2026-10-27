@@ -26,7 +26,12 @@ from .test_services import NOT_A_WRITE, SCENARIOS
 
 pytestmark = pytest.mark.django_db
 
-EXEMPT = dict.fromkeys(NOT_A_WRITE, "no query: input checks and text")
+EXEMPT = dict.fromkeys(NOT_A_WRITE, "no query: input checks and text") | {
+    "requests_cancel_for_deaccession_locked": (
+        "the deaccession's step (#20), called under its lab and strain locks"
+        " (strains/tests/test_lock_invariant.py)"
+    ),
+}
 # The services that decide on a request: they lock it before its strains and vials.
 DECISIONS = {
     "request_approve",

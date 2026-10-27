@@ -388,13 +388,13 @@ export async function openTab(w: Walk, tab: 'Overview' | 'Material' | 'Terms' | 
 /** A vial's action from the menu in its row (#19): two clicks. */
 export async function vialAction(w: Walk, label: string, item: 'Move' | 'Place' | 'Change state' | 'Revive') {
   await w.click(w.page.getByRole('button', { name: `Actions for vial ${label}` }))
-  await w.click(w.page.getByRole('menuitem', { name: item }))
+  await w.click(w.page.getByRole('menuitem', { name: item, exact: true }))
 }
 
 /** A strain's action from the menu in its header (#19): two clicks. */
-export async function strainAction(w: Walk, item: 'Reclassify' | 'Change risk group' | 'Add a restriction') {
+export async function strainAction(w: Walk, item: 'Reclassify' | 'Change risk group' | 'Add a restriction' | 'Deaccession') {
   await w.click(w.page.getByRole('button', { name: /^Actions for / }))
-  await w.click(w.page.getByRole('menuitem', { name: item }))
+  await w.click(w.page.getByRole('menuitem', { name: item, exact: true }))
 }
 
 /**

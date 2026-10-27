@@ -5738,6 +5738,344 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/deaccession/:
+    post:
+      operationId: labs_strains_deaccession_create
+      description: |-
+        The strain leaves the collection, with the cause and the reason (#20): its open
+        requests are cancelled and its vials still held are marked for destruction. The strain,
+        its number and its history stay. A regulated strain is proposed instead.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeaccessionInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DeaccessionInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input; final_use_required: a quarantine pest states
+            its final use; final_use_not_applicable: only a quarantine pest does (both
+            on final_use)'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'strain_deaccessioned: it left already; deaccession_proposed:
+            a proposal waits; request_awaits_confirmation: a shipment of the strain
+            waits for its second person'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'reason_required; second_person_required: the strain is regulated,
+            propose it; deaccession_in_one_step: the strain is not regulated, deaccession
+            it in one step'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/deaccession-proposal/:
+    post:
+      operationId: labs_strains_deaccession_proposal_create
+      description: |-
+        Proposes to deaccession a regulated strain (#20, ADR 0009). Nothing changes for it
+        until a manager other than the proposer confirms the proposal.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeaccessionInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DeaccessionInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input; final_use_required: a quarantine pest states
+            its final use; final_use_not_applicable: only a quarantine pest does (both
+            on final_use)'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'strain_deaccessioned: it left already; deaccession_proposed:
+            a proposal waits; request_awaits_confirmation: a shipment of the strain
+            waits for its second person'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'reason_required; second_person_required: the strain is regulated,
+            propose it; deaccession_in_one_step: the strain is not regulated, deaccession
+            it in one step'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/deaccession-proposal/confirm/:
+    post:
+      operationId: labs_strains_deaccession_proposal_confirm_create
+      description: |-
+        A manager other than the proposer confirms the proposal they read: the strain leaves
+        now, with the proposal's cause, reason and final use.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeaccessionConfirmInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DeaccessionConfirmInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainDetailOutput'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'permission_denied: confirming is a manager''s; confirm_own_deaccession:
+            the caller proposed it, a different manager confirms'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'strain_deaccessioned; deaccession_not_proposed: no proposal
+            is open; deaccession_proposal_changed: another proposal is open than the
+            one named; deaccession_proposal_outdated: the restrictions changed since;
+            request_awaits_confirmation'
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/deaccession-proposal/withdraw/:
+    post:
+      operationId: labs_strains_deaccession_proposal_withdraw_create
+      description: Withdraws the open proposal the caller read, with a reason. The
+        strain stays.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeaccessionWithdrawInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DeaccessionWithdrawInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainDetailOutput'
+          description: ''
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'strain_deaccessioned; deaccession_not_proposed: no proposal
+            is open; deaccession_proposal_changed: another proposal is open than the
+            one named; deaccession_proposal_outdated: the restrictions changed since;
+            request_awaits_confirmation'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'lab_authorisation_required: the lab holds no valid permit
+            for a restriction''s kind; reason_required'
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/strains/{public_id}/growth/:
     post:
       operationId: labs_strains_growth_create
@@ -6339,6 +6677,635 @@ paths:
                 $ref: '#/components/schemas/Problem'
           description: 'lab_authorisation_required: the lab holds no valid permit
             for a restriction''s kind; reason_required'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/shipments/:
+    get:
+      operationId: labs_strains_shipments_list
+      description: |-
+        Where the strain's distributed vials went, oldest shipment first, a page at a time
+        (#20): the request, the institution, when and how many vials. Names no person.
+      parameters:
+      - in: query
+        name: country
+        schema:
+          type: string
+          enum:
+          - AD
+          - AE
+          - AF
+          - AG
+          - AI
+          - AL
+          - AM
+          - AO
+          - AQ
+          - AR
+          - AS
+          - AT
+          - AU
+          - AW
+          - AX
+          - AZ
+          - BA
+          - BB
+          - BD
+          - BE
+          - BF
+          - BG
+          - BH
+          - BI
+          - BJ
+          - BL
+          - BM
+          - BN
+          - BO
+          - BQ
+          - BR
+          - BS
+          - BT
+          - BV
+          - BW
+          - BY
+          - BZ
+          - CA
+          - CC
+          - CD
+          - CF
+          - CG
+          - CH
+          - CI
+          - CK
+          - CL
+          - CM
+          - CN
+          - CO
+          - CR
+          - CU
+          - CV
+          - CW
+          - CX
+          - CY
+          - CZ
+          - DE
+          - DJ
+          - DK
+          - DM
+          - DO
+          - DZ
+          - EC
+          - EE
+          - EG
+          - EH
+          - ER
+          - ES
+          - ET
+          - FI
+          - FJ
+          - FK
+          - FM
+          - FO
+          - FR
+          - GA
+          - GB
+          - GD
+          - GE
+          - GF
+          - GG
+          - GH
+          - GI
+          - GL
+          - GM
+          - GN
+          - GP
+          - GQ
+          - GR
+          - GS
+          - GT
+          - GU
+          - GW
+          - GY
+          - HK
+          - HM
+          - HN
+          - HR
+          - HT
+          - HU
+          - ID
+          - IE
+          - IL
+          - IM
+          - IN
+          - IO
+          - IQ
+          - IR
+          - IS
+          - IT
+          - JE
+          - JM
+          - JO
+          - JP
+          - KE
+          - KG
+          - KH
+          - KI
+          - KM
+          - KN
+          - KP
+          - KR
+          - KW
+          - KY
+          - KZ
+          - LA
+          - LB
+          - LC
+          - LI
+          - LK
+          - LR
+          - LS
+          - LT
+          - LU
+          - LV
+          - LY
+          - MA
+          - MC
+          - MD
+          - ME
+          - MF
+          - MG
+          - MH
+          - MK
+          - ML
+          - MM
+          - MN
+          - MO
+          - MP
+          - MQ
+          - MR
+          - MS
+          - MT
+          - MU
+          - MV
+          - MW
+          - MX
+          - MY
+          - MZ
+          - NA
+          - NC
+          - NE
+          - NF
+          - NG
+          - NI
+          - NL
+          - 'NO'
+          - NP
+          - NR
+          - NU
+          - NZ
+          - OM
+          - PA
+          - PE
+          - PF
+          - PG
+          - PH
+          - PK
+          - PL
+          - PM
+          - PN
+          - PR
+          - PS
+          - PT
+          - PW
+          - PY
+          - QA
+          - RE
+          - RO
+          - RS
+          - RU
+          - RW
+          - SA
+          - SB
+          - SC
+          - SD
+          - SE
+          - SG
+          - SH
+          - SI
+          - SJ
+          - SK
+          - SL
+          - SM
+          - SN
+          - SO
+          - SR
+          - SS
+          - ST
+          - SV
+          - SX
+          - SY
+          - SZ
+          - TC
+          - TD
+          - TF
+          - TG
+          - TH
+          - TJ
+          - TK
+          - TL
+          - TM
+          - TN
+          - TO
+          - TR
+          - TT
+          - TV
+          - TW
+          - TZ
+          - UA
+          - UG
+          - UM
+          - US
+          - UY
+          - UZ
+          - VA
+          - VC
+          - VE
+          - VG
+          - VI
+          - VN
+          - VU
+          - WF
+          - WS
+          - YE
+          - YT
+          - ZA
+          - ZM
+          - ZW
+        description: |-
+          * `AD` - AD
+          * `AE` - AE
+          * `AF` - AF
+          * `AG` - AG
+          * `AI` - AI
+          * `AL` - AL
+          * `AM` - AM
+          * `AO` - AO
+          * `AQ` - AQ
+          * `AR` - AR
+          * `AS` - AS
+          * `AT` - AT
+          * `AU` - AU
+          * `AW` - AW
+          * `AX` - AX
+          * `AZ` - AZ
+          * `BA` - BA
+          * `BB` - BB
+          * `BD` - BD
+          * `BE` - BE
+          * `BF` - BF
+          * `BG` - BG
+          * `BH` - BH
+          * `BI` - BI
+          * `BJ` - BJ
+          * `BL` - BL
+          * `BM` - BM
+          * `BN` - BN
+          * `BO` - BO
+          * `BQ` - BQ
+          * `BR` - BR
+          * `BS` - BS
+          * `BT` - BT
+          * `BV` - BV
+          * `BW` - BW
+          * `BY` - BY
+          * `BZ` - BZ
+          * `CA` - CA
+          * `CC` - CC
+          * `CD` - CD
+          * `CF` - CF
+          * `CG` - CG
+          * `CH` - CH
+          * `CI` - CI
+          * `CK` - CK
+          * `CL` - CL
+          * `CM` - CM
+          * `CN` - CN
+          * `CO` - CO
+          * `CR` - CR
+          * `CU` - CU
+          * `CV` - CV
+          * `CW` - CW
+          * `CX` - CX
+          * `CY` - CY
+          * `CZ` - CZ
+          * `DE` - DE
+          * `DJ` - DJ
+          * `DK` - DK
+          * `DM` - DM
+          * `DO` - DO
+          * `DZ` - DZ
+          * `EC` - EC
+          * `EE` - EE
+          * `EG` - EG
+          * `EH` - EH
+          * `ER` - ER
+          * `ES` - ES
+          * `ET` - ET
+          * `FI` - FI
+          * `FJ` - FJ
+          * `FK` - FK
+          * `FM` - FM
+          * `FO` - FO
+          * `FR` - FR
+          * `GA` - GA
+          * `GB` - GB
+          * `GD` - GD
+          * `GE` - GE
+          * `GF` - GF
+          * `GG` - GG
+          * `GH` - GH
+          * `GI` - GI
+          * `GL` - GL
+          * `GM` - GM
+          * `GN` - GN
+          * `GP` - GP
+          * `GQ` - GQ
+          * `GR` - GR
+          * `GS` - GS
+          * `GT` - GT
+          * `GU` - GU
+          * `GW` - GW
+          * `GY` - GY
+          * `HK` - HK
+          * `HM` - HM
+          * `HN` - HN
+          * `HR` - HR
+          * `HT` - HT
+          * `HU` - HU
+          * `ID` - ID
+          * `IE` - IE
+          * `IL` - IL
+          * `IM` - IM
+          * `IN` - IN
+          * `IO` - IO
+          * `IQ` - IQ
+          * `IR` - IR
+          * `IS` - IS
+          * `IT` - IT
+          * `JE` - JE
+          * `JM` - JM
+          * `JO` - JO
+          * `JP` - JP
+          * `KE` - KE
+          * `KG` - KG
+          * `KH` - KH
+          * `KI` - KI
+          * `KM` - KM
+          * `KN` - KN
+          * `KP` - KP
+          * `KR` - KR
+          * `KW` - KW
+          * `KY` - KY
+          * `KZ` - KZ
+          * `LA` - LA
+          * `LB` - LB
+          * `LC` - LC
+          * `LI` - LI
+          * `LK` - LK
+          * `LR` - LR
+          * `LS` - LS
+          * `LT` - LT
+          * `LU` - LU
+          * `LV` - LV
+          * `LY` - LY
+          * `MA` - MA
+          * `MC` - MC
+          * `MD` - MD
+          * `ME` - ME
+          * `MF` - MF
+          * `MG` - MG
+          * `MH` - MH
+          * `MK` - MK
+          * `ML` - ML
+          * `MM` - MM
+          * `MN` - MN
+          * `MO` - MO
+          * `MP` - MP
+          * `MQ` - MQ
+          * `MR` - MR
+          * `MS` - MS
+          * `MT` - MT
+          * `MU` - MU
+          * `MV` - MV
+          * `MW` - MW
+          * `MX` - MX
+          * `MY` - MY
+          * `MZ` - MZ
+          * `NA` - NA
+          * `NC` - NC
+          * `NE` - NE
+          * `NF` - NF
+          * `NG` - NG
+          * `NI` - NI
+          * `NL` - NL
+          * `NO` - NO
+          * `NP` - NP
+          * `NR` - NR
+          * `NU` - NU
+          * `NZ` - NZ
+          * `OM` - OM
+          * `PA` - PA
+          * `PE` - PE
+          * `PF` - PF
+          * `PG` - PG
+          * `PH` - PH
+          * `PK` - PK
+          * `PL` - PL
+          * `PM` - PM
+          * `PN` - PN
+          * `PR` - PR
+          * `PS` - PS
+          * `PT` - PT
+          * `PW` - PW
+          * `PY` - PY
+          * `QA` - QA
+          * `RE` - RE
+          * `RO` - RO
+          * `RS` - RS
+          * `RU` - RU
+          * `RW` - RW
+          * `SA` - SA
+          * `SB` - SB
+          * `SC` - SC
+          * `SD` - SD
+          * `SE` - SE
+          * `SG` - SG
+          * `SH` - SH
+          * `SI` - SI
+          * `SJ` - SJ
+          * `SK` - SK
+          * `SL` - SL
+          * `SM` - SM
+          * `SN` - SN
+          * `SO` - SO
+          * `SR` - SR
+          * `SS` - SS
+          * `ST` - ST
+          * `SV` - SV
+          * `SX` - SX
+          * `SY` - SY
+          * `SZ` - SZ
+          * `TC` - TC
+          * `TD` - TD
+          * `TF` - TF
+          * `TG` - TG
+          * `TH` - TH
+          * `TJ` - TJ
+          * `TK` - TK
+          * `TL` - TL
+          * `TM` - TM
+          * `TN` - TN
+          * `TO` - TO
+          * `TR` - TR
+          * `TT` - TT
+          * `TV` - TV
+          * `TW` - TW
+          * `TZ` - TZ
+          * `UA` - UA
+          * `UG` - UG
+          * `UM` - UM
+          * `US` - US
+          * `UY` - UY
+          * `UZ` - UZ
+          * `VA` - VA
+          * `VC` - VC
+          * `VE` - VE
+          * `VG` - VG
+          * `VI` - VI
+          * `VN` - VN
+          * `VU` - VU
+          * `WF` - WF
+          * `WS` - WS
+          * `YE` - YE
+          * `YT` - YT
+          * `ZA` - ZA
+          * `ZM` - ZM
+          * `ZW` - ZW
+      - in: query
+        name: depositor
+        schema:
+          type: string
+      - in: query
+        name: isolation_source
+        schema:
+          type: string
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: At most 200
+      - in: query
+        name: offset
+        schema:
+          type: integer
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: restriction
+        schema:
+          type: string
+          enum:
+          - cz_rat
+          - cz_vrat
+          - dual_use
+          - gmo
+          - quarantine_pest
+        description: |-
+          * `cz_vrat` - Highly risky agent (VRAT), decree 474/2002 Sb., Annex 1
+          * `cz_rat` - Risky agent (RAT), decree 474/2002 Sb., Annex 2
+          * `dual_use` - Dual-use item, Regulation (EU) 2021/821, Annex I
+          * `quarantine_pest` - Union quarantine pest, Regulation (EU) 2019/2072, Annex II
+          * `gmo` - Genetically modified organism in contained use, act 78/2004 Sb.
+      - in: query
+        name: risk_group
+        schema:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          enum:
+          - 1
+          - 2
+          - 3
+          - 4
+        description: |-
+          * `1` - 1
+          * `2` - 2
+          * `3` - 3
+          * `4` - 4
+      - in: query
+        name: search
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - active
+          - deaccessioned
+          - pending
+          - restricted
+        description: |-
+          * `pending` - Pending
+          * `active` - Active
+          * `restricted` - Restricted
+          * `deaccessioned` - Deaccessioned
+      - in: query
+        name: taxon
+        schema:
+          type: string
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStrainShipmentOutputList'
+          description: ''
         '401':
           content:
             application/problem+json:
@@ -7731,6 +8698,24 @@ components:
       - public_id
       - status
       - strain
+    CauseEnum:
+      enum:
+      - non_viable
+      - contaminated
+      - misidentified
+      - duplicate
+      - depositor_request
+      - legal
+      - lost
+      type: string
+      description: |-
+        * `non_viable` - No longer grows
+        * `contaminated` - Contaminated
+        * `misidentified` - Misidentified
+        * `duplicate` - Duplicate of another strain
+        * `depositor_request` - The depositor asked for it
+        * `legal` - Legal reason
+        * `lost` - Lost
     CheckErrorInputRequest:
       type: object
       properties:
@@ -8451,6 +9436,128 @@ components:
         * `ZA` - ZA
         * `ZM` - ZM
         * `ZW` - ZW
+    DeaccessionConfirmInputRequest:
+      type: object
+      properties:
+        proposal:
+          type: string
+          format: uuid
+          description: The public id of the proposal the manager read.
+      required:
+      - proposal
+    DeaccessionInputRequest:
+      type: object
+      description: For one step (a strain that is not regulated) and for a proposal
+        (a regulated one).
+      properties:
+        cause:
+          $ref: '#/components/schemas/CauseEnum'
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+        final_use:
+          default: ''
+          description: |-
+            A quarantine pest only: what becomes of its material.
+
+            * `destruction` - Destruction
+            * `collection` - Transfer to a collection
+            * `storage` - Storage
+          oneOf:
+          - $ref: '#/components/schemas/FinalUseEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+      required:
+      - cause
+      - reason
+    DeaccessionOutput:
+      type: object
+      description: |-
+        How the strain left the collection (#20): when, why and for a quarantine pest the final
+        use. It names nobody.
+      properties:
+        deaccessioned_at:
+          type: string
+          format: date-time
+          readOnly: true
+        cause:
+          allOf:
+          - $ref: '#/components/schemas/CauseEnum'
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        final_use:
+          readOnly: true
+          oneOf:
+          - $ref: '#/components/schemas/FinalUseEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+      required:
+      - cause
+      - deaccessioned_at
+      - final_use
+      - reason
+    DeaccessionProposalOutput:
+      type: object
+      description: |-
+        The open proposal to deaccession a regulated strain (#20). It names nobody:
+        `confirm_refusal` says the caller proposed it and so may not confirm it (ADR 0009); null when
+        they may, as far as identity goes (confirming is a manager's, strains.confirm_deaccession).
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        cause:
+          allOf:
+          - $ref: '#/components/schemas/CauseEnum'
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        final_use:
+          readOnly: true
+          oneOf:
+          - $ref: '#/components/schemas/FinalUseEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        proposed_at:
+          type: string
+          format: date-time
+          readOnly: true
+        confirm_refusal:
+          nullable: true
+          readOnly: true
+          oneOf:
+          - $ref: '#/components/schemas/DeaccessionProposalOutputConfirmRefusalEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - cause
+      - confirm_refusal
+      - final_use
+      - proposed_at
+      - public_id
+      - reason
+    DeaccessionProposalOutputConfirmRefusalEnum:
+      enum:
+      - confirm_own_deaccession
+      type: string
+      description: '* `confirm_own_deaccession` - confirm_own_deaccession'
+    DeaccessionWithdrawInputRequest:
+      type: object
+      properties:
+        proposal:
+          type: string
+          format: uuid
+          description: The public id of the proposal the manager read.
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+      required:
+      - proposal
+      - reason
     Decision:
       enum:
       - permit
@@ -8804,6 +9911,16 @@ components:
       required:
       - proposal
       - reason
+    FinalUseEnum:
+      enum:
+      - destruction
+      - collection
+      - storage
+      type: string
+      description: |-
+        * `destruction` - Destruction
+        * `collection` - Transfer to a collection
+        * `storage` - Storage
     Finding:
       type: object
       properties:
@@ -9985,6 +11102,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/StrainListOutput'
+    PaginatedStrainShipmentOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StrainShipmentOutput'
     PaginatedTaxonOutputList:
       type: object
       required:
@@ -11571,11 +12711,26 @@ components:
           items:
             $ref: '#/components/schemas/RestrictionOutput'
           readOnly: true
+        regulated:
+          type: boolean
+          readOnly: true
+        deaccession:
+          allOf:
+          - $ref: '#/components/schemas/DeaccessionOutput'
+          nullable: true
+          readOnly: true
+        deaccession_proposal:
+          allOf:
+          - $ref: '#/components/schemas/DeaccessionProposalOutput'
+          nullable: true
+          readOnly: true
       required:
       - accession_number
       - animal_pathogenicity
       - country_of_origin
       - created_at
+      - deaccession
+      - deaccession_proposal
       - growth
       - identifications
       - isolation_date
@@ -11583,6 +12738,7 @@ components:
       - name_as_received
       - plant_pathogenicity
       - public_id
+      - regulated
       - restriction_history
       - restrictions
       - risk_group
@@ -11709,6 +12865,39 @@ components:
       - risk_group
       - status
       - taxon
+    StrainShipmentOutput:
+      type: object
+      description: |-
+        Where distributed vials of the strain went (#20): the request, the institution, when and
+        how many. Names no person.
+      properties:
+        request:
+          type: string
+          format: uuid
+          readOnly: true
+        number:
+          type: string
+          readOnly: true
+        institution:
+          type: string
+          readOnly: true
+        country:
+          type: string
+          readOnly: true
+        shipped_at:
+          type: string
+          format: date-time
+          readOnly: true
+        vials:
+          type: integer
+          readOnly: true
+      required:
+      - country
+      - institution
+      - number
+      - request
+      - shipped_at
+      - vials
     StrainStatus:
       enum:
       - pending

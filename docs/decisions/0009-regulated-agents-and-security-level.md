@@ -520,3 +520,51 @@ trigger and replaces the restriction guard of 0003; `audit` 0022 adds the two ev
 `audit_auditevent_reason_required` NOT VALID and 0023 validates it in a transaction of its own
 (as `audit.registry` asks of the append-only table). The one-step `.../restrictions/<id>/end/`
 is gone. Reversible while no proposal exists: `migrate strains 0003` and `migrate audit 0021`.
+
+## Amendment 2026-10-27: a regulated strain leaves the collection by two people (#20)
+
+A deaccession ends a strain's requests and marks its vials for destruction (ADR 0008, amendment
+of the same day). For a regulated strain (an active restriction of any kind,
+`strains.selectors.regulating_restrictions()`) one person could take a VRAT out of the
+inventory alone. WHO Laboratory biosecurity guidance (2024), p. 31, names "removal of biological
+material from the inventory by two employees, which reduces errors during removal" (guidance,
+not law; s11). So the deaccession of a regulated strain is a gated action of the two-person
+rule, in the pattern of the end of a restriction (#105, amendment of 2026-10-24):
+
+- **Propose.** Someone with `strains.manage` (curator or manager) proposes it, with the cause,
+  the reason and for a quarantine pest the final use (`strain_deaccession_proposed`, reason
+  required). Nothing changes for the strain, its requests or its vials. One proposal per strain
+  is open (`deaccession_proposed`, 409). A strain that is not regulated is not proposed
+  (`deaccession_in_one_step`, 422), and a regulated one is not deaccessioned in one step
+  (`second_person_required`, 422).
+- **Confirm.** A manager (`strains.confirm_deaccession`, a manager's permission like
+  `strains.confirm_restriction_end`) other than the proposer confirms the proposal they read: the
+  request names its public id (`deaccession_proposal_changed`, 409, when another is open). The
+  proposer is refused (`confirm_own_deaccession`, 403), a manager too. A proposal whose final use
+  no longer fits the strain's restrictions is refused (`deaccession_proposal_outdated`, 409). The
+  strain leaves at the confirmation's time with the proposal's cause, reason and final use, and
+  `deaccessioned_by` is the confirmer; `strain_deaccessioned` holds both people (public ids) and
+  both times.
+- **Withdraw.** Anyone with `strains.manage` withdraws the open proposal with a reason
+  (`strain_deaccession_withdrawn`); it stays with who, when and why.
+- **The database holds it.** `strains_straindeaccessionproposal` is inserted open for a strain of
+  its lab in the collection, settled once, never deleted; a check constraint refuses a confirmer
+  who is the proposer. The strain trigger lets a regulated strain become deaccessioned only at
+  the confirmation of a proposal to deaccession it, by that confirmer, at that time, with its
+  cause, reason and final use, so `QuerySet.update()` and psql cannot skip the second person.
+  "Regulated" in the trigger is `ended_at IS NULL`, the twin of the Python predicate; a test
+  builds every case the predicate tells apart (no restriction, an ended one, an active one of
+  each kind) and asserts that the trigger agrees (ADR 0010, proposed). The runtime role has
+  SELECT, INSERT and UPDATE on the proposals.
+- **Its restrictions stay.** A deaccessioned regulated strain keeps its active restrictions: its
+  vials wait for destruction and stay masked. Ending one still takes two people.
+- **What people see.** The strain's detail carries `regulated` and the open proposal (cause,
+  reason, final use, when, `confirm_refusal` for the caller), naming nobody, so every reader of
+  the strain may see it. The strain page proposes from its menu and offers the confirmation to
+  the managers who may give it.
+
+Nothing is notified at deaccession: no article found asks for a notice to SÚJB of a destruction
+or a deaccession of a VRAT or RAT strain, nor for GMO or dual-use items (s11). The destruction
+itself, its register entry and the yearly quantities are a later issue.
+
+Migration impact: as in ADR 0008, amendment of the same day.

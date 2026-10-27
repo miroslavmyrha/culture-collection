@@ -7,15 +7,36 @@ import { ConfirmDialog, SelectField, Stack, TextField, Typography } from '@/comp
 import { isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
 import { GROWTH_FIELDS, growthBody, growthDefaults, mediaListOptions } from '@/lib/growth'
-import { useAddRestriction, useConfirmEnd, useProposeEnd, useReclassify, useSetGrowth, useSetRiskGroup, useWithdrawEnd } from '../api/mutations'
+import {
+  useAddRestriction,
+  useConfirmDeaccession,
+  useConfirmEnd,
+  useDeaccession,
+  useProposeDeaccession,
+  useProposeEnd,
+  useReclassify,
+  useSetGrowth,
+  useSetRiskGroup,
+  useWithdrawDeaccession,
+  useWithdrawEnd,
+} from '../api/mutations'
 import {
   type AddRestrictionForm,
   addRestrictionSchema,
+  CAUSE_LABELS,
+  CAUSES,
+  type DeaccessionForm,
+  type DeaccessionProposal,
+  deaccessionSchema,
   emptyRestriction,
   type EndReasonForm,
   endReasonSchema,
+  type FinalUse,
+  FINAL_USE_LABELS,
+  FINAL_USES,
   GMO_CATEGORIES,
   GMO_CATEGORY_LABELS,
+  isQuarantinePest,
   options,
   REFERENCE_HINTS,
   RESTRICTION_KINDS,
@@ -343,6 +364,175 @@ export function GrowthDialog({ labId, strain, open, onClose, onExited }: Common)
         {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
         <GrowthFields register={(name) => register(name)} errors={errors} media={media.data?.results} mediaFailed={media.isError && media.data === undefined} current={strain.growth.medium} autoFocus />
         <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} error={errors.reason?.message} {...register('reason')} />
+      </Stack>
+    </ConfirmDialog>
+  )
+}
+
+// Deaccession (#20).
+
+const CAUSE_OPTIONS = [{ value: '', label: 'Choose' }, ...options(CAUSE_LABELS, CAUSES)]
+const FINAL_USE_OPTIONS = [{ value: '', label: 'Choose' }, ...options(FINAL_USE_LABELS, FINAL_USES)]
+const LEAVES = 'Its open requests are cancelled and its vials still in stock are marked for destruction. The strain, its number and its history stay.'
+const KEPT = 'A final use of transfer to a collection or storage keeps the vials where they are.'
+const DEACCESSION_FIELDS = ['cause', 'reason', 'final_use'] as const
+
+function useDeaccessionForm(needsFinalUse: boolean) {
+  return useForm<DeaccessionForm>({ resolver: zodResolver(deaccessionSchema(needsFinalUse)), defaultValues: { cause: '', reason: '', final_use: '' } })
+}
+
+/** The form's values as the API takes them, or undefined while the cause is not chosen. */
+function leaving(values: DeaccessionForm) {
+  const cause = CAUSES.find((c) => c === values.cause)
+  const finalUse: FinalUse | '' = FINAL_USES.find((f) => f === values.final_use) ?? ''
+  return cause === undefined ? undefined : { cause, reason: values.reason.trim(), final_use: finalUse }
+}
+
+/** One step, for a strain that is not regulated: it leaves now. */
+export function DeaccessionDialog({ labId, strain, open, onClose, onExited }: Common) {
+  const leave = useDeaccession(labId, strain.public_id)
+  const formId = useId()
+  const [failure, setFailure] = useState<string>()
+  const { register, handleSubmit, formState, setError } = useDeaccessionForm(false)
+  const onSubmit = handleSubmit((values) => {
+    const body = leaving(values)
+    if (body === undefined) return
+    setFailure(undefined)
+    leave.mutate(body, {
+      onSuccess: onClose,
+      onError: (error) => setFailure(placeError(error, DEACCESSION_FIELDS, setError, () => setError('reason', missing, { shouldFocus: true }))),
+    })
+  })
+  return (
+    <ConfirmDialog
+      open={open}
+      destructive
+      title={`Deaccession ${strain.accession_number ?? 'the strain'}?`}
+      description={`The strain leaves the collection for good. ${LEAVES}`}
+      confirmLabel="Deaccession"
+      form={formId}
+      pending={leave.isPending}
+      error={failure}
+      onClose={onClose}
+      onExited={onExited}
+    >
+      <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Deaccession" spacing={2} sx={{ mt: 2 }}>
+        <SelectField label="Cause" options={CAUSE_OPTIONS} error={formState.errors.cause?.message} {...register('cause')} />
+        <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} error={formState.errors.reason?.message} {...register('reason')} />
+      </Stack>
+    </ConfirmDialog>
+  )
+}
+
+/** The first of two steps for a regulated strain (ADR 0009): it stays until a manager confirms. */
+export function ProposeDeaccessionDialog({ labId, strain, open, onClose, onExited }: Common) {
+  const propose = useProposeDeaccession(labId, strain.public_id)
+  const pest = isQuarantinePest(strain)
+  const formId = useId()
+  const [failure, setFailure] = useState<string>()
+  const { register, handleSubmit, formState, setError } = useDeaccessionForm(pest)
+  const onSubmit = handleSubmit((values) => {
+    const body = leaving(values)
+    if (body === undefined) return
+    setFailure(undefined)
+    propose.mutate(body, {
+      onSuccess: onClose,
+      onError: (error) => setFailure(placeError(error, DEACCESSION_FIELDS, setError, () => setError('reason', missing, { shouldFocus: true }))),
+    })
+  })
+  return (
+    <ConfirmDialog
+      open={open}
+      title={`Propose to deaccession ${strain.accession_number ?? 'the strain'}`}
+      description={`The strain is regulated: it stays in the collection until a manager other than you confirms. ${LEAVES}${pest ? ` ${KEPT}` : ''}`}
+      confirmLabel="Propose"
+      form={formId}
+      pending={propose.isPending}
+      error={failure}
+      onClose={onClose}
+      onExited={onExited}
+    >
+      <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Propose the deaccession" spacing={2} sx={{ mt: 2 }}>
+        {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
+        <SelectField label="Cause" options={CAUSE_OPTIONS} autoFocus error={formState.errors.cause?.message} {...register('cause')} />
+        <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} error={formState.errors.reason?.message} {...register('reason')} />
+        {pest && (
+          <SelectField
+            label="Final use"
+            hint="A quarantine pest: what becomes of the material, as its authorisation states (Regulation (EU) 2019/829)."
+            options={FINAL_USE_OPTIONS}
+            error={formState.errors.final_use?.message}
+            {...register('final_use')}
+          />
+        )}
+      </Stack>
+    </ConfirmDialog>
+  )
+}
+
+type DeaccessionProposalProps = Common & { proposal: DeaccessionProposal }
+
+/** A manager other than the proposer confirms the proposal they read: the strain leaves now. */
+export function ConfirmDeaccessionDialog({ labId, strain, proposal, open, onClose, onExited }: DeaccessionProposalProps) {
+  const confirm = useConfirmDeaccession(labId, strain.public_id)
+  const [failure, setFailure] = useState<string>()
+  const kept = proposal.final_use === 'collection' || proposal.final_use === 'storage'
+  const onConfirm = () => {
+    setFailure(undefined)
+    confirm.mutate(proposal.public_id, { onSuccess: onClose, onError: (error) => setFailure(strainError(error)) })
+  }
+  return (
+    <ConfirmDialog
+      open={open}
+      title={`Deaccession ${strain.accession_number ?? 'the strain'}?`}
+      description={`The strain leaves the collection for good. ${kept ? 'Its open requests are cancelled and its vials stay where they are, for the final use stated. The strain, its number and its history stay.' : LEAVES}`}
+      confirmLabel="Deaccession"
+      destructive
+      pending={confirm.isPending}
+      error={failure}
+      onConfirm={onConfirm}
+      onClose={onClose}
+      onExited={onExited}
+    >
+      <Stack spacing={1} sx={{ mt: 2 }}>
+        <Typography>Cause: {CAUSE_LABELS[proposal.cause]}</Typography>
+        <Typography>Reason given: {proposal.reason}</Typography>
+        {proposal.final_use && <Typography>Final use: {FINAL_USE_LABELS[proposal.final_use]}</Typography>}
+      </Stack>
+    </ConfirmDialog>
+  )
+}
+
+export function WithdrawDeaccessionDialog({ labId, strain, proposal, open, onClose, onExited }: DeaccessionProposalProps) {
+  const withdraw = useWithdrawDeaccession(labId, strain.public_id)
+  const formId = useId()
+  const [failure, setFailure] = useState<string>()
+  const { register, handleSubmit, formState, setError } = useForm<EndReasonForm>({
+    resolver: zodResolver(endReasonSchema),
+    defaultValues: { reason: '' },
+  })
+  const onSubmit = handleSubmit((values) => {
+    setFailure(undefined)
+    withdraw.mutate(
+      { proposal: proposal.public_id, reason: values.reason.trim() },
+      { onSuccess: onClose, onError: (error) => setFailure(placeError(error, ['reason'], setError, () => setError('reason', missing, { shouldFocus: true }))) },
+    )
+  })
+  return (
+    <ConfirmDialog
+      open={open}
+      title={`Withdraw the proposal to deaccession ${strain.accession_number ?? 'the strain'}`}
+      description="The strain stays in the collection. The proposal stays in the history with your reason."
+      confirmLabel="Withdraw"
+      form={formId}
+      pending={withdraw.isPending}
+      error={failure}
+      onClose={onClose}
+      onExited={onExited}
+    >
+      <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Withdraw the proposal" spacing={2} sx={{ mt: 2 }}>
+        {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
+        <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} autoFocus error={formState.errors.reason?.message} {...register('reason')} />
       </Stack>
     </ConfirmDialog>
   )

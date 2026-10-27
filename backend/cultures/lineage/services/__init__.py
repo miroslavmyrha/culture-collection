@@ -68,7 +68,9 @@ from .passages import (
     vial_revive,
 )
 from .vials import (
+    HELD,
     batch_exhaust_if_emptied_locked,
+    strain_vials_leave_locked,
     vial_place,
     vial_release_locked,
     vial_reserve_locked,
@@ -80,6 +82,7 @@ from .vials import (
 __all__ = [
     "BATCH",
     "CHECK",
+    "HELD",
     "LIVING",
     "MANUAL_TARGETS",
     "PASSAGE",
@@ -117,6 +120,7 @@ __all__ = [
     "not_passed",
     "passage_subculture",
     "position_label",
+    "strain_vials_leave_locked",
     "vial_place",
     "vial_release_locked",
     "vial_reserve_locked",

@@ -33,7 +33,9 @@ const countryOf = (value: string) => COUNTRY_CODES.find((code) => code === value
 
 const riskGroupOf = (value: string) => RISK_GROUPS.find((group) => String(group) === value)
 const STATUSES: StrainStatus[] = ['pending', 'active', 'restricted', 'deaccessioned']
-const STATUS = [ALL, ...options(STATUS_LABELS, STATUSES)]
+// Without a status the list shows the strains in the collection: a deaccessioned one only when
+// chosen (#20).
+const STATUS = [{ value: '', label: 'In the collection' }, ...options(STATUS_LABELS, STATUSES)]
 const statusOf = (value: string) => STATUSES.find((status) => status === value)
 const kindOf = (value: string) => RESTRICTION_KINDS.find((kind) => kind === value)
 

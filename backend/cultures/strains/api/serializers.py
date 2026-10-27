@@ -13,12 +13,16 @@ from rest_framework.request import Request
 
 from cultures.biosafety.models import RestrictionKind
 from cultures.core.api import ScopedRelatedField
+from cultures.distribution.models import RequestLine
 from cultures.growth.api.serializers import GrowthOutputSerializer
 from cultures.strains.countries import COUNTRY_CODES
 from cultures.strains.models import (
+    DeaccessionCause,
+    FinalUse,
     Pathogenicity,
     RestrictionEndProposal,
     Strain,
+    StrainDeaccessionProposal,
     StrainIdentification,
     StrainRestriction,
     StrainStatus,
@@ -134,6 +138,46 @@ class RestrictionOutputSerializer(serializers.ModelSerializer[StrainRestriction]
         return EndProposalOutputSerializer(open_ones[0], context=self.context).data
 
 
+class DeaccessionOutputSerializer(serializers.ModelSerializer[Strain]):
+    """How the strain left the collection (#20): when, why and for a quarantine pest the final
+    use. It names nobody."""
+
+    deaccessioned_at = serializers.DateTimeField(read_only=True)
+    cause = serializers.ChoiceField(
+        source="deaccession_cause", choices=DeaccessionCause.choices, read_only=True
+    )
+    reason = serializers.CharField(source="deaccession_reason", read_only=True)
+    final_use = serializers.ChoiceField(choices=FinalUse.choices, allow_blank=True, read_only=True)
+
+    class Meta:
+        model = Strain
+        fields = ("deaccessioned_at", "cause", "reason", "final_use")
+        read_only_fields = fields
+
+
+class DeaccessionProposalOutputSerializer(serializers.ModelSerializer[StrainDeaccessionProposal]):
+    """The open proposal to deaccession a regulated strain (#20). It names nobody:
+    `confirm_refusal` says the caller proposed it and so may not confirm it (ADR 0009); null when
+    they may, as far as identity goes (confirming is a manager's, strains.confirm_deaccession)."""
+
+    cause = serializers.ChoiceField(choices=DeaccessionCause.choices, read_only=True)
+    final_use = serializers.ChoiceField(choices=FinalUse.choices, allow_blank=True, read_only=True)
+    confirm_refusal = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StrainDeaccessionProposal
+        fields = ("public_id", "cause", "reason", "final_use", "proposed_at", "confirm_refusal")
+        read_only_fields = fields
+
+    @extend_schema_field(
+        serializers.ChoiceField(choices=["confirm_own_deaccession"], allow_null=True)
+    )
+    def get_confirm_refusal(self, proposal: StrainDeaccessionProposal) -> str | None:
+        request: Request | None = self.context.get("request")
+        user_id = getattr(getattr(request, "user", None), "pk", None)
+        return "confirm_own_deaccession" if proposal.proposed_by_id == user_id else None
+
+
 class StrainDetailOutputSerializer(StrainListOutputSerializer):
     animal_pathogenicity = serializers.ChoiceField(choices=Pathogenicity.choices, read_only=True)
     plant_pathogenicity = serializers.ChoiceField(choices=Pathogenicity.choices, read_only=True)
@@ -142,6 +186,11 @@ class StrainDetailOutputSerializer(StrainListOutputSerializer):
     restriction_history = RestrictionOutputSerializer(
         source="all_restrictions", many=True, read_only=True
     )
+    # #20: an active restriction of any kind (strains.selectors.regulating_restrictions): the
+    # deaccession then takes two people.
+    regulated = serializers.BooleanField(read_only=True)
+    deaccession = serializers.SerializerMethodField()
+    deaccession_proposal = serializers.SerializerMethodField()
 
     class Meta(StrainListOutputSerializer.Meta):
         fields = (
@@ -154,8 +203,27 @@ class StrainDetailOutputSerializer(StrainListOutputSerializer):
             "growth",
             "identifications",
             "restriction_history",
+            "regulated",
+            "deaccession",
+            "deaccession_proposal",
         )
         read_only_fields = fields
+
+    @extend_schema_field(DeaccessionOutputSerializer(allow_null=True))
+    def get_deaccession(self, strain: Strain) -> dict[str, object] | None:
+        if strain.status != StrainStatus.DEACCESSIONED:
+            return None
+        return DeaccessionOutputSerializer(strain).data
+
+    @extend_schema_field(DeaccessionProposalOutputSerializer(allow_null=True))
+    def get_deaccession_proposal(self, strain: Strain) -> dict[str, object] | None:
+        # strains.selectors.strain_detail prefetches the open one: at most one (a unique index).
+        open_ones: list[StrainDeaccessionProposal] = vars(strain).get(
+            "open_deaccession_proposals", []
+        )
+        if not open_ones:
+            return None
+        return DeaccessionProposalOutputSerializer(open_ones[0], context=self.context).data
 
 
 class RestrictionInputSerializer(serializers.Serializer[None]):
@@ -222,3 +290,37 @@ class EndConfirmInputSerializer(serializers.Serializer[None]):
 
 class EndWithdrawInputSerializer(EndConfirmInputSerializer):
     reason = serializers.CharField(max_length=2000, help_text=REASON_HELP)
+
+
+class DeaccessionInputSerializer(serializers.Serializer[None]):
+    """For one step (a strain that is not regulated) and for a proposal (a regulated one)."""
+
+    cause = serializers.ChoiceField(choices=DeaccessionCause.choices)
+    reason = serializers.CharField(max_length=2000, help_text=REASON_HELP)
+    final_use = serializers.ChoiceField(
+        choices=FinalUse.choices,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="A quarantine pest only: what becomes of its material.",
+    )
+
+
+class DeaccessionConfirmInputSerializer(serializers.Serializer[None]):
+    proposal = serializers.UUIDField(help_text="The public id of the proposal the manager read.")
+
+
+class DeaccessionWithdrawInputSerializer(DeaccessionConfirmInputSerializer):
+    reason = serializers.CharField(max_length=2000, help_text=REASON_HELP)
+
+
+class StrainShipmentOutputSerializer(serializers.Serializer[RequestLine]):
+    """Where distributed vials of the strain went (#20): the request, the institution, when and
+    how many. Names no person."""
+
+    request = serializers.UUIDField(source="request.public_id", read_only=True)
+    number = serializers.CharField(source="request.label", read_only=True)
+    institution = serializers.CharField(source="request.requester.institution", read_only=True)
+    country = serializers.CharField(source="request.destination_country", read_only=True)
+    shipped_at = serializers.DateTimeField(source="request.shipment.shipped_at", read_only=True)
+    vials = serializers.IntegerField(source="vial_count", read_only=True)

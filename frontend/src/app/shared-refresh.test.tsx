@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
+import { requestKeys } from '@/features/distribution/api/keys'
 import { strainKeys } from '@/features/strains/api/keys'
 import { vialKeys } from '@/features/vials/api/keys'
 import {
@@ -539,5 +540,34 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     await waitFor(() => expect(done).toHaveLength(1))
     expect(await within(nav).findByRole('link', { name: 'Requests' }, { timeout: 15_000 })).toBeInTheDocument()
     expect(after).toHaveLength(1)
+  })
+
+  it("deaccessioning a strain refreshes its material and marks the lab's requests, box grids and what waits stale (#20)", async () => {
+    const plain = { ...regulated, restriction_history: [], regulated: false }
+    const { client, user } = await openStrainPage('curator', plain)
+    const grid = vialKeys.box(LAB_ID, box.public_id)
+    const requests = [...requestKeys.lists(LAB_ID), { limit: 20, offset: 0 }]
+    client.setQueryData(grid, makeBoxGrid({ public_id: box.public_id }))
+    client.setQueryData(requests, page([makeRequest()]))
+    const waiting = mockApi('get', '/api/v1/me/overview/', makeOverview())
+    const vials = mockApi('get', VIALS, page([{ ...masked, status: 'to_destroy' }]))
+    mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/deaccession/', {
+      ...plain,
+      status: 'deaccessioned',
+      deaccession: { deaccessioned_at: '2026-10-21T10:00:00Z', cause: 'non_viable', reason: 'no growth', final_use: '' },
+    })
+    await user.click(await screen.findByRole('button', { name: 'Actions for MYC 42' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Deaccession' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Deaccession MYC 42?' })
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Cause' }), 'No longer grows')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'no growth')
+    await user.click(within(dialog).getByRole('button', { name: 'Deaccession' }))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument(), { timeout: 15_000 })
+    // The dialog closes only once the material on screen is fresh.
+    expect(vials).toHaveLength(1)
+    expect(client.getQueryState(grid)?.isInvalidated).toBe(true)
+    expect(client.getQueryState(requests)?.isInvalidated).toBe(true)
+    // The lab tabs show what waits (their counts): asked again.
+    expect(waiting).toHaveLength(1)
   })
 })

@@ -7,7 +7,8 @@ import type { RequesterListParams, RequestListParams } from '../schemas'
  */
 export const requestKeys = {
   all: ['requests'] as const,
-  lab: (labId: string) => [...requestKeys.all, labId] as const,
+  /** A shared root (lib/shared-keys): a strain's deaccession cancels its open requests (#20). */
+  lab: sharedKeys.requests,
   lists: (labId: string) => [...requestKeys.lab(labId), 'list'] as const,
   list: (labId: string, params: RequestListParams) => [...requestKeys.lists(labId), params] as const,
   details: (labId: string) => [...requestKeys.lab(labId), 'detail'] as const,

@@ -131,6 +131,9 @@ def test_the_detail_of_a_strain(
                 "end_proposal": None,
             },
         ],
+        "regulated": True,
+        "deaccession": None,
+        "deaccession_proposal": None,
     }
     assert AuditEvent.objects.count() == events  # reading records nothing
 

@@ -13,6 +13,7 @@ from django.db.models import Count, Exists, OuterRef, Prefetch, Q, QuerySet, Sum
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
+from cultures.strains.models import Strain
 from cultures.strains.selectors import regulating_restrictions
 
 from .models import (
@@ -23,6 +24,7 @@ from .models import (
     RecipientPermit,
     Requester,
     RequestLine,
+    RequestStatus,
     ShipmentDocument,
     ShipmentPreparation,
     ShipmentVial,
@@ -106,6 +108,20 @@ def request_list(*, access: Access, lab: Lab) -> QuerySet[DistributionRequest]:
             regulated=regulated_line(),
         )
         .order_by("-year", "-number", "-pk")
+    )
+
+
+def strain_shipments(*, access: Access, strain: Strain) -> QuerySet[RequestLine]:
+    """Where the strain's distributed vials went (#20): each shipped line of the strain with its
+    request, the requesting institution, when it was shipped and how many vials, oldest first.
+    For a notice to the recipients when the strain turns out contaminated or misidentified. An
+    institution, never a person: every reader of requests sees it (distribution.view)."""
+    return (
+        RequestLine.objects.for_access(access, Perm.VIEW_DISTRIBUTION)
+        .filter(strain=strain, request__status=RequestStatus.SHIPPED)
+        .select_related("request__requester", "request__shipment")
+        .annotate(vial_count=Count("shipped_vials"))
+        .order_by("request__shipment__shipped_at", "pk")
     )
 
 

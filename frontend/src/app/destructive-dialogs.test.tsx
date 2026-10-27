@@ -8,7 +8,7 @@ import { EndPermitDialog } from '@/features/distribution/components/RequesterDia
 import { RetireMediumDialog } from '@/features/growth/components/MediumDialogs'
 import { RemoveMemberDialog } from '@/features/labs/components/RemoveMemberDialog'
 import { UnitStatusDialog } from '@/features/storage/components/UnitDialogs'
-import { ConfirmEndDialog } from '@/features/strains/components/StrainDialogs'
+import { ConfirmDeaccessionDialog, ConfirmEndDialog, DeaccessionDialog } from '@/features/strains/components/StrainDialogs'
 import { CheckErrorDialog } from '@/features/vials/components/CheckDialogs'
 import { ReviveDialog } from '@/features/vials/components/VialDialogs'
 import { makeCheck, makeDeposit, makeMedium, makeMember, makePermit, makePreparation, makeRequest, makeRequestLine, makeStrain, makeUnit, makeVial, noGrowth, page } from '@/test/factories'
@@ -142,25 +142,46 @@ const DESTRUCTIVE: Record<string, Entry | Entry[]> = {
       consequence: 'The request is approved again and its vials stay reserved. The prepared shipment is kept with the reason',
     },
   ],
-  '/src/features/strains/components/StrainDialogs.tsx': {
-    render: () => {
-      const proposal = { public_id: '00000000-0000-4000-8000-0000000000e9', reason: 'Delisted.', proposed_at: '2026-10-20T10:00:00Z', confirm_refusal: null }
-      const restriction = { public_id: '00000000-0000-4000-8000-0000000000e1', kind: 'cz_vrat' as const, reference: 'Příloha 1, bod 2', act: '', gmo_category: null, created_at: '2026-02-01T10:00:00Z', ended_at: null, end_reason: '', end_proposal: proposal }
-      return (
-        <ConfirmEndDialog
+  '/src/features/strains/components/StrainDialogs.tsx': [
+    {
+      render: () => {
+        const proposal = { public_id: '00000000-0000-4000-8000-0000000000e9', reason: 'Delisted.', proposed_at: '2026-10-20T10:00:00Z', confirm_refusal: null }
+        const restriction = { public_id: '00000000-0000-4000-8000-0000000000e1', kind: 'cz_vrat' as const, reference: 'Příloha 1, bod 2', act: '', gmo_category: null, created_at: '2026-02-01T10:00:00Z', ended_at: null, end_reason: '', end_proposal: proposal }
+        return (
+          <ConfirmEndDialog
+            labId="00000000-0000-4000-8000-00000000000a"
+            strain={makeStrain({ restriction_history: [restriction] })}
+            restriction={restriction}
+            proposal={proposal}
+            open
+            onClose={() => {}}
+            onExited={() => {}}
+          />
+        )
+      },
+      name: 'End the restriction Příloha 1, bod 2?',
+      consequence: "the strain leaves the rules of a regulated agent. Its vials' places show again",
+    },
+    {
+      render: () => <DeaccessionDialog labId="00000000-0000-4000-8000-00000000000a" strain={makeStrain({ accession_number: 'MYC 7' })} open onClose={() => {}} onExited={() => {}} />,
+      name: 'Deaccession MYC 7?',
+      consequence: 'The strain leaves the collection for good. Its open requests are cancelled and its vials still in stock are marked for destruction.',
+    },
+    {
+      render: () => (
+        <ConfirmDeaccessionDialog
           labId="00000000-0000-4000-8000-00000000000a"
-          strain={makeStrain({ restriction_history: [restriction] })}
-          restriction={restriction}
-          proposal={proposal}
+          strain={makeStrain({ accession_number: 'MYC 8' })}
+          proposal={{ public_id: '00000000-0000-4000-8000-0000000000e8', cause: 'lost', reason: 'Not in its box.', final_use: '', proposed_at: '2026-10-20T10:00:00Z', confirm_refusal: null }}
           open
           onClose={() => {}}
           onExited={() => {}}
         />
-      )
+      ),
+      name: 'Deaccession MYC 8?',
+      consequence: 'The strain leaves the collection for good. Its open requests are cancelled and its vials still in stock are marked for destruction.',
     },
-    name: 'End the restriction Příloha 1, bod 2?',
-    consequence: "the strain leaves the rules of a regulated agent. Its vials' places show again",
-  },
+  ],
   '/src/features/growth/components/MediumDialogs.tsx': {
     render: () => (
       <RetireMediumDialog labId="00000000-0000-4000-8000-00000000000a" medium={makeMedium({ name: 'LB' })} open onClose={() => {}} onExited={() => {}} />

@@ -34,6 +34,7 @@ from .decisions import (
     request_approve,
     request_cancel,
     request_reject,
+    requests_cancel_for_deaccession_locked,
 )
 from .errors import (
     AcceptanceExists,
@@ -48,6 +49,7 @@ from .errors import (
     PermitEnded,
     PreparationChanged,
     PreparedMeanwhile,
+    RequestAwaitsConfirmation,
     RequestBlocked,
     ReservedMeanwhile,
     SecondPersonRequired,
@@ -117,6 +119,7 @@ __all__ = [
     "PermitInput",
     "PreparationChanged",
     "PreparedMeanwhile",
+    "RequestAwaitsConfirmation",
     "RequestBlocked",
     "RequesterInput",
     "ReservedMeanwhile",
@@ -141,4 +144,5 @@ __all__ = [
     "request_withdraw_shipment",
     "requester_create",
     "requester_update",
+    "requests_cancel_for_deaccession_locked",
 ]

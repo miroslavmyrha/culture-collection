@@ -14,7 +14,7 @@ from cultures.labs.access import Access
 from cultures.labs.locks import lock_lab
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
-from cultures.strains.models import Strain
+from cultures.strains.models import Strain, StrainStatus
 from cultures.strains.selectors import regulating_restrictions
 
 from .. import policy
@@ -132,6 +132,12 @@ def request_submit(*, access: Access, lab: Lab, data: NewRequest) -> Distributio
         for i, line in enumerate(data.lines):
             if line.strain.pk not in strains:
                 raise InvalidDistribution("Invalid strain.", attr=f"lines.{i}.strain")
+            if strains[line.strain.pk].status == StrainStatus.DEACCESSIONED:
+                raise InvalidDistribution(
+                    "This strain was deaccessioned: it is no longer distributed.",
+                    code="strain_deaccessioned",
+                    attr=f"lines.{i}.strain",
+                )
             if line.strain.pk not in terms:
                 raise InvalidDistribution(
                     "This strain has no terms: it came from no deposit.",

@@ -22,10 +22,12 @@ from cultures.labs.tests.conftest import member_of
 from cultures.labs.tests.test_lock_invariant import public_services
 from cultures.strains import services
 from cultures.strains.models import (
+    DeaccessionCause,
     Pathogenicity,
     RestrictionEndProposal,
     Strain,
     StrainCounter,
+    StrainDeaccessionProposal,
     StrainIdentification,
     StrainRestriction,
     StrainStatus,
@@ -54,6 +56,7 @@ TABLES: tuple[type[Model], ...] = (
     StrainIdentification,
     StrainRestriction,
     RestrictionEndProposal,
+    StrainDeaccessionProposal,
 )
 
 
@@ -656,6 +659,7 @@ def test_a_restriction_ends_once(
 # Every event of every strain service names its strain (ADR 0008, D13).
 
 Scenario = Callable[[Strain, Access, Taxon], object]
+LEFT = services.Deaccession(DeaccessionCause.NON_VIABLE, "no growth")
 SCENARIOS: dict[str, Scenario] = {
     "strain_create": lambda strain, access, taxon: None,  # the fixture's own accession
     "strain_reclassify": lambda strain, access, taxon: services.strain_reclassify(
@@ -695,12 +699,46 @@ SCENARIOS: dict[str, Scenario] = {
             reason="still listed",
         )
     ),
+    # #20: the fixture's strain is regulated (GMO). One person deaccessions it once its
+    # restriction ended by two people; otherwise two people deaccession it.
+    "strain_deaccession": lambda strain, access, taxon: services.strain_deaccession(
+        access=access,
+        strain=end_restriction(
+            StrainRestriction.objects.get(strain=strain),
+            proposer=User.objects.get(pk=access.user.pk),
+            confirmer=member_of(strain.lab, Role.MANAGER, "confirmer"),
+        ).strain,
+        data=LEFT,
+    ),
+    "strain_deaccession_propose": lambda strain, access, taxon: services.strain_deaccession_propose(
+        access=access, strain=strain, data=LEFT
+    ),
+    "strain_deaccession_confirm": lambda strain, access, taxon: services.strain_deaccession_confirm(
+        access=access_for(member_of(strain.lab, Role.MANAGER, "confirmer")),
+        strain=strain,
+        proposal=services.strain_deaccession_propose(
+            access=access, strain=strain, data=LEFT
+        ).public_id,
+    ),
+    "strain_deaccession_withdraw": lambda strain, access, taxon: (
+        services.strain_deaccession_withdraw(
+            access=access,
+            strain=strain,
+            proposal=services.strain_deaccession_propose(
+                access=access, strain=strain, data=LEFT
+            ).public_id,
+            reason="it grew",
+        )
+    ),
 }
 # The scenarios that propose first: the proposal's event names the strain too.
 EVENTS_OF = {
     "strain_create": 1,
     "strain_restriction_end_confirm": 3,
     "strain_restriction_end_withdraw": 3,
+    "strain_deaccession": 4,
+    "strain_deaccession_confirm": 3,
+    "strain_deaccession_withdraw": 3,
 }
 
 

@@ -12,7 +12,12 @@ import pytest
 from cultures.audit.models import AuditEvent
 from cultures.core.testing import ViewsetContract, Write, assert_problem, logged_in
 from cultures.strains.api.views import StrainViewSet
-from cultures.strains.models import Strain, StrainIdentification, StrainRestriction
+from cultures.strains.models import (
+    Strain,
+    StrainDeaccessionProposal,
+    StrainIdentification,
+    StrainRestriction,
+)
 from cultures.users.models import User
 
 from .conftest import GMO, STRAINS_URL, MakeStrain
@@ -39,6 +44,14 @@ class TestStrainContract(ViewsetContract):
             status=200,
         ),
         Write("reclassify/", {}, changes=StrainIdentification, status=400),
+        # #20: the strain is regulated, so it is proposed; the empty one-step body is a 400.
+        Write(
+            "deaccession-proposal/",
+            {"cause": "contaminated", "reason": "mixed culture"},
+            changes=StrainDeaccessionProposal,
+            status=200,
+        ),
+        Write("deaccession/", {}, changes=Strain, status=400),
     )
 
     @pytest.fixture

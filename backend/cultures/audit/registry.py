@@ -149,6 +149,34 @@ STRAIN_RESTRICTION_END_WITHDRAWN = register(
 STRAIN_RESTRICTION_ENDED = register(
     EventType("strain_restriction_ended", "{actor} ended a restriction", reason_required=True)
 )
+# #20: a strain leaves the collection. One person deaccessions a strain that is not regulated; a
+# regulated one is proposed, and a manager other than the proposer confirms it, which is
+# strain_deaccessioned with both people and both times. The vials it marks for destruction are
+# one batch: one vial_status_changed each and vials_marked_for_destruction.
+STRAIN_DEACCESSIONED = register(
+    EventType("strain_deaccessioned", "{actor} deaccessioned the strain", reason_required=True)
+)
+STRAIN_DEACCESSION_PROPOSED = register(
+    EventType(
+        "strain_deaccession_proposed",
+        "{actor} proposed to deaccession the strain",
+        reason_required=True,
+    )
+)
+STRAIN_DEACCESSION_WITHDRAWN = register(
+    EventType(
+        "strain_deaccession_withdrawn",
+        "{actor} withdrew a proposal to deaccession the strain",
+        reason_required=True,
+    )
+)
+VIALS_MARKED_FOR_DESTRUCTION = register(
+    EventType(
+        "vials_marked_for_destruction",
+        "{actor} marked {count} vials for destruction",
+        reason_required=True,
+    )
+)
 # #79: how a strain is grown, and the lab's list of media. A medium is retired, never deleted.
 STRAIN_GROWTH_CHANGED = register(
     EventType(
@@ -407,6 +435,13 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "growth_temperature_low_c",
             "growth_temperature_high_c",
             "growth_atmosphere",
+            # #20: the deaccession. The reason is free text that names nobody; the person is a
+            # user id.
+            "deaccessioned_at",
+            "deaccessioned_by_id",
+            "deaccession_cause",
+            "deaccession_reason",
+            "final_use",
         ),
     ),
     # #79. The name and the reference of a medium name no person.
@@ -472,6 +507,28 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "lab_id",
             "restriction_id",
             "reason",
+            "proposed_by_id",
+            "proposed_at",
+            "confirmed_by_id",
+            "confirmed_at",
+            "withdrawn_by_id",
+            "withdrawn_at",
+            "withdraw_reason",
+        ),
+    ),
+    # #20. The reasons are free text that names nobody; the people are user ids.
+    "strains_straindeaccessionproposal": RowAudit(
+        label="strains.straindeaccessionproposal",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "strain_id",
+            "cause",
+            "reason",
+            "final_use",
             "proposed_by_id",
             "proposed_at",
             "confirmed_by_id",
