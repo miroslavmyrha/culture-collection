@@ -561,13 +561,16 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     const dialog = await screen.findByRole('alertdialog', { name: 'Deaccession MYC 42?' })
     await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Cause' }), 'No longer grows')
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'no growth')
+    // Counted from here: on a busy machine the first load of the counts can arrive after the
+    // recorder was set up, and it is not what this test is about (#60).
+    const waitingBefore = waiting.length
     await user.click(within(dialog).getByRole('button', { name: 'Deaccession' }))
     await waitFor(() => expect(dialog).not.toBeInTheDocument(), { timeout: 15_000 })
     // The dialog closes only once the material on screen is fresh.
     expect(vials).toHaveLength(1)
     expect(client.getQueryState(grid)?.isInvalidated).toBe(true)
     expect(client.getQueryState(requests)?.isInvalidated).toBe(true)
-    // The lab tabs show what waits (their counts): asked again.
-    expect(waiting).toHaveLength(1)
+    // The lab tabs show what waits (their counts): asked again, once.
+    expect(waiting.length - waitingBefore).toBe(1)
   })
 })
