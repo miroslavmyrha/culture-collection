@@ -1,6 +1,6 @@
 """Reads of the lab's list of growth media."""
 
-from django.db.models import QuerySet
+from django.db.models import F, QuerySet
 
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
@@ -14,5 +14,5 @@ def medium_list(*, access: Access, lab: Lab) -> QuerySet[GrowthMedium]:
     return (
         GrowthMedium.objects.for_access(access, Perm.VIEW_STRAINS)
         .filter(lab=lab)
-        .order_by("retired_at", "name", "id")
+        .order_by(F("retired_at").asc(nulls_first=True), "name", "id")
     )

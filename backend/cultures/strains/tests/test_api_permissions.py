@@ -53,6 +53,7 @@ class Call:
                 "reason": "r",
             },
             "risk_group": {"risk_group": 2, "reason": "reassessed"},
+            "growth": {"temperature_low_c": 30, "atmosphere": "aerobic", "reason": "sheet"},
             "add_restriction": {
                 "kind": "cz_rat",
                 "reference": "Příloha 2, bod 3",
@@ -72,6 +73,7 @@ CALLS = [
     Call("terms", "get", "{strain}/terms/", write=False),
     Call("reclassify", "post", "{strain}/reclassify/", write=True),
     Call("risk_group", "post", "{strain}/risk-group/", write=True),
+    Call("growth", "post", "{strain}/growth/", write=True),
     Call("add_restriction", "post", "{strain}/restrictions/", write=True),
     Call("propose_end", "post", "{strain}/restrictions/{restriction}/end-proposal/", write=True),
     Call(

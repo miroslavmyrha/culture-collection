@@ -40,7 +40,13 @@ def passage_list(*, access: Access, lab: Lab) -> QuerySet[Passage]:
     return (
         Passage.objects.for_access(access, Perm.VIEW_STRAINS)
         .filter(lab=lab)
-        .select_related("strain", "source_deposit", "source_passage", "source_vial__batch__passage")
+        .select_related(
+            "strain",
+            "growth_medium",
+            "source_deposit",
+            "source_passage",
+            "source_vial__batch__passage",
+        )
         .order_by("strain_id", "number", "created_at", "pk")
     )
 

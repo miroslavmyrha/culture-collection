@@ -498,6 +498,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/media/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_media_list"];
+        put?: never;
+        post: operations["labs_media_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/media/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_media_retrieve"];
+        put: operations["labs_media_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/media/{public_id}/retire/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_media_retire_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/members/": {
         parameters: {
             query?: never;
@@ -1022,6 +1070,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/growth/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_strains_growth_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/strains/{public_id}/history/": {
         parameters: {
             query?: never;
@@ -1506,6 +1570,13 @@ export interface components {
             kind: components["schemas"]["PermitKind"];
             reference: string;
         };
+        /**
+         * @description * `aerobic` - Aerobic
+         *     * `microaerophilic` - Microaerophilic
+         *     * `anaerobic` - Anaerobic
+         * @enum {string}
+         */
+        AtmosphereEnum: "aerobic" | "microaerophilic" | "anaerobic";
         BarcodeInputRequest: {
             barcode: string;
         };
@@ -2148,6 +2219,30 @@ export interface components {
             /** Format: uuid */
             line: string | null;
         };
+        GrowthInputRequest: {
+            /** Format: uuid */
+            medium?: string | null;
+            /** @description Whole degrees Celsius. Alone, a single value; with the high end, a range. */
+            temperature_low_c?: number | null;
+            /** @description Whole degrees Celsius. Alone, a single value; with the high end, a range. */
+            temperature_high_c?: number | null;
+            /** @default  */
+            atmosphere: components["schemas"]["AtmosphereEnum"] | components["schemas"]["BlankEnum"];
+        };
+        /** @description Read from a strain or a passage with source="*". */
+        GrowthOutput: {
+            readonly medium: components["schemas"]["MediumBrief"] | null;
+            readonly temperature_low_c: number | null;
+            readonly temperature_high_c: number | null;
+            readonly atmosphere: components["schemas"]["AtmosphereEnum"] | components["schemas"]["BlankEnum"];
+        };
+        /**
+         * @description The conditions a subculture or a revival used, when they are not the strain's. Left out,
+         *     the passage records the strain's own.
+         */
+        GrowthOverrideInputRequest: {
+            growth?: components["schemas"]["GrowthInputRequest"] | null;
+        };
         /**
          * @description One line of a strain's history (#19): a line of Home's activity without the lab, which
          *     is the strain's.
@@ -2311,6 +2406,36 @@ export interface components {
              * Format: email
              */
             readonly email: string;
+        };
+        MediumBrief: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly name: string;
+            readonly composition_reference: string;
+            /** Format: date-time */
+            readonly retired_at: string | null;
+        };
+        MediumInputRequest: {
+            name: string;
+            /**
+             * @description Where the recipe is written down, such as a DSMZ medium number.
+             * @default
+             */
+            composition_reference: string;
+        };
+        MediumOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly name: string;
+            readonly composition_reference: string;
+            /** Format: date-time */
+            readonly retired_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        MediumRetireInputRequest: {
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
         };
         MemberCreateInputRequest: {
             /** @description Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only. */
@@ -2503,6 +2628,21 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["LabOutput"][];
         };
+        PaginatedMediumOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["MediumOutput"][];
+        };
         PaginatedMemberOutputList: {
             /** @example 123 */
             count: number;
@@ -2652,6 +2792,7 @@ export interface components {
             /** Format: uuid */
             readonly parent: string | null;
             readonly source_vial_label: string | null;
+            readonly growth: components["schemas"]["GrowthOutput"];
             /** Format: date-time */
             readonly created_at: string;
         };
@@ -3212,6 +3353,7 @@ export interface components {
             readonly isolation_source: string;
             readonly country_of_origin: string;
             readonly isolation_date: string;
+            readonly growth: components["schemas"]["GrowthOutput"];
             readonly identifications: components["schemas"]["IdentificationOutput"][];
             readonly restriction_history: components["schemas"]["RestrictionOutput"][];
         };
@@ -3237,6 +3379,18 @@ export interface components {
             /** @default  */
             isolation_date: string;
             restrictions?: components["schemas"]["RestrictionInputRequest"][];
+        };
+        StrainGrowthInputRequest: {
+            /** Format: uuid */
+            medium?: string | null;
+            /** @description Whole degrees Celsius. Alone, a single value; with the high end, a range. */
+            temperature_low_c?: number | null;
+            /** @description Whole degrees Celsius. Alone, a single value; with the high end, a range. */
+            temperature_high_c?: number | null;
+            /** @default  */
+            atmosphere: components["schemas"]["AtmosphereEnum"] | components["schemas"]["BlankEnum"];
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
         };
         StrainListOutput: {
             /** Format: uuid */
@@ -3264,7 +3418,12 @@ export interface components {
             deposit: string | null;
             versions: components["schemas"]["TermsOutput"][];
         };
+        /**
+         * @description The conditions a subculture or a revival used, when they are not the strain's. Left out,
+         *     the passage records the strain's own.
+         */
         SubcultureInputRequest: {
+            growth?: components["schemas"]["GrowthInputRequest"] | null;
             /** Format: uuid */
             source_passage: string;
         };
@@ -5717,6 +5876,339 @@ export interface operations {
             };
             /** @description grant_revoked: revoked already */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_media_list: {
+        parameters: {
+            query?: {
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedMediumOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_media_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MediumInputRequest"];
+                "multipart/form-data": components["schemas"]["MediumInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediumOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_media_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediumOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_media_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MediumInputRequest"];
+                "multipart/form-data": components["schemas"]["MediumInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediumOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description medium_retired: a retired medium changes no more */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_media_retire_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MediumRetireInputRequest"];
+                "multipart/form-data": components["schemas"]["MediumRetireInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediumOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8951,6 +9443,83 @@ export interface operations {
             };
         };
     };
+    labs_strains_growth_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StrainGrowthInputRequest"];
+                "multipart/form-data": components["schemas"]["StrainGrowthInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainDetailOutput"];
+                };
+            };
+            /** @description Invalid input, an unknown taxon, a risk group 4 agent, or a group above the cap of a box holding the strain's vials (risk_group_above_box_cap), on risk_group */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     labs_strains_history_retrieve: {
         parameters: {
             query?: {
@@ -9878,7 +10447,12 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["GrowthOverrideInputRequest"];
+                "multipart/form-data": components["schemas"]["GrowthOverrideInputRequest"];
+            };
+        };
         responses: {
             201: {
                 headers: {

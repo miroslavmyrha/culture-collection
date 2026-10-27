@@ -94,6 +94,7 @@ export function makeStrain(overrides: Partial<Strain> = {}): Strain {
       },
     ],
     restriction_history: [],
+    growth: noGrowth(),
     ...overrides,
   }
 }
@@ -246,6 +247,7 @@ export function makePassage(overrides: Partial<PassageRow> = {}): PassageRow {
     source_vial: null,
     parent: null,
     source_vial_label: null,
+    growth: noGrowth(),
     created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString(),
     ...overrides,
   }
@@ -690,3 +692,17 @@ export function makeLabPermit(overrides: Partial<LabPermit> = {}): LabPermit {
     ...overrides,
   }
 }
+
+export type Medium = Schemas['MediumOutput']
+export type Growth = Schemas['GrowthOutput']
+
+/** A lab's medium (#79), active unless retired_at is given. */
+export function makeMedium(overrides: Partial<Medium> = {}): Medium {
+  const n = next()
+  return { public_id: uuid(n), name: `Medium ${n}`, composition_reference: '', retired_at: null, created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString(), ...overrides }
+}
+
+/** The conditions of a strain or passage with none recorded. */
+export const noGrowth = (): Growth => ({ medium: null, temperature_low_c: null, temperature_high_c: null, atmosphere: '' })
+
+export const mediumBrief = (medium: Medium) => ({ public_id: medium.public_id, name: medium.name, composition_reference: medium.composition_reference, retired_at: medium.retired_at })

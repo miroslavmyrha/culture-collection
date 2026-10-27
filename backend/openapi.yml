@@ -2039,6 +2039,316 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/media/:
+    get:
+      operationId: labs_media_list
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMediumOutputList'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    post:
+      operationId: labs_media_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediumInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MediumInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediumOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, named by its field
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/media/{public_id}/:
+    get:
+      operationId: labs_media_retrieve
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediumOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    put:
+      operationId: labs_media_update
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediumInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MediumInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediumOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, named by its field
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'medium_retired: a retired medium changes no more'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/media/{public_id}/retire/:
+    post:
+      operationId: labs_media_retire_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediumRetireInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MediumRetireInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediumOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, named by its field
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: reason_required
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/members/:
     get:
       operationId: labs_members_list
@@ -5428,6 +5738,81 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/growth/:
+    post:
+      operationId: labs_strains_growth_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StrainGrowthInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StrainGrowthInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, an unknown taxon, a risk group 4 agent, or a
+            group above the cap of a box holding the strain's vials (risk_group_above_box_cap),
+            on risk_group
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'lab_authorisation_required: the lab holds no valid permit
+            for a restriction''s kind; reason_required'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/strains/{public_id}/history/:
     get:
       operationId: labs_strains_history_retrieve
@@ -6397,6 +6782,14 @@ paths:
         required: true
       tags:
       - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrowthOverrideInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GrowthOverrideInputRequest'
       security:
       - cookieAuth: []
       responses:
@@ -6972,6 +7365,16 @@ components:
       - kind
       - public_id
       - reference
+    AtmosphereEnum:
+      enum:
+      - aerobic
+      - microaerophilic
+      - anaerobic
+      type: string
+      description: |-
+        * `aerobic` - Aerobic
+        * `microaerophilic` - Microaerophilic
+        * `anaerobic` - Anaerobic
     BarcodeInputRequest:
       type: object
       properties:
@@ -8419,6 +8822,65 @@ components:
       - line
       - sentence
       - severity
+    GrowthInputRequest:
+      type: object
+      properties:
+        medium:
+          type: string
+          format: uuid
+          nullable: true
+        temperature_low_c:
+          type: integer
+          nullable: true
+          description: Whole degrees Celsius. Alone, a single value; with the high
+            end, a range.
+        temperature_high_c:
+          type: integer
+          nullable: true
+          description: Whole degrees Celsius. Alone, a single value; with the high
+            end, a range.
+        atmosphere:
+          default: ''
+          oneOf:
+          - $ref: '#/components/schemas/AtmosphereEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+    GrowthOutput:
+      type: object
+      description: Read from a strain or a passage with source="*".
+      properties:
+        medium:
+          allOf:
+          - $ref: '#/components/schemas/MediumBrief'
+          readOnly: true
+          nullable: true
+        temperature_low_c:
+          type: integer
+          readOnly: true
+          nullable: true
+        temperature_high_c:
+          type: integer
+          readOnly: true
+          nullable: true
+        atmosphere:
+          readOnly: true
+          oneOf:
+          - $ref: '#/components/schemas/AtmosphereEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+      required:
+      - atmosphere
+      - medium
+      - temperature_high_c
+      - temperature_low_c
+    GrowthOverrideInputRequest:
+      type: object
+      description: |-
+        The conditions a subculture or a revival used, when they are not the strain's. Left out,
+        the passage records the strain's own.
+      properties:
+        growth:
+          allOf:
+          - $ref: '#/components/schemas/GrowthInputRequest'
+          nullable: true
     HistoryLine:
       type: object
       description: |-
@@ -8853,6 +9315,81 @@ components:
       - last_name
       - public_id
       - username
+    MediumBrief:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        composition_reference:
+          type: string
+          readOnly: true
+        retired_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - composition_reference
+      - name
+      - public_id
+      - retired_at
+    MediumInputRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        composition_reference:
+          type: string
+          default: ''
+          description: Where the recipe is written down, such as a DSMZ medium number.
+          maxLength: 200
+      required:
+      - name
+    MediumOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        composition_reference:
+          type: string
+          readOnly: true
+        retired_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - composition_reference
+      - created_at
+      - name
+      - public_id
+      - retired_at
+    MediumRetireInputRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+      required:
+      - reason
     MemberCreateInputRequest:
       type: object
       properties:
@@ -9264,6 +9801,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LabOutput'
+    PaginatedMediumOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediumOutput'
     PaginatedMemberOutputList:
       type: object
       required:
@@ -9508,12 +10068,17 @@ components:
           type: string
           nullable: true
           readOnly: true
+        growth:
+          allOf:
+          - $ref: '#/components/schemas/GrowthOutput'
+          readOnly: true
         created_at:
           type: string
           format: date-time
           readOnly: true
       required:
       - created_at
+      - growth
       - number
       - parent
       - public_id
@@ -10992,6 +11557,10 @@ components:
         isolation_date:
           type: string
           readOnly: true
+        growth:
+          allOf:
+          - $ref: '#/components/schemas/GrowthOutput'
+          readOnly: true
         identifications:
           type: array
           items:
@@ -11007,6 +11576,7 @@ components:
       - animal_pathogenicity
       - country_of_origin
       - created_at
+      - growth
       - identifications
       - isolation_date
       - isolation_source
@@ -11066,6 +11636,35 @@ components:
       - identified_on
       - risk_group
       - taxon
+    StrainGrowthInputRequest:
+      type: object
+      properties:
+        medium:
+          type: string
+          format: uuid
+          nullable: true
+        temperature_low_c:
+          type: integer
+          nullable: true
+          description: Whole degrees Celsius. Alone, a single value; with the high
+            end, a range.
+        temperature_high_c:
+          type: integer
+          nullable: true
+          description: Whole degrees Celsius. Alone, a single value; with the high
+            end, a range.
+        atmosphere:
+          default: ''
+          oneOf:
+          - $ref: '#/components/schemas/AtmosphereEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+      required:
+      - reason
     StrainListOutput:
       type: object
       properties:
@@ -11140,7 +11739,14 @@ components:
       - versions
     SubcultureInputRequest:
       type: object
+      description: |-
+        The conditions a subculture or a revival used, when they are not the strain's. Left out,
+        the passage records the strain's own.
       properties:
+        growth:
+          allOf:
+          - $ref: '#/components/schemas/GrowthInputRequest'
+          nullable: true
         source_passage:
           type: string
           format: uuid
