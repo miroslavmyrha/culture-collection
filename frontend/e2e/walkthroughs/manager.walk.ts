@@ -142,9 +142,12 @@ test('M9 check the lab\'s permits and when they expire', async ({ browser }, inf
   const w = await Walk.as(browser, info, 'reg-manager', manager('M9', 'Check the lab\'s permits and when they expire'))
   await w.start()
   await openLab(w, REG)
+  // The permits screen for managers (#82). seed_dev: REG holds one SÚJB VRAT permit with no expiry.
+  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Permits' }))
   w.look()
-  await expect(w.page.getByRole('link', { name: /permit/i })).toHaveCount(0)
-  w.impossible('Permits gate every acceptance of a regulated strain, but no screen lists them or their expiry: only the Django admin')
+  await expect(w.page.getByRole('heading', { level: 1, name: /^Permits of / })).toBeVisible()
+  await expect(w.page.getByRole('table', { name: 'Permits' }).getByRole('row', { name: /SÚJB\/DEV\/0001/ })).toBeVisible()
+  await expect(w.page.getByText(/permits? expires? soon\./)).toBeVisible()
   await w.done()
 })
 
