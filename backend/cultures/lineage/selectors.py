@@ -8,14 +8,19 @@ reader, a holder of the location grant included (ADR 0009, amendment of 2026-10-
 
 import re
 from collections.abc import Iterable
+from datetime import date, datetime, time, timedelta
+from uuid import UUID
 
 from django.db.models import Case, Count, Exists, F, OuterRef, Prefetch, Q, QuerySet, Subquery, When
 
+from cultures.audit.models import AuditEvent
+from cultures.audit.registry import VIAL_LOCATION_REVEALED
+from cultures.biosafety.policy import PERMIT_TIME_ZONE
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
 from cultures.storage.models import StorageUnit, UnitKind
-from cultures.strains.models import StrainStatus
+from cultures.strains.models import Strain, StrainStatus
 from cultures.strains.selectors import regulating_restrictions
 
 from .models import (
@@ -227,3 +232,51 @@ def vials_to_check(access: Access) -> QuerySet[Vial]:
 
 def checks_to_correct(access: Access) -> QuerySet[BatchCheck]:
     return BatchCheck.objects.for_access(access, Perm.HANDLE_VIALS)
+
+
+def _czech_midnight(day: date) -> datetime:
+    """The start of a Czech day (Europe/Prague), the day of biosafety.policy.permit_today."""
+    return datetime.combine(day, time.min, tzinfo=PERMIT_TIME_ZONE)
+
+
+def reveal_list(
+    *,
+    access: Access,
+    lab: Lab,
+    since: date | None = None,
+    until: date | None = None,
+    person: UUID | None = None,
+) -> QuerySet[AuditEvent]:
+    """The reveals of the lab's regulated locations (#83, ADR 0009), newest first: who, which
+    vial, when. Only the events of vial_location_revealed, which hold no location; nothing here
+    reads a placement or a box. `since` and `until` are Czech days, both included; `person` is a
+    user's public id.
+
+    The person comes from the event's actor at read time (ADR 0005): username and names as the
+    user row holds them now, so an erased person reads as the tombstone, with `erased_at` set.
+    The vial and the strain come from their rows in the same lab by the public ids the event
+    holds. One query, whatever the page size."""
+    vial = Vial.objects.filter(public_id=OuterRef("subject_id"), lab_id=OuterRef("lab_id"))
+    strain = Strain.objects.filter(public_id=OuterRef("strain_id"), lab_id=OuterRef("lab_id"))
+    rows = (
+        AuditEvent.objects.for_access(access, Perm.VIEW_REVEALS)
+        .filter(lab=lab, event_type=VIAL_LOCATION_REVEALED.code)
+        .annotate(
+            person_id=F("actor__public_id"),
+            person_username=F("actor__username"),
+            person_first_name=F("actor__first_name"),
+            person_last_name=F("actor__last_name"),
+            person_erased_at=F("actor__erased_at"),
+            vial_seq=Subquery(vial.values("seq")[:1]),
+            batch_number=Subquery(vial.values("batch__number")[:1]),
+            accession_number=Subquery(strain.values("accession_number")[:1]),
+        )
+        .order_by("-occurred_at", "-pk")
+    )
+    if since is not None:
+        rows = rows.filter(occurred_at__gte=_czech_midnight(since))
+    if until is not None:
+        rows = rows.filter(occurred_at__lt=_czech_midnight(until + timedelta(days=1)))
+    if person is not None:
+        rows = rows.filter(actor__public_id=person)
+    return rows

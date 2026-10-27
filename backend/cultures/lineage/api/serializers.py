@@ -462,3 +462,66 @@ class BoxGridOutputSerializer(BoxOutputSerializer):
     @extend_schema_field(BoxPositionSerializer(many=True))
     def get_positions(self, box: StorageUnit) -> list[dict[str, Any]]:
         return list(BoxPositionSerializer(self.context["positions"], many=True).data)
+
+
+# The reveal log (#83): who revealed where a regulated vial is, which vial and when, for the
+# lab's managers. Built from the event and the rows it names (selectors.reveal_list); no field
+# here reads a placement, a box or a path, and the event holds none (ADR 0009).
+
+
+class RevealFilterSerializer(serializers.Serializer[None]):
+    """The query of the reveal log. Days are Czech days, both included."""
+
+    since = serializers.DateField(required=False, help_text="From this Czech day on")
+    until = serializers.DateField(required=False, help_text="Up to this Czech day, included")
+    person = serializers.UUIDField(required=False, help_text="The public id of a user")
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        since, until = attrs.get("since"), attrs.get("until")
+        if since is not None and until is not None and since > until:
+            raise serializers.ValidationError(
+                {"until": "The last day comes before the first."}, code="invalid_range"
+            )
+        return attrs
+
+
+class RevealPersonSerializer(serializers.Serializer[dict[str, Any]]):
+    """The user who revealed, as the user row holds them now (ADR 0005): an erased person keeps
+    the tombstone username, empty names and `erased` true."""
+
+    public_id = serializers.UUIDField()
+    username = serializers.CharField()
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    erased = serializers.BooleanField()
+
+
+class RevealLogEntrySerializer(serializers.Serializer[Any]):
+    occurred_at = serializers.DateTimeField()
+    # Null for an actor that is not a user; a reveal needs a signed-in person, so none yet.
+    person = serializers.SerializerMethodField()
+    vial = serializers.UUIDField(source="subject_id")
+    # "<accession> / <batch> / <seq>", the vial's label everywhere; null when the row is gone.
+    vial_label = serializers.SerializerMethodField()
+    strain = serializers.UUIDField(source="strain_id", allow_null=True)
+    accession_number = serializers.CharField(allow_null=True)
+
+    @extend_schema_field(RevealPersonSerializer(allow_null=True))
+    def get_person(self, event: Any) -> dict[str, Any] | None:
+        facts = vars(event)
+        if facts["person_id"] is None:
+            return None
+        return {
+            "public_id": facts["person_id"],
+            "username": facts["person_username"],
+            "first_name": facts["person_first_name"],
+            "last_name": facts["person_last_name"],
+            "erased": facts["person_erased_at"] is not None,
+        }
+
+    def get_vial_label(self, event: Any) -> str | None:
+        facts = vars(event)
+        number, batch, seq = facts["accession_number"], facts["batch_number"], facts["vial_seq"]
+        if number is None or batch is None or seq is None:
+            return None
+        return f"{number} / {batch} / {seq}"

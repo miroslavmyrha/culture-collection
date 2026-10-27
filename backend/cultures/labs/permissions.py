@@ -8,7 +8,7 @@ Enforced today: view the lab and its members, manage members (#9), view strains
 and manage them (#11), view and manage depositors and deposits, publish MTA
 versions (#10, #12), view and manage storage (#14), handle vials (#16), release
 and hold batches (#17), read, enter and decide requests (#18), read the lab's permits (#82),
-deaccession strains (#20).
+deaccession strains (#20), read who revealed regulated locations (#83).
 The others are named now so later features plug into the same map instead of inventing their
 own checks.
 """
@@ -84,6 +84,11 @@ class Perm(StrEnum):
     # record and end them in Django admin; managers answer to the authority for them, as they do
     # for a regulated approval, so the list is theirs.
     VIEW_LAB_PERMITS = "biosafety.view_permits"
+    # #83: reading the lab's reveals of regulated locations (vial_location_revealed): who, which
+    # vial, when, never the place. Managers grant and revoke the location grant
+    # (labs.manage_members), so they read what the holders did with it. Holding the grant does
+    # not give this, and this does not give the grant (ADR 0009).
+    VIEW_REVEALS = "vials.view_reveals"
 
 
 # What each role adds to the roles below it.
@@ -119,6 +124,7 @@ GRANTS: dict[Role, frozenset[Perm]] = {
             Perm.CONFIRM_RESTRICTION_END,
             Perm.CONFIRM_DEACCESSION,
             Perm.VIEW_LAB_PERMITS,
+            Perm.VIEW_REVEALS,
         }
     ),
 }

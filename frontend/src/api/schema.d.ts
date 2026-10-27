@@ -1487,6 +1487,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{public_id}/reveals/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Who revealed where the lab's regulated vials are (#83, ADR 0009), newest first, a page
+         *     at a time: the person, the vial and its strain, and when. Never the place: the events
+         *     hold none. For the lab's managers; a member of another role gets 403.
+         */
+        get: operations["labs_reveals_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/activity/": {
         parameters: {
             query?: never;
@@ -2911,6 +2932,21 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["RequesterOutput"][];
         };
+        PaginatedRevealLogEntryList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["RevealLogEntry"][];
+        };
         PaginatedStrainListOutputList: {
             /** @example 123 */
             count: number;
@@ -3344,8 +3380,31 @@ export interface components {
             readonly end_reason: string;
             readonly end_proposal: components["schemas"]["EndProposalOutput"] | null;
         };
+        RevealLogEntry: {
+            /** Format: date-time */
+            occurred_at: string;
+            readonly person: components["schemas"]["RevealPerson"] | null;
+            /** Format: uuid */
+            vial: string;
+            readonly vial_label: string | null;
+            /** Format: uuid */
+            strain: string | null;
+            accession_number: string | null;
+        };
         RevealOutput: {
             location: components["schemas"]["Location"] | null;
+        };
+        /**
+         * @description The user who revealed, as the user row holds them now (ADR 0005): an erased person keeps
+         *     the tombstone username, empty names and `erased` true.
+         */
+        RevealPerson: {
+            /** Format: uuid */
+            public_id: string;
+            username: string;
+            first_name: string;
+            last_name: string;
+            erased: boolean;
         };
         /**
          * @description * `1` - 1
@@ -11488,6 +11547,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LabOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_reveals_list: {
+        parameters: {
+            query?: {
+                /** @description At most 200 */
+                limit?: number;
+                offset?: number;
+                /** @description The public id of a user */
+                person?: string;
+                /** @description From this Czech day on */
+                since?: string;
+                /** @description Up to this Czech day, included */
+                until?: string;
+            };
+            header?: never;
+            path: {
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedRevealLogEntryList"];
                 };
             };
             401: {

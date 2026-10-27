@@ -179,8 +179,8 @@ HIDDEN: dict[str, str] = {
     "box_type_changed": "global reference data, no lab",
     "contact_erased": "an erasure is about a person: the line would point at them",
     "vial_location_revealed": (
-        "the trail of reveals is read only by those who read the audit trail (ADR 0009), and no"
-        " lab role does yet"
+        "the trail of reveals is read only by those who read the audit trail (ADR 0009): the"
+        " lab's managers, on its reveal log (#83, vials.view_reveals), not on Home"
     ),
 }
 
