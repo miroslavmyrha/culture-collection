@@ -24,6 +24,9 @@ depositors, MTA templates and deposits):
 - strains created through the strain services with the role of each lab's
   curator, some reclassified, some restricted (invented taxa only, a GMO lab
   strain aside);
+- each lab's list of media (names, and a DSMZ medium number where the DSMZ page names the
+  medium), one retired, and growth conditions on the strains of invented taxa and on the
+  strain of MYC's deposit, which its passages take (#79);
 - depositors (invented people at example.org), MTA versions (published by each
   lab's manager) and deposits in every intake state, three of them accepted, which
   makes their strains through the deposit services (the third, in BAC, an invented
@@ -33,7 +36,8 @@ depositors, MTA templates and deposits):
   a box capped lower than its freezer, ENV a freezer out of service;
 - batches of vials of the accepted deposits' strains, preserved by each lab's
   technician through the lineage services, most placed into a box in fill order,
-  one from a subculture (passage 1); REG's strain from its deposit is regulated
+  one from a subculture (passage 1), MYC's second grown on other conditions than its strain's;
+  REG's strain from its deposit is regulated
   (a RAT, invented taxon), so its vials' places are masked, and reg-manager holds
   the lab's location grant to reveal them.
 - checks of those batches, recorded by each lab's technician (some consume the
@@ -87,6 +91,7 @@ from cultures.deposits.models import (
 from cultures.distribution import seeding
 from cultures.distribution import services as distribution
 from cultures.distribution.models import LegalForm, PermitKind
+from cultures.growth import seeding as seed_growth
 from cultures.labs import seeding as seed_labs
 from cultures.labs.access import Access, access_for
 from cultures.labs.models import Lab, Membership
@@ -230,6 +235,7 @@ class Command(BaseCommand):
                 seed_users.superuser(ADMIN, password)
                 lab_by_code = {row["code"]: self._lab(row, password) for row in data["labs"]}
                 self._extra_users(lab_by_code, password)
+                self._media(data, lab_by_code)
                 for row in data["strains"]:
                     # Entered with the curator's role, never changed afterwards.
                     created = seed_strains.strain(
@@ -241,6 +247,7 @@ class Command(BaseCommand):
                     self.strains.add(created)
                 self.deposits = Counts()
                 self._intake(data, lab_by_code)
+                self._deposit_growth(data, lab_by_code)
                 for row in data["labs"]:
                     # Added with the curator's role, never changed afterwards.
                     units = [unit(u) for u in row["storage"]]
@@ -270,6 +277,28 @@ class Command(BaseCommand):
                     self._location_grant(lab_by_code[row["lab"]], row)
                 self._distribution(data, lab_by_code)
         self._report(data)
+
+    # Growth media and the conditions a deposit's strain is grown under.
+
+    def _media(self, data: dict[str, Any], lab_by_code: dict[str, Lab]) -> None:
+        self.media = Counts()
+        for row in data["media"]:
+            # Added with the curator's role, never changed afterwards.
+            self.media.add(
+                seed_growth.medium(
+                    staff(row["lab"], Role.CURATOR), lab_by_code[row["lab"]], medium(row)
+                )
+            )
+
+    def _deposit_growth(self, data: dict[str, Any], lab_by_code: dict[str, Lab]) -> None:
+        for row in data["deposits"]:
+            if "growth" in row:
+                # How the strain a deposit made is grown, before its passages are made.
+                seed_strains.set_growth(
+                    staff(row["lab"], Role.CURATOR),
+                    seed_deposits.accepted_strain(lab_by_code[row["lab"]], row["name_as_received"]),
+                    growth_step(row),
+                )
 
     # Users and labs.
 
@@ -410,6 +439,7 @@ class Command(BaseCommand):
         out = self.stdout.write
         out(f"Taxa: {self.taxa.created} created, {self.taxa.found} found.")
         out(f"Strains: {self.strains.created} created, {self.strains.found} found.")
+        out(f"Media: {self.media.created} created, {self.media.found} found.")
         out(f"Deposits: {self.deposits.created} created, {self.deposits.found} found.")
         out(f"Storage units: {self.units.created} created, {self.units.found} found.")
         out(f"Batches: {self.batches.created} created, {self.batches.found} found.")
@@ -555,7 +585,30 @@ def step(row: dict[str, Any]) -> seed_strains.Step:
         return seed_strains.EndRestriction(
             kind=ending["kind"], reference=ending["reference"], reason=row["reason"]
         )
+    if "growth" in row:
+        return growth_step(row)
     raise CommandError(f"Unknown step in {DATA.name}: {sorted(row)}")
+
+
+def seed_growth_of(row: dict[str, Any]) -> seed_growth.SeedGrowth:
+    return seed_growth.SeedGrowth(
+        medium=row.get("medium"),
+        temperature_low_c=row.get("temperature_low_c"),
+        temperature_high_c=row.get("temperature_high_c"),
+        atmosphere=row.get("atmosphere", ""),
+    )
+
+
+def growth_step(row: dict[str, Any]) -> seed_strains.SetGrowth:
+    return seed_strains.SetGrowth(growth=seed_growth_of(row["growth"]), reason=row["reason"])
+
+
+def medium(row: dict[str, Any]) -> seed_growth.SeedMedium:
+    return seed_growth.SeedMedium(
+        name=row["name"],
+        composition_reference=row.get("composition_reference", ""),
+        retire_reason=row.get("retire_reason", ""),
+    )
 
 
 def deposit(row: dict[str, Any], taxa: list[dict[str, Any]]) -> seed_deposits.SeedDeposit:
@@ -612,6 +665,7 @@ def batch(row: dict[str, Any]) -> seed_lineage.SeedBatch:
         cryoprotectant=row["cryoprotectant"],
         passage=row["passage"],
         box=tuple(row["box"]) if row["box"] else (),
+        growth=seed_growth_of(row["growth"]) if "growth" in row else None,
     )
 
 

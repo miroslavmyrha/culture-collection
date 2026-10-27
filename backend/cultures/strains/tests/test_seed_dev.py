@@ -31,6 +31,7 @@ from cultures.distribution.models import (
     ShipmentDocument,
 )
 from cultures.distribution.policy import evaluate
+from cultures.growth.models import GrowthMedium
 from cultures.labs import services as labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, LocationGrant, Membership
@@ -761,7 +762,9 @@ def test_it_preserves_batches_and_places_their_vials_through_the_lineage_service
         )
         assert box.placements.filter(removed_at__isnull=True).exists(), row
     # A batch of passage 1 comes from a subculture, made through its service.
-    assert Passage.objects.filter(number=1, source_passage__isnull=False).count() == 1
+    assert Passage.objects.filter(number=1, source_passage__isnull=False).count() == len(
+        {(row["lab"], row["deposit"]) for row in BATCHES if row["passage"] == 1}
+    )
     events = Counter(AuditEvent.objects.values_list("event_type", flat=True))
     assert events["batch_created"] == len(BATCHES)
     assert events["vial_created"] == Vial.objects.count()
@@ -795,6 +798,7 @@ def test_it_records_checks_and_releases_through_the_lineage_services() -> None:
         ("BAC", "Bacillus subtilis soil isolate DEP-1", 3): BatchStatus.PENDING_CHECK,
         ("BAC", "Mockia vulgaris DEP-8", 1): BatchStatus.RELEASED,
         ("MYC", "Testella cerea DEP-5", 1): BatchStatus.ON_HOLD,
+        ("MYC", "Testella cerea DEP-5", 2): BatchStatus.PENDING_CHECK,
     }
     events = Counter(AuditEvent.objects.values_list("event_type", flat=True))
     assert events["batch_check_recorded"] == len(CHECKS)
@@ -815,6 +819,44 @@ def test_it_records_checks_and_releases_through_the_lineage_services() -> None:
         Counter(AuditEvent.objects.values_list("event_type", flat=True))["batch_status_changed"]
         == 4
     )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("env")
+def test_it_seeds_media_and_growth_conditions_through_the_growth_services() -> None:
+    out = seed()
+    media = DATA["media"]
+    assert f"Media: {len(media)} created, 0 found." in out
+    assert GrowthMedium.objects.count() == len(media)
+    retired = {row["name"] for row in media if row.get("retire_reason")}
+    assert (
+        set(GrowthMedium.objects.filter(retired_at__isnull=False).values_list("name", flat=True))
+        == retired
+    )
+    # A strain is grown as its history says; its passage 0 predates that and records nothing.
+    cerea = Strain.objects.get(name_as_received="Testella cerea DEP-5")
+    assert cerea.growth_medium is not None
+    assert (cerea.growth_medium.name, cerea.growth_temperature_low_c, cerea.growth_atmosphere) == (
+        "Malt extract agar",
+        25,
+        "aerobic",
+    )
+    zero, one = cerea.passages.order_by("number")
+    assert zero.growth_medium is None
+    # The subculture batch records its own conditions, not the strain's.
+    assert one.growth_medium is not None
+    assert (one.growth_medium.name, one.growth_temperature_low_c) == ("Potato dextrose agar", 22)
+    # A real taxon gets none: no citable type-strain entry was checked for it.
+    real = Strain.objects.get(name_as_received="Bacillus subtilis soil isolate DEP-1")
+    assert real.growth_medium is None
+    assert not any(
+        row["lab"] == "BAC" and "growth" in row
+        for row in DEPOSITS
+        if row["name_as_received"].startswith("Bacillus")
+    )
+    assert AuditEvent.objects.filter(event_type="strain_growth_changed").exists()
+    again = seed()
+    assert f"Media: 0 created, {len(media)} found." in again
 
 
 def test_every_check_names_a_listed_batch_and_a_vial_it_has() -> None:

@@ -1417,6 +1417,15 @@
       "reference": "Příloha 2 (invented example)"
      },
      "reason": "The annex no longer lists the agent (invented example)."
+    },
+    {
+     "growth": {
+      "medium": "Nutrient agar",
+      "temperature_low_c": 30,
+      "temperature_high_c": 30,
+      "atmosphere": "aerobic"
+     },
+     "reason": "Grown on the lab's routine medium (invented example)."
     }
    ]
   },
@@ -1440,6 +1449,15 @@
       "method": "Whole genome sequence (ANI)",
       "reason": "The genome places it in Testella exempli (invented example)."
      }
+    },
+    {
+     "growth": {
+      "medium": "LB (Luria-Bertani)",
+      "temperature_low_c": 25,
+      "temperature_high_c": 37,
+      "atmosphere": "microaerophilic"
+     },
+     "reason": "Grows over a range (invented example)."
     }
    ]
   },
@@ -1590,6 +1608,17 @@
      "kind": "quarantine_pest",
      "reference": "Annex II (invented example)"
     }
+   ],
+   "history": [
+    {
+     "growth": {
+      "medium": "Malt extract agar",
+      "temperature_low_c": 25,
+      "temperature_high_c": 25,
+      "atmosphere": "aerobic"
+     },
+     "reason": "Grown on malt extract agar (invented example)."
+    }
    ]
   },
   {
@@ -1613,6 +1642,17 @@
      "kind": "dual_use",
      "reference": "1C351.a",
      "act": "(EU) 2025/2003"
+    }
+   ],
+   "history": [
+    {
+     "growth": {
+      "medium": "Nutrient agar",
+      "temperature_low_c": 37,
+      "temperature_high_c": 37,
+      "atmosphere": "anaerobic"
+     },
+     "reason": "Grown without air (invented example)."
     }
    ]
   },
@@ -2025,7 +2065,14 @@
     "risk_group": 2,
     "animal_pathogenicity": "unknown",
     "plant_pathogenicity": "none_known"
-   }
+   },
+   "growth": {
+    "medium": "Malt extract agar",
+    "temperature_low_c": 25,
+    "temperature_high_c": 25,
+    "atmosphere": "aerobic"
+   },
+   "reason": "Grown on malt extract agar (invented example)."
   },
   {
    "lab": "MYC",
@@ -2189,6 +2236,23 @@
     "Rack 1",
     "Box 1"
    ]
+  },
+  {
+   "lab": "MYC",
+   "deposit": "Testella cerea DEP-5",
+   "passage": 1,
+   "method": "cryo_minus80",
+   "purpose": "distribution",
+   "cryoprotectant": "10 % glycerol",
+   "preserved_on": "2026-09-10",
+   "vial_count": 4,
+   "box": null,
+   "growth": {
+    "medium": "Potato dextrose agar",
+    "temperature_low_c": 22,
+    "temperature_high_c": 22,
+    "atmosphere": "aerobic"
+   }
   },
   {
    "lab": "REG",
@@ -2564,6 +2628,41 @@
    "ship": true,
    "prepared_by": "manager",
    "confirmed_by": "curator"
+  }
+ ],
+ "media": [
+  {
+   "lab": "BAC",
+   "name": "Nutrient agar",
+   "composition_reference": "DSMZ medium 1"
+  },
+  {
+   "lab": "BAC",
+   "name": "LB (Luria-Bertani)",
+   "composition_reference": "DSMZ medium 381"
+  },
+  {
+   "lab": "BAC",
+   "name": "Tryptic soy agar",
+   "retire_reason": "Replaced by nutrient agar in the lab routine (invented example)."
+  },
+  {
+   "lab": "MYC",
+   "name": "Malt extract agar"
+  },
+  {
+   "lab": "MYC",
+   "name": "Potato dextrose agar"
+  },
+  {
+   "lab": "REG",
+   "name": "Nutrient agar",
+   "composition_reference": "DSMZ medium 1"
+  },
+  {
+   "lab": "ENV",
+   "name": "Nutrient agar",
+   "composition_reference": "DSMZ medium 1"
   }
  ]
 }
