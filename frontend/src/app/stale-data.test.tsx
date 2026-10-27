@@ -65,6 +65,7 @@ const PERMITS = '/api/v1/labs/{lab_public_id}/permits/'
 const TERMS = '/api/v1/labs/{lab_public_id}/strains/{public_id}/terms/'
 const HISTORY = '/api/v1/labs/{lab_public_id}/strains/{public_id}/history/'
 const MATERIAL = `/labs/${LAB_ID}/strains/${STRAIN_ID}/material`
+const SHIPMENTS = '/api/v1/labs/{lab_public_id}/strains/{public_id}/shipments/'
 
 type Role = 'technician' | 'curator' | 'manager'
 type Get = PathFor<'get'>
@@ -84,6 +85,20 @@ function strainPage() {
   mockApi('get', UNITS, [freezer, box])
   mockApi('get', TERMS, { deposit: null, versions: [makeTerms()] })
   mockApi('get', HISTORY, page([makeHistoryLine({ summary: 'accessioned MYC 42' })]))
+}
+
+/** A strain that left the collection (#20), still with an active restriction of an invented taxon. */
+function leftPage() {
+  const gmo = { public_id: '00000000-0000-4000-8000-0000000000e1', kind: 'gmo' as const, reference: 'MŽP 2026/12', act: '', gmo_category: 2, created_at: '2026-02-01T10:00:00Z', ended_at: null, end_reason: '', end_proposal: null }
+  mockApi('get', STRAIN, {
+    ...strain,
+    status: 'deaccessioned',
+    restriction_history: [gmo],
+    regulated: true,
+    deaccession: { deaccessioned_at: '2026-10-21T10:00:00Z', cause: 'contaminated', reason: 'Mixed culture.', final_use: '' },
+  })
+  mockApi('get', TERMS, { deposit: null, versions: [makeTerms()] })
+  mockApi('get', SHIPMENTS, page([{ request: '00000000-0000-4000-8000-0000000000a1', number: '2026/3', institution: 'Example Institute', country: 'DE', shipped_at: '2026-06-01T10:00:00Z', vials: 2 }]))
 }
 
 type Screen = {
@@ -204,6 +219,15 @@ const SCREENS: Screen[] = [
     what: 'the terms',
     data: strainPage,
     type: (user) => menuField(user, 'Actions for MYC 42', 'Add a restriction', 'Reason'),
+  },
+  {
+    name: 'StrainShipments of a deaccessioned strain, with the propose end dialog',
+    role: 'manager',
+    path: `/labs/${LAB_ID}/strains/${STRAIN_ID}`,
+    fails: SHIPMENTS,
+    what: 'the shipments',
+    data: leftPage,
+    type: (user) => dialogField(user, 'Propose to end restriction MŽP 2026/12', 'Reason'),
   },
   {
     name: 'StrainHistory, with the reclassify dialog',

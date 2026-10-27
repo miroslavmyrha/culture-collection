@@ -17,6 +17,10 @@ export type CountryCode = Schemas['CountryCode']
 export type Role = Schemas['Role']
 export type Terms = Schemas['TermsOutput']
 export type HistoryLine = Schemas['HistoryLine']
+export type DeaccessionCause = Schemas['CauseEnum']
+export type FinalUse = Schemas['FinalUseEnum']
+export type DeaccessionProposal = NonNullable<Strain['deaccession_proposal']>
+export type StrainShipment = Schemas['StrainShipmentOutput']
 
 /** Curators and managers write strains (strains.manage). The server decides; this only hides. */
 export const canManageStrains = (role: Role | undefined): boolean => role === 'curator' || role === 'manager'
@@ -25,6 +29,32 @@ export const canManageStrains = (role: Role | undefined): boolean => role === 'c
  * other than the proposer confirms it (strains.confirm_restriction_end).
  */
 export const canConfirmRestrictionEnd = (role: Role | undefined): boolean => role === 'manager'
+/**
+ * A strain leaves the collection (#20): a curator or a manager deaccessions one that is not
+ * regulated; a regulated one is proposed, and a manager other than the proposer confirms it
+ * (strains.confirm_deaccession).
+ */
+export const canConfirmDeaccession = (role: Role | undefined): boolean => role === 'manager'
+
+export const CAUSES = ['non_viable', 'contaminated', 'misidentified', 'duplicate', 'depositor_request', 'legal', 'lost'] as const satisfies readonly DeaccessionCause[]
+export const CAUSE_LABELS: Record<DeaccessionCause, string> = {
+  non_viable: 'No longer grows',
+  contaminated: 'Contaminated',
+  misidentified: 'Misidentified',
+  duplicate: 'Duplicate of another strain',
+  depositor_request: 'The depositor asked for it',
+  legal: 'Legal reason',
+  lost: 'Lost',
+}
+/** The words of Regulation (EU) 2019/829, Annex I (h): a quarantine pest only. */
+export const FINAL_USES = ['destruction', 'collection', 'storage'] as const satisfies readonly FinalUse[]
+export const FINAL_USE_LABELS: Record<FinalUse, string> = {
+  destruction: 'Destruction',
+  collection: 'Transfer to a collection',
+  storage: 'Storage',
+}
+/** A quarantine pest states its final use when it leaves; the server decides, this only asks. */
+export const isQuarantinePest = (strain: Strain) => strain.restriction_history.some((r) => r.ended_at === null && r.kind === 'quarantine_pest')
 
 export const RISK_GROUPS = [1, 2, 3, 4] as const satisfies readonly RiskGroup[]
 export const PATHOGENICITY_LABELS: Record<Pathogenicity, string> = {
@@ -170,6 +200,17 @@ export type AddRestrictionForm = z.input<typeof addRestrictionSchema>
 
 export const endReasonSchema = z.object({ reason: reasonSchema })
 export type EndReasonForm = z.input<typeof endReasonSchema>
+
+/** Why the strain leaves (#20). The final use only for a quarantine pest (`needsFinalUse`). */
+export const deaccessionSchema = (needsFinalUse: boolean) =>
+  z
+    .object({
+      cause: z.union([z.literal(''), z.enum(CAUSES)]).refine((value) => value !== '', 'Choose why the strain leaves'),
+      reason: reasonSchema,
+      final_use: z.union([z.literal(''), z.enum(FINAL_USES)]),
+    })
+    .refine((values) => !needsFinalUse || values.final_use !== '', { path: ['final_use'], message: 'Choose the final use' })
+export type DeaccessionForm = z.input<ReturnType<typeof deaccessionSchema>>
 
 /** The form's restriction as the API takes it: act only for dual-use, a category only for a GMO. */
 export function restrictionBody(value: RestrictionForm) {

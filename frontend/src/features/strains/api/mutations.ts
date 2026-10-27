@@ -21,6 +21,18 @@ function settle(qc: QueryClient, labId: string, strain: Strain) {
   ])
 }
 
+/**
+ * A strain that left (#20): its open requests were cancelled and its vials marked for
+ * destruction, so the lab's requests and what waits on Home are stale too.
+ */
+function settleLeaving(qc: QueryClient, labId: string, strain: Strain) {
+  return Promise.all([
+    settle(qc, labId, strain),
+    qc.invalidateQueries({ queryKey: sharedKeys.requests(labId) }),
+    qc.invalidateQueries({ queryKey: sharedKeys.overview() }),
+  ])
+}
+
 const path = (labId: string, strainId: string) => ({ path: { lab_public_id: labId, public_id: strainId } })
 
 export function useReclassify(labId: string, strainId: string) {
@@ -124,6 +136,61 @@ export function useSetGrowth(labId: string, strainId: string) {
     mutationFn: async (body: Schemas['StrainGrowthInputRequest']) => {
       await ensureCsrf()
       return unwrap(api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/growth/', { params: path(labId, strainId), body }))
+    },
+    meta: { handlesError: true },
+    onSuccess: (strain) => settle(qc, labId, strain),
+  })
+}
+
+/** A strain that is not regulated leaves in one step (#20). */
+export function useDeaccession(labId: string, strainId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: Schemas['DeaccessionInputRequest']) => {
+      await ensureCsrf()
+      return unwrap(api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/deaccession/', { params: path(labId, strainId), body }))
+    },
+    meta: { handlesError: true },
+    onSuccess: (strain) => settleLeaving(qc, labId, strain),
+  })
+}
+
+/** The first of two steps for a regulated strain (#20): nothing changes until a manager confirms. */
+export function useProposeDeaccession(labId: string, strainId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: Schemas['DeaccessionInputRequest']) => {
+      await ensureCsrf()
+      return unwrap(api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/deaccession-proposal/', { params: path(labId, strainId), body }))
+    },
+    meta: { handlesError: true },
+    onSuccess: (strain) => settle(qc, labId, strain),
+  })
+}
+
+/** The proposal the manager read, by its id: another one open meanwhile is a 409. */
+export function useConfirmDeaccession(labId: string, strainId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (proposal: string) => {
+      await ensureCsrf()
+      return unwrap(
+        api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/deaccession-proposal/confirm/', { params: path(labId, strainId), body: { proposal } }),
+      )
+    },
+    meta: { handlesError: true },
+    onSuccess: (strain) => settleLeaving(qc, labId, strain),
+  })
+}
+
+export function useWithdrawDeaccession(labId: string, strainId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: Schemas['DeaccessionWithdrawInputRequest']) => {
+      await ensureCsrf()
+      return unwrap(
+        api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/deaccession-proposal/withdraw/', { params: path(labId, strainId), body }),
+      )
     },
     meta: { handlesError: true },
     onSuccess: (strain) => settle(qc, labId, strain),

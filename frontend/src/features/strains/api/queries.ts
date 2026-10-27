@@ -46,6 +46,20 @@ export const strainHistoryOptions = (labId: string, strainId: string, page: Page
     placeholderData: keepPreviousData,
   })
 
+/** A page of the shipments that carried vials of the strain, oldest first (#20). */
+export const strainShipmentsOptions = (labId: string, strainId: string, page: PageParams) =>
+  queryOptions({
+    queryKey: strainKeys.shipments(labId, strainId, page),
+    queryFn: ({ signal }) =>
+      unwrap(
+        api.GET('/api/v1/labs/{lab_public_id}/strains/{public_id}/shipments/', {
+          signal,
+          params: { path: { lab_public_id: labId, public_id: strainId }, query: page },
+        }),
+      ),
+    placeholderData: keepPreviousData,
+  })
+
 export const TAXON_PAGE = 20
 
 export const taxonSearchOptions = (text: string) =>
@@ -78,6 +92,10 @@ export function useStrainTerms(labId: string, strainId: string) {
 
 export function useStrainHistory(labId: string, strainId: string, page: PageParams) {
   return useQuery(strainHistoryOptions(labId, strainId, page))
+}
+
+export function useStrainShipments(labId: string, strainId: string, page: PageParams) {
+  return useQuery(strainShipmentsOptions(labId, strainId, page))
 }
 
 export function useTaxonSearch(text: string, enabled: boolean) {

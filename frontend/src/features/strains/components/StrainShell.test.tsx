@@ -189,7 +189,7 @@ describe('StrainShell with the Overview tab', { timeout: 20_000 }, () => {
     const menu = await screen.findByRole('menu', { name: 'Actions for MYC 42' })
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
     expect(trigger).toHaveAttribute('aria-controls', menu.id)
-    expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Reclassify', 'Change risk group', 'Add a restriction', 'Change growth conditions'])
+    expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Reclassify', 'Change risk group', 'Add a restriction', 'Change growth conditions', 'Propose deaccession'])
     await waitFor(() => expect(within(menu).getByRole('menuitem', { name: 'Reclassify' })).toHaveFocus())
     await user.keyboard('{Enter}')
     const dialog = await screen.findByRole('dialog', { name: 'Reclassify MYC 42' })

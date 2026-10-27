@@ -7,7 +7,7 @@ import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { STRAIN_TONES } from '@/lib/tones'
 import { useStrain } from '../api/queries'
 import { RESTRICTION_LABELS, STATUS_LABELS, type Strain } from '../schemas'
-import { AddRestrictionDialog, GrowthDialog, ReclassifyDialog, RiskGroupDialog } from './StrainDialogs'
+import { AddRestrictionDialog, DeaccessionDialog, GrowthDialog, ProposeDeaccessionDialog, ReclassifyDialog, RiskGroupDialog } from './StrainDialogs'
 
 type Props = {
   labId: string
@@ -17,7 +17,7 @@ type Props = {
   children: (strain: Strain) => ReactNode
 }
 
-type Open = { kind: 'reclassify' | 'risk' | 'add' | 'growth'; open: boolean } | null
+type Open = { kind: 'reclassify' | 'risk' | 'add' | 'growth' | 'leave' | 'propose-leave'; open: boolean } | null
 
 /** A risk group as a chip: group 1 plain, group 2 to look at, 3 and 4 a warning to everyone. */
 const RISK_TONES: Record<number, Tone> = { 1: 'neutral', 2: 'warning', 3: 'danger', 4: 'danger' }
@@ -26,7 +26,8 @@ const RISK_TONES: Record<number, Tone> = { 1: 'neutral', 2: 'warning', 3: 'dange
  * A strain's page around its tabs (#19): the strain's loading, not found and error states, each
  * with its title, and once it is there the header every tab shares: the accession number, the
  * taxon, the risk group, the active restrictions and the status as chips, and the strain's
- * actions in one menu for curators and up. The tab renders the page title.
+ * actions in one menu for curators and up. A deaccessioned strain changes no more and has no
+ * menu (#20). The tab renders the page title.
  */
 export function StrainShell({ labId, strainId, canManage, children }: Props) {
   const strain = useStrain(labId, strainId)
@@ -72,6 +73,8 @@ export function StrainShell({ labId, strainId, canManage, children }: Props) {
   const s = strain.data
   const number = s.accession_number ?? 'Pending strain'
   const active = s.restriction_history.filter((r) => r.ended_at === null)
+  // A regulated strain leaves by two people (#20): the menu proposes it, unless a proposal waits.
+  const leave = s.deaccession_proposal !== null ? [] : [{ label: s.regulated ? 'Propose deaccession' : 'Deaccession', onSelect: show(s.regulated ? 'propose-leave' : 'leave') }]
   return (
     <>
       <Box component="header" sx={{ mb: 2 }}>
@@ -84,7 +87,7 @@ export function StrainShell({ labId, strainId, canManage, children }: Props) {
               <i>{s.taxon.name}</i> {s.taxon.authority}
             </Typography>
           </Box>
-          {canManage && (
+          {canManage && s.status !== 'deaccessioned' && (
             <ActionMenu
               label="Actions"
               name={`Actions for ${number}`}
@@ -93,6 +96,7 @@ export function StrainShell({ labId, strainId, canManage, children }: Props) {
                 { label: 'Change risk group', onSelect: show('risk') },
                 { label: 'Add a restriction', onSelect: show('add') },
                 { label: 'Change growth conditions', onSelect: show('growth') },
+                ...leave,
               ]}
             />
           )}
@@ -119,6 +123,8 @@ export function StrainShell({ labId, strainId, canManage, children }: Props) {
       {open?.kind === 'risk' && <RiskGroupDialog labId={labId} strain={s} open={open.open} onClose={close} onExited={exited} />}
       {open?.kind === 'growth' && <GrowthDialog labId={labId} strain={s} open={open.open} onClose={close} onExited={exited} />}
       {open?.kind === 'add' && <AddRestrictionDialog labId={labId} strain={s} open={open.open} onClose={close} onExited={exited} />}
+      {open?.kind === 'leave' && <DeaccessionDialog labId={labId} strain={s} open={open.open} onClose={close} onExited={exited} />}
+      {open?.kind === 'propose-leave' && <ProposeDeaccessionDialog labId={labId} strain={s} open={open.open} onClose={close} onExited={exited} />}
     </>
   )
 }
