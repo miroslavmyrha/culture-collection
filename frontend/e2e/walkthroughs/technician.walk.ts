@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, acceptedStrain, api, batch, batchOf, expandUnit, freezerWithBoxes, labId, openLab, openTab, openWaiting, openUnit, vialAction, passAll, release, requestFor, searchStrain, searchVial, setupAs, supplyStrain } from './walk.js'
+import { RUN, Walk, acceptedStrain, api, batch, batchOf, expandUnit, field, freezerWithBoxes, labId, openLab, openTab, openWaiting, openUnit, vialAction, passAll, release, requestFor, rows, searchStrain, searchVial, setupAs, supplyStrain } from './walk.js'
 
 // A technician of Bacteriology (seed_dev): the bench work with batches, vials and boxes. The rows
 // each task needs are made first by the lab's curator, through the API, named for the run.
@@ -13,6 +13,12 @@ async function bench(browser: Parameters<typeof setupAs>[0], tag: string, boxes:
   const strain = await acceptedStrain(setup.page, lab, `Bacillus subtilis ${tag} ${RUN}`, 'Bacillus subtilis')
   const units = await freezerWithBoxes(setup.page, lab, `Freezer ${tag} ${RUN}`, boxes)
   return { ...setup, lab, strain, units, name: `Bacillus subtilis ${tag} ${RUN}`, freezer: `Freezer ${tag} ${RUN}` }
+}
+
+/** The vials reserved for a request, from its detail: every line's reserved vials. */
+function reservedVials(detail: unknown) {
+  const lines = typeof detail === 'object' && detail !== null ? Reflect.get(detail, 'lines') : []
+  return rows(lines).flatMap((line) => rows(line.reserved).map((v) => ({ id: field(v, 'public_id'), label: field(v, 'label') })))
 }
 
 test('T1 preserve a fresh batch and put it in a box', async ({ browser }, info) => {
@@ -198,11 +204,14 @@ test('T8 record a viability check of a batch', async ({ browser }, info) => {
 })
 
 test('T9 pull vials for an outgoing shipment', async ({ browser }, info) => {
-  // An approved request of this run: two vials of a strain of its own are reserved for it.
+  // An approved request of this run: two vials of a strain of its own are reserved for it, and
+  // they lie in two boxes of a freezer of its own, the second vial by label in the first box.
   const setup = await setupAs(browser, 'bac-curator')
   const lab = await labId(setup.page, LAB)
   const strain = await supplyStrain(setup.page, lab, `Bacillus subtilis pull ${RUN}`, 'Bacillus subtilis')
   const made = await batchOf(setup.page, lab, strain.passage, 4)
+  const freezer = `Freezer pull ${RUN}`
+  const units = await freezerWithBoxes(setup.page, lab, freezer, ['Box 1', 'Box 2'])
   await setup.close()
   const checker = await setupAs(browser, 'bac-technician')
   await passAll(checker.page, lab, made.id, made.vials[0]?.id ?? '')
@@ -211,7 +220,14 @@ test('T9 pull vials for an outgoing shipment', async ({ browser }, info) => {
   await release(curator.page, lab, made.id)
   const request = await requestFor(curator.page, lab, strain.id, 2, `Pull for walkthrough ${RUN}.`)
   await api(curator.page, lab, `requests/${request.id}/approve/`, { reason: '' })
+  const detail = await api(curator.page, lab, `requests/${request.id}/`)
+  const reserved = reservedVials(detail).toSorted((a, b) => a.label.localeCompare(b.label, 'en', { numeric: true }))
   await curator.close()
+  const placer = await setupAs(browser, 'bac-technician')
+  const [first, second] = reserved
+  await api(placer.page, lab, `vials/${first?.id ?? ''}/place/`, { box: units.boxes[1], row: 1, col: 1 })
+  await api(placer.page, lab, `vials/${second?.id ?? ''}/place/`, { box: units.boxes[0], row: 2, col: 4 })
+  await placer.close()
 
   const w = await Walk.as(browser, info, 'bac-technician', technician('T9', 'Pull two vials for an outgoing shipment'))
   await w.start()
@@ -219,10 +235,13 @@ test('T9 pull vials for an outgoing shipment', async ({ browser }, info) => {
   await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Requests' }))
   await w.choose(w.page.getByRole('combobox', { name: 'Status' }), 'Approved, vials reserved')
   await w.click(w.page.getByRole('table', { name: 'Requests' }).getByRole('link', { name: `Request ${request.number}` }))
-  const reserved = w.page.getByRole('table', { name: 'Strains' }).getByRole('row').nth(1).getByRole('cell').nth(4)
-  await expect(reserved).toHaveText(/ \/ 1 \/ \d+; /)
-  await w.read(reserved)
-  w.impossible('No shipment yet (#18 part B), and the request lists the reserved vials by label only: where each lies is found on the strain page, vial by vial', '#18')
+  // The vials to pull, in the order of one walk through the storage: Box 1 before Box 2.
+  const table = w.page.getByRole('table', { name: 'Vials to pull' })
+  const pulled = table.getByRole('row')
+  await expect(pulled).toHaveCount(3)
+  await expect(pulled.nth(1)).toHaveText(`1${second?.label ?? ''}${freezer} / Rack 1 / Box 1, B4`)
+  await expect(pulled.nth(2)).toHaveText(`2${first?.label ?? ''}${freezer} / Rack 1 / Box 2, A1`)
+  await w.read(table)
   await w.done()
 })
 
