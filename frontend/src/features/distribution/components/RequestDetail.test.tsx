@@ -1,15 +1,16 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '@/lib/api'
 import { allowConsole } from '@/test/console'
-import { makeAcceptance, makeFinding, makeLab, makeMe, makePreparation, makeRequest, makeRequestLine, makeShipment, makeShipmentDocument, problem, validationProblem } from '@/test/factories'
+import { makeAcceptance, makeFinding, makeLab, makeMe, makePreparation, makeRequest, makeRequestLine, makeShipment, makeShipmentDocument, makeVial, problem, validationProblem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const REQUEST_ID = '00000000-0000-4000-8000-0000000000a1'
 const DETAIL = '/api/v1/labs/{lab_public_id}/requests/{public_id}/'
+const VIALS = '/api/v1/labs/{lab_public_id}/requests/{public_id}/vials/'
 const ACTION = (name: 'approve' | 'reject' | 'cancel' | 'ship' | 'prepare-shipment' | 'confirm-shipment' | 'withdraw-shipment') => `/api/v1/labs/{lab_public_id}/requests/{public_id}/${name}/` as const
 
 function signedIn(role: 'viewer' | 'technician' | 'curator' | 'manager' = 'curator') {
@@ -35,6 +36,20 @@ async function fillPerson(user: ReturnType<typeof userEvent.setup>, dialog: HTML
   await user.type(within(dialog).getByRole('textbox', { name: 'Phone of the responsible person' }), '+420 555 000 111')
   await user.type(within(dialog).getByRole('textbox', { name: 'Carrier' }), 'Example Courier')
 }
+
+/** A request in `status` opened by a technician; answers the requests for its vials to pull. */
+function reservedOn(status: 'approved' | 'awaiting_confirmation' | 'submitted' | 'shipped' | 'cancelled') {
+  signedIn('technician')
+  const asked = mockApi('get', VIALS, [makeVial({ label: 'MYC 3 / 1 / 1', status: 'reserved', placed: true, location_masked: true })])
+  mockApi('get', DETAIL, request({ status, decided_by: 'curator', decided_at: '2026-10-20T10:00:00Z', preparations: status === 'awaiting_confirmation' ? [preparation()] : [] }))
+  open()
+  return asked
+}
+
+// While vials are reserved the page lists where they lie (#143): none, unless a test says.
+beforeEach(() => {
+  mockApi('get', VIALS, [])
+})
 
 describe('the request page', { timeout: 20_000 }, () => {
   it('shows what is asked, the strains with their pinned terms and the findings by severity', async () => {
@@ -118,6 +133,30 @@ describe('the request page', { timeout: 20_000 }, () => {
     await user.click(screen.getByRole('button', { name: 'Cancel the request' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Cancel request 2026/7?' })
     expect(dialog).toHaveAccessibleDescription(/its reserved vial is available again/)
+  })
+
+  it.each(['approved', 'awaiting_confirmation'] as const)('lists the vials to pull with their places while the request is %s', async (status) => {
+    reservedOn(status)
+    const section = await screen.findByRole('region', { name: 'Vials to pull' }, { timeout: 5000 })
+    expect(await within(section).findByRole('row', { name: '1 MYC 3 / 1 / 1 Hidden: regulated strain' })).toBeInTheDocument()
+  })
+
+  it.each(['submitted', 'shipped', 'cancelled'] as const)('lists no vials to pull and asks for none while the request is %s', async (status) => {
+    const asked = reservedOn(status)
+    expect(await screen.findByRole('heading', { level: 1, name: 'Request 2026/7' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Vials to pull' })).not.toBeInTheDocument()
+    expect(asked).toHaveLength(0)
+  })
+
+  it('keeps one page title while the vials to pull load and when they fail', async () => {
+    allowConsole(/API error 500/)
+    signedIn('technician')
+    mockApiError('get', VIALS, 500)
+    mockApi('get', DETAIL, request({ status: 'approved', decided_by: 'curator', decided_at: '2026-10-20T10:00:00Z' }))
+    open()
+    expect(await screen.findByText(/Could not load the vials to pull/, {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(document.title).toBe('Request 2026/7 | Culture collection')
+    expect(document.querySelectorAll('title')).toHaveLength(1)
   })
 
   it('shows a viewer the request, the acceptances without the signer, and no action', async () => {

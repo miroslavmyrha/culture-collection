@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { requestKeys } from '@/features/distribution/api/keys'
 import { strainKeys } from '@/features/strains/api/keys'
 import { vialKeys } from '@/features/vials/api/keys'
@@ -197,12 +197,21 @@ const STRAIN_WRITES: [string, (user: UserEvent) => Promise<void>][] = [
   ],
 ]
 
+// The vials to pull of a request (#143) lie under the box grids: what changes a grid changes them.
+const pulled = (requestId = '00000000-0000-4000-8000-0000000000a9') => vialKeys.request(LAB_ID, requestId)
+
+// A request page lists the vials to pull while vials are reserved (#143): none, unless a case says.
+beforeEach(() => {
+  mockApi('get', '/api/v1/labs/{lab_public_id}/requests/{public_id}/vials/', [])
+})
+
 // Each case renders the strain page with its tables and runs a write and its refetch: real work (#60).
 describe('a write refreshes the data other features show', { timeout: 90_000 }, () => {
   it.each(STRAIN_WRITES.filter(([name]) => name !== 'ending a restriction'))("%s on the strain page refetches the strain's material and marks the lab's box grids stale", async (_, write) => {
     const { client, user } = await openStrainPage('manager')
     const grid = vialKeys.box(LAB_ID, box.public_id)
     client.setQueryData(grid, makeBoxGrid({ public_id: box.public_id }))
+    client.setQueryData(pulled(), [masked])
     const vials = mockApi('get', VIALS, page([masked]))
     const passages = mockApi('get', PASSAGES, page([makePassage({ number: 0 })]))
     await write(user)
@@ -210,6 +219,8 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     expect(vials).toHaveLength(1)
     expect(passages).toHaveLength(1)
     expect(client.getQueryState(grid)?.isInvalidated).toBe(true)
+    // A vial placed, moved or masked: a request's vials to pull show it (#143).
+    expect(client.getQueryState(pulled())?.isInvalidated).toBe(true)
   })
 
   it("ending a restriction on Overview marks the strain's material and the box grids stale", async () => {
@@ -477,7 +488,9 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     ['cancelling', 'Cancel the request', 'Cancel the request', 'cancel', 'available'],
     ['shipping', 'Ship the vials', 'Ship', 'ship', 'distributed'],
   ] as const)('%s a request refreshes the vials the strain page shows', async (_, trigger, confirm, action, status) => {
-    const { router, user } = await openStrainPage('curator', free, located())
+    const { client, router, user } = await openStrainPage('curator', free, located())
+    // Another request's vials to pull (#143): its vials may be the ones reserved or freed.
+    client.setQueryData(pulled(), [located()])
     const REQUEST_ID = '00000000-0000-4000-8000-0000000000a1'
     const request = makeRequest({ public_id: REQUEST_ID, number: '2026/7', status: action === 'approve' ? 'submitted' : 'approved' })
     mockApi('get', '/api/v1/labs/{lab_public_id}/requests/{public_id}/', request)
@@ -496,6 +509,7 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     const vials = strainPage(free, { ...located(), status })
     await user.click(within(dialog).getByRole('button', { name: confirm }))
     await waitFor(() => expect(done).toHaveLength(1))
+    await waitFor(() => expect(client.getQueryState(pulled())?.isInvalidated).toBe(true))
     await router.navigate(toTab('material'))
     // Within the stale time: only an invalidation makes the page ask again.
     await waitFor(() => expect(vials).toHaveLength(1), { timeout: 15_000 })

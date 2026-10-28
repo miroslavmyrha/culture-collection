@@ -24,4 +24,11 @@ export const vialKeys = {
   checks: (labId: string, strainId: string, batchId: string) => [...vialKeys.strain(labId, strainId), 'checks', batchId] as const,
   boxGrids: sharedKeys.boxGrids,
   box: (labId: string, boxId: string) => [...vialKeys.boxGrids(labId), boxId] as const,
+  /**
+   * The vials reserved for a request, with their places (#143). Under boxGrids: every write that
+   * changes what a box grid shows (a vial placed, moved or out of its box, a strain masked or
+   * unmasked, a storage unit renamed, a grant given or revoked) changes this list too, and so do
+   * the request writes that reserve or release vials (they invalidate the lab's material).
+   */
+  request: (labId: string, requestId: string) => [...vialKeys.boxGrids(labId), 'request', requestId] as const,
 }

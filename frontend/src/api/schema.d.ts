@@ -910,6 +910,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/requests/{public_id}/vials/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The vials reserved for the request with their places, in the order one walk through
+         *     the storage picks them up (#143). Shown as the lab's vial list shows them: a regulated
+         *     vial's place is masked for every reader, and a holder of the location grant reveals it
+         *     through the vial's reveal-location action (ADR 0009).
+         */
+        get: operations["labs_requests_vials_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/requests/{public_id}/withdraw-shipment/": {
         parameters: {
             query?: never;
@@ -3903,7 +3925,7 @@ export interface components {
         Use: "research_noncommercial" | "research_commercial" | "teaching" | "diagnostics" | "production" | "reference_qc" | "patent_deposit_related" | "redistribution";
         /**
          * @description Context: `paths`, the box paths of the rows shown (selectors.box_paths), and
-         *     `may_reveal`, whether the reader holds the lab's location grant.
+         *     `may_reveal`, whether the reader holds the lab's location grant: vial_context.
          */
         VialOutput: {
             /** Format: uuid */
@@ -8697,6 +8719,60 @@ export interface operations {
             };
             /** @description shipment_blocked: a gate of the policy blocks the shipment on the ship day (the detail lists them); second_person_required: a regulated line is prepared and confirmed by a second person; ship_in_one_step: no line is regulated, so nothing is prepared */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requests_vials_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VialOutput"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

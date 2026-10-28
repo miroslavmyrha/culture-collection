@@ -39,6 +39,8 @@ from cultures.labs import selectors as labs
 from cultures.labs.access import access_of
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
+from cultures.lineage.api.serializers import VialOutputSerializer, vial_context
+from cultures.lineage.selectors import walk_order
 
 from .serializers import (
     AcceptanceInputSerializer,
@@ -343,6 +345,8 @@ class RequestViewSet(LabNested):
         "prepare_shipment": Perm.MANAGE_DISTRIBUTION,
         "confirm_shipment": Perm.MANAGE_DISTRIBUTION,
         "withdraw_shipment": Perm.MANAGE_DISTRIBUTION,
+        # Vials and their places: what the lab's vial list needs (#143).
+        "vials": Perm.VIEW_STRAINS,
     }
     filterset_class = RequestFilter
 
@@ -353,7 +357,7 @@ class RequestViewSet(LabNested):
 
     def scoped_queryset(self) -> QuerySet[Any]:
         access = access_of(self.request)
-        if self.action == "list":
+        if self.action in ("list", "vials"):
             return selectors.request_list(access=access, lab=self.lab)
         return selectors.request_detail(access=access, lab=self.lab)
 
@@ -377,6 +381,24 @@ class RequestViewSet(LabNested):
 
     def retrieve(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return self._answer(self.get_object())  # loaded through request_detail already
+
+    @extend_schema(responses={200: VialOutputSerializer(many=True)})
+    # Every reserved vial in one answer (at most 20 lines of 50), no page and no request filter.
+    @action(
+        detail=True, methods=["get"], url_path="vials", pagination_class=None, filter_backends=[]
+    )
+    def vials(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """The vials reserved for the request with their places, in the order one walk through
+        the storage picks them up (#143). Shown as the lab's vial list shows them: a regulated
+        vial's place is masked for every reader, and a holder of the location grant reveals it
+        through the vial's reveal-location action (ADR 0009)."""
+        target: DistributionRequest = self.get_object()
+        access = access_of(request)
+        rows = walk_order(selectors.reserved_vials(access=access, lab=self.lab, request=target))
+        context = vial_context(
+            self.get_serializer_context(), lab=self.lab, user=access.user, vials=rows
+        )
+        return Response(VialOutputSerializer(rows, many=True, context=context).data)
 
     @extend_schema(
         request=RequestInputSerializer,

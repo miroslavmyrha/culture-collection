@@ -4486,6 +4486,64 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/requests/{public_id}/vials/:
+    get:
+      operationId: labs_requests_vials_list
+      description: |-
+        The vials reserved for the request with their places, in the order one walk through
+        the storage picks them up (#143). Shown as the lab's vial list shows them: a regulated
+        vial's place is masked for every reader, and a holder of the location grant reveals it
+        through the vial's reveal-location action (ADR 0009).
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VialOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/requests/{public_id}/withdraw-shipment/:
     post:
       operationId: labs_requests_withdraw_shipment_create
@@ -13699,7 +13757,7 @@ components:
       type: object
       description: |-
         Context: `paths`, the box paths of the rows shown (selectors.box_paths), and
-        `may_reveal`, whether the reader holds the lab's location grant.
+        `may_reveal`, whether the reader holds the lab's location grant: vial_context.
       properties:
         public_id:
           type: string

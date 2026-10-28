@@ -30,7 +30,13 @@ import { AcceptanceDialog, ApproveDialog, CancelDialog, ConfirmShipmentDialog, R
 import { scrollable } from './scroll'
 import { ShipmentDocuments } from './ShipmentDocuments'
 
-type Props = { labId: string; requestId: string; role: Role }
+type Props = {
+  labId: string
+  requestId: string
+  role: Role
+  /** Where the reserved vials lie (#143): the page composes the vials feature here. */
+  renderVials?: (request: Request) => ReactNode
+}
 type Kind = 'approve' | 'reject' | 'cancel' | 'acceptance' | 'ship' | 'prepare' | 'confirm' | 'withdraw'
 type Open = { kind: Kind; open: boolean; preparation?: Preparation } | null
 
@@ -39,13 +45,14 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('sv')
 /**
  * One request: who asks for what and why, each strain with the terms and MTA it was entered
  * under, what the policy finds while it waits, the MTA acceptances, and the decision. After an
- * approval each line lists the vials reserved for it, after the shipment the vials sent, by label
- * only: no place (ADR 0009). A shipped request shows the shipment's facts; its responsible person
+ * approval each line lists the vials reserved for it, after the shipment the vials sent, by label.
+ * While vials are reserved, "Vials to pull" (renderVials) lists them with their places, in the
+ * order of one walk through the storage, masked for a regulated strain (#143, ADR 0009). A shipped request shows the shipment's facts; its responsible person
  * only to those who may see people. A regulated request leaves in two steps (#89): the shipment
  * prepared by one person waits for a second, who sees it before confirming; a withdrawn
  * preparation stays listed. A shipped request lists the documents written with it (#90).
  */
-export function RequestDetail({ labId, requestId, role }: Props) {
+export function RequestDetail({ labId, requestId, role, renderVials }: Props) {
   const request = useRequest(labId, requestId)
   const [open, setOpen] = useState<Open>(null)
   const spot = useRef<FocusReturn | null>(null)
@@ -115,6 +122,8 @@ export function RequestDetail({ labId, requestId, role }: Props) {
       <Section title="Strains">
         <Lines lines={r.lines} shipped={r.status === 'shipped'} />
       </Section>
+
+      {renderVials && (r.status === 'approved' || r.status === 'awaiting_confirmation') && <Section title="Vials to pull">{renderVials(r)}</Section>}
 
       {r.status === 'submitted' && (
         <Section title="What stands in the way">

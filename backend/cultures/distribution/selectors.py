@@ -1,7 +1,9 @@
 """Reads of distribution. Every one takes the access object, so the lab scope is in the signature.
 
 Requests are read with distribution.view (viewers and up): what is asked for, what was decided,
-which vials are reserved (labels, never a place: ADR 0009). Requesters, their permits, the
+which vials are reserved (labels in the detail). Where the reserved vials lie is read like any
+vial list (reserved_vials, #143): through lineage's vial_list, so a regulated vial's place is
+masked there as everywhere (ADR 0009). Requesters, their permits, the
 signers of MTAs and every document reach a person, so they need distribution.view_requesters
 (curators and up), as deposits do.
 """
@@ -13,6 +15,8 @@ from django.db.models import Count, Exists, OuterRef, Prefetch, Q, QuerySet, Sum
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
+from cultures.lineage.models import Vial
+from cultures.lineage.selectors import vial_list
 from cultures.strains.models import Strain
 from cultures.strains.selectors import regulating_restrictions
 
@@ -214,6 +218,15 @@ def request_detail(*, access: Access, lab: Lab) -> QuerySet[DistributionRequest]
                 to_attr="preparation_list",
             ),
         )
+    )
+
+
+def reserved_vials(*, access: Access, lab: Lab, request: DistributionRequest) -> QuerySet[Vial]:
+    """The vials reserved for the request now (open reservations), as lineage's vial_list reads
+    them: each with `regulated` and its open placement, for VialOutputSerializer and
+    lineage.selectors.walk_order. A shipped or cancelled request has none."""
+    return vial_list(access=access, lab=lab).filter(
+        reservations__line__request=request, reservations__ended_at__isnull=True
     )
 
 
