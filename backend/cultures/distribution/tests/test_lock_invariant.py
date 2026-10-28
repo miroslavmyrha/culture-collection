@@ -38,6 +38,7 @@ DECISIONS = {
     "request_reject",
     "request_cancel",
     "acceptance_record",
+    "depositor_answer_record",
     "request_ship",
     "request_prepare_shipment",
     "request_confirm_shipment",

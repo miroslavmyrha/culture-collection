@@ -26,6 +26,7 @@ from cultures.distribution.models import (
     MAX_VIALS_PER_LINE,
     ClassificationBasis,
     Coolant,
+    DepositorAnswer,
     DistributionRequest,
     Document,
     DocumentType,
@@ -66,6 +67,12 @@ def lab_requesters(request: Request) -> QuerySet[Requester]:
 
 def lab_strains(request: Request) -> QuerySet[Strain]:
     return Strain.objects.for_access(access_of(request), Perm.MANAGE_DISTRIBUTION).filter(
+        lab=_lab(request)
+    )
+
+
+def lab_lines(request: Request) -> QuerySet[RequestLine]:
+    return RequestLine.objects.for_access(access_of(request), Perm.MANAGE_DISTRIBUTION).filter(
         lab=_lab(request)
     )
 
@@ -284,6 +291,34 @@ class ApprovedPermitSerializer(serializers.Serializer[None]):
     reference = serializers.CharField(source="permit.reference")
 
 
+class DepositorAnswerOutputSerializer(serializers.ModelSerializer[DepositorAnswer]):
+    """The depositor's answer on a line (#144). Every member reads the answer, its day and the
+    note (it names nobody); the file only a caller who may view requesters: a letter or an
+    e-mail names its writer."""
+
+    recorded_by = serializers.CharField(source="recorded_by.username", read_only=True)
+    document = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DepositorAnswer
+        fields = (
+            "public_id",
+            "agreed",
+            "answered_on",
+            "note",
+            "document",
+            "recorded_by",
+            "recorded_at",
+        )
+        read_only_fields = fields
+
+    @extend_schema_field(DocumentOutputSerializer(allow_null=True))
+    def get_document(self, answer: DepositorAnswer) -> dict[str, Any] | None:
+        if answer.document is None or not self.context.get("show_people"):
+            return None
+        return dict(DocumentOutputSerializer(answer.document).data)
+
+
 class LineOutputSerializer(serializers.ModelSerializer[RequestLine]):
     strain = LineStrainSerializer(read_only=True)
     terms_version = serializers.IntegerField(source="terms.version", read_only=True)
@@ -291,6 +326,9 @@ class LineOutputSerializer(serializers.ModelSerializer[RequestLine]):
     reserved = ReservedVialSerializer(source="open_reservations", many=True, read_only=True)
     shipped = ReservedVialSerializer(source="shipped_vial_list", many=True, read_only=True)
     permits = ApprovedPermitSerializer(source="approved_permits", many=True, read_only=True)
+    # The pinned terms leave the request's use on request to the depositor (#144).
+    on_request = serializers.BooleanField(read_only=True)
+    depositor_answer = serializers.SerializerMethodField()
 
     class Meta:
         model = RequestLine
@@ -303,8 +341,17 @@ class LineOutputSerializer(serializers.ModelSerializer[RequestLine]):
             "reserved",
             "shipped",
             "permits",
+            "on_request",
+            "depositor_answer",
         )
         read_only_fields = fields
+
+    @extend_schema_field(DepositorAnswerOutputSerializer(allow_null=True))
+    def get_depositor_answer(self, line: RequestLine) -> dict[str, Any] | None:
+        answer = getattr(line, "depositor_answer", None)  # a reverse one-to-one: absent raises
+        if answer is None:
+            return None
+        return dict(DepositorAnswerOutputSerializer(answer, context=self.context).data)
 
 
 class AcceptanceOutputSerializer(serializers.ModelSerializer[MtaAcceptance]):
@@ -608,3 +655,16 @@ class AcceptanceInputSerializer(serializers.Serializer[None]):
     authorised_signatory = serializers.BooleanField()
     accepted_on = serializers.DateField()
     file = serializers.FileField(allow_empty_file=False)
+
+
+class DepositorAnswerInputSerializer(serializers.Serializer[None]):
+    """Sent as multipart/form-data, with the depositor's letter or e-mail as a file, a note, or
+    both."""
+
+    line = ScopedRelatedField(model=RequestLine, scope=lab_lines)
+    agreed = serializers.BooleanField()
+    answered_on = serializers.DateField()
+    note = serializers.CharField(
+        max_length=2000, required=False, allow_blank=True, default="", help_text=TEXT_HELP
+    )
+    file = serializers.FileField(required=False, allow_null=True, default=None)

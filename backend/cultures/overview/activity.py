@@ -146,6 +146,9 @@ SHOWN: dict[str, Shown] = {
     "mta_acceptance_recorded": Shown(
         RQ, "recorded an acceptance of the MTA for {subject}", REQUEST
     ),
+    # The answer and its note name nobody; its file is opened on the request by those who
+    # read requesters (#144).
+    "depositor_answer_recorded": Shown(R, "recorded the depositor's answer for {subject}", REQUEST),
     "request_approved": Shown(R, "approved {subject}", REQUEST),
     "request_line_reserved": Shown(R, "reserved vials for {subject}", REQUEST),
     "request_rejected": Shown(R, "rejected {subject}", REQUEST),

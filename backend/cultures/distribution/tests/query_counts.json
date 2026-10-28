@@ -1,6 +1,7 @@
 {
   "permit_list": 6,
-  "request_detail": 19,
+  "request_detail": 20,
+  "request_detail_answered": 20,
   "request_detail_approved": 12,
   "request_detail_awaiting": 12,
   "request_detail_shipped": 13,

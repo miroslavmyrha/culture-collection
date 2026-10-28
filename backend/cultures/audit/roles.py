@@ -97,6 +97,8 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     "distribution_linepermit": ("SELECT", "INSERT"),
     "distribution_mtaacceptance": ("SELECT", "INSERT"),
     "distribution_vialreservation": ("SELECT", "INSERT", "UPDATE"),
+    # #144: a depositor's answer is only added (frozen by its trigger).
+    "distribution_depositoranswer": ("SELECT", "INSERT"),
     # #88: a shipment and its vials are only added (frozen by triggers).
     "distribution_shipment": ("SELECT", "INSERT"),
     "distribution_shipmentvial": ("SELECT", "INSERT"),

@@ -36,6 +36,11 @@ class AcceptanceExists(Conflict):
     default_detail = "An acceptance of this MTA version is recorded for this request already."
 
 
+class DepositorAnswerExists(Conflict):
+    default_code = "depositor_answer_exists"
+    default_detail = "The depositor's answer for this strain is recorded already."
+
+
 class RequestBlocked(RuleViolation):
     default_code = "request_blocked"
 

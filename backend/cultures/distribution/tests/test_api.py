@@ -9,6 +9,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from cultures.audit.context import AuditContext
 from cultures.core.testing import QueryBaseline, assert_problem, logged_in
+from cultures.deposits.models import Use
 from cultures.deposits.tests.support import DUAL_USE
 from cultures.distribution import services
 from cultures.distribution.models import DistributionRequest, PermitKind, Requester
@@ -18,6 +19,7 @@ from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
 
 from .support import (
+    ON_REQUEST_USES,
     PDF,
     PERMITS_URL,
     REQUESTERS_URL,
@@ -27,6 +29,7 @@ from .support import (
     Supply,
     accept_mtas,
     add_permit,
+    answer,
     approve,
     as_actor,
     prepare,
@@ -678,3 +681,132 @@ def test_the_detail_of_a_request_awaiting_confirmation_has_an_exact_query_count(
     with query_baseline("request_detail_awaiting"):
         response = client.get(detail(request))
     assert len(response.json()["preparations"]) == 2
+
+
+# The depositor's answer (#144).
+
+
+def commercial(curator: User, lab: Lab, requester: Requester, supply: Supply) -> Any:
+    """A request for commercial research, left on request to the depositor, its MTA accepted."""
+    request = submit(
+        curator, lab, requester, [(supply(uses=ON_REQUEST_USES), 1)], use=Use.RESEARCH_COMMERCIAL
+    )
+    accept_mtas(curator, request)
+    return request
+
+
+def answer_body(request: DistributionRequest, **changes: Any) -> dict[str, Any]:
+    return {
+        "line": str(request.lines.get().public_id),
+        "agreed": "true",
+        "answered_on": "2026-10-02",
+        "note": "The depositor's e-mail of the same day.",
+        "file": SimpleUploadedFile("answer.pdf", PDF, "application/pdf"),
+        **changes,
+    }
+
+
+def test_a_yes_is_sent_with_its_file_and_read_on_the_line(
+    *,
+    as_curator: AuditContext,
+    curator: User,
+    viewer: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+) -> None:
+    request = commercial(curator, lab, requester, supply)
+    before = logged_in(curator).get(detail(request)).json()
+    assert before["lines"][0]["on_request"] is True
+    assert before["lines"][0]["depositor_answer"] is None
+    assert [f["code"] for f in before["findings"]] == ["use_on_request"]
+    response = logged_in(curator).post(f"{detail(request)}depositor-answers/", answer_body(request))
+    assert response.status_code == 201, response.content
+    body = response.json()
+    assert (body["status"], body["findings"]) == ("submitted", [])
+    given = body["lines"][0]["depositor_answer"]
+    assert (given["agreed"], given["answered_on"], given["note"], given["recorded_by"]) == (
+        True,
+        "2026-10-02",
+        "The depositor's e-mail of the same day.",
+        curator.username,
+    )
+    assert given["document"]["content_type"] == "application/pdf"
+    file = logged_in(curator).get(
+        f"/api/v1/labs/{lab.public_id}/documents/{given['document']['public_id']}/"
+    )
+    assert file.content == PDF
+    seen = logged_in(viewer).get(detail(request)).json()["lines"][0]["depositor_answer"]
+    assert (seen["agreed"], seen["note"], seen["document"]) == (
+        True,
+        "The depositor's e-mail of the same day.",
+        None,
+    )
+
+
+def test_a_no_answers_with_the_request_rejected(
+    *, as_curator: AuditContext, curator: User, lab: Lab, requester: Requester, supply: Supply
+) -> None:
+    request = commercial(curator, lab, requester, supply)
+    response = logged_in(curator).post(
+        f"{detail(request)}depositor-answers/",
+        answer_body(request, agreed="false", note="Not for a company."),
+    )
+    assert response.status_code == 201, response.content
+    body = response.json()
+    number = request.lines.get().strain.accession_number
+    assert (body["status"], body["decided_by"], body["decision_reason"]) == (
+        "rejected",
+        curator.username,
+        f"The depositor declined commercial research of {number} (answer of 2026-10-02):"
+        " Not for a company.",
+    )
+    assert body["lines"][0]["depositor_answer"]["agreed"] is False
+
+
+def test_an_answer_for_a_permitted_use_is_refused_on_its_line(
+    *, as_curator: AuditContext, curator: User, lab: Lab, requester: Requester, supply: Supply
+) -> None:
+    request = submit(curator, lab, requester, [(supply(), 1)])
+    assert logged_in(curator).get(detail(request)).json()["lines"][0]["on_request"] is False
+    response = logged_in(curator).post(f"{detail(request)}depositor-answers/", answer_body(request))
+    assert_problem(response, 400, "not_on_request", attr="line")
+
+
+def test_an_answer_without_a_file_or_a_note_is_refused_on_the_note(
+    *, as_curator: AuditContext, curator: User, lab: Lab, requester: Requester, supply: Supply
+) -> None:
+    request = commercial(curator, lab, requester, supply)
+    body = answer_body(request, note="")
+    del body["file"]
+    response = logged_in(curator).post(f"{detail(request)}depositor-answers/", body)
+    assert_problem(response, 400, "invalid", attr="note")
+    second = answer_body(request, file=SimpleUploadedFile("a.gif", b"GIF89a", "image/gif"))
+    response = logged_in(curator).post(f"{detail(request)}depositor-answers/", second)
+    assert_problem(response, 400, "invalid", attr="file")
+
+
+@pytest.mark.parametrize("lines", [1, 4])
+def test_the_detail_of_answered_lines_keeps_its_query_count(
+    *,
+    lines: int,
+    as_curator: AuditContext,
+    curator: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+    query_baseline: QueryBaseline,
+) -> None:
+    strains = [supply(uses=ON_REQUEST_USES) for _ in range(lines)]
+    request = submit(
+        curator, lab, requester, [(s, 1) for s in strains], use=Use.RESEARCH_COMMERCIAL
+    )
+    accept_mtas(curator, request)
+    for line in request.lines.order_by("pk"):
+        answer(curator, request, line_id=line.pk)
+    client = logged_in(curator)
+    with query_baseline("request_detail_answered"):
+        response = client.get(detail(request))
+    body = response.json()
+    assert body["findings"] == []
+    assert all(line["depositor_answer"]["document"] for line in body["lines"])

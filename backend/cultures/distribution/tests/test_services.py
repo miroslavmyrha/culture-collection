@@ -758,6 +758,16 @@ SCENARIOS: dict[str, Callable[..., object]] = {
             document=services.DocumentInput(PDF),
         ),
     ),
+    "depositor_answer_record": lambda a, f: services.depositor_answer_record(
+        access=a,
+        request=f["on_request"],
+        data=services.DepositorAnswerInput(
+            line_id=f["on_request_line"],
+            agreed=True,
+            answered_on=date(2026, 10, 2),
+            note="The depositor's e-mail of the same day.",
+        ),
+    ),
     "request_approve": lambda a, f: services.request_approve(access=a, request=f["accepted"]),
     "request_reject": lambda a, f: services.request_reject(
         access=a, request=f["request"], reason="r"

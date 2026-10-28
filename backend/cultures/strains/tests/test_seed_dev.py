@@ -525,7 +525,7 @@ def test_requesters_get_their_registered_office() -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("env")
-def test_the_requests_one_approvable_one_for_a_manager_one_blocked_two_ready_two_shipped() -> None:
+def test_the_requests_one_approvable_one_on_request_one_blocked_two_ready_two_shipped() -> None:
     seed()
     found = {
         r.end_use: {f.code: f.severity for f in evaluate(r, permit_today()).findings}
@@ -535,7 +535,8 @@ def test_the_requests_one_approvable_one_for_a_manager_one_blocked_two_ready_two
         row["end_use"] for row in DATA["requests"]
     )
     assert found[approvable] == {}
-    assert found[on_request] == {"use_on_request": "manager"}
+    # Commercial research on request to the depositor, no answer recorded yet (#144).
+    assert found[on_request] == {"use_on_request": "block"}
     assert found[blocked]["rat_notice_missing"] == "block"
     # Approved, its vial reserved: the gates on the ship day find nothing, it is not regulated.
     assert found[ready] == {}

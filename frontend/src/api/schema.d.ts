@@ -862,6 +862,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/requests/{public_id}/depositor-answers/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_requests_depositor_answers_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/requests/{public_id}/prepare-shipment/": {
         parameters: {
             query?: never;
@@ -2346,6 +2362,41 @@ export interface components {
          * @enum {string}
          */
         DepositStatus: "received" | "checking" | "accepted" | "rejected";
+        /**
+         * @description Sent as multipart/form-data, with the depositor's letter or e-mail as a file, a note, or
+         *     both.
+         */
+        DepositorAnswerInputRequest: {
+            /** Format: uuid */
+            line: string;
+            agreed: boolean;
+            /** Format: date */
+            answered_on: string;
+            /**
+             * @description Stored for good: name no person.
+             * @default
+             */
+            note: string;
+            /** Format: binary */
+            file?: string | null;
+        };
+        /**
+         * @description The depositor's answer on a line (#144). Every member reads the answer, its day and the
+         *     note (it names nobody); the file only a caller who may view requesters: a letter or an
+         *     e-mail names its writer.
+         */
+        DepositorAnswerOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly agreed: boolean;
+            /** Format: date */
+            readonly answered_on: string;
+            readonly note: string;
+            readonly document: components["schemas"]["DocumentOutput"] | null;
+            readonly recorded_by: string;
+            /** Format: date-time */
+            readonly recorded_at: string;
+        };
         DepositorBrief: {
             /** Format: uuid */
             readonly public_id: string;
@@ -2573,6 +2624,8 @@ export interface components {
             readonly reserved: components["schemas"]["ReservedVial"][];
             readonly shipped: components["schemas"]["ReservedVial"][];
             readonly permits: components["schemas"]["ApprovedPermit"][];
+            readonly on_request: boolean;
+            readonly depositor_answer: components["schemas"]["DepositorAnswerOutput"] | null;
         };
         LineStrain: {
             /** Format: uuid */
@@ -7495,7 +7548,7 @@ export interface operations {
                     "application/json": components["schemas"]["PermitOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a line whose terms do not leave the use on request (not_on_request), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7617,7 +7670,7 @@ export interface operations {
                     "application/json": components["schemas"]["PermitOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a line whose terms do not leave the use on request (not_on_request), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7650,7 +7703,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; depositor_answer_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7761,7 +7814,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequesterOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a line whose terms do not leave the use on request (not_on_request), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7883,7 +7936,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequesterOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a line whose terms do not leave the use on request (not_on_request), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7916,7 +7969,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; depositor_answer_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -8028,7 +8081,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequestDetailOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a line whose terms do not leave the use on request (not_on_request), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -8061,7 +8114,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; depositor_answer_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -8167,7 +8220,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequestDetailOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a line whose terms do not leave the use on request (not_on_request), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -8200,7 +8253,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; depositor_answer_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -8244,7 +8297,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequestDetailOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a line whose terms do not leave the use on request (not_on_request), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -8277,7 +8330,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; depositor_answer_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -8330,7 +8383,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequestDetailOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a line whose terms do not leave the use on request (not_on_request), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -8363,7 +8416,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; depositor_answer_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -8416,7 +8469,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequestDetailOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a line whose terms do not leave the use on request (not_on_request), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -8450,7 +8503,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; depositor_answer_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -8461,6 +8514,82 @@ export interface operations {
             };
             /** @description shipment_blocked: a gate of the policy blocks the shipment on the ship day (the detail lists them); second_person_required: a regulated line is prepared and confirmed by a second person; ship_in_one_step: no line is regulated, so nothing is prepared */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_requests_depositor_answers_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["DepositorAnswerInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestDetailOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a line whose terms do not leave the use on request (not_on_request), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; depositor_answer_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8503,7 +8632,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequestDetailOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a line whose terms do not leave the use on request (not_on_request), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -8536,7 +8665,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; depositor_answer_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -8589,7 +8718,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequestDetailOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a line whose terms do not leave the use on request (not_on_request), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -8622,7 +8751,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; depositor_answer_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -8675,7 +8804,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequestDetailOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a line whose terms do not leave the use on request (not_on_request), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -8708,7 +8837,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; depositor_answer_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -8815,7 +8944,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequestDetailOutput"];
                 };
             };
-            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a line whose terms do not leave the use on request (not_on_request), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -8848,7 +8977,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
+            /** @description request_state: the request is no longer in the state the action starts from; acceptance_exists; depositor_answer_exists; permit_ended; contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared shipment is open than the one confirmed; preparation_exists */
             409: {
                 headers: {
                     [name: string]: unknown;

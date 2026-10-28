@@ -35,6 +35,7 @@ from cultures.strains.selectors import regulating_restrictions
 from cultures.taxonomy.models import Taxon
 
 from .models import (
+    DepositorAnswer,
     DistributionRequest,
     LinePermit,
     MtaAcceptance,
@@ -141,6 +142,8 @@ class _Facts:
     available: dict[int, int]
     # At shipment: per line, its open reservations whose vial may still go out.
     reserved: dict[int, int]
+    # Per line, what the depositor answered for a use on request (#144): agreed, and the day.
+    answers: dict[int, tuple[bool, date]]
 
 
 def _facts(request: DistributionRequest, lines: list[RequestLine], day: date) -> _Facts:
@@ -193,6 +196,12 @@ def _facts(request: DistributionRequest, lines: list[RequestLine], day: date) ->
         loa_used={row["permit_id"]: (row["quantity"], row["sendings"]) for row in usage},
         available={row["batch__strain_id"]: row["n"] for row in available},
         reserved=_reserved(request) if request.status in HOLDING else {},
+        answers={
+            line_id: (agreed, day)
+            for line_id, agreed, day in DepositorAnswer.objects.filter(
+                line_id__in=[line.pk for line in lines]
+            ).values_list("line_id", "agreed", "answered_on")
+        },
     )
 
 
@@ -323,11 +332,20 @@ class _LineCheck:
         if decision == Decision.DENY:
             self.block("use_denied", f"{self.name}: the depositor's terms do not permit {use}.")
         elif decision == Decision.ON_REQUEST:
-            self.manager(
-                "use_on_request",
-                f"{self.name}: the terms allow {use} only on request to the depositor. A manager"
-                " approves once the depositor agreed, and says so in the reason.",
-            )
+            # s3, section 6: on request passes only with a recorded approval of the depositor.
+            answer = self.facts.answers.get(self.line.pk)
+            if answer is None:
+                self.block(
+                    "use_on_request",
+                    f"{self.name}: the terms allow {use} only on request to the depositor, and no"
+                    " answer of the depositor is recorded. Record it on the strain's line.",
+                )
+            elif not answer[0]:
+                self.block(
+                    "use_declined_by_depositor",
+                    f"{self.name}: the depositor declined {use} (answer of"
+                    f" {answer[1].isoformat()}).",
+                )
 
     def mta(self) -> None:
         mta = self.line.mta
@@ -471,7 +489,8 @@ GATES: tuple[tuple[str, Severity], ...] = (
     ("abs_scope_unknown", Severity.BLOCK),
     ("abs_use_not_covered", Severity.BLOCK),
     ("use_denied", Severity.BLOCK),
-    ("use_on_request", Severity.MANAGER),
+    ("use_on_request", Severity.BLOCK),
+    ("use_declined_by_depositor", Severity.BLOCK),
     ("mta_missing", Severity.BLOCK),
     ("mta_not_accepted", Severity.BLOCK),
     ("containment_too_low", Severity.BLOCK),

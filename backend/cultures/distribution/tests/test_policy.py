@@ -110,7 +110,8 @@ def test_material_in_scope_goes_out_only_for_uses_the_mat_covers(ask: Any, suppl
     ("decision", "expected"),
     [
         (Decision.DENY, {"use_denied": Severity.BLOCK}),
-        (Decision.ON_REQUEST, {"use_on_request": Severity.MANAGER}),
+        # #144: no answer of the depositor is recorded; tests/test_depositor_answer.py records one.
+        (Decision.ON_REQUEST, {"use_on_request": Severity.BLOCK}),
         (Decision.PERMIT, {}),
     ],
 )

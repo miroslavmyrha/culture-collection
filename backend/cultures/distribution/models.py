@@ -18,6 +18,8 @@ submitted, then approved, rejected or cancelled. Its lines name a strain, a numb
 the terms and MTA version the request was entered under (pinned). The policy (policy.py) decides
 on them; approval writes the permits each line was approved against and reserves one vial per
 row, only from lineage.selectors.distributable(). Stock stays a query: there is no counter.
+Where a line's terms leave the request's use on request to the depositor, the depositor's answer
+is recorded on the line (#144): a yes lets the line pass that gate, a no rejects the request.
 
 A shipment (#88) sends all the vials an approved request reserved, at once: the transport class
 a person decided with its basis, the packing, the coolant, the responsible person (a contact),
@@ -548,6 +550,45 @@ class MtaAcceptance(PublicModel):
 
     def __str__(self) -> str:
         return f"acceptance {self.public_id}"
+
+
+class DepositorAnswer(PublicModel):
+    """What the depositor answered for one line whose pinned terms leave the request's use on
+    request to the depositor (#144, ADR 0008 amendment of 2026-10-28): yes or no, the Czech day
+    the depositor gave it, and the evidence, a document (the letter or e-mail as a file) and/or
+    a note. Recorded by a curator or a manager while the request waits for a decision, once per
+    line, never changed (the trigger). A yes lets the line pass that gate; a no rejects the
+    request in the same transaction, with the answer as the reason."""
+
+    lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="+")
+    line = models.OneToOneField(
+        RequestLine, on_delete=models.PROTECT, related_name="depositor_answer"
+    )
+    agreed = models.BooleanField()
+    answered_on = models.DateField()
+    # What the depositor said, in words a person can check. Names no person.
+    note = models.TextField(blank=True)
+    document = models.ForeignKey(
+        Document, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    recorded_at = models.DateTimeField()
+
+    objects = LabScopedQuerySet["DepositorAnswer"].as_manager()
+
+    class Meta(PublicModel.Meta):
+        constraints = [
+            *PublicModel.Meta.constraints,
+            models.CheckConstraint(
+                condition=Q(note__regex=r"\S") | Q(document__isnull=False),
+                name="distribution_depositoranswer_has_evidence",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"depositor answer {self.public_id}"
 
 
 class ReservationEnd(models.TextChoices):

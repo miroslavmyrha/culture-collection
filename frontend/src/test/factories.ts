@@ -405,6 +405,8 @@ export function makeRequestLine(overrides: Partial<RequestLine> = {}): RequestLi
     reserved: [],
     shipped: [],
     permits: [],
+    on_request: false,
+    depositor_answer: null,
     ...overrides,
   }
 }
