@@ -887,3 +887,55 @@ INSERT; `audit` 0026 adds the four event types to `audit_auditevent_reason_requi
 
 Revisit when: a single line of a request must be cancelled, the destruction record lands, or a
 strain must come back (a deaccession entered in error).
+
+## Amendment 2026-10-28: the depositor's answer for a use on request (#144)
+
+Walkthrough C9 (answer a request for commercial research) found a use the terms leave
+`on_request` could only be rejected or left waiting: a manager approved over the finding "once
+the depositor agreed, and says so in the reason", so the depositor's answer lived only in a
+sentence. The lab domain study asks for more (s3, section 6, the approval rule: "the intended use
+is `permit` in the active terms (or `on_request` with a recorded depositor approval)").
+
+- **The record** (`distribution.DepositorAnswer`): one per request line (one-to-one), only for a
+  line whose pinned terms leave the request's use on request: the answer (`agreed`, yes or no),
+  the Czech day the depositor gave it (`answered_on`, never after `permit_today()`), and the
+  evidence: the depositor's letter or e-mail as a `distribution.Document` (PDF, PNG or JPEG,
+  frozen with its SHA-256 like a signed MTA) and/or a note that names nobody; a check constraint
+  asks for at least one. Who recorded it and when. Curators and managers record it
+  (`distribution.manage`, as they record an MTA acceptance) while the request waits for a
+  decision. Never changed or deleted. A wrong answer is not corrected in place: the request is
+  cancelled and entered again, as with terms replaced after entry (a frozen record changes only
+  by a new row).
+- **The gates.** `use_on_request` becomes a blocker while no answer is recorded (it was a
+  manager finding). A yes removes it for that line only. A recorded no is
+  `use_declined_by_depositor`, a blocker. A yes changes no other finding: a regulated line still
+  needs a manager and a reason (ADR 0009). Who may approve is never lowered: before, a manager
+  approved a use on request on a reason alone; now nobody approves it without the depositor's
+  yes, and with it the other findings decide as before.
+- **A no rejects the request** in the same transaction, by the person who recorded it, with the
+  reason the service writes from the answer: "The depositor declined `<use>` of `<strain>`
+  (answer of `<day>`): `<note>`". Lines are not rejected one by one (amendment of 2026-10-27): a
+  new request for the other strains starts again.
+- **The database holds it.** The trigger of `distribution_depositoranswer` refuses UPDATE and
+  DELETE and, on insert, asks the line, its request and the document to be of the row's lab, the
+  request to be submitted, and the pinned terms' decision for the request's use to be
+  `on_request`. That last rule is written twice, in the trigger and in the service
+  (`not_on_request`): a test builds every decision a terms use may have and asserts both agree
+  (ADR 0010, proposed). The approval itself stays a service rule: the request trigger holds the
+  status edges and a decision written once, and no gate of the policy (terms, MTA acceptance,
+  permits) is in SQL; this one does not start that. The runtime role has SELECT and INSERT.
+- **Who reads what.** Every member reads the answer, its day, the note and who recorded it on the
+  request (they name nobody); the file only those who read requesters
+  (`distribution.view_requesters`), as a signed MTA: a letter names its writer.
+- **Events.** `depositor_answer_recorded` on the request line, with its strain (D13): the answer,
+  the day, the note and the file's public id and SHA-256. A no adds `request_rejected` with the
+  reason. Home shows it to those who read requests.
+
+Migration impact: additive. `distribution` 0012 creates the table; 0013 attaches its row audit
+and the trigger. Reversible while no answer exists: `migrate distribution 0011`. The stricter gate
+needs no migration: a request already waiting with a use on request is blocked until its answer
+is recorded (seed_dev's request for commercial research is one).
+
+Revisit when: depositors answer through a portal, an answer recorded in error must be withdrawn
+without cancelling the request, or a depositor gives a standing consent for a use that should
+cover many requests.
