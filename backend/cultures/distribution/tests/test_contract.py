@@ -215,3 +215,11 @@ class TestRequestContract(ViewsetContract):
         listed = logged_in(reader).get(self.url).json()["results"]
         assert str(obj.public_id) in [row["public_id"] for row in listed]
         assert_problem(logged_in(outsider).get(self.url), 404, "not_found")
+
+    def test_vials_follow_the_request_scope(self, obj: Any, reader: User, outsider: User) -> None:
+        """The reserved vials (#143) are read where the request is: 401 anonymous, 404
+        outside the lab, a list for a reader (none before the approval)."""
+        url = f"{self.url}{obj.public_id}/vials/"
+        assert_problem(logged_in(None).get(url), 401, "not_authenticated")
+        assert_problem(logged_in(outsider).get(url), 404, "not_found")
+        assert logged_in(reader).get(url).json() == []

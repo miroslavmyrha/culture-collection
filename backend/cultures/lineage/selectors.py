@@ -210,6 +210,51 @@ def box_paths(boxes: Iterable[StorageUnit]) -> dict[int, list[str]]:
     return {box: [names[pk] for pk in path] for box, path in paths.items()}
 
 
+def open_placement(vial: Vial) -> VialPlacement | None:
+    """The vial's open placement from the prefetch of vial_list (at most one), or None."""
+    found: list[VialPlacement] = vars(vial)["open_placements"]
+    return found[0] if found else None
+
+
+def walk_order(vials: Iterable[Vial]) -> list[Vial]:
+    """Rows of vial_list in the order one walk through the storage picks them up (#143).
+
+    First the vials whose place a reader sees, by the path of their box, each level as the
+    storage tree lists what a unit holds (by slot, units without one last, then name:
+    storage.selectors.unit_children), then by row and column. Then the vials of a regulated
+    strain that are in a box, in the order they came: their place is masked (ADR 0009), and a
+    spot among the others would tell where they are. Then the vials in no box. One query for
+    the units on the paths, none when no place is shown."""
+    shown: list[tuple[Vial, VialPlacement]] = []
+    masked: list[Vial] = []
+    elsewhere: list[Vial] = []
+    for vial in vials:
+        placement = open_placement(vial)
+        if placement is None:
+            elsewhere.append(vial)
+        elif vars(vial)["regulated"]:
+            masked.append(vial)
+        else:
+            shown.append((vial, placement))
+    ids = {pk for _, placement in shown for pk in placement.box.path}
+    units = (
+        {
+            pk: (slot is None, slot or 0, name, pk)
+            for pk, slot, name in StorageUnit.objects.filter(pk__in=ids).values_list(
+                "pk", "slot", "name"
+            )
+        }
+        if ids
+        else {}
+    )
+
+    def walk(row: tuple[Vial, VialPlacement]) -> tuple[list[tuple[bool, int, str, int]], int, int]:
+        placement = row[1]
+        return ([units[pk] for pk in placement.box.path], placement.row, placement.col)
+
+    return [vial for vial, _ in sorted(shown, key=walk)] + masked + elsewhere
+
+
 def boxes_to_fill(access: Access) -> QuerySet[StorageUnit]:
     """The boxes a vial may be put into: any lab where the user handles vials. The service
     keeps the vial's own lab and asks may_store."""

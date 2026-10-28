@@ -10,6 +10,7 @@ and `location_masked` true for every reader of a regulated vial, a holder of the
 grant too, who reveals it one vial at a time (ADR 0009, amendment of 2026-10-19).
 """
 
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from django.db.models import QuerySet
@@ -20,6 +21,8 @@ from rest_framework.request import Request
 from cultures.core.api import ScopedRelatedField
 from cultures.growth.api.serializers import GrowthInputSerializer, GrowthOutputSerializer
 from cultures.labs.access import access_of
+from cultures.labs.models import Lab
+from cultures.labs.services import holds_location_grant
 from cultures.lineage import selectors
 from cultures.lineage.models import (
     CHECK_VALUE_DIGITS,
@@ -43,6 +46,7 @@ from cultures.lineage.models import (
 )
 from cultures.lineage.services import MANUAL_TARGETS, Location, position_label
 from cultures.storage.models import StorageUnit
+from cultures.users.models import User
 
 REASON_HELP = "Why, in a sentence. Stored for good: name no person."
 NOTE_HELP = "What was seen, in a sentence. Required for a reduced result. Name no person."
@@ -320,9 +324,23 @@ def _location(placement: VialPlacement, paths: dict[int, list[str]]) -> Location
     )
 
 
+def vial_context(
+    base: Mapping[str, Any], *, lab: Lab, user: User, vials: Sequence[Vial]
+) -> dict[str, Any]:
+    """The context of VialOutputSerializer for rows of selectors.vial_list: the box paths of the
+    rows, in one query, and whether the reader may reveal. Every answer that shows vials builds
+    it here, so the masking is the same wherever a vial is listed (ADR 0009)."""
+    boxes = [p.box for vial in vials for p in vars(vial)["open_placements"]]
+    return {
+        **base,
+        "paths": selectors.box_paths(boxes),
+        "may_reveal": holds_location_grant(lab_id=lab.pk, user=user),
+    }
+
+
 class VialOutputSerializer(serializers.ModelSerializer[Vial]):
     """Context: `paths`, the box paths of the rows shown (selectors.box_paths), and
-    `may_reveal`, whether the reader holds the lab's location grant."""
+    `may_reveal`, whether the reader holds the lab's location grant: vial_context."""
 
     label = serializers.SerializerMethodField()  # type: ignore[assignment]  # see LocationSerializer
     batch = serializers.UUIDField(source="batch.public_id", read_only=True)

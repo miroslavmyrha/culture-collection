@@ -1,6 +1,7 @@
 """Every action of the requester, permit, document and request APIs for every caller: 401
 anonymous, 404 outside the lab, success for the roles that have the permission. Viewers and
-technicians read requests (no person, no place), but see no requester, permit or document:
+technicians read requests (no person; places of reserved vials as the vial list shows them,
+#143), but see no requester, permit or document:
 a list or a create is 403 for them, a single row 404, as for anything a caller cannot see.
 Writes are the curators' and managers'. A refused write changes no row and records no event,
 and a role without the permission is refused before its input is read."""
@@ -96,6 +97,8 @@ CALLS = [
     ),
     Call("request_list", "get", "requests/", EVERYONE),
     Call("request_retrieve", "get", "requests/{request}/", EVERYONE),
+    # #143: the reserved vials with their places, masked as in the vial list.
+    Call("request_vials", "get", "requests/{approved}/vials/", EVERYONE),
     Call("request_create", "post", "requests/", CURATORS, 201, events=2),
     Call("request_approve", "post", "requests/{accepted}/approve/", CURATORS, events=3),
     Call("request_reject", "post", "requests/{request}/reject/", CURATORS),

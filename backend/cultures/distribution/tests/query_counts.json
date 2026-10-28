@@ -5,6 +5,7 @@
   "request_detail_awaiting": 12,
   "request_detail_shipped": 13,
   "request_list": 6,
+  "request_vials": 10,
   "requester_list": 7,
   "shipment_document": 5,
   "strain_shipments": 7

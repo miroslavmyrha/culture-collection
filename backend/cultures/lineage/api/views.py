@@ -18,7 +18,6 @@ from cultures.labs import selectors as labs
 from cultures.labs.access import access_of
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
-from cultures.labs.services import holds_location_grant
 from cultures.lineage import selectors, services
 from cultures.lineage.filters import BatchCheckFilter, BatchFilter, PassageFilter, VialFilter
 from cultures.lineage.models import (
@@ -55,6 +54,7 @@ from .serializers import (
     SubcultureInputSerializer,
     VialOutputSerializer,
     VialStatusInputSerializer,
+    vial_context,
 )
 
 # 401, 403, 404 and 429 with the Problem body are added to every operation by core.schema.
@@ -354,15 +354,12 @@ class VialViewSet(LabNested):
         return selectors.vial_list(access=access_of(self.request), lab=self.lab)
 
     def _context(self, vials: Sequence[Vial]) -> dict[str, Any]:
-        """The box paths of the rows shown, in one query, and whether the reader may reveal."""
-        boxes = [p.box for vial in vials for p in vars(vial)["open_placements"]]
-        return {
-            **self.get_serializer_context(),
-            "paths": selectors.box_paths(boxes),
-            "may_reveal": holds_location_grant(
-                lab_id=self.lab.pk, user=access_of(self.request).user
-            ),
-        }
+        return vial_context(
+            self.get_serializer_context(),
+            lab=self.lab,
+            user=access_of(self.request).user,
+            vials=vials,
+        )
 
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         queryset = self.filter_queryset(self.get_queryset())
