@@ -415,6 +415,17 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     ['PermitList', `/labs/${LAB_ID}/permits`, PERMITS, 'the permits', () => mockApi('get', PERMITS, [makeLabPermit({ permit_reference: 'DEV/VRAT/1' })]), () => screen.findByText('SÚJB DEV/VRAT/1')],
     ['RevealLog', `/labs/${LAB_ID}/reveals`, REVEALS, 'the reveals', () => mockApi('get', REVEALS, page([makeReveal({ vial_label: 'MYC 42 / 1 / 1' })])), () => screen.findByRole('link', { name: 'MYC 42 / 1 / 1' })],
     ['LabList', '/labs', '/api/v1/labs/', 'your labs', () => mockApi('get', '/api/v1/labs/', page([makeLab({ public_id: LAB_ID, name: 'Mycology' })])), () => screen.findByRole('link', { name: 'Mycology' })],
+    [
+      'VialsToPull',
+      `/labs/${LAB_ID}/requests/${DEPOSIT_ID}`,
+      '/api/v1/labs/{lab_public_id}/requests/{public_id}/vials/',
+      'the vials to pull',
+      () => {
+        mockApi('get', '/api/v1/labs/{lab_public_id}/requests/{public_id}/', makeRequest({ public_id: DEPOSIT_ID, status: 'approved', decided_by: 'curator', decided_at: '2026-10-20T10:00:00Z' }))
+        mockApi('get', '/api/v1/labs/{lab_public_id}/requests/{public_id}/vials/', [makeVial({ label: 'MYC 42 / 1 / 1', status: 'reserved' })])
+      },
+      () => screen.findByRole('cell', { name: 'MYC 42 / 1 / 1' }),
+    ],
   ] as const)('%s keeps its rows and says they may be out of date', async (_, path, fails, what, data, shown) => {
     allowConsole(/API error 500/)
     signedIn('manager')

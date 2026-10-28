@@ -2,7 +2,7 @@ import { Fragment, type MouseEvent, type ReactNode, useId, useRef, useState } fr
 import { LoadError } from '@/components/LoadError'
 import { Pager, PastTheEnd } from '@/components/Pager'
 import { StaleNotice } from '@/components/StaleNotice'
-import { ActionMenu, type ActionItem, Box, Button, Mono, Paper, SelectField, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
+import { ActionMenu, type ActionItem, Box, Button, Mono, SelectField, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { type Growth, growthText, noGrowth } from '@/lib/growth'
 import { BATCH_TONES, VIAL_TONES } from '@/lib/tones'
 import { type FocusReturn, focusTarget, rememberFocus, useFocusReturnOnUnmount } from '@/lib/focus'
@@ -12,7 +12,6 @@ import {
   type BatchCheck,
   BATCH_STATUS_LABELS,
   batchStatusReason,
-  locationText,
   METHOD_LABELS,
   nextStates,
   OUT_OF_A_BOX,
@@ -27,7 +26,8 @@ import {
 } from '../schemas'
 import { BatchChecks } from './BatchChecks'
 import { BatchDecisionDialog, CheckErrorDialog, RecordCheckDialog } from './CheckDialogs'
-import { RevealLocation } from './RevealLocation'
+import { scrollable } from './scroll'
+import { VialPlace } from './VialPlace'
 import { PlaceVialDialog, PreserveBatchDialog, ReviveDialog, SubcultureDialog, VialStatusDialog } from './VialDialogs'
 
 type Props = {
@@ -298,7 +298,7 @@ export function StrainMaterial({ labId, strainId, accession, strainGrowth, canHa
                       </TableCell>
                       {/* Wide enough to read a path at 320 px: the table scrolls, the row stays short. */}
                       <TableCell sx={{ minWidth: 200 }}>
-                        <Where key={`${v.status_changed_at ?? ''}:${moves[v.public_id] ?? 0}`} labId={labId} vial={v} />
+                        <VialPlace key={`${v.status_changed_at ?? ''}:${moves[v.public_id] ?? 0}`} labId={labId} vial={v} />
                       </TableCell>
                       {canHandle && (
                         <TableCell>
@@ -415,12 +415,6 @@ function OneVial({ onShowAll }: { onShowAll: () => void }) {
   )
 }
 
-function Where({ labId, vial }: { labId: string; vial: Vial }) {
-  if (vial.location) return <>{locationText(vial.location)}</>
-  if (vial.location_masked) return vial.can_reveal ? <RevealLocation labId={labId} vial={vial} /> : <>Hidden: regulated strain</>
-  return <>{OUT_OF_A_BOX.includes(vial.status) ? 'Left the collection' : 'Not placed'}</>
-}
-
 type ActionsProps = { vial: Vial; show: (next: NonNullable<Open>) => (button: HTMLButtonElement) => void }
 
 /** A vial's bench work in one menu per row (#19): move or place, change its state, revive it. */
@@ -441,20 +435,6 @@ function vialCount(count: number, page: VialPage, batches: readonly Batch[] | un
   const total = batches?.reduce((sum, b) => sum + b.vial_count_created, 0)
   return `${all} of batch ${batch?.number ?? ''}${total === undefined ? '' : `, of ${total} in all`}.`
 }
-
-/**
- * A table that may scroll sideways on a narrow screen: a named region and a tab stop, so a
- * keyboard user can scroll it (WCAG 2.1.1; axe scrollable-region-focusable).
- */
-const scrollable = (name: string) =>
-  ({
-    component: Paper,
-    variant: 'outlined',
-    tabIndex: 0,
-    role: 'region',
-    'aria-label': `${name} table`,
-    sx: { '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 } },
-  }) as const
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (

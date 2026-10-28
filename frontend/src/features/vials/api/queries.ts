@@ -41,6 +41,21 @@ export const vialPageOptions = (labId: string, strainId: string, page: VialPage)
     placeholderData: keepPreviousData,
   })
 
+/**
+ * The vials reserved for a request with their places, in the order one walk through the storage
+ * picks them up (#143). One answer, no pages: a request holds at most 20 lines of 50 vials.
+ */
+export const requestVialsOptions = (labId: string, requestId: string) =>
+  queryOptions({
+    queryKey: vialKeys.request(labId, requestId),
+    queryFn: ({ signal }) =>
+      unwrap(api.GET('/api/v1/labs/{lab_public_id}/requests/{public_id}/vials/', { signal, params: { path: { lab_public_id: labId, public_id: requestId } } })),
+  })
+
+export function useRequestVials(labId: string, requestId: string) {
+  return useQuery(requestVialsOptions(labId, requestId))
+}
+
 /** Every vial of one batch (at most 200): what a check of the batch may name. */
 export const batchVialsPage = (batchId: string): VialPage => ({ limit: MATERIAL_PAGE, offset: 0, batch: batchId })
 
