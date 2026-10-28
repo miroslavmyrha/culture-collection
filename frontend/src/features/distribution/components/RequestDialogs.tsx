@@ -10,6 +10,7 @@ import {
   useConfirmShipment,
   usePrepareShipment,
   useRecordAcceptance,
+  useRecordDepositorAnswer,
   useRejectRequest,
   useShipRequest,
   useWithdrawShipment,
@@ -26,6 +27,10 @@ import {
   COOLANTS,
   type DecisionForm,
   decisionSchema,
+  type DepositorAnswerForm,
+  depositorAnswerSchema,
+  type DepositorAnswerValues,
+  type Line,
   type Preparation,
   isTransportClass,
   options,
@@ -39,6 +44,7 @@ import {
   type ShipValues,
   TRANSPORT_CLASS_LABELS,
   TRANSPORT_CLASSES,
+  USE_LABELS,
 } from '../schemas'
 
 type Common = { labId: string; request: Request; open: boolean; onClose: () => void; onExited: () => void }
@@ -264,6 +270,70 @@ export function AcceptanceDialog({ labId, request, open, onClose, onExited }: Co
         <CheckboxField label="The signer may bind the institution" {...register('authorised_signatory')} />
         <TextField label="Accepted on" hint="YYYY-MM-DD" autoComplete="off" error={errors.accepted_on?.message} {...register('accepted_on')} />
         <FileField label="Signed copy" error={errors.file?.message} {...register('file')} />
+      </Stack>
+    </ConfirmDialog>
+  )
+}
+
+const ANSWER_FIELDS = ['line', 'answered_on', 'note', 'file'] as const
+
+/**
+ * What the depositor answered for strains whose terms leave the request's use on request (#144),
+ * from the depositor's letter or e-mail (the file) and/or a note. A yes lets the strain pass that
+ * gate; a no rejects the whole request with the answer as the reason, so its dialog is an
+ * alertdialog that opens on Cancel. Recorded once per strain, never changed.
+ */
+export function DepositorAnswerDialog({ labId, request, lines, agreed, open, onClose, onExited }: Common & { lines: Line[]; agreed: boolean }) {
+  const record = useRecordDepositorAnswer(labId, request.public_id)
+  const formId = useId()
+  const [failure, setFailure] = useState<string>()
+  const use = USE_LABELS[request.use].toLowerCase()
+  const { register, handleSubmit, formState, setError } = useForm<DepositorAnswerForm, unknown, DepositorAnswerValues>({
+    resolver: zodResolver(depositorAnswerSchema),
+    defaultValues: { line: lines.length === 1 ? (lines[0]?.public_id ?? '') : '', answered_on: today(), note: '', file: null },
+  })
+  const errors = formState.errors
+  const onSubmit = handleSubmit((values) => {
+    if (record.isPending) return
+    setFailure(undefined)
+    record.mutate(
+      { body: { line: values.line, agreed, answered_on: values.answered_on, note: values.note.trim() }, file: values.file },
+      {
+        onSuccess: onClose,
+        onError: (error) => {
+          if (isApiError(error, 409) && error.code === 'depositor_answer_exists') setFailure('The depositor’s answer for this strain is recorded already. Close this and look at it again.')
+          else setFailure(stateError(error) ?? (applyServerErrors(error, ANSWER_FIELDS, setError) ? undefined : errorMessage(error)))
+        },
+      },
+    )
+  })
+  return (
+    <ConfirmDialog
+      open={open}
+      destructive={!agreed}
+      title={agreed ? 'Record the depositor’s yes' : `Record the depositor’s no and reject request ${request.number}?`}
+      description={
+        agreed
+          ? `The depositor agreed to ${use}: the strain may go out for it once nothing else stands in the way. The answer is kept for good and cannot be changed.`
+          : `The depositor declined ${use}: request ${request.number} is rejected with the answer as the reason. It cannot be undone; a new request for other strains starts again.`
+      }
+      confirmLabel={agreed ? 'Record the yes' : 'Record the no and reject'}
+      form={formId}
+      pending={record.isPending}
+      error={failure}
+      onClose={onClose}
+      onExited={onExited}
+    >
+      <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Depositor’s answer" spacing={2} sx={{ mt: 2 }}>
+        <SelectField
+          label="Strain"
+          options={[{ value: '', label: 'Choose' }, ...lines.map((l) => ({ value: l.public_id, label: `${l.strain.accession_number ?? ''}, ${l.strain.taxon}` }))]}
+          error={errors.line?.message}
+          {...register('line')}
+        />
+        <TextField label="Answered on" hint="YYYY-MM-DD, the day the depositor gave the answer" autoComplete="off" error={errors.answered_on?.message} {...register('answered_on')} />
+        <TextField label="Note" hint="What the depositor said, and how. Stored for good: name no person." multiline minRows={2} error={errors.note?.message} {...register('note')} />
+        <FileField label="Depositor’s letter or e-mail" error={errors.file?.message} {...register('file')} />
       </Stack>
     </ConfirmDialog>
   )

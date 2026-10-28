@@ -371,6 +371,7 @@ type Requester = components['schemas']['RequesterOutput']
 type Permit = components['schemas']['PermitOutput']
 type Finding = components['schemas']['Finding']
 type Acceptance = components['schemas']['AcceptanceOutput']
+type DepositorAnswer = components['schemas']['DepositorAnswerOutput']
 type Shipment = components['schemas']['ShipmentOutput']
 type ShipmentDocument = components['schemas']['ShipmentDocument']
 type Preparation = components['schemas']['PreparationOutput']
@@ -407,6 +408,20 @@ export function makeRequestLine(overrides: Partial<RequestLine> = {}): RequestLi
     permits: [],
     on_request: false,
     depositor_answer: null,
+    ...overrides,
+  }
+}
+
+export function makeDepositorAnswer(overrides: Partial<DepositorAnswer> = {}): DepositorAnswer {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    agreed: true,
+    answered_on: '2026-10-27',
+    note: 'The depositor’s e-mail of the same day.',
+    document: null,
+    recorded_by: 'curator',
+    recorded_at: new Date(Date.UTC(2026, 9, 27, 9, 0, n)).toISOString(),
     ...overrides,
   }
 }

@@ -10,6 +10,7 @@ export type Request = Schemas['RequestDetailOutput']
 export type Line = Schemas['LineOutput']
 export type Finding = Schemas['Finding']
 export type Acceptance = Schemas['AcceptanceOutput']
+export type DepositorAnswer = Schemas['DepositorAnswerOutput']
 export type Requester = Schemas['RequesterOutput']
 export type Permit = Schemas['PermitOutput']
 export type RequestStatus = Schemas['RequestStatus']
@@ -60,6 +61,14 @@ export const documentTitle = (d: Pick<ShipmentDocumentBrief, 'kind' | 'strain'>)
   d.strain ? `${DOCUMENT_KIND_LABELS[d.kind]} for ${d.strain}` : DOCUMENT_KIND_LABELS[d.kind]
 /** Enough of a SHA-256 to compare by eye; the document shows all of it. */
 export const shortSha = (sha: string): string => sha.slice(0, 12)
+/** A file a requester or a depositor gave (a permit, a signed MTA, a depositor's answer): curators and managers download it. */
+export const fileHref = (labId: string, documentId: string): string => `/api/v1/labs/${encodeURIComponent(labId)}/documents/${encodeURIComponent(documentId)}/`
+/**
+ * The lines whose pinned terms leave the request's use on request to the depositor and that wait
+ * for the depositor's answer (#144): curators and managers record it while the request waits.
+ */
+export const awaitingAnswer = (request: Pick<Request, 'status' | 'lines'>): Line[] =>
+  request.status === 'submitted' ? request.lines.filter((l) => l.on_request && l.depositor_answer === null) : []
 export const documentDownloadHref = (labId: string, documentId: string): string =>
   `/api/v1/labs/${encodeURIComponent(labId)}/shipment-documents/${encodeURIComponent(documentId)}/download/`
 /** The preparation a second person may confirm: the one not withdrawn, while the request waits. */
@@ -256,6 +265,22 @@ export const acceptanceSchema = z.object({
 })
 export type AcceptanceForm = z.input<typeof acceptanceSchema>
 export type AcceptanceValues = z.output<typeof acceptanceSchema>
+
+/** A file input that may stay empty: its first file, or none. */
+const optionalFile = z.custom<FileList | null>((v) => v === null || v instanceof FileList).transform((v): File | undefined => v?.[0])
+/** The depositor's answer (#144): the evidence is a file, a note, or both. */
+export const depositorAnswerSchema = z
+  .object({
+    line: required('Choose the strain'),
+    answered_on: isoDay,
+    note: optionalText(2000),
+    file: optionalFile,
+  })
+  .superRefine((v, ctx) => {
+    if (!v.note && v.file === undefined) ctx.addIssue({ code: 'custom', path: ['note'], message: 'Give the depositor’s answer as a file, a note, or both' })
+  })
+export type DepositorAnswerForm = z.input<typeof depositorAnswerSchema>
+export type DepositorAnswerValues = z.output<typeof depositorAnswerSchema>
 
 /** As the server takes it: a digit or + first, then digits, spaces, ( ) and -, a digit last. */
 const PHONE = /^[+0-9][0-9 ()-]{4,38}[0-9]$/

@@ -4,15 +4,18 @@ import { StaleNotice } from '@/components/StaleNotice'
 import { Alert, Box, Button, Mono, PageTitle, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { countryName } from '@/lib/countries'
+import { safeHref } from '@/lib/safe'
 import { type FocusReturn, rememberFocus, useFocusReturnOnUnmount } from '@/lib/focus'
 import { useRequest } from '../api/queries'
 import {
+  awaitingAnswer,
   BASIS_LABELS,
   canApproveRegulated,
   canPrepare,
   canShip,
   CONFIRM_REFUSALS,
   COOLANT_LABELS,
+  fileHref,
   type Finding,
   type Line,
   openPreparation,
@@ -26,7 +29,7 @@ import {
   TRANSPORT_CLASS_LABELS,
   USE_LABELS,
 } from '../schemas'
-import { AcceptanceDialog, ApproveDialog, CancelDialog, ConfirmShipmentDialog, RejectDialog, SECOND_PERSON, ShipDialog, WithdrawShipmentDialog } from './RequestDialogs'
+import { AcceptanceDialog, ApproveDialog, CancelDialog, ConfirmShipmentDialog, DepositorAnswerDialog, RejectDialog, SECOND_PERSON, ShipDialog, WithdrawShipmentDialog } from './RequestDialogs'
 import { scrollable } from './scroll'
 import { ShipmentDocuments } from './ShipmentDocuments'
 
@@ -37,8 +40,8 @@ type Props = {
   /** Where the reserved vials lie (#143): the page composes the vials feature here. */
   renderVials?: (request: Request) => ReactNode
 }
-type Kind = 'approve' | 'reject' | 'cancel' | 'acceptance' | 'ship' | 'prepare' | 'confirm' | 'withdraw'
-type Open = { kind: Kind; open: boolean; preparation?: Preparation } | null
+type Kind = 'approve' | 'reject' | 'cancel' | 'acceptance' | 'ship' | 'prepare' | 'confirm' | 'withdraw' | 'yes' | 'no'
+type Open = { kind: Kind; open: boolean; preparation?: Preparation; lines?: Line[] } | null
 
 const day = (iso: string) => new Date(iso).toLocaleDateString('sv')
 
@@ -59,7 +62,8 @@ export function RequestDetail({ labId, requestId, role, renderVials }: Props) {
   const show = (kind: Kind) => (event: MouseEvent<HTMLButtonElement>) => {
     spot.current = rememberFocus(event.currentTarget)
     // The confirmation keeps the preparation it was opened on: a refetch does not swap it.
-    setOpen({ kind, open: true, preparation: request.data && openPreparation(request.data) })
+    // The answer keeps the strains it was opened on: a refetch does not change the choice.
+    setOpen({ kind, open: true, preparation: request.data && openPreparation(request.data), lines: request.data && awaitingAnswer(request.data) })
   }
   const close = () => setOpen((current) => current && { ...current, open: false })
   const exited = () => {
@@ -131,6 +135,24 @@ export function RequestDetail({ labId, requestId, role, renderVials }: Props) {
         </Section>
       )}
 
+      {r.lines.some((l) => l.on_request) && (
+        <Section title="Depositor’s answers">
+          <Answers labId={labId} request={r} role={role} />
+          {manage && awaitingAnswer(r).length > 0 && (
+            <KeepsFocus>
+              <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap' }}>
+                <Button variant="outlined" onClick={show('yes')}>
+                  Record the depositor’s yes
+                </Button>
+                <Button color="error" variant="outlined" onClick={show('no')}>
+                  Record the depositor’s no
+                </Button>
+              </Stack>
+            </KeepsFocus>
+          )}
+        </Section>
+      )}
+
       <Section title="MTA acceptances">
         <Acceptances request={r} />
         {manage && r.status === 'submitted' && (
@@ -190,6 +212,9 @@ export function RequestDetail({ labId, requestId, role, renderVials }: Props) {
       )}
       {open?.kind === 'withdraw' && <WithdrawShipmentDialog labId={labId} request={r} open={open.open} onClose={close} onExited={exited} />}
       {open?.kind === 'acceptance' && <AcceptanceDialog labId={labId} request={r} open={open.open} onClose={close} onExited={exited} />}
+      {(open?.kind === 'yes' || open?.kind === 'no') && (
+        <DepositorAnswerDialog labId={labId} request={r} lines={open.lines ?? []} agreed={open.kind === 'yes'} open={open.open} onClose={close} onExited={exited} />
+      )}
     </>
   )
 }
@@ -277,6 +302,44 @@ function Acceptances({ request }: { request: Request }) {
           {a.authorised_signatory ? ', may bind the institution' : ', may not bind the institution'})
         </Typography>
       ))}
+    </Box>
+  )
+}
+
+/**
+ * Each strain whose terms leave the use on request to the depositor (#144), with the answer once
+ * recorded: yes or no, the day, the note, who recorded it, and the file for those who may open it.
+ */
+function Answers({ labId, request, role }: { labId: string; request: Request; role: Role }) {
+  const use = USE_LABELS[request.use].toLowerCase()
+  const files = role === 'curator' || role === 'manager'
+  return (
+    <Box component="ul" aria-label="Depositor’s answers" sx={{ pl: 3, my: 0 }}>
+      {request.lines
+        .filter((l) => l.on_request)
+        .map((l) => {
+          const a = l.depositor_answer
+          const strain = l.strain.accession_number ?? l.strain.taxon
+          return (
+            <Typography component="li" key={l.public_id} sx={{ overflowWrap: 'anywhere' }}>
+              {a === null ? (
+                `${strain}: the terms allow ${use} only on request to the depositor. No answer is recorded yet.`
+              ) : (
+                <>
+                  {strain}: the depositor {a.agreed ? 'agreed to' : 'declined'} {use} (answer of {a.answered_on}, recorded by {a.recorded_by} on {day(a.recorded_at)}){a.note ? `: ${a.note}` : '.'}
+                  {files && a.document && (
+                    <>
+                      {' '}
+                      <a href={safeHref(fileHref(labId, a.document.public_id))} download>
+                        Download the depositor’s answer for {strain}
+                      </a>
+                    </>
+                  )}
+                </>
+              )}
+            </Typography>
+          )
+        })}
     </Box>
   )
 }
