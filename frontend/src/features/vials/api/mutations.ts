@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { components } from '@/api/schema'
 import { api, ensureCsrf, unwrap } from '@/lib/api'
+import { sharedKeys } from '@/lib/shared-keys'
 import { vialKeys } from './keys'
 
 type Schemas = components['schemas']
@@ -84,13 +85,16 @@ export function useDecideBatch(labId: string, strainId: string) {
  * Reveals where a vial of a regulated strain is (ADR 0009). Each call is a new request and a new
  * entry in the audit trail; the answer stays in the component that asked, never in the cache:
  * gcTime 0 removes the mutation, and the location in its data, once that component is gone.
+ * The reveal adds a row to the lab's reveal log (#83), which holds no location: it is refreshed.
  */
 export function useRevealLocation(labId: string) {
+  const qc = useQueryClient()
   return useMutation({
     mutationFn: async (vialId: string) => {
       await ensureCsrf()
       return unwrap(api.POST('/api/v1/labs/{lab_public_id}/vials/{public_id}/reveal-location/', { params: vial(labId, vialId) }))
     },
+    onSuccess: () => qc.invalidateQueries({ queryKey: sharedKeys.reveals(labId) }),
     gcTime: 0,
     meta: { handlesError: true },
   })

@@ -25,6 +25,7 @@ const SHIPMENT_DOCUMENT = '/api/v1/labs/{lab_public_id}/shipment-documents/{publ
 const REQUESTERS = '/api/v1/labs/{lab_public_id}/requesters/'
 const MEDIA = '/api/v1/labs/{lab_public_id}/media/'
 const PERMITS = '/api/v1/labs/{lab_public_id}/permits/'
+const REVEALS = '/api/v1/labs/{public_id}/reveals/'
 const signedIn = (username = 'lab-tech') => void mockApi('get', '/api/v1/auth/me/', makeMe({ username }))
 /** The strain page's passages, batches and vials, and the boxes for its forms: all empty. */
 const material = () => {
@@ -90,6 +91,10 @@ describe('page titles (WCAG 2.4.2)', { timeout: 20_000 }, () => {
     [`/labs/${LAB_ID}/shipment-documents/${STRAIN_ID}`, 'Could not load the document', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', SHIPMENT_DOCUMENT, 500))],
     [`/labs/${LAB_ID}/permits`, 'Permits of Mycology', () => (signedIn(), lab({ my_role: 'manager' }), mockApi('get', PERMITS, []))],
     [`/labs/${LAB_ID}/permits`, 'Permits of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', PERMITS, 403, problem(403)))],
+    [`/labs/${LAB_ID}/reveals`, 'Reveals of Mycology', () => (signedIn(), lab({ my_role: 'manager' }), mockApi('get', REVEALS, page([])))],
+    [`/labs/${LAB_ID}/reveals`, 'Reveals of Mycology', () => (signedIn(), lab({ my_role: 'manager' }), mockApiError('get', REVEALS, 500))],
+    [`/labs/${LAB_ID}/reveals`, 'Reveals of Mycology', () => (signedIn(), lab({ my_role: 'technician' }), mockApiError('get', REVEALS, 403, problem(403)))],
+    [`/labs/${LAB_ID}/reveals`, 'Lab not found', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApiError('get', REVEALS, 404, problem(404)))],
     [`/labs/${LAB_ID}/permits`, 'Lab not found', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApiError('get', PERMITS, 404, problem(404)))],
     ['/no-such-page', 'Page not found', () => undefined],
   ])('%s shows "%s | Culture collection"', async (path, title, setup) => {

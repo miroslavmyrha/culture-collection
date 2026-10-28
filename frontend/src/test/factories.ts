@@ -674,6 +674,22 @@ export function makeSearchGroup(overrides: Partial<SearchGroup> = {}): SearchGro
   return { kind: 'strain', total, labs: [{ lab: SEARCH_LAB, lab_code: 'BAC', total }], hits, ...overrides }
 }
 
+export type Reveal = Schemas['RevealLogEntry']
+
+/** A reveal in the lab's log (#83): who, which vial and when, never where. */
+export function makeReveal(overrides: Partial<Reveal> = {}): Reveal {
+  const n = next()
+  return {
+    occurred_at: '2026-10-20T08:00:00Z',
+    person: { public_id: uuid(n + 1000), username: `holder-${n}`, first_name: '', last_name: '', erased: false },
+    vial: uuid(n),
+    vial_label: `MYC ${n} / 1 / 1`,
+    strain: uuid(n + 2000),
+    accession_number: `MYC ${n}`,
+    ...overrides,
+  }
+}
+
 export type LabPermit = Schemas['LabPermitOutput']
 
 /** A valid SÚJB permit of the lab with an invented reference, no expiry stated. */

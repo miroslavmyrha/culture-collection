@@ -16,6 +16,8 @@ from cultures.labs import selectors, services
 from cultures.labs.access import access_of
 from cultures.labs.models import Lab, LocationGrant, Membership
 from cultures.labs.permissions import Perm
+from cultures.lineage import selectors as lineage
+from cultures.lineage.api.serializers import RevealFilterSerializer, RevealLogEntrySerializer
 
 from .serializers import (
     LabOutputSerializer,
@@ -34,6 +36,10 @@ INVALID_MEMBER = OpenApiResponse(
 INVALID_ROLE = OpenApiResponse(ProblemSerializer, "Invalid role")
 LAST_MANAGER = OpenApiResponse(ProblemSerializer, "The lab would have no manager left")
 LAB_PARAMETER = OpenApiParameter("lab_public_id", OpenApiTypes.UUID, OpenApiParameter.PATH)
+PAGE_PARAMETERS = [
+    OpenApiParameter("limit", OpenApiTypes.INT, OpenApiParameter.QUERY, description="At most 200"),
+    OpenApiParameter("offset", OpenApiTypes.INT, OpenApiParameter.QUERY),
+]
 
 
 # My labs and my role in each. Labs are created by staff in Django admin, so the API
@@ -41,7 +47,11 @@ LAB_PARAMETER = OpenApiParameter("lab_public_id", OpenApiTypes.UUID, OpenApiPara
 # member of answers 404, the same as a lab that does not exist.
 # (Comments, not a docstring: a docstring becomes the description of every operation.)
 class LabViewSet(ScopedReadOnlyViewSet):
-    action_perms = {"list": Perm.VIEW_LAB, "retrieve": Perm.VIEW_LAB}
+    action_perms = {
+        "list": Perm.VIEW_LAB,
+        "retrieve": Perm.VIEW_LAB,
+        "reveals": Perm.VIEW_REVEALS,
+    }
     serializer_class = LabOutputSerializer
 
     def scoped_queryset(self) -> QuerySet[Any]:
@@ -51,6 +61,22 @@ class LabViewSet(ScopedReadOnlyViewSet):
         if obj is None:
             return True  # the list: its rows are already the labs with the permission
         return access_of(self.request).can(Perm(perm), obj.pk)
+
+    @extend_schema(
+        parameters=[RevealFilterSerializer, *PAGE_PARAMETERS],
+        responses={200: RevealLogEntrySerializer(many=True)},
+    )
+    @action(detail=True, methods=["get"], url_path="reveals")
+    def reveals(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Who revealed where the lab's regulated vials are (#83, ADR 0009), newest first, a page
+        at a time: the person, the vial and its strain, and when. Never the place: the events
+        hold none. For the lab's managers; a member of another role gets 403."""
+        lab: Lab = self.get_object()  # first: an outsider gets 404, another role 403
+        query = RevealFilterSerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        rows = lineage.reveal_list(access=access_of(request), lab=lab, **query.validated_data)
+        page = self.paginate_queryset(rows) or []
+        return self.get_paginated_response([RevealLogEntrySerializer(r).data for r in page])
 
 
 # The members of one lab, nested under it. The lab comes from the URL and is resolved

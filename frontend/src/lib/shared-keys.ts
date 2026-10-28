@@ -20,7 +20,8 @@ import { api, unwrap } from './api'
  * - a deposit or a request that changes what waits (received, checked, decided, shipped) changes
  *   Home and the counts on the lab tabs: overview;
  * - a strain that leaves the collection (#20) cancels its open requests and marks its vials for
- *   destruction: requests, strainMaterial, boxGrids, strainLists and overview.
+ *   destruction: requests, strainMaterial, boxGrids, strainLists and overview;
+ * - a reveal of a regulated vial's place adds a row to the lab's reveal log (#83): reveals.
  *
  * Shared roots rather than invalidation in the page: the mutation names every key it changes
  * and stays pending until all of them are fresh, wherever the dialog that runs it is mounted.
@@ -47,6 +48,8 @@ export const sharedKeys = {
   mediaList: (labId: string, params: { limit: number; offset: number }) => [...sharedKeys.media(labId), 'list', params] as const,
   /** The lab's requests, lists and details (#18): a deaccession cancels some (#20). */
   requests: (labId: string) => ['requests', labId] as const,
+  /** The lab's reveal log (#83): who revealed where a regulated vial is. */
+  reveals: (labId: string) => ['reveals', labId] as const,
   /** What waits for the signed-in person across their labs, and each lab's figures (#69). */
   overview: () => ['overview'] as const,
 }
