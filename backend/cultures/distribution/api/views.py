@@ -46,6 +46,7 @@ from .serializers import (
     AcceptanceInputSerializer,
     ApproveInputSerializer,
     ConfirmInputSerializer,
+    DepositorAnswerInputSerializer,
     PermitEndInputSerializer,
     PermitInputSerializer,
     PermitOutputSerializer,
@@ -63,13 +64,14 @@ from .serializers import (
 INVALID = OpenApiResponse(
     ProblemSerializer,
     "Invalid input, named by its field: an unknown requester, strain or MTA version, a strain"
-    " without terms (no_terms), a file that is empty, too large or not a PDF, PNG or JPEG, a"
+    " without terms (no_terms), a line whose terms do not leave the use on request"
+    " (not_on_request), a file that is empty, too large or not a PDF, PNG or JPEG, a"
     " shipment field (not_exempt: a pathogen is not exempt as non-pathogenic)",
 )
 STATE = OpenApiResponse(
     ProblemSerializer,
     "request_state: the request is no longer in the state the action starts from;"
-    " acceptance_exists; permit_ended; contact_erased; not_enough_vials;"
+    " acceptance_exists; depositor_answer_exists; permit_ended; contact_erased; not_enough_vials;"
     " vial_reserved_meanwhile; request_number_taken; preparation_changed: another prepared"
     " shipment is open than the one confirmed; preparation_exists",
 )
@@ -341,6 +343,7 @@ class RequestViewSet(LabNested):
         "reject": Perm.MANAGE_DISTRIBUTION,
         "cancel": Perm.MANAGE_DISTRIBUTION,
         "acceptances": Perm.MANAGE_DISTRIBUTION,
+        "depositor_answers": Perm.MANAGE_DISTRIBUTION,
         "ship": Perm.MANAGE_DISTRIBUTION,
         "prepare_shipment": Perm.MANAGE_DISTRIBUTION,
         "confirm_shipment": Perm.MANAGE_DISTRIBUTION,
@@ -500,6 +503,34 @@ class RequestViewSet(LabNested):
                 authorised_signatory=values["authorised_signatory"],
                 accepted_on=values["accepted_on"],
                 document=_content(values["file"]),
+            ),
+        )
+        return self._detail(target, status.HTTP_201_CREATED)
+
+    @extend_schema(
+        request={"multipart/form-data": DepositorAnswerInputSerializer},
+        responses={
+            201: RequestDetailOutputSerializer,
+            (400, PROBLEM): INVALID,
+            (409, PROBLEM): STATE,
+        },
+    )
+    # What the depositor answered for a line whose terms leave the use on request (#144). A no
+    # rejects the request with the answer as the reason.
+    @action(detail=True, methods=["post"], url_path="depositor-answers")
+    def depositor_answers(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        target: DistributionRequest = self.get_object()
+        values = _input(DepositorAnswerInputSerializer, self, request)
+        upload = values["file"]
+        services.depositor_answer_record(
+            access=access_of(request),
+            request=target,
+            data=services.DepositorAnswerInput(
+                line_id=values["line"].pk,
+                agreed=values["agreed"],
+                answered_on=values["answered_on"],
+                note=values["note"],
+                document=None if upload is None else _content(upload),
             ),
         )
         return self._detail(target, status.HTTP_201_CREATED)

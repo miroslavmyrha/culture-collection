@@ -164,27 +164,33 @@ def request_reject(
     reason = _check_reason(reason)
     with audited_atomic():
         locked = _locked_request(access, request, Perm.MANAGE_DISTRIBUTION)
-        old = _move(locked, RequestStatus.REJECTED)
-        locked.status, locked.decided_by, locked.decided_at = (
-            RequestStatus.REJECTED,
-            access.user,
-            timezone.now(),
-        )
-        locked.decision_reason = reason
-        locked.save(
-            update_fields=["status", "decided_by", "decided_at", "decision_reason", "updated_at"]
-        )
-        record_event(
-            REQUEST_REJECTED,
-            Change(
-                REQUEST,
-                locked.public_id,
-                {"status": [old, RequestStatus.REJECTED]},
-                lab_id=locked.lab_id,
-            ),
-            reason=reason,
-        )
+        _reject(access, locked, reason)
     return locked
+
+
+def _reject(access: Access, locked: DistributionRequest, reason: str) -> None:
+    """Rejects the locked request with the reason (the caller checked the role and the reason):
+    a person's rejection, or a depositor's no (#144)."""
+    old = _move(locked, RequestStatus.REJECTED)
+    locked.status, locked.decided_by, locked.decided_at = (
+        RequestStatus.REJECTED,
+        access.user,
+        timezone.now(),
+    )
+    locked.decision_reason = reason
+    locked.save(
+        update_fields=["status", "decided_by", "decided_at", "decision_reason", "updated_at"]
+    )
+    record_event(
+        REQUEST_REJECTED,
+        Change(
+            REQUEST,
+            locked.public_id,
+            {"status": [old, RequestStatus.REJECTED]},
+            lab_id=locked.lab_id,
+        ),
+        reason=reason,
+    )
 
 
 def request_cancel(

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '@/lib/api'
 import { allowConsole } from '@/test/console'
-import { makeAcceptance, makeFinding, makeLab, makeMe, makePreparation, makeRequest, makeRequestLine, makeShipment, makeShipmentDocument, makeVial, problem, validationProblem } from '@/test/factories'
+import { makeAcceptance, makeDepositorAnswer, makeFinding, makeLab, makeMe, makePreparation, makeRequest, makeRequestLine, makeShipment, makeShipmentDocument, makeVial, problem, validationProblem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
@@ -251,6 +251,134 @@ describe('the request page', { timeout: 20_000 }, () => {
       expect(post).not.toHaveBeenCalled()
     }
     post.mockRestore()
+  })
+
+  describe('the depositor’s answer (#144)', () => {
+    const ANSWERS = '/api/v1/labs/{lab_public_id}/requests/{public_id}/depositor-answers/'
+    const asked = makeRequestLine({ ...line, on_request: true })
+    const onRequest = [makeFinding({ code: 'use_on_request', sentence: 'MYC 3: the terms allow commercial research only on request to the depositor, and no answer of the depositor is recorded. Record it on the strain’s line.', line: line.public_id })]
+    const commercial = (overrides = {}) => request({ use: 'research_commercial', lines: [asked], findings: onRequest, ...overrides })
+
+    it('shows the strain on request with no answer, and offers a curator the yes and the no', async () => {
+      signedIn('curator')
+      mockApi('get', DETAIL, commercial())
+      open()
+      const answers = await screen.findByRole('list', { name: 'Depositor’s answers' }, { timeout: 5000 })
+      expect(answers).toHaveTextContent('MYC 3: the terms allow commercial research only on request to the depositor. No answer is recorded yet.')
+      expect(within(screen.getByRole('list', { name: 'Blocks the approval' })).getByRole('listitem')).toHaveTextContent(/no answer of the depositor is recorded/)
+      expect(screen.getByRole('button', { name: 'Record the depositor’s yes' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Record the depositor’s no' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Approve and reserve the vials' })).not.toBeInTheDocument()
+    })
+
+    it('offers a viewer nothing to record', async () => {
+      signedIn('viewer')
+      mockApi('get', DETAIL, commercial())
+      open()
+      expect(await screen.findByRole('list', { name: 'Depositor’s answers' }, { timeout: 5000 })).toBeInTheDocument()
+      expect(within(screen.getByRole('main')).queryByRole('button')).not.toBeInTheDocument()
+    })
+
+    // jsdom's File inside Node's fetch fails (undici content-length), so the yes with its file is
+    // caught at the client and its form data read; the real upload runs in e2e.
+    it('records a yes with the strain, the day, the note and the file', async () => {
+      signedIn('curator')
+      mockApi('get', DETAIL, commercial())
+      open()
+      const user = userEvent.setup()
+      await user.click(await screen.findByRole('button', { name: 'Record the depositor’s yes' }, { timeout: 5000 }))
+      const dialog = await screen.findByRole('dialog', { name: 'Record the depositor’s yes' })
+      expect(dialog).toHaveAccessibleDescription(/The depositor agreed to commercial research/)
+      expect(within(dialog).getByRole('combobox', { name: 'Strain' })).toHaveValue(line.public_id)
+      await user.type(within(dialog).getByRole('textbox', { name: 'Note' }), 'Agreed by e-mail.')
+      await user.upload(within(dialog).getByLabelText('Depositor’s letter or e-mail'), new File(['%PDF-1.4'], 'answer.pdf', { type: 'application/pdf' }))
+      const post = vi.spyOn(api, 'POST').mockResolvedValue({ data: commercial(), response: new Response('{}', { status: 201 }) })
+      await user.click(within(dialog).getByRole('button', { name: 'Record the yes' }))
+      await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
+      const [path, init]: unknown[] = post.mock.calls[0] ?? []
+      expect(path).toBe(ANSWERS)
+      const serializer: unknown = typeof init === 'object' && init !== null ? Reflect.get(init, 'bodySerializer') : undefined
+      if (typeof serializer !== 'function') throw new Error('the answer is sent without its form data')
+      const sent: unknown = Reflect.apply(serializer, undefined, [])
+      if (!(sent instanceof FormData)) throw new Error('not form data')
+      expect(Object.fromEntries([...sent.entries()].filter(([k]) => k !== 'file'))).toEqual({
+        line: line.public_id,
+        agreed: 'true',
+        answered_on: new Date().toLocaleDateString('sv'),
+        note: 'Agreed by e-mail.',
+      })
+      expect(sent.get('file')).toBeInstanceOf(File)
+      post.mockRestore()
+    })
+
+    it('asks for a file or a note before it sends anything', async () => {
+      signedIn('curator')
+      mockApi('get', DETAIL, commercial())
+      open()
+      const user = userEvent.setup()
+      await user.click(await screen.findByRole('button', { name: 'Record the depositor’s yes' }, { timeout: 5000 }))
+      const dialog = await screen.findByRole('dialog', { name: 'Record the depositor’s yes' })
+      const calls = mockApi('post', ANSWERS, commercial())
+      await user.click(within(dialog).getByRole('button', { name: 'Record the yes' }))
+      const note = within(dialog).getByRole('textbox', { name: 'Note' })
+      await waitFor(() => expect(note).toHaveAccessibleDescription(expect.stringContaining('Give the depositor’s answer as a file, a note, or both')))
+      expect(note).toHaveFocus()
+      expect(calls).toHaveLength(0)
+    })
+
+    it('records a no in an alertdialog that opens on Cancel, and the request reads rejected with the answer', async () => {
+      signedIn('curator')
+      mockApi('get', DETAIL, commercial())
+      open()
+      const user = userEvent.setup()
+      await user.click(await screen.findByRole('button', { name: 'Record the depositor’s no' }, { timeout: 5000 }))
+      const dialog = await screen.findByRole('alertdialog', { name: 'Record the depositor’s no and reject request 2026/7?' })
+      expect(dialog).toHaveAccessibleDescription(/request 2026\/7 is rejected with the answer as the reason/)
+      expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+      const reason = 'The depositor declined commercial research of MYC 3 (answer of 2026-10-28): Kept for their own company.'
+      const answered = makeRequestLine({ ...asked, depositor_answer: makeDepositorAnswer({ agreed: false, answered_on: '2026-10-28', note: 'Kept for their own company.' }) })
+      const calls = mockApi('post', ANSWERS, commercial({ status: 'rejected', decided_by: 'curator', decided_at: '2026-10-28T10:00:00Z', decision_reason: reason, findings: [], lines: [answered] }))
+      await user.type(within(dialog).getByRole('textbox', { name: 'Note' }), 'Kept for their own company.')
+      await user.click(within(dialog).getByRole('button', { name: 'Record the no and reject' }))
+      await waitFor(() => expect(calls).toHaveLength(1))
+      expect(await screen.findByText(`Rejected by curator on 2026-10-28: ${reason}`, {}, { timeout: 5000 })).toBeInTheDocument()
+      await waitFor(() => expect(dialog).not.toBeInTheDocument())
+      expect(screen.getByRole('list', { name: 'Depositor’s answers' })).toHaveTextContent(/MYC 3: the depositor declined commercial research \(answer of 2026-10-28, recorded by curator on .*\): Kept for their own company\./)
+      expect(screen.queryByRole('button', { name: 'Record the depositor’s no' })).not.toBeInTheDocument()
+    })
+
+    it('says so when the answer was recorded meanwhile', async () => {
+      allowConsole(/API error 409/)
+      signedIn('curator')
+      mockApi('get', DETAIL, commercial())
+      open()
+      const user = userEvent.setup()
+      await user.click(await screen.findByRole('button', { name: 'Record the depositor’s yes' }, { timeout: 5000 }))
+      const dialog = await screen.findByRole('dialog', { name: 'Record the depositor’s yes' })
+      mockApiError('post', ANSWERS, 409, problem(409, { code: 'depositor_answer_exists' }))
+      await user.type(within(dialog).getByRole('textbox', { name: 'Note' }), 'Agreed by phone, confirmed by e-mail.')
+      await user.click(within(dialog).getByRole('button', { name: 'Record the yes' }))
+      expect(await within(dialog).findByText('The depositor’s answer for this strain is recorded already. Close this and look at it again.')).toBeInTheDocument()
+    })
+
+    it('shows a recorded yes with its file to a curator, and without the file to a viewer', async () => {
+      const document = { public_id: '00000000-0000-4000-8000-0000000000d9', content_type: 'application/pdf' as const, size_bytes: 9, sha256: 'a'.repeat(64), created_at: '2026-10-27T09:00:00Z' }
+      const yes = makeRequestLine({ ...asked, depositor_answer: makeDepositorAnswer({ document }) })
+      signedIn('curator')
+      mockApi('get', DETAIL, commercial({ lines: [yes], findings: [] }))
+      const { unmount } = open()
+      const answers = await screen.findByRole('list', { name: 'Depositor’s answers' }, { timeout: 5000 })
+      expect(answers).toHaveTextContent(/MYC 3: the depositor agreed to commercial research \(answer of 2026-10-27, recorded by curator on 2026-10-27\): The depositor’s e-mail of the same day\./)
+      expect(within(answers).getByRole('link', { name: 'Download the depositor’s answer for MYC 3' })).toHaveAttribute('href', `${window.location.origin}/api/v1/labs/${LAB_ID}/documents/${document.public_id}/`)
+      expect(screen.queryByRole('button', { name: 'Record the depositor’s yes' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Approve and reserve the vials' })).toBeInTheDocument()
+      unmount()
+      signedIn('viewer')
+      mockApi('get', DETAIL, commercial({ lines: [makeRequestLine({ ...yes, depositor_answer: makeDepositorAnswer({ document: null }) })], findings: [] }))
+      open()
+      const seen = await screen.findByRole('list', { name: 'Depositor’s answers' }, { timeout: 5000 })
+      expect(within(seen).queryByRole('link')).not.toBeInTheDocument()
+    })
   })
 
   describe('the shipment', () => {

@@ -288,6 +288,10 @@ REQUEST_LINE_ADDED = register(EventType("request_line_added", "{actor} asked for
 MTA_ACCEPTANCE_RECORDED = register(
     EventType("mta_acceptance_recorded", "{actor} recorded an acceptance of the MTA")
 )
+# #144: on the request line (its strain); a no also rejects the request (request_rejected).
+DEPOSITOR_ANSWER_RECORDED = register(
+    EventType("depositor_answer_recorded", "{actor} recorded the depositor's answer")
+)
 REQUEST_APPROVED = register(EventType("request_approved", "{actor} approved {subject}"))
 REQUEST_LINE_RESERVED = register(
     EventType("request_line_reserved", "{actor} reserved vials for a request")
@@ -906,6 +910,25 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "authorised_signatory",
             "accepted_on",
             "document_id",
+        ),
+    ),
+    # #144: what the depositor answered for a use on request. The note names nobody; the file
+    # is a distribution_document (its bytes excluded there).
+    "distribution_depositoranswer": RowAudit(
+        label="distribution.depositoranswer",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "line_id",
+            "agreed",
+            "answered_on",
+            "note",
+            "document_id",
+            "recorded_by_id",
+            "recorded_at",
         ),
     ),
     "distribution_vialreservation": RowAudit(

@@ -3,7 +3,7 @@ import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
 import { LeaveDialog } from '@/components/UnsavedGuard'
 import { RejectDialog } from '@/features/deposits/components/DepositDialogs'
-import { CancelDialog, ConfirmShipmentDialog, WithdrawShipmentDialog } from '@/features/distribution/components/RequestDialogs'
+import { CancelDialog, ConfirmShipmentDialog, DepositorAnswerDialog, WithdrawShipmentDialog } from '@/features/distribution/components/RequestDialogs'
 import { EndPermitDialog } from '@/features/distribution/components/RequesterDialogs'
 import { RetireMediumDialog } from '@/features/growth/components/MediumDialogs'
 import { RemoveMemberDialog } from '@/features/labs/components/RemoveMemberDialog'
@@ -140,6 +140,14 @@ const DESTRUCTIVE: Record<string, Entry | Entry[]> = {
       ),
       name: 'Withdraw the prepared shipment of request 2026/7?',
       consequence: 'The request is approved again and its vials stay reserved. The prepared shipment is kept with the reason',
+    },
+    {
+      render: () => {
+        const request = makeRequest({ number: '2026/7', use: 'research_commercial', lines: [makeRequestLine({ on_request: true })] })
+        return <DepositorAnswerDialog labId="00000000-0000-4000-8000-00000000000a" request={request} lines={request.lines} agreed={false} open onClose={() => {}} onExited={() => {}} />
+      },
+      name: 'Record the depositor’s no and reject request 2026/7?',
+      consequence: 'The depositor declined commercial research: request 2026/7 is rejected with the answer as the reason. It cannot be undone',
     },
   ],
   '/src/features/strains/components/StrainDialogs.tsx': [

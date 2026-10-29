@@ -15,6 +15,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from cultures.audit.context import AuditContext
 from cultures.audit.models import AuditEvent
 from cultures.core.testing import assert_problem, logged_in
+from cultures.deposits.models import Use
 from cultures.distribution.models import (
     DistributionRequest,
     PermitKind,
@@ -30,6 +31,7 @@ from cultures.users.models import User
 
 from .support import (
     LAB_URL,
+    ON_REQUEST_USES,
     PDF,
     Regulated,
     Supply,
@@ -122,6 +124,15 @@ CALLS = [
         201,
         multipart=True,
     ),
+    # #144: a yes, so the request stays submitted and one event is recorded.
+    Call(
+        "request_depositor_answers",
+        "post",
+        "requests/{on_request}/depositor-answers/",
+        CURATORS,
+        201,
+        multipart=True,
+    ),
 ]
 
 
@@ -139,6 +150,8 @@ class World:
     awaiting: DistributionRequest
     # #90: the delivery note of a request shipped in one step.
     shipment_document: ShipmentDocument
+    # #144: commercial research, left on request to the depositor by the terms.
+    on_request: DistributionRequest
 
 
 def delivered(curator: User, lab: Lab, requester: Requester, strain: Strain) -> ShipmentDocument:
@@ -181,6 +194,13 @@ def world(
         regulated(),
         regulated(prepared_by=approver),
         delivered(curator, lab, requester, strain),
+        submit(
+            curator,
+            lab,
+            requester,
+            [(supply(uses=ON_REQUEST_USES), 1)],
+            use=Use.RESEARCH_COMMERCIAL,
+        ),
     )
 
 
@@ -195,6 +215,7 @@ def url(call: Call, w: World) -> str:
         regulated=w.regulated.public_id,
         awaiting=w.awaiting.public_id,
         shipment_document=w.shipment_document.public_id,
+        on_request=w.on_request.public_id,
     )
     return f"{LAB_URL}/{path}"
 
@@ -251,6 +272,13 @@ def body(call: Call, w: World) -> dict[str, Any]:
             "authorised_signatory": "true",
             "accepted_on": "2026-10-02",
             "file": SimpleUploadedFile("signed.pdf", PDF, "application/pdf"),
+        },
+        "request_depositor_answers": {
+            "line": str(w.on_request.lines.get().public_id),
+            "agreed": "true",
+            "answered_on": "2026-10-02",
+            "note": "The depositor's e-mail of the same day.",
+            "file": SimpleUploadedFile("answer.pdf", PDF, "application/pdf"),
         },
     }
     return bodies.get(call.name, {})

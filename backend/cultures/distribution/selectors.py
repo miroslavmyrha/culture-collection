@@ -12,6 +12,7 @@ import re
 
 from django.db.models import Count, Exists, OuterRef, Prefetch, Q, QuerySet, Sum
 
+from cultures.deposits.models import Decision, TermsUse
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
@@ -157,11 +158,24 @@ def request_number(text: str) -> Q | None:
 
 def request_detail(*, access: Access, lab: Lab) -> QuerySet[DistributionRequest]:
     """The same rows with their lines (strain, terms and MTA version, open reservations with
-    their vials, the vials shipped, the permits approved against), the MTA acceptances, the
+    their vials, the vials shipped, the permits approved against, whether the pinned terms leave
+    the request's use on request and the depositor's answer, #144), the MTA acceptances, the
     shipment with its responsible person and its documents (#90), and the prepared shipments,
     newest first (#89)."""
-    lines: QuerySet[RequestLine] = RequestLine.objects.select_related(
-        "strain__taxon", "terms", "mta"
+    on_request = TermsUse.objects.filter(
+        terms_id=OuterRef("terms_id"), use=OuterRef("request__use"), decision=Decision.ON_REQUEST
+    )
+    lines: QuerySet[RequestLine] = (
+        RequestLine.objects.select_related(
+            "strain__taxon",
+            "terms",
+            "mta",
+            "depositor_answer__recorded_by",
+            "depositor_answer__document",
+        )
+        # The file's bytes stay in the database: the line shows its type, size and SHA-256.
+        .defer("depositor_answer__document__content")
+        .annotate(on_request=Exists(on_request))
     ).prefetch_related(
         Prefetch(
             "reservations",

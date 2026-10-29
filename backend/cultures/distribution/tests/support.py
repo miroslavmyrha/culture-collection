@@ -15,10 +15,12 @@ from typing import Any
 from cultures.audit.context import AuditContext, audit_context
 from cultures.audit.models import AuditEvent, Channel, RowChange
 from cultures.biosafety.policy import PERMIT_TIME_ZONE, permit_today
-from cultures.deposits.models import Contact, Use
+from cultures.deposits.models import Contact, Decision, Use
+from cultures.deposits.tests.support import ALL_PERMITTED
 from cultures.distribution import services
 from cultures.distribution.models import (
     ClassificationBasis,
+    DepositorAnswer,
     DistributionRequest,
     Document,
     LegalForm,
@@ -167,6 +169,32 @@ def accept_mtas(actor: User, request: DistributionRequest, **changes: Any) -> li
     return accepted
 
 
+# Terms that leave commercial research on request to the depositor (#144), every other use
+# permitted: what seed_dev's soil isolate DEP-1 has.
+ON_REQUEST_USES = tuple(
+    (use, Decision.ON_REQUEST if use == Use.RESEARCH_COMMERCIAL else decision)
+    for use, decision in ALL_PERMITTED
+)
+
+
+def answer(
+    actor: User, request: DistributionRequest, *, agreed: bool = True, **changes: Any
+) -> DepositorAnswer:
+    """The depositor's answer for the request's first line, with a file and a note."""
+    values: dict[str, Any] = {
+        "line_id": request.lines.order_by("pk").first().pk,  # type: ignore[union-attr]
+        "agreed": agreed,
+        "answered_on": date(2026, 10, 2),
+        "note": "The depositor's e-mail of the same day.",
+        "document": services.DocumentInput(PDF),
+        **changes,
+    }
+    with as_actor(actor):
+        return services.depositor_answer_record(
+            access=access_for(actor), request=request, data=services.DepositorAnswerInput(**values)
+        )
+
+
 def approve(actor: User, request: DistributionRequest, reason: str = "") -> DistributionRequest:
     with as_actor(actor):
         return services.request_approve(access=access_for(actor), request=request, reason=reason)
@@ -255,6 +283,7 @@ TABLES = (
     RequestLine,
     LinePermit,
     MtaAcceptance,
+    DepositorAnswer,
     VialReservation,
     Vial,
     Shipment,

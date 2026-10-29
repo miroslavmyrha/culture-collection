@@ -89,6 +89,18 @@ class AcceptanceInput:
 
 
 @dataclass(frozen=True)
+class DepositorAnswerInput:
+    """What the depositor answered for a line whose terms leave the use on request (#144): the
+    evidence is a document, a note, or both."""
+
+    line_id: int  # a line of the request
+    agreed: bool
+    answered_on: date
+    note: str = ""
+    document: DocumentInput | None = None
+
+
+@dataclass(frozen=True)
 class ShipmentInput:
     transport_class: TransportClass
     classification_basis: ClassificationBasis

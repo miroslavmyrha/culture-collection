@@ -9,7 +9,7 @@ import pytest
 
 from cultures.biosafety.models import AuthorisationKind, RestrictionKind
 from cultures.deposits import services as deposits
-from cultures.deposits.models import Condition, Depositor, MtaTemplate
+from cultures.deposits.models import Condition, Depositor, MtaTemplate, Use
 from cultures.deposits.tests.support import DUAL_USE, facts, terms
 from cultures.distribution import services
 from cultures.distribution.models import DistributionRequest, PermitKind, Requester
@@ -27,6 +27,7 @@ from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
 
 from .support import (
+    ON_REQUEST_USES,
     MakeRequester,
     Regulated,
     Supply,
@@ -170,6 +171,11 @@ def world(
     approved = submit(curator, lab, requester, [(strain, 1)])
     accept_mtas(curator, approved)
     approve(curator, approved)
+    # #144: commercial research, which the terms leave on request to the depositor.
+    on_request = submit(
+        curator, lab, requester, [(supply(uses=ON_REQUEST_USES), 1)], use=Use.RESEARCH_COMMERCIAL
+    )
+    accept_mtas(curator, on_request)
     return {
         "lab": lab,
         "requester": requester,
@@ -182,4 +188,6 @@ def world(
         "regulated_approved": regulated(strain=dual_use),
         "awaiting": awaiting,
         "awaiting_preparation": awaiting.preparations.get().public_id,
+        "on_request": on_request,
+        "on_request_line": on_request.lines.get().pk,
     }

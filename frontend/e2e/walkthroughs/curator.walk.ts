@@ -192,7 +192,10 @@ test('C8 release a batch after its checks', async ({ browser }, info) => {
 
 test('C9 answer a request: may the strain go out for commercial research, then send it', async ({ browser }, info) => {
   // seed_dev holds the request: Example Institute of Microbiology asks for BAC 29 (soil isolate
-  // DEP-1) for commercial research, which the depositor's terms allow only on request.
+  // DEP-1) for commercial research, which the depositor's terms allow only on request. The
+  // depositor answered by e-mail (#144): the curator records the yes with the e-mail, and the
+  // approval is open. The walk stops there: approving would reserve vials of BAC 29 and change the
+  // stock that V4 counts on the same seed. Sending is the technician's task (T9).
   const w = await Walk.as(browser, info, 'bac-curator', curator('C9', 'Answer a request for commercial research and send vials'))
   await w.start()
   await openLab(w, LAB)
@@ -200,11 +203,22 @@ test('C9 answer a request: may the strain go out for commercial research, then s
   const row = w.page.getByRole('table', { name: 'Requests' }).getByRole('row', { name: /Commercial research/ }).first()
   await w.read(row)
   await w.click(row.getByRole('link').first())
-  const manager = w.page.getByRole('list', { name: 'Needs a manager’s approval' })
-  await expect(manager).toContainText('only on request to the depositor')
-  await w.read(manager)
-  await expect(w.page.getByText('A manager approves this request.')).toBeVisible()
-  w.impossible('The curator may only reject it or wait: the use is on request to the depositor, so a manager approves, and nothing records the depositor\'s answer but the reason. Sending is part B', '#18')
+  const blocks = w.page.getByRole('list', { name: 'Blocks the approval' })
+  await expect(blocks).toContainText('only on request to the depositor')
+  await w.read(blocks)
+  await w.click(w.page.getByRole('button', { name: 'Record the depositor’s yes' }))
+  const dialog = w.page.getByRole('dialog', { name: 'Record the depositor’s yes' })
+  await w.type(dialog.getByRole('textbox', { name: 'Note' }), 'The depositor agreed by e-mail to enzyme screening for this company.')
+  const chooser = w.page.waitForEvent('filechooser')
+  await w.click(dialog.getByLabel('Depositor’s letter or e-mail'))
+  await (await chooser).setFiles({ name: 'depositor-answer.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n% walkthrough\n') })
+  await w.click(dialog.getByRole('button', { name: 'Record the yes' }))
+  await expect(w.page.getByRole('list', { name: 'Depositor’s answers' })).toContainText('the depositor agreed to commercial research')
+  await expect(w.page.getByText('Nothing stands in the way: a curator may approve it.')).toBeVisible()
+  await expect(w.page.getByRole('button', { name: 'Approve and reserve the vials' })).toBeVisible()
+  await w.shot('answered')
+  w.note('The e-mail is chosen in the file picker of the system, a step a person also needs to find the file (counted as one click)')
+  w.note('Approving and sending are the next steps (the technician task is T9), so the walk stops before the approval, which is open')
   await w.done()
 })
 

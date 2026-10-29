@@ -1,7 +1,8 @@
 """Every write of distribution (#18, part A): requesters and their permits, requests with their
-lines, MTA acceptances, and the decisions on a request with the vials reserved at approval; the
-shipment of an approved request (#88), in two steps by two people when a line is regulated (#89),
-with the documents it needs written in the same transaction (#90).
+lines, MTA acceptances, the depositor's answers for a use on request (#144), and the decisions
+on a request with the vials reserved at approval; the shipment of an approved request (#88), in
+two steps by two people when a line is regulated (#89), with the documents it needs written in
+the same transaction (#90).
 
 Each service runs in audited_atomic() and records its events in the same transaction. Lock
 order, as everywhere: the lab row first (labs.locks.lock_lab), then the request, then the
@@ -30,6 +31,7 @@ from ._shared import (
     document_type,
     normalised,
 )
+from .answers import ANSWER_UNIQUE, depositor_answer_record
 from .decisions import (
     request_approve,
     request_cancel,
@@ -41,6 +43,7 @@ from .errors import (
     ConfirmOwnApproval,
     ConfirmOwnPreparation,
     ContactErased,
+    DepositorAnswerExists,
     DestinationRefused,
     InvalidDistribution,
     ManagerRequired,
@@ -60,6 +63,7 @@ from .errors import (
 from .inputs import (
     AcceptanceInput,
     ContactInput,
+    DepositorAnswerInput,
     DocumentInput,
     LineInput,
     NewRequest,
@@ -91,6 +95,7 @@ from .two_person import (
 
 __all__ = [
     "ACCEPTANCE",
+    "ANSWER_UNIQUE",
     "CONTACT",
     "LINE",
     "MAX_COOLANT_KG",
@@ -107,6 +112,8 @@ __all__ = [
     "ConfirmOwnPreparation",
     "ContactErased",
     "ContactInput",
+    "DepositorAnswerExists",
+    "DepositorAnswerInput",
     "DestinationRefused",
     "DocumentInput",
     "InvalidDistribution",
@@ -130,6 +137,7 @@ __all__ = [
     "WrongState",
     "_move",
     "acceptance_record",
+    "depositor_answer_record",
     "document_type",
     "normalised",
     "permit_add",

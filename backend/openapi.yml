@@ -3271,7 +3271,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'Invalid input, named by its field: an unknown requester, strain
-            or MTA version, a strain without terms (no_terms), a file that is empty,
+            or MTA version, a strain without terms (no_terms), a line whose terms
+            do not leave the use on request (not_on_request), a file that is empty,
             too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
             is not exempt as non-pathogenic)'
         '401':
@@ -3391,7 +3392,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'Invalid input, named by its field: an unknown requester, strain
-            or MTA version, a strain without terms (no_terms), a file that is empty,
+            or MTA version, a strain without terms (no_terms), a line whose terms
+            do not leave the use on request (not_on_request), a file that is empty,
             too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
             is not exempt as non-pathogenic)'
         '409':
@@ -3400,9 +3402,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
-            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
-            prepared shipment is open than the one confirmed; preparation_exists'
+            starts from; acceptance_exists; depositor_answer_exists; permit_ended;
+            contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken;
+            preparation_changed: another prepared shipment is open than the one confirmed;
+            preparation_exists'
         '422':
           content:
             application/problem+json:
@@ -3529,7 +3532,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'Invalid input, named by its field: an unknown requester, strain
-            or MTA version, a strain without terms (no_terms), a file that is empty,
+            or MTA version, a strain without terms (no_terms), a line whose terms
+            do not leave the use on request (not_on_request), a file that is empty,
             too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
             is not exempt as non-pathogenic)'
         '401':
@@ -3648,7 +3652,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'Invalid input, named by its field: an unknown requester, strain
-            or MTA version, a strain without terms (no_terms), a file that is empty,
+            or MTA version, a strain without terms (no_terms), a line whose terms
+            do not leave the use on request (not_on_request), a file that is empty,
             too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
             is not exempt as non-pathogenic)'
         '409':
@@ -3657,9 +3662,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
-            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
-            prepared shipment is open than the one confirmed; preparation_exists'
+            starts from; acceptance_exists; depositor_answer_exists; permit_ended;
+            contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken;
+            preparation_changed: another prepared shipment is open than the one confirmed;
+            preparation_exists'
         '401':
           content:
             application/problem+json:
@@ -3803,7 +3809,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'Invalid input, named by its field: an unknown requester, strain
-            or MTA version, a strain without terms (no_terms), a file that is empty,
+            or MTA version, a strain without terms (no_terms), a line whose terms
+            do not leave the use on request (not_on_request), a file that is empty,
             too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
             is not exempt as non-pathogenic)'
         '409':
@@ -3812,9 +3819,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
-            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
-            prepared shipment is open than the one confirmed; preparation_exists'
+            starts from; acceptance_exists; depositor_answer_exists; permit_ended;
+            contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken;
+            preparation_changed: another prepared shipment is open than the one confirmed;
+            preparation_exists'
         '422':
           content:
             application/problem+json:
@@ -3936,7 +3944,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'Invalid input, named by its field: an unknown requester, strain
-            or MTA version, a strain without terms (no_terms), a file that is empty,
+            or MTA version, a strain without terms (no_terms), a line whose terms
+            do not leave the use on request (not_on_request), a file that is empty,
             too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
             is not exempt as non-pathogenic)'
         '409':
@@ -3945,9 +3954,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
-            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
-            prepared shipment is open than the one confirmed; preparation_exists'
+            starts from; acceptance_exists; depositor_answer_exists; permit_ended;
+            contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken;
+            preparation_changed: another prepared shipment is open than the one confirmed;
+            preparation_exists'
         '401':
           content:
             application/problem+json:
@@ -4013,7 +4023,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'Invalid input, named by its field: an unknown requester, strain
-            or MTA version, a strain without terms (no_terms), a file that is empty,
+            or MTA version, a strain without terms (no_terms), a line whose terms
+            do not leave the use on request (not_on_request), a file that is empty,
             too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
             is not exempt as non-pathogenic)'
         '409':
@@ -4022,9 +4033,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
-            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
-            prepared shipment is open than the one confirmed; preparation_exists'
+            starts from; acceptance_exists; depositor_answer_exists; permit_ended;
+            contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken;
+            preparation_changed: another prepared shipment is open than the one confirmed;
+            preparation_exists'
         '422':
           content:
             application/problem+json:
@@ -4098,7 +4110,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'Invalid input, named by its field: an unknown requester, strain
-            or MTA version, a strain without terms (no_terms), a file that is empty,
+            or MTA version, a strain without terms (no_terms), a line whose terms
+            do not leave the use on request (not_on_request), a file that is empty,
             too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
             is not exempt as non-pathogenic)'
         '409':
@@ -4107,9 +4120,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
-            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
-            prepared shipment is open than the one confirmed; preparation_exists'
+            starts from; acceptance_exists; depositor_answer_exists; permit_ended;
+            contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken;
+            preparation_changed: another prepared shipment is open than the one confirmed;
+            preparation_exists'
         '422':
           content:
             application/problem+json:
@@ -4182,7 +4196,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'Invalid input, named by its field: an unknown requester, strain
-            or MTA version, a strain without terms (no_terms), a file that is empty,
+            or MTA version, a strain without terms (no_terms), a line whose terms
+            do not leave the use on request (not_on_request), a file that is empty,
             too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
             is not exempt as non-pathogenic)'
         '403':
@@ -4198,9 +4213,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
-            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
-            prepared shipment is open than the one confirmed; preparation_exists'
+            starts from; acceptance_exists; depositor_answer_exists; permit_ended;
+            contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken;
+            preparation_changed: another prepared shipment is open than the one confirmed;
+            preparation_exists'
         '422':
           content:
             application/problem+json:
@@ -4211,6 +4227,83 @@ paths:
             line is prepared and confirmed by a second person; ship_in_one_step: no
             line is regulated, so nothing is prepared'
         '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/requests/{public_id}/depositor-answers/:
+    post:
+      operationId: labs_requests_depositor_answers_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DepositorAnswerInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input, named by its field: an unknown requester, strain
+            or MTA version, a strain without terms (no_terms), a line whose terms
+            do not leave the use on request (not_on_request), a file that is empty,
+            too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
+            is not exempt as non-pathogenic)'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'request_state: the request is no longer in the state the action
+            starts from; acceptance_exists; depositor_answer_exists; permit_ended;
+            contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken;
+            preparation_changed: another prepared shipment is open than the one confirmed;
+            preparation_exists'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
           content:
             application/problem+json:
               schema:
@@ -4270,7 +4363,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'Invalid input, named by its field: an unknown requester, strain
-            or MTA version, a strain without terms (no_terms), a file that is empty,
+            or MTA version, a strain without terms (no_terms), a line whose terms
+            do not leave the use on request (not_on_request), a file that is empty,
             too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
             is not exempt as non-pathogenic)'
         '409':
@@ -4279,9 +4373,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
-            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
-            prepared shipment is open than the one confirmed; preparation_exists'
+            starts from; acceptance_exists; depositor_answer_exists; permit_ended;
+            contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken;
+            preparation_changed: another prepared shipment is open than the one confirmed;
+            preparation_exists'
         '422':
           content:
             application/problem+json:
@@ -4357,7 +4452,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'Invalid input, named by its field: an unknown requester, strain
-            or MTA version, a strain without terms (no_terms), a file that is empty,
+            or MTA version, a strain without terms (no_terms), a line whose terms
+            do not leave the use on request (not_on_request), a file that is empty,
             too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
             is not exempt as non-pathogenic)'
         '409':
@@ -4366,9 +4462,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
-            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
-            prepared shipment is open than the one confirmed; preparation_exists'
+            starts from; acceptance_exists; depositor_answer_exists; permit_ended;
+            contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken;
+            preparation_changed: another prepared shipment is open than the one confirmed;
+            preparation_exists'
         '422':
           content:
             application/problem+json:
@@ -4441,7 +4538,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'Invalid input, named by its field: an unknown requester, strain
-            or MTA version, a strain without terms (no_terms), a file that is empty,
+            or MTA version, a strain without terms (no_terms), a line whose terms
+            do not leave the use on request (not_on_request), a file that is empty,
             too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
             is not exempt as non-pathogenic)'
         '409':
@@ -4450,9 +4548,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
-            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
-            prepared shipment is open than the one confirmed; preparation_exists'
+            starts from; acceptance_exists; depositor_answer_exists; permit_ended;
+            contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken;
+            preparation_changed: another prepared shipment is open than the one confirmed;
+            preparation_exists'
         '422':
           content:
             application/problem+json:
@@ -4586,7 +4685,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'Invalid input, named by its field: an unknown requester, strain
-            or MTA version, a strain without terms (no_terms), a file that is empty,
+            or MTA version, a strain without terms (no_terms), a line whose terms
+            do not leave the use on request (not_on_request), a file that is empty,
             too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen
             is not exempt as non-pathogenic)'
         '409':
@@ -4595,9 +4695,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: 'request_state: the request is no longer in the state the action
-            starts from; acceptance_exists; permit_ended; contact_erased; not_enough_vials;
-            vial_reserved_meanwhile; request_number_taken; preparation_changed: another
-            prepared shipment is open than the one confirmed; preparation_exists'
+            starts from; acceptance_exists; depositor_answer_exists; permit_ended;
+            contact_erased; not_enough_vials; vial_reserved_meanwhile; request_number_taken;
+            preparation_changed: another prepared shipment is open than the one confirmed;
+            preparation_exists'
         '422':
           content:
             application/problem+json:
@@ -9860,6 +9961,74 @@ components:
         * `checking` - Checking
         * `accepted` - Accepted
         * `rejected` - Rejected
+    DepositorAnswerInputRequest:
+      type: object
+      description: |-
+        Sent as multipart/form-data, with the depositor's letter or e-mail as a file, a note, or
+        both.
+      properties:
+        line:
+          type: string
+          format: uuid
+        agreed:
+          type: boolean
+        answered_on:
+          type: string
+          format: date
+        note:
+          type: string
+          default: ''
+          description: 'Stored for good: name no person.'
+          maxLength: 2000
+        file:
+          type: string
+          format: binary
+          nullable: true
+      required:
+      - agreed
+      - answered_on
+      - line
+    DepositorAnswerOutput:
+      type: object
+      description: |-
+        The depositor's answer on a line (#144). Every member reads the answer, its day and the
+        note (it names nobody); the file only a caller who may view requesters: a letter or an
+        e-mail names its writer.
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        agreed:
+          type: boolean
+          readOnly: true
+        answered_on:
+          type: string
+          format: date
+          readOnly: true
+        note:
+          type: string
+          readOnly: true
+        document:
+          allOf:
+          - $ref: '#/components/schemas/DocumentOutput'
+          nullable: true
+          readOnly: true
+        recorded_by:
+          type: string
+          readOnly: true
+        recorded_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - agreed
+      - answered_on
+      - document
+      - note
+      - public_id
+      - recorded_at
+      - recorded_by
     DepositorBrief:
       type: object
       properties:
@@ -10416,8 +10585,18 @@ components:
           items:
             $ref: '#/components/schemas/ApprovedPermit'
           readOnly: true
+        on_request:
+          type: boolean
+          readOnly: true
+        depositor_answer:
+          allOf:
+          - $ref: '#/components/schemas/DepositorAnswerOutput'
+          nullable: true
+          readOnly: true
       required:
+      - depositor_answer
       - mta
+      - on_request
       - permits
       - public_id
       - quantity

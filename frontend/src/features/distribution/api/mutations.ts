@@ -154,6 +154,32 @@ export function useRecordAcceptance(labId: string, requestId: string) {
   })
 }
 
+type AnswerBody = Omit<Schemas['DepositorAnswerInputRequest'], 'file'>
+
+/** The depositor's answer on a line (#144): a no also rejects the request, which the answer says. */
+export function useRecordDepositorAnswer(labId: string, requestId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ body, file }: { body: AnswerBody; file: File | undefined }) => {
+      await ensureCsrf()
+      return unwrap(
+        api.POST('/api/v1/labs/{lab_public_id}/requests/{public_id}/depositor-answers/', {
+          ...one(labId, requestId),
+          body: { ...body, file: file?.name ?? null },
+          bodySerializer: () => {
+            const data = new FormData()
+            for (const [name, value] of Object.entries(body)) data.append(name, String(value))
+            if (file) data.append('file', file)
+            return data
+          },
+        }),
+      )
+    },
+    meta: { handlesError: true },
+    onSuccess: (request) => settleRequest(qc, labId, request),
+  })
+}
+
 export function useCreateRequester(labId: string) {
   const qc = useQueryClient()
   return useMutation({
