@@ -111,6 +111,7 @@ class Target(StrEnum):
     REQUEST = "request"
     REQUESTERS = "requesters"
     LAB = "lab"
+    PERMITS = "permits"
 
 
 @dataclass(frozen=True)
@@ -379,7 +380,7 @@ def _expiring(access: Access, today: date) -> list[tuple[Item, int]]:
             f"{a.get_issuer_display()} {a.permit_reference}",
             f"{a.get_kind_display()}: staff record the renewal",
             a.created_at,
-            Target.LAB,
+            Target.PERMITS,
             None,
             due=a.expires_on,
         )

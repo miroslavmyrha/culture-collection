@@ -14130,6 +14130,7 @@ components:
       - request
       - requesters
       - lab
+      - permits
       type: string
       description: |-
         * `deposit` - deposit
@@ -14137,6 +14138,7 @@ components:
         * `request` - request
         * `requesters` - requesters
         * `lab` - lab
+        * `permits` - permits
   securitySchemes:
     cookieAuth:
       type: apiKey

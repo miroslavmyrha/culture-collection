@@ -278,6 +278,9 @@ def test_a_lab_permit_waits_for_managers_within_thirty_days_of_its_expiry(
     for role, user in team.items():
         found = subjects(user, "lab_permit_expiring")
         assert found == (["SÚJB DEV/VRAT/7"] if shown and role == Role.MANAGER else []), role
+    if shown:
+        [item] = waiting(team[Role.MANAGER])["lab_permit_expiring"]
+        assert (item["target"], item["target_id"]) == ("permits", None)
 
 
 def test_an_ended_lab_permit_does_not_wait(lab: Lab, manager: User) -> None:
