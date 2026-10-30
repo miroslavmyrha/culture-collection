@@ -49,7 +49,7 @@ describe('Home', () => {
           total: 25,
           items: [makeWaitingItem({ lab: BAC, subject: 'Request 2026/1, Example Institute', reason: 'A regulated strain: a manager approves it', target: 'request', target_id: REQUEST, needs_manager: true })],
         }),
-        makeWaitingGroup({ kind: 'lab_permit_expiring', items: [makeWaitingItem({ lab: BAC, subject: 'SÚJB DEV/VRAT/7', target: 'lab', target_id: null, due: '2026-11-05' })] }),
+        makeWaitingGroup({ kind: 'lab_permit_expiring', items: [makeWaitingItem({ lab: BAC, subject: 'SÚJB DEV/VRAT/7', target: 'permits', target_id: null, due: '2026-11-05' })] }),
       ],
     }))
     const waiting = await screen.findByRole('region', { name: 'Waiting for you (27)' })
@@ -64,7 +64,7 @@ describe('Home', () => {
     expect(requests).toHaveTextContent('The oldest 1 of 25 are shown.')
     const permits = within(waiting).getByRole('region', { name: 'Lab permits expiring (1)' })
     expect(permits).toHaveTextContent('Expires 2026-11-05')
-    expect(within(permits).getByRole('link', { name: 'SÚJB DEV/VRAT/7' })).toHaveAttribute('href', `/labs/${BAC}`)
+    expect(within(permits).getByRole('link', { name: 'SÚJB DEV/VRAT/7' })).toHaveAttribute('href', `/labs/${BAC}/permits`)
   })
 
   it('says nothing waits, and shows each lab with its role and figures linked to their lists', async () => {

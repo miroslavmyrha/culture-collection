@@ -16,6 +16,13 @@ export function TargetLink({ labId, target, id, children }: { labId: string; tar
       </Link>
     )
   }
+  if (target === 'permits') {
+    return (
+      <Link to="/labs/$labId/permits" params={{ labId }}>
+        {children}
+      </Link>
+    )
+  }
   if (target === 'requesters') {
     return (
       <Link to="/labs/$labId/requesters" params={{ labId }}>

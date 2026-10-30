@@ -6,7 +6,7 @@ import { axe, signedInAs, watchCsp } from './support.js'
 test.describe.configure({ timeout: 120_000 })
 
 // The strain registry against the real API (seed_e2e: e2e-curator and e2e-viewer in "E2E lab",
-// a few taxa, no permits, and one strain from an accepted deposit, B. subtilis, risk group 1).
+// a few taxa, one ended lab permit, and one strain from an accepted deposit, B. subtilis, risk group 1).
 // Strains come from accepted deposits: deposits.spec.ts adds them. These tests change no data.
 // It works as the sessions auth.setup.ts signed in.
 
