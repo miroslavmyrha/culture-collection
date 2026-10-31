@@ -586,3 +586,25 @@ records no reason, so the log shows none. Home's activity still leaves reveals o
 (`overview.activity.HIDDEN`).
 
 Migration impact: none, a permission in code and a read.
+
+## Amendment 2026-10-31: a confirmed proposal holds what it confirmed (#151)
+
+The guards of #105 and #20 hold one direction: a restriction ends, and a regulated strain is
+deaccessioned, only at the confirmation of a proposal. Nothing held the other one. A write past
+the services could mark a proposal confirmed while the restriction stayed active or the strain
+stayed in the collection, and the record would say that two people confirmed something that did
+not happen. The services write both in one transaction (`strain_restriction_end_confirm`,
+`strain_deaccession_confirm`), so only such a write could do it. Now the database holds both
+directions, checked at commit by deferred constraint triggers (`strains` 0010):
+
+- **A confirmed end proposal** has its restriction ended at the confirmation's time with the
+  proposal's reason.
+- **A confirmed deaccession proposal** has its strain deaccessioned at the confirmation's time,
+  by the confirmer, with the proposal's cause, reason and final use.
+
+The confirmation is written before the restriction or the strain, because their guards ask for
+it, so the check waits for the commit; the confirm services set it deferred, also in a session
+that set its constraints immediate.
+
+Migration impact: additive, two functions and two triggers. A constraint trigger checks only
+rows written after it exists. Reversible: `migrate strains 0009`.
