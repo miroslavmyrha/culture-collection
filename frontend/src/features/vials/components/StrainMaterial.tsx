@@ -38,6 +38,8 @@ type Props = {
   strainGrowth: Growth | undefined
   canHandle: boolean
   canRelease: boolean
+  /** The strain was deaccessioned with its material destroyed (#150): its vials go only to destruction. */
+  materialDestroyed: boolean
   /** The page of the vials the URL holds, and how to ask for another (#72). */
   vialPage: VialPage
   onVialPage: (next: Partial<VialPage>) => void
@@ -59,7 +61,7 @@ type Open =
  * reveals one (ADR 0009). A batch's checks open in its row (D16): technicians record them,
  * curators release and hold.
  */
-export function StrainMaterial({ labId, strainId, accession, strainGrowth, canHandle, canRelease, vialPage, onVialPage }: Props) {
+export function StrainMaterial({ labId, strainId, accession, strainGrowth, canHandle, canRelease, materialDestroyed, vialPage, onVialPage }: Props) {
   const passages = usePassages(labId, strainId)
   const batches = useBatches(labId, strainId)
   const vials = useVialPage(labId, strainId, vialPage)
@@ -302,7 +304,7 @@ export function StrainMaterial({ labId, strainId, accession, strainGrowth, canHa
                       </TableCell>
                       {canHandle && (
                         <TableCell>
-                          <Actions vial={v} show={showFrom} />
+                          <Actions vial={v} materialDestroyed={materialDestroyed} show={showFrom} />
                         </TableCell>
                       )}
                     </TableRow>
@@ -332,7 +334,7 @@ export function StrainMaterial({ labId, strainId, accession, strainGrowth, canHa
       {open?.kind === 'place' && (
         <PlaceVialDialog {...common} vial={open.vial} boxes={boxList} boxesFailed={boxesFailed} open={open.open} onPlaced={() => moved(open.vial.public_id)} />
       )}
-      {open?.kind === 'status' && <VialStatusDialog {...common} vial={open.vial} open={open.open} />}
+      {open?.kind === 'status' && <VialStatusDialog {...common} vial={open.vial} materialDestroyed={materialDestroyed} open={open.open} />}
       {open?.kind === 'revive' && strainGrowth && <ReviveDialog {...common} vial={open.vial} strainGrowth={strainGrowth} open={open.open} />}
       {open?.kind === 'check' && (
         <RecordCheckDialog {...common} batch={open.batch} vials={batchVials.data?.results ?? (batchVials.isError ? [] : undefined)} vialsTotal={batchVials.data?.count} checks={open.checks} open={open.open} />
@@ -415,13 +417,13 @@ function OneVial({ onShowAll }: { onShowAll: () => void }) {
   )
 }
 
-type ActionsProps = { vial: Vial; show: (next: NonNullable<Open>) => (button: HTMLButtonElement) => void }
+type ActionsProps = { vial: Vial; materialDestroyed: boolean; show: (next: NonNullable<Open>) => (button: HTMLButtonElement) => void }
 
 /** A vial's bench work in one menu per row (#19): move or place, change its state, revive it. */
-function Actions({ vial, show }: ActionsProps) {
+function Actions({ vial, materialDestroyed, show }: ActionsProps) {
   const items: ActionItem[] = []
   if (!OUT_OF_A_BOX.includes(vial.status)) items.push({ label: vial.placed ? 'Move' : 'Place', onSelect: show({ kind: 'place', vial, open: true }) })
-  if (nextStates(vial).length > 0) items.push({ label: 'Change state', onSelect: show({ kind: 'status', vial, open: true }) })
+  if (nextStates(vial, materialDestroyed).length > 0) items.push({ label: 'Change state', onSelect: show({ kind: 'status', vial, open: true }) })
   if (vial.status === 'available') items.push({ label: 'Revive', onSelect: show({ kind: 'revive', vial, open: true }) })
   if (items.length === 0) return <Typography variant="body2" color="text.secondary">None</Typography>
   return <ActionMenu label="Actions" name={`Actions for vial ${vial.label}`} items={items} size="small" />

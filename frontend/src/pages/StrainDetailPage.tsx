@@ -10,7 +10,7 @@ import { StrainTabs } from '@/features/strains/components/StrainTabs'
 import { StrainTerms } from '@/features/strains/components/StrainTerms'
 import { canConfirmDeaccession, canConfirmRestrictionEnd, canManageStrains } from '@/features/strains/schemas'
 import { StrainMaterial } from '@/features/vials/components/StrainMaterial'
-import { canHandleVials, canReleaseBatches } from '@/features/vials/schemas'
+import { canHandleVials, canReleaseBatches, strainMaterialDestroyed } from '@/features/vials/schemas'
 
 const route = getRouteApi('/_authenticated/labs/$labId/strains/$strainId')
 const historyRoute = getRouteApi('/_authenticated/labs/$labId/strains/$strainId/history')
@@ -86,6 +86,7 @@ export function StrainMaterialPage() {
         strainGrowth={strain?.growth}
         canHandle={canHandleVials(role)}
         canRelease={canReleaseBatches(role)}
+        materialDestroyed={strain !== undefined && strainMaterialDestroyed(strain)}
         vialPage={page}
         onVialPage={(next) => void navigate({ search: (prev) => ({ ...prev, ...next }) })}
       />

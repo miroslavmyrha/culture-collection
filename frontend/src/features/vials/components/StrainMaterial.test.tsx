@@ -51,12 +51,25 @@ function mockMaterial(vials = [placed, loose, consumed]) {
 const many = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => makeVial({ label: `MYC 42 / ${from + i > 200 ? 2 : 1} / ${((from + i - 1) % 200) + 1}` }))
 
 /** The tab as the page drives it: the page of the vials in the page's state (the URL there). */
-function Material({ canHandle, limit = 50, vial, strainGrowth = noGrowth() }: { canHandle: boolean; limit?: number; vial?: string; strainGrowth?: Growth }) {
+function Material({ canHandle, limit = 50, vial, strainGrowth = noGrowth(), materialDestroyed = false }: { canHandle: boolean; limit?: number; vial?: string; strainGrowth?: Growth; materialDestroyed?: boolean }) {
   const [vialPage, setVialPage] = useState<VialPage>({ limit, offset: 0, batch: undefined, vial })
-  return <StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} canRelease={canHandle} strainGrowth={strainGrowth} vialPage={vialPage} onVialPage={(next) => setVialPage((current) => ({ ...current, ...next }))} />
+  return (
+    <StrainMaterial
+      labId={LAB_ID}
+      strainId={STRAIN_ID}
+      accession="MYC 42"
+      canHandle={canHandle}
+      canRelease={canHandle}
+      materialDestroyed={materialDestroyed}
+      strainGrowth={strainGrowth}
+      vialPage={vialPage}
+      onVialPage={(next) => setVialPage((current) => ({ ...current, ...next }))}
+    />
+  )
 }
 
-const render = (canHandle = true, limit = 50, strainGrowth: Growth = noGrowth()) => renderWithProviders(<Material canHandle={canHandle} limit={limit} strainGrowth={strainGrowth} />)
+const render = (canHandle = true, limit = 50, strainGrowth: Growth = noGrowth(), materialDestroyed = false) =>
+  renderWithProviders(<Material canHandle={canHandle} limit={limit} strainGrowth={strainGrowth} materialDestroyed={materialDestroyed} />)
 
 describe('StrainMaterial', { timeout: 20_000 }, () => {
   it('shows the passages, the batches and where each vial is', async () => {
@@ -366,6 +379,34 @@ describe('StrainMaterial', { timeout: 20_000 }, () => {
     await user.click(within(dialog).getByRole('button', { name: 'Save state' }))
     await waitFor(() => expect(dialog).not.toBeInTheDocument())
     expect(calls[0]?.body).toEqual({ status: 'quarantined', reason: 'contamination suspected' })
+  })
+
+  it('offers a found vial of a strain whose material was destroyed only "To destroy", and says why (#150)', async () => {
+    const found = makeVial({ label: 'MYC 42 / 1 / 4', status: 'lost', status_changed_at: '2026-10-02T10:00:00Z' })
+    mockMaterial([found])
+    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/status/', { ...found, status: 'to_destroy' })
+    await render(true, 50, noGrowth(), true)
+    const user = userEvent.setup()
+    await vialAction(user, 'MYC 42 / 1 / 4', 'Change state')
+    const dialog = await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 4' })
+    expect(dialog).toHaveAccessibleDescription(/Now lost\. Its strain was deaccessioned and its material destroyed: a found vial goes to destruction\./)
+    const state = within(dialog).getByRole('combobox', { name: 'New state' })
+    expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(['To destroy'])
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'Found behind the rack.')
+    await user.click(within(dialog).getByRole('button', { name: 'Save state' }))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    expect(calls[0]?.body).toEqual({ status: 'to_destroy', reason: 'Found behind the rack.' })
+  })
+
+  it('offers a found vial of a strain whose material was kept "Available" as before (#150)', async () => {
+    mockMaterial([makeVial({ label: 'MYC 42 / 1 / 4', status: 'lost', status_changed_at: '2026-10-02T10:00:00Z' })])
+    await render()
+    const user = userEvent.setup()
+    await vialAction(user, 'MYC 42 / 1 / 4', 'Change state')
+    const dialog = await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 4' })
+    expect(dialog).toHaveAccessibleDescription('Now lost. A vial that is consumed, destroyed, lost or entered in error leaves its position.')
+    const state = within(dialog).getByRole('combobox', { name: 'New state' })
+    expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(['Available'])
   })
 
   it('offers no "entered in error" for a vial whose state changed before', async () => {
