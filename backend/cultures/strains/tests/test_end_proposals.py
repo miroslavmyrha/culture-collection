@@ -8,6 +8,7 @@ of a proposal, and the proposer never confirms.
 """
 
 from collections.abc import Callable
+from datetime import timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -30,7 +31,15 @@ from cultures.strains import selectors, services
 from cultures.strains.models import RestrictionEndProposal, Strain, StrainRestriction
 from cultures.users.models import User
 
-from .conftest import GMO, STRAINS_URL, VRAT, MakeStrain, make_permit
+from .conftest import (
+    GMO,
+    STRAINS_URL,
+    VRAT,
+    MakeStrain,
+    at_commit,
+    make_permit,
+    refused_at_commit,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -427,3 +436,66 @@ def test_the_runtime_role_works_the_two_steps_and_cannot_skip_them(
     confirm(manager, gmo, proposal.public_id)
     gmo.refresh_from_db()
     assert gmo.ended_at is not None
+
+
+# A confirmed proposal holds its outcome, at commit (migration 0010, #151).
+
+NOT_ENDED = "a confirmed proposal ends its restriction"
+
+
+def test_the_runtime_role_cannot_confirm_an_end_that_did_not_happen(
+    as_curator: AuditContext,
+    curator: User,
+    manager: User,
+    gmo: StrainRestriction,
+    runtime_role: CursorWrapper,
+) -> None:
+    proposal = propose(curator, gmo)
+    now = timezone.now()
+    confirm_sql = (
+        "UPDATE strains_restrictionendproposal SET confirmed_at = %s,"  # noqa: S608
+        f" confirmed_by_id = {manager.pk} WHERE id = {proposal.pk}"
+    )
+    with refused_at_commit(NOT_ENDED):
+        runtime_role.execute(confirm_sql, [now])
+    proposal.refresh_from_db()
+    assert proposal.confirmed_at is None
+    with at_commit():  # both in one transaction, as the service writes them
+        runtime_role.execute(confirm_sql, [now])
+        runtime_role.execute(
+            "UPDATE strains_strainrestriction SET ended_at = %s,"  # noqa: S608
+            f" end_reason = 'Delisted.' WHERE id = {gmo.pk}",
+            [now],
+        )
+    gmo.refresh_from_db()
+    assert gmo.ended_at is not None
+
+
+@pytest.fixture
+def restriction_guard_off(gmo: StrainRestriction) -> None:
+    """The restriction's own guard (0005) refuses an end at another time or with another reason
+    than a confirmation's before the check at commit sees it. Here it is off, for the test's
+    transaction only (rolled back with it), so the check at commit is tested on its own."""
+    with connection.cursor() as cursor:
+        cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")  # no pending trigger event blocks ALTER
+        cursor.execute(
+            "ALTER TABLE strains_strainrestriction DISABLE TRIGGER strains_restriction_guard"
+        )
+
+
+def test_a_confirmed_proposal_ends_its_restriction_as_it_was_confirmed(
+    curator: User, manager: User, gmo: StrainRestriction, restriction_guard_off: None
+) -> None:
+    now = timezone.now()
+    confirmed = {"confirmed_by": manager, "confirmed_at": now}
+    for end in ({"ended_at": now + timedelta(seconds=1)}, {"end_reason": "Other."}):
+        with refused_at_commit(NOT_ENDED):
+            proposal = raw_proposal(gmo, curator, proposed_at=now)
+            RestrictionEndProposal.objects.filter(pk=proposal.pk).update(**confirmed)
+            StrainRestriction.objects.filter(pk=gmo.pk).update(
+                **({"ended_at": now, "end_reason": "Delisted."} | end)
+            )
+    with at_commit():
+        proposal = raw_proposal(gmo, curator, proposed_at=now)
+        RestrictionEndProposal.objects.filter(pk=proposal.pk).update(**confirmed)
+        StrainRestriction.objects.filter(pk=gmo.pk).update(ended_at=now, end_reason="Delisted.")

@@ -10,6 +10,7 @@ requests and vials is tested in distribution/tests/test_deaccession.py.
 """
 
 from collections.abc import Callable
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -47,8 +48,10 @@ from .conftest import (
     STRAINS_URL,
     VRAT,
     MakeStrain,
+    at_commit,
     end_restriction,
     make_permit,
+    refused_at_commit,
 )
 
 pytestmark = pytest.mark.django_db
@@ -616,12 +619,14 @@ def test_the_database_asks_a_quarantine_pest_for_its_final_use(
     curator: User, manager: User, pest: Strain, make_strain: MakeStrain
 ) -> None:
     now = timezone.now()
-    raw_proposal(pest, curator, proposed_at=now, confirmed_by=None)
+    raw_proposal(pest, curator, proposed_at=now, final_use=FinalUse.DESTRUCTION)
     StrainDeaccessionProposal.objects.filter(strain=pest).update(
         confirmed_by=manager, confirmed_at=now
     )
     with guarded("records its final use"), transaction.atomic():
         raw_leave(pest, manager, deaccessioned_at=now)
+    # The confirmed proposal holds its outcome at commit (0010).
+    assert raw_leave(pest, manager, deaccessioned_at=now, final_use=FinalUse.DESTRUCTION) == 1
     with guarded("records its final use"), transaction.atomic():
         raw_leave(make_strain(), curator, final_use=FinalUse.STORAGE)
 
@@ -753,3 +758,62 @@ def test_the_runtime_role_works_the_two_steps_and_cannot_skip_them(
     confirm(manager, gmo, proposal.public_id)
     gmo.refresh_from_db()
     assert gmo.status == StrainStatus.DEACCESSIONED
+
+
+# A confirmed proposal holds its outcome, at commit (migration 0010, #151).
+
+NOT_DEACCESSIONED = "a confirmed proposal deaccessions its strain"
+
+
+def raw_confirm(proposal: StrainDeaccessionProposal, by: User, at: datetime) -> None:
+    StrainDeaccessionProposal.objects.filter(pk=proposal.pk).update(
+        confirmed_by=by, confirmed_at=at
+    )
+
+
+def test_the_runtime_role_cannot_confirm_a_deaccession_that_did_not_happen(
+    as_curator: AuditContext,
+    curator: User,
+    manager: User,
+    gmo: Strain,
+    runtime_role: CursorWrapper,
+) -> None:
+    proposal = propose(curator, gmo)
+    with refused_at_commit(NOT_DEACCESSIONED):
+        runtime_role.execute(
+            "UPDATE strains_straindeaccessionproposal SET confirmed_at = %s,"  # noqa: S608
+            f" confirmed_by_id = {manager.pk} WHERE id = {proposal.pk}",
+            [timezone.now()],
+        )
+    proposal.refresh_from_db()
+    assert proposal.confirmed_at is None
+    confirm(manager, gmo, proposal.public_id)
+    runtime_role.execute("SET CONSTRAINTS ALL IMMEDIATE")  # the service's writes hold at commit
+    gmo.refresh_from_db()
+    assert gmo.status == StrainStatus.DEACCESSIONED
+
+
+def test_a_confirmed_proposal_deaccessions_its_strain_as_it_was_confirmed(
+    as_curator: AuditContext,
+    curator: User,
+    manager: User,
+    make_strain: MakeStrain,
+    runtime_role: CursorWrapper,
+) -> None:
+    """Each fact counts. The strain is not regulated, so its own guard (0009) does not ask for
+    the proposal, and only the check at commit compares the two."""
+    strain = make_strain()
+    now = timezone.now()
+    for proposed, left in (
+        ({}, {"deaccessioned_by": curator}),
+        ({}, {"deaccessioned_at": now + timedelta(seconds=1)}),
+        ({}, {"deaccession_cause": DeaccessionCause.LOST}),
+        ({}, {"deaccession_reason": "Other."}),
+        ({"final_use": FinalUse.DESTRUCTION}, {}),
+    ):
+        with refused_at_commit(NOT_DEACCESSIONED):
+            raw_confirm(raw_proposal(strain, curator, proposed_at=now, **proposed), manager, now)
+            assert raw_leave(strain, manager, **({"deaccessioned_at": now} | left)) == 1
+    with at_commit():
+        raw_confirm(raw_proposal(strain, curator, proposed_at=now), manager, now)
+        assert raw_leave(strain, manager, deaccessioned_at=now) == 1
