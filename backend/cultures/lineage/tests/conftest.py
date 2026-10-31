@@ -27,6 +27,7 @@ from .fixtures import (  # noqa: F401 (fixtures)
     keeper,
     make_batch,
     passage0,
+    quarantine_pest,
     regulated,
     strain,
     vial_edges_alone,

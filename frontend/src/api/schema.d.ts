@@ -11684,7 +11684,7 @@ export interface operations {
                     "application/json": components["schemas"]["VialOutput"];
                 };
             };
-            /** @description Invalid input on a field: an unknown passage or box, a box that may not take the strain (not_a_box, unit_not_active, risk_group_above_cap), a full box (box_full), a position outside the box (outside_box), a date in the future, a state that cannot follow */
+            /** @description Invalid input on a field. On the status: transition_not_allowed, a state that cannot follow; vial_has_history, entered in error after a change; strain_material_destroyed, the strain was deaccessioned with its material destroyed and its vials go only to destruction */
             400: {
                 headers: {
                     [name: string]: unknown;

@@ -40,6 +40,16 @@ class EdgeNotAllowed(DomainError):
         super().__init__(detail, code=code, attr=attr)
 
 
+class MaterialDestroyed(EdgeNotAllowed):
+    """#150: the strain was deaccessioned with its material destroyed."""
+
+    default_code = "strain_material_destroyed"
+    default_detail = (
+        "This strain was deaccessioned and its material destroyed: its vials are not used again."
+        " Mark a found vial to destroy."
+    )
+
+
 class BatchNumberTaken(Conflict):
     default_code = "batch_number_taken"
     default_detail = "Another batch took this number at the same moment: try again."

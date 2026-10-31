@@ -11,12 +11,13 @@ request built its access object is refused, and reads the strain's risk group, w
 only under the same lock. A refusal raises before anything is written, or rolls back what
 was, so it changes nothing and records nothing.
 
-The database holds the same rules on its own (migrations 0004 and 0006): the vial's and the
+The database holds the same rules on its own (migrations 0004, 0006 and 0009): the vial's and the
 batch's edges, a release only after passed checks, the placement's box, lab and bounds, one
 open placement per vial and per position, checks that are only added. The services check
 them first, so a person gets a message, not a server error.
 """
 
+from ..models import HELD
 from ._shared import (
     BATCH,
     CHECK,
@@ -47,6 +48,7 @@ from .errors import (
     EdgeNotAllowed,
     InvalidCheck,
     InvalidVial,
+    MaterialDestroyed,
     PositionTaken,
     StrainNotActive,
     VialNotAvailable,
@@ -68,7 +70,6 @@ from .passages import (
     vial_revive,
 )
 from .vials import (
-    HELD,
     batch_exhaust_if_emptied_locked,
     strain_vials_leave_locked,
     vial_place,
@@ -97,6 +98,7 @@ __all__ = [
     "InvalidCheck",
     "InvalidVial",
     "Location",
+    "MaterialDestroyed",
     "NewBatch",
     "NewCheck",
     "PositionTaken",

@@ -28,10 +28,12 @@ from ..models import (
     Vial,
     VialPlacement,
     VialStatus,
+    vial_edges,
 )
 from .errors import (
     EdgeNotAllowed,
     InvalidVial,
+    MaterialDestroyed,
     StrainNotActive,
 )
 
@@ -167,10 +169,13 @@ def _close(placement: VialPlacement, access: Access, reason: RemovalReason, now:
 
 
 def _transition(locked: Vial, status: VialStatus, reason: str, access: Access) -> None:
-    """Caller holds the lab lock and the vial's row. Checks the edge, closes the placement of a
-    vial that leaves its box, and records one event with both."""
+    """Caller holds the lab lock and the vial's row. Checks the edge (the strain's as read with the
+    vial, under the lab lock its deaccession takes too), closes the placement of a vial that
+    leaves its box, and records one event with both."""
     old = VialStatus(locked.status)
-    if status not in EDGES[old]:
+    if status not in vial_edges(locked.batch.strain)[old]:
+        if status in EDGES[old]:
+            raise MaterialDestroyed
         raise EdgeNotAllowed(
             f"A vial cannot go from {old.label.lower()} to {status.label.lower()}."
         )

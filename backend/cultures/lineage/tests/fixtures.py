@@ -9,9 +9,17 @@ from django.db import connection
 
 from cultures.audit.context import AuditContext, audit_context
 from cultures.audit.models import Channel
+from cultures.biosafety.models import AuthorisationKind
 from cultures.deposits import services as deposits
 from cultures.deposits.models import Deposit
-from cultures.deposits.tests.support import DUAL_USE, MakeDeposit, as_actor, facts
+from cultures.deposits.tests.support import (
+    DUAL_USE,
+    QUARANTINE,
+    MakeDeposit,
+    as_actor,
+    facts,
+    make_permit,
+)
 from cultures.labs import services as labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab
@@ -47,6 +55,22 @@ def regulated(make_deposit: MakeDeposit, mockia: Taxon, curator: User) -> Strain
             access=access_for(curator),
             deposit=deposit,
             facts=facts(mockia, restrictions=[DUAL_USE]),
+        )
+    assert accepted.strain is not None
+    return accepted.strain
+
+
+@pytest.fixture
+def quarantine_pest(lab: Lab, make_deposit: MakeDeposit, mockia: Taxon, curator: User) -> Strain:
+    """Mockia vulgaris (invented) as a quarantine pest, in a lab with the permit for one: it
+    records a final use when it leaves (#20)."""
+    make_permit(lab, AuthorisationKind.QUARANTINE_PEST)
+    deposit: Deposit = make_deposit("checking", name_as_received="Mockia vulgaris Q1")
+    with as_actor(curator):
+        accepted = deposits.deposit_accept(
+            access=access_for(curator),
+            deposit=deposit,
+            facts=facts(mockia, restrictions=[QUARANTINE]),
         )
     assert accepted.strain is not None
     return accepted.strain

@@ -23,7 +23,7 @@ from cultures.growth.models import GrowthConditions, growth_constraints, medium_
 from cultures.labs.models import Lab
 from cultures.labs.querysets import LabScopedQuerySet
 from cultures.storage.models import StorageUnit
-from cultures.strains.models import Strain
+from cultures.strains.models import KEEPS_MATERIAL, Strain, StrainStatus
 
 BATCH_NUMBER_UNIQUE = "lineage_batch_strain_number_uniq"
 VIAL_SEQ_UNIQUE = "lineage_vial_batch_seq_uniq"
@@ -186,7 +186,7 @@ class Batch(PublicModel):
 
 
 class VialStatus(models.TextChoices):
-    """ADR 0008, D7. The edges are in EDGES below and in the vial trigger (migration 0005)."""
+    """ADR 0008, D7. The edges are in EDGES below and in the vial trigger (migration 0009)."""
 
     AVAILABLE = "available", "Available"
     RESERVED = "reserved", "Reserved"
@@ -215,6 +215,27 @@ EDGES: dict[VialStatus, frozenset[VialStatus]] = {
     S.DISTRIBUTED: frozenset(),
     S.ENTERED_IN_ERROR: frozenset(),
 }
+# The states of a vial the collection still holds for use.
+HELD: frozenset[VialStatus] = frozenset({S.AVAILABLE, S.RESERVED, S.QUARANTINED})
+# The edges of a vial whose strain was deaccessioned with its material destroyed (#150, ADR 0008
+# amendment of 2026-10-31): no state the collection holds for use, and a vial lost at the
+# deaccession goes to destruction once it is found. The vial trigger chooses the same table.
+EDGES_MATERIAL_DESTROYED: dict[VialStatus, frozenset[VialStatus]] = {
+    old: (targets - HELD) | (frozenset({S.TO_DESTROY}) if old == S.LOST else frozenset())
+    for old, targets in EDGES.items()
+}
+
+
+def material_destroyed(strain: Strain) -> bool:
+    """The strain was deaccessioned and its material destroyed: every final use but collection
+    and storage, and none (strains.services._leave marks its held vials to_destroy then)."""
+    return strain.status == StrainStatus.DEACCESSIONED and strain.final_use not in KEEPS_MATERIAL
+
+
+def vial_edges(strain: Strain) -> dict[VialStatus, frozenset[VialStatus]]:
+    return EDGES_MATERIAL_DESTROYED if material_destroyed(strain) else EDGES
+
+
 # A vial in one of these is not in a box: its placement is closed with the status as reason.
 NOT_IN_A_BOX: frozenset[VialStatus] = frozenset(
     {S.CONSUMED, S.DESTROYED, S.DISTRIBUTED, S.ENTERED_IN_ERROR, S.LOST}
