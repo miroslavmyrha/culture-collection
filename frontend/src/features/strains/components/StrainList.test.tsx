@@ -28,12 +28,13 @@ function renderList(params: StrainListParams = PARAMS) {
 // Each case renders the list with its filters, and the taxon filter waits for its debounced search:
 // real work, so a busy machine runs past the 5 s default (#60).
 describe('StrainList', { timeout: 20_000 }, () => {
-  it('shows each strain with its number linked, the taxon, the risk group and the restrictions', async () => {
+  it('shows each strain with its number linked, the taxon, the risk group, the restrictions and the vials for distribution', async () => {
     const strain = makeStrainRow({
       accession_number: 'MYC 7',
       name_as_received: 'T. exempli T1',
       risk_group: 2,
       restrictions: [{ kind: 'dual_use', reference: '1C351.c' }],
+      vials_distributable: 4,
     })
     mockApi('get', LIST, page([strain, makeStrainRow({ accession_number: 'MYC 8' })]))
     await renderList().view
@@ -47,6 +48,7 @@ describe('StrainList', { timeout: 20_000 }, () => {
       strain.taxon.name,
       '2',
       'Dual-use item',
+      '4',
       'Active',
     ])
     expect(within(first).getByRole('link', { name: 'MYC 7' })).toHaveAttribute('href', `/labs/${LAB_ID}/strains/${strain.public_id}`)
@@ -82,6 +84,13 @@ describe('StrainList', { timeout: 20_000 }, () => {
     expect(onClearFilters).toHaveBeenCalledOnce()
   })
 
+  it('counts "Only with vials for distribution" as a filter: an empty answer offers to clear it', async () => {
+    mockApi('get', LIST, page([]))
+    const { view } = renderList({ ...PARAMS, distributable: true })
+    await view
+    expect(await screen.findByText(/No strain matches these filters/)).toBeInTheDocument()
+  })
+
   it('shows a failed load with a retry that works', async () => {
     allowConsole(/API error 500/)
     mockApiError('get', LIST, 500, problem(500))
@@ -94,7 +103,7 @@ describe('StrainList', { timeout: 20_000 }, () => {
 
   it('asks for the lab and every filter of the URL, and keeps them in the query key', async () => {
     const calls = mockApi('get', LIST, page([]))
-    const params: StrainListParams = { ...PARAMS, taxon: testella.public_id, risk_group: 2, status: 'active', restriction: 'gmo', search: 'MYC', isolation_source: 'soil', country: 'CZ', depositor: JANA.public_id }
+    const params: StrainListParams = { ...PARAMS, taxon: testella.public_id, risk_group: 2, status: 'active', restriction: 'gmo', search: 'MYC', isolation_source: 'soil', country: 'CZ', depositor: JANA.public_id, distributable: true }
     const { view } = renderList(params)
     const { client } = await view
     await screen.findByText(/No strain matches/)
@@ -110,6 +119,7 @@ describe('StrainList', { timeout: 20_000 }, () => {
       isolation_source: 'soil',
       country: 'CZ',
       depositor: JANA.public_id,
+      distributable: 'true',
     })
     expect(client.getQueryData(strainListOptions(LAB_ID, params).queryKey)).toBeDefined()
   })
@@ -219,6 +229,72 @@ describe('the strains page', { timeout: 20_000 }, () => {
     await waitFor(() => expect(router.state.location.search).toEqual({ depositor: JANA.public_id }))
     await waitFor(async () => expect(await shown()).toEqual(['MYC 1']))
     expect(asked.at(-1)?.searchParams.get('depositor')).toBe(JANA.public_id)
+  })
+
+  it('shows the count of vials for distribution per strain', async () => {
+    signedIn()
+    mockApi(
+      'get',
+      LIST,
+      page([makeStrainRow({ accession_number: 'MYC 1', vials_distributable: 3 }), makeStrainRow({ accession_number: 'MYC 2', vials_distributable: 0 })]),
+    )
+    renderApp({ path: `/labs/${LAB_ID}/strains` })
+    const table = await screen.findByRole('table', { name: 'Strains' }, { timeout: 5000 })
+    const column = within(table).getByRole('columnheader', { name: 'Available for distribution' })
+    const at = Array.from(column.parentElement?.children ?? []).indexOf(column)
+    const cell = (name: string) => within(within(table).getByRole('row', { name: new RegExp(name) })).getAllByRole('cell')[at]
+    expect(cell('MYC 1')).toHaveTextContent('3')
+    expect(cell('MYC 2')).toHaveTextContent('0')
+  })
+
+  it('keeps "Only with vials for distribution" in the URL, asks the API for it and drops it from the URL when cleared', async () => {
+    signedIn()
+    const rows = [makeStrainRow({ accession_number: 'MYC 1', vials_distributable: 3 }), makeStrainRow({ accession_number: 'MYC 2', vials_distributable: 0 })]
+    const asked: URL[] = []
+    server.use(
+      http.get('*/api/v1/labs/:lab/strains/', ({ request }) => {
+        const url = new URL(request.url)
+        asked.push(url)
+        return HttpResponse.json(page(url.searchParams.get('distributable') === 'true' ? rows.filter((r) => r.vials_distributable > 0) : rows))
+      }),
+    )
+    const { router } = renderApp({ path: `/labs/${LAB_ID}/strains` })
+    const user = userEvent.setup()
+    await screen.findByRole('form', { name: 'Filter strains' }, { timeout: 5000 })
+    expect(await shown()).toEqual(['MYC 1', 'MYC 2'])
+    expect(asked.at(-1)?.searchParams.has('distributable')).toBe(false)
+    const box = within(form()).getByRole('checkbox', { name: 'Only with vials for distribution' })
+    expect(box).not.toBeChecked()
+
+    await user.click(box)
+    await waitFor(() => expect(router.state.location.search).toEqual({ distributable: true }))
+    await waitFor(async () => expect(await shown()).toEqual(['MYC 1']))
+    expect(asked.at(-1)?.searchParams.get('distributable')).toBe('true')
+    expect(box).toBeChecked()
+
+    await user.click(box)
+    await waitFor(() => expect(router.state.location.search).toEqual({}))
+    await waitFor(async () => expect(await shown()).toEqual(['MYC 1', 'MYC 2']))
+  })
+
+  it('reads the filter back from a reloaded URL and ignores a bad value', async () => {
+    signedIn()
+    const asked: URL[] = []
+    server.use(
+      http.get('*/api/v1/labs/:lab/strains/', ({ request }) => {
+        asked.push(new URL(request.url))
+        return HttpResponse.json(page([makeStrainRow({ accession_number: 'MYC 1' })]))
+      }),
+    )
+    const { unmount } = renderApp({ path: `/labs/${LAB_ID}/strains`, search: { distributable: true } })
+    expect(await within(await screen.findByRole('form', { name: 'Filter strains' }, { timeout: 5000 })).findByRole('checkbox', { name: 'Only with vials for distribution' })).toBeChecked()
+    unmount()
+    asked.length = 0
+    const { router } = renderApp({ path: `/labs/${LAB_ID}/strains`, search: { distributable: 'yes' } })
+    expect(await within(await screen.findByRole('form', { name: 'Filter strains' }, { timeout: 5000 })).findByRole('checkbox', { name: 'Only with vials for distribution' })).not.toBeChecked()
+    await waitFor(() => expect(asked.length).toBeGreaterThan(0))
+    expect(asked.every((url) => !url.searchParams.has('distributable'))).toBe(true)
+    expect(router.state.location.search).toEqual({})
   })
 
   it('shows the filters of the URL after a reload, and only offers the depositor to those who open deposits', async () => {

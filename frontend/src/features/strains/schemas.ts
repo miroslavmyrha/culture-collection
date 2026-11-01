@@ -108,6 +108,7 @@ export const strainListDefaults = {
   isolation_source: undefined,
   country: undefined,
   depositor: undefined,
+  distributable: undefined,
 }
 export const strainListSearch = z.object({
   limit: z.number().int().min(1).max(200).default(pageDefaults.limit).catch(pageDefaults.limit),
@@ -120,6 +121,8 @@ export const strainListSearch = z.object({
   isolation_source: z.string().trim().max(200).optional().catch(undefined),
   country: z.literal(COUNTRY_CODES).optional().catch(undefined),
   depositor: uuid.optional().catch(undefined),
+  // Only true is a filter: unchecked it is left out of the URL (the API also takes false, which the page never asks for).
+  distributable: z.literal(true).optional().catch(undefined),
 })
 export type StrainListParams = z.output<typeof strainListSearch>
 export type StrainFilters = Omit<StrainListParams, 'limit' | 'offset'>
@@ -130,6 +133,7 @@ export const hasFilters = (params: StrainListParams) =>
   params.restriction !== undefined ||
   params.country !== undefined ||
   params.depositor !== undefined ||
+  params.distributable !== undefined ||
   Boolean(params.search) ||
   Boolean(params.isolation_source)
 
