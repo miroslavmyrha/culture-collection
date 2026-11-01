@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { makeBatch, makeCheck, makePassage } from '@/test/factories'
-import { batchStatusReason, checkDetails, emptyCheck, formatValue, kindsText, mayHold, mayRelease, notPassed, passageTree, sourceLabel } from './schemas'
+import { batchStatusReason, checkDetails, emptyCheck, formatValue, kindsText, mayHold, mayRelease, notPassed, passageTree, sourceLabel, strainMaterialDestroyed } from './schemas'
 
 const none = { identity: null, purity: null, viability: null } as const
 
@@ -86,5 +86,21 @@ describe('the passages as a tree from the deposit (#19)', () => {
   it('says where each passage came from', () => {
     const all = [zero, one, two, revived]
     expect(all.map((p) => sourceLabel(p, all))).toEqual(['As received', 'Subculture of passage 0', 'Subculture of passage 0', 'Revived from vial MYC 42 / 1 / 4'])
+  })
+})
+
+const left = (final_use: string) => ({ status: 'deaccessioned' as const, deaccession: { final_use } })
+
+describe('a deaccession that destroyed the material (#150)', () => {
+  it('is every final use but collection and storage, and none', () => {
+    expect(strainMaterialDestroyed(left(''))).toBe(true)
+    expect(strainMaterialDestroyed(left('destruction'))).toBe(true)
+    expect(strainMaterialDestroyed(left('collection'))).toBe(false)
+    expect(strainMaterialDestroyed(left('storage'))).toBe(false)
+  })
+
+  it('is no strain still in the collection', () => {
+    expect(strainMaterialDestroyed({ status: 'active', deaccession: null })).toBe(false)
+    expect(strainMaterialDestroyed({ status: 'restricted', deaccession: null })).toBe(false)
   })
 })

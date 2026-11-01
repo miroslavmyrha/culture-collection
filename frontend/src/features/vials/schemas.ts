@@ -84,12 +84,38 @@ export const NEXT_STATES: Record<VialStatus, ManualStatus[]> = {
   distributed: [],
   entered_in_error: [],
 }
+/**
+ * The same for a vial whose strain was deaccessioned with its material destroyed (#150, ADR 0008
+ * amendment of 2026-10-31): no state the collection holds for use, and a found vial goes to
+ * destruction. The server checks the same edges (lineage.models.EDGES_MATERIAL_DESTROYED).
+ */
+export const NEXT_STATES_MATERIAL_DESTROYED: Record<VialStatus, ManualStatus[]> = {
+  available: ['to_destroy', 'consumed', 'lost', 'entered_in_error'],
+  reserved: ['to_destroy'],
+  quarantined: ['to_destroy'],
+  to_destroy: ['destroyed'],
+  lost: ['to_destroy'],
+  consumed: [],
+  destroyed: [],
+  distributed: [],
+  entered_in_error: [],
+}
 /** A vial in one of these is in no box. */
 export const OUT_OF_A_BOX: readonly VialStatus[] = ['consumed', 'destroyed', 'distributed', 'entered_in_error', 'lost']
 
-export const nextStates = (vial: Vial): ManualStatus[] =>
+/** The final uses that keep a deaccessioned strain's material (strains.models.KEEPS_MATERIAL). */
+const KEEPS_MATERIAL: readonly string[] = ['collection', 'storage']
+
+/**
+ * The strain was deaccessioned and its material destroyed: every final use but collection and
+ * storage, and none (lineage.models.material_destroyed).
+ */
+export const strainMaterialDestroyed = (strain: { status: Schemas['StrainStatus']; deaccession: { final_use: string } | null }): boolean =>
+  strain.status === 'deaccessioned' && !KEEPS_MATERIAL.includes(strain.deaccession?.final_use ?? '')
+
+export const nextStates = (vial: Vial, materialDestroyed: boolean): ManualStatus[] =>
   // Entered in error only while the state never changed (the server says so too).
-  NEXT_STATES[vial.status].filter((s) => s !== 'entered_in_error' || vial.status_changed_at === null)
+  (materialDestroyed ? NEXT_STATES_MATERIAL_DESTROYED : NEXT_STATES)[vial.status].filter((s) => s !== 'entered_in_error' || vial.status_changed_at === null)
 
 /** D6: rows as letters, columns as numbers, both from 1. */
 export const rowLabel = (row: number) => String.fromCodePoint(64 + row)

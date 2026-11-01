@@ -12,7 +12,8 @@ from typing import Any
 
 from django.utils import timezone
 
-from cultures.audit.models import AuditEvent, RowChange
+from cultures.audit.context import audit_context
+from cultures.audit.models import AuditEvent, Channel, RowChange
 from cultures.labs.access import access_for
 from cultures.lineage import services
 from cultures.lineage.models import (
@@ -30,7 +31,8 @@ from cultures.lineage.models import (
     VialPlacement,
 )
 from cultures.storage.models import StorageUnit
-from cultures.strains.models import DeaccessionCause, Strain, StrainStatus
+from cultures.strains import services as strains
+from cultures.strains.models import DeaccessionCause, FinalUse, Strain, StrainStatus
 from cultures.strains.tests.conftest import LAB_ID
 from cultures.users.models import User
 
@@ -134,3 +136,23 @@ def deaccessioned_past_the_service(strain: Strain, by: User) -> None:
         deaccession_cause=DeaccessionCause.NON_VIABLE,
         deaccession_reason="No growth after three revivals.",
     )
+
+
+def deaccession(
+    strain: Strain, final_use: FinalUse | None, *, proposer: User, confirmer: User
+) -> Strain:
+    """Through the strains services, each step in its own audit context: one person for a strain
+    that is not regulated, a proposal and a confirmation for a quarantine pest (#20)."""
+    data = strains.Deaccession(
+        DeaccessionCause.CONTAMINATED, "Mixed culture on every plate.", final_use
+    )
+    with audit_context(channel=Channel.API, actor=proposer, request_id="req-setup"):
+        if final_use is None:
+            return strains.strain_deaccession(access=access_for(proposer), strain=strain, data=data)
+        proposal = strains.strain_deaccession_propose(
+            access=access_for(proposer), strain=strain, data=data
+        )
+    with audit_context(channel=Channel.API, actor=confirmer, request_id="req-setup"):
+        return strains.strain_deaccession_confirm(
+            access=access_for(confirmer), strain=strain, proposal=proposal.public_id
+        )

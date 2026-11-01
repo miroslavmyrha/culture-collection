@@ -218,11 +218,18 @@ export function PlaceVialDialog({ labId, strainId, vial, boxes, boxesFailed, ope
   )
 }
 
-export function VialStatusDialog({ labId, strainId, vial, open, onClose, onExited }: VialProps) {
+type StatusProps = VialProps & {
+  /** The strain was deaccessioned with its material destroyed (#150): its vials go only to destruction. */
+  materialDestroyed: boolean
+}
+
+export function VialStatusDialog({ labId, strainId, vial, materialDestroyed, open, onClose, onExited }: StatusProps) {
   const change = useSetVialStatus(labId, strainId)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
-  const states = nextStates(vial)
+  const states = nextStates(vial, materialDestroyed)
+  const found = materialDestroyed && vial.status === 'lost' ? ' Its strain was deaccessioned and its material destroyed: a found vial goes to destruction.' : ''
+
   const { register, handleSubmit, formState, setError } = useForm<StatusForm>({
     resolver: zodResolver(statusSchema),
     defaultValues: { status: states[0] ?? 'available', reason: '' },
@@ -242,7 +249,7 @@ export function VialStatusDialog({ labId, strainId, vial, open, onClose, onExite
     <ConfirmDialog
       open={open}
       title={`Change the state of vial ${vial.label}`}
-      description={`Now ${VIAL_STATUS_LABELS[vial.status].toLowerCase()}. A vial that is consumed, destroyed, lost or entered in error leaves its position.`}
+      description={`Now ${VIAL_STATUS_LABELS[vial.status].toLowerCase()}.${found} A vial that is consumed, destroyed, lost or entered in error leaves its position.`}
       confirmLabel="Save state"
       form={formId}
       pending={change.isPending}

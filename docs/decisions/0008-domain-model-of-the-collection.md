@@ -939,3 +939,43 @@ is recorded (seed_dev's request for commercial research is one).
 Revisit when: depositors answer through a portal, an answer recorded in error must be withdrawn
 without cancelling the request, or a depositor gives a standing consent for a use that should
 cover many requests.
+
+## Amendment 2026-10-31: a found vial of a strain whose material was destroyed (#150)
+
+A deaccession that destroys the material marks the strain's held vials (available, reserved,
+quarantined) to destroy (amendment of 2026-10-27). A vial lost at that moment is not held, so it
+stayed lost, and `lost > available` (D7) brought it back once found: neither the service nor the
+vial trigger looked at the strain. It could not be shipped (`request_submit` refuses a
+deaccessioned strain), but it never reached the vials to destroy either. Decided 2026-10-31: a
+found vial of such a strain goes straight to destruction.
+
+- **Material destroyed** means the strain is `deaccessioned` with a final use other than
+  `collection` or `storage` (`strains.models.KEEPS_MATERIAL`), also with none: a strain that is
+  not a quarantine pest records no final use, and its deaccession marks its vials
+  (`strains.services._leave`). Both are fixed once the strain is deaccessioned (strain trigger,
+  `strains` 0009). One predicate, `lineage.models.material_destroyed`; the trigger and the screen
+  repeat it.
+- **Its vials' edges** are `lineage.models.EDGES_MATERIAL_DESTROYED`: the D7 edges without the
+  held states as targets, and one edge no other vial has, `lost > to_destroy`. So a vial of such
+  a strain never becomes available, reserved or quarantined from any state, and a found one is
+  marked to destroy with the reason, where it was found (no placement: it left its box when it
+  was lost). The destruction itself is still a later record (amendment of 2026-10-27).
+- **The material kept** (`collection`, `storage`): nothing changes, a found vial is available
+  again, and `lost > to_destroy` stays refused. The vial is in the collection as the
+  deaccession left its other vials.
+- **Both refuse it.** `vial_transition` reads the strain with the vial under the lab lock, which
+  a deaccession holds too, and refuses an edge the strain's material no longer takes with
+  `strain_material_destroyed` (400 on `status`, "Mark a found vial to destroy."). The vial
+  trigger reads the strain through the batch and refuses the same.
+  `lineage/tests/test_vial_states.py` tries all 81 pairs through the service and the trigger for
+  a strain in the collection, one whose material was destroyed and one whose material was kept.
+- **The screen** offers a found vial of such a strain only "To destroy" and says why in the
+  dialog; the strain page passes how the strain left to the Material tab.
+
+Migration impact: `lineage` 0009 replaces the vial trigger function (its body before is in 0004,
+which 0009's reverse restores). No data changes. A vial of such a strain that a person already
+marked available stays available: the trigger checks only a change of status, so its next
+state is never a held one. Reversible: `migrate lineage 0008`.
+
+Revisit when: the destruction record lands (a found vial may then need its own witness or
+reason), or a deaccession entered in error must bring a strain's vials back.

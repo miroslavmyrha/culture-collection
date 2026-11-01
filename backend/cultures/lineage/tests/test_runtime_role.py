@@ -23,7 +23,7 @@ from cultures.lineage.models import (
 from cultures.storage.tests.conftest import Tree
 from cultures.users.models import User
 
-from .support import new_batch, new_check, open_place, record, vials_of
+from .support import deaccession, new_batch, new_check, open_place, record, vials_of
 
 pytestmark = pytest.mark.django_db
 
@@ -78,6 +78,32 @@ def test_the_runtime_role_records_checks_and_releases(
     assert BatchCheck.objects.filter(batch=batch, status=CheckStatus.VALID).count() == 3
     labels = set(RowChange.objects.values_list("table_label", flat=True))
     assert "lineage.batchcheck" in labels
+
+
+def test_the_runtime_role_cannot_bring_back_a_vial_of_a_strain_whose_material_was_destroyed(
+    *,
+    as_technician: AuditContext,
+    technician: User,
+    curator: User,
+    manager: User,
+    passage0: Passage,
+    runtime_role: CursorWrapper,
+) -> None:
+    """#150: a vial lost at the deaccession, written past the services as the app's own role."""
+    access = access_for(technician)
+    batch = services.batch_preserve(access=access, passage=passage0, data=new_batch(vial_count=1))
+    vial = vials_of(batch)[0]
+    services.vial_transition(access=access, vial=vial, status=VialStatus.LOST, reason="gone")
+    deaccession(passage0.strain, None, proposer=curator, confirmer=manager)
+    refused(
+        runtime_role,
+        f"UPDATE lineage_vial SET status = 'available' WHERE id = {vial.pk}",  # noqa: S608 (a pk)
+        "deaccessioned with its material destroyed",
+    )
+    runtime_role.execute(
+        "UPDATE lineage_vial SET status = 'to_destroy' WHERE id = %s RETURNING status", [vial.pk]
+    )
+    assert runtime_role.fetchone() == ("to_destroy",)
 
 
 @pytest.mark.parametrize(

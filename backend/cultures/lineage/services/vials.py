@@ -17,6 +17,7 @@ from cultures.storage.models import StorageUnit
 from cultures.strains.models import Strain
 
 from ..models import (
+    HELD,
     NOT_IN_A_BOX,
     ONE_OPEN_PLACEMENT,
     POSITION_TAKEN,
@@ -161,11 +162,6 @@ def vial_ship_locked(*, access: Access, vial: Vial, reason: str) -> None:
     if vial.status != VialStatus.RESERVED:
         raise VialNotAvailable("This vial is not reserved.")
     _transition(vial, VialStatus.DISTRIBUTED, _check_reason(reason), access)
-
-
-# The states of a vial the collection still holds for use: a strain that leaves it (#20) leaves
-# none of its vials in them.
-HELD: tuple[VialStatus, ...] = (VialStatus.AVAILABLE, VialStatus.RESERVED, VialStatus.QUARANTINED)
 
 
 def strain_vials_leave_locked(

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { makeBatch, makeHistoryLine, makeLab, makeMe, makePassage, makeStrain, makeTaxon, makeTerms, makeUnitRow, makeVial, page } from '@/test/factories'
 import { mockApi } from '@/test/mockApi'
+import { vialAction } from '@/test/actions'
 import { renderApp } from '@/test/render'
 
 // The strain page by task (#19): each tab is its own URL and asks only for its own data, the
@@ -116,5 +117,29 @@ describe('the strain page in tabs (#19)', { timeout: 30_000 }, () => {
     renderApp({ path: BASE + tail })
     await shown()
     expect(screen.queryAllByRole('button', { name: /Reveal the location/ })).toHaveLength(name === 'Material' ? 1 : 0)
+  })
+
+  // #150: the page tells the Material tab how the strain left; a vial lost then and found now
+  // goes to destruction when the deaccession destroyed the material, and is available when it kept it.
+  it.each([
+    ['', ['To destroy']],
+    ['destruction', ['To destroy']],
+    ['storage', ['Available']],
+    ['collection', ['Available']],
+  ] as const)('offers a found vial of a strain deaccessioned with final use "%s" %j', async (finalUse, offered) => {
+    strainPage('technician')
+    const left = makeStrain({
+      public_id: STRAIN_ID,
+      accession_number: 'MYC 42',
+      status: 'deaccessioned',
+      deaccession: { deaccessioned_at: '2026-10-20T10:00:00Z', cause: 'contaminated', reason: 'Mixed culture on every plate.', final_use: finalUse },
+    })
+    mockApi('get', STRAIN, left)
+    mockApi('get', VIALS, page([makeVial({ label: 'MYC 42 / 1 / 1', status: 'lost', status_changed_at: '2026-10-02T10:00:00Z' })]))
+    renderApp({ path: `${BASE}/material` })
+    await screen.findByRole('table', { name: 'Vials' }, { timeout: 5000 })
+    await vialAction(userEvent.setup(), 'MYC 42 / 1 / 1', 'Change state')
+    const state = within(await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 1' })).getByRole('combobox', { name: 'New state' })
+    expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(offered)
   })
 })
