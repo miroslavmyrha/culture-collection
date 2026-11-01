@@ -9,6 +9,7 @@
 """
 
 from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import date
 from typing import Any
 from uuid import UUID
@@ -16,6 +17,7 @@ from uuid import UUID
 import pytest
 from django.contrib.auth.models import update_last_login
 from django.contrib.auth.signals import user_logged_in
+from django.db import IntegrityError, connection, transaction
 
 from cultures.audit.context import AuditContext, audit_context
 from cultures.audit.models import Channel
@@ -190,3 +192,30 @@ def end_restriction(
         return services.strain_restriction_end_confirm(
             access=access_for(confirmer), restriction=restriction, proposal=proposal.public_id
         )
+
+
+def _constraints(mode: str) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute(f"SET CONSTRAINTS ALL {mode}")
+
+
+@contextmanager
+def at_commit() -> Iterator[None]:
+    """The block's writes in a transaction of their own, with the deferred checks run at its end
+    as a commit runs them."""
+    with transaction.atomic():
+        _constraints("DEFERRED")
+        yield
+        _constraints("IMMEDIATE")
+
+
+@contextmanager
+def refused_at_commit(match: str) -> Iterator[None]:
+    """Like at_commit, but each write of the block passes and the deferred check at the end
+    refuses them with `match`. Nothing of the block stays."""
+    with transaction.atomic():
+        _constraints("DEFERRED")
+        yield
+        with pytest.raises(IntegrityError, match=match), transaction.atomic():
+            _constraints("IMMEDIATE")
+        transaction.set_rollback(True)

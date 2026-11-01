@@ -27,9 +27,9 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Literal
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.db.models import Model
 from django.utils import timezone
 
@@ -730,6 +730,16 @@ def strain_restriction_end_propose(
     return proposal
 
 
+def _defer_outcome_check(
+    trigger: Literal["strains_endproposal_confirmed", "strains_deaccessionproposal_confirmed"],
+) -> None:
+    """A confirmed proposal holds its outcome at commit (strains 0010), and the outcome is written
+    after the confirmation, which the guards ask for first: the check waits for the commit, also
+    in a session that set its constraints immediate."""
+    with connection.cursor() as cursor:
+        cursor.execute(f"SET CONSTRAINTS {trigger} DEFERRED")
+
+
 def strain_restriction_end_confirm(
     *, access: Access, restriction: StrainRestriction, proposal: uuid.UUID
 ) -> StrainRestriction:
@@ -744,6 +754,7 @@ def strain_restriction_end_confirm(
         if proposed.proposed_by_id == access.user.pk:
             raise ConfirmOwnEndProposal
         now = timezone.now()
+        _defer_outcome_check("strains_endproposal_confirmed")
         proposed.confirmed_by, proposed.confirmed_at = access.user, now
         proposed.save(update_fields=["confirmed_by", "confirmed_at", "updated_at"])
         locked.ended_at, locked.end_reason = now, proposed.reason
@@ -1002,6 +1013,7 @@ def strain_deaccession_confirm(*, access: Access, strain: Strain, proposal: uuid
         except InvalidStrain:
             raise DeaccessionProposalOutdated from None
         now = timezone.now()
+        _defer_outcome_check("strains_deaccessionproposal_confirmed")
         proposed.confirmed_by, proposed.confirmed_at = access.user, now
         proposed.save(update_fields=["confirmed_by", "confirmed_at", "updated_at"])
         # After the proposal: the strain's guard asks for the confirmed proposal.
