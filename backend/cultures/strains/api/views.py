@@ -166,6 +166,13 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         lab_id = obj.lab_id if isinstance(obj, Strain) else self.lab.pk
         return access_of(self.request).can(Perm(perm), lab_id)
 
+    def get_serializer_context(self) -> dict[str, Any]:
+        context = dict(super().get_serializer_context())
+        # #154: the deposit a strain came from, for those who may open it (the deposit names
+        # its depositor, a person's contact: deposits.view, labs.permissions).
+        context["show_deposit"] = access_of(self.request).can(Perm.VIEW_DEPOSITS, self.lab.pk)
+        return context
+
     def _detail(self, strain: Strain) -> Response:
         fresh = selectors.strain_detail(access=access_of(self.request), lab=self.lab).get(
             pk=strain.pk

@@ -60,10 +60,12 @@ def strain_list(*, access: Access, lab: Lab) -> QuerySet[Strain]:
 
 def strain_detail(*, access: Access, lab: Lab) -> QuerySet[Strain]:
     """The same rows with their whole history: every identification and every restriction,
-    whether the strain is regulated, and the open proposal to deaccession it (#20)."""
+    whether the strain is regulated, the open proposal to deaccession it (#20) and the deposit
+    it came from (#154), in the same query as the strain: the serializer shows that one only
+    to a reader who may open deposits."""
     history = (
         strain_list(access=access, lab=lab)
-        .select_related("growth_medium")
+        .select_related("growth_medium", "deposit")
         .annotate(regulated=Exists(regulating_restrictions().filter(strain=OuterRef("pk"))))
         .prefetch_related(
             Prefetch(
