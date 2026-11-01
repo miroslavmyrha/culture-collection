@@ -5736,6 +5736,16 @@ paths:
         schema:
           type: string
       - in: query
+        name: distributable
+        schema:
+          type: string
+          enum:
+          - 'false'
+          - 'true'
+        description: |-
+          * `true` - true
+          * `false` - false
+      - in: query
         name: isolation_source
         schema:
           type: string
@@ -7375,6 +7385,16 @@ paths:
         name: depositor
         schema:
           type: string
+      - in: query
+        name: distributable
+        schema:
+          type: string
+          enum:
+          - 'false'
+          - 'true'
+        description: |-
+          * `true` - true
+          * `false` - false
       - in: query
         name: isolation_source
         schema:
@@ -13265,6 +13285,9 @@ components:
           items:
             $ref: '#/components/schemas/RestrictionBrief'
           readOnly: true
+        vials_distributable:
+          type: integer
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -13278,6 +13301,7 @@ components:
       - risk_group
       - status
       - taxon
+      - vials_distributable
     StrainShipmentOutput:
       type: object
       description: |-

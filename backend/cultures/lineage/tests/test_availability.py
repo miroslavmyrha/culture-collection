@@ -12,20 +12,14 @@ from cultures.labs.access import access_for
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
 from cultures.lineage import selectors, services
-from cultures.lineage.models import Batch, BatchStatus, Passage, Purpose, Vial, VialStatus
+from cultures.lineage.models import BatchStatus, Passage, Purpose, Vial, VialStatus
 from cultures.strains.models import Strain
 from cultures.users.models import User
 
-from .support import MakeBatch, deaccessioned_past_the_service, pass_all, vials_of
+from .support import MakeBatch, deaccessioned_past_the_service, released, vials_of
 
 pytestmark = pytest.mark.django_db
 REASON = "all three checks after preservation passed"
-
-
-def released(technician: User, curator: User, batch: Batch) -> Batch:
-    pass_all(technician, batch)
-    with audit_context(channel=Channel.API, actor=curator, request_id="req-c"):
-        return services.batch_release(access=access_for(curator), batch=batch, reason=REASON)
 
 
 def distributable(viewer: User, lab: Lab) -> set[Vial]:

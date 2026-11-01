@@ -49,6 +49,11 @@ class StrainFilter(django_filters.FilterSet):  # type: ignore[misc]  # FilterSet
         queryset=lab_depositors, to_field_name="public_id", method="filter_depositor"
     )
 
+    # "true" and "false" only: BooleanFilter reads any other text as no filter, not as an error.
+    distributable = django_filters.ChoiceFilter(
+        choices=[("true", "true"), ("false", "false")], method="filter_distributable"
+    )
+
     class Meta:
         model = Strain
         fields = (
@@ -60,6 +65,7 @@ class StrainFilter(django_filters.FilterSet):  # type: ignore[misc]  # FilterSet
             "isolation_source",
             "country",
             "depositor",
+            "distributable",
         )
 
     def filter_queryset(self, queryset: QuerySet[Strain]) -> QuerySet[Strain]:
@@ -95,3 +101,8 @@ class StrainFilter(django_filters.FilterSet):  # type: ignore[misc]  # FilterSet
         self, queryset: QuerySet[Strain], name: str, value: Depositor
     ) -> QuerySet[Strain]:
         return selectors.from_depositor(queryset, value)
+
+    def filter_distributable(
+        self, queryset: QuerySet[Strain], name: str, value: str
+    ) -> QuerySet[Strain]:
+        return selectors.with_distributable_vials(queryset, value == "true")

@@ -67,6 +67,7 @@ export function makeStrainRow(overrides: Partial<StrainRow> = {}): StrainRow {
     risk_group: 1,
     status: 'active',
     restrictions: [],
+    vials_distributable: 0,
     created_at: at,
     ...overrides,
   }
