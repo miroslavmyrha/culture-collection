@@ -130,6 +130,23 @@ describe('StrainShell with the Overview tab', { timeout: 20_000 }, () => {
     expect(screen.getByRole('link', { name: 'Every version of the terms' })).toHaveAttribute('href', `/labs/${LAB_ID}/strains/${STRAIN_ID}/terms`)
   })
 
+  it('links to the deposit the strain came from when the server names it, and not otherwise (#154)', async () => {
+    const DEPOSIT_ID = '00000000-0000-4000-8000-0000000000b1'
+    mockApi('get', DETAIL, { ...strain, deposit: { public_id: DEPOSIT_ID, name_as_received: 'T. exempli T1' } })
+    terms()
+    const first = await render()
+    const link = await screen.findByRole('link', { name: 'Deposit T. exempli T1' })
+    expect(link).toHaveAttribute('href', `/labs/${LAB_ID}/deposits/${DEPOSIT_ID}`)
+    expect(link.closest('dd')?.previousElementSibling).toHaveTextContent('Came from')
+    first.unmount()
+    // Null both for a reader who may not open deposits and for a strain from no deposit.
+    mockApi('get', DETAIL, strain)
+    await render()
+    await screen.findByRole('heading', { level: 1, name: 'MYC 42' })
+    expect(screen.queryByRole('link', { name: /^Deposit / })).not.toBeInTheDocument()
+    expect(screen.queryByText('Came from')).not.toBeInTheDocument()
+  })
+
   it('says when a strain has no terms, and a failed read of them leaves the rest', async () => {
     allowConsole(/API error 500/)
     mockApi('get', DETAIL, strain)

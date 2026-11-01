@@ -178,6 +178,14 @@ class DeaccessionProposalOutputSerializer(serializers.ModelSerializer[StrainDeac
         return "confirm_own_deaccession" if proposal.proposed_by_id == user_id else None
 
 
+class StrainDepositSerializer(serializers.Serializer[object]):
+    """The deposit a strain came from (#154), as its own page names it: by the name as
+    received. Nothing of the depositor."""
+
+    public_id = serializers.UUIDField(read_only=True)
+    name_as_received = serializers.CharField(read_only=True)
+
+
 class StrainDetailOutputSerializer(StrainListOutputSerializer):
     animal_pathogenicity = serializers.ChoiceField(choices=Pathogenicity.choices, read_only=True)
     plant_pathogenicity = serializers.ChoiceField(choices=Pathogenicity.choices, read_only=True)
@@ -191,6 +199,7 @@ class StrainDetailOutputSerializer(StrainListOutputSerializer):
     regulated = serializers.BooleanField(read_only=True)
     deaccession = serializers.SerializerMethodField()
     deaccession_proposal = serializers.SerializerMethodField()
+    deposit = serializers.SerializerMethodField()
 
     class Meta(StrainListOutputSerializer.Meta):
         fields = (
@@ -206,8 +215,21 @@ class StrainDetailOutputSerializer(StrainListOutputSerializer):
             "regulated",
             "deaccession",
             "deaccession_proposal",
+            "deposit",
         )
         read_only_fields = fields
+
+    @extend_schema_field(StrainDepositSerializer(allow_null=True))
+    def get_deposit(self, strain: Strain) -> dict[str, object] | None:
+        """Null for a reader who may not open deposits (`show_deposit` in the context, from
+        deposits.view in the strain's lab), and for a strain that came from no deposit."""
+        if not self.context.get("show_deposit"):
+            return None
+        # strains.selectors.strain_detail joins it; a strain from no deposit has none.
+        deposit = getattr(strain, "deposit", None)
+        if deposit is None:
+            return None
+        return dict(StrainDepositSerializer(deposit).data)
 
     @extend_schema_field(DeaccessionOutputSerializer(allow_null=True))
     def get_deaccession(self, strain: Strain) -> dict[str, object] | None:

@@ -99,6 +99,8 @@ export function makeStrain(overrides: Partial<Strain> = {}): Strain {
     regulated: (overrides.restriction_history ?? []).some((r) => r.ended_at === null),
     deaccession: null,
     deaccession_proposal: null,
+    // The server sends it only to those who may open deposits (#154).
+    deposit: null,
     ...overrides,
   }
 }

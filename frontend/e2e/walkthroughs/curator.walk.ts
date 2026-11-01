@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, acceptedStrain, api, batch, batchOf, freezerWithBoxes, labId, openLab, openTab, openWaiting, openUnit, strainAction, passAll, receivedDeposit, release, searchStrain, setupAs, supplyStrain } from './walk.js'
+import { RUN, Walk, acceptedStrain, api, batch, batchOf, freezerWithBoxes, labId, openLab, openStrains, openTab, openWaiting, openUnit, strainAction, passAll, receivedDeposit, release, searchStrain, setupAs, supplyStrain } from './walk.js'
 
 // A curator of Bacteriology (seed_dev): intake, identification, storage and the strain's record.
 const LAB = 'Bacteriology'
@@ -93,14 +93,19 @@ test('C4 reclassify a strain after a new identification', async ({ browser }, in
 test('C5 find the strains that came from one depositor', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-curator', curator('C5', 'Find the strains that came from one depositor'))
   await w.start()
-  await openLab(w, LAB)
-  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Deposits' }))
-  await w.choose(w.page.getByRole('combobox', { name: 'Status' }), 'Accepted')
-  await w.type(w.page.getByRole('searchbox', { name: 'Name, depositor or number' }), 'Vzorová')
-  await w.press('Enter')
-  await expect(w.page.getByRole('table', { name: 'Deposits' }).getByRole('link', { name: /^BAC \d+$/ }).first()).toBeVisible()
-  w.look(2)
-  w.note('Only through the deposit list: the strain list has no depositor filter and the strain page does not name its deposit')
+  await openStrains(w, LAB)
+  // The strain list's depositor filter (#84), then a strain's link to its deposit (#154).
+  const filters = w.page.getByRole('form', { name: 'Filter strains' })
+  await w.type(filters.getByRole('combobox', { name: 'Depositor' }), 'Vzor')
+  await w.click(w.page.getByRole('option', { name: /Jana Vzorová/ }))
+  // seed_dev: DEP-1 of Jana Vzorová was accepted as a Bacillus subtilis strain in Bacteriology.
+  const row = w.page.getByRole('table', { name: 'Strains' }).getByRole('row', { name: /Bacillus subtilis soil isolate DEP-1/ })
+  w.look()
+  await w.click(row.getByRole('link', { name: /^BAC \d+$/ }))
+  const deposit = w.page.getByRole('link', { name: 'Deposit Bacillus subtilis soil isolate DEP-1', exact: true })
+  w.look()
+  await w.click(deposit)
+  await expect(w.page.getByRole('heading', { level: 1, name: 'Deposit Bacillus subtilis soil isolate DEP-1' })).toBeVisible()
   await w.done()
 })
 

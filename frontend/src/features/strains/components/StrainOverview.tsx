@@ -1,4 +1,4 @@
-import { type MouseEvent, useRef, useState } from 'react'
+import { type MouseEvent, type ReactNode, useRef, useState } from 'react'
 import { Box, Button, Link, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { ATMOSPHERE_LABELS, temperatureText } from '@/lib/growth'
@@ -77,6 +77,10 @@ export function StrainOverview({ labId, strain: s, canManage, canConfirm, canCon
         <Facts
           rows={[
             ['Name as received', s.name_as_received],
+            // #154: the server names the deposit only to those who may open deposits in the lab.
+            ...(s.deposit
+              ? [['Came from', <DepositLink key="deposit" labId={labId} deposit={s.deposit} />] as [string, ReactNode]]
+              : []),
             ['Status', <StatusChip key="status" tone={STRAIN_TONES[s.status]}>{STATUS_LABELS[s.status]}</StatusChip>],
             ['Risk group', String(s.risk_group)],
             ['Animal pathogenicity', PATHOGENICITY_LABELS[s.animal_pathogenicity]],
@@ -290,5 +294,14 @@ function ProposedDeaccession({ proposal, canManage, canConfirm, onSettle }: Prop
         </Stack>
       )}
     </Section>
+  )
+}
+
+/** The deposit the strain came from, named as its own page names it (#154). */
+function DepositLink({ labId, deposit }: { labId: string; deposit: NonNullable<Strain['deposit']> }) {
+  return (
+    <Link to="/labs/$labId/deposits/$depositId" params={{ labId, depositId: deposit.public_id }}>
+      Deposit {deposit.name_as_received}
+    </Link>
   )
 }

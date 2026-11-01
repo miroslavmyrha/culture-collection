@@ -13036,6 +13036,22 @@ components:
       required:
       - accession_number
       - public_id
+    StrainDeposit:
+      type: object
+      description: |-
+        The deposit a strain came from (#154), as its own page names it: by the name as
+        received. Nothing of the depositor.
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        name_as_received:
+          type: string
+          readOnly: true
+      required:
+      - name_as_received
+      - public_id
     StrainDetailOutput:
       type: object
       properties:
@@ -13115,6 +13131,11 @@ components:
           - $ref: '#/components/schemas/DeaccessionProposalOutput'
           nullable: true
           readOnly: true
+        deposit:
+          allOf:
+          - $ref: '#/components/schemas/StrainDeposit'
+          nullable: true
+          readOnly: true
       required:
       - accession_number
       - animal_pathogenicity
@@ -13122,6 +13143,7 @@ components:
       - created_at
       - deaccession
       - deaccession_proposal
+      - deposit
       - growth
       - identifications
       - isolation_date

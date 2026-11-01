@@ -120,10 +120,13 @@ test('a curator receives, checks and accepts a deposit by keyboard, and finds th
   await expect(strainLink).toBeVisible()
   await expect(page.getByRole('heading', { level: 2, name: 'Check and decision' })).toBeFocused()
   const number = (await strainLink.textContent()) ?? ''
+  const depositPath = new URL(page.url()).pathname
   await strainLink.focus()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('heading', { level: 1, name: number })).toBeVisible()
-  await expect(page.getByText(`B. subtilis e2e ${RUN}`)).toBeVisible()
+  await expect(page.getByText(`B. subtilis e2e ${RUN}`, { exact: true })).toBeVisible()
+  // The strain names the deposit it came from, linked for a curator (#154).
+  await expect(page.getByRole('link', { name: `Deposit B. subtilis e2e ${RUN}`, exact: true })).toHaveAttribute('href', depositPath)
 
   // In the strain list and the deposit list, found by the run's name.
   await page.goto(page.url().replace(/\/strains\/.*$/, `/strains?search=${RUN}`))

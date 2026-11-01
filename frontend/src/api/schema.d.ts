@@ -3664,6 +3664,15 @@ export interface components {
             readonly public_id: string;
             readonly accession_number: string | null;
         };
+        /**
+         * @description The deposit a strain came from (#154), as its own page names it: by the name as
+         *     received. Nothing of the depositor.
+         */
+        StrainDeposit: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly name_as_received: string;
+        };
         StrainDetailOutput: {
             /** Format: uuid */
             readonly public_id: string;
@@ -3686,6 +3695,7 @@ export interface components {
             readonly regulated: boolean;
             readonly deaccession: components["schemas"]["DeaccessionOutput"] | null;
             readonly deaccession_proposal: components["schemas"]["DeaccessionProposalOutput"] | null;
+            readonly deposit: components["schemas"]["StrainDeposit"] | null;
         };
         /**
          * @description What a check of a deposit found: everything a new strain needs but its name as
