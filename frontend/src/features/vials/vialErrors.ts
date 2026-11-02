@@ -29,3 +29,26 @@ export function gridError(error: unknown): string {
   if (isApiError(error) && error.code === 'outside_box') return 'This position is not in the box. Reload the page.'
   return vialError(error)
 }
+
+/**
+ * The message for a refusal of one vial among several placed at once (#77), by its code. It
+ * names no position or box beyond what the person chose (ADR 0009).
+ */
+export function entryError(code: string): string {
+  switch (code) {
+    case 'position_taken':
+      return POSITION_TAKEN
+    case 'position_twice':
+      return 'Another vial of the list goes to this position. Choose another one.'
+    case 'vial_already_placed':
+      return 'This vial is in a box already. Move it from its own row.'
+    case 'vial_not_in_collection':
+      return 'This vial has left the collection or is lost. Reload to see it.'
+    case 'risk_group_above_cap':
+      return "This box may not hold this strain's risk group."
+    case 'outside_box':
+      return 'This position is not in the box. Reload the page.'
+    default:
+      return 'This vial could not be placed. Reload the page and try again.'
+  }
+}

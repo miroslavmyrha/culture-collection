@@ -46,6 +46,13 @@ export function usePlace(labId: string, strainId: string) {
   )
 }
 
+/** Several vials in no box into one box at once (#77), all or nothing. */
+export function usePlaceMany(labId: string, strainId: string) {
+  return useStrainWrite(labId, strainId, ({ boxId, placements }: { boxId: string; placements: Schemas['PlacementInputRequest'][] }) =>
+    unwrap(api.POST('/api/v1/labs/{lab_public_id}/boxes/{public_id}/place/', { params: { path: { lab_public_id: labId, public_id: boxId } }, body: { placements } })),
+  )
+}
+
 export function useSetVialStatus(labId: string, strainId: string) {
   return useStrainWrite(labId, strainId, ({ vialId, ...body }: Schemas['VialStatusInputRequest'] & { vialId: string }) =>
     unwrap(api.POST('/api/v1/labs/{lab_public_id}/vials/{public_id}/status/', { params: vial(labId, vialId), body })),
