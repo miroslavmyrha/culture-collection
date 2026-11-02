@@ -37,7 +37,7 @@ async function enterGrid(user: ReturnType<typeof userEvent.setup>) {
   return user
 }
 
-describe('BoxPositions', { timeout: 20_000 }, () => {
+describe('BoxPositions', () => {
   it('names every position, empty, taken with the label and the state, and masked without anything', async () => {
     mockApi('get', BOX, FULL)
     await render()

@@ -118,7 +118,7 @@ type Screen = {
 const TYPED = 'typed before the refresh'
 
 async function dialogField(user: UserEvent, trigger: string, field: string) {
-  await user.click(await screen.findByRole('button', { name: trigger }, { timeout: 5000 }))
+  await user.click(await screen.findByRole('button', { name: trigger }))
   const dialog = await screen.findByRole('dialog')
   const input = within(dialog).getByRole('textbox', { name: field })
   await user.clear(input)
@@ -128,7 +128,7 @@ async function dialogField(user: UserEvent, trigger: string, field: string) {
 
 /** The same through a menu button: the menu's item opens the dialog. */
 async function menuField(user: UserEvent, menu: string, item: string, field: string) {
-  await user.click(await screen.findByRole('button', { name: menu }, { timeout: 5000 }))
+  await user.click(await screen.findByRole('button', { name: menu }))
   await user.click(await screen.findByRole('menuitem', { name: item }))
   const dialog = await screen.findByRole('dialog')
   const input = within(dialog).getByRole('textbox', { name: field })
@@ -138,7 +138,7 @@ async function menuField(user: UserEvent, menu: string, item: string, field: str
 }
 
 async function formField(user: UserEvent, field: string, role: 'textbox' | 'searchbox' = 'textbox') {
-  const input = await screen.findByRole(role, { name: field }, { timeout: 5000 })
+  const input = await screen.findByRole(role, { name: field })
   await user.type(input, TYPED)
   return input
 }
@@ -278,7 +278,7 @@ const SCREENS: Screen[] = [
       mockApi('get', '/api/v1/labs/{lab_public_id}/batch-checks/', page([makeCheck()]))
     },
     type: async (user) => {
-      await user.click(await screen.findByRole('button', { name: 'Checks of batch 1' }, { timeout: 5000 }))
+      await user.click(await screen.findByRole('button', { name: 'Checks of batch 1' }))
       await screen.findByRole('list', { name: 'Checks of batch 1' })
       return dialogField(user, 'Record a check', 'Note')
     },
@@ -375,9 +375,9 @@ function signedIn(role: Role) {
 /** A background refresh of every query on screen, as a window focus after the stale time does it. */
 const refreshAll = (client: QueryClient) => client.refetchQueries({ type: 'active' })
 
-const notice = (what: string) => screen.findByText(new RegExp(`^Could not refresh ${what}\\. What you see may be out of date\\.`), {}, { timeout: 5000 })
+const notice = (what: string) => screen.findByText(new RegExp(`^Could not refresh ${what}\\. What you see may be out of date\\.`))
 
-describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000 }, () => {
+describe('a failed background refresh keeps the screen (#63)', () => {
   it.each(SCREENS.map((s) => [s.name, s] as const))('%s: the typed input stays, a stale notice offers a retry', async (_, s) => {
     allowConsole(/API error 500/)
     signedIn(s.role)
@@ -461,7 +461,7 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     signedIn('manager')
     mockApi('get', MTA, template)
     const { client } = renderApp({ path: `/labs/${LAB_ID}/mta-templates/${template.public_id}` })
-    await screen.findByText(template.text, {}, { timeout: 5000 })
+    await screen.findByText(template.text)
     mockApiError('get', MTA, 500)
     await refreshAll(client)
     const line = await notice('the MTA')
@@ -477,7 +477,7 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     signedIn('technician')
     strainPage()
     const { client } = renderApp({ path: MATERIAL })
-    await screen.findByRole('table', { name: 'Vials' }, { timeout: 5000 })
+    await screen.findByRole('table', { name: 'Vials' })
     mockApiError('get', VIALS, 500)
     await refreshAll(client)
     const line = await notice('the vials')
@@ -493,7 +493,7 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     signedIn('manager')
     mockApi('get', MTA, template)
     const { client } = renderApp({ path: `/labs/${LAB_ID}/mta-templates/${template.public_id}` })
-    await screen.findByText(template.text, {}, { timeout: 5000 })
+    await screen.findByText(template.text)
     mockApiError('get', MTA, 500)
     await refreshAll(client)
     const line = await notice('the MTA')
@@ -536,7 +536,7 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     const GRANTS = '/api/v1/labs/{lab_public_id}/location-grants/'
     mockApi('get', GRANTS, [makeLocationGrant({ member: alice.public_id, username: 'alice' })])
     const { client } = renderApp({ path: `/labs/${LAB_ID}` })
-    const revoke = await screen.findByRole('button', { name: 'Revoke regulated locations for alice' }, { timeout: 5000 })
+    const revoke = await screen.findByRole('button', { name: 'Revoke regulated locations for alice' })
     const failed = mockApiError('get', GRANTS, 500)
     await refreshAll(client)
     await waitFor(() => expect(failed.length).toBeGreaterThan(0))
@@ -551,7 +551,7 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     mockApi('get', MTA, template)
     const { client } = renderApp({ path: `/labs/${LAB_ID}/mta-templates/new`, search: { from: template.public_id } })
     const user = userEvent.setup()
-    const title = await screen.findByRole('textbox', { name: 'Title' }, { timeout: 5000 })
+    const title = await screen.findByRole('textbox', { name: 'Title' })
     await user.clear(title)
     await user.type(title, TYPED)
     const failed = mockApiError('get', MTA, 500)
@@ -571,7 +571,7 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     mockApi('get', UNITS, [freezer, rack, makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000f4', name: 'Freezer B' })])
     const { client } = renderApp({ path: `/labs/${LAB_ID}/storage/${rack.public_id}` })
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: 'Move' }, { timeout: 5000 }))
+    await user.click(await screen.findByRole('button', { name: 'Move' }))
     const dialog = await screen.findByRole('dialog', { name: 'Move Rack 1' })
     await within(dialog).findByRole('option', { name: 'Freezer B' })
     const failed = mockApiError('get', UNITS, 500)
@@ -587,7 +587,7 @@ describe('a failed background refresh keeps the screen (#63)', { timeout: 30_000
     signedIn('manager')
     mockApiError('get', MTA, 500)
     renderApp({ path: `/labs/${LAB_ID}/mta-templates/${template.public_id}` })
-    expect(await screen.findByText(/Could not load the MTA/, {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText(/Could not load the MTA/)).toBeInTheDocument()
     expect(screen.queryByText(/Could not refresh/)).not.toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
@@ -599,7 +599,7 @@ function homeData() {
   mockApi('get', '/api/v1/me/activity/', { results: [makeActivityLine({ lab: LAB_ID, summary: 'accessioned MYC 42' })] })
 }
 
-describe('a failed background refresh keeps Home (#63, #69)', { timeout: 30_000 }, () => {
+describe('a failed background refresh keeps Home (#63, #69)', () => {
   it.each([
     ['the overview', '/api/v1/me/overview/', 'what waits for you'],
     ['the activity', '/api/v1/me/activity/', 'the activity'],
@@ -608,7 +608,7 @@ describe('a failed background refresh keeps Home (#63, #69)', { timeout: 30_000 
     mockApi('get', '/api/v1/auth/me/', makeMe())
     homeData()
     const { client } = renderApp({ path: '/' })
-    expect(await screen.findByRole('link', { name: 'Testella exempli W1' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Testella exempli W1' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'accessioned MYC 42' })).toBeInTheDocument()
     const failed = mockApiError('get', fails, 500)
     await refreshAll(client)

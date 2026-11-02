@@ -30,7 +30,7 @@ const cellOf = (username: string) => {
   return within(row).getAllByRole('cell')[3]
 }
 
-describe('who may see regulated locations (ADR 0009)', { timeout: 20_000 }, () => {
+describe('who may see regulated locations (ADR 0009)', () => {
   it('shows a manager who holds the grant and offers to grant or revoke it', async () => {
     mockApi('get', GRANTS, [held])
     await render()

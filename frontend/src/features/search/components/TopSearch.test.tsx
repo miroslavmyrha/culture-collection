@@ -38,12 +38,11 @@ const masked = () =>
   })
 
 const box = () => screen.getByRole('combobox', { name: 'Search' })
-const listbox = () => screen.findByRole('listbox', { name: 'Search results' }, { timeout: 5000 })
+const listbox = () => screen.findByRole('listbox', { name: 'Search results' })
 const render = (compact = false) => renderWithProviders(<TopSearch compact={compact} />)
 
-// The debounce of the search box is real time: 250 ms of it, then the request and the render. A busy
-// machine runs past the 5 s default (#60).
-describe('the top bar search', { timeout: 20_000 }, () => {
+// The debounce of the search box is real time: 250 ms of it, then the request and the render.
+describe('the top bar search', () => {
   it('asks once typing pauses, with the text folded, and nothing for one character', async () => {
     const calls = mockApi('get', SEARCH, { groups: [strains()] })
     // No pause between keys: on a busy machine a pause of 250 ms between two keys would send a request
@@ -176,7 +175,7 @@ describe('the top bar search', { timeout: 20_000 }, () => {
     const user = userEvent.setup()
     await render()
     await user.type(box(), 'zz')
-    expect(await screen.findByText(/^No results for “zz”\./, {}, { timeout: 5000 })).toBeVisible()
+    expect(await screen.findByText(/^No results for “zz”\./)).toBeVisible()
     expect(screen.getByRole('status')).toHaveTextContent('No results.')
     // A message alone is no list: the field says so.
     expect(box()).toHaveAttribute('aria-expanded', 'false')
@@ -188,7 +187,7 @@ describe('the top bar search', { timeout: 20_000 }, () => {
     const user = userEvent.setup()
     await render()
     await user.type(box(), 'BAC 2')
-    expect(await screen.findByText(/^Search failed\. .* Press Enter to try again\.$/, {}, { timeout: 5000 })).toBeVisible()
+    expect(await screen.findByText(/^Search failed\. .* Press Enter to try again\.$/)).toBeVisible()
     expect(screen.getByRole('status')).toHaveTextContent(/^Search failed\./)
     // No exact hit this time, so Enter shows the list instead of opening one.
     const calls = mockApi('get', SEARCH, { groups: [makeSearchGroup({ hits: [makeSearchHit({ identifier: 'BAC 20' })] })] })

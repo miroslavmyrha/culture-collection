@@ -28,7 +28,7 @@ function Harness({ limit = 25 }: { limit?: number }) {
   return <StrainHistory labId={LAB_ID} strainId={STRAIN_ID} page={{ limit, offset }} onOffsetChange={setOffset} />
 }
 
-describe('StrainHistory', { timeout: 20_000 }, () => {
+describe('StrainHistory', () => {
   it('lists what happened, newest first, who did it by label, and links a request', async () => {
     const calls = mockApi(
       'get',

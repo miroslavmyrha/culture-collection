@@ -19,7 +19,7 @@ const hana = { public_id: PERSON, username: 'hana', first_name: 'Hana', last_nam
 
 afterEach(() => vi.useRealTimers())
 
-describe('the reveal log', { timeout: 20_000 }, () => {
+describe('the reveal log', () => {
   it('shows a manager who revealed which vial and when, newest first as the server sends them', async () => {
     signedIn()
     mockApi(
@@ -31,7 +31,7 @@ describe('the reveal log', { timeout: 20_000 }, () => {
       ]),
     )
     renderApp({ path: `/labs/${LAB_ID}/reveals` })
-    expect(await screen.findByRole('heading', { level: 1, name: 'Reveals of Mycology' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Reveals of Mycology' })).toBeInTheDocument()
     const table = await screen.findByRole('table', { name: 'Reveals' })
     const rows = within(table).getAllByRole('row').slice(1)
     expect(rows.map((row) => within(row).getAllByRole('cell')[1]?.textContent)).toEqual(['Hana Holá (hana)Only these', 'Erased person'])
@@ -48,7 +48,7 @@ describe('the reveal log', { timeout: 20_000 }, () => {
     const leaking = { ...makeReveal({ person: hana, vial_label: 'MYC 42 / 1 / 2' }), location: { path: ['Freezer Secret', 'Rack 9', 'Box Hidden'], label: 'C7' }, box_name: 'Box Hidden' }
     mockApi('get', REVEALS, page([leaking]))
     renderApp({ path: `/labs/${LAB_ID}/reveals` })
-    await screen.findByRole('table', { name: 'Reveals' }, { timeout: 5000 })
+    await screen.findByRole('table', { name: 'Reveals' })
     const main = screen.getByRole('main')
     for (const text of ['Freezer Secret', 'Rack 9', 'Box Hidden', 'C7']) expect(main).not.toHaveTextContent(text)
   })
@@ -57,7 +57,7 @@ describe('the reveal log', { timeout: 20_000 }, () => {
     signedIn(role)
     mockApiError('get', REVEALS, 403, problem(403))
     renderApp({ path: `/labs/${LAB_ID}/reveals` })
-    expect(await screen.findByText('Only managers see who revealed regulated locations.', {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText('Only managers see who revealed regulated locations.')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
     expect(screen.queryByRole('form', { name: 'Filter reveals' })).not.toBeInTheDocument()
   })
@@ -66,7 +66,7 @@ describe('the reveal log', { timeout: 20_000 }, () => {
     signedIn()
     mockApi('get', REVEALS, page([]))
     renderApp({ path: `/labs/${LAB_ID}/reveals` })
-    expect(await screen.findByText('Nobody has revealed where a regulated vial of this lab is stored.', {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText('Nobody has revealed where a regulated vial of this lab is stored.')).toBeInTheDocument()
   })
 
   it('shows loading, then a retry when the load failed', async () => {
@@ -74,10 +74,10 @@ describe('the reveal log', { timeout: 20_000 }, () => {
     signedIn()
     mockApiError('get', REVEALS, 500)
     renderApp({ path: `/labs/${LAB_ID}/reveals` })
-    expect(await screen.findByText(/Could not load the reveals\./, {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText(/Could not load the reveals\./)).toBeInTheDocument()
     mockApi('get', REVEALS, page([makeReveal({ person: hana })]))
     await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
-    expect(await screen.findByRole('table', { name: 'Reveals' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByRole('table', { name: 'Reveals' })).toBeInTheDocument()
   })
 
   it('This month puts the month in the URL and sends it', async () => {
@@ -85,7 +85,7 @@ describe('the reveal log', { timeout: 20_000 }, () => {
     signedIn()
     const calls = mockApi('get', REVEALS, page([makeReveal({ person: hana })]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/reveals` })
-    await screen.findByRole('table', { name: 'Reveals' }, { timeout: 5000 })
+    await screen.findByRole('table', { name: 'Reveals' })
     await userEvent.setup().click(screen.getByRole('button', { name: 'This month' }))
     await waitFor(() => expect(router.state.location.search).toEqual({ since: '2026-02-01', until: '2026-02-28' }))
     await waitFor(() => expect(calls.at(-1)?.url.searchParams.get('since')).toBe('2026-02-01'))
@@ -97,7 +97,7 @@ describe('the reveal log', { timeout: 20_000 }, () => {
     signedIn()
     const calls = mockApi('get', REVEALS, page([makeReveal({ person: hana })]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/reveals` })
-    await screen.findByRole('table', { name: 'Reveals' }, { timeout: 5000 })
+    await screen.findByRole('table', { name: 'Reveals' })
     const user = userEvent.setup()
     const from = screen.getByRole('textbox', { name: 'From' })
     await user.type(from, '1.10.2026')
@@ -119,7 +119,7 @@ describe('the reveal log', { timeout: 20_000 }, () => {
     signedIn()
     const calls = mockApi('get', REVEALS, page([makeReveal({ person: hana })]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/reveals` })
-    await screen.findByRole('table', { name: 'Reveals' }, { timeout: 5000 })
+    await screen.findByRole('table', { name: 'Reveals' })
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Only the reveals of Hana Holá (hana)' }))
     await waitFor(() => expect(router.state.location.search).toEqual({ person: PERSON }))
@@ -134,7 +134,7 @@ describe('the reveal log', { timeout: 20_000 }, () => {
     signedIn()
     mockApi('get', REVEALS, page([]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/reveals?since=2026-10-01` })
-    expect(await screen.findByText(/No reveal matches these filters\./, {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText(/No reveal matches these filters\./)).toBeInTheDocument()
     await userEvent.setup().click(within(screen.getByText(/No reveal matches/)).getByRole('button', { name: 'Clear filters' }))
     await waitFor(() => expect(router.state.location.search).toEqual({}))
   })

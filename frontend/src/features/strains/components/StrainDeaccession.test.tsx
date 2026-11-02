@@ -71,7 +71,7 @@ async function menu(user: ReturnType<typeof userEvent.setup>, item: string) {
   await user.click(await screen.findByRole('menuitem', { name: item }))
 }
 
-describe('deaccession on the strain page', { timeout: 20_000 }, () => {
+describe('deaccession on the strain page', () => {
   it('a curator deaccessions a strain that is not regulated; it then shows how it left and where its vials went', async () => {
     const calls = mockApi('post', LEAVE, gone())
     const shipments = mockApi('get', SHIPMENTS, page([SHIPPED]))

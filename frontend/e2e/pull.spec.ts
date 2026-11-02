@@ -11,8 +11,6 @@ import { axe, signedInAs, username, watchCsp } from './support.js'
 // no reveal. The e2e user holds the lab's location grant (seed_e2e) and reveals it there. The
 // request is cancelled at the end, which frees the vials for the next run.
 
-test.describe.configure({ timeout: 120_000 })
-
 const RUN = Date.now().toString(36)
 const SUPPLY = 'Testella exempli e2e supply'
 const REGULATED = 'Mockia vulgaris e2e supply'

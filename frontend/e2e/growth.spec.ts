@@ -1,8 +1,6 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
 import { axe, signedInAs, watchCsp } from './support.js'
 
-test.describe.configure({ timeout: 120_000 })
-
 // Growth media and conditions (#79, walkthroughs V9 and T6) against the real API. A curator adds a
 // medium of this run to the lab's list, sets how the seeded B. subtilis strain is grown, and a
 // technician revives a vial of a batch made for this run: the new passage starts from the

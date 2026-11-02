@@ -49,7 +49,7 @@ async function render(unit = rack, { canManage = true, onCreated = vi.fn<(create
 
 const facts = () => Object.fromEntries([...document.querySelectorAll('dt')].map((dt) => [dt.textContent, dt.nextElementSibling?.textContent]))
 
-describe('UnitDetail', { timeout: 20_000 }, () => {
+describe('UnitDetail', () => {
   it('shows where the unit is, what it is and what it holds', async () => {
     mockApi('get', DETAIL, rack)
     await render()

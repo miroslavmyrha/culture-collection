@@ -76,7 +76,7 @@ async function action(user: ReturnType<typeof userEvent.setup>, name: string) {
   await user.click(await screen.findByRole('menuitem', { name }))
 }
 
-describe('StrainShell with the Overview tab', { timeout: 20_000 }, () => {
+describe('StrainShell with the Overview tab', () => {
   it('shows the number, the taxon, the facts, the restrictions and the identification history', async () => {
     mockApi('get', DETAIL, strain)
     terms()
@@ -213,7 +213,7 @@ describe('StrainShell with the Overview tab', { timeout: 20_000 }, () => {
     const taxon = within(dialog).getByRole('combobox', { name: 'Taxon' })
     await waitFor(() => expect(taxon).toHaveFocus())
     await user.keyboard('vulg')
-    await screen.findByRole('option', { name: /Mockia vulgaris/ }, { timeout: 4000 })
+    await screen.findByRole('option', { name: /Mockia vulgaris/ })
     await user.keyboard('{ArrowDown}{Enter}')
     await user.type(within(dialog).getByRole('textbox', { name: 'Method' }), 'MALDI-TOF MS')
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'the sequence differs')
@@ -237,7 +237,7 @@ describe('StrainShell with the Overview tab', { timeout: 20_000 }, () => {
     const taxon = within(dialog).getByRole('combobox', { name: 'Taxon' })
     await waitFor(() => expect(taxon).toHaveFocus())
     await user.keyboard('vulg')
-    await screen.findByRole('option', { name: /Mockia vulgaris/ }, { timeout: 4000 })
+    await screen.findByRole('option', { name: /Mockia vulgaris/ })
     await user.keyboard('{ArrowDown}{Enter}')
     await user.type(within(dialog).getByRole('textbox', { name: 'Method' }), 'MALDI-TOF MS')
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'the sequence differs')

@@ -1,10 +1,6 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
 import { axe, signedInAs, watchCsp } from './support.js'
 
-// Each test walks several pages and scans them with axe: real work, 5 to 25 s on a quiet machine and over
-// the 30 s default on a busy one (#60).
-test.describe.configure({ timeout: 120_000 })
-
 // The top bar's search (#76) against the real API (seed_e2e: "E2E lab" with its seeded strain
 // E2E 1, e2e-viewer and e2e-technician in it; e2e-outsider views only "E2E other lab"). The scan
 // test makes a strain of this run with one vial and a barcode unique to the run, through the API
@@ -90,7 +86,7 @@ test('a viewer finds a strain by its number from the top bar and opens it by key
     const results = page.getByRole('listbox', { name: 'Search results' })
     // Debounced-search waits use 10 s finds (shared machine load).
     const strains = results.getByRole('group', { name: /^Strains, \d+ strains?$/ })
-    await expect(strains, 'the strains group').toBeVisible({ timeout: 10_000 })
+    await expect(strains, 'the strains group').toBeVisible()
     // The number itself first: E2E 1 before E2E 10 and up.
     await expect(strains.getByRole('option').first()).toHaveAccessibleName(/^E2E 1, E2E, Active\. Bacillus subtilis/)
     expect(await axe(page, 'header')).toEqual([])
@@ -119,7 +115,7 @@ test('a technician scans a vial barcode into the search and lands on its strain 
   // A scanner types the code and Enter at once, faster than the debounce.
   await page.keyboard.type(`SCAN-${RUN}`, { delay: 5 })
   await page.keyboard.press('Enter')
-  await expect(page.getByRole('heading', { level: 1, name: made.number })).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByRole('heading', { level: 1, name: made.number })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Strain sections' }).getByRole('link', { name: 'Material' })).toHaveAttribute('aria-current', 'page')
   await expect(page.getByText('Only the vial you searched for.')).toBeVisible()
   const vials = page.getByRole('table', { name: 'Vials' })
@@ -145,7 +141,7 @@ test('a viewer of another lab finds nothing of E2E lab, at 320 px, where the sea
   expect(box?.width ?? 0).toBeGreaterThan(260)
   for (const text of ['E2E 1', 'Testella exempli e2e regulated', 'Box R']) {
     await search.fill(text)
-    await expect(bar.getByText(`No results for “${text}”.`, { exact: false })).toBeVisible({ timeout: 10_000 })
+    await expect(bar.getByText(`No results for “${text}”.`, { exact: false })).toBeVisible()
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
   expect(await axe(page, 'header')).toEqual([])

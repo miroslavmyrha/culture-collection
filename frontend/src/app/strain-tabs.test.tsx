@@ -54,13 +54,13 @@ function strainPage(role: Role, canReveal = false) {
 }
 
 const TABS = [
-  ['Overview', '', () => screen.findByRole('heading', { level: 2, name: 'Terms of use' }, { timeout: 5000 }), ['strain', 'terms']],
-  ['Material', '/material', () => screen.findByRole('table', { name: 'Vials' }, { timeout: 5000 }), ['strain', 'passages', 'batches', 'vials']],
-  ['Terms', '/terms', () => screen.findByRole('article', { name: 'Version 1' }, { timeout: 5000 }), ['strain', 'terms']],
-  ['History', '/history', () => screen.findByRole('list', { name: 'History, newest first' }, { timeout: 5000 }), ['strain', 'history']],
+  ['Overview', '', () => screen.findByRole('heading', { level: 2, name: 'Terms of use' }), ['strain', 'terms']],
+  ['Material', '/material', () => screen.findByRole('table', { name: 'Vials' }), ['strain', 'passages', 'batches', 'vials']],
+  ['Terms', '/terms', () => screen.findByRole('article', { name: 'Version 1' }), ['strain', 'terms']],
+  ['History', '/history', () => screen.findByRole('list', { name: 'History, newest first' }), ['strain', 'history']],
 ] as const
 
-describe('the strain page in tabs (#19)', { timeout: 30_000 }, () => {
+describe('the strain page in tabs (#19)', () => {
   it.each(TABS)('%s asks only for its own data', async (_, tail, shown, reads) => {
     const calls = strainPage('viewer')
     renderApp({ path: BASE + tail })
@@ -85,13 +85,13 @@ describe('the strain page in tabs (#19)', { timeout: 30_000 }, () => {
     await user.tab()
     expect(within(nav).getByRole('link', { name: 'Material' })).toHaveFocus()
     await user.keyboard('{Enter}')
-    await screen.findByRole('table', { name: 'Vials' }, { timeout: 5000 })
+    await screen.findByRole('table', { name: 'Vials' })
     expect(router.state.location.pathname).toBe(`${BASE}/material`)
     expect(current()).toEqual(['Material'])
     // The layout puts the focus on the page's h1, the strain, as after every navigation.
     await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'MYC 42' })).toHaveFocus())
     await user.click(within(nav).getByRole('link', { name: 'History' }))
-    await screen.findByRole('list', { name: 'History, newest first' }, { timeout: 5000 })
+    await screen.findByRole('list', { name: 'History, newest first' })
     expect(current()).toEqual(['History'])
     expect(document.title).toBe('MYC 42, history | Culture collection')
   })
@@ -137,7 +137,7 @@ describe('the strain page in tabs (#19)', { timeout: 30_000 }, () => {
     mockApi('get', STRAIN, left)
     mockApi('get', VIALS, page([makeVial({ label: 'MYC 42 / 1 / 1', status: 'lost', status_changed_at: '2026-10-02T10:00:00Z' })]))
     renderApp({ path: `${BASE}/material` })
-    await screen.findByRole('table', { name: 'Vials' }, { timeout: 5000 })
+    await screen.findByRole('table', { name: 'Vials' })
     await vialAction(userEvent.setup(), 'MYC 42 / 1 / 1', 'Change state')
     const state = within(await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 1' })).getByRole('combobox', { name: 'New state' })
     expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(offered)

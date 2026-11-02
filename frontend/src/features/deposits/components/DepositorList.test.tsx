@@ -22,7 +22,7 @@ async function renderList(params: DepositorListParams = PARAMS) {
   return { ...view, onOffsetChange, onSearch, user: userEvent.setup() }
 }
 
-describe('DepositorList', { timeout: 15_000 }, () => {
+describe('DepositorList', () => {
   it('shows each depositor with the contact, and an erased one by that word', async () => {
     mockApi('get', LIST, page([jana, makeDepositor({ name: '', email: '', institution: 'Old Institute', erased: true })]))
     await renderList()
@@ -44,7 +44,7 @@ describe('DepositorList', { timeout: 15_000 }, () => {
     allowConsole(/API error 500/)
     mockApiError('get', LIST, 500)
     const { user } = await renderList()
-    const retry = await screen.findByRole('button', { name: 'Try again' }, { timeout: 5000 })
+    const retry = await screen.findByRole('button', { name: 'Try again' })
     mockApi('get', LIST, page([jana]))
     await user.click(retry)
     expect(await screen.findByRole('table', { name: 'Depositors' })).toBeInTheDocument()
@@ -69,11 +69,11 @@ describe('DepositorList', { timeout: 15_000 }, () => {
     await user.type(within(dialog).getByRole('textbox', { name: 'E-mail' }), 'petr@example.org')
     await user.type(within(dialog).getByRole('textbox', { name: 'Institution' }), 'Example Institute')
     await user.click(within(dialog).getByRole('button', { name: 'Add the depositor' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), { timeout: 5000 })
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(calls[0]?.body).toEqual({ name: 'Petr Příklad', email: 'petr@example.org', postal_address: '', institution: 'Example Institute' })
     expect(calls[0]?.headers.get('X-CSRFToken')).toBe('test-token')
     await waitFor(() => expect(reads).toHaveLength(2)) // the list on screen was fetched again
-    await waitFor(() => expect(add).toHaveFocus(), { timeout: 5000 })
+    await waitFor(() => expect(add).toHaveFocus())
   })
 
   it('refuses an empty name and a wrong e-mail without a request', async () => {
@@ -85,7 +85,7 @@ describe('DepositorList', { timeout: 15_000 }, () => {
     await user.type(within(dialog).getByRole('textbox', { name: 'E-mail' }), 'not an address')
     await user.click(within(dialog).getByRole('button', { name: 'Add the depositor' }))
     const name = within(dialog).getByRole('textbox', { name: 'Name' })
-    await waitFor(() => expect(name).toHaveAccessibleDescription('Enter the name'), { timeout: 5000 })
+    await waitFor(() => expect(name).toHaveAccessibleDescription('Enter the name'))
     expect(name).toHaveFocus()
     expect(within(dialog).getByRole('textbox', { name: 'E-mail' })).toHaveAttribute('aria-invalid', 'true')
     expect(calls).toHaveLength(0)
@@ -100,7 +100,7 @@ describe('DepositorList', { timeout: 15_000 }, () => {
     expect(within(dialog).getByRole('textbox', { name: 'Name' })).toHaveValue('Jana Vzorová')
     await user.click(within(dialog).getByRole('button', { name: 'Save the depositor' }))
     const email = within(dialog).getByRole('textbox', { name: 'E-mail' })
-    await waitFor(() => expect(email).toHaveAccessibleDescription('Enter a valid email address.'), { timeout: 5000 })
+    await waitFor(() => expect(email).toHaveAccessibleDescription('Enter a valid email address.'))
     expect(email).toHaveFocus()
     expect(calls[0]?.url.pathname).toBe(`/api/v1/labs/${LAB_ID}/depositors/${jana.public_id}/`)
   })
@@ -124,13 +124,13 @@ describe('DepositorList', { timeout: 15_000 }, () => {
     const dialog = await screen.findByRole('dialog')
     const save = within(dialog).getByRole('button', { name: 'Save the depositor' })
     await user.click(save)
-    await waitFor(() => expect(save).toHaveAttribute('aria-disabled', 'true'), { timeout: 5000 })
+    await waitFor(() => expect(save).toHaveAttribute('aria-disabled', 'true'))
     await user.keyboard('{Escape}')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     await user.click(save)
     expect(held.calls).toHaveLength(1)
     held.release(200, jana)
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), { timeout: 5000 })
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 })
 
@@ -139,22 +139,22 @@ function signedIn(role: 'viewer' | 'curator') {
   mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: role }))
 }
 
-describe('the depositors page', { timeout: 15_000 }, () => {
+describe('the depositors page', () => {
   it('puts the search into the URL and asks the API with it', async () => {
     signedIn('curator')
     const calls = mockApi('get', LIST, page([jana]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/depositors` })
     const user = userEvent.setup()
-    await user.type(await screen.findByRole('searchbox', { name: 'Name or institution' }, { timeout: 5000 }), 'vzor{Enter}')
-    await waitFor(() => expect(router.state.location.search).toEqual({ search: 'vzor' }), { timeout: 5000 })
-    await waitFor(() => expect(calls.at(-1)?.url.searchParams.get('search')).toBe('vzor'), { timeout: 5000 })
+    await user.type(await screen.findByRole('searchbox', { name: 'Name or institution' }), 'vzor{Enter}')
+    await waitFor(() => expect(router.state.location.search).toEqual({ search: 'vzor' }))
+    await waitFor(() => expect(calls.at(-1)?.url.searchParams.get('search')).toBe('vzor'))
   })
 
   it('tells a viewer that depositors are for curators, without a list', async () => {
     signedIn('viewer')
     mockApiError('get', LIST, 403, problem(403))
     renderApp({ path: `/labs/${LAB_ID}/depositors` })
-    expect(await screen.findByText(/Only curators and managers see depositors/, undefined, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText(/Only curators and managers see depositors/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Add a depositor' })).not.toBeInTheDocument()
   })
 })

@@ -13,12 +13,12 @@ const signedIn = (role: 'viewer' | 'technician' | 'curator' | 'manager') => {
   mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: role }))
 }
 
-describe('the permits page', { timeout: 15_000 }, () => {
+describe('the permits page', () => {
   it('shows a manager the permits and says that staff change them in the Django admin', async () => {
     signedIn('manager')
     mockApi('get', PERMITS, [makeLabPermit({ permit_reference: 'DEV/VRAT/1', standing: 'expires_soon', expires_on: '2026-11-05', last_valid_day: '2026-11-05', days_left: 10 })])
     renderApp({ path: `/labs/${LAB_ID}/permits` })
-    expect(await screen.findByRole('heading', { level: 1, name: 'Permits of Mycology' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Permits of Mycology' })).toBeInTheDocument()
     expect(screen.getByText(/This list is read only: staff record a permit and its end in the Django admin\./)).toBeInTheDocument()
     expect(await screen.findByRole('table', { name: 'Permits' })).toHaveTextContent('SÚJB DEV/VRAT/1')
     expect(screen.getByText('1 permit expires soon.')).toBeInTheDocument()
@@ -28,7 +28,7 @@ describe('the permits page', { timeout: 15_000 }, () => {
     signedIn(role)
     mockApiError('get', PERMITS, 403, problem(403))
     renderApp({ path: `/labs/${LAB_ID}/permits` })
-    expect(await screen.findByText("Only managers see the lab's permits.", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText("Only managers see the lab's permits.")).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
     expect(screen.queryByText(/Could not load/)).not.toBeInTheDocument()
   })

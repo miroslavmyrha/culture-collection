@@ -46,7 +46,7 @@ async function renderForm(from?: MtaTemplate) {
   return { ...view, onPublished, user: userEvent.setup() }
 }
 
-describe('PublishMtaForm', { timeout: 15_000 }, () => {
+describe('PublishMtaForm', () => {
   it('publishes the text as typed, the code in capitals, and refreshes the list', async () => {
     const calls = mockApi('post', LIST, v2)
     const { user, client, onPublished } = await renderForm()
@@ -55,7 +55,7 @@ describe('PublishMtaForm', { timeout: 15_000 }, () => {
     await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Standard MTA')
     await user.type(screen.getByRole('textbox', { name: 'Text' }), '  Line one.{Enter}Line two.')
     await user.click(screen.getByRole('button', { name: 'Publish the version' }))
-    await waitFor(() => expect(onPublished).toHaveBeenCalledWith(v2), { timeout: 5000 })
+    await waitFor(() => expect(onPublished).toHaveBeenCalledWith(v2))
     expect(calls[0]?.body).toEqual({ code: 'STD', title: 'Standard MTA', text: '  Line one.\nLine two.' })
     expect(calls[0]?.headers.get('X-CSRFToken')).toBe('test-token')
     expect(client.getQueryData(mtaKeys.detail(LAB_ID, v2.public_id))).toEqual(v2)
@@ -99,7 +99,7 @@ describe('PublishMtaForm', { timeout: 15_000 }, () => {
     mockApiError('post', LIST, 400, validationProblem([{ attr: 'code', code: 'invalid', detail: 'Not this code.' }]))
     const { user } = await renderForm(v2)
     await user.click(screen.getByRole('button', { name: 'Publish the version' }))
-    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Code' })).toHaveAccessibleDescription(/Not this code\.$/), { timeout: 5000 })
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Code' })).toHaveAccessibleDescription(/Not this code\.$/))
     mockApiError('post', LIST, 409, problem(409, { code: 'mta_version_taken' }))
     await user.click(screen.getByRole('button', { name: 'Publish the version' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Another version of this MTA was published at the same moment. Publish again.')
@@ -111,7 +111,7 @@ describe('PublishMtaForm', { timeout: 15_000 }, () => {
     const { user } = await renderForm(v2)
     const button = screen.getByRole('button', { name: 'Publish the version' })
     await user.click(button)
-    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'), { timeout: 5000 })
+    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'))
     expect(button).toHaveFocus()
     await user.click(button)
     expect(held.calls).toHaveLength(1)
@@ -126,12 +126,12 @@ function signedIn(role: 'curator' | 'manager') {
   mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: role }))
 }
 
-describe('the MTA pages', { timeout: 15_000 }, () => {
+describe('the MTA pages', () => {
   it('shows the frozen text and its whole hash; a manager may start a new version from it', async () => {
     signedIn('manager')
     mockApi('get', ONE, v2)
     renderApp({ path: `/labs/${LAB_ID}/mta-templates/${v2.public_id}` })
-    expect(await screen.findByRole('heading', { level: 1, name: 'STD version 2' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'STD version 2' })).toBeInTheDocument()
     expect(screen.getByText(v2.text_sha256)).toBeInTheDocument()
     expect(screen.getByText(/Line one\.\s+Line two\./)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Publish a new version of STD' })).toHaveAttribute('href', `/labs/${LAB_ID}/mta-templates/new?from=${v2.public_id}`)
@@ -142,7 +142,7 @@ describe('the MTA pages', { timeout: 15_000 }, () => {
     mockApi('get', ONE, v2)
     mockApi('get', LIST, page([v2]))
     renderApp({ path: `/labs/${LAB_ID}/mta-templates` })
-    expect(await screen.findByRole('table', { name: 'MTA templates' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByRole('table', { name: 'MTA templates' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Publish an MTA version' })).not.toBeInTheDocument()
   })
 })

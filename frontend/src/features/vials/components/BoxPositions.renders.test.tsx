@@ -28,7 +28,7 @@ const vial = makeBoxVial({ public_id: '00000000-0000-4000-8000-0000000000f1', la
 const other = makeBoxVial({ public_id: '00000000-0000-4000-8000-0000000000f2', label: 'MYC 42 / 1 / 2', status: 'quarantined' })
 const FULL = makeBoxGrid({ public_id: BOX_ID, positions: [makePosition('B3', vial), makePosition('B4', 'masked'), makePosition('E7', other)] })
 
-describe('BoxPositions renders', { timeout: 20_000 }, () => {
+describe('BoxPositions renders', () => {
   beforeEach(() => renders.clear())
 
   // BoxPositions itself renders on every key (it shows the focused position), so its `cell`
