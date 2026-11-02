@@ -69,7 +69,7 @@ describe('the authenticated layout (invariant)', () => {
     const { router } = renderApp({ path })
     // The first render test of the file loads the lazy LoginPage chunk cold. With the whole
     // suite running in parallel that import can take longer than findBy's default 1 s.
-    expect(await screen.findByRole('heading', { name: 'Sign in' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     headings.stop()
     expect(router.state.location.pathname).toBe('/login')
     expect(router.state.location.search).toEqual({ redirect: path })

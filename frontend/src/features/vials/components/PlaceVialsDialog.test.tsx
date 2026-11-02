@@ -40,7 +40,7 @@ async function chooseBoxOne(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByRole('grid', { name: 'Free positions of Freezer A / Rack 1 / Box 1' })
 }
 
-describe('PlaceVialsDialog', { timeout: 20_000 }, () => {
+describe('PlaceVialsDialog', () => {
   afterEach(() => vi.restoreAllMocks())
 
   it('shows the free positions of the chosen box and plans each vial into the next one, row by row', async () => {

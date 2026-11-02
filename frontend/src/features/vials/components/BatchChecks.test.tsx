@@ -74,7 +74,7 @@ async function openChecks(number: number) {
   return { user, toggle }
 }
 
-describe('the checks of a batch', { timeout: 20_000 }, () => {
+describe('the checks of a batch', () => {
   it('shows each status with why it is not released, and how many vials may go out', async () => {
     mockMaterial()
     await render({ canHandle: false })

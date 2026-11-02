@@ -102,7 +102,7 @@ describe('PermitList', () => {
     mockApiError('get', LIST, 500)
     await renderWithProviders(<PermitList labId={LAB_ID} />)
     expect(screen.getByText('Loading the permits…')).toBeInTheDocument()
-    expect(await screen.findByText(/Could not load the permits/, {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText(/Could not load the permits/)).toBeInTheDocument()
     mockApi('get', LIST, [soon])
     await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByRole('table', { name: 'Permits' })).toBeInTheDocument()

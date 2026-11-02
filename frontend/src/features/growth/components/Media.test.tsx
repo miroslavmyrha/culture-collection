@@ -16,7 +16,7 @@ const old = makeMedium({ name: 'Old agar', retired_at: '2026-10-01T10:00:00Z' })
 
 const render = (canManage = true) => renderWithProviders(<MediaList labId={LAB_ID} canManage={canManage} />)
 
-describe('MediaList', { timeout: 15_000 }, () => {
+describe('MediaList', () => {
   it('lists the media with their reference and status, and gives the retired no actions', async () => {
     mockApi('get', LIST, page([lb, old]))
     await render()

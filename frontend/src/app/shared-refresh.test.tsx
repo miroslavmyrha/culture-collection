@@ -108,7 +108,7 @@ async function openStrainPage(role: Role, strain = regulated, vial: ReturnType<t
   const first = strainPage(strain, vial)
   mockApi('get', UNITS, [freezer, box])
   const view = renderApp({ path: strainPath })
-  await screen.findByRole('table', { name: 'Vials' }, { timeout: 15_000 })
+  await screen.findByRole('table', { name: 'Vials' })
   expect(first).toHaveLength(1)
   return { ...view, user: userEvent.setup() }
 }
@@ -127,7 +127,7 @@ async function inDialog(user: UserEvent, name: string, title: string, fill: (dia
   const dialog = await screen.findByRole('dialog', { name: title })
   await fill(dialog)
   await user.click(within(dialog).getByRole('button', { name: confirm }))
-  await waitFor(() => expect(dialog).not.toBeInTheDocument(), { timeout: 15_000 })
+  await waitFor(() => expect(dialog).not.toBeInTheDocument())
 }
 
 const STRAIN_WRITES: [string, (user: UserEvent) => Promise<void>][] = [
@@ -155,7 +155,7 @@ const STRAIN_WRITES: [string, (user: UserEvent) => Promise<void>][] = [
       await startAction(user, 'Confirm the end of restriction MŽP 2026/12')
       const dialog = await screen.findByRole('alertdialog', { name: 'End the restriction MŽP 2026/12?' })
       await user.click(within(dialog).getByRole('button', { name: 'End restriction' }))
-      await waitFor(() => expect(dialog).not.toBeInTheDocument(), { timeout: 15_000 })
+      await waitFor(() => expect(dialog).not.toBeInTheDocument())
     },
   ],
   [
@@ -186,7 +186,7 @@ const STRAIN_WRITES: [string, (user: UserEvent) => Promise<void>][] = [
         async (dialog) => {
           await user.click(within(dialog).getByRole('combobox', { name: 'Taxon' }))
           await user.keyboard('vulg')
-          await screen.findByRole('option', { name: /Mockia vulgaris/ }, { timeout: 30_000 })
+          await screen.findByRole('option', { name: /Mockia vulgaris/ })
           await user.keyboard('{ArrowDown}{Enter}')
           await user.type(within(dialog).getByRole('textbox', { name: 'Method' }), 'MALDI-TOF MS')
           await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'the sequence differs')
@@ -205,8 +205,7 @@ beforeEach(() => {
   mockApi('get', '/api/v1/labs/{lab_public_id}/requests/{public_id}/vials/', [])
 })
 
-// Each case renders the strain page with its tables and runs a write and its refetch: real work (#60).
-describe('a write refreshes the data other features show', { timeout: 90_000 }, () => {
+describe('a write refreshes the data other features show', () => {
   it.each(STRAIN_WRITES.filter(([name]) => name !== 'ending a restriction'))("%s on the strain page refetches the strain's material and marks the lab's box grids stale", async (_, write) => {
     const { client, user } = await openStrainPage('manager')
     const grid = vialKeys.box(LAB_ID, box.public_id)
@@ -229,7 +228,7 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     client.setQueryData(grid, makeBoxGrid({ public_id: box.public_id }))
     // A restriction ends from its row on Overview, where the material is not on screen.
     await router.navigate(toTab('overview'))
-    await screen.findByRole('table', { name: 'Current restrictions' }, { timeout: 15_000 })
+    await screen.findByRole('table', { name: 'Current restrictions' })
     const vials = mockApi('get', VIALS, page([masked]))
     const write = STRAIN_WRITES.find(([name]) => name === 'ending a restriction')
     await write?.[1](user)
@@ -237,7 +236,7 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     expect(client.getQueryState(grid)?.isInvalidated).toBe(true)
     // Within the stale time: only the invalidation makes Material ask again when it opens.
     await router.navigate(toTab('material'))
-    await waitFor(() => expect(vials).toHaveLength(1), { timeout: 15_000 })
+    await waitFor(() => expect(vials).toHaveLength(1))
   })
 
   it('retiring a medium marks the strain and its material stale, since both show the medium', async () => {
@@ -247,11 +246,11 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     mockApi('get', '/api/v1/labs/{lab_public_id}/media/', page([lb]))
     await router.navigate({ to: '/labs/$labId/media', params: { labId: LAB_ID } })
     mockApi('post', '/api/v1/labs/{lab_public_id}/media/{public_id}/retire/', { ...lb, retired_at: '2026-10-02T10:00:00Z' })
-    await user.click(await screen.findByRole('button', { name: 'Retire medium LB' }, { timeout: 15_000 }))
+    await user.click(await screen.findByRole('button', { name: 'Retire medium LB' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Retire LB?' })
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'replaced')
     await user.click(within(dialog).getByRole('button', { name: 'Retire medium' }))
-    await waitFor(() => expect(dialog).not.toBeInTheDocument(), { timeout: 15_000 })
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
     expect(client.getQueryState(strainKeys.detail(LAB_ID, STRAIN_ID))?.isInvalidated).toBe(true)
     expect(client.getQueryState(vialKeys.passages(LAB_ID, STRAIN_ID))?.isInvalidated).toBe(true)
   })
@@ -260,7 +259,7 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     signedIn('manager')
     strainPage(free)
     renderApp({ path: `/labs/${LAB_ID}/strains/${STRAIN_ID}/history` })
-    await screen.findByRole('list', { name: 'History, newest first' }, { timeout: 15_000 })
+    await screen.findByRole('list', { name: 'History, newest first' })
     const history = mockApi('get', HISTORY, page([makeHistoryLine({ summary: 'changed the risk group of MYC 42' })]))
     const write = STRAIN_WRITES.find(([name]) => name === 'changing the risk group')
     await write?.[1](userEvent.setup())
@@ -271,9 +270,9 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
   it("a vial write refreshes the strain's history, asked again when its tab opens", async () => {
     const { router, user } = await openStrainPage('technician', free, makeVial({ public_id: VIAL_ID, label: 'MYC 42 / 1 / 1' }))
     await router.navigate(toTab('history'))
-    await screen.findByRole('list', { name: 'History, newest first' }, { timeout: 15_000 })
+    await screen.findByRole('list', { name: 'History, newest first' })
     await router.navigate(toTab('material'))
-    await screen.findByRole('table', { name: 'Vials' }, { timeout: 15_000 })
+    await screen.findByRole('table', { name: 'Vials' })
     mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/status/', makeVial({ public_id: VIAL_ID, status: 'lost' }))
     const history = mockApi('get', HISTORY, page([makeHistoryLine({ summary: 'set vial MYC 42 / 1 / 1 to lost' })]))
     await inDialog(
@@ -288,7 +287,7 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     )
     // Within the stale time: only the invalidation makes the tab ask again.
     await router.navigate(toTab('history'))
-    expect(await screen.findByText('set vial MYC 42 / 1 / 1 to lost', {}, { timeout: 15_000 })).toBeInTheDocument()
+    expect(await screen.findByText('set vial MYC 42 / 1 / 1 to lost')).toBeInTheDocument()
     expect(history).toHaveLength(1)
   })
 
@@ -296,15 +295,15 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     signedIn('curator')
     strainPage(free)
     const { client, router } = renderApp({ path: `/labs/${LAB_ID}/strains/${STRAIN_ID}/history` })
-    await screen.findByRole('list', { name: 'History, newest first' }, { timeout: 15_000 })
+    await screen.findByRole('list', { name: 'History, newest first' })
     await router.navigate({ to: '/labs/$labId/strains/$strainId/terms', params: { labId: LAB_ID, strainId: STRAIN_ID } })
-    await screen.findByRole('article', { name: 'Version 1' }, { timeout: 15_000 })
+    await screen.findByRole('article', { name: 'Version 1' })
     const deposit = makeDeposit({ public_id: DEPOSIT_ID, status: 'accepted', strain: { public_id: STRAIN_ID, accession_number: 'MYC 42' } })
     mockApi('get', '/api/v1/labs/{lab_public_id}/deposits/{public_id}/', deposit)
     mockApi('get', '/api/v1/labs/{lab_public_id}/mta-templates/', page([]))
     await router.navigate({ to: '/labs/$labId/deposits/$depositId', params: { labId: LAB_ID, depositId: DEPOSIT_ID } })
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: 'Change the terms' }, { timeout: 15_000 }))
+    await user.click(await screen.findByRole('button', { name: 'Change the terms' }))
     const dialog = await screen.findByRole('dialog')
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'The depositor withdrew teaching.')
     const replaced = mockApi('post', '/api/v1/labs/{lab_public_id}/deposits/{public_id}/terms/', deposit)
@@ -314,7 +313,7 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     expect(client.getQueryState(['strains', LAB_ID, 'terms', STRAIN_ID])?.isInvalidated).toBe(true)
     expect(client.getQueryState(['vials', LAB_ID, 'strain', STRAIN_ID, 'history', { limit: 25, offset: 0 }])?.isInvalidated).toBe(true)
     await router.navigate({ to: '/labs/$labId/strains/$strainId/terms', params: { labId: LAB_ID, strainId: STRAIN_ID } })
-    expect(await screen.findByRole('article', { name: 'Version 2' }, { timeout: 15_000 })).toBeInTheDocument()
+    expect(await screen.findByRole('article', { name: 'Version 2' })).toBeInTheDocument()
     expect(terms).toHaveLength(1)
   })
 
@@ -326,20 +325,20 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     mockApi('get', UNIT, makeUnit({ ...box }))
     mockApi('get', BOX, makeBoxGrid({ public_id: box.public_id, positions: [{ row: 1, col: 1, label: 'A1', masked: true, vial: null }] }))
     await router.navigate({ to: '/labs/$labId/storage/$unitId', params: { labId: LAB_ID, unitId: box.public_id } })
-    expect(await screen.findByText('Position A1: a vial of a regulated strain. Which one is hidden.', {}, { timeout: 15_000 })).toBeInTheDocument()
+    expect(await screen.findByText('Position A1: a vial of a regulated strain. Which one is hidden.')).toBeInTheDocument()
     // The restriction ends from its row on Overview; the vial shows on Material.
     await router.navigate(toTab('overview'))
-    await screen.findByRole('table', { name: 'Current restrictions' }, { timeout: 15_000 })
+    await screen.findByRole('table', { name: 'Current restrictions' })
 
     const vials = mockApi('get', VIALS, page([located()]))
     await STRAIN_WRITES.find(([name]) => name === 'ending a restriction')?.[1](user)
     await router.navigate(toTab('material'))
-    await waitFor(() => expect(vialRow()).toHaveTextContent('Freezer A / Box 1, A1'), { timeout: 15_000 })
+    await waitFor(() => expect(vialRow()).toHaveTextContent('Freezer A / Box 1, A1'))
     expect(vials).toHaveLength(1)
 
     const grids = mockApi('get', BOX, makeBoxGrid({ public_id: box.public_id, positions: [{ row: 1, col: 1, label: 'A1', masked: false, vial: { public_id: VIAL_ID, label: 'MYC 42 / 1 / 1', status: 'available', barcode: null, strain: STRAIN_ID, accession_number: 'MYC 42' } }] }))
     await router.navigate({ to: '/labs/$labId/storage/$unitId', params: { labId: LAB_ID, unitId: box.public_id } })
-    await waitFor(() => expect(grids).toHaveLength(1), { timeout: 15_000 })
+    await waitFor(() => expect(grids).toHaveLength(1))
     expect(await screen.findByText(/Position A1: MYC 42 \/ 1 \/ 1, available\./)).toBeInTheDocument()
   })
 
@@ -367,7 +366,7 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     signedIn('technician')
     const units = mockApi('get', UNITS, [freezer, box])
     const { router } = renderApp({ path: `/labs/${LAB_ID}/storage` })
-    await screen.findByRole('tree', { name: 'Storage of Mycology' }, { timeout: 15_000 })
+    await screen.findByRole('tree', { name: 'Storage of Mycology' })
     strainPage(free, makeVial({ label: 'MYC 42 / 1 / 2' }))
     await router.navigate(toTab('material'))
     const user = userEvent.setup()
@@ -399,7 +398,7 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
       'Save',
     )
     await router.navigate(toTab('material'))
-    await waitFor(() => expect(vialRow()).toHaveTextContent('Freezer B / Box 1, A1'), { timeout: 15_000 })
+    await waitFor(() => expect(vialRow()).toHaveTextContent('Freezer B / Box 1, A1'))
     expect(vials).toHaveLength(1)
     await vialAction(user, 'MYC 42 / 1 / 1', 'Move')
     const choices = await within(await screen.findByRole('dialog')).findByRole('combobox', { name: 'Box' })
@@ -418,22 +417,21 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     const grant = makeLocationGrant({ member: me.public_id, username: 'alice' })
     mockApi('get', GRANTS, before ? [grant] : [])
     await router.navigate({ to: '/labs/$labId', params: { labId: LAB_ID } })
-    await screen.findByRole('table', { name: 'Members' }, { timeout: 15_000 })
+    await screen.findByRole('table', { name: 'Members' })
     if (action === 'granting') mockApi('post', GRANTS, grant)
     else mockApi('post', '/api/v1/labs/{lab_public_id}/location-grants/{public_id}/revoke/', undefined)
     const verb = action === 'granting' ? 'Grant' : 'Revoke'
-    await user.click(await screen.findByRole('button', { name: `${verb} regulated locations for alice` }, { timeout: 15_000 }))
-    const dialog = await screen.findByRole('dialog', {}, { timeout: 15_000 })
+    await user.click(await screen.findByRole('button', { name: `${verb} regulated locations for alice` }))
+    const dialog = await screen.findByRole('dialog')
     // The answers after the write, registered only now: the grants loaded above stay as they were.
     mockApi('get', GRANTS, after ? [grant] : [])
     const vials = mockApi('get', VIALS, page([{ ...masked, can_reveal: after }]))
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'keeps the register')
     await user.click(within(dialog).getByRole('button', { name: verb }))
-    // Waits of 5 s: under the load of the whole suite this flow takes longer than the default.
-    await waitFor(() => expect(dialog).not.toBeInTheDocument(), { timeout: 15_000 })
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
     await router.navigate(toTab('material'))
-    await waitFor(() => expect(vials).toHaveLength(1), { timeout: 15_000 })
-    await waitFor(() => expect(within(vialRow() ?? document.body).queryAllByRole('button', { name: /Reveal the location/ })).toHaveLength(after ? 1 : 0), { timeout: 15_000 })
+    await waitFor(() => expect(vials).toHaveLength(1))
+    await waitFor(() => expect(within(vialRow() ?? document.body).queryAllByRole('button', { name: /Reveal the location/ })).toHaveLength(after ? 1 : 0))
   })
 
   it('a reveal on the strain page refreshes the lab\'s reveal log (#83)', async () => {
@@ -441,36 +439,36 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     const REVEALS = '/api/v1/labs/{public_id}/reveals/'
     const before = mockApi('get', REVEALS, page([]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/reveals` })
-    expect(await screen.findByText('Nobody has revealed where a regulated vial of this lab is stored.', {}, { timeout: 15_000 })).toBeInTheDocument()
+    expect(await screen.findByText('Nobody has revealed where a regulated vial of this lab is stored.')).toBeInTheDocument()
     expect(before).toHaveLength(1)
     strainPage(regulated, { ...masked, can_reveal: true })
     mockApi('get', UNITS, [freezer, box])
     await router.navigate({ to: '/labs/$labId/strains/$strainId/material', params: { labId: LAB_ID, strainId: STRAIN_ID } })
     const user = userEvent.setup()
     mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/reveal-location/', { location: where('Freezer A') }, { status: 200 })
-    await user.click(await screen.findByRole('button', { name: 'Reveal the location of vial MYC 42 / 1 / 1' }, { timeout: 15_000 }))
-    await screen.findByText('Freezer A / Box 1, A1', {}, { timeout: 15_000 })
+    await user.click(await screen.findByRole('button', { name: 'Reveal the location of vial MYC 42 / 1 / 1' }))
+    await screen.findByText('Freezer A / Box 1, A1')
     // The answer after the reveal, registered only now: the log loaded above stays as it was.
     const after = mockApi('get', REVEALS, page([makeReveal({ vial_label: 'MYC 42 / 1 / 1', strain: STRAIN_ID })]))
     await router.navigate({ to: '/labs/$labId/reveals', params: { labId: LAB_ID } })
-    await waitFor(() => expect(after).toHaveLength(1), { timeout: 15_000 })
-    expect(await screen.findByRole('link', { name: 'MYC 42 / 1 / 1' }, { timeout: 15_000 })).toBeInTheDocument()
+    await waitFor(() => expect(after).toHaveLength(1))
+    expect(await screen.findByRole('link', { name: 'MYC 42 / 1 / 1' })).toBeInTheDocument()
   })
 
   it('accepting a deposit refreshes the lab\'s strain lists', async () => {
     signedIn('curator')
     mockApi('get', STRAINS, page([]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/strains` })
-    expect(await screen.findByText('The lab has no strains yet.', {}, { timeout: 15_000 })).toBeInTheDocument()
+    expect(await screen.findByText('The lab has no strains yet.')).toBeInTheDocument()
     const deposit = makeDeposit({ public_id: DEPOSIT_ID, name_as_received: 'T. exempli T1', status: 'checking' })
     mockApi('get', '/api/v1/labs/{lab_public_id}/deposits/{public_id}/', deposit)
     mockApi('get', '/api/v1/taxa/', page([exempli]))
     await router.navigate({ to: '/labs/$labId/deposits/$depositId', params: { labId: LAB_ID, depositId: DEPOSIT_ID } })
-    const form = await screen.findByRole('form', { name: 'Accept the deposit' }, { timeout: 15_000 })
+    const form = await screen.findByRole('form', { name: 'Accept the deposit' })
     const user = userEvent.setup()
     await user.click(within(form).getByRole('combobox', { name: 'Taxon' }))
     await user.keyboard('exem')
-    await screen.findByRole('option', { name: /Testella exempli/ }, { timeout: 30_000 })
+    await screen.findByRole('option', { name: /Testella exempli/ })
     await user.keyboard('{ArrowDown}{Enter}')
     await user.type(within(form).getByRole('textbox', { name: 'Identification method' }), '16S rRNA gene sequence')
     await user.selectOptions(within(form).getByRole('combobox', { name: 'Risk group' }), '1')
@@ -479,7 +477,7 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     await user.click(within(form).getByRole('button', { name: 'Accept and add the strain' }))
     await waitFor(() => expect(accepted).toHaveLength(1))
     await router.navigate({ to: '/labs/$labId/strains', params: { labId: LAB_ID } })
-    expect(await screen.findByRole('link', { name: 'MYC 42' }, { timeout: 15_000 })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'MYC 42' })).toBeInTheDocument()
     expect(strains).toHaveLength(1)
   })
 
@@ -495,7 +493,7 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     const request = makeRequest({ public_id: REQUEST_ID, number: '2026/7', status: action === 'approve' ? 'submitted' : 'approved' })
     mockApi('get', '/api/v1/labs/{lab_public_id}/requests/{public_id}/', request)
     await router.navigate({ to: '/labs/$labId/requests/$requestId', params: { labId: LAB_ID, requestId: REQUEST_ID } })
-    await user.click(await screen.findByRole('button', { name: trigger }, { timeout: 15_000 }))
+    await user.click(await screen.findByRole('button', { name: trigger }))
     const dialog = await screen.findByRole(action === 'cancel' ? 'alertdialog' : 'dialog')
     if (action === 'cancel') await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'withdrawn')
     if (action === 'ship') {
@@ -512,7 +510,7 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     await waitFor(() => expect(client.getQueryState(pulled())?.isInvalidated).toBe(true))
     await router.navigate(toTab('material'))
     // Within the stale time: only an invalidation makes the page ask again.
-    await waitFor(() => expect(vials).toHaveLength(1), { timeout: 15_000 })
+    await waitFor(() => expect(vials).toHaveLength(1))
   })
 
   it('confirming a prepared shipment refreshes the vials the strain page shows (#89)', async () => {
@@ -527,14 +525,14 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     })
     mockApi('get', '/api/v1/labs/{lab_public_id}/requests/{public_id}/', request)
     await router.navigate({ to: '/labs/$labId/requests/$requestId', params: { labId: LAB_ID, requestId: REQUEST_ID } })
-    await user.click(await screen.findByRole('button', { name: 'Confirm the shipment' }, { timeout: 15_000 }))
+    await user.click(await screen.findByRole('button', { name: 'Confirm the shipment' }))
     const dialog = await screen.findByRole('alertdialog')
     const done = mockApi('post', '/api/v1/labs/{lab_public_id}/requests/{public_id}/confirm-shipment/', { ...request, status: 'shipped' })
     const vials = strainPage(free, { ...located(), status: 'distributed' })
     await user.click(within(dialog).getByRole('button', { name: 'Confirm and ship' }))
     await waitFor(() => expect(done).toHaveLength(1))
     await router.navigate(toTab('material'))
-    await waitFor(() => expect(vials).toHaveLength(1), { timeout: 15_000 })
+    await waitFor(() => expect(vials).toHaveLength(1))
   })
 
   // What waits on Home and the counts on the lab tabs (#69): a deposit or a request that moves
@@ -546,7 +544,7 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     mockApi('get', DEPOSIT, deposit)
     const before = mockApi('get', '/api/v1/me/overview/', makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, role: 'curator', deposits_to_check: 2 })] }))
     renderApp({ path: `/labs/${LAB_ID}/deposits/${DEPOSIT_ID}` })
-    const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 15_000 })
+    const nav = await screen.findByRole('navigation', { name: 'Lab sections' })
     expect(await within(nav).findByRole('link', { name: 'Deposits, 2 to check' })).toBeInTheDocument()
     expect(before).toHaveLength(1)
     const started = mockApi('post', '/api/v1/labs/{lab_public_id}/deposits/{public_id}/start-check/', { ...deposit, status: 'checking' })
@@ -554,7 +552,7 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Start checking' }))
     await waitFor(() => expect(started).toHaveLength(1))
     // Within the stale time: only an invalidation makes the tabs ask again.
-    expect(await within(nav).findByRole('link', { name: 'Deposits, 1 to check' }, { timeout: 15_000 })).toBeInTheDocument()
+    expect(await within(nav).findByRole('link', { name: 'Deposits, 1 to check' })).toBeInTheDocument()
     expect(after).toHaveLength(1)
   })
 
@@ -565,7 +563,7 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     mockApi('get', '/api/v1/labs/{lab_public_id}/requests/{public_id}/', request)
     mockApi('get', '/api/v1/me/overview/', makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, role: 'curator', requests_to_decide: 1 })] }))
     renderApp({ path: `/labs/${LAB_ID}/requests/${REQUEST_ID}` })
-    const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 15_000 })
+    const nav = await screen.findByRole('navigation', { name: 'Lab sections' })
     expect(await within(nav).findByRole('link', { name: 'Requests, 1 to decide' })).toBeInTheDocument()
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Approve and reserve the vials' }))
@@ -574,7 +572,7 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     const after = mockApi('get', '/api/v1/me/overview/', makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, role: 'curator', requests_to_decide: 0 })] }))
     await user.click(within(dialog).getByRole('button', { name: 'Approve and reserve' }))
     await waitFor(() => expect(done).toHaveLength(1))
-    expect(await within(nav).findByRole('link', { name: 'Requests' }, { timeout: 15_000 })).toBeInTheDocument()
+    expect(await within(nav).findByRole('link', { name: 'Requests' })).toBeInTheDocument()
     expect(after).toHaveLength(1)
   })
 
@@ -601,7 +599,7 @@ describe('a write refreshes the data other features show', { timeout: 90_000 }, 
     // recorder was set up, and it is not what this test is about (#60).
     const waitingBefore = waiting.length
     await user.click(within(dialog).getByRole('button', { name: 'Deaccession' }))
-    await waitFor(() => expect(dialog).not.toBeInTheDocument(), { timeout: 15_000 })
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
     // The dialog closes only once the material on screen is fresh.
     expect(vials).toHaveLength(1)
     expect(client.getQueryState(grid)?.isInvalidated).toBe(true)

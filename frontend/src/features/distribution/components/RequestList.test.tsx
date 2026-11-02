@@ -14,12 +14,12 @@ function signedIn(role: 'viewer' | 'curator' = 'viewer') {
   mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: role }))
 }
 
-describe('the request list', { timeout: 20_000 }, () => {
+describe('the request list', () => {
   it('lists the requests with their requester, use, size and status; a viewer may not enter one', async () => {
     signedIn()
     mockApi('get', LIST, page([makeRequestRow({ number: '2026/2', regulated: true, line_count: 2, vial_count: 3, status: 'approved' })]))
     renderApp({ path: `/labs/${LAB_ID}/requests` })
-    const table = await screen.findByRole('table', { name: 'Requests' }, { timeout: 5000 })
+    const table = await screen.findByRole('table', { name: 'Requests' })
     expect(within(table).getAllByRole('row')[1]).toHaveTextContent('2026/2Example Institute of Microbiology, CzechiaNon-commercial research2 strains, 3 vials, regulatedApproved, vials reserved')
     expect(within(table).getByRole('link', { name: 'Request 2026/2' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Enter a request' })).not.toBeInTheDocument()
@@ -29,13 +29,13 @@ describe('the request list', { timeout: 20_000 }, () => {
     signedIn('curator')
     const calls = mockApi('get', LIST, page([makeRequestRow()]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/requests` })
-    const status = await screen.findByRole('combobox', { name: 'Status' }, { timeout: 5000 })
+    const status = await screen.findByRole('combobox', { name: 'Status' })
     fireEvent.change(status, { target: { value: 'submitted' } })
     fireEvent.change(screen.getByRole('searchbox', { name: 'Number, requester or strain' }), { target: { value: '2026/7' } })
     // No wait between the two: the navigation of the status has not reached the form yet.
     fireEvent.click(screen.getByRole('button', { name: 'Search' }))
-    await waitFor(() => expect(router.state.location.search).toEqual({ status: 'submitted', search: '2026/7' }), { timeout: 5000 })
-    await waitFor(() => expect(calls.at(-1)?.url.searchParams.get('status')).toBe('submitted'), { timeout: 5000 })
+    await waitFor(() => expect(router.state.location.search).toEqual({ status: 'submitted', search: '2026/7' }))
+    await waitFor(() => expect(calls.at(-1)?.url.searchParams.get('status')).toBe('submitted'))
     expect(calls.at(-1)?.url.searchParams.get('search')).toBe('2026/7')
   })
 
@@ -43,7 +43,7 @@ describe('the request list', { timeout: 20_000 }, () => {
     signedIn('curator')
     const calls = mockApi('get', LIST, page([]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/requests` })
-    expect(await screen.findByText('No request has been entered yet.', {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText('No request has been entered yet.')).toBeInTheDocument()
     const user = userEvent.setup()
     await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'submitted')
     await user.type(screen.getByRole('searchbox', { name: 'Number, requester or strain' }), '2026/7{Enter}')
@@ -59,6 +59,6 @@ describe('the request list', { timeout: 20_000 }, () => {
     signedIn()
     mockApiError('get', LIST, 500)
     renderApp({ path: `/labs/${LAB_ID}/requests` })
-    expect(await screen.findByRole('button', { name: 'Try again' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 })

@@ -25,9 +25,7 @@ function renderList(params: StrainListParams = PARAMS) {
   return { onOffsetChange, onClearFilters, view: renderWithProviders(<StrainList labId={LAB_ID} params={params} onOffsetChange={onOffsetChange} onClearFilters={onClearFilters} />) }
 }
 
-// Each case renders the list with its filters, and the taxon filter waits for its debounced search:
-// real work, so a busy machine runs past the 5 s default (#60).
-describe('StrainList', { timeout: 20_000 }, () => {
+describe('StrainList', () => {
   it('shows each strain with its number linked, the taxon, the risk group, the restrictions and the vials for distribution', async () => {
     const strain = makeStrainRow({
       accession_number: 'MYC 7',
@@ -64,7 +62,7 @@ describe('StrainList', { timeout: 20_000 }, () => {
     signedInApp()
     mockApi('get', LIST, page([]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/strains`, search: { status: 'restricted' } })
-    await screen.findByText(/No strain matches these filters/, undefined, { timeout: 4000 })
+    await screen.findByText(/No strain matches these filters/)
     const inList = screen.getAllByRole('button', { name: 'Clear filters' }).find((b) => b.closest('form') === null)
     if (!inList) throw new Error('no Clear filters next to the empty result')
     mockApi('get', LIST, page([makeStrainRow({ accession_number: 'MYC 1' })]))
@@ -126,7 +124,7 @@ describe('StrainList', { timeout: 20_000 }, () => {
 })
 
 /** The accession numbers on screen, once the list has any. */
-const shown = async () => (await screen.findAllByRole('link', { name: /^MYC \d$/ }, { timeout: 5000 })).map((link) => link.textContent)
+const shown = async () => (await screen.findAllByRole('link', { name: /^MYC \d$/ })).map((link) => link.textContent)
 const form = () => screen.getByRole('form', { name: 'Filter strains' })
 
 function signedInApp(role: 'viewer' | 'curator' = 'viewer') {
@@ -135,20 +133,20 @@ function signedInApp(role: 'viewer' | 'curator' = 'viewer') {
 }
 
 // Through the real routes: the filters live in the URL, and the pager keeps the focus.
-describe('the strains page', { timeout: 20_000 }, () => {
+describe('the strains page', () => {
   const signedIn = signedInApp
 
   it('keeps a chosen filter when Search is pressed right after choosing it', async () => {
     signedIn()
     const calls = mockApi('get', LIST, page([makeStrainRow()]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/strains` })
-    await screen.findByRole('form', { name: 'Filter strains' }, { timeout: 5000 })
+    await screen.findByRole('form', { name: 'Filter strains' })
     fireEvent.change(within(form()).getByRole('combobox', { name: 'Risk group' }), { target: { value: '2' } })
     fireEvent.change(within(form()).getByRole('searchbox', { name: 'Number or name' }), { target: { value: 'MYC 4' } })
     // No wait between the two: the navigation of the risk group has not reached the form yet.
     fireEvent.click(within(form()).getByRole('button', { name: 'Search' }))
-    await waitFor(() => expect(router.state.location.search).toEqual({ risk_group: 2, search: 'MYC 4' }), { timeout: 5000 })
-    await waitFor(() => expect(calls.at(-1)?.url.searchParams.get('risk_group')).toBe('2'), { timeout: 5000 })
+    await waitFor(() => expect(router.state.location.search).toEqual({ risk_group: 2, search: 'MYC 4' }))
+    await waitFor(() => expect(calls.at(-1)?.url.searchParams.get('risk_group')).toBe('2'))
     expect(calls.at(-1)?.url.searchParams.get('search')).toBe('MYC 4')
   })
 
@@ -157,7 +155,7 @@ describe('the strains page', { timeout: 20_000 }, () => {
     const calls = mockApi('get', LIST, page([makeStrainRow()]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/strains` })
     const user = userEvent.setup()
-    await screen.findByRole('form', { name: 'Filter strains' }, { timeout: 5000 })
+    await screen.findByRole('form', { name: 'Filter strains' })
     const risk = within(form()).getByRole('combobox', { name: 'Risk group' })
     await user.selectOptions(risk, '2')
     await waitFor(() => expect(router.state.location.search).toEqual({ risk_group: 2 }))
@@ -204,7 +202,7 @@ describe('the strains page', { timeout: 20_000 }, () => {
     mockApi('get', '/api/v1/labs/{lab_public_id}/depositors/', page([JANA]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/strains` })
     const user = userEvent.setup()
-    await screen.findByRole('form', { name: 'Filter strains' }, { timeout: 5000 })
+    await screen.findByRole('form', { name: 'Filter strains' })
     expect(await shown()).toEqual(['MYC 1', 'MYC 2', 'MYC 3'])
 
     // Country: a selection applies at once.
@@ -224,7 +222,7 @@ describe('the strains page', { timeout: 20_000 }, () => {
     const depositor = within(form()).getByRole('combobox', { name: 'Depositor' })
     await user.click(depositor)
     await user.keyboard('Jan')
-    await screen.findByRole('option', { name: /Jana Vzorová/ }, { timeout: 4000 })
+    await screen.findByRole('option', { name: /Jana Vzorová/ })
     await user.keyboard('{ArrowDown}{Enter}')
     await waitFor(() => expect(router.state.location.search).toEqual({ depositor: JANA.public_id }))
     await waitFor(async () => expect(await shown()).toEqual(['MYC 1']))
@@ -239,7 +237,7 @@ describe('the strains page', { timeout: 20_000 }, () => {
       page([makeStrainRow({ accession_number: 'MYC 1', vials_distributable: 3 }), makeStrainRow({ accession_number: 'MYC 2', vials_distributable: 0 })]),
     )
     renderApp({ path: `/labs/${LAB_ID}/strains` })
-    const table = await screen.findByRole('table', { name: 'Strains' }, { timeout: 5000 })
+    const table = await screen.findByRole('table', { name: 'Strains' })
     const column = within(table).getByRole('columnheader', { name: 'Available for distribution' })
     const at = Array.from(column.parentElement?.children ?? []).indexOf(column)
     const cell = (name: string) => within(within(table).getByRole('row', { name: new RegExp(name) })).getAllByRole('cell')[at]
@@ -260,7 +258,7 @@ describe('the strains page', { timeout: 20_000 }, () => {
     )
     const { router } = renderApp({ path: `/labs/${LAB_ID}/strains` })
     const user = userEvent.setup()
-    await screen.findByRole('form', { name: 'Filter strains' }, { timeout: 5000 })
+    await screen.findByRole('form', { name: 'Filter strains' })
     expect(await shown()).toEqual(['MYC 1', 'MYC 2'])
     expect(asked.at(-1)?.searchParams.has('distributable')).toBe(false)
     const box = within(form()).getByRole('checkbox', { name: 'Only with vials for distribution' })
@@ -287,11 +285,11 @@ describe('the strains page', { timeout: 20_000 }, () => {
       }),
     )
     const { unmount } = renderApp({ path: `/labs/${LAB_ID}/strains`, search: { distributable: true } })
-    expect(await within(await screen.findByRole('form', { name: 'Filter strains' }, { timeout: 5000 })).findByRole('checkbox', { name: 'Only with vials for distribution' })).toBeChecked()
+    expect(await within(await screen.findByRole('form', { name: 'Filter strains' })).findByRole('checkbox', { name: 'Only with vials for distribution' })).toBeChecked()
     unmount()
     asked.length = 0
     const { router } = renderApp({ path: `/labs/${LAB_ID}/strains`, search: { distributable: 'yes' } })
-    expect(await within(await screen.findByRole('form', { name: 'Filter strains' }, { timeout: 5000 })).findByRole('checkbox', { name: 'Only with vials for distribution' })).not.toBeChecked()
+    expect(await within(await screen.findByRole('form', { name: 'Filter strains' })).findByRole('checkbox', { name: 'Only with vials for distribution' })).not.toBeChecked()
     await waitFor(() => expect(asked.length).toBeGreaterThan(0))
     expect(asked.every((url) => !url.searchParams.has('distributable'))).toBe(true)
     expect(router.state.location.search).toEqual({})
@@ -302,10 +300,10 @@ describe('the strains page', { timeout: 20_000 }, () => {
     const calls = mockApi('get', LIST, page([makeStrainRow()]))
     mockApi('get', '/api/v1/labs/{lab_public_id}/depositors/{public_id}/', JANA)
     renderApp({ path: `/labs/${LAB_ID}/strains`, search: { isolation_source: 'soil', country: 'CZ', depositor: JANA.public_id } })
-    await screen.findByRole('form', { name: 'Filter strains' }, { timeout: 5000 })
+    await screen.findByRole('form', { name: 'Filter strains' })
     expect(within(form()).getByRole('searchbox', { name: 'Isolation source' })).toHaveValue('soil')
     expect(within(form()).getByRole('combobox', { name: 'Country of origin' })).toHaveValue('CZ')
-    await waitFor(() => expect(within(form()).getByRole('combobox', { name: 'Depositor' })).toHaveValue('Jana Vzorová, Example University'), { timeout: 5000 })
+    await waitFor(() => expect(within(form()).getByRole('combobox', { name: 'Depositor' })).toHaveValue('Jana Vzorová, Example University'))
     expect(Object.fromEntries(calls[0]?.url.searchParams ?? [])).toMatchObject({ isolation_source: 'soil', country: 'CZ', depositor: JANA.public_id })
   })
 
@@ -313,7 +311,7 @@ describe('the strains page', { timeout: 20_000 }, () => {
     signedIn('viewer')
     mockApi('get', LIST, page([makeStrainRow()]))
     renderApp({ path: `/labs/${LAB_ID}/strains` })
-    await screen.findByRole('form', { name: 'Filter strains' }, { timeout: 5000 })
+    await screen.findByRole('form', { name: 'Filter strains' })
     expect(within(form()).getByRole('searchbox', { name: 'Isolation source' })).toBeInTheDocument()
     expect(within(form()).getByRole('combobox', { name: 'Country of origin' })).toBeInTheDocument()
     expect(within(form()).queryByRole('combobox', { name: 'Depositor' })).not.toBeInTheDocument()
@@ -326,10 +324,10 @@ describe('the strains page', { timeout: 20_000 }, () => {
     mockApi('get', '/api/v1/taxa/{public_id}/', testella)
     const { router } = renderApp({ path: `/labs/${LAB_ID}/strains` })
     const user = userEvent.setup()
-    const taxon = await screen.findByRole('combobox', { name: 'Taxon' }, { timeout: 5000 })
+    const taxon = await screen.findByRole('combobox', { name: 'Taxon' })
     await user.click(taxon)
     await user.keyboard('Tes')
-    await screen.findByRole('option', { name: /Testella/ }, { timeout: 4000 })
+    await screen.findByRole('option', { name: /Testella/ })
     expect(search.at(-1)?.url.searchParams.get('search')).toBe('Tes')
     await user.keyboard('{ArrowDown}{Enter}')
     await waitFor(() => expect(router.state.location.search).toEqual({ taxon: testella.public_id }))
@@ -346,10 +344,10 @@ describe('the strains page', { timeout: 20_000 }, () => {
     mockApiError('get', '/api/v1/taxa/', 500)
     mockApiError('get', '/api/v1/taxa/{public_id}/', 500)
     renderApp({ path: `/labs/${LAB_ID}/strains`, search: { taxon: testella.public_id } })
-    const taxon = await screen.findByRole('combobox', { name: 'Taxon' }, { timeout: 5000 })
-    expect(await screen.findByText(/Could not load the taxon this list is filtered by/, undefined, { timeout: 4000 })).toBeInTheDocument()
+    const taxon = await screen.findByRole('combobox', { name: 'Taxon' })
+    expect(await screen.findByText(/Could not load the taxon this list is filtered by/)).toBeInTheDocument()
     await userEvent.setup().type(taxon, 'Tes')
-    expect(await screen.findByText('Could not search the taxa. Change the text to try again.', undefined, { timeout: 4000 })).toBeInTheDocument()
+    expect(await screen.findByText('Could not search the taxa. Change the text to try again.')).toBeInTheDocument()
     expect(screen.queryByText('No taxon has this name')).not.toBeInTheDocument()
   })
 
@@ -357,7 +355,7 @@ describe('the strains page', { timeout: 20_000 }, () => {
     signedIn()
     const calls = mockApi('get', LIST, page([makeStrainRow()]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/strains`, search: { risk_group: 9, status: 'lost', taxon: 'x', country: 'XX', depositor: 'y', limit: 'many' } })
-    await screen.findByRole('table', { name: 'Strains' }, { timeout: 5000 })
+    await screen.findByRole('table', { name: 'Strains' })
     expect(router.state.location.search).toEqual({})
     expect(calls[0]?.url.searchParams.toString()).toBe('limit=25&offset=0')
   })
@@ -367,7 +365,7 @@ describe('the strains page', { timeout: 20_000 }, () => {
     const calls = mockApi('get', LIST, page([makeStrainRow()], { count: 30 }))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/strains` })
     const user = userEvent.setup()
-    const next = await screen.findByRole('button', { name: 'Next' }, { timeout: 5000 })
+    const next = await screen.findByRole('button', { name: 'Next' })
     await user.click(next)
     await waitFor(() => expect(router.state.location.search).toEqual({ offset: 25 }))
     await waitFor(() => expect(calls).toHaveLength(2))
@@ -379,7 +377,7 @@ describe('the strains page', { timeout: 20_000 }, () => {
     signedIn('curator')
     mockApi('get', LIST, page([]))
     renderApp({ path: `/labs/${LAB_ID}/strains` })
-    expect(await screen.findByText('The lab has no strains yet.', undefined, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText('The lab has no strains yet.')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Add a strain' })).not.toBeInTheDocument()
   })
 })

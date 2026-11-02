@@ -23,20 +23,20 @@ function setup() {
 }
 
 async function fill(user: UserEvent) {
-  await user.selectOptions(await screen.findByRole('combobox', { name: 'Requester' }, { timeout: 5000 }), requester.public_id)
+  await user.selectOptions(await screen.findByRole('combobox', { name: 'Requester' }), requester.public_id)
   await user.selectOptions(screen.getByRole('combobox', { name: 'Use' }), 'teaching')
   await user.type(screen.getByRole('textbox', { name: 'End use' }), 'Practical classes.')
   await user.selectOptions(screen.getByRole('combobox', { name: 'Declared containment level' }), '2')
   await user.click(screen.getByRole('combobox', { name: 'Strain 1' }))
   await user.keyboard('MYC')
-  await screen.findByRole('option', { name: /MYC 3/ }, { timeout: 10_000 })
+  await screen.findByRole('option', { name: /MYC 3/ })
   await user.keyboard('{ArrowDown}{Enter}')
   const vials = screen.getByRole('textbox', { name: 'Vials of strain 1' })
   await user.clear(vials)
   await user.type(vials, '2')
 }
 
-describe('entering a request', { timeout: 30_000 }, () => {
+describe('entering a request', () => {
   it('sends the requester, the use, the end use, the containment level and the lines', async () => {
     const { user, router } = setup()
     await fill(user)
@@ -58,7 +58,7 @@ describe('entering a request', { timeout: 30_000 }, () => {
   it('asks for every choice, focuses the first, and sends nothing', async () => {
     const { user } = setup()
     const calls = recordRequests('post', POST)
-    await screen.findByRole('combobox', { name: 'Requester' }, { timeout: 5000 })
+    await screen.findByRole('combobox', { name: 'Requester' })
     await user.click(screen.getByRole('button', { name: 'Enter the request' }))
     expect(screen.getByRole('combobox', { name: 'Requester' })).toHaveFocus()
     expect(screen.getByRole('combobox', { name: 'Use' })).toHaveAccessibleDescription('Choose the use')
@@ -102,7 +102,7 @@ describe('entering a request', { timeout: 30_000 }, () => {
 
   it('adds and removes strain lines, and refuses the same strain twice', async () => {
     const { user } = setup()
-    await screen.findByRole('combobox', { name: 'Requester' }, { timeout: 5000 })
+    await screen.findByRole('combobox', { name: 'Requester' })
     await user.click(screen.getByRole('button', { name: 'Add a strain' }))
     expect(screen.getByRole('combobox', { name: 'Strain 2' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Remove strain 2' }))
@@ -113,7 +113,7 @@ describe('entering a request', { timeout: 30_000 }, () => {
     mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: 'curator' }))
     mockApi('get', '/api/v1/labs/{lab_public_id}/requesters/', page([requester, makeRequester({ institution: 'Erased Institute', erased: true, name: '' })]))
     renderApp({ path: `/labs/${LAB_ID}/requests/new` })
-    const select = await screen.findByRole('combobox', { name: 'Requester' }, { timeout: 5000 })
+    const select = await screen.findByRole('combobox', { name: 'Requester' })
     expect([...select.querySelectorAll('option')].map((o) => o.textContent)).toEqual(['Choose', 'Example Institute (CZ)'])
   })
 

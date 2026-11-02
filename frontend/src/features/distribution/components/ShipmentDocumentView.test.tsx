@@ -20,12 +20,12 @@ function signedIn(role: 'viewer' | 'curator' = 'curator') {
 const open = () => renderApp({ path: `/labs/${LAB_ID}/shipment-documents/${DOCUMENT_ID}` })
 const note = makeShipmentDocument({ public_id: DOCUMENT_ID, request: REQUEST_ID, request_number: '2026/7', text: TEXT, text_sha256: 'a'.repeat(64) })
 
-describe('a document of a shipment', { timeout: 20_000 }, () => {
+describe('a document of a shipment', () => {
   it('shows the text as it was sent with its SHA-256, a print button and a download', async () => {
     signedIn()
     mockApi('get', DOCUMENT, note)
     open()
-    expect(await screen.findByRole('heading', { level: 1, name: 'Delivery note, request 2026/7' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Delivery note, request 2026/7' })).toBeInTheDocument()
     await waitFor(() => expect(document.title).toBe('Delivery note, request 2026/7 | Culture collection'))
     expect(screen.getByLabelText('Document text').textContent).toBe(TEXT)
     expect(screen.getByText('a'.repeat(64))).toBeInTheDocument()
@@ -41,7 +41,7 @@ describe('a document of a shipment', { timeout: 20_000 }, () => {
     signedIn()
     mockApi('get', DOCUMENT, makeShipmentDocument({ public_id: DOCUMENT_ID, kind: 'register_entry', strain: 'MYC 3', request_number: '2026/7' }))
     open()
-    expect(await screen.findByRole('heading', { level: 1, name: 'Register entry and handover protocol for MYC 3, request 2026/7' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Register entry and handover protocol for MYC 3, request 2026/7' })).toBeInTheDocument()
   })
 
   it('says not found for a role that does not open documents, as the server answers 404', async () => {
@@ -49,7 +49,7 @@ describe('a document of a shipment', { timeout: 20_000 }, () => {
     signedIn('viewer')
     mockApiError('get', DOCUMENT, 404, problem(404))
     open()
-    expect(await screen.findByRole('heading', { level: 1, name: 'Document not found' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Document not found' })).toBeInTheDocument()
     await waitFor(() => expect(document.title).toBe('Document not found | Culture collection'))
   })
 
@@ -58,9 +58,9 @@ describe('a document of a shipment', { timeout: 20_000 }, () => {
     signedIn()
     mockApiError('get', DOCUMENT, 500)
     open()
-    expect(await screen.findByText(/Could not load the document/, {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText(/Could not load the document/)).toBeInTheDocument()
     mockApi('get', DOCUMENT, note)
     await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
-    expect(await screen.findByLabelText('Document text', {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByLabelText('Document text')).toBeInTheDocument()
   })
 })

@@ -71,7 +71,7 @@ function Material({ canHandle, limit = 50, vial, strainGrowth = noGrowth(), mate
 const render = (canHandle = true, limit = 50, strainGrowth: Growth = noGrowth(), materialDestroyed = false) =>
   renderWithProviders(<Material canHandle={canHandle} limit={limit} strainGrowth={strainGrowth} materialDestroyed={materialDestroyed} />)
 
-describe('StrainMaterial', { timeout: 20_000 }, () => {
+describe('StrainMaterial', () => {
   it('shows the passages, the batches and where each vial is', async () => {
     mockMaterial()
     await render()
@@ -567,7 +567,7 @@ const revealed = (client: QueryClient) =>
     .getAll()
     .filter((m) => m.state.data !== undefined)
 
-describe('the location of a regulated strain', { timeout: 20_000 }, () => {
+describe('the location of a regulated strain', () => {
   const masked = makeVial({ label: 'MYC 7 / 1 / 1', placed: true, location_masked: true })
 
   it('is hidden without a way to reveal it for a reader without the grant', async () => {
@@ -691,7 +691,7 @@ describe('the location of a regulated strain', { timeout: 20_000 }, () => {
   })
 })
 
-describe('moving a vial of a regulated strain', { timeout: 20_000 }, () => {
+describe('moving a vial of a regulated strain', () => {
   it('shows nothing of where it is now: no box, row or column chosen, no position in the text', async () => {
     const masked = makeVial({ label: 'MYC 7 / 1 / 1', placed: true, location_masked: true })
     mockMaterial([masked])

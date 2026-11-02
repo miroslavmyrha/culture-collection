@@ -13,13 +13,13 @@ function signedIn(role: 'curator' | 'viewer' = 'curator') {
   mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: role }))
 }
 
-describe('the deposits page', { timeout: 15_000 }, () => {
+describe('the deposits page', () => {
   it('shows each deposit linked, its depositor, status and strain', async () => {
     signedIn()
     const accepted = makeDepositRow({ name_as_received: 'Testella exempli K3', status: 'accepted', strain: { public_id: '00000000-0000-4000-8000-0000000000f1', accession_number: 'MYC 9' } })
     mockApi('get', LIST, page([accepted, makeDepositRow({ name_as_received: 'Mockia D2' })]))
     renderApp({ path: `/labs/${LAB_ID}/deposits` })
-    const table = await screen.findByRole('table', { name: 'Deposits' }, { timeout: 5000 })
+    const table = await screen.findByRole('table', { name: 'Deposits' })
     const [, first, second] = within(table).getAllByRole('row')
     if (!first || !second) throw new Error('no rows')
     expect(within(first).getByRole('link', { name: 'Testella exempli K3' })).toHaveAttribute('href', `/labs/${LAB_ID}/deposits/${accepted.public_id}`)
@@ -34,24 +34,24 @@ describe('the deposits page', { timeout: 15_000 }, () => {
     const calls = mockApi('get', LIST, page([makeDepositRow()]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/deposits` })
     const user = userEvent.setup()
-    await user.selectOptions(await screen.findByRole('combobox', { name: 'Status' }, { timeout: 5000 }), 'checking')
-    await waitFor(() => expect(router.state.location.search).toEqual({ status: 'checking' }), { timeout: 5000 })
+    await user.selectOptions(await screen.findByRole('combobox', { name: 'Status' }), 'checking')
+    await waitFor(() => expect(router.state.location.search).toEqual({ status: 'checking' }))
     await user.type(screen.getByRole('searchbox', { name: 'Name, depositor or number' }), 'K3{Enter}')
-    await waitFor(() => expect(router.state.location.search).toEqual({ status: 'checking', search: 'K3' }), { timeout: 5000 })
-    await waitFor(() => expect(Object.fromEntries(calls.at(-1)?.url.searchParams ?? [])).toEqual({ limit: '25', offset: '0', status: 'checking', search: 'K3' }), { timeout: 5000 })
+    await waitFor(() => expect(router.state.location.search).toEqual({ status: 'checking', search: 'K3' }))
+    await waitFor(() => expect(Object.fromEntries(calls.at(-1)?.url.searchParams ?? [])).toEqual({ limit: '25', offset: '0', status: 'checking', search: 'K3' }))
   })
 
   it('keeps the status when Search is pressed right after choosing it', async () => {
     signedIn()
     const calls = mockApi('get', LIST, page([makeDepositRow()]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/deposits` })
-    const status = await screen.findByRole('combobox', { name: 'Status' }, { timeout: 5000 })
+    const status = await screen.findByRole('combobox', { name: 'Status' })
     fireEvent.change(status, { target: { value: 'checking' } })
     fireEvent.change(screen.getByRole('searchbox', { name: 'Name, depositor or number' }), { target: { value: 'K3' } })
     // No wait between the two: the navigation of the status has not reached the form yet.
     fireEvent.click(screen.getByRole('button', { name: 'Search' }))
-    await waitFor(() => expect(router.state.location.search).toEqual({ status: 'checking', search: 'K3' }), { timeout: 5000 })
-    await waitFor(() => expect(Object.fromEntries(calls.at(-1)?.url.searchParams ?? [])).toEqual({ limit: '25', offset: '0', status: 'checking', search: 'K3' }), { timeout: 5000 })
+    await waitFor(() => expect(router.state.location.search).toEqual({ status: 'checking', search: 'K3' }))
+    await waitFor(() => expect(Object.fromEntries(calls.at(-1)?.url.searchParams ?? [])).toEqual({ limit: '25', offset: '0', status: 'checking', search: 'K3' }))
     expect(screen.getByRole('combobox', { name: 'Status' })).toHaveValue('checking')
   })
 
@@ -60,9 +60,9 @@ describe('the deposits page', { timeout: 15_000 }, () => {
     mockApi('get', LIST, page([]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/deposits`, search: { status: 'rejected' } })
     const user = userEvent.setup()
-    const text = await screen.findByText(/No deposit matches these filters/, undefined, { timeout: 5000 })
+    const text = await screen.findByText(/No deposit matches these filters/)
     await user.click(within(text).getByRole('button', { name: 'Clear filters' }))
-    await waitFor(() => expect(router.state.location.search).toEqual({}), { timeout: 5000 })
+    await waitFor(() => expect(router.state.location.search).toEqual({}))
     expect(await screen.findByText('The lab has received no deposits yet.')).toBeInTheDocument()
     expect(document.activeElement).not.toBe(document.body)
   })
@@ -71,7 +71,7 @@ describe('the deposits page', { timeout: 15_000 }, () => {
     signedIn()
     const calls = mockApi('get', LIST, page([]))
     renderApp({ path: `/labs/${LAB_ID}/deposits`, search: { status: 'lost' } })
-    expect(await screen.findByText('The lab has received no deposits yet.', undefined, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText('The lab has received no deposits yet.')).toBeInTheDocument()
     expect(calls[0]?.url.searchParams.get('status')).toBeNull()
   })
 
@@ -79,7 +79,7 @@ describe('the deposits page', { timeout: 15_000 }, () => {
     signedIn('viewer')
     mockApi('get', '/api/v1/labs/{lab_public_id}/strains/', page([]))
     renderApp({ path: `/labs/${LAB_ID}/strains` })
-    expect(await screen.findByText('The lab has no strains yet.', undefined, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText('The lab has no strains yet.')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Receive a deposit' })).not.toBeInTheDocument()
   })
 })

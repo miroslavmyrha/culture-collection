@@ -34,7 +34,7 @@ afterEach(() => {
 })
 
 async function openAccountMenu(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: 'Account (lab-tech)' }, { timeout: 5000 }))
+  await user.click(await screen.findByRole('button', { name: 'Account (lab-tech)' }))
   return screen.findByRole('menu', { name: 'Account (lab-tech)' })
 }
 
@@ -124,7 +124,7 @@ describe('the search in the top bar (#76)', () => {
     signedIn()
     viewport(false)
     renderApp({ path: '/' })
-    await screen.findByRole('button', { name: 'Account (lab-tech)' }, { timeout: 5000 })
+    await screen.findByRole('button', { name: 'Account (lab-tech)' })
     const banner = screen.getByRole('banner')
     expect(within(banner).getByRole('combobox', { name: 'Search' })).toHaveAttribute('aria-keyshortcuts', '/')
     expect(within(banner).queryByRole('button', { name: 'Search' })).toBeNull()
@@ -135,7 +135,7 @@ describe('the search in the top bar (#76)', () => {
     viewport(true)
     const user = userEvent.setup()
     renderApp({ path: '/' })
-    await screen.findByRole('button', { name: 'Account (lab-tech)' }, { timeout: 5000 })
+    await screen.findByRole('button', { name: 'Account (lab-tech)' })
     const banner = screen.getByRole('banner')
     const button = within(banner).getByRole('button', { name: 'Search' })
     expect(within(banner).queryByRole('combobox', { name: 'Search' })).toBeNull()
@@ -152,7 +152,7 @@ describe('the lab picker', () => {
     mockApi('get', STRAINS, page([makeStrainRow()]))
     renderApp({ path: `/labs/${LAB_ID}/strains` })
     const user = userEvent.setup()
-    const picker = await screen.findByRole('button', { name: 'Lab Mycology' }, { timeout: 5000 })
+    const picker = await screen.findByRole('button', { name: 'Lab Mycology' })
     expect(picker).toHaveAttribute('aria-haspopup', 'menu')
     await user.click(picker)
     const menu = await screen.findByRole('menu', { name: 'Lab Mycology' })
@@ -168,7 +168,7 @@ describe('the lab picker', () => {
     mockApi('get', STRAINS, page([makeStrainRow()]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/strains` })
     const user = userEvent.setup()
-    const picker = await screen.findByRole('button', { name: 'Lab Mycology' }, { timeout: 5000 })
+    const picker = await screen.findByRole('button', { name: 'Lab Mycology' })
     picker.focus()
     await user.keyboard('{ArrowDown}')
     await waitFor(() => expect(screen.getByRole('menuitemradio', { name: 'Mycology' })).toHaveFocus()) // the checked one
@@ -184,7 +184,7 @@ describe('the lab picker', () => {
     mockApi('get', '/api/v1/labs/{lab_public_id}/location-grants/', [])
     const { router } = renderApp({ path: `/labs/${LAB_ID}` })
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: 'Lab Mycology' }, { timeout: 5000 }))
+    await user.click(await screen.findByRole('button', { name: 'Lab Mycology' }))
     await user.click(await screen.findByRole('menuitem', { name: 'All labs' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/labs'))
   })
@@ -194,7 +194,7 @@ describe('the lab picker', () => {
     mockApi('get', '/api/v1/labs/', page([]))
     renderApp({ path: '/' })
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: /^(Lab|Select a lab)/ }, { timeout: 5000 }))
+    await user.click(await screen.findByRole('button', { name: /^(Lab|Select a lab)/ }))
     expect(await screen.findByRole('menuitem', { name: 'You are in no lab' })).toHaveAttribute('aria-disabled', 'true')
   })
 })
@@ -206,7 +206,7 @@ describe('the lab tabs', () => {
     lab('viewer')
     mockApi('get', STRAINS, page([makeStrainRow()]))
     renderApp({ path: `/labs/${LAB_ID}/strains` })
-    const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 5000 })
+    const nav = await screen.findByRole('navigation', { name: 'Lab sections' })
     const links = within(nav).getAllByRole('link')
     expect(links.map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
       ['Strains', `/labs/${LAB_ID}/strains`],
@@ -222,7 +222,7 @@ describe('the lab tabs', () => {
     lab('curator')
     mockApi('get', STRAINS, page([]))
     renderApp({ path: `/labs/${LAB_ID}/strains` })
-    const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 5000 })
+    const nav = await screen.findByRole('navigation', { name: 'Lab sections' })
     await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests', 'Deposits', 'Depositors', 'MTA templates', 'Media']))
   })
 
@@ -232,7 +232,7 @@ describe('the lab tabs', () => {
     lab('manager')
     mockApi('get', STRAINS, page([]))
     renderApp({ path: `/labs/${LAB_ID}/strains` })
-    const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 5000 })
+    const nav = await screen.findByRole('navigation', { name: 'Lab sections' })
     await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests', 'Deposits', 'Depositors', 'MTA templates', 'Media', 'Permits', 'Reveals']))
     expect(within(nav).getByRole('link', { name: 'Permits' })).toHaveAttribute('href', `/labs/${LAB_ID}/permits`)
     expect(within(nav).getByRole('link', { name: 'Reveals' })).toHaveAttribute('href', `/labs/${LAB_ID}/reveals`)
@@ -245,7 +245,7 @@ describe('the lab tabs', () => {
     mockApi('get', STRAINS, page([]))
     const overview = mockApi('get', '/api/v1/me/overview/', makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, role: 'curator', requests_to_decide: 3, deposits_to_check: 1 })] }))
     renderApp({ path: `/labs/${LAB_ID}/strains` })
-    const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 5000 })
+    const nav = await screen.findByRole('navigation', { name: 'Lab sections' })
     // The pill is for the eye; the label is what a screen reader reads, after the visible name.
     const requests = await within(nav).findByRole('link', { name: 'Requests, 3 to decide' })
     expect(requests).toHaveTextContent(/^Requests3$/)
@@ -261,7 +261,7 @@ describe('the lab tabs', () => {
     mockApi('get', STRAINS, page([]))
     mockApi('get', '/api/v1/me/overview/', makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, role: 'viewer', requests_to_decide: null, open_requests: 4 })] }))
     renderApp({ path: `/labs/${LAB_ID}/strains` })
-    const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 5000 })
+    const nav = await screen.findByRole('navigation', { name: 'Lab sections' })
     await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests']))
   })
 
@@ -269,7 +269,7 @@ describe('the lab tabs', () => {
     signedIn()
     labs()
     renderApp({ path: '/labs' })
-    expect(await screen.findByRole('heading', { name: 'Labs' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Labs' })).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'Lab sections' })).not.toBeInTheDocument()
   })
 
@@ -281,7 +281,7 @@ describe('the lab tabs', () => {
     mockApi('get', '/api/v1/labs/{lab_public_id}/storage-units/', [])
     const { router } = renderApp({ path: `/labs/${LAB_ID}/strains` })
     const user = userEvent.setup()
-    const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 5000 })
+    const nav = await screen.findByRole('navigation', { name: 'Lab sections' })
     within(nav).getByRole('link', { name: 'Strains' }).focus()
     await user.tab()
     expect(within(nav).getByRole('link', { name: 'Storage' })).toHaveFocus()
@@ -301,7 +301,7 @@ describe('the lab tabs', () => {
     lab('curator')
     mockApi('get', STRAINS, page([]))
     renderApp({ path: `/labs/${LAB_ID}/strains` })
-    const nav = await screen.findByRole('navigation', { name: 'Lab sections' }, { timeout: 5000 })
+    const nav = await screen.findByRole('navigation', { name: 'Lab sections' })
     const row = within(nav).getAllByRole('link')[0]?.parentElement
     expect(row).toBeTruthy()
     if (!row) return

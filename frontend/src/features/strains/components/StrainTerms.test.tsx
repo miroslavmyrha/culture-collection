@@ -33,7 +33,7 @@ const render = () => renderWithProviders(<StrainTerms labId={LAB_ID} strainId={S
 /** A version's facts, label to value. */
 const facts = (article: HTMLElement) => Object.fromEntries([...article.querySelectorAll('dt')].map((dt) => [dt.textContent, dt.nextElementSibling?.textContent]))
 
-describe('StrainTerms', { timeout: 20_000 }, () => {
+describe('StrainTerms', () => {
   it('shows every version, newest first, the one in force marked, with what each allowed', async () => {
     mockApi('get', TERMS, { deposit: null, versions: [second, first] })
     await render()
