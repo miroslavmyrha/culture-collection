@@ -694,6 +694,9 @@ SCENARIOS: dict[str, Callable[[Access, Passage, Vial, Tree], object]] = {
     "passage_subculture": lambda a, p, v, t: services.passage_subculture(access=a, parent=p),
     "vial_revive": lambda a, p, v, t: services.vial_revive(access=a, vial=v),
     "vial_place": lambda a, p, v, t: services.vial_place(access=a, vial=v, box=t.box, row=9, col=9),
+    "vials_place": lambda a, p, v, t: services.vials_place(
+        access=a, box=t.box, placements=[services.NewPlacement(vial=v, row=9, col=9)]
+    ),
     "vial_transition": lambda a, p, v, t: services.vial_transition(
         access=a, vial=v, status=VialStatus.QUARANTINED, reason=REASON
     ),

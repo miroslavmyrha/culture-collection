@@ -1,7 +1,8 @@
 """Shared by the lineage services: entity names, input checks, locks, the vial's edge."""
 
 import unicodedata
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
 
@@ -123,17 +124,30 @@ def _open_placement(vial: Vial) -> VialPlacement | None:
     )
 
 
-def _save(obj: Model, errors: dict[str, DomainError]) -> None:
-    """The unique constraints are the final arbiter: a check before saving can race."""
+@contextmanager
+def _arbitrated(errors: dict[str, DomainError]) -> Iterator[None]:
+    """The unique constraints are the final arbiter: a check before saving can race. A violation
+    of one in `errors` raises that error, in a savepoint, so the caller's transaction goes on."""
     try:
         with transaction.atomic():
-            obj.save()
+            yield
     except IntegrityError as exc:
         diag = getattr(exc.__cause__, "diag", None)
         error = errors.get(str(getattr(diag, "constraint_name", "")))
         if error is not None:
             raise error from exc
         raise
+
+
+def _save(obj: Model, errors: dict[str, DomainError]) -> None:
+    with _arbitrated(errors):
+        obj.save()
+
+
+def _save_all(rows: Sequence[VialPlacement], errors: dict[str, DomainError]) -> None:
+    """_save for several placements in one insert (vials_place, #77)."""
+    with _arbitrated(errors):
+        VialPlacement.objects.bulk_create(rows)
 
 
 def _ref(obj: Model | None) -> str | None:

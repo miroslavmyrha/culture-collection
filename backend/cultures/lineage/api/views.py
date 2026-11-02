@@ -48,7 +48,9 @@ from .serializers import (
     GrowthOverrideInputSerializer,
     LocationSerializer,
     PassageOutputSerializer,
+    PlacedVialsOutputSerializer,
     PlaceInputSerializer,
+    PlaceManyInputSerializer,
     PreserveInputSerializer,
     RevealOutputSerializer,
     SubcultureInputSerializer,
@@ -69,6 +71,18 @@ CONFLICT = OpenApiResponse(
     "strain_not_active; position_taken; vial_not_in_collection; batch_number_taken",
 )
 RULE = OpenApiResponse(ProblemSerializer, "reason_required")
+PLACE_MANY_INVALID = OpenApiResponse(
+    ProblemSerializer,
+    "Invalid input on an entry of placements (attr placements.<i>.vial, .row, .col, or"
+    " placements.<i> for the position): an unknown vial, a vial or a position twice"
+    " (duplicate, position_twice), a position outside the box (outside_box), a strain above the"
+    " box's cap (risk_group_above_cap); without attr, a box out of service (unit_not_active)",
+)
+PLACE_MANY_CONFLICT = OpenApiResponse(
+    ProblemSerializer,
+    "On an entry of placements: position_taken; vial_not_in_collection; vial_already_placed."
+    " Without attr: vial_placed_meanwhile, or position_taken at the same moment",
+)
 STATUS_INVALID = OpenApiResponse(
     ProblemSerializer,
     "Invalid input on a field. On the status: transition_not_allowed, a state that cannot follow;"
@@ -485,14 +499,17 @@ class VialViewSet(LabNested):
 # The boxes of the lab with what their positions hold: the box grid (#15). Viewers and up read
 # (strains.view, on boxes they see through storage.view; both are a viewer's). A taken position
 # of a regulated strain's vial is `masked` and names no vial, to every reader (ADR 0009).
-# Vials are placed and moved through the vial's place action. The list is paged, by tree order;
-# a box's positions come in one query, never one per position.
+# A vial is moved through the vial's place action; technicians and up place several vials in no
+# box into one box at once (vials.handle, #77), all or nothing. The answer is the vials as the
+# vial list shows them: a regulated strain's vial without its place. The list is paged, by tree
+# order; a box's positions come in one query, never one per position.
 @extend_schema(parameters=[LAB_PARAMETER])
 class BoxViewSet(LabNested):
     model = StorageUnit
     action_perms = {
         "list": Perm.VIEW_STRAINS,
         "retrieve": Perm.VIEW_STRAINS,
+        "place": Perm.HANDLE_VIALS,
     }
 
     def get_serializer_class(self) -> type[BoxOutputSerializer]:
@@ -505,3 +522,39 @@ class BoxViewSet(LabNested):
         box: StorageUnit = self.get_object()
         positions = selectors.box_positions(access=access_of(request), box=box)
         return Response(BoxGridOutputSerializer(box, context={"positions": positions}).data)
+
+    @extend_schema(
+        request=PlaceManyInputSerializer,
+        responses={
+            200: PlacedVialsOutputSerializer,
+            (400, PROBLEM): PLACE_MANY_INVALID,
+            (409, PROBLEM): PLACE_MANY_CONFLICT,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="place")
+    def place(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        box: StorageUnit = self.get_object()  # first: 404 or 403 before the input is read
+        data = PlaceManyInputSerializer(data=request.data, context=self.get_serializer_context())
+        data.is_valid(raise_exception=True)
+        access = access_of(request)
+        placed = services.vials_place(
+            access=access,
+            box=box,
+            placements=[
+                services.NewPlacement(vial=p["vial"], row=p["row"], col=p["col"])
+                for p in data.validated_data["placements"]
+            ],
+        )
+        # As committed now, through the vial list's scoped query: masked when regulated.
+        fresh = {
+            v.pk: v
+            for v in selectors.vial_list(access=access, lab=self.lab).filter(
+                pk__in=[v.pk for v in placed]
+            )
+        }
+        rows = [fresh[v.pk] for v in placed]
+        context = vial_context(
+            self.get_serializer_context(), lab=self.lab, user=access.user, vials=rows
+        )
+        # The shape of PlacedVialsOutputSerializer.
+        return Response({"vials": VialOutputSerializer(rows, many=True, context=context).data})

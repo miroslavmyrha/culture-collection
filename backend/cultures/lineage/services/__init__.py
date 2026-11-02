@@ -51,6 +51,7 @@ from .errors import (
     MaterialDestroyed,
     PositionTaken,
     StrainNotActive,
+    VialAlreadyPlaced,
     VialNotAvailable,
     VialNotInCollection,
     VialPlacedMeanwhile,
@@ -70,6 +71,7 @@ from .passages import (
     vial_revive,
 )
 from .vials import (
+    NewPlacement,
     batch_exhaust_if_emptied_locked,
     strain_vials_leave_locked,
     vial_place,
@@ -78,6 +80,7 @@ from .vials import (
     vial_set_barcode,
     vial_ship_locked,
     vial_transition,
+    vials_place,
 )
 
 __all__ = [
@@ -101,8 +104,10 @@ __all__ = [
     "MaterialDestroyed",
     "NewBatch",
     "NewCheck",
+    "NewPlacement",
     "PositionTaken",
     "StrainNotActive",
+    "VialAlreadyPlaced",
     "VialNotAvailable",
     "VialNotInCollection",
     "VialPlacedMeanwhile",
@@ -131,4 +136,5 @@ __all__ = [
     "vial_set_barcode",
     "vial_ship_locked",
     "vial_transition",
+    "vials_place",
 ]

@@ -12,11 +12,17 @@ from typing import Any
 
 import pytest
 
-from cultures.core.testing import QueryBaseline, ViewsetContract, assert_problem, logged_in
+from cultures.core.testing import (
+    QueryBaseline,
+    ViewsetContract,
+    Write,
+    assert_problem,
+    logged_in,
+)
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Role
 from cultures.lineage.api.views import BoxViewSet
-from cultures.lineage.models import Passage, Vial
+from cultures.lineage.models import Passage, Vial, VialPlacement
 from cultures.lineage.tests.test_masking import end_restrictions, grant
 from cultures.storage.models import StorageUnit, UnitKind
 from cultures.storage.tests.conftest import MakeUnit, Tree
@@ -33,6 +39,9 @@ ROLES = [Role.VIEWER, Role.TECHNICIAN, Role.CURATOR, Role.MANAGER]
 class TestBoxContract(ViewsetContract):
     viewset = BoxViewSet
     url = BOXES_URL
+    # Placing several vials needs vial ids from a fixture: the success for every role is in
+    # test_place_many.py. Here the refusals before the input is read, and the input read.
+    writes = (Write("place/", {}, changes=VialPlacement, status=400),)
 
     # Under a lab the outsider is not a member of: the whole list is a 404.
     def test_list_is_scoped(self, obj: Any, reader: User, outsider: User) -> None:
