@@ -56,7 +56,9 @@ export function PlaceVialsDialog({ labId, strainId, vials, boxes, boxesFailed, o
   const [current, setCurrent] = useState(0)
   const [message, setMessage] = useState('')
   const [failure, setFailure] = useState<string>()
-  const [failed, setFailed] = useState<{ vialId: string; text: string }>()
+  // A refusal names its vial and the position it was refused at: once the plan moves the vial
+  // (a position taken meanwhile, refetched), the refusal no longer describes it.
+  const [failed, setFailed] = useState<{ vialId: string; text: string; at: string }>()
 
   const rows = grid.data?.rows ?? 0
   const cols = grid.data?.cols ?? 0
@@ -137,7 +139,8 @@ export function PlaceVialsDialog({ labId, strainId, vials, boxes, boxesFailed, o
         onError: (error) => {
           const refusal = refusalOf(error, vials)
           if (refusal) {
-            setFailed({ vialId: refusal.vial.public_id, text: refusal.text })
+            const at = plan.get(refusal.vial.public_id)
+            setFailed({ vialId: refusal.vial.public_id, text: refusal.text, at: at ? keyOf(at) : '' })
             setFailure(`Vial ${refusal.vial.label}: ${refusal.text}`)
           } else setFailure(gridError(error))
           // A position someone took meanwhile shows as taken, and the plan moves around it.
@@ -184,7 +187,7 @@ export function PlaceVialsDialog({ labId, strainId, vials, boxes, boxesFailed, o
             <Box component="ul" aria-label="Where each vial goes" sx={{ m: 0, pl: 3 }}>
               {vials.map((v) => {
                 const pos = plan.get(v.public_id)
-                const refused = failed?.vialId === v.public_id
+                const refused = failed?.vialId === v.public_id && failed.at === (pos ? keyOf(pos) : '')
                 return (
                   <li key={v.public_id}>
                     <Mono>{v.label}</Mono>: {pos ? gridLabel(pos) : 'no free position'}

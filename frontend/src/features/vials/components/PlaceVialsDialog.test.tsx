@@ -100,8 +100,10 @@ describe('PlaceVialsDialog', { timeout: 20_000 }, () => {
     expect(await within(dialog()).findByRole('alert')).toHaveTextContent('Vial MYC 42 / 2 / 2: Another vial is in this position. Choose another one.')
     expect(dialog()).toHaveAccessibleDescription(/Vial MYC 42 \/ 2 \/ 2: Another vial/)
     await waitFor(() => expect(fresh).toHaveLength(1))
-    // The refused vial keeps its message in the list; the plan moves around the taken position.
-    await waitFor(() => expect(plan()).toEqual(['MYC 42 / 2 / 1: A2', 'MYC 42 / 2 / 2: B2Another vial is in this position. Choose another one.', 'MYC 42 / 2 / 3: B3']))
+    // The plan moves the refused vial around the taken position, so its line drops the refusal;
+    // the dialog's message still says what happened.
+    await waitFor(() => expect(plan()).toEqual(['MYC 42 / 2 / 1: A2', 'MYC 42 / 2 / 2: B2', 'MYC 42 / 2 / 3: B3']))
+    expect(within(dialog()).getByRole('alert')).toHaveTextContent('Vial MYC 42 / 2 / 2: Another vial')
   })
 
   it.each([
@@ -117,6 +119,21 @@ describe('PlaceVialsDialog', { timeout: 20_000 }, () => {
     await chooseBoxOne(user)
     await user.click(within(dialog()).getByRole('button', { name: 'Place vials' }))
     expect(await within(dialog()).findByRole('alert')).toHaveTextContent(text)
+  })
+
+  it.each([
+    [400, validationProblem([{ attr: 'placements.2.vial', code: 'risk_group_above_cap', detail: 'x' }]), 'MYC 42 / 2 / 3', "This box may not hold this strain's risk group."],
+    [409, problem(409, { code: 'vial_already_placed', errors: [{ attr: 'placements.0.vial', code: 'vial_already_placed', detail: 'x' }] }), 'MYC 42 / 2 / 1', 'This vial is in a box already. Move it from its own row.'],
+  ])('keeps a %i refusal that is not about the position on its vial\'s line (%#)', async (status, body, label, text) => {
+    allowConsole(new RegExp(`API error ${status}`))
+    mockApi('get', BOX, grid)
+    mockApiError('post', PLACE, status, body)
+    await render()
+    const user = userEvent.setup()
+    await chooseBoxOne(user)
+    await user.click(within(dialog()).getByRole('button', { name: 'Place vials' }))
+    await within(dialog()).findByRole('alert')
+    expect(plan().find((line) => line.startsWith(`${label}: `))).toContain(text)
   })
 
   it('sends one request while the placement runs, whatever is pressed', async () => {
