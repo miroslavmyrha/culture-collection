@@ -6,8 +6,6 @@ import { signedInAs } from './support.js'
 // e2e-curator's session: strains are never deleted, so the spec finds its own by a run-unique
 // name. Testella exempli is invented and has no restriction here, so one person may do it.
 
-test.describe.configure({ timeout: 120_000 })
-
 const RUN = Date.now().toString(36)
 const NAME = `Testella exempli gone ${RUN}`
 

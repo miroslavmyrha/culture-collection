@@ -6,8 +6,6 @@ import { signedInAs, username } from './support.js'
 // and its vials are this run's own, made through the API with the curator's session. Testella
 // exempli is invented, so its GMO entry states nothing about a real organism.
 
-test.describe.configure({ timeout: 120_000 })
-
 const RUN = Date.now().toString(36)
 const NAME = `Testella exempli two ${RUN}`
 

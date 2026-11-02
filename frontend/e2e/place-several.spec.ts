@@ -5,7 +5,6 @@ import { axe, signedInAs, watchCsp } from './support.js'
 // strain has its passage 0; e2e-curator builds storage, e2e-technician handles vials. Vials and
 // units are never deleted, so each run makes a freezer of its own, named per run, preserves
 // three vials in no box, and finds them by the batch it preserved.
-test.describe.configure({ timeout: 120_000 })
 
 const RUN = Date.now().toString(36)
 

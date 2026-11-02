@@ -8,8 +8,6 @@ import { axe, signedInAs, username, watchCsp } from './support.js'
 // request of E2E Institute of Microbiology for one vial and records the MTA acceptance. Strains
 // are never deleted, so the names carry the run. The approved request is cancelled at the end.
 
-test.describe.configure({ timeout: 120_000 })
-
 const RUN = Date.now().toString(36)
 const PDF = Buffer.from('%PDF-1.4\n% an invented answer of a depositor, e2e run\n%%EOF\n')
 

@@ -6,8 +6,6 @@ import { axe, signedInAs, username, watchCsp } from './support.js'
 // holds no valid permit (deposits.spec.ts relies on that). The e2e user manages the lab,
 // e2e-viewer views it. Nothing here changes data.
 
-test.describe.configure({ timeout: 120_000 })
-
 async function as(browser: Browser, user: string) {
   const context = await browser.newContext({ storageState: signedInAs(user), viewport: { width: 1280, height: 900 } })
   const page = await context.newPage()
