@@ -87,6 +87,8 @@ export function StrainMaterialPage() {
         canHandle={canHandleVials(role)}
         canRelease={canReleaseBatches(role)}
         materialDestroyed={strain !== undefined && strainMaterialDestroyed(strain)}
+        // Until the strain loaded nothing says it is not regulated: no destruction is offered.
+        regulated={strain?.regulated ?? true}
         vialPage={page}
         onVialPage={(next) => void navigate({ search: (prev) => ({ ...prev, ...next }) })}
       />

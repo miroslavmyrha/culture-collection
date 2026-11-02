@@ -142,4 +142,19 @@ describe('the strain page in tabs (#19)', () => {
     const state = within(await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 1' })).getByRole('combobox', { name: 'New state' })
     expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(offered)
   })
+
+  // #158: the page tells the Material tab whether the strain is regulated (the server's
+  // `regulated`); a regulated strain's vial to destroy is not destroyed by one person (ADR 0009).
+  it.each([
+    ['an active restriction', [GMO], ['Place']],
+    ['only an ended restriction', [{ ...GMO, ended_at: '2026-10-20T10:00:00Z', end_reason: 'Delisted.' }], ['Place', 'Change state']],
+  ] as const)('offers a vial to destroy of a strain with %s no destruction by one person while regulated', async (_, restrictions, items) => {
+    strainPage('technician')
+    mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42', restriction_history: [...restrictions] }))
+    mockApi('get', VIALS, page([makeVial({ label: 'MYC 42 / 1 / 1', status: 'to_destroy', status_changed_at: '2026-10-02T10:00:00Z' })]))
+    renderApp({ path: `${BASE}/material` })
+    await screen.findByRole('table', { name: 'Vials' })
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Actions for vial MYC 42 / 1 / 1' }))
+    expect((await screen.findAllByRole('menuitem')).map((item) => item.textContent)).toEqual(items)
+  })
 })
