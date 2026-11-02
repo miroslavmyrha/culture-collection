@@ -306,6 +306,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/boxes/{public_id}/place/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        post: operations["labs_boxes_place_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/depositors/": {
         parameters: {
             query?: never;
@@ -3187,6 +3207,19 @@ export interface components {
             row: number;
             col: number;
         };
+        /** @description Several vials in no box, each to its own position of the box in the URL (#77). */
+        PlaceManyInputRequest: {
+            placements: components["schemas"]["PlacementInputRequest"][];
+        };
+        /** @description The vials placed by one call (#77), in the order asked, as the vial list shows them. */
+        PlacedVialsOutput: {
+            vials: components["schemas"]["VialOutput"][];
+        };
+        PlacementInputRequest: {
+            vial: string;
+            row: number;
+            col: number;
+        };
         /**
          * @description A prepared shipment (#89): open while it waits for a second person, or withdrawn and
          *     kept as history. `confirm_refusal` says why the caller may not confirm it: they approved the
@@ -5147,6 +5180,83 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_boxes_place_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceManyInputRequest"];
+                "multipart/form-data": components["schemas"]["PlaceManyInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlacedVialsOutput"];
+                };
+            };
+            /** @description Invalid input on an entry of placements (attr placements.<i>.vial, .row, .col, or placements.<i> for the position): an unknown vial, a vial or a position twice (duplicate, position_twice), a position outside the box (outside_box), a strain above the box's cap (risk_group_above_cap); without attr, a box out of service (unit_not_active) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description On an entry of placements: position_taken; vial_not_in_collection; vial_already_placed. Without attr: vial_placed_meanwhile, or position_taken at the same moment */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

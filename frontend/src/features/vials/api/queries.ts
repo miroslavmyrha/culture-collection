@@ -101,6 +101,6 @@ export const boxGridOptions = (labId: string, boxId: string) =>
       unwrap(api.GET('/api/v1/labs/{lab_public_id}/boxes/{public_id}/', { signal, params: { path: { lab_public_id: labId, public_id: boxId } } })),
   })
 
-export function useBoxGrid(labId: string, boxId: string) {
-  return useQuery(boxGridOptions(labId, boxId))
+export function useBoxGrid(labId: string, boxId: string, enabled = true) {
+  return useQuery({ ...boxGridOptions(labId, boxId), enabled })
 }

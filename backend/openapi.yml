@@ -1018,6 +1018,87 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/boxes/{public_id}/place/:
+    post:
+      operationId: labs_boxes_place_create
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceManyInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlaceManyInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlacedVialsOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input on an entry of placements (attr placements.<i>.vial,
+            .row, .col, or placements.<i> for the position): an unknown vial, a vial
+            or a position twice (duplicate, position_twice), a position outside the
+            box (outside_box), a strain above the box''s cap (risk_group_above_cap);
+            without attr, a box out of service (unit_not_active)'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'On an entry of placements: position_taken; vial_not_in_collection;
+            vial_already_placed. Without attr: vial_placed_meanwhile, or position_taken
+            at the same moment'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/depositors/:
     get:
       operationId: labs_depositors_list
@@ -11816,6 +11897,48 @@ components:
       - box
       - col
       - row
+    PlaceManyInputRequest:
+      type: object
+      description: Several vials in no box, each to its own position of the box in
+        the URL (#77).
+      properties:
+        placements:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlacementInputRequest'
+          maxItems: 200
+      required:
+      - placements
+    PlacedVialsOutput:
+      type: object
+      description: The vials placed by one call (#77), in the order asked, as the
+        vial list shows them.
+      properties:
+        vials:
+          type: array
+          items:
+            $ref: '#/components/schemas/VialOutput'
+      required:
+      - vials
+    PlacementInputRequest:
+      type: object
+      properties:
+        vial:
+          type: string
+          minLength: 1
+          maxLength: 64
+        row:
+          type: integer
+          maximum: 26
+          minimum: 1
+        col:
+          type: integer
+          maximum: 26
+          minimum: 1
+      required:
+      - col
+      - row
+      - vial
     PreparationOutput:
       type: object
       description: |-

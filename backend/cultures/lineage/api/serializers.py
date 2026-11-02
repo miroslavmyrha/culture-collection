@@ -11,11 +11,14 @@ grant too, who reveals it one vial at a time (ADR 0009, amendment of 2026-10-19)
 """
 
 from collections.abc import Mapping, Sequence
+from contextlib import suppress
 from typing import Any
+from uuid import UUID
 
 from django.db.models import QuerySet
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
+from rest_framework.exceptions import ErrorDetail
 from rest_framework.request import Request
 
 from cultures.core.api import ScopedRelatedField
@@ -398,6 +401,54 @@ class PlaceInputSerializer(serializers.Serializer[None]):
     box = ScopedRelatedField(model=StorageUnit, scope=boxes_to_fill)
     row = serializers.IntegerField(min_value=1, max_value=26)
     col = serializers.IntegerField(min_value=1, max_value=26)
+
+
+def vials_to_place(request: Request) -> QuerySet[Vial]:
+    """Vials of any lab where the caller handles vials: the service keeps the box's lab."""
+    return selectors.vials_to_check(access_of(request))
+
+
+class PlacementInputSerializer(serializers.Serializer[None]):
+    # The vial's public id, resolved with the others of the list in one query
+    # (PlaceManyInputSerializer), with ScopedRelatedField's one error for a missing, malformed
+    # or foreign id.
+    vial = serializers.CharField(max_length=64)
+    row = serializers.IntegerField(min_value=1, max_value=26)
+    col = serializers.IntegerField(min_value=1, max_value=26)
+
+
+class PlacedVialsOutputSerializer(serializers.Serializer[None]):
+    """The vials placed by one call (#77), in the order asked, as the vial list shows them."""
+
+    vials = VialOutputSerializer(many=True)
+
+
+class PlaceManyInputSerializer(serializers.Serializer[None]):
+    """Several vials in no box, each to its own position of the box in the URL (#77)."""
+
+    placements = serializers.ListField(
+        child=PlacementInputSerializer(), allow_empty=False, max_length=MAX_VIALS_PER_BATCH
+    )
+
+    def validate_placements(self, entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        ids: dict[int, UUID] = {}
+        for i, entry in enumerate(entries):
+            with suppress(ValueError):
+                ids[i] = UUID(entry["vial"])
+        found = {
+            vial.public_id: vial
+            for vial in vials_to_place(self.context["request"]).filter(
+                public_id__in=set(ids.values())
+            )
+        }
+        missing = {
+            str(i): {"vial": [ErrorDetail("Invalid vial.", code="does_not_exist")]}
+            for i in range(len(entries))
+            if ids.get(i) not in found
+        }
+        if missing:
+            raise serializers.ValidationError(missing)
+        return [{**entry, "vial": found[ids[i]]} for i, entry in enumerate(entries)]
 
 
 MANUAL_CHOICES = [(s.value, s.label) for s in VialStatus if s in MANUAL_TARGETS]

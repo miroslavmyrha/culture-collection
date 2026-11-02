@@ -68,18 +68,19 @@ test('T3 place freeze-dried ampoules into a box', async ({ browser }, info) => {
   await w.start()
   await searchStrain(w, s.name, new RegExp(`^BAC \\d+, BAC, Active\\. .*${s.name}`))
   await openTab(w, 'Material')
-  for (const [i, label] of labels.entries()) {
-    await vialAction(w, label, 'Place')
-    const dialog = w.page.getByRole('dialog', { name: `Place vial ${label}` })
-    await w.choose(dialog.getByRole('combobox', { name: 'Box' }), `${s.freezer} / Rack 1 / ${box}`)
-    if (i === 0) await w.shot('place-dialog')
-    await w.choose(dialog.getByRole('combobox', { name: 'Row' }), 'A')
-    await w.choose(dialog.getByRole('combobox', { name: 'Column' }), String(i + 1))
-    await w.click(dialog.getByRole('button', { name: 'Place vial' }))
-    await expect(dialog).toBeHidden()
-  }
-  await expect(w.page.getByRole('table', { name: 'Vials' }).getByRole('row', { name: new RegExp(`${box}, A3`) })).toBeVisible()
-  w.note('One dialog per vial, the box chosen again each time, and row and column picked blind: the dialog does not show which places are free')
+  // The three vials in no box are chosen at once and placed in one step (#77).
+  await w.click(w.page.getByRole('checkbox', { name: 'Every vial in no box on this page (3)' }))
+  await w.click(w.page.getByRole('button', { name: 'Place 3 vials in a box' }))
+  const dialog = w.page.getByRole('dialog', { name: 'Place 3 vials in a box' })
+  await w.choose(dialog.getByRole('combobox', { name: 'Box' }), `${s.freezer} / Rack 1 / ${box}`)
+  await expect(dialog.getByText('81 of 81 positions free.')).toBeVisible()
+  w.look() // the plan: each vial and the free position it goes to
+  await w.shot('place-dialog')
+  await w.click(dialog.getByRole('button', { name: 'Place vials' }))
+  await expect(dialog).toBeHidden()
+  const vials = w.page.getByRole('table', { name: 'Vials' })
+  for (const [i, label] of labels.entries()) await expect(vials.getByRole('row', { name: new RegExp(`${label}.*${box}, A${i + 1}`) })).toBeVisible()
+  w.note('The free positions show once a box is chosen: the box list itself still names every box by its path with no free count (as in T1)')
   await w.done()
 })
 
@@ -98,15 +99,20 @@ test('T4 move the tubes of a failing freezer into another box by scanning', asyn
   await openUnit(w, [freezer, /^Rack 1, rack/, new RegExp(`^${target}, box`)])
   await expect(w.page.getByRole('heading', { level: 1, name: target })).toBeVisible()
   const code = w.page.getByRole('textbox', { name: 'Vial label or barcode' })
-  for (const tube of tubes) {
-    await w.type(code, tube) // the scanner types the label, and after a move the focus is on the grid
+  for (const [i, tube] of tubes.entries()) {
+    // The first scan needs a click into the field; after a scanned placement the field has the
+    // focus again (#77), and the scanner types the next label.
+    if (i === 0) await w.type(code, tube)
+    else {
+      await expect(code).toBeFocused()
+      await w.keys(tube)
+    }
     await w.press('Enter') // Find
     await expect(w.page.getByRole('status')).toHaveText(`${tube} found. Choose an empty position and press Enter, or Escape to cancel.`)
     await w.press('Enter') // into the first empty position
     await expect(w.page.getByRole('status')).toHaveText(new RegExp(`^${tube} moved to [A-I]\\d\\.$`))
-    await expect(code).not.toBeFocused()
+    await expect(code).toBeFocused()
   }
-  w.note('After each placement focus stays on the grid, so the next scan needs a click back into the field')
   await w.done()
 })
 

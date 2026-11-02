@@ -39,6 +39,7 @@ SCENARIOS: dict[str, Scenario] = {
     "vial_place": lambda a, p, v, t: (
         lambda: services.vial_place(access=a, vial=v, box=t.box, row=9, col=9)
     ),
+    "vials_place": lambda a, p, v, t: _place_several(a, p, t),
     "vial_transition": lambda a, p, v, t: (
         lambda: services.vial_transition(access=a, vial=v, status=VialStatus.LOST, reason="r")
     ),
@@ -56,6 +57,17 @@ SCENARIOS: dict[str, Scenario] = {
 
 
 # The batch is read before the call, as the view does: get_object, then the service.
+
+
+def _place_several(access: Access, passage: Passage, tree: Tree) -> Callable[[], object]:
+    """Two new vials in no box (the scenario's vial is in Box 1 already)."""
+    batch = services.batch_preserve(access=access, passage=passage, data=new_batch(vial_count=2))
+    first, second = vials_of(batch)
+    entries = [
+        services.NewPlacement(vial=second, row=9, col=8),
+        services.NewPlacement(vial=first, row=9, col=9),
+    ]
+    return lambda: services.vials_place(access=access, box=tree.box, placements=entries)
 
 
 def _record(access: Access, vial: Vial) -> Callable[[], object]:
@@ -171,7 +183,7 @@ def test_the_lab_lock_comes_first(
         assert batch_lock < vial_lock, f"{name} locks the vial before the batch"
     if name in CHECK_SERVICES:
         assert batch_lock is not None, f"{name} decides on a batch it never locked"
-    if name in ("vial_place", "vial_transition", "vial_set_barcode", "vial_revive"):
+    if name in ("vial_place", "vials_place", "vial_transition", "vial_set_barcode", "vial_revive"):
         assert vial_lock is not None, f"{name} changes a vial it never locked"
-    if name in ("vial_place", "batch_preserve"):
+    if name in ("vial_place", "vials_place", "batch_preserve"):
         assert box_lock is not None, f"{name} fills a box it never locked"

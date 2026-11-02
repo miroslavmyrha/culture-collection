@@ -2,7 +2,7 @@ import { Fragment, type MouseEvent, type ReactNode, useId, useRef, useState } fr
 import { LoadError } from '@/components/LoadError'
 import { Pager, PastTheEnd } from '@/components/Pager'
 import { StaleNotice } from '@/components/StaleNotice'
-import { ActionMenu, type ActionItem, Box, Button, Mono, SelectField, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
+import { ActionMenu, type ActionItem, Box, Button, CheckboxField, Mono, SelectField, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { type Growth, growthText, noGrowth } from '@/lib/growth'
 import { BATCH_TONES, VIAL_TONES } from '@/lib/tones'
 import { type FocusReturn, focusTarget, rememberFocus, useFocusReturnOnUnmount } from '@/lib/focus'
@@ -26,6 +26,7 @@ import {
 } from '../schemas'
 import { BatchChecks } from './BatchChecks'
 import { BatchDecisionDialog, CheckErrorDialog, RecordCheckDialog } from './CheckDialogs'
+import { PlaceVialsDialog } from './PlaceVialsDialog'
 import { scrollable } from './scroll'
 import { VialPlace } from './VialPlace'
 import { PlaceVialDialog, PreserveBatchDialog, ReviveDialog, SubcultureDialog, VialStatusDialog } from './VialDialogs'
@@ -49,6 +50,7 @@ type Open =
   | { kind: 'preserve'; open: boolean }
   | { kind: 'subculture'; passage: Passage; open: boolean }
   | { kind: 'place' | 'status' | 'revive'; vial: Vial; open: boolean }
+  | { kind: 'place-many'; vials: readonly Vial[]; open: boolean }
   | { kind: 'check'; batch: Batch; checks: readonly BatchCheck[] | undefined; open: boolean }
   | { kind: 'release' | 'hold'; batch: Batch; open: boolean }
   | { kind: 'check-error'; check: BatchCheck; open: boolean }
@@ -59,7 +61,8 @@ type Open =
  * tree from the deposit, its batches and their vials, with the bench work for technicians and up. Where a vial is shows for strains without restrictions;
  * a regulated strain's places are masked, and only a holder of the lab's location grant
  * reveals one (ADR 0009). A batch's checks open in its row (D16): technicians record them,
- * curators release and hold.
+ * curators release and hold. Vials in no box are selected in their rows and placed into one box
+ * in one step (#77).
  */
 export function StrainMaterial({ labId, strainId, accession, strainGrowth, canHandle, canRelease, materialDestroyed, vialPage, onVialPage }: Props) {
   const passages = usePassages(labId, strainId)
@@ -72,6 +75,18 @@ export function StrainMaterial({ labId, strainId, accession, strainGrowth, canHa
   const [moves, setMoves] = useState<Readonly<Record<string, number>>>({})
   const moved = (vialId: string) => setMoves((current) => ({ ...current, [vialId]: (current[vialId] ?? 0) + 1 }))
   const boxes = useBoxes(labId, canHandle)
+  // The vials chosen to go into a box together (#77), by id. Only those on this page that are
+  // still in no box count: a vial placed meanwhile drops out by itself.
+  const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set())
+  const placeable = (v: Vial) => canHandle && !v.placed && !OUT_OF_A_BOX.includes(v.status)
+  const loose = (vials.data?.results ?? []).filter(placeable)
+  const selected = loose.filter((v) => chosen.has(v.public_id))
+  const toggleVial = (vialId: string) =>
+    setChosen((current) => {
+      const next = new Set(current)
+      if (!next.delete(vialId)) next.add(vialId)
+      return next
+    })
   const spot = useRef<FocusReturn | null>(null)
   const remember = (event: MouseEvent<HTMLButtonElement>) => {
     spot.current = rememberFocus(event.currentTarget)
@@ -279,6 +294,17 @@ export function StrainMaterial({ labId, strainId, accession, strainGrowth, canHa
           <>
             {/* The count of every vial asked for, so a page never hides the rest (#72). */}
             <Typography>{vialCount(vials.data.count, vialPage, batches.data?.results)}</Typography>
+            {loose.length > 0 && (
+              <PlaceSeveral
+                loose={loose.length}
+                selected={selected.length}
+                onAll={(all) => setChosen(new Set(all ? loose.map((v) => v.public_id) : []))}
+                onPlace={(event) => {
+                  if (selected.length === 0) return
+                  show({ kind: 'place-many', vials: selected, open: true })(event)
+                }}
+              />
+            )}
             <TableContainer {...scrollable('Vials')}>
               <Table aria-label="Vials" size="small">
                 <TableHead>
@@ -293,7 +319,11 @@ export function StrainMaterial({ labId, strainId, accession, strainGrowth, canHa
                   {vials.data.results.map((v) => (
                     <TableRow key={v.public_id}>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                        <Mono>{v.label}</Mono>
+                        {placeable(v) ? (
+                          <CheckboxField label={v.label} checked={chosen.has(v.public_id)} onChange={() => toggleVial(v.public_id)} sx={{ py: 0 }} />
+                        ) : (
+                          <Mono>{v.label}</Mono>
+                        )}
                       </TableCell>
                       <TableCell>
                         <StatusChip tone={VIAL_TONES[v.status]}>{VIAL_STATUS_LABELS[v.status]}</StatusChip>
@@ -333,6 +363,16 @@ export function StrainMaterial({ labId, strainId, accession, strainGrowth, canHa
       {open?.kind === 'subculture' && strainGrowth && <SubcultureDialog {...common} passage={open.passage} strainGrowth={strainGrowth} open={open.open} />}
       {open?.kind === 'place' && (
         <PlaceVialDialog {...common} vial={open.vial} boxes={boxList} boxesFailed={boxesFailed} open={open.open} onPlaced={() => moved(open.vial.public_id)} />
+      )}
+      {open?.kind === 'place-many' && (
+        <PlaceVialsDialog
+          {...common}
+          vials={open.vials}
+          boxes={boxList}
+          boxesFailed={boxesFailed}
+          open={open.open}
+          onPlaced={() => setChosen(new Set())}
+        />
       )}
       {open?.kind === 'status' && <VialStatusDialog {...common} vial={open.vial} materialDestroyed={materialDestroyed} open={open.open} />}
       {open?.kind === 'revive' && strainGrowth && <ReviveDialog {...common} vial={open.vial} strainGrowth={strainGrowth} open={open.open} />}
@@ -413,6 +453,36 @@ function OneVial({ onShowAll }: { onShowAll: () => void }) {
       >
         Show every vial
       </Button>
+    </Box>
+  )
+}
+
+type PlaceSeveralProps = {
+  /** Vials in no box on this page. */
+  loose: number
+  selected: number
+  onAll: (all: boolean) => void
+  onPlace: (event: MouseEvent<HTMLButtonElement>) => void
+}
+
+/**
+ * Several vials into one box in one step (#77): the vials in no box are chosen in their rows, or
+ * all of this page at once. The button stays focusable without a choice and says what it needs.
+ */
+function PlaceSeveral({ loose, selected, onAll, onPlace }: PlaceSeveralProps) {
+  const none = selected === 0
+  const hint = useId()
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 2, rowGap: 1 }}>
+      <CheckboxField label={`Every vial in no box on this page (${loose})`} checked={selected === loose} onChange={(event) => onAll(event.target.checked)} />
+      <Button variant="outlined" aria-disabled={none} aria-describedby={none ? hint : undefined} onClick={onPlace} sx={{ '&[aria-disabled="true"]': { color: 'text.disabled', cursor: 'not-allowed' } }}>
+        {none ? 'Place in a box' : `Place ${selected} ${selected === 1 ? 'vial' : 'vials'} in a box`}
+      </Button>
+      {none && (
+        <Typography id={hint} variant="body2" color="text.secondary">
+          Choose the vials in no box first.
+        </Typography>
+      )}
     </Box>
   )
 }

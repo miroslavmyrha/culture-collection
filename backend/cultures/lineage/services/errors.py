@@ -24,6 +24,14 @@ class VialNotInCollection(Conflict):
     default_detail = "This vial has left the collection or is lost: it has no place."
 
 
+class VialAlreadyPlaced(Conflict):
+    """Placing several vials (#77) takes vials in no box: a move is the vial's own place. The
+    message names no box, the vial may be of a regulated strain (ADR 0009)."""
+
+    default_code = "vial_already_placed"
+    default_detail = "This vial is in a box already. Move it from its own row."
+
+
 class VialPlacedMeanwhile(Conflict):
     default_code = "vial_placed_meanwhile"
     default_detail = "The vial was placed at the same moment: reload and try again."

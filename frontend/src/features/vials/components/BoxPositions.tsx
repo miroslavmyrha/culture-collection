@@ -19,8 +19,11 @@ type Props = {
   canHandle: boolean
 }
 
-/** The vial on its way: picked in the grid (`from`), or found by its code (`from` null). */
-type Moving = { vialId: string; label: string; from: GridPos | null; verb: 'moved' | 'placed' }
+/**
+ * The vial on its way: picked in the grid, or found by its code (`scanned`). `from` is where it
+ * is in this box, null when it is elsewhere.
+ */
+type Moving = { vialId: string; label: string; from: GridPos | null; verb: 'moved' | 'placed'; scanned: boolean }
 
 const keyOf = (row: number, col: number) => `${row}:${col}`
 const MASKED = 'occupied, regulated'
@@ -30,7 +33,9 @@ const MASKED = 'occupied, regulated'
  * technicians and up: a vial is moved in two steps, select it (Enter, Space or a click), then
  * Enter or a click on an empty position places it there; Escape cancels. A vial scanned or typed
  * into "Vial label or barcode" is placed the same way. One polite status line says what
- * happened, and focus stays on the position the vial went to.
+ * happened. After a move by grid keys focus stays on the position the vial went to; after a
+ * scanned vial is placed it goes back to "Vial label or barcode", so the next tube is scanned
+ * without a click (#77, walkthrough T4).
  *
  * A position of a regulated strain's vial says only that it is taken (ADR 0009): the API sends
  * no vial for it, so nothing here can name it. It cannot be picked here; its strain page moves it.
@@ -73,7 +78,7 @@ export function BoxPositions({ labId, boxId, boxName, canHandle }: Props) {
         setMessage(`${here} holds a vial of a regulated strain. Move it from its strain page.`)
         return
       }
-      setMoving({ vialId: position.vial.public_id, label: position.vial.label, from: pos, verb: 'moved' })
+      setMoving({ vialId: position.vial.public_id, label: position.vial.label, from: pos, verb: 'moved', scanned: false })
       setMessage(`${position.vial.label} in ${here} selected. Choose an empty position and press Enter, or Escape to cancel.`)
       return
     }
@@ -93,6 +98,8 @@ export function BoxPositions({ labId, boxId, boxName, canHandle }: Props) {
           setMoving(null)
           // A regulated vial's place is not kept on screen (ADR 0009): the position shows only as taken.
           setMessage(placed.location_masked ? `${vial.label} ${vial.verb}. Its position is hidden: the strain is regulated.` : `${vial.label} ${vial.verb === 'moved' ? 'moved to' : 'placed in'} ${here}.`)
+          // The next tube comes from the scanner: its field takes the focus again.
+          if (vial.scanned) form.setFocus('code')
         },
         onError: (error) => setMessage(gridError(error)),
       },
@@ -118,6 +125,7 @@ export function BoxPositions({ labId, boxId, boxName, canHandle }: Props) {
           label: vial.label,
           from: inThisBox ? { row: inThisBox.row - 1, col: inThisBox.col - 1 } : null,
           verb: vial.placed ? 'moved' : 'placed',
+          scanned: true,
         })
         setMessage(`${vial.label} found. Choose an empty position and press Enter, or Escape to cancel.`)
         gridRef.current?.focus(free)
