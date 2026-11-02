@@ -251,7 +251,9 @@ describe('BoxPositions', { timeout: 20_000 }, () => {
     await user.keyboard('{ArrowRight}{Enter}')
     await waitFor(() => expect(status()).toHaveTextContent('MYC 42 / 2 / 5 placed in A2.'))
     expect(calls[0]?.body).toEqual({ box: BOX_ID, row: 1, col: 2 })
-    expect(cell(/^A2, MYC 42 \/ 2 \/ 5/)).toHaveFocus()
+    // The next tube is scanned without a click: the field has the focus again (#77, T4).
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Vial label or barcode' })).toHaveFocus())
+    expect(cell(/^A2, MYC 42 \/ 2 \/ 5/)).toHaveAttribute('tabindex', '0')
   })
 
   it('Escape after a find returns the focus to the code field', async () => {
@@ -280,7 +282,7 @@ describe('BoxPositions', { timeout: 20_000 }, () => {
     await user.keyboard('{Enter}')
     await waitFor(() => expect(status()).toHaveTextContent('MYC 7 / 1 / 1 placed. Its position is hidden: the strain is regulated.'))
     expect(status()).not.toHaveTextContent('A1')
-    expect(cell('A1, occupied, regulated')).toHaveFocus()
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Vial label or barcode' })).toHaveFocus())
     expect(document.body).not.toHaveTextContent('MYC 7 / 1 / 1 placed in')
   })
 
