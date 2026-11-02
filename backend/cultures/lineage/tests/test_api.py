@@ -206,6 +206,25 @@ def test_a_state_change_through_the_api(
     assert (done.status_code, done.json()["status"]) == (200, "lost")
 
 
+def test_a_regulated_strains_vial_to_destroy_is_not_destroyed_through_the_api(
+    technician: User, regulated: Strain, make_batch: MakeBatch
+) -> None:
+    """#158, ADR 0009: the code says the record with a second person is needed."""
+    vial = vials_of(make_batch(Passage.objects.get(strain=regulated, number=0), vial_count=1))[0]
+    url = f"{VIALS_URL}{vial.public_id}/status/"
+    client = logged_in(technician)
+    marked = client.post(
+        url, {"status": "to_destroy", "reason": "tube cracked"}, content_type="application/json"
+    )
+    assert (marked.status_code, marked.json()["status"]) == (200, "to_destroy")
+    refused = client.post(
+        url, {"status": "destroyed", "reason": "autoclaved"}, content_type="application/json"
+    )
+    assert_problem(refused, 400, "destruction_needs_record", "status")
+    assert "second person" in refused.json()["errors"][0]["detail"]
+    assert Vial.objects.get(pk=vial.pk).status == "to_destroy"
+
+
 def test_a_revival_through_the_api(
     technician: User, passage0: Passage, make_batch: MakeBatch
 ) -> None:

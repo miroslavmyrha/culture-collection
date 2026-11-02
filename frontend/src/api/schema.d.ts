@@ -11815,7 +11815,7 @@ export interface operations {
                     "application/json": components["schemas"]["VialOutput"];
                 };
             };
-            /** @description Invalid input on a field. On the status: transition_not_allowed, a state that cannot follow; vial_has_history, entered in error after a change; strain_material_destroyed, the strain was deaccessioned with its material destroyed and its vials go only to destruction */
+            /** @description Invalid input on a field. On the status: transition_not_allowed, a state that cannot follow; vial_has_history, entered in error after a change; strain_material_destroyed, the strain was deaccessioned with its material destroyed and its vials go only to destruction; destruction_needs_record, the strain is regulated and its vial is destroyed only with a destruction record a second person confirms (ADR 0009) */
             400: {
                 headers: {
                     [name: string]: unknown;

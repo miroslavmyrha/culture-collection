@@ -58,6 +58,18 @@ class MaterialDestroyed(EdgeNotAllowed):
     )
 
 
+class DestructionNeedsRecord(EdgeNotAllowed):
+    """#158, ADR 0009: no single account destroys a regulated strain. Until the destruction
+    record with a second person (#160), a vial of a strain with an active restriction is marked
+    to destroy and stays so."""
+
+    default_code = "destruction_needs_record"
+    default_detail = (
+        "This strain is regulated: its vial is destroyed only with a destruction record that a"
+        " second person confirms, which the collection does not keep yet. It stays to destroy."
+    )
+
+
 class BatchNumberTaken(Conflict):
     default_code = "batch_number_taken"
     default_detail = "Another batch took this number at the same moment: try again."
