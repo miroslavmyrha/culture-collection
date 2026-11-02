@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { makeUnitRow } from '@/test/factories'
-import { canManageStorage, createBody, createUnitSchema, emptyFields, fieldsBody, HOLDS, positionLabel, sizeLabel, unitSummary } from './schemas'
+import { canManageStorage, countsText, createBody, createUnitSchema, emptyFields, fieldsBody, HOLDS, positionLabel, sizeLabel, unitSummary } from './schemas'
 
 describe('box coordinates (ADR 0008, D6)', () => {
   it('labels rows with letters and columns with numbers, both from 1', () => {
@@ -13,14 +13,25 @@ describe('box coordinates (ADR 0008, D6)', () => {
 })
 
 describe('unitSummary', () => {
+  const held = { boxes: 3, vials: 7, free_positions: 255 }
   it.each([
-    [{ kind: 'freezer' as const, temperature_c: -80 }, 'freezer, -80\u00a0°C'],
-    [{ kind: 'rack' as const, slot: 3, max_risk_group: null }, 'rack in slot 3'],
-    [{ kind: 'box' as const, slot: 1, rows: 9, cols: 9 }, 'box in slot 1, 9 x 9'],
-    [{ kind: 'ln2_tank' as const, status: 'out_of_service' as const }, 'LN2 tank, out of service'],
+    [{ kind: 'freezer' as const, temperature_c: -80, counts: held }, 'freezer, -80\u00a0°C, 3 boxes, 7 vials, 255 free'],
+    [{ kind: 'rack' as const, slot: 3, max_risk_group: null }, 'rack in slot 3, 0 boxes, 0 vials, 0 free'],
+    [{ kind: 'box' as const, slot: 1, rows: 9, cols: 9, counts: { boxes: 0, vials: 1, free_positions: 80 } }, 'box in slot 1, 9 x 9, 1 vial, 80 free'],
+    [{ kind: 'ln2_tank' as const, status: 'out_of_service' as const, counts: { boxes: 1, vials: 0, free_positions: 81 } }, 'LN2 tank, 1 box, 0 vials, 81 free, out of service'],
     [{ kind: 'box' as const, rows: 5, cols: 5, status: 'retired' as const }, 'box, 5 x 5, retired'],
   ])('describes %j as "%s"', (overrides, text) => {
     expect(unitSummary(makeUnitRow(overrides))).toBe(text)
+  })
+})
+
+describe('countsText (#80)', () => {
+  it.each([
+    ['freezer' as const, { boxes: 3, vials: 7, free_positions: 255 }, '3 boxes, 7 vials, 255 free positions'],
+    ['rack' as const, { boxes: 1, vials: 1, free_positions: 1 }, '1 box, 1 vial, 1 free position'],
+    ['box' as const, { boxes: 0, vials: 5, free_positions: 76 }, '5 vials, 76 free positions'],
+  ])('says what a %s holds', (kind, counts, text) => {
+    expect(countsText(kind, counts)).toBe(text)
   })
 })
 

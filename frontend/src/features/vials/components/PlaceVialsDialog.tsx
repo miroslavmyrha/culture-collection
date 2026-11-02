@@ -5,7 +5,7 @@ import type { GridPos } from '@/lib/grid'
 import { preferences } from '@/lib/storage'
 import { usePlaceMany } from '../api/mutations'
 import { useBoxGrid } from '../api/queries'
-import type { BoxChoice, BoxPosition, Vial } from '../schemas'
+import { type BoxChoice, type BoxPosition, boxOption, type Vial } from '../schemas'
 import { entryError, gridError, POSITION_TAKEN } from '../vialErrors'
 
 type Props = {
@@ -172,7 +172,7 @@ export function PlaceVialsDialog({ labId, strainId, vials, boxes, boxesFailed, o
               // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
               autoFocus
               onChange={(event) => chooseBox(event.target.value)}
-              options={[{ value: '', label: 'Choose' }, ...boxes.map((b) => ({ value: b.public_id, label: b.label }))]}
+              options={[{ value: '', label: 'Choose' }, ...boxes.map(boxOption)]}
             />
           ) : (
             !boxesFailed && <Typography>Loading the boxes…</Typography>

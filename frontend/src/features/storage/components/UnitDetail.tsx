@@ -6,7 +6,7 @@ import { UNIT_TONES } from '@/lib/tones'
 import { isApiError } from '@/lib/api'
 import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { useUnit } from '../api/queries'
-import { degrees, HOLDS, isRoot, KIND_LABELS, KIND_WORDS, sizeLabel, STATUS_LABELS, type Unit } from '../schemas'
+import { countsText, degrees, HOLDS, isRoot, KIND_LABELS, KIND_WORDS, sizeLabel, STATUS_LABELS, type Unit } from '../schemas'
 import { CreateUnitDialog, EditUnitDialog, MoveUnitDialog, UnitStatusDialog } from './UnitDialogs'
 
 type Props = {
@@ -69,6 +69,8 @@ export function UnitDetail({ labId, labName, unitId, canManage, onCreated, rende
   const above = u.ancestors.at(-1)
   const holds = HOLDS[u.kind]
   const retired = u.status === 'retired'
+  // A boxes column only where something held is no box: a box holds no box.
+  const boxesColumn = u.children.some((c) => c.kind !== 'box')
   return (
     <>
       <PageTitle>{above ? `${u.name} in ${above.name}` : u.name}</PageTitle>
@@ -103,6 +105,8 @@ export function UnitDetail({ labId, labName, unitId, canManage, onCreated, rende
           ...(u.box_type ? [['Box type', u.box_type.name] as [string, string]] : []),
           ...(u.temperature_c === null ? [] : [['Temperature', degrees(u.temperature_c)] as [string, string]]),
           ['Highest risk group', riskCap(u)],
+          // With everything below it: the impact of a failure, room for new vials (#80).
+          ['Contents', countsText(u.kind, u.counts)],
           ['Barcode', u.barcode ?? 'None'],
         ]}
       />
@@ -161,6 +165,9 @@ export function UnitDetail({ labId, labName, unitId, canManage, onCreated, rende
                     <TableCell>Name</TableCell>
                     <TableCell>Kind</TableCell>
                     <TableCell>Size</TableCell>
+                    {boxesColumn && <TableCell align="right">Boxes</TableCell>}
+                    <TableCell align="right">Vials</TableCell>
+                    <TableCell align="right">Free positions</TableCell>
                     <TableCell>Status</TableCell>
                   </TableRow>
                 </TableHead>
@@ -175,6 +182,9 @@ export function UnitDetail({ labId, labName, unitId, canManage, onCreated, rende
                       </TableCell>
                       <TableCell>{KIND_LABELS[c.kind]}</TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{c.rows !== null && c.cols !== null ? `${c.rows} x ${c.cols}` : ''}</TableCell>
+                      {boxesColumn && <TableCell align="right">{c.kind === 'box' ? '' : c.counts.boxes}</TableCell>}
+                      <TableCell align="right">{c.counts.vials}</TableCell>
+                      <TableCell align="right">{c.counts.free_positions}</TableCell>
                       <TableCell>
                         <StatusChip tone={UNIT_TONES[c.status]}>{STATUS_LABELS[c.status]}</StatusChip>
                       </TableCell>

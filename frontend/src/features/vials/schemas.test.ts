@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { makeBatch, makeCheck, makePassage } from '@/test/factories'
-import { batchStatusReason, checkDetails, emptyCheck, formatValue, kindsText, mayHold, mayRelease, notPassed, passageTree, sourceLabel, strainMaterialDestroyed } from './schemas'
+import { makeBatch, makeCheck, makePassage, makeUnitRow } from '@/test/factories'
+import { batchStatusReason, boxChoices, boxOption, checkDetails, emptyCheck, formatValue, kindsText, mayHold, mayRelease, notPassed, passageTree, sourceLabel, strainMaterialDestroyed } from './schemas'
 
 const none = { identity: null, purity: null, viability: null } as const
 
@@ -102,5 +102,16 @@ describe('a deaccession that destroyed the material (#150)', () => {
   it('is no strain still in the collection', () => {
     expect(strainMaterialDestroyed({ status: 'active', deaccession: null })).toBe(false)
     expect(strainMaterialDestroyed({ status: 'restricted', deaccession: null })).toBe(false)
+  })
+})
+
+describe('the boxes a vial may go into (#80)', () => {
+  it('names each active box by its path with its free positions, the counts as the server sent them', () => {
+    const freezer = makeUnitRow({ name: 'Freezer A' })
+    const box = makeUnitRow({ kind: 'box', name: 'Box 1', parent: freezer.public_id, rows: 9, cols: 9, counts: { boxes: 0, vials: 5, free_positions: 76 } })
+    const off = makeUnitRow({ kind: 'box', name: 'Box 2', parent: freezer.public_id, rows: 9, cols: 9, status: 'out_of_service', path_active: false })
+    const choices = boxChoices([freezer, box, off])
+    expect(choices).toEqual([{ public_id: box.public_id, label: 'Freezer A / Box 1', rows: 9, cols: 9, free: 76 }])
+    expect(choices.map(boxOption)).toEqual([{ value: box.public_id, label: 'Freezer A / Box 1, 76 free' }])
   })
 })

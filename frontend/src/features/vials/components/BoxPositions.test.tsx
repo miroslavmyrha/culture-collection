@@ -16,8 +16,8 @@ const VIALS = '/api/v1/labs/{lab_public_id}/vials/'
 
 // Fixed ids: the factory counter starts again in every test, so a vial made inside a test would get these.
 const first = makeBoxVial({ public_id: '00000000-0000-4000-8000-0000000000f1', label: 'MYC 42 / 1 / 1' })
-const second = makeBoxVial({ public_id: '00000000-0000-4000-8000-0000000000f2', label: 'MYC 42 / 1 / 2', status: 'quarantined' })
-/** B3 and B4 hold vials of MYC 42, C4 a vial of a regulated strain: the API sent no vial for it. */
+const second = makeBoxVial({ public_id: '00000000-0000-4000-8000-0000000000f2', label: 'MYC 43 / 1 / 2', accession_number: 'MYC 43', taxon_name: 'Fictivibrio exempli', status: 'quarantined' })
+/** B3 holds a vial of MYC 42, B4 one of MYC 43, C4 a vial of a regulated strain: the API sent no vial and no organism for it. */
 const FULL = makeBoxGrid({
   public_id: BOX_ID,
   positions: [makePosition('B3', first), makePosition('B4', second), makePosition('C4', 'masked')],
@@ -38,14 +38,14 @@ async function enterGrid(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('BoxPositions', () => {
-  it('names every position, empty, taken with the label and the state, and masked without anything', async () => {
+  it('names every position, empty, taken with the label, the organism and the state, and masked without anything', async () => {
     mockApi('get', BOX, FULL)
     await render()
     await screen.findByRole('grid', { name: 'Positions of Box 1' })
     expect(within(grid()).getAllByRole('gridcell')).toHaveLength(81)
     expect(cell('A1, empty')).toHaveAttribute('tabindex', '0')
-    expect(cell('B3, MYC 42 / 1 / 1, available')).toHaveTextContent('MYC 421 / 1')
-    expect(cell('B4, MYC 42 / 1 / 2, quarantined')).toHaveTextContent('MYC 421 / 2quarantined')
+    expect(cell('B3, MYC 42 / 1 / 1, Testella exempli, available')).toHaveTextContent(/^MYC 42Testella exempli1 \/ 1$/)
+    expect(cell('B4, MYC 43 / 1 / 2, Fictivibrio exempli, quarantined')).toHaveTextContent(/^MYC 43Fictivibrio exempli1 \/ 2quarantined$/)
     const masked = cell('C4, occupied, regulated')
     expect(masked).toHaveTextContent(/^Hidden$/)
     expect(masked).toHaveAttribute('data-tone', 'masked')
@@ -60,7 +60,7 @@ describe('BoxPositions', () => {
     const user = await enterGrid(userEvent.setup())
     expect(screen.getByText('Position A1: empty.')).toBeInTheDocument()
     await user.keyboard('{ArrowDown}{ArrowRight}{ArrowRight}')
-    expect(screen.getByText(/Position B3: MYC 42 \/ 1 \/ 1, available\./)).toBeInTheDocument()
+    expect(screen.getByText(/Position B3: MYC 42 \/ 1 \/ 1, Testella exempli, available\./)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Strain MYC 42' })).toHaveAttribute('href', `/labs/${LAB_ID}/strains/${first.strain}`)
     await user.keyboard('{ArrowDown}{ArrowRight}')
     expect(screen.getByText('Position C4: a vial of a regulated strain. Which one is hidden.')).toBeInTheDocument()
@@ -103,7 +103,7 @@ describe('BoxPositions', () => {
     expect(calls[0]?.url.pathname).toBe(`/api/v1/labs/${LAB_ID}/vials/${first.public_id}/place/`)
     expect(calls[0]?.body).toEqual({ box: BOX_ID, row: 4, col: 5 })
     expect(calls[0]?.headers.get('X-CSRFToken')).toBeTruthy()
-    expect(cell('D5, MYC 42 / 1 / 1, available')).toHaveFocus()
+    expect(cell('D5, MYC 42 / 1 / 1, Testella exempli, available')).toHaveFocus()
     expect(cell('B3, empty')).toBeInTheDocument()
     expect(selected()).toEqual([])
     expect(grid().querySelectorAll('[tabindex="0"]')).toHaveLength(1)

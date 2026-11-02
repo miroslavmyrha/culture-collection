@@ -247,7 +247,7 @@ describe('StrainMaterial', () => {
     await user.type(within(dialog).getByRole('textbox', { name: 'Protectant' }), ' 10 % glycerol ')
     await user.type(within(dialog).getByRole('textbox', { name: 'Number of vials' }), '5')
     const boxField = await within(dialog).findByRole('combobox', { name: 'Box' })
-    expect(within(boxField).getAllByRole('option').map((o) => o.textContent)).toEqual(['Do not place them yet', 'Freezer A / Rack 1 / Box 1'])
+    expect(within(boxField).getAllByRole('option').map((o) => o.textContent)).toEqual(['Do not place them yet', 'Freezer A / Rack 1 / Box 1, 12 free'])
     await user.selectOptions(boxField, box.public_id)
     await user.tab() // Cancel
     await user.tab()

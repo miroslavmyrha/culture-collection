@@ -29,7 +29,8 @@ const keyOf = (row: number, col: number) => `${row}:${col}`
 const MASKED = 'occupied, regulated'
 
 /**
- * What a box holds, as a grid of its positions (ADR 0008, D6), with the bench work for
+ * What a box holds, as a grid of its positions (ADR 0008, D6), each taken one with its vial and
+ * the organism, with the bench work for
  * technicians and up: a vial is moved in two steps, select it (Enter, Space or a click), then
  * Enter or a click on an empty position places it there; Escape cancels. A vial scanned or typed
  * into "Vial label or barcode" is placed the same way. One polite status line says what
@@ -38,7 +39,8 @@ const MASKED = 'occupied, regulated'
  * without a click (#77, walkthrough T4).
  *
  * A position of a regulated strain's vial says only that it is taken (ADR 0009): the API sends
- * no vial for it, so nothing here can name it. It cannot be picked here; its strain page moves it.
+ * no vial and no organism for it, so nothing here can name it. It cannot be picked here; its strain
+ * page moves it.
  */
 export function BoxPositions({ labId, boxId, boxName, canHandle }: Props) {
   const grid = useBoxGrid(labId, boxId)
@@ -145,7 +147,7 @@ export function BoxPositions({ labId, boxId, boxName, canHandle }: Props) {
     const v = position.vial
     const state = VIAL_STATUS_LABELS[v.status].toLowerCase()
     return {
-      name: `${here}, ${v.label}, ${state}`,
+      name: `${here}, ${v.label}, ${v.taxon_name}, ${state}`,
       tone: 'taken',
       selected: source,
       disabled: refused,
@@ -231,7 +233,7 @@ function Details({ labId, here, position }: { labId: string; here: string; posit
   if (!v) return <Typography>Position {here}: a vial of a regulated strain. Which one is hidden.</Typography>
   return (
     <Typography sx={{ overflowWrap: 'anywhere' }}>
-      Position {here}: {v.label}, {VIAL_STATUS_LABELS[v.status].toLowerCase()}.{' '}
+      Position {here}: {v.label}, {v.taxon_name}, {VIAL_STATUS_LABELS[v.status].toLowerCase()}.{' '}
       <Link to="/labs/$labId/strains/$strainId" params={{ labId, strainId: v.strain }}>
         Strain {v.accession_number}
       </Link>
@@ -239,12 +241,19 @@ function Details({ labId, here, position }: { labId: string; here: string; posit
   )
 }
 
-/** What a taken position shows: the accession, the label's last two parts, the state when not available. */
+/**
+ * What a taken position shows: the accession, the organism (#80), the label's last two parts, the
+ * state when not available. The organism breaks between its words only, so a name widens its
+ * column to its longest word rather than splitting one.
+ */
 function VialLines({ vial: v }: { vial: NonNullable<BoxPosition['vial']> }) {
   const state = VIAL_STATUS_LABELS[v.status].toLowerCase()
   return (
     <>
       <Line strong>{v.accession_number}</Line>
+      <Box component="span" sx={{ display: 'block', overflowWrap: 'normal' }}>
+        {v.taxon_name}
+      </Box>
       <Line>{v.label.split(' / ').slice(-2).join(' / ')}</Line>
       {v.status !== 'available' && <Line>{state}</Line>}
     </>

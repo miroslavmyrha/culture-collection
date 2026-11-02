@@ -1875,6 +1875,7 @@ export interface components {
             /** Format: uuid */
             strain: string;
             accession_number: string;
+            taxon_name: string;
         };
         /**
          * @description * `non_viable` - No longer grows
@@ -1976,6 +1977,7 @@ export interface components {
             readonly status: components["schemas"]["UnitStatus"];
             readonly rows: number | null;
             readonly cols: number | null;
+            readonly counts: components["schemas"]["UnitCounts"];
         };
         /**
          * @description * `exempt_non_pathogenic` - Exempt: not pathogenic to humans or animals
@@ -3915,6 +3917,15 @@ export interface components {
             readonly kind: components["schemas"]["UnitKind"];
             readonly name: string;
         };
+        /** @description What the unit and everything below it holds (selectors.unit_counts). */
+        UnitCounts: {
+            /** @description Boxes below the unit, retired ones not counted */
+            boxes: number;
+            /** @description Vials placed in the unit or below it, of every strain */
+            vials: number;
+            /** @description Positions of those boxes, or of the box itself, that hold no vial */
+            free_positions: number;
+        };
         UnitCreateInputRequest: {
             name: string;
             /** @default  */
@@ -3945,6 +3956,7 @@ export interface components {
             readonly max_risk_group: (components["schemas"]["RiskGroup"] | components["schemas"]["NullEnum"]) | null;
             readonly effective_max_risk_group: components["schemas"]["RiskGroup"];
             readonly path_active: boolean;
+            readonly counts: components["schemas"]["UnitCounts"];
             /** Format: date-time */
             readonly created_at: string;
             /** Format: date-time */
@@ -3991,6 +4003,7 @@ export interface components {
             readonly max_risk_group: (components["schemas"]["RiskGroup"] | components["schemas"]["NullEnum"]) | null;
             readonly effective_max_risk_group: components["schemas"]["RiskGroup"];
             readonly path_active: boolean;
+            readonly counts: components["schemas"]["UnitCounts"];
             /** Format: date-time */
             readonly created_at: string;
             /** Format: date-time */

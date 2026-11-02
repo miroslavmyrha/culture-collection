@@ -52,6 +52,18 @@ class UnitBriefSerializer(serializers.ModelSerializer[StorageUnit]):
         read_only_fields = fields
 
 
+class UnitCountsSerializer(serializers.Serializer[selectors.Counts]):
+    """What the unit and everything below it holds (selectors.unit_counts)."""
+
+    boxes = serializers.IntegerField(help_text="Boxes below the unit, retired ones not counted")
+    vials = serializers.IntegerField(
+        help_text="Vials placed in the unit or below it, of every strain"
+    )
+    free_positions = serializers.IntegerField(
+        help_text="Positions of those boxes, or of the box itself, that hold no vial"
+    )
+
+
 class UnitOutputSerializer(serializers.ModelSerializer[StorageUnit]):
     kind = serializers.ChoiceField(choices=UnitKind.choices, read_only=True)
     status = serializers.ChoiceField(choices=UnitStatus.choices, read_only=True)
@@ -64,6 +76,8 @@ class UnitOutputSerializer(serializers.ModelSerializer[StorageUnit]):
     effective_max_risk_group = serializers.ChoiceField(choices=RISK_GROUPS, read_only=True)
     # The unit and every unit holding it are active: only then may anything go in.
     path_active = serializers.BooleanField(read_only=True)
+    # Set by the view from selectors.unit_counts, one query for every unit of the answer.
+    counts = UnitCountsSerializer(read_only=True)
 
     class Meta:
         model = StorageUnit
@@ -82,6 +96,7 @@ class UnitOutputSerializer(serializers.ModelSerializer[StorageUnit]):
             "max_risk_group",
             "effective_max_risk_group",
             "path_active",
+            "counts",
             "created_at",
             "retired_at",
         )
@@ -91,10 +106,11 @@ class UnitOutputSerializer(serializers.ModelSerializer[StorageUnit]):
 class ChildOutputSerializer(serializers.ModelSerializer[StorageUnit]):
     kind = serializers.ChoiceField(choices=UnitKind.choices, read_only=True)
     status = serializers.ChoiceField(choices=UnitStatus.choices, read_only=True)
+    counts = UnitCountsSerializer(read_only=True)
 
     class Meta:
         model = StorageUnit
-        fields = ("public_id", "kind", "name", "slot", "status", "rows", "cols")
+        fields = ("public_id", "kind", "name", "slot", "status", "rows", "cols", "counts")
         read_only_fields = fields
 
 

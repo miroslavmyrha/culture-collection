@@ -479,6 +479,8 @@ class BoxVialSerializer(serializers.Serializer[Vial]):
     barcode = serializers.CharField(allow_null=True)
     strain = serializers.UUIDField(source="batch.strain.public_id")
     accession_number = serializers.CharField(source="batch.strain.accession_number")
+    # The organism (#80): the name of the strain's current taxon, without its authority.
+    taxon_name = serializers.CharField(source="batch.strain.taxon.name")
 
     def get_label(self, vial: Vial) -> str:
         return f"{vial.batch.strain.accession_number} / {vial.batch.number} / {vial.seq}"

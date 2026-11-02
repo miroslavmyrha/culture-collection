@@ -154,8 +154,8 @@ export function passageTree(passages: readonly Passage[]): PassageNode[] {
   return roots
 }
 
-/** A box with the names of the units above it, for a select. */
-export type BoxChoice = { public_id: string; label: string; rows: number; cols: number }
+/** A box with the names of the units above it, for a select, and how many of its positions hold no vial. */
+export type BoxChoice = { public_id: string; label: string; rows: number; cols: number; free: number }
 
 /** The active boxes of a lab's tree, each named by its path ("Freezer A / Rack 1 / Box 1"). */
 export function boxChoices(units: readonly Unit[]): BoxChoice[] {
@@ -166,8 +166,11 @@ export function boxChoices(units: readonly Unit[]): BoxChoice[] {
   }
   return units
     .filter((u) => u.kind === 'box' && u.path_active && u.rows !== null && u.cols !== null)
-    .map((u) => ({ public_id: u.public_id, label: path(u).join(' / '), rows: u.rows ?? 0, cols: u.cols ?? 0 }))
+    .map((u) => ({ public_id: u.public_id, label: path(u).join(' / '), rows: u.rows ?? 0, cols: u.cols ?? 0, free: u.counts.free_positions }))
 }
+
+/** A box as a select offers it (#80): "Freezer A / Rack 1 / Box 1, 76 free". The path comes first, so typing it picks the box. */
+export const boxOption = (b: BoxChoice) => ({ value: b.public_id, label: `${b.label}, ${b.free} free` })
 
 export const locationText = (l: Location) => `${l.path.join(' / ')}, ${l.label}`
 

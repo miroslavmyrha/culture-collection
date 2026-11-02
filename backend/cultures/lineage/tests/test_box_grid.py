@@ -1,8 +1,9 @@
 """The box grid API (#15): the boxes of a lab and what each position holds, for every role.
 
 - Viewers and up read a box with its taken positions; outsiders get 404, anonymous 401.
-- A position of a regulated strain's vial says `masked` and names no vial, no strain and no
-  label, for every role, a holder of the location grant too (ADR 0009).
+- A taken position names its vial and the organism, the strain's taxon (#80). A position of a
+  regulated strain's vial says `masked` and names no vial, no strain, no organism and no label,
+  for every role, a holder of the location grant too (ADR 0009).
 - The positions of a box come in one query, whatever their number.
 - The vial list finds a vial by what the bench scans or types: its barcode or its label.
 """
@@ -84,6 +85,7 @@ def identities(vial: Vial) -> list[str]:
         str(strain.accession_number),
         strain.name_as_received,
         f"{strain.accession_number} / {vial.batch.number} / {vial.seq}",
+        strain.taxon.name,
     ]
 
 
@@ -133,6 +135,7 @@ def test_a_regulated_position_is_taken_but_names_nothing(
             "barcode": None,
             "strain": str(first.batch.strain.public_id),
             "accession_number": first.batch.strain.accession_number,
+            "taxon_name": "Testella exempli",
         },
     }
 

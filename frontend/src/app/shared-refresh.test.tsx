@@ -336,10 +336,10 @@ describe('a write refreshes the data other features show', () => {
     await waitFor(() => expect(vialRow()).toHaveTextContent('Freezer A / Box 1, A1'))
     expect(vials).toHaveLength(1)
 
-    const grids = mockApi('get', BOX, makeBoxGrid({ public_id: box.public_id, positions: [{ row: 1, col: 1, label: 'A1', masked: false, vial: { public_id: VIAL_ID, label: 'MYC 42 / 1 / 1', status: 'available', barcode: null, strain: STRAIN_ID, accession_number: 'MYC 42' } }] }))
+    const grids = mockApi('get', BOX, makeBoxGrid({ public_id: box.public_id, positions: [{ row: 1, col: 1, label: 'A1', masked: false, vial: { public_id: VIAL_ID, label: 'MYC 42 / 1 / 1', status: 'available', barcode: null, strain: STRAIN_ID, accession_number: 'MYC 42', taxon_name: 'Testella exempli' } }] }))
     await router.navigate({ to: '/labs/$labId/storage/$unitId', params: { labId: LAB_ID, unitId: box.public_id } })
     await waitFor(() => expect(grids).toHaveLength(1))
-    expect(await screen.findByText(/Position A1: MYC 42 \/ 1 \/ 1, available\./)).toBeInTheDocument()
+    expect(await screen.findByText(/Position A1: MYC 42 \/ 1 \/ 1, Testella exempli, available\./)).toBeInTheDocument()
   })
 
   it("adding a restriction hides a vial's location without a reload", async () => {
@@ -373,7 +373,7 @@ describe('a write refreshes the data other features show', () => {
     await vialAction(user, 'MYC 42 / 1 / 2', 'Place')
     const dialog = await screen.findByRole('dialog')
     const choices = await within(dialog).findByRole('combobox', { name: 'Box' })
-    expect(within(choices).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Freezer A / Box 1'])
+    expect(within(choices).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Freezer A / Box 1, 81 free'])
     expect(units).toHaveLength(1)
   })
 
@@ -402,7 +402,7 @@ describe('a write refreshes the data other features show', () => {
     expect(vials).toHaveLength(1)
     await vialAction(user, 'MYC 42 / 1 / 1', 'Move')
     const choices = await within(await screen.findByRole('dialog')).findByRole('combobox', { name: 'Box' })
-    expect(within(choices).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Freezer B / Box 1'])
+    expect(within(choices).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Freezer B / Box 1, 81 free'])
     expect(units).toHaveLength(1)
   })
 

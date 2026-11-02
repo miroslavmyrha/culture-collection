@@ -10,6 +10,7 @@ import { type Growth, type GrowthBody, type GrowthForm, GROWTH_FIELDS, growthBod
 import { usePlace, usePreserve, useRevive, useSetVialStatus, useSubculture } from '../api/mutations'
 import {
   type BoxChoice,
+  boxOption,
   emptyPreserve,
   METHOD_LABELS,
   nextStates,
@@ -128,7 +129,7 @@ export function PreserveBatchDialog({ labId, strainId, accession, passages, boxe
           <SelectField
             label="Box"
             hint="Optional. Placed later otherwise."
-            options={[choose('Do not place them yet'), ...boxes.map((b) => ({ value: b.public_id, label: b.label }))]}
+            options={[choose('Do not place them yet'), ...boxes.map(boxOption)]}
             error={errors.box?.message}
             {...register('box')}
           />
@@ -193,7 +194,7 @@ export function PlaceVialDialog({ labId, strainId, vial, boxes, boxesFailed, ope
           <>
             <SelectField
               label="Box"
-              options={[choose('Choose'), ...boxes.map((b) => ({ value: b.public_id, label: b.label }))]}
+              options={[choose('Choose'), ...boxes.map(boxOption)]}
               // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
               autoFocus
               error={errors.box?.message}

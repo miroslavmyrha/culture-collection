@@ -439,7 +439,8 @@ test.describe('keyboard walk through every page', () => {
       'a:Permits',
       'a:Reveals',
       'button:Add a freezer or tank',
-      'li:E2E freezer, freezer, -20\u00a0°C',
+      // The unit's name ends with its counts (#80), which other specs change by adding vials.
+      expect.stringMatching(/^li:E2E freezer, freezer, -20\u00a0°C, \d+ box(es)?, \d+ vials?, \d+ free$/),
     ])
     // A box: the curator's actions, then the vial finder and the grid, one stop on its first
     // position (seed_e2e's Box 1 holds nothing, so the details of A1 have no link).

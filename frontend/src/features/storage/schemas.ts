@@ -34,14 +34,30 @@ export const sizeLabel = (rows: number, cols: number) => `${rows} x ${cols}, ${p
 /** "-80 °C" with a space that never breaks, so the number keeps its unit on a narrow screen. */
 export const degrees = (celsius: number) => `${celsius}\u00a0°C`
 
-type Summarised = Pick<UnitRow, 'kind' | 'slot' | 'rows' | 'cols' | 'status' | 'temperature_c'>
+type Summarised = Pick<UnitRow, 'kind' | 'slot' | 'rows' | 'cols' | 'status' | 'temperature_c' | 'counts'>
+type Counts = UnitRow['counts']
 
-/** What a unit is, in the words that follow its name: "box in slot 1, 9 x 9". */
+const several = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+
+/**
+ * What a unit and everything below it holds (#80): "3 boxes, 7 vials, 255 free positions", for a
+ * box "5 vials, 76 free positions". `short` says "76 free", for the tree. The vials of every
+ * strain, regulated ones too: a count names no place (ADR 0009).
+ */
+export function countsText(kind: UnitKind, counts: Counts, short = false): string {
+  const parts = kind === 'box' ? [] : [several(counts.boxes, 'box', 'boxes')]
+  parts.push(several(counts.vials, 'vial', 'vials'))
+  parts.push(short ? `${counts.free_positions} free` : several(counts.free_positions, 'free position', 'free positions'))
+  return parts.join(', ')
+}
+
+/** What a unit is and holds, in the words that follow its name: "box in slot 1, 9 x 9, 5 vials, 76 free". A retired unit holds nothing. */
 export function unitSummary(unit: Summarised): string {
   const kind = KIND_WORDS[unit.kind]
   const parts = [unit.slot === null ? kind : `${kind} in slot ${unit.slot}`]
   if (unit.rows !== null && unit.cols !== null) parts.push(`${unit.rows} x ${unit.cols}`)
   if (unit.temperature_c !== null) parts.push(degrees(unit.temperature_c))
+  if (unit.status !== 'retired') parts.push(countsText(unit.kind, unit.counts, true))
   if (unit.status !== 'active') parts.push(STATUS_LABELS[unit.status].toLowerCase())
   return parts.join(', ')
 }
