@@ -186,7 +186,7 @@ class Batch(PublicModel):
 
 
 class VialStatus(models.TextChoices):
-    """ADR 0008, D7. The edges are in EDGES below and in the vial trigger (migration 0009)."""
+    """ADR 0008, D7. The edges are in EDGES below and in the vial trigger (migration 0010)."""
 
     AVAILABLE = "available", "Available"
     RESERVED = "reserved", "Reserved"
@@ -232,8 +232,15 @@ def material_destroyed(strain: Strain) -> bool:
     return strain.status == StrainStatus.DEACCESSIONED and strain.final_use not in KEEPS_MATERIAL
 
 
-def vial_edges(strain: Strain) -> dict[VialStatus, frozenset[VialStatus]]:
-    return EDGES_MATERIAL_DESTROYED if material_destroyed(strain) else EDGES
+def vial_edges(strain: Strain, *, regulated: bool) -> dict[VialStatus, frozenset[VialStatus]]:
+    """The edges of the strain's vials. `regulated`: the strain has an active restriction
+    (strains.selectors.regulating_restrictions, read by the caller). ADR 0009: no single account
+    destroys a regulated strain, so until the destruction record with a second person (#160) its
+    vials take no edge to destroyed. The vial trigger (migration 0010) refuses the same."""
+    edges = EDGES_MATERIAL_DESTROYED if material_destroyed(strain) else EDGES
+    if not regulated:
+        return edges
+    return {old: targets - {S.DESTROYED} for old, targets in edges.items()}
 
 
 # A vial in one of these is not in a box: its placement is closed with the status as reason.

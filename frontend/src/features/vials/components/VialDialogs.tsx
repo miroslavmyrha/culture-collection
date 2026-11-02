@@ -221,14 +221,21 @@ export function PlaceVialDialog({ labId, strainId, vial, boxes, boxesFailed, ope
 type StatusProps = VialProps & {
   /** The strain was deaccessioned with its material destroyed (#150): its vials go only to destruction. */
   materialDestroyed: boolean
+  /** The strain has an active restriction: its vials are not destroyed by one person (ADR 0009, #158). */
+  regulated: boolean
 }
 
-export function VialStatusDialog({ labId, strainId, vial, materialDestroyed, open, onClose, onExited }: StatusProps) {
+/** Why a regulated strain's vial is marked to destroy and stays so (#158, until #160). */
+export const DESTRUCTION_NEEDS_RECORD =
+  'Its strain is regulated: a vial is destroyed only with a destruction record that a second person confirms, which the collection does not keep yet. Marked to destroy, it stays so.'
+
+export function VialStatusDialog({ labId, strainId, vial, materialDestroyed, regulated, open, onClose, onExited }: StatusProps) {
   const change = useSetVialStatus(labId, strainId)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
-  const states = nextStates(vial, materialDestroyed)
+  const states = nextStates(vial, materialDestroyed, regulated)
   const found = materialDestroyed && vial.status === 'lost' ? ' Its strain was deaccessioned and its material destroyed: a found vial goes to destruction.' : ''
+  const destruction = regulated && states.includes('to_destroy') ? ` ${DESTRUCTION_NEEDS_RECORD}` : ''
 
   const { register, handleSubmit, formState, setError } = useForm<StatusForm>({
     resolver: zodResolver(statusSchema),
@@ -249,7 +256,7 @@ export function VialStatusDialog({ labId, strainId, vial, materialDestroyed, ope
     <ConfirmDialog
       open={open}
       title={`Change the state of vial ${vial.label}`}
-      description={`Now ${VIAL_STATUS_LABELS[vial.status].toLowerCase()}.${found} A vial that is consumed, destroyed, lost or entered in error leaves its position.`}
+      description={`Now ${VIAL_STATUS_LABELS[vial.status].toLowerCase()}.${found}${destruction} A vial that is consumed, destroyed, lost or entered in error leaves its position.`}
       confirmLabel="Save state"
       form={formId}
       pending={change.isPending}

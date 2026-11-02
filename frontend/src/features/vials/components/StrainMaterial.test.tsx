@@ -51,7 +51,21 @@ function mockMaterial(vials = [placed, loose, consumed]) {
 const many = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => makeVial({ label: `MYC 42 / ${from + i > 200 ? 2 : 1} / ${((from + i - 1) % 200) + 1}` }))
 
 /** The tab as the page drives it: the page of the vials in the page's state (the URL there). */
-function Material({ canHandle, limit = 50, vial, strainGrowth = noGrowth(), materialDestroyed = false }: { canHandle: boolean; limit?: number; vial?: string; strainGrowth?: Growth; materialDestroyed?: boolean }) {
+function Material({
+  canHandle,
+  limit = 50,
+  vial,
+  strainGrowth = noGrowth(),
+  materialDestroyed = false,
+  regulated = false,
+}: {
+  canHandle: boolean
+  limit?: number
+  vial?: string
+  strainGrowth?: Growth
+  materialDestroyed?: boolean
+  regulated?: boolean
+}) {
   const [vialPage, setVialPage] = useState<VialPage>({ limit, offset: 0, batch: undefined, vial })
   return (
     <StrainMaterial
@@ -61,6 +75,7 @@ function Material({ canHandle, limit = 50, vial, strainGrowth = noGrowth(), mate
       canHandle={canHandle}
       canRelease={canHandle}
       materialDestroyed={materialDestroyed}
+      regulated={regulated}
       strainGrowth={strainGrowth}
       vialPage={vialPage}
       onVialPage={(next) => setVialPage((current) => ({ ...current, ...next }))}
@@ -68,8 +83,8 @@ function Material({ canHandle, limit = 50, vial, strainGrowth = noGrowth(), mate
   )
 }
 
-const render = (canHandle = true, limit = 50, strainGrowth: Growth = noGrowth(), materialDestroyed = false) =>
-  renderWithProviders(<Material canHandle={canHandle} limit={limit} strainGrowth={strainGrowth} materialDestroyed={materialDestroyed} />)
+const render = (canHandle = true, limit = 50, strainGrowth: Growth = noGrowth(), materialDestroyed = false, regulated = false) =>
+  renderWithProviders(<Material canHandle={canHandle} limit={limit} strainGrowth={strainGrowth} materialDestroyed={materialDestroyed} regulated={regulated} />)
 
 describe('StrainMaterial', () => {
   it('shows the passages, the batches and where each vial is', async () => {
@@ -439,6 +454,41 @@ describe('StrainMaterial', () => {
     expect(dialog).toHaveAccessibleDescription('Now lost. A vial that is consumed, destroyed, lost or entered in error leaves its position.')
     const state = within(dialog).getByRole('combobox', { name: 'New state' })
     expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(['Available'])
+  })
+
+  it('destroys a vial to destroy of a strain without restrictions, as before (#158)', async () => {
+    const marked = makeVial({ label: 'MYC 42 / 1 / 5', status: 'to_destroy', status_changed_at: '2026-10-02T10:00:00Z' })
+    mockMaterial([marked])
+    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/status/', { ...marked, status: 'destroyed' })
+    await render()
+    const user = userEvent.setup()
+    await vialAction(user, 'MYC 42 / 1 / 5', 'Change state')
+    const dialog = await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 5' })
+    expect(dialog).toHaveAccessibleDescription('Now to destroy. A vial that is consumed, destroyed, lost or entered in error leaves its position.')
+    const state = within(dialog).getByRole('combobox', { name: 'New state' })
+    expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(['Destroyed'])
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'Autoclaved.')
+    await user.click(within(dialog).getByRole('button', { name: 'Save state' }))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    expect(calls[0]?.body).toEqual({ status: 'destroyed', reason: 'Autoclaved.' })
+  })
+
+  it('offers a regulated strain\'s vial to destroy no state, and says in the dialog why it stays so (#158)', async () => {
+    const marked = makeVial({ label: 'MYC 42 / 1 / 5', status: 'to_destroy', status_changed_at: '2026-10-02T10:00:00Z' })
+    mockMaterial([marked, loose])
+    await render(true, 50, noGrowth(), false, true)
+    const user = userEvent.setup()
+    // Its menu still places it, but has no state to change to.
+    await user.click(await screen.findByRole('button', { name: 'Actions for vial MYC 42 / 1 / 5' }))
+    expect((await screen.findAllByRole('menuitem')).map((item) => item.textContent)).toEqual(['Place'])
+    await user.keyboard('{Escape}')
+    await vialAction(user, 'MYC 42 / 1 / 2', 'Change state')
+    const dialog = await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 2' })
+    expect(dialog).toHaveAccessibleDescription(
+      'Now available. Its strain is regulated: a vial is destroyed only with a destruction record that a second person confirms, which the collection does not keep yet. Marked to destroy, it stays so. A vial that is consumed, destroyed, lost or entered in error leaves its position.',
+    )
+    const state = within(dialog).getByRole('combobox', { name: 'New state' })
+    expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(['Quarantined', 'To destroy', 'Consumed', 'Lost', 'Entered in error'])
   })
 
   it('offers no "entered in error" for a vial whose state changed before', async () => {

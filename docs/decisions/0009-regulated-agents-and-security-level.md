@@ -608,3 +608,25 @@ that set its constraints immediate.
 
 Migration impact: additive, two functions and two triggers. A constraint trigger checks only
 rows written after it exists. Reversible: `migrate strains 0009`.
+
+## Amendment 2026-11-02: no vial of a regulated strain is destroyed by one person (#158)
+
+The consequence above says that no single account destroys a regulated strain. Until now one
+person who handles vials took a regulated strain's vial from to destroy to destroyed: that edge
+was open for every strain, and nothing read the restrictions on it. Until the destruction record
+with a second person exists (#160), the edge is refused for a vial of a strain with an active
+restriction of any kind (`strains.selectors.regulating_restrictions()`):
+
+- The service (`lineage.services.vial_transition`) refuses it with `destruction_needs_record`
+  (400 on `status`). `lineage.models.vial_edges` takes the strain's regulation and drops the
+  edge to destroyed.
+- The vial trigger refuses it against every writer (`lineage` 0010), with the same definition
+  in SQL (`ended_at IS NULL`); a test asserts both sides agree for each restriction kind and for
+  an ended restriction.
+- The vial screen does not offer Destroyed for such a vial and says why.
+
+Marking the vial to destroy stays allowed, also at a deaccession, which marks the held vials
+to destroy (#150). A strain without restrictions, or whose restrictions all ended, is unchanged.
+
+Migration impact: the vial guard function replaced, no data change. A vial already destroyed
+stays so. Reversible: `migrate lineage 0009`.

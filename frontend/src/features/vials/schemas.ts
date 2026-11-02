@@ -113,9 +113,16 @@ const KEEPS_MATERIAL: readonly string[] = ['collection', 'storage']
 export const strainMaterialDestroyed = (strain: { status: Schemas['StrainStatus']; deaccession: { final_use: string } | null }): boolean =>
   strain.status === 'deaccessioned' && !KEEPS_MATERIAL.includes(strain.deaccession?.final_use ?? '')
 
-export const nextStates = (vial: Vial, materialDestroyed: boolean): ManualStatus[] =>
-  // Entered in error only while the state never changed (the server says so too).
-  (materialDestroyed ? NEXT_STATES_MATERIAL_DESTROYED : NEXT_STATES)[vial.status].filter((s) => s !== 'entered_in_error' || vial.status_changed_at === null)
+/**
+ * `regulated`: the strain has an active restriction (the server's `regulated`). ADR 0009: no
+ * single account destroys a regulated strain, so until the destruction record with a second
+ * person (#160) its vials are not offered "Destroyed" (lineage.models.vial_edges).
+ */
+export const nextStates = (vial: Vial, materialDestroyed: boolean, regulated: boolean): ManualStatus[] =>
+  (materialDestroyed ? NEXT_STATES_MATERIAL_DESTROYED : NEXT_STATES)[vial.status].filter(
+    // Entered in error only while the state never changed (the server says so too).
+    (s) => (s !== 'entered_in_error' || vial.status_changed_at === null) && (s !== 'destroyed' || !regulated),
+  )
 
 /** D6: rows as letters, columns as numbers, both from 1. */
 export const rowLabel = (row: number) => String.fromCodePoint(64 + row)

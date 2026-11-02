@@ -41,6 +41,8 @@ type Props = {
   canRelease: boolean
   /** The strain was deaccessioned with its material destroyed (#150): its vials go only to destruction. */
   materialDestroyed: boolean
+  /** The strain has an active restriction (ADR 0009): its vials are not destroyed by one person (#158). */
+  regulated: boolean
   /** The page of the vials the URL holds, and how to ask for another (#72). */
   vialPage: VialPage
   onVialPage: (next: Partial<VialPage>) => void
@@ -64,7 +66,7 @@ type Open =
  * curators release and hold. Vials in no box are selected in their rows and placed into one box
  * in one step (#77).
  */
-export function StrainMaterial({ labId, strainId, accession, strainGrowth, canHandle, canRelease, materialDestroyed, vialPage, onVialPage }: Props) {
+export function StrainMaterial({ labId, strainId, accession, strainGrowth, canHandle, canRelease, materialDestroyed, regulated, vialPage, onVialPage }: Props) {
   const passages = usePassages(labId, strainId)
   const batches = useBatches(labId, strainId)
   const vials = useVialPage(labId, strainId, vialPage)
@@ -334,7 +336,7 @@ export function StrainMaterial({ labId, strainId, accession, strainGrowth, canHa
                       </TableCell>
                       {canHandle && (
                         <TableCell>
-                          <Actions vial={v} materialDestroyed={materialDestroyed} show={showFrom} />
+                          <Actions vial={v} materialDestroyed={materialDestroyed} regulated={regulated} show={showFrom} />
                         </TableCell>
                       )}
                     </TableRow>
@@ -374,7 +376,7 @@ export function StrainMaterial({ labId, strainId, accession, strainGrowth, canHa
           onPlaced={() => setChosen(new Set())}
         />
       )}
-      {open?.kind === 'status' && <VialStatusDialog {...common} vial={open.vial} materialDestroyed={materialDestroyed} open={open.open} />}
+      {open?.kind === 'status' && <VialStatusDialog {...common} vial={open.vial} materialDestroyed={materialDestroyed} regulated={regulated} open={open.open} />}
       {open?.kind === 'revive' && strainGrowth && <ReviveDialog {...common} vial={open.vial} strainGrowth={strainGrowth} open={open.open} />}
       {open?.kind === 'check' && (
         <RecordCheckDialog {...common} batch={open.batch} vials={batchVials.data?.results ?? (batchVials.isError ? [] : undefined)} vialsTotal={batchVials.data?.count} checks={open.checks} open={open.open} />
@@ -487,13 +489,13 @@ function PlaceSeveral({ loose, selected, onAll, onPlace }: PlaceSeveralProps) {
   )
 }
 
-type ActionsProps = { vial: Vial; materialDestroyed: boolean; show: (next: NonNullable<Open>) => (button: HTMLButtonElement) => void }
+type ActionsProps = { vial: Vial; materialDestroyed: boolean; regulated: boolean; show: (next: NonNullable<Open>) => (button: HTMLButtonElement) => void }
 
 /** A vial's bench work in one menu per row (#19): move or place, change its state, revive it. */
-function Actions({ vial, materialDestroyed, show }: ActionsProps) {
+function Actions({ vial, materialDestroyed, regulated, show }: ActionsProps) {
   const items: ActionItem[] = []
   if (!OUT_OF_A_BOX.includes(vial.status)) items.push({ label: vial.placed ? 'Move' : 'Place', onSelect: show({ kind: 'place', vial, open: true }) })
-  if (nextStates(vial, materialDestroyed).length > 0) items.push({ label: 'Change state', onSelect: show({ kind: 'status', vial, open: true }) })
+  if (nextStates(vial, materialDestroyed, regulated).length > 0) items.push({ label: 'Change state', onSelect: show({ kind: 'status', vial, open: true }) })
   if (vial.status === 'available') items.push({ label: 'Revive', onSelect: show({ kind: 'revive', vial, open: true }) })
   if (items.length === 0) return <Typography variant="body2" color="text.secondary">None</Typography>
   return <ActionMenu label="Actions" name={`Actions for vial ${vial.label}`} items={items} size="small" />

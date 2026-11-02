@@ -21,6 +21,7 @@ from cultures.labs.permissions import Perm, Role, role_has
 from cultures.storage.models import StorageUnit
 from cultures.storage.policy import may_store
 from cultures.strains.models import Strain, StrainStatus
+from cultures.strains.selectors import regulating_restrictions
 
 from ..models import (
     EDGES,
@@ -32,6 +33,7 @@ from ..models import (
     vial_edges,
 )
 from .errors import (
+    DestructionNeedsRecord,
     EdgeNotAllowed,
     InvalidVial,
     MaterialDestroyed,
@@ -187,7 +189,16 @@ def _transition(locked: Vial, status: VialStatus, reason: str, access: Access) -
     vial, under the lab lock its deaccession takes too), closes the placement of a vial that
     leaves its box, and records one event with both."""
     old = VialStatus(locked.status)
-    if status not in vial_edges(locked.batch.strain)[old]:
+    strain = locked.batch.strain
+    # Only an edge to destroyed depends on the restrictions (vial_edges), so only that one reads
+    # them, under the lab lock the restrictions change under (strains.services).
+    regulated = (
+        status == VialStatus.DESTROYED
+        and regulating_restrictions().filter(strain_id=strain.pk).exists()
+    )
+    if status not in vial_edges(strain, regulated=regulated)[old]:
+        if regulated and status in vial_edges(strain, regulated=False)[old]:
+            raise DestructionNeedsRecord
         if status in EDGES[old]:
             raise MaterialDestroyed
         raise EdgeNotAllowed(
