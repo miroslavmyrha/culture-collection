@@ -124,7 +124,25 @@ test('M7 see how the lab stands: strains, vials, batches waiting', async ({ brow
   await expect(card).toContainText('Free box positions')
   w.look()
   await w.shot('lab-card')
-  w.note('The figures are of today: no trend, and nothing says how many vials of each strain are left')
+  // How many vials of each strain may go out: a column of the strain list (#13), and a filter for the strains that have any.
+  await w.click(card.getByRole('link', { name: /^Strains: \d+$/ }))
+  const strains = w.page.getByRole('table', { name: 'Strains' })
+  await w.read(strains.getByRole('columnheader', { name: 'Available for distribution' }))
+  const column = (await strains.getByRole('columnheader').allInnerTexts()).indexOf('Available for distribution')
+  const lines = strains.getByRole('row')
+  await expect(lines.nth(1).getByRole('cell').nth(column)).toHaveText(/^\d+$/)
+  const before = await lines.count()
+  await w.click(w.page.getByRole('form', { name: 'Filter strains' }).getByRole('checkbox', { name: 'Only with vials for distribution' }))
+  await expect(w.page).toHaveURL(/distributable=true/)
+  // The list reloads with the filter: wait until every figure shown is above 0 (and some row is shown).
+  await expect(async () => {
+    expect(await lines.count()).toBeGreaterThan(1)
+    expect(await lines.count()).toBeLessThanOrEqual(before)
+    for (const cell of await lines.locator('td:nth-child(' + (column + 1) + ')').allInnerTexts()) expect(Number(cell)).toBeGreaterThan(0)
+  }).toPass()
+  w.look()
+  await w.shot('strains-with-vials')
+  w.note('The figures are of today: no trend')
   await w.done()
 })
 

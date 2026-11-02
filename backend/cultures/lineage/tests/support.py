@@ -103,6 +103,18 @@ def pass_all(actor: User, batch: Batch, **changes: Any) -> list[BatchCheck]:
     return [record(actor, batch, kind, **changes) for kind in CheckKind]
 
 
+def released(technician: User, curator: User, batch: Batch) -> Batch:
+    """The batch past its three checks and released by the curator (the technician's checks need
+    the as_technician context, the release the curator's own)."""
+    pass_all(technician, batch)
+    with audit_context(channel=Channel.API, actor=curator, request_id="req-c"):
+        return services.batch_release(
+            access=access_for(curator),
+            batch=batch,
+            reason="all three checks after preservation passed",
+        )
+
+
 PLATE_COUNT = {"value": Decimal("250000000"), "unit": CheckUnit.CFU_PER_ML}
 
 

@@ -55,6 +55,8 @@ class StrainListOutputSerializer(serializers.ModelSerializer[Strain]):
     restrictions = RestrictionBriefSerializer(
         source="active_restrictions", many=True, read_only=True
     )
+    # Vials that may go out (strains.selectors.strain_list): a count, never a place.
+    vials_distributable = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Strain
@@ -66,6 +68,7 @@ class StrainListOutputSerializer(serializers.ModelSerializer[Strain]):
             "risk_group",
             "status",
             "restrictions",
+            "vials_distributable",
             "created_at",
         )
         read_only_fields: tuple[str, ...] = fields
@@ -187,6 +190,8 @@ class StrainDepositSerializer(serializers.Serializer[object]):
 
 
 class StrainDetailOutputSerializer(StrainListOutputSerializer):
+    # The list's column; the strain's page has its own figures (the Material tab).
+    vials_distributable = None  # type: ignore[assignment]
     animal_pathogenicity = serializers.ChoiceField(choices=Pathogenicity.choices, read_only=True)
     plant_pathogenicity = serializers.ChoiceField(choices=Pathogenicity.choices, read_only=True)
     growth = GrowthOutputSerializer(source="*", read_only=True)
@@ -203,7 +208,11 @@ class StrainDetailOutputSerializer(StrainListOutputSerializer):
 
     class Meta(StrainListOutputSerializer.Meta):
         fields = (
-            *StrainListOutputSerializer.Meta.fields,
+            *(
+                name
+                for name in StrainListOutputSerializer.Meta.fields
+                if name != "vials_distributable"
+            ),
             "animal_pathogenicity",
             "plant_pathogenicity",
             "isolation_source",

@@ -1,5 +1,5 @@
 import { type ReactNode, useRef, useState } from 'react'
-import { Box, Button, SelectField, Stack, TextField } from '@/components/ui'
+import { Box, Button, CheckboxField, SelectField, Stack, TextField } from '@/components/ui'
 import { COUNTRY_CODES, countryOptions } from '@/lib/countries'
 import { useTaxon } from '../api/queries'
 import {
@@ -111,6 +111,11 @@ export function StrainFilters({ filters, onChange, renderDepositor }: Props) {
           options={COUNTRIES}
           value={filters.country ?? ''}
           onChange={(event) => onChange((current) => ({ ...current, country: countryOf(event.target.value) }))}
+        />
+        <CheckboxField
+          label="Only with vials for distribution"
+          checked={filters.distributable === true}
+          onChange={(event) => onChange((current) => ({ ...current, distributable: event.target.checked ? true : undefined }))}
         />
         {renderDepositor && <Box sx={{ minWidth: { md: 260 } }}>{renderDepositor(filters.depositor, (depositor) => onChange((current) => ({ ...current, depositor })))}</Box>}
         <Stack direction="row" spacing={1} sx={{ pt: 1 }}>

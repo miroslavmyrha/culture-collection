@@ -1,12 +1,24 @@
 """Reads of strains. Every one takes the access object, so the lab scope is in the signature."""
 
-from django.db.models import Exists, F, OuterRef, Prefetch, Q, QuerySet
+from django.db.models import (
+    Count,
+    Exists,
+    F,
+    IntegerField,
+    OuterRef,
+    Prefetch,
+    Q,
+    QuerySet,
+    Subquery,
+)
+from django.db.models.functions import Coalesce
 
 from cultures.biosafety.models import RestrictionKind
 from cultures.deposits.models import Depositor
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
+from cultures.lineage.models import Vial, VialStatus
 from cultures.taxonomy.models import Taxon
 from cultures.taxonomy.selectors import taxon_and_below
 
@@ -38,13 +50,36 @@ def in_collection(strains: QuerySet[Strain]) -> QuerySet[Strain]:
     return strains.exclude(status=StrainStatus.DEACCESSIONED)
 
 
+def distributable_vials() -> QuerySet[Vial]:
+    """The vials that may go out: in the status available, of a released batch of distribution
+    stock of a strain that still supplies (lineage.selectors.distributable, the one definition the
+    batch figure and the distribution of vials read). What the list counts per strain and its
+    filter asks for. A count says nothing of where a vial is, so it is not a location and the
+    masking of regulated strains (ADR 0009) does not apply to it."""
+    # lineage.selectors imports this module, so it is imported here, when called.
+    from cultures.lineage.selectors import distributable  # noqa: PLC0415
+
+    return Vial.objects.filter(distributable("batch__"), status=VialStatus.AVAILABLE)
+
+
 def strain_list(*, access: Access, lab: Lab) -> QuerySet[Strain]:
-    """The strains of one lab the user may view, by accession number (numbered first). Every
-    status: the list's filter leaves out the deaccessioned ones unless asked (filters)."""
+    """The strains of one lab the user may view, by accession number (numbered first), each with
+    `vials_distributable`, the number of its vials that may go out, from a subquery in the same
+    query. Every status: the list's filter leaves out the deaccessioned ones unless asked
+    (filters)."""
+    vials = (
+        distributable_vials()
+        .filter(batch__strain=OuterRef("pk"))
+        .order_by()
+        .values("batch__strain")
+        .annotate(n=Count("pk"))
+        .values("n")
+    )
     return (
         Strain.objects.for_access(access, Perm.VIEW_STRAINS)
         .filter(lab=lab)
         .select_related("taxon")
+        .annotate(vials_distributable=Coalesce(Subquery(vials, output_field=IntegerField()), 0))
         .prefetch_related(
             Prefetch(
                 "restrictions",
@@ -145,3 +180,9 @@ def with_isolation_source(strains: QuerySet[Strain], text: str) -> QuerySet[Stra
 def from_depositor(strains: QuerySet[Strain], depositor: Depositor) -> QuerySet[Strain]:
     """Strains accepted from a deposit of the depositor (Deposit.strain, one to one)."""
     return strains.filter(deposit__depositor=depositor)
+
+
+def with_distributable_vials(strains: QuerySet[Strain], distributable: bool) -> QuerySet[Strain]:
+    """Strains with at least one vial that may go out, or with none (distributable=false)."""
+    has = Exists(distributable_vials().filter(batch__strain=OuterRef("pk")))
+    return strains.filter(has) if distributable else strains.exclude(has)

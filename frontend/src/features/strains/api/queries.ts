@@ -9,7 +9,7 @@ export const strainListOptions = (labId: string, params: StrainListParams) =>
   queryOptions({
     queryKey: strainKeys.list(labId, params),
     queryFn: ({ signal }) =>
-      unwrap(api.GET('/api/v1/labs/{lab_public_id}/strains/', { signal, params: { path: { lab_public_id: labId }, query: params } })),
+      unwrap(api.GET('/api/v1/labs/{lab_public_id}/strains/', { signal, params: { path: { lab_public_id: labId }, query: { ...params, distributable: params.distributable ? 'true' : undefined } } })),
     // The previous page or filter stays on screen while the next one loads.
     placeholderData: keepPreviousData,
   })

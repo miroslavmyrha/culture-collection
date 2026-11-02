@@ -39,6 +39,7 @@ export function StrainList({ labId, params, onOffsetChange, onClearFilters }: Pr
               <TableCell>Taxon</TableCell>
               <TableCell>Risk group</TableCell>
               <TableCell>Restrictions</TableCell>
+              <TableCell align="right">Available for distribution</TableCell>
               <TableCell>Status</TableCell>
             </TableRow>
           </TableHead>
@@ -56,6 +57,7 @@ export function StrainList({ labId, params, onOffsetChange, onClearFilters }: Pr
                 </TableCell>
                 <TableCell>{strain.risk_group}</TableCell>
                 <TableCell>{strain.restrictions.length === 0 ? 'None' : strain.restrictions.map((r) => <StatusChip key={r.kind} tone="regulated">{RESTRICTION_LABELS[r.kind]}</StatusChip>)}</TableCell>
+                <TableCell align="right">{strain.vials_distributable}</TableCell>
                 <TableCell>
                   <StatusChip tone={STRAIN_TONES[strain.status]}>{STATUS_LABELS[strain.status]}</StatusChip>
                 </TableCell>
