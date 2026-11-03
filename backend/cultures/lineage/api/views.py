@@ -47,6 +47,7 @@ from .serializers import (
     CheckInputSerializer,
     GrowthOverrideInputSerializer,
     LocationSerializer,
+    LossReportInputSerializer,
     PassageOutputSerializer,
     PlacedVialsOutputSerializer,
     PlaceInputSerializer,
@@ -354,9 +355,10 @@ class BatchCheckViewSet(LabNested):
 
 # Vials of the lab's strains, paged, by strain, batch and number. Viewers and up read
 # (strains.view); technicians and up place, move, change the state, set a barcode and revive
-# (vials.handle). The location of a vial of a regulated strain is never in this list or in
-# any answer but the reveal, which needs the lab's location grant (ADR 0009, amendment of
-# 2026-10-19). Vials are never deleted.
+# (vials.handle); managers record that the loss of a VRAT or RAT vial was reported to the police
+# (#159, distribution.approve_regulated). The location of a vial of a regulated strain is never
+# in this list or in any answer but the reveal, which needs the lab's location grant (ADR 0009,
+# amendment of 2026-10-19). Vials are never deleted.
 @extend_schema(parameters=[LAB_PARAMETER])
 class VialViewSet(LabNested):
     model = Vial
@@ -368,6 +370,8 @@ class VialViewSet(LabNested):
         "barcode": Perm.HANDLE_VIALS,
         "revive": Perm.HANDLE_VIALS,
         "reveal_location": Perm.VIEW_STRAINS,
+        # Managers answer to the authority for regulated agents (labs.permissions).
+        "report_loss": Perm.APPROVE_REGULATED,
     }
     serializer_class = VialOutputSerializer
     filterset_class = VialFilter
@@ -478,6 +482,40 @@ class VialViewSet(LabNested):
         )
         fresh = selectors.passage_list(access=access_of(request), lab=self.lab).get(pk=passage.pk)
         return Response(PassageOutputSerializer(fresh).data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        request=LossReportInputSerializer,
+        responses={
+            200: VialOutputSerializer,
+            (400, PROBLEM): OpenApiResponse(
+                ProblemSerializer,
+                "Invalid input on a field: a reference left empty, a day in the future or before"
+                " the loss",
+            ),
+            (409, PROBLEM): OpenApiResponse(
+                ProblemSerializer,
+                "vial_not_lost: the vial was found; loss_changed: found and lost again since it"
+                " was read; loss_not_reportable: its strain was not a VRAT or RAT when it was"
+                " lost; loss_reported: this loss's report is recorded already",
+            ),
+            (422, PROBLEM): RULE,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="loss-report")
+    def report_loss(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        vial: Vial = self.get_object()
+        data = LossReportInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        values = data.validated_data
+        services.vial_loss_report(
+            access=access_of(request),
+            vial=vial,
+            lost_at=values["lost_at"],
+            reported_on=values["reported_on"],
+            reference=values["reference"],
+            reason=values["reason"],
+        )
+        return self._detail(vial)
 
     @extend_schema(
         request=None,

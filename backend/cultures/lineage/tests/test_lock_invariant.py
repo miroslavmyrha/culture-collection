@@ -15,11 +15,17 @@ from django.db import connection
 from django.test.utils import CaptureQueriesContext
 
 from cultures.audit.context import AuditContext
+from cultures.biosafety.models import RestrictionKind
+from cultures.biosafety.policy import permit_today
 from cultures.labs.access import Access, access_for
+from cultures.labs.permissions import Role
+from cultures.labs.tests.conftest import member_of
 from cultures.labs.tests.test_lock_invariant import first, locks, public_services
 from cultures.lineage import services
 from cultures.lineage.models import CheckKind, Passage, Vial, VialStatus
 from cultures.storage.tests.conftest import Tree
+from cultures.strains import services as strains
+from cultures.strains.services import RestrictionInput
 from cultures.users.models import User
 
 from .support import MakeBatch, new_batch, new_check, vials_of
@@ -53,6 +59,7 @@ SCENARIOS: dict[str, Scenario] = {
     "check_enter_in_error": lambda a, p, v, t: _enter_in_error(a, v),
     "batch_release": lambda a, p, v, t: _decide(a, v, services.batch_release),
     "batch_hold": lambda a, p, v, t: _decide(a, v, services.batch_hold),
+    "vial_loss_report": lambda a, p, v, t: _report_loss(a, v),
 }
 
 
@@ -88,6 +95,27 @@ def _decide(access: Access, vial: Vial, decide: Callable[..., object]) -> Callab
     curator = access_for(User.objects.get(username="curator"))
     batch = vial.batch
     return lambda: decide(access=curator, batch=batch, reason="decided")
+
+
+def _report_loss(access: Access, vial: Vial) -> Callable[[], object]:
+    """The strain made a RAT and the vial lost first; the report by a manager of the lab."""
+    curator = User.objects.get(username="curator")
+    strains.strain_restriction_add(
+        access=access_for(curator),
+        strain=vial.batch.strain,
+        restriction=RestrictionInput(RestrictionKind.CZ_RAT, "Příloha 2, bod 1"),
+        reason="listed",
+    )
+    lost = services.vial_transition(access=access, vial=vial, status=VialStatus.LOST, reason="r")
+    manager = access_for(member_of(vial.lab, Role.MANAGER, "loss-manager"))
+    return lambda: services.vial_loss_report(
+        access=manager,
+        vial=lost,
+        lost_at=lost.status_changed_at,  # type: ignore[arg-type]  # set by the transition
+        reported_on=permit_today(),
+        reference="KRPB-1",
+        reason="reported",
+    )
 
 
 EXEMPT: dict[str, str] = {

@@ -341,6 +341,15 @@ def vial_context(
     }
 
 
+class PoliceReportSerializer(serializers.Serializer[Vial]):
+    """The loss a vial is in, when the police must be told of it (#159, act 281/2002 Sb.,
+    § 5(5)): the day it was reported and the police reference, both null until a manager records
+    them."""
+
+    reported_on = serializers.DateField(source="loss_reported_on", allow_null=True)
+    reference = serializers.CharField(source="loss_reference", allow_null=True)
+
+
 class VialOutputSerializer(serializers.ModelSerializer[Vial]):
     """Context: `paths`, the box paths of the rows shown (selectors.box_paths), and
     `may_reveal`, whether the reader holds the lab's location grant: vial_context."""
@@ -353,6 +362,8 @@ class VialOutputSerializer(serializers.ModelSerializer[Vial]):
     location = serializers.SerializerMethodField()
     location_masked = serializers.SerializerMethodField()
     can_reveal = serializers.SerializerMethodField()
+    # Null unless the vial is lost and was lost while its strain was a VRAT or RAT (#159).
+    police_report = serializers.SerializerMethodField()
 
     class Meta:
         model = Vial
@@ -369,6 +380,7 @@ class VialOutputSerializer(serializers.ModelSerializer[Vial]):
             "location",
             "location_masked",
             "can_reveal",
+            "police_report",
         )
         read_only_fields = fields
 
@@ -395,6 +407,12 @@ class VialOutputSerializer(serializers.ModelSerializer[Vial]):
 
     def get_can_reveal(self, vial: Vial) -> bool:
         return self.get_location_masked(vial) and bool(self.context.get("may_reveal"))
+
+    @extend_schema_field(PoliceReportSerializer(allow_null=True))
+    def get_police_report(self, vial: Vial) -> dict[str, Any] | None:
+        if not vars(vial)["loss_reportable"]:
+            return None
+        return PoliceReportSerializer(vial).data
 
 
 class PlaceInputSerializer(serializers.Serializer[None]):
@@ -456,6 +474,17 @@ MANUAL_CHOICES = [(s.value, s.label) for s in VialStatus if s in MANUAL_TARGETS]
 
 class VialStatusInputSerializer(serializers.Serializer[None]):
     status = serializers.ChoiceField(choices=MANUAL_CHOICES)
+    reason = serializers.CharField(help_text=REASON_HELP)
+
+
+class LossReportInputSerializer(serializers.Serializer[None]):
+    # The vial's status_changed_at as the page read it: which loss is reported.
+    lost_at = serializers.DateTimeField()
+    reported_on = serializers.DateField()
+    reference = serializers.CharField(
+        max_length=100,
+        help_text="The reference the police gave the report, as they wrote it. Name no person.",
+    )
     reason = serializers.CharField(help_text=REASON_HELP)
 
 

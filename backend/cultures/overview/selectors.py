@@ -25,6 +25,7 @@ from django.db.models import (
     Case,
     CharField,
     Count,
+    Exists,
     F,
     Min,
     Model,
@@ -52,7 +53,7 @@ from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm, Role
 from cultures.lineage.models import PASSING, Batch, BatchStatus, CheckKind, Vial, VialStatus
-from cultures.lineage.selectors import latest_result
+from cultures.lineage.selectors import latest_result, loss_reports_of_this_loss, reportable_loss
 from cultures.storage.selectors import free_positions
 from cultures.strains.models import Strain
 
@@ -68,9 +69,11 @@ TO_CHECK = (DepositStatus.RECEIVED, DepositStatus.CHECKING)
 
 
 class Kind(StrEnum):
-    """What waits, in the order Home lists the groups: intake, bench, decisions, dispatch,
-    permits, destruction."""
+    """What waits, in the order Home lists the groups: losses to report to the police first (the
+    act asks it without undue delay), then intake, bench, decisions, dispatch, permits,
+    destruction."""
 
+    LOSS_TO_REPORT = "loss_to_report"
     DEPOSIT_RECEIVED = "deposit_received"
     DEPOSIT_CHECKING = "deposit_checking"
     BATCH_CHECKS_MISSING = "batch_checks_missing"
@@ -87,6 +90,8 @@ class Kind(StrEnum):
 # Who may act on each kind: the permission the handling page checks. The one source: every query
 # below scopes its rows by these, per kind (_scoped), never by a permission of its own.
 KIND_PERM: dict[Kind, Perm] = {
+    # Act 281/2002 Sb., § 5(5) (#159): the managers answer to the authority, as for a permit.
+    Kind.LOSS_TO_REPORT: Perm.APPROVE_REGULATED,
     Kind.DEPOSIT_RECEIVED: Perm.MANAGE_DEPOSITS,
     Kind.DEPOSIT_CHECKING: Perm.MANAGE_DEPOSITS,
     Kind.BATCH_CHECKS_MISSING: Perm.HANDLE_VIALS,
@@ -124,6 +129,8 @@ class Item:
     target_id: UUID | None
     due: date | None = None  # the last valid day of an expiring permit
     needs_manager: bool = False
+    # A vial on its strain's Material tab (target STRAIN): the page narrows to it (#159).
+    vial_id: UUID | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.since, datetime):  # a moment becomes its Czech day
@@ -419,6 +426,38 @@ def _vials_to_destroy(access: Access) -> list[tuple[Item, int]]:
     return items
 
 
+def _losses_to_report(access: Access) -> list[tuple[Item, int]]:
+    """Vials lost while their strain was a VRAT or RAT whose report to the police is not
+    recorded (#159, lineage.selectors.reportable_loss), one item each, the oldest loss first: the
+    label, never the place. A found vial is not lost and drops out."""
+    scoped = _scoped(Vial, access, [Kind.LOSS_TO_REPORT])
+    if scoped is None:
+        return []
+    rows = _capped(
+        scoped.filter(reportable_loss())
+        .exclude(Exists(loss_reports_of_this_loss()))
+        .select_related("batch__strain"),
+        partition=[],
+        order=[F("status_changed_at").asc(), F("pk").asc()],
+    )
+    items = []
+    for v in rows:
+        strain = v.batch.strain
+        item = Item(
+            Kind.LOSS_TO_REPORT,
+            v.lab_id,
+            f"{_number(strain)} / {v.batch.number} / {v.seq}",
+            "Lost: report it to the police without undue delay (act 281/2002 Sb., § 5(5)),"
+            " then record the day and the reference",
+            v.status_changed_at,
+            Target.STRAIN,
+            strain.public_id,
+            vial_id=v.public_id,
+        )
+        items.append((item, vars(v)["total"]))
+    return items
+
+
 def waiting(*, access: Access) -> list[Group]:
     """What waits for the person, by kind, oldest first in each."""
     today = permit_today()
@@ -429,6 +468,7 @@ def waiting(*, access: Access) -> list[Group]:
             *_requests(access),
             *_expiring(access, today),
             *_vials_to_destroy(access),
+            *_losses_to_report(access),
         ]
     )
 

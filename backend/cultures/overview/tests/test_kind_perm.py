@@ -8,7 +8,7 @@ from datetime import timedelta
 
 import pytest
 
-from cultures.biosafety.models import AuthorisationKind
+from cultures.biosafety.models import AuthorisationKind, RestrictionKind
 from cultures.biosafety.policy import permit_today
 from cultures.deposits.tests.support import MakeDeposit
 from cultures.distribution.models import PermitKind, Requester
@@ -29,12 +29,16 @@ from cultures.lineage import services as lineage
 from cultures.lineage.models import Batch, VialStatus
 from cultures.lineage.tests.support import pass_all, vials_of
 from cultures.overview.selectors import KIND_PERM, Kind
+from cultures.strains.services import RestrictionInput
 from cultures.strains.tests.conftest import make_permit
+from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
 
 from .support import waiting
 
 pytestmark = pytest.mark.django_db
+
+RAT = RestrictionInput(RestrictionKind.CZ_RAT, "Příloha 2, bod 1")
 
 Make = Callable[[], None]
 
@@ -46,6 +50,7 @@ def test_every_kind_has_a_permission() -> None:
 # The lowest role each kind waits for, as the owner decided it (#69). Spelled out, so a change of
 # KIND_PERM that lets another role see a kind fails here, not only where the table is read.
 LOWEST: dict[Kind, Role] = {
+    Kind.LOSS_TO_REPORT: Role.MANAGER,
     Kind.DEPOSIT_RECEIVED: Role.CURATOR,
     Kind.DEPOSIT_CHECKING: Role.CURATOR,
     Kind.BATCH_CHECKS_MISSING: Role.TECHNICIAN,
@@ -71,6 +76,7 @@ def make_one(
     *,
     make_deposit: MakeDeposit,
     supply: Supply,
+    mockia: Taxon,
     regulated: Regulated,
     requester: Requester,
     lab: Lab,
@@ -107,8 +113,19 @@ def make_one(
                 reason="Cracked.",
             )
 
+    def lost() -> None:
+        strain = supply(mockia, restrictions=[RAT], release=False)
+        with as_actor(curator):
+            lineage.vial_transition(
+                access=access_for(curator),
+                vial=vials_of(Batch.objects.get(strain=strain))[0],
+                status=VialStatus.LOST,
+                reason="Not in its box.",
+            )
+
     soon = today + timedelta(days=5)
     return {
+        Kind.LOSS_TO_REPORT: lost,
         Kind.DEPOSIT_RECEIVED: lambda: void(make_deposit()),
         Kind.DEPOSIT_CHECKING: lambda: void(make_deposit("checking")),
         Kind.BATCH_CHECKS_MISSING: lambda: void(batch()),

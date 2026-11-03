@@ -6,7 +6,7 @@ from datetime import timedelta
 
 import pytest
 
-from cultures.biosafety.models import AuthorisationKind
+from cultures.biosafety.models import AuthorisationKind, RestrictionKind
 from cultures.biosafety.policy import permit_today
 from cultures.core.testing import QueryBaseline, logged_in
 from cultures.deposits.tests.support import MakeDeposit
@@ -19,12 +19,15 @@ from cultures.labs.tests.conftest import make_lab
 from cultures.lineage import services as lineage
 from cultures.lineage.models import Batch, VialStatus
 from cultures.lineage.tests.support import vials_of
+from cultures.strains.services import RestrictionInput
 from cultures.strains.tests.conftest import make_permit
 from cultures.users.models import User
 
 from .support import ACTIVITY_URL, OVERVIEW_URL
 
 pytestmark = pytest.mark.django_db
+
+RAT = RestrictionInput(RestrictionKind.CZ_RAT, "Příloha 2, bod 1")
 
 
 def scoped(queries: list[dict[str, str]], table: str) -> list[str]:
@@ -41,14 +44,21 @@ def every_kind(
         today = permit_today()
         for i in range(rows):
             make_deposit(name_as_received=f"Testella exempli Q{i}")
-            strain = supply(release=False, vials=2)
-            vial = vials_of(Batch.objects.get(strain=strain))[0]
+            # A RAT (invented Testella exempli): one vial to destroy, one lost (#159).
+            strain = supply(release=False, vials=2, restrictions=[RAT])
+            vial, gone = vials_of(Batch.objects.get(strain=strain))
             with as_actor(curator):
                 lineage.vial_transition(
                     access=access_for(curator),
                     vial=vial,
                     status=VialStatus.TO_DESTROY,
                     reason="Cracked.",
+                )
+                lineage.vial_transition(
+                    access=access_for(curator),
+                    vial=gone,
+                    status=VialStatus.LOST,
+                    reason="Not in its box.",
                 )
             submit(curator, lab, requester, [(strain, 1)])
             add_permit(
@@ -77,7 +87,7 @@ def test_the_overview_query_count_is_exact_and_flat(
     client = logged_in(manager)
     # Session, user, memberships; labs, strains, batches, vials, vials by state, free positions,
     # requests and deposits counted per lab; then deposits, batches, requests, recipient
-    # permits, lab permits and vials to destroy, each one query for all its rows.
+    # permits, lab permits, vials to destroy and losses to report, each one query for all its rows.
     with query_baseline("overview_manager") as captured:
         response = client.get(OVERVIEW_URL)
     kinds = {group["kind"]: group["total"] for group in response.json()["waiting"]}
@@ -88,6 +98,7 @@ def test_the_overview_query_count_is_exact_and_flat(
         "recipient_permit_expiring": rows,
         "lab_permit_expiring": rows,
         "vials_to_destroy": rows,
+        "loss_to_report": rows,
     }
     for table in (
         "deposits_deposit",
