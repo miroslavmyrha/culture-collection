@@ -66,6 +66,7 @@ def test_raising_within_the_cap_of_every_box_passes(
     assert set_group(curator, strain, 2).risk_group == 2
 
 
+@pytest.mark.rule("R-RISK-04")
 def test_raising_above_the_cap_of_one_of_several_boxes_is_refused(
     *,
     as_curator: AuditContext,
@@ -100,6 +101,7 @@ def test_a_closed_placement_and_another_strain_do_not_count(
     assert set_group(curator, strain, 2).risk_group == 2
 
 
+@pytest.mark.rule("R-RISK-04")
 def test_lowering_always_fits(
     *,
     as_curator: AuditContext,
@@ -196,6 +198,7 @@ def test_a_raise_and_a_placement_at_once_never_both_win(
     assert (group == 2) != placed.exists()
 
 
+@pytest.mark.rule("R-RISK-04")
 def test_the_api_refusal_names_no_box(
     *,
     curator: User,

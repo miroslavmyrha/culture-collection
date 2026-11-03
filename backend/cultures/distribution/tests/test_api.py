@@ -155,6 +155,7 @@ def test_reject_and_cancel_need_a_reason_on_their_field(
     )
 
 
+@pytest.mark.rule("R-DIST-01")
 def test_a_request_to_a_requester_outside_the_eu_is_refused_at_entry(
     curator: User, make_requester: MakeRequester, supply: Supply
 ) -> None:

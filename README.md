@@ -53,6 +53,10 @@ development settings (`config.settings.local`), so never in production. It also 
 database that holds a lab neither it nor `seed_e2e` created. `--force` adds the data next
 to such labs. It can run before or after `seed_e2e`.
 
+The rules about regulated material (VRAT, RAT, dual-use, quarantine pests, GMOs, risk groups),
+each with the law it rests on, the code and the tests, the legal duties not enforced yet and the
+questions still open with the authorities: [docs/compliance.md](docs/compliance.md).
+
 ## Check
 ```bash
 tools/install-hooks.sh   # once per clone: secrets + ./check.sh, commit message and branch name checks

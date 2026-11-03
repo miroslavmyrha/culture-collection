@@ -205,6 +205,7 @@ def test_deaccessioned_is_terminal(curator: User, manager: User, make_strain: Ma
 # A regulated strain: two people.
 
 
+@pytest.mark.rule("R-END-01")
 def test_one_person_does_not_deaccession_a_regulated_strain(curator: User, gmo: Strain) -> None:
     refused(
         services.DeaccessionNeedsSecondPerson,
@@ -254,6 +255,7 @@ def test_another_manager_confirms_and_the_strain_leaves_with_both_people(
     assert event.changes["deaccession_proposal"] == [None, str(proposal.public_id)]
 
 
+@pytest.mark.rule("R-END-01")
 def test_nobody_confirms_their_own_proposal(manager: User, gmo: Strain) -> None:
     proposal = propose(manager, gmo)
     refused(
@@ -356,6 +358,7 @@ def test_an_open_proposal_is_settled_before_one_step(
     assert leave(curator, gmo).status == StrainStatus.DEACCESSIONED
 
 
+@pytest.mark.rule("R-END-01")
 def test_a_curator_alone_cannot_take_a_vrat_strain_out(
     lab: Lab, curator: User, make_strain: MakeStrain
 ) -> None:
@@ -379,6 +382,7 @@ def pest(lab: Lab, make_strain: MakeStrain) -> Strain:
     return make_strain(restrictions=[QUARANTINE])
 
 
+@pytest.mark.rule("R-END-02")
 def test_a_quarantine_pest_states_its_final_use(curator: User, manager: User, pest: Strain) -> None:
     def missing() -> object:
         return propose(curator, pest)
@@ -394,6 +398,7 @@ def test_a_quarantine_pest_states_its_final_use(curator: User, manager: User, pe
     assert event.changes["final_use"] == [None, "destruction"]
 
 
+@pytest.mark.rule("R-END-02")
 def test_only_a_quarantine_pest_states_a_final_use(curator: User, make_strain: MakeStrain) -> None:
     strain = make_strain()
     with pytest.raises(services.InvalidStrain) as raised:
@@ -401,6 +406,7 @@ def test_only_a_quarantine_pest_states_a_final_use(curator: User, make_strain: M
     assert (raised.value.code, raised.value.attr) == ("final_use_not_applicable", "final_use")
 
 
+@pytest.mark.rule("R-END-02")
 def test_a_proposal_whose_final_use_no_longer_fits_is_not_confirmed(
     curator: User, manager: User, pest: Strain
 ) -> None:
@@ -539,6 +545,7 @@ def raw_proposal(strain: Strain, by: User, **fields: Any) -> StrainDeaccessionPr
     )
 
 
+@pytest.mark.rule("R-END-01")
 def test_the_database_refuses_a_one_person_deaccession_of_a_regulated_strain(
     curator: User, manager: User, gmo: Strain
 ) -> None:
@@ -615,6 +622,7 @@ def test_the_facts_come_with_the_status_and_only_with_it(
         Strain.objects.filter(pk=strain.pk).update(deaccession_reason="Half done.")
 
 
+@pytest.mark.rule("R-END-02")
 def test_the_database_asks_a_quarantine_pest_for_its_final_use(
     curator: User, manager: User, pest: Strain, make_strain: MakeStrain
 ) -> None:
@@ -703,6 +711,7 @@ KINDS: dict[RestrictionKind, RestrictionInput] = {
 @pytest.mark.parametrize(
     "case", ["none", "ended", *(f"active {kind}" for kind in RestrictionKind.values)]
 )
+@pytest.mark.rule("R-KIND-09")
 def test_the_trigger_and_the_python_predicate_agree_on_regulated(
     case: str, lab: Lab, curator: User, manager: User, make_strain: MakeStrain
 ) -> None:
@@ -771,6 +780,7 @@ def raw_confirm(proposal: StrainDeaccessionProposal, by: User, at: datetime) -> 
     )
 
 
+@pytest.mark.rule("R-END-01")
 def test_the_runtime_role_cannot_confirm_a_deaccession_that_did_not_happen(
     as_curator: AuditContext,
     curator: User,

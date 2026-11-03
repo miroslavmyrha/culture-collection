@@ -188,6 +188,7 @@ def test_the_confirmation_writes_the_documents_with_the_confirmed_facts(
     assert f"Shipment: {Shipment.objects.get(request=request).public_id}" in text
 
 
+@pytest.mark.rule("R-SHIP-05")
 def test_only_a_dual_use_line_carries_the_notice_of_art_11_9(
     supply: Supply, two_step: Any, mockia: Taxon, exempli: Taxon
 ) -> None:
@@ -206,6 +207,7 @@ def test_only_a_dual_use_line_carries_the_notice_of_art_11_9(
     assert documents.DUAL_USE_NOTICE not in plain_block
 
 
+@pytest.mark.rule("R-SHIP-05")
 def test_the_dual_use_notice_is_the_sentence_of_the_regulation() -> None:
     """Regulation (EU) 2021/821, Art. 11(9): documents "shall indicate clearly that those items
     are subject to controls if exported from the customs territory of the Union"."""
@@ -215,6 +217,7 @@ def test_the_dual_use_notice_is_the_sentence_of_the_regulation() -> None:
     )
 
 
+@pytest.mark.rule("R-SHIP-05")
 def test_an_ended_dual_use_restriction_prints_no_notice(
     supply: Supply, one_step: Any, curator: User, manager: User, mockia: Taxon
 ) -> None:
@@ -228,6 +231,7 @@ def test_an_ended_dual_use_restriction_prints_no_notice(
     assert documents.DUAL_USE_NOTICE not in note(request)
 
 
+@pytest.mark.rule("R-SHIP-06")
 def test_a_quarantine_pest_line_says_its_letter_of_authority_travels_with_it(
     supply: Supply, two_step: Any, mockia: Taxon, curator: User, requester: Requester
 ) -> None:
@@ -278,6 +282,7 @@ def test_an_abs_sheet_without_a_certificate_passes_the_list_under_b(
     assert any(line.startswith("Art. 4(3)(b): no internationally recognised") for line in sheet)
 
 
+@pytest.mark.rule("R-SHIP-07")
 def test_a_register_entry_and_handover_protocol_for_a_vrat_line(
     *,
     supply: Supply,
@@ -338,6 +343,7 @@ def test_every_kind_names_the_request_by_the_number_people_read(
         assert numbers == expected, kind
 
 
+@pytest.mark.rule("R-SHIP-07")
 def test_a_rat_line_gets_a_register_entry_and_a_dual_use_line_none(
     *,
     supply: Supply,
@@ -372,6 +378,7 @@ def test_an_unknown_company_number_is_said(
 # Kept as sent.
 
 
+@pytest.mark.rule("R-SHIP-08")
 def test_the_stored_text_stays_after_the_strain_is_renamed_and_its_restriction_ends(
     *,
     supply: Supply,
@@ -447,6 +454,7 @@ def sql(statement: str, params: list[Any]) -> None:
         cursor.execute(statement, params)
 
 
+@pytest.mark.rule("R-SHIP-08")
 def test_a_document_is_never_changed_or_deleted(supply: Supply, one_step: Any) -> None:
     request = one_step(supply(vials=6))
     [document] = docs(request)
@@ -477,6 +485,7 @@ def insert(shipment: Shipment, **changes: Any) -> None:
         ShipmentDocument.objects.create(**values)
 
 
+@pytest.mark.rule("R-SHIP-08")
 def test_a_document_whose_sha256_is_not_of_its_text_is_refused(
     supply: Supply, one_step: Any
 ) -> None:
@@ -524,6 +533,7 @@ def test_a_document_is_written_in_the_lab_of_its_shipment(
         insert(shipment, lab_id=other_lab.pk, text="ANOTHER NOTE\n")
 
 
+@pytest.mark.rule("R-SHIP-07")
 def test_at_commit_a_shipment_without_its_documents_is_refused(
     *,
     supply: Supply,
@@ -616,6 +626,7 @@ def test_a_register_entry_says_when_the_company_number_is_not_known(
     assert "Company number (IČO): not known" in entry
 
 
+@pytest.mark.rule("R-SHIP-07")
 def test_a_register_entry_without_a_known_seat_says_so_and_never_prints_the_delivery_address(
     *,
     supply: Supply,

@@ -206,6 +206,7 @@ def test_a_state_change_through_the_api(
     assert (done.status_code, done.json()["status"]) == (200, "lost")
 
 
+@pytest.mark.rule("R-END-03")
 def test_a_regulated_strains_vial_to_destroy_is_not_destroyed_through_the_api(
     technician: User, regulated: Strain, make_batch: MakeBatch
 ) -> None:

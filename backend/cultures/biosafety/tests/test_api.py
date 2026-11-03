@@ -162,6 +162,7 @@ def test_the_day_is_the_czech_one(lab: Lab, manager: User) -> None:
     assert row["standing"] == "expired"
 
 
+@pytest.mark.rule("R-PERMIT-07")
 def test_what_expires_soon_comes_first_and_the_history_last(lab: Lab, manager: User) -> None:
     permit(lab, "ended-long-ago", valid_from=days(-900), ended_on=days(-300), end_reason="Revoked")
     permit(lab, "valid-no-expiry")

@@ -140,6 +140,7 @@ def test_a_reason_is_required_both_ways(
     )
 
 
+@pytest.mark.rule("R-MASK-03")
 def test_a_grant_is_revoked_once(
     as_manager: AuditContext, manager: User, lab: Lab, viewer: User
 ) -> None:
@@ -170,6 +171,7 @@ def test_a_membership_of_another_lab_is_unknown(
     )
 
 
+@pytest.mark.rule("R-MASK-03")
 def test_removing_the_member_revokes_the_grant_in_the_same_transaction(
     as_manager: AuditContext, manager: User, lab: Lab, viewer: User
 ) -> None:
@@ -195,6 +197,7 @@ def test_holding_needs_an_active_account_and_a_membership(
 # The table on its own.
 
 
+@pytest.mark.rule("R-MASK-03")
 def test_one_open_grant_per_person_and_lab(
     as_manager: AuditContext, manager: User, lab: Lab, viewer: User
 ) -> None:

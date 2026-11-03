@@ -234,6 +234,7 @@ def test_a_vial_with_a_history_is_not_entered_in_error(
         )
 
 
+@pytest.mark.rule("R-END-03")
 def test_a_regulated_strain_takes_every_edge_but_the_one_to_destroyed() -> None:
     """The table on its own (#158): only to_destroy > destroyed goes, for either kind of strain."""
     for strain in (
@@ -263,6 +264,7 @@ RESTRICTIONS: dict[RestrictionKind, RestrictionInput] = {
 @pytest.mark.parametrize(
     "case", ["none", "ended", *(f"active {kind}" for kind in RestrictionKind.values)]
 )
+@pytest.mark.rule("R-KIND-09")
 def test_the_trigger_and_the_service_agree_with_the_python_predicate_on_destruction(
     *,
     case: str,

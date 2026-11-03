@@ -140,6 +140,7 @@ def test_a_manager_reads_who_revealed_which_vial_and_when(
     }
 
 
+@pytest.mark.rule("R-MASK-05")
 def test_the_answer_holds_no_location_anywhere(
     holder: User, manager: User, masked: list[Vial], secret_box: StorageUnit, tree: Tree
 ) -> None:
@@ -164,11 +165,13 @@ def test_the_answer_holds_no_location_anywhere(
 
 
 @pytest.mark.parametrize("role", [Role.VIEWER, Role.TECHNICIAN, Role.CURATOR])
+@pytest.mark.rule("R-MASK-05")
 def test_only_managers_read_the_log(role: Role, team: dict[Role, User], manager: User) -> None:
     assert logged_in(manager).get(REVEALS_URL).status_code == 200
     assert_problem(logged_in(team[role]).get(REVEALS_URL), 403, "permission_denied")
 
 
+@pytest.mark.rule("R-MASK-05")
 def test_a_holder_of_the_grant_does_not_read_the_log(holder: User, masked: list[Vial]) -> None:
     reveal(holder, masked[0])
     assert_problem(logged_in(holder).get(REVEALS_URL), 403, "permission_denied")
@@ -230,6 +233,7 @@ class TestFilters:
     def days(manager: User, query: str) -> list[str]:
         return [row["occurred_at"] for row in page(manager, query)["results"]]
 
+    @pytest.mark.rule("R-MASK-05")
     def test_a_month_is_its_czech_days(self, manager: User) -> None:
         assert self.days(manager, "?since=2026-06-01&until=2026-06-30") == [
             "2026-06-30T21:59:00Z",

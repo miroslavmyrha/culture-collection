@@ -107,6 +107,7 @@ def test_the_runtime_role_cannot_bring_back_a_vial_of_a_strain_whose_material_wa
     assert runtime_role.fetchone() == ("to_destroy",)
 
 
+@pytest.mark.rule("R-END-03")
 def test_the_runtime_role_cannot_destroy_a_vial_of_a_regulated_strain(
     *,
     as_technician: AuditContext,

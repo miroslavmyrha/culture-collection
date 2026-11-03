@@ -68,5 +68,6 @@ addopts = "--ds=config.settings.test --strict-markers -q"
 markers = [
     "slow: real transactions, threads or migrations (deselect with -m \"not slow\")",
     "migrations: migrates the schema back and forth (data migration tests)",
+    "rule(*ids): proves the rules of docs/compliance.md with these ids (core/tests/test_compliance.py)",
 ]
 python_files = ["test_*.py"]

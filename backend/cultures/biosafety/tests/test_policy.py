@@ -35,6 +35,7 @@ def test_a_valid_permit_of_the_kind_lets_the_strain_in(lab: Lab) -> None:
     assert held(lab)
 
 
+@pytest.mark.rule("R-PERMIT-01")
 def test_no_permit_refuses_with_the_field_and_the_kind(lab: Lab) -> None:
     with pytest.raises(AuthorisationRequired) as refused:
         require_authorisation(lab_id=lab.pk, kinds=VRAT)
@@ -47,12 +48,14 @@ def test_no_permit_refuses_with_the_field_and_the_kind(lab: Lab) -> None:
     assert "SÚJB" in refused.value.detail
 
 
+@pytest.mark.rule("R-PERMIT-01")
 def test_a_permit_of_another_kind_does_not_count(lab: Lab) -> None:
     make_permit(lab, AuthorisationKind.QUARANTINE_PEST)
     assert not held(lab, RestrictionKind.CZ_VRAT)
     assert held(lab, RestrictionKind.QUARANTINE_PEST)
 
 
+@pytest.mark.rule("R-PERMIT-01")
 def test_a_permit_of_another_lab_does_not_count(lab: Lab, other_lab: Lab) -> None:
     make_permit(other_lab)
     assert not held(lab)
@@ -70,6 +73,7 @@ def test_a_permit_of_another_lab_does_not_count(lab: Lab, other_lab: Lab) -> Non
         ({"ended_on": date(2026, 6, 16), "end_reason": "surrendered"}, True),  # ends tomorrow
     ],
 )
+@pytest.mark.rule("R-PERMIT-05")
 def test_validity_follows_the_dates(lab: Lab, fields: dict[str, Any], valid: bool) -> None:
     make_permit(lab, **fields)
     assert held(lab) is valid
@@ -84,12 +88,14 @@ def test_an_expired_permit_and_a_renewal_hold_together(lab: Lab) -> None:
     assert held(lab)
 
 
+@pytest.mark.rule("R-PERMIT-03")
 def test_kinds_without_a_permit_need_none(lab: Lab) -> None:
     for kind in (RestrictionKind.CZ_RAT, RestrictionKind.DUAL_USE, RestrictionKind.GMO):
         assert held(lab, kind)
     assert not LabAuthorisation.objects.exists()
 
 
+@pytest.mark.rule("R-PERMIT-05")
 def test_the_day_is_the_day_in_prague(lab: Lab) -> None:
     """22:30 UTC on the expiry day is 00:30 the next day in Prague: the permit has expired."""
     make_permit(lab, expires_on=date(2026, 6, 15))

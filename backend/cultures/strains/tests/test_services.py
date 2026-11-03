@@ -209,6 +209,7 @@ def test_a_refused_accession_burns_no_number(
 
 
 @pytest.mark.parametrize("risk_group", [4])
+@pytest.mark.rule("R-RISK-02")
 def test_a_risk_group_4_agent_is_refused_on_its_field(
     as_curator: AuditContext, curator_access: Access, lab: Lab, exempli: Taxon, risk_group: int
 ) -> None:
@@ -300,6 +301,7 @@ def test_bad_input_is_a_field_error_and_changes_nothing(
     ("restriction", "kind"),
     [(VRAT, AuthorisationKind.CZ_VRAT), (QUARANTINE, AuthorisationKind.QUARANTINE_PEST)],
 )
+@pytest.mark.rule("R-PERMIT-01", "R-PERMIT-02")
 def test_a_vrat_or_quarantine_strain_enters_with_a_valid_permit(
     *,
     as_curator: AuditContext,
@@ -325,6 +327,7 @@ def test_a_vrat_or_quarantine_strain_enters_with_a_valid_permit(
         "other_lab",
     ],
 )
+@pytest.mark.rule("R-PERMIT-02")
 def test_without_a_valid_permit_of_its_kind_in_its_lab_the_strain_is_refused(
     *,
     as_curator: AuditContext,
@@ -357,6 +360,7 @@ def test_without_a_valid_permit_of_its_kind_in_its_lab_the_strain_is_refused(
     assert error.status_code == 422
 
 
+@pytest.mark.rule("R-PERMIT-03")
 def test_kinds_without_a_permit_need_none(
     as_curator: AuditContext, curator_access: Access, lab: Lab, exempli: Taxon
 ) -> None:
@@ -518,6 +522,7 @@ def test_a_reclassification_needs_a_reason_a_method_and_a_past_date(
 # Risk group.
 
 
+@pytest.mark.rule("R-RISK-03")
 def test_a_risk_group_change_records_old_new_and_the_reason(
     make_strain: MakeStrain, as_curator: AuditContext, curator_access: Access
 ) -> None:
@@ -535,6 +540,7 @@ def test_a_risk_group_change_records_old_new_and_the_reason(
     )
 
 
+@pytest.mark.rule("R-RISK-03")
 def test_the_same_risk_group_again_records_nothing(
     make_strain: MakeStrain, as_curator: AuditContext, curator_access: Access
 ) -> None:
@@ -546,6 +552,7 @@ def test_the_same_risk_group_again_records_nothing(
     assert snapshot() == before
 
 
+@pytest.mark.rule("R-RISK-02")
 def test_a_change_to_risk_group_4_is_refused(
     make_strain: MakeStrain, as_curator: AuditContext, curator_access: Access
 ) -> None:
@@ -560,6 +567,7 @@ def test_a_change_to_risk_group_4_is_refused(
     )
 
 
+@pytest.mark.rule("R-RISK-03")
 def test_a_risk_group_change_needs_a_reason(
     make_strain: MakeStrain, as_curator: AuditContext, curator_access: Access
 ) -> None:
@@ -577,6 +585,7 @@ def test_a_risk_group_change_needs_a_reason(
 # Restrictions after accession.
 
 
+@pytest.mark.rule("R-KIND-08")
 def test_a_curator_adds_a_restriction_and_it_ends_by_two_people(
     make_strain: MakeStrain,
     as_curator: AuditContext,
@@ -604,6 +613,7 @@ def test_a_curator_adds_a_restriction_and_it_ends_by_two_people(
     ]
 
 
+@pytest.mark.rule("R-PERMIT-01")
 def test_an_added_vrat_restriction_needs_the_permit_too(
     make_strain: MakeStrain, as_curator: AuditContext, curator_access: Access, lab: Lab
 ) -> None:
@@ -622,6 +632,7 @@ def test_an_added_vrat_restriction_needs_the_permit_too(
     )
 
 
+@pytest.mark.rule("R-KIND-05")
 def test_a_restriction_twice_is_a_field_error(
     make_strain: MakeStrain, as_curator: AuditContext, curator_access: Access
 ) -> None:
@@ -637,6 +648,7 @@ def test_a_restriction_twice_is_a_field_error(
     )
 
 
+@pytest.mark.rule("R-KIND-06")
 def test_a_restriction_ends_once(
     make_strain: MakeStrain,
     as_curator: AuditContext,
