@@ -30,7 +30,7 @@ const VRAT = '/api/v1/labs/{lab_public_id}/vrat-access/'
 const signedIn = (username = 'lab-tech') => void mockApi('get', '/api/v1/auth/me/', makeMe({ username }))
 /** The strain page's passages, batches and vials, and the boxes for its forms: all empty. */
 const material = () => {
-  for (const path of ['/api/v1/labs/{lab_public_id}/passages/', '/api/v1/labs/{lab_public_id}/batches/', '/api/v1/labs/{lab_public_id}/vials/'] as const) mockApi('get', path, page([]))
+  for (const path of ['/api/v1/labs/{lab_public_id}/passages/', '/api/v1/labs/{lab_public_id}/batches/', '/api/v1/labs/{lab_public_id}/vials/', '/api/v1/labs/{lab_public_id}/destructions/'] as const) mockApi('get', path, page([]))
   mockApi('get', '/api/v1/labs/{lab_public_id}/storage-units/', [])
 }
 /** Every tab's data of the strain page (#19), so any of them may open. */

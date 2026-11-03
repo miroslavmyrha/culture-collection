@@ -752,6 +752,7 @@ export function makeLabPermit(overrides: Partial<LabPermit> = {}): LabPermit {
     expires_on: null,
     ended_on: null,
     end_reason: '',
+    destruction_method: '',
     standing: 'valid',
     last_valid_day: null,
     days_left: null,
@@ -772,3 +773,41 @@ export function makeMedium(overrides: Partial<Medium> = {}): Medium {
 export const noGrowth = (): Growth => ({ medium: null, temperature_low_c: null, temperature_high_c: null, atmosphere: '' })
 
 export const mediumBrief = (medium: Medium) => ({ public_id: medium.public_id, name: medium.name, composition_reference: medium.composition_reference, retired_at: medium.retired_at })
+
+export type Destruction = Schemas['DestructionOutput']
+
+/** A destruction record of a strain without restrictions (#160): two vials autoclaved, done at recording. */
+export function makeDestruction(overrides: Partial<Destruction> = {}): Destruction {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    number: `2026/${n}`,
+    strain: uuid(n + 3000),
+    destroyed_on: '2026-10-05',
+    method: 'autoclave',
+    method_detail: '',
+    verification: '',
+    contractor: '',
+    handover_document: '',
+    inactivated_in_lab: true,
+    run: '',
+    reason: 'Contaminated.',
+    witness: null,
+    permit_reference: null,
+    recorded_by: 'tech',
+    recorded_at: '2026-10-05T09:00:00Z',
+    confirmed_by: null,
+    confirmed_at: null,
+    completed_at: '2026-10-05T09:00:00Z',
+    awaits_confirmation: false,
+    status: 'valid',
+    error_reason: '',
+    entered_in_error_by: null,
+    entered_in_error_at: null,
+    vials: [
+      { public_id: uuid(n + 4000), label: 'MYC 42 / 1 / 1' },
+      { public_id: uuid(n + 4001), label: 'MYC 42 / 1 / 2' },
+    ],
+    ...overrides,
+  }
+}

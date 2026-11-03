@@ -10,8 +10,9 @@ import { RemoveMemberDialog } from '@/features/labs/components/RemoveMemberDialo
 import { UnitStatusDialog } from '@/features/storage/components/UnitDialogs'
 import { ConfirmDeaccessionDialog, ConfirmEndDialog, DeaccessionDialog } from '@/features/strains/components/StrainDialogs'
 import { CheckErrorDialog } from '@/features/vials/components/CheckDialogs'
+import { ConfirmDestructionDialog, DestructionErrorDialog } from '@/features/vials/components/DestructionDialogs'
 import { ReviveDialog } from '@/features/vials/components/VialDialogs'
-import { makeCheck, makeDeposit, makeMedium, makeMember, makePermit, makePreparation, makeRequest, makeRequestLine, makeStrain, makeUnit, makeVial, noGrowth, page } from '@/test/factories'
+import { makeCheck, makeDeposit, makeDestruction, makeMedium, makeMember, makePermit, makePreparation, makeRequest, makeRequestLine, makeStrain, makeUnit, makeVial, noGrowth, page } from '@/test/factories'
 import { mockApi } from '@/test/mockApi'
 import { renderWithProviders } from '@/test/render'
 
@@ -98,6 +99,38 @@ const DESTRUCTIVE: Record<string, Entry | Entry[]> = {
     name: 'Enter the purity check of 2026-10-02 in error?',
     consequence: 'no longer counts for a release. A released batch that loses a passed check waits for its checks again. This cannot be undone.',
   },
+  '/src/features/vials/components/DestructionDialogs.tsx': [
+    {
+      render: () => (
+        <ConfirmDestructionDialog
+          labId="00000000-0000-4000-8000-00000000000a"
+          strainId="00000000-0000-4000-8000-0000000000d1"
+          record={makeDestruction({ number: '2026/3', awaits_confirmation: true, completed_at: null })}
+          accession="MYC 42"
+          open
+          onClose={() => {}}
+          onExited={() => {}}
+        />
+      ),
+      name: 'Confirm destruction 2026/3?',
+      consequence: 'Confirmed, the vials are destroyed and leave their boxes. This cannot be undone.',
+    },
+    {
+      render: () => (
+        <DestructionErrorDialog
+          labId="00000000-0000-4000-8000-00000000000a"
+          strainId="00000000-0000-4000-8000-0000000000d1"
+          record={makeDestruction({ number: '2026/4' })}
+          accession="MYC 42"
+          open
+          onClose={() => {}}
+          onExited={() => {}}
+        />
+      ),
+      name: 'Enter destruction 2026/4 in error?',
+      consequence: 'Its vials stay destroyed: the material is gone. This cannot be undone.',
+    },
+  ],
   '/src/features/distribution/components/RequestDialogs.tsx': [
     {
       render: () => (

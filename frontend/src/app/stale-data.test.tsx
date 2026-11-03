@@ -10,6 +10,7 @@ import {
   makeDeposit,
   makeDepositor,
   makeDepositRow,
+  makeDestruction,
   makeLab,
   makeLocationGrant,
   makeVratAccess,
@@ -85,6 +86,7 @@ function strainPage() {
   mockApi('get', STRAIN, strain)
   mockApi('get', '/api/v1/labs/{lab_public_id}/passages/', page([makePassage({ number: 0 })]))
   mockApi('get', '/api/v1/labs/{lab_public_id}/batches/', page([makeBatch()]))
+  mockApi('get', '/api/v1/labs/{lab_public_id}/destructions/', page([]))
   mockApi('get', VIALS, page([makeVial({ label: 'MYC 42 / 1 / 1' })]))
   mockApi('get', UNITS, [freezer, box])
   mockApi('get', TERMS, { deposit: null, versions: [makeTerms()] })
@@ -460,6 +462,17 @@ describe('a failed background refresh keeps the screen (#63)', () => {
         mockApi('get', PERMITS, [])
       },
       () => screen.findByRole('cell', { name: 'alice' }),
+    ],
+    [
+      'Destructions',
+      MATERIAL,
+      '/api/v1/labs/{lab_public_id}/destructions/',
+      'the destructions',
+      () => {
+        strainPage()
+        mockApi('get', '/api/v1/labs/{lab_public_id}/destructions/', page([makeDestruction({ number: '2026/1' })]))
+      },
+      () => screen.findByRole('cell', { name: '2026/1' }),
     ],
     ['RevealLog', `/labs/${LAB_ID}/reveals`, REVEALS, 'the reveals', () => mockApi('get', REVEALS, page([makeReveal({ vial_label: 'MYC 42 / 1 / 1' })])), () => screen.findByRole('link', { name: 'MYC 42 / 1 / 1' })],
     ['LabList', '/labs', '/api/v1/labs/', 'your labs', () => mockApi('get', '/api/v1/labs/', page([makeLab({ public_id: LAB_ID, name: 'Mycology' })])), () => screen.findByRole('link', { name: 'Mycology' })],

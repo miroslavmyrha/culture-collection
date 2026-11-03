@@ -1831,6 +1831,363 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/destructions/:
+    get:
+      operationId: labs_destructions_list
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: limit
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: offset
+        required: false
+        in: query
+        description: The initial index from which to return the results.
+        schema:
+          type: integer
+      - in: query
+        name: strain
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDestructionOutputList'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    post:
+      operationId: labs_destructions_create
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DestructionInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DestructionInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestructionOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input on a field: an unknown strain, vial (vials.<i>)
+            or member, a vial twice, a date in the future or before a vial was marked
+            to destroy, other without its description, a firm without its handover
+            document; for a regulated strain a missing verification; for a VRAT a
+            missing witness or one who is the recorder (witness_is_recorder), material
+            handed to a firm alive (inactivate_before_handover); for a quarantine
+            pest no permit on the day (lab_authorisation_required) or another method
+            than the permit declares (method_not_authorised)'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'vial_not_to_destroy and vial_in_destruction (on vials.<i>);
+            destruction_not_awaiting: the record was confirmed, entered in error or
+            needed no confirmation; destruction_outdated: the strain''s restrictions
+            changed and the record no longer holds what they ask; destruction_entered_in_error'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'reason_required; authorisation_method_missing: the lab''s
+            ÚKZÚZ permit has no declared destruction method recorded'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/destructions/{public_id}/:
+    get:
+      operationId: labs_destructions_retrieve
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestructionOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/destructions/{public_id}/confirm/:
+    post:
+      operationId: labs_destructions_confirm_create
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestructionOutput'
+          description: ''
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'vial_not_to_destroy and vial_in_destruction (on vials.<i>);
+            destruction_not_awaiting: the record was confirmed, entered in error or
+            needed no confirmation; destruction_outdated: the strain''s restrictions
+            changed and the record no longer holds what they ask; destruction_entered_in_error'
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/destructions/{public_id}/enter-in-error/:
+    post:
+      operationId: labs_destructions_enter_in_error_create
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DestructionErrorInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DestructionErrorInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestructionOutput'
+          description: ''
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'vial_not_to_destroy and vial_in_destruction (on vials.<i>);
+            destruction_not_awaiting: the record was confirmed, entered in error or
+            needed no confirmation; destruction_outdated: the strain''s restrictions
+            changed and the record no longer holds what they ask; destruction_entered_in_error'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: reason_required
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/documents/{public_id}/:
     get:
       operationId: labs_documents_retrieve
@@ -7679,6 +8036,30 @@ paths:
         schema:
           type: integer
       - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - available
+          - consumed
+          - destroyed
+          - distributed
+          - entered_in_error
+          - lost
+          - quarantined
+          - reserved
+          - to_destroy
+        description: |-
+          * `available` - Available
+          * `reserved` - Reserved
+          * `consumed` - Consumed
+          * `quarantined` - Quarantined
+          * `to_destroy` - To destroy
+          * `destroyed` - Destroyed
+          * `lost` - Lost
+          * `distributed` - Distributed
+          * `entered_in_error` - Entered in error
+      - in: query
         name: strain
         schema:
           type: string
@@ -8198,9 +8579,8 @@ paths:
           description: 'Invalid input on a field. On the status: transition_not_allowed,
             a state that cannot follow; vial_has_history, entered in error after a
             change; strain_material_destroyed, the strain was deaccessioned with its
-            material destroyed and its vials go only to destruction; destruction_needs_record,
-            the strain is regulated and its vial is destroyed only with a destruction
-            record a second person confirms (ADR 0009)'
+            material destroyed and its vials go only to destruction. A vial is destroyed
+            only through a destruction record (#160)'
         '422':
           content:
             application/problem+json:
@@ -10543,6 +10923,227 @@ components:
       - name
       - postal_address
       - public_id
+    DestructionErrorInputRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+      required:
+      - reason
+    DestructionInputRequest:
+      type: object
+      properties:
+        strain:
+          type: string
+          format: uuid
+        vials:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+          maxItems: 1000
+        destroyed_on:
+          type: string
+          format: date
+        method:
+          $ref: '#/components/schemas/DestructionMethod'
+        method_detail:
+          type: string
+          default: ''
+          description: 'The method in words: required for other. Name no person.'
+          maxLength: 200
+        verification:
+          type: string
+          default: ''
+          description: How the inactivation was verified, for example the indicator
+            and its result. Required for a regulated strain. Name no person.
+          maxLength: 500
+        contractor:
+          type: string
+          default: ''
+          description: 'The outside firm that took the material: its name and company
+            number.'
+          maxLength: 200
+        handover_document:
+          type: string
+          default: ''
+          maxLength: 100
+        inactivated_in_lab:
+          type: boolean
+          default: true
+        run:
+          type: string
+          default: ''
+          description: The autoclave cycle or run, as the lab names it. Name no person.
+          maxLength: 100
+        witness:
+          type: string
+          format: uuid
+          nullable: true
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+      required:
+      - destroyed_on
+      - method
+      - reason
+      - strain
+      - vials
+    DestructionMethod:
+      enum:
+      - autoclave
+      - chemical
+      - incineration
+      - other
+      type: string
+      description: |-
+        * `autoclave` - Autoclaving
+        * `chemical` - Chemical inactivation
+        * `incineration` - Incineration
+        * `other` - Other
+    DestructionOutput:
+      type: object
+      description: |-
+        A destruction record as recorded. People are usernames, shown to the lab's members like
+        the member list; the audit trail holds only their ids (ADR 0005).
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        number:
+          type: string
+          readOnly: true
+        strain:
+          type: string
+          format: uuid
+          readOnly: true
+        destroyed_on:
+          type: string
+          format: date
+          readOnly: true
+        method:
+          allOf:
+          - $ref: '#/components/schemas/DestructionMethod'
+          readOnly: true
+        method_detail:
+          type: string
+          readOnly: true
+        verification:
+          type: string
+          readOnly: true
+        contractor:
+          type: string
+          readOnly: true
+        handover_document:
+          type: string
+          readOnly: true
+        inactivated_in_lab:
+          type: boolean
+          readOnly: true
+        run:
+          type: string
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        witness:
+          type: string
+          readOnly: true
+          nullable: true
+        permit_reference:
+          type: string
+          readOnly: true
+          nullable: true
+        recorded_by:
+          type: string
+          readOnly: true
+        recorded_at:
+          type: string
+          format: date-time
+          readOnly: true
+        confirmed_by:
+          type: string
+          readOnly: true
+          nullable: true
+        confirmed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        awaits_confirmation:
+          type: boolean
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CheckStatus'
+          readOnly: true
+        error_reason:
+          type: string
+          readOnly: true
+        entered_in_error_by:
+          type: string
+          readOnly: true
+          nullable: true
+        entered_in_error_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        vials:
+          type: array
+          items:
+            $ref: '#/components/schemas/DestructionVial'
+          readOnly: true
+      required:
+      - awaits_confirmation
+      - completed_at
+      - confirmed_at
+      - confirmed_by
+      - contractor
+      - destroyed_on
+      - entered_in_error_at
+      - entered_in_error_by
+      - error_reason
+      - handover_document
+      - inactivated_in_lab
+      - method
+      - method_detail
+      - number
+      - permit_reference
+      - public_id
+      - reason
+      - recorded_at
+      - recorded_by
+      - run
+      - status
+      - strain
+      - verification
+      - vials
+      - witness
+    DestructionVial:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        label:
+          type: string
+          readOnly: true
+      required:
+      - label
+      - public_id
     DocumentOutput:
       type: object
       properties:
@@ -10898,6 +11499,11 @@ components:
         end_reason:
           type: string
           readOnly: true
+        destruction_method:
+          readOnly: true
+          oneOf:
+          - $ref: '#/components/schemas/DestructionMethod'
+          - $ref: '#/components/schemas/BlankEnum'
         standing:
           allOf:
           - $ref: '#/components/schemas/StandingEnum'
@@ -10916,6 +11522,7 @@ components:
           readOnly: true
       required:
       - days_left
+      - destruction_method
       - end_reason
       - ended_on
       - expires_on
@@ -11671,6 +12278,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DepositorOutput'
+    PaginatedDestructionOutputList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DestructionOutput'
     PaginatedLabOutputList:
       type: object
       required:
@@ -14648,7 +15278,6 @@ components:
       - consumed
       - quarantined
       - to_destroy
-      - destroyed
       - lost
       - entered_in_error
       type: string
@@ -14657,7 +15286,6 @@ components:
         * `consumed` - Consumed
         * `quarantined` - Quarantined
         * `to_destroy` - To destroy
-        * `destroyed` - Destroyed
         * `lost` - Lost
         * `entered_in_error` - Entered in error
     VratAccessEndInputRequest:
@@ -14766,6 +15394,7 @@ components:
       - recipient_permit_expiring
       - lab_permit_expiring
       - vials_to_destroy
+      - destruction_to_confirm
       type: string
       description: |-
         * `loss_to_report` - loss_to_report
@@ -14780,6 +15409,7 @@ components:
         * `recipient_permit_expiring` - recipient_permit_expiring
         * `lab_permit_expiring` - lab_permit_expiring
         * `vials_to_destroy` - vials_to_destroy
+        * `destruction_to_confirm` - destruction_to_confirm
     WaitingItem:
       type: object
       properties:

@@ -283,6 +283,35 @@ VIAL_LOSS_REPORTED = register(
         reason_required=True,
     )
 )
+# #160: the destruction of a strain's vials, one record per strain per destruction. The strain is
+# the subject; the event holds the record's id and number, the day, the method code, the vials
+# and for a VRAT the witness by public id. The firm's name is left out: a sole trader's name
+# names a person. Each vial records its own vial_status_changed with the record's reason, and the
+# batch's summary is vials_destroyed.
+DESTRUCTION_RECORDED = register(
+    EventType(
+        "destruction_recorded",
+        "{actor} recorded the destruction of vials of the strain",
+        reason_required=True,
+    )
+)
+DESTRUCTION_CONFIRMED = register(
+    EventType(
+        "destruction_confirmed",
+        "{actor} confirmed the destruction of vials of the strain",
+        reason_required=True,
+    )
+)
+DESTRUCTION_ENTERED_IN_ERROR = register(
+    EventType(
+        "destruction_entered_in_error",
+        "{actor} entered a destruction record in error",
+        reason_required=True,
+    )
+)
+VIALS_DESTROYED = register(
+    EventType("vials_destroyed", "{actor} destroyed {count} vials", reason_required=True)
+)
 # Checks of a batch and its release (#17, ADR 0008, D16). Every event names the strain. A batch
 # moved by a check records its status change with the check's words as the reason.
 BATCH_CHECK_RECORDED = register(
@@ -613,6 +642,7 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "expires_on",
             "ended_on",
             "end_reason",
+            "destruction_method",
         ),
     ),
     # Deposits (#10, #12). The depositor holds ids and its institution, an organisation; the
@@ -810,6 +840,44 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "recorded_by_id",
             "recorded_at",
         ),
+    ),
+    # #160. Users are internal ids. The firm's name may be a sole trader's, so it is personal;
+    # the method, verification, run, handover document and reasons name nobody.
+    "lineage_destructionrecord": RowAudit(
+        label="lineage.destructionrecord",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "strain_id",
+            "year",
+            "number",
+            "destroyed_on",
+            "method",
+            "method_detail",
+            "verification",
+            "handover_document",
+            "inactivated_in_lab",
+            "run",
+            "reason",
+            "witness_id",
+            "authorisation_id",
+            "recorded_by_id",
+            "recorded_at",
+            "confirmed_by_id",
+            "confirmed_at",
+            "completed_at",
+            "status",
+            "error_reason",
+            "entered_in_error_by_id",
+            "entered_in_error_at",
+        ),
+        personal=("contractor",),
+    ),
+    "lineage_destructionvial": RowAudit(
+        label="lineage.destructionvial", audited=("id", "lab_id", "record_id", "vial_id")
     ),
     # ADR 0009: who may see regulated locations. Ids, times and reasons that name nobody.
     "labs_locationgrant": RowAudit(

@@ -52,7 +52,17 @@ from cultures.distribution.selectors import regulated_line
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm, Role
-from cultures.lineage.models import PASSING, Batch, BatchStatus, CheckKind, Vial, VialStatus
+from cultures.lineage.models import (
+    PASSING,
+    Batch,
+    BatchStatus,
+    CheckKind,
+    DestructionRecord,
+    DestructionStatus,
+    DestructionVial,
+    Vial,
+    VialStatus,
+)
 from cultures.lineage.selectors import latest_result, loss_reports_of_this_loss, reportable_loss
 from cultures.storage.selectors import free_positions
 from cultures.strains.models import Strain
@@ -71,7 +81,7 @@ TO_CHECK = (DepositStatus.RECEIVED, DepositStatus.CHECKING)
 class Kind(StrEnum):
     """What waits, in the order Home lists the groups: losses to report to the police first (the
     act asks it without undue delay), then intake, bench, decisions, dispatch, permits,
-    destruction."""
+    destruction and its confirmation."""
 
     LOSS_TO_REPORT = "loss_to_report"
     DEPOSIT_RECEIVED = "deposit_received"
@@ -85,6 +95,7 @@ class Kind(StrEnum):
     RECIPIENT_PERMIT_EXPIRING = "recipient_permit_expiring"
     LAB_PERMIT_EXPIRING = "lab_permit_expiring"
     VIALS_TO_DESTROY = "vials_to_destroy"
+    DESTRUCTION_TO_CONFIRM = "destruction_to_confirm"
 
 
 # Who may act on each kind: the permission the handling page checks. The one source: every query
@@ -104,6 +115,8 @@ KIND_PERM: dict[Kind, Perm] = {
     Kind.RECIPIENT_PERMIT_EXPIRING: Perm.APPROVE_REGULATED,
     Kind.LAB_PERMIT_EXPIRING: Perm.APPROVE_REGULATED,
     Kind.VIALS_TO_DESTROY: Perm.MANAGE_STRAINS,
+    # #160, ADR 0009: a manager other than the recorder confirms a regulated strain's record.
+    Kind.DESTRUCTION_TO_CONFIRM: Perm.CONFIRM_DESTRUCTION,
 }
 
 
@@ -395,14 +408,19 @@ def _expiring(access: Access, today: date) -> list[tuple[Item, int]]:
 
 
 def _vials_to_destroy(access: Access) -> list[tuple[Item, int]]:
-    """Vials marked to destroy, one item per batch: the label, never the place. PostgreSQL has no
-    window over grouped rows in one level, so the groups come back whole (one per batch with such
-    vials, few) and are capped here."""
+    """Vials marked to destroy and in no destruction record yet, one item per batch: the label,
+    never the place. A vial in a record that waits for its confirmation waits for a manager
+    instead (_destructions_to_confirm). PostgreSQL has no window over grouped rows in one level,
+    so the groups come back whole (one per batch with such vials, few) and are capped here."""
     scoped = _scoped(Vial, access, [Kind.VIALS_TO_DESTROY])
     if scoped is None:
         return []
+    in_a_record = DestructionVial.objects.filter(
+        vial=OuterRef("pk"), record__status=DestructionStatus.VALID
+    )
     rows = list(
         scoped.filter(status=VialStatus.TO_DESTROY)
+        .exclude(Exists(in_a_record))
         .values(
             "lab_id", "batch__number", "batch__strain__public_id", "batch__strain__accession_number"
         )
@@ -423,6 +441,43 @@ def _vials_to_destroy(access: Access) -> list[tuple[Item, int]]:
             row["batch__strain__public_id"],
         )
         items.append((item, len(rows)))
+    return items
+
+
+def _destructions_to_confirm(access: Access) -> list[tuple[Item, int]]:
+    """Destruction records of regulated strains that wait for a manager's confirmation (#160),
+    one item each, the oldest first. The recorder sees their own too: Home says that another
+    manager confirms it, and the confirm button says so as well."""
+    scoped = _scoped(DestructionRecord, access, [Kind.DESTRUCTION_TO_CONFIRM])
+    if scoped is None:
+        return []
+    rows = _capped(
+        scoped.filter(status=DestructionStatus.VALID, completed_at__isnull=True)
+        .select_related("strain")
+        .annotate(
+            vial_count=Subquery(
+                DestructionVial.objects.filter(record=OuterRef("pk"))
+                .values("record")
+                .annotate(n=Count("pk"))
+                .values("n")[:1]
+            )
+        ),
+        partition=[],
+        order=[F("recorded_at").asc(), F("pk").asc()],
+    )
+    items = []
+    for record in rows:
+        count = vars(record)["vial_count"]
+        item = Item(
+            Kind.DESTRUCTION_TO_CONFIRM,
+            record.lab_id,
+            f"{_number(record.strain)} destruction {record.label}",
+            f"{count} vial{'s' if count != 1 else ''}: a manager other than the recorder confirms",
+            record.recorded_at,
+            Target.STRAIN,
+            record.strain.public_id,
+        )
+        items.append((item, vars(record)["total"]))
     return items
 
 
@@ -468,6 +523,7 @@ def waiting(*, access: Access) -> list[Group]:
             *_requests(access),
             *_expiring(access, today),
             *_vials_to_destroy(access),
+            *_destructions_to_confirm(access),
             *_losses_to_report(access),
         ]
     )

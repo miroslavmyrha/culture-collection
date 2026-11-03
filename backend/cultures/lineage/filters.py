@@ -1,7 +1,7 @@
 import django_filters
 from django.db.models import QuerySet
 
-from .models import Batch, BatchCheck, Passage, Vial
+from .models import Batch, BatchCheck, DestructionRecord, Passage, Vial, VialStatus
 from .selectors import vials_by_code
 
 
@@ -41,10 +41,20 @@ class VialFilter(django_filters.FilterSet):  # type: ignore[misc]
     # What a person types or a scanner sends at the bench (#15): the vial's barcode, exactly,
     # or its label, the accession number without regard to case.
     code = django_filters.CharFilter(method="by_code", max_length=200)
+    # The vials in one state: the destruction dialog lists the strain's vials to destroy (#160).
+    status = django_filters.ChoiceFilter(choices=VialStatus.choices)
 
     class Meta:
         model = Vial
-        fields = ("strain", "batch", "vial", "code")
+        fields = ("strain", "batch", "vial", "code", "status")
 
     def by_code(self, queryset: QuerySet[Vial], name: str, value: str) -> QuerySet[Vial]:
         return vials_by_code(queryset, value)
+
+
+class DestructionFilter(django_filters.FilterSet):  # type: ignore[misc]
+    strain = django_filters.UUIDFilter(field_name="strain__public_id")
+
+    class Meta:
+        model = DestructionRecord
+        fields = ("strain",)

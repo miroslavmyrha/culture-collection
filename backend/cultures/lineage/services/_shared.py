@@ -21,7 +21,6 @@ from cultures.labs.permissions import Perm, Role, role_has
 from cultures.storage.models import StorageUnit
 from cultures.storage.policy import may_store
 from cultures.strains.models import Strain, StrainStatus
-from cultures.strains.selectors import regulating_restrictions
 
 from ..models import (
     EDGES,
@@ -45,10 +44,11 @@ BATCH = "batch"
 VIAL = "vial"
 CHECK = "check"
 # The states a person sets through the vial form. Reserved and distributed belong to
-# distribution (#18, D19).
+# distribution (#18, D19), destroyed to the destruction record (#160).
 MANUAL_TARGETS: frozenset[VialStatus] = frozenset(VialStatus) - {
     VialStatus.RESERVED,
     VialStatus.DISTRIBUTED,
+    VialStatus.DESTROYED,
 }
 # A strain in these states may be grown and preserved.
 LIVING = (StrainStatus.ACTIVE, StrainStatus.RESTRICTED)
@@ -187,18 +187,13 @@ def _close(placement: VialPlacement, access: Access, reason: RemovalReason, now:
 def _transition(locked: Vial, status: VialStatus, reason: str, access: Access) -> None:
     """Caller holds the lab lock and the vial's row. Checks the edge (the strain's as read with the
     vial, under the lab lock its deaccession takes too), closes the placement of a vial that
-    leaves its box, and records one event with both."""
+    leaves its box, and records one event with both. Never to destroyed: that is the
+    destruction record's (services.destructions)."""
     old = VialStatus(locked.status)
     strain = locked.batch.strain
-    # Only an edge to destroyed depends on the restrictions (vial_edges), so only that one reads
-    # them, under the lab lock the restrictions change under (strains.services).
-    regulated = (
-        status == VialStatus.DESTROYED
-        and regulating_restrictions().filter(strain_id=strain.pk).exists()
-    )
-    if status not in vial_edges(strain, regulated=regulated)[old]:
-        if regulated and status in vial_edges(strain, regulated=False)[old]:
-            raise DestructionNeedsRecord
+    if status == VialStatus.DESTROYED:
+        raise DestructionNeedsRecord
+    if status not in vial_edges(strain)[old]:
         if status in EDGES[old]:
             raise MaterialDestroyed
         raise EdgeNotAllowed(

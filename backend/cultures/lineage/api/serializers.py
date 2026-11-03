@@ -21,10 +21,11 @@ from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail
 from rest_framework.request import Request
 
+from cultures.biosafety.models import DestructionMethod
 from cultures.core.api import ScopedRelatedField
 from cultures.growth.api.serializers import GrowthInputSerializer, GrowthOutputSerializer
 from cultures.labs.access import access_of
-from cultures.labs.models import Lab
+from cultures.labs.models import Lab, Membership
 from cultures.labs.services import holds_location_grant
 from cultures.lineage import selectors
 from cultures.lineage.models import (
@@ -40,6 +41,9 @@ from cultures.lineage.models import (
     CheckStage,
     CheckStatus,
     CheckUnit,
+    DestructionRecord,
+    DestructionStatus,
+    DestructionVial,
     Method,
     Passage,
     Purpose,
@@ -49,6 +53,7 @@ from cultures.lineage.models import (
 )
 from cultures.lineage.services import MANUAL_TARGETS, Location, position_label
 from cultures.storage.models import StorageUnit
+from cultures.strains.models import Strain
 from cultures.users.models import User
 
 REASON_HELP = "Why, in a sentence. Stored for good: name no person."
@@ -486,6 +491,173 @@ class LossReportInputSerializer(serializers.Serializer[None]):
         help_text="The reference the police gave the report, as they wrote it. Name no person.",
     )
     reason = serializers.CharField(help_text=REASON_HELP)
+
+
+# The destruction record (#160).
+# A strain's vials marked to destroy at one time: several batches of a deaccessioned strain fit.
+MAX_VIALS_PER_DESTRUCTION = 1000
+
+
+def strains_to_destroy(request: Request) -> QuerySet[Strain]:
+    return selectors.strains_to_destroy(access_of(request))
+
+
+def witnesses(request: Request) -> QuerySet[Membership]:
+    return selectors.witnesses(access_of(request))
+
+
+class DestructionVialSerializer(serializers.Serializer[DestructionVial]):
+    public_id = serializers.UUIDField(source="vial.public_id")
+    # "<accession number> / <batch> / <number>", never a place (ADR 0009).
+    label = serializers.SerializerMethodField()  # type: ignore[assignment]
+
+    def get_label(self, row: DestructionVial) -> str:
+        number = self.context["accession_number"] or "-"
+        return f"{number} / {row.vial.batch.number} / {row.vial.seq}"
+
+
+class DestructionOutputSerializer(serializers.ModelSerializer[DestructionRecord]):
+    """A destruction record as recorded. People are usernames, shown to the lab's members like
+    the member list; the audit trail holds only their ids (ADR 0005)."""
+
+    number = serializers.CharField(source="label", read_only=True)
+    strain = serializers.UUIDField(source="strain.public_id", read_only=True)
+    method = serializers.ChoiceField(choices=DestructionMethod.choices, read_only=True)
+    status = serializers.ChoiceField(choices=DestructionStatus.choices, read_only=True)
+    witness = serializers.CharField(
+        source="witness.username", read_only=True, allow_null=True, default=None
+    )
+    # The quarantine pest's permit whose declared method the record used.
+    permit_reference = serializers.CharField(
+        source="authorisation.permit_reference", read_only=True, allow_null=True, default=None
+    )
+    recorded_by = serializers.CharField(source="recorded_by.username", read_only=True)
+    confirmed_by = serializers.CharField(
+        source="confirmed_by.username", read_only=True, allow_null=True, default=None
+    )
+    entered_in_error_by = serializers.CharField(
+        source="entered_in_error_by.username", read_only=True, allow_null=True, default=None
+    )
+    # A regulated strain's record that a manager other than the recorder has still to confirm.
+    awaits_confirmation = serializers.SerializerMethodField()
+    vials = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DestructionRecord
+        fields = (
+            "public_id",
+            "number",
+            "strain",
+            "destroyed_on",
+            "method",
+            "method_detail",
+            "verification",
+            "contractor",
+            "handover_document",
+            "inactivated_in_lab",
+            "run",
+            "reason",
+            "witness",
+            "permit_reference",
+            "recorded_by",
+            "recorded_at",
+            "confirmed_by",
+            "confirmed_at",
+            "completed_at",
+            "awaits_confirmation",
+            "status",
+            "error_reason",
+            "entered_in_error_by",
+            "entered_in_error_at",
+            "vials",
+        )
+        read_only_fields = fields
+
+    def get_awaits_confirmation(self, record: DestructionRecord) -> bool:
+        return record.status == DestructionStatus.VALID and record.completed_at is None
+
+    @extend_schema_field(DestructionVialSerializer(many=True))
+    def get_vials(self, record: DestructionRecord) -> list[dict[str, Any]]:
+        rows: Any = record.vials.all()
+        context = {"accession_number": record.strain.accession_number}
+        return list(DestructionVialSerializer(rows, many=True, context=context).data)
+
+
+class DestructionInputSerializer(serializers.Serializer[None]):
+    strain = ScopedRelatedField(model=Strain, scope=strains_to_destroy)
+    # The vials' public ids, resolved in one query (as PlaceManyInputSerializer), with one error
+    # for a missing, malformed or foreign id.
+    vials = serializers.ListField(
+        child=serializers.CharField(max_length=64),
+        allow_empty=False,
+        max_length=MAX_VIALS_PER_DESTRUCTION,
+    )
+    destroyed_on = serializers.DateField()
+    method = serializers.ChoiceField(choices=DestructionMethod.choices)
+    method_detail = serializers.CharField(
+        max_length=200,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="The method in words: required for other. Name no person.",
+    )
+    verification = serializers.CharField(
+        max_length=500,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text=(
+            "How the inactivation was verified, for example the indicator and its result."
+            " Required for a regulated strain. Name no person."
+        ),
+    )
+    contractor = serializers.CharField(
+        max_length=200,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="The outside firm that took the material: its name and company number.",
+    )
+    handover_document = serializers.CharField(
+        max_length=100, required=False, allow_blank=True, default=""
+    )
+    inactivated_in_lab = serializers.BooleanField(required=False, default=True)
+    run = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="The autoclave cycle or run, as the lab names it. Name no person.",
+    )
+    # A member of the lab, by their membership's public id (the member list's).
+    witness = ScopedRelatedField(
+        model=Membership, scope=witnesses, required=False, allow_null=True, default=None
+    )
+    reason = serializers.CharField(max_length=2000, help_text=REASON_HELP)
+
+    def validate_vials(self, entries: list[str]) -> list[Vial]:
+        ids: dict[int, UUID] = {}
+        for i, entry in enumerate(entries):
+            with suppress(ValueError):
+                ids[i] = UUID(entry)
+        found = {
+            vial.public_id: vial
+            for vial in vials_to_place(self.context["request"]).filter(
+                public_id__in=set(ids.values())
+            )
+        }
+        missing = {
+            str(i): [ErrorDetail("Invalid vial.", code="does_not_exist")]
+            for i in range(len(entries))
+            if ids.get(i) not in found
+        }
+        if missing:
+            raise serializers.ValidationError(missing)
+        return [found[ids[i]] for i in range(len(entries))]
+
+
+class DestructionErrorInputSerializer(serializers.Serializer[None]):
+    reason = serializers.CharField(max_length=2000, help_text=REASON_HELP)
 
 
 class BarcodeInputSerializer(serializers.Serializer[None]):

@@ -27,7 +27,7 @@ from cultures.labs.permissions import RANK, ROLES, Role, role_has
 from cultures.labs.tests.conftest import member_of
 from cultures.lineage import services as lineage
 from cultures.lineage.models import Batch, VialStatus
-from cultures.lineage.tests.support import pass_all, vials_of
+from cultures.lineage.tests.support import destroy, mark_to_destroy, pass_all, vials_of
 from cultures.overview.selectors import KIND_PERM, Kind
 from cultures.strains.services import RestrictionInput
 from cultures.strains.tests.conftest import make_permit
@@ -62,6 +62,7 @@ LOWEST: dict[Kind, Role] = {
     Kind.RECIPIENT_PERMIT_EXPIRING: Role.MANAGER,
     Kind.LAB_PERMIT_EXPIRING: Role.MANAGER,
     Kind.VIALS_TO_DESTROY: Role.CURATOR,
+    Kind.DESTRUCTION_TO_CONFIRM: Role.MANAGER,
 }
 
 
@@ -113,6 +114,13 @@ def make_one(
                 reason="Cracked.",
             )
 
+    def to_confirm() -> None:
+        """A RAT's vial to destroy, its destruction recorded by the curator (#160)."""
+        strain = supply(mockia, restrictions=[RAT], release=False)
+        vial = vials_of(Batch.objects.get(strain=strain))[0]
+        mark_to_destroy(curator, [vial])
+        destroy(curator, [vial])
+
     def lost() -> None:
         strain = supply(mockia, restrictions=[RAT], release=False)
         with as_actor(curator):
@@ -148,6 +156,7 @@ def make_one(
             make_permit(lab, AuthorisationKind.CZ_VRAT, expires_on=soon)
         ),
         Kind.VIALS_TO_DESTROY: to_destroy,
+        Kind.DESTRUCTION_TO_CONFIRM: to_confirm,
     }
 
 

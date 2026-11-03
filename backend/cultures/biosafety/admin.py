@@ -18,7 +18,7 @@ from cultures.audit.models import Channel
 from cultures.users.models import User
 
 from . import services
-from .models import ISSUER_OF, AuthorisationKind, LabAuthorisation
+from .models import ISSUER_OF, AuthorisationKind, DestructionMethod, LabAuthorisation
 
 if TYPE_CHECKING:
     AuthorisationFormBase = forms.ModelForm[LabAuthorisation]
@@ -42,11 +42,16 @@ class AuthorisationForm(AuthorisationFormBase):
             "permit_reference",
             "valid_from",
             "expires_on",
+            "destruction_method",
             "ended_on",
             "end_reason",
         )
         help_texts = {
             "expires_on": "The last day of validity as the permit states it. Empty: none stated.",
+            "destruction_method": (
+                "For a permit to hold quarantine pests: the method of destruction its"
+                " application declared. Destruction records of the lab must use it."
+            ),
             "ended_on": "The day the permit stopped being valid before its expiry.",
             "end_reason": REASON_HELP,
         }
@@ -86,7 +91,14 @@ class LabAuthorisationAdmin(AuthorisationAdminBase):
         self, request: HttpRequest, obj: LabAuthorisation | None = None
     ) -> tuple[str, ...]:
         if obj is None:
-            return ("lab", "kind", "permit_reference", "valid_from", "expires_on")
+            return (
+                "lab",
+                "kind",
+                "permit_reference",
+                "valid_from",
+                "expires_on",
+                "destruction_method",
+            )
         return (
             "lab",
             "kind",
@@ -94,6 +106,7 @@ class LabAuthorisationAdmin(AuthorisationAdminBase):
             "permit_reference",
             "valid_from",
             "expires_on",
+            "destruction_method",
             "ended_on",
             "end_reason",
         )
@@ -103,7 +116,15 @@ class LabAuthorisationAdmin(AuthorisationAdminBase):
     ) -> list[str]:
         if obj is None:
             return []
-        fixed = ["lab", "kind", "issuer", "permit_reference", "valid_from", "expires_on"]
+        fixed = [
+            "lab",
+            "kind",
+            "issuer",
+            "permit_reference",
+            "valid_from",
+            "expires_on",
+            "destruction_method",
+        ]
         return [*fixed, "ended_on", "end_reason"] if obj.ended_on is not None else fixed
 
     def has_delete_permission(
@@ -133,6 +154,11 @@ class LabAuthorisationAdmin(AuthorisationAdminBase):
                 permit_reference=data["permit_reference"],
                 valid_from=data["valid_from"],
                 expires_on=data.get("expires_on"),
+                destruction_method=(
+                    DestructionMethod(data["destruction_method"])
+                    if data.get("destruction_method")
+                    else None
+                ),
             )
             obj.pk, obj.public_id = created.pk, created.public_id
             return

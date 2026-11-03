@@ -9,7 +9,7 @@ and manage them (#11), view and manage depositors and deposits, publish MTA
 versions (#10, #12), view and manage storage (#14), handle vials (#16), release
 and hold batches (#17), read, enter and decide requests (#18), read the lab's permits (#82),
 deaccession strains (#20), read who revealed regulated locations (#83), read the lab's vials
-by state (#81).
+by state (#81), confirm the destruction of a regulated strain's vials (#160).
 The others are named now so later features plug into the same map instead of inventing their
 own checks.
 """
@@ -60,6 +60,11 @@ class Perm(StrEnum):
     # p. 31): a manager's, like confirming the end of a restriction. A strain that is not
     # regulated is deaccessioned by one person who manages strains (curator and up).
     CONFIRM_DEACCESSION = "strains.confirm_deaccession"
+    # #160: confirming the destruction record of a regulated strain, which another person
+    # recorded: its vials are destroyed only then (ADR 0009, decision Q2 of the destruction study:
+    # "a manager other than the one who recorded it, as the deaccession"). Recording a
+    # destruction is bench work (HANDLE_VIALS).
+    CONFIRM_DESTRUCTION = "vials.confirm_destruction"
     # #10 and #12: depositors (with their contacts), deposits and their terms. Reading them
     # shows personal contacts, so it is not a viewer's permission (ADR 0008, 2026-10-19).
     VIEW_DEPOSITS = "deposits.view"
@@ -128,6 +133,7 @@ GRANTS: dict[Role, frozenset[Perm]] = {
             Perm.APPROVE_REGULATED,
             Perm.CONFIRM_RESTRICTION_END,
             Perm.CONFIRM_DEACCESSION,
+            Perm.CONFIRM_DESTRUCTION,
             Perm.VIEW_LAB_PERMITS,
             Perm.VIEW_REVEALS,
             Perm.VIEW_LAB_FIGURES,

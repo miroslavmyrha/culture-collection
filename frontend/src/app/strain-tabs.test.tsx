@@ -50,13 +50,14 @@ function strainPage(role: Role, canReveal = false) {
     history: mockApi('get', HISTORY, page([makeHistoryLine({ summary: 'placed vial MYC 42 / 1 / 1' })])),
     passages: mockApi('get', PASSAGES, page([makePassage({ number: 0 })])),
     batches: mockApi('get', BATCHES, page([makeBatch()])),
+    destructions: mockApi('get', '/api/v1/labs/{lab_public_id}/destructions/', page([])),
     vials: mockApi('get', VIALS, page([makeVial({ label: 'MYC 42 / 1 / 1', placed: true, location_masked: true, can_reveal: canReveal })])),
   }
 }
 
 const TABS = [
   ['Overview', '', () => screen.findByRole('heading', { level: 2, name: 'Terms of use' }), ['strain', 'terms']],
-  ['Material', '/material', () => screen.findByRole('table', { name: 'Vials' }), ['strain', 'passages', 'batches', 'vials']],
+  ['Material', '/material', () => screen.findByRole('table', { name: 'Vials' }), ['strain', 'passages', 'batches', 'vials', 'destructions']],
   ['Terms', '/terms', () => screen.findByRole('article', { name: 'Version 1' }), ['strain', 'terms']],
   ['History', '/history', () => screen.findByRole('list', { name: 'History, newest first' }), ['strain', 'history']],
 ] as const
@@ -144,12 +145,12 @@ describe('the strain page in tabs (#19)', () => {
     expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(offered)
   })
 
-  // #158: the page tells the Material tab whether the strain is regulated (the server's
-  // `regulated`); a regulated strain's vial to destroy is not destroyed by one person (ADR 0009).
+  // #160: no state change destroys a vial, whatever its strain's restrictions: a destruction
+  // record does, in the Destruction section.
   it.each([
     ['an active restriction', [GMO], ['Place']],
-    ['only an ended restriction', [{ ...GMO, ended_at: '2026-10-20T10:00:00Z', end_reason: 'Delisted.' }], ['Place', 'Change state']],
-  ] as const)('offers a vial to destroy of a strain with %s no destruction by one person while regulated', async (_, restrictions, items) => {
+    ['only an ended restriction', [{ ...GMO, ended_at: '2026-10-20T10:00:00Z', end_reason: 'Delisted.' }], ['Place']],
+  ] as const)('offers a vial to destroy of a strain with %s no state to change to', async (_, restrictions, items) => {
     strainPage('technician')
     mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42', restriction_history: [...restrictions] }))
     mockApi('get', VIALS, page([makeVial({ label: 'MYC 42 / 1 / 1', status: 'to_destroy', status_changed_at: '2026-10-02T10:00:00Z' })]))

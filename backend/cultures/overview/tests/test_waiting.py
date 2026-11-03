@@ -31,7 +31,7 @@ from cultures.labs.permissions import Role
 from cultures.labs.tests.conftest import make_user, member_of
 from cultures.lineage import services as lineage
 from cultures.lineage.models import Batch, CheckKind, CheckResult, Vial, VialStatus
-from cultures.lineage.tests.support import record, vials_of
+from cultures.lineage.tests.support import destroy, mark_to_destroy, record, vials_of
 from cultures.overview import selectors
 from cultures.strains.models import Strain
 from cultures.strains.services import RestrictionInput
@@ -324,15 +324,35 @@ def test_vials_marked_to_destroy_wait_for_curators_one_line_per_batch(
     assert item["reason"] == "2 vials marked to destroy"
     assert (item["target"], item["target_id"]) == ("strain", str(batch.strain.public_id))
 
-    with as_actor(curator):
-        for vial in (first, second):
-            lineage.vial_transition(
-                access=access_for(curator),
-                vial=vial,
-                status=VialStatus.DESTROYED,
-                reason="Autoclaved.",
-            )
+    destroy(curator, [first, second])  # a strain without restrictions: destroyed at once
     assert "vials_to_destroy" not in waiting(curator)
+
+
+def test_a_destruction_that_waits_for_its_confirmation_waits_for_managers_instead(
+    supply: Supply, mockia: Taxon, team: dict[Role, User], curator: User, manager: User
+) -> None:
+    """#160: the recorded vial leaves the vials to destroy; the record waits for the managers,
+    and is gone from Home once confirmed."""
+    strain = supply(mockia, restrictions=[RAT], release=False, vials=3)
+    batch = batch_of(strain)
+    first, second, third = vials_of(batch)
+    mark_to_destroy(curator, [first, second, third])
+    record = destroy(curator, [first, second])
+    [item] = waiting(curator)["vials_to_destroy"]
+    assert item["reason"] == "1 vial marked to destroy"  # the third, in no record
+    for role, user in team.items():
+        expected = (
+            [f"{strain.accession_number} destruction {record.label}"]
+            if role == Role.MANAGER
+            else []
+        )
+        assert subjects(user, "destruction_to_confirm") == expected, role
+    [waits] = waiting(manager)["destruction_to_confirm"]
+    assert waits["reason"] == "2 vials: a manager other than the recorder confirms"
+    assert (waits["target"], waits["target_id"]) == ("strain", str(strain.public_id))
+    with as_actor(manager):
+        lineage.destruction_confirm(access=access_for(manager), record=record)
+    assert "destruction_to_confirm" not in waiting(manager)
 
 
 # Losses of VRAT and RAT vials: managers record that the police were told (#159).

@@ -86,6 +86,10 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     "lineage_batchcheck": ("SELECT", "INSERT", "UPDATE"),
     # #159: a loss report is only added (its trigger refuses UPDATE and DELETE).
     "lineage_viallossreport": ("SELECT", "INSERT"),
+    # #160: a destruction record changes once, at its confirmation or when it is entered in error
+    # (its trigger); its vials are only added.
+    "lineage_destructionrecord": ("SELECT", "INSERT", "UPDATE"),
+    "lineage_destructionvial": ("SELECT", "INSERT"),
     # #18: nothing of distribution is ever deleted (triggers refuse it as well). Requesters and
     # the counter change; a permit is ended once; a request changes its status; a reservation
     # ends once. Documents, lines, the permits a line was approved against and acceptances are

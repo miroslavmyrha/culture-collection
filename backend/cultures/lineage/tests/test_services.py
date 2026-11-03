@@ -503,10 +503,11 @@ def test_a_vial_that_leaves_closes_its_placement_in_the_same_event(
 ) -> None:
     access = access_for(technician)
     place(technician, vial, tree.box, 5, 5)
-    services.vial_transition(access=access, vial=vial, status=VialStatus.TO_DESTROY, reason=REASON)
-    assert open_place(vial) == (tree.box, 5, 5)  # still in the box until destroyed
+    services.vial_transition(access=access, vial=vial, status=VialStatus.QUARANTINED, reason=REASON)
+    assert open_place(vial) == (tree.box, 5, 5)  # a held state keeps its place
+    services.vial_transition(access=access, vial=vial, status=VialStatus.AVAILABLE, reason=REASON)
     start = last_pk()
-    services.vial_transition(access=access, vial=vial, status=VialStatus.DESTROYED, reason=REASON)
+    services.vial_transition(access=access, vial=vial, status=VialStatus.CONSUMED, reason=REASON)
     assert open_place(vial) is None
     (event,) = events(start)
     assert (event.event_type, event.reason, event.strain_id) == (
@@ -515,10 +516,10 @@ def test_a_vial_that_leaves_closes_its_placement_in_the_same_event(
         vial.batch.strain.public_id,
     )
     assert event.changes == {
-        "status": ["to_destroy", "destroyed"],
+        "status": ["available", "consumed"],
         "location": [{"box": str(tree.box.public_id), "row": 5, "col": 5}, None],
     }
-    assert VialPlacement.objects.get(vial=vial).removal_reason == "destroyed"
+    assert VialPlacement.objects.get(vial=vial).removal_reason == "consumed"
     vial.refresh_from_db()
     assert vial.status_changed_at is not None
 
@@ -714,6 +715,7 @@ NOT_A_WRITE = {
     "normalised",
     "not_passed",
     "position_label",
+    "required_for",
 }
 # Distribution's steps: written under its locks, walked by distribution/tests/test_services.py.
 DISTRIBUTION_STEPS = {
@@ -728,6 +730,9 @@ STRAIN_STEPS = {"strain_vials_leave_locked"}
 # The report of a loss (#159) needs a manager and a lost VRAT or RAT vial: its strain, demotion
 # and audit-context cases are in test_loss_reports.py.
 LOSS_REPORT = {"vial_loss_report"}
+# The destruction record (#160) needs vials marked to destroy and, for its confirmation, a second
+# manager: its strain, demotion, event and audit-context cases are in test_destructions.py.
+DESTRUCTION = {"destruction_record", "destruction_confirm", "destruction_enter_in_error"}
 # Viewers may reveal (strains.view): the grant decides, tested in test_masking.py.
 VIEWER_MAY = {"vial_reveal_location"}
 
@@ -736,9 +741,9 @@ def test_every_service_has_a_scenario_here() -> None:
     """The check services have theirs in test_checks.py (their setup needs a batch)."""
     found = public_services(services)
     assert {"batch_preserve", "vial_place", "check_record"} <= found  # the walk found them
-    assert found - NOT_A_WRITE - DISTRIBUTION_STEPS - STRAIN_STEPS - LOSS_REPORT == set(
-        SCENARIOS
-    ) | set(CHECK_SCENARIOS)
+    assert found - NOT_A_WRITE - DISTRIBUTION_STEPS - STRAIN_STEPS - LOSS_REPORT - DESTRUCTION == (
+        set(SCENARIOS) | set(CHECK_SCENARIOS)
+    )
     assert not set(SCENARIOS) & set(CHECK_SCENARIOS)
 
 

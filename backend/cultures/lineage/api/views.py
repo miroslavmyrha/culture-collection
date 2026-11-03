@@ -10,16 +10,23 @@ from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from cultures.biosafety.models import DestructionMethod
 from cultures.core.api import ScopedReadOnlyViewSet
 from cultures.core.errors import PROBLEM_CONTENT_TYPE as PROBLEM
 from cultures.core.errors import ProblemSerializer
 from cultures.growth.services import Growth
 from cultures.labs import selectors as labs
 from cultures.labs.access import access_of
-from cultures.labs.models import Lab
+from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Perm
 from cultures.lineage import selectors, services
-from cultures.lineage.filters import BatchCheckFilter, BatchFilter, PassageFilter, VialFilter
+from cultures.lineage.filters import (
+    BatchCheckFilter,
+    BatchFilter,
+    DestructionFilter,
+    PassageFilter,
+    VialFilter,
+)
 from cultures.lineage.models import (
     Batch,
     BatchCheck,
@@ -28,6 +35,7 @@ from cultures.lineage.models import (
     CheckResult,
     CheckStage,
     CheckUnit,
+    DestructionRecord,
     Method,
     Passage,
     Purpose,
@@ -35,6 +43,7 @@ from cultures.lineage.models import (
     VialStatus,
 )
 from cultures.storage.models import StorageUnit
+from cultures.strains.models import Strain
 
 from .serializers import (
     BarcodeInputSerializer,
@@ -45,6 +54,9 @@ from .serializers import (
     BoxOutputSerializer,
     CheckErrorInputSerializer,
     CheckInputSerializer,
+    DestructionErrorInputSerializer,
+    DestructionInputSerializer,
+    DestructionOutputSerializer,
     GrowthOverrideInputSerializer,
     LocationSerializer,
     LossReportInputSerializer,
@@ -88,9 +100,8 @@ STATUS_INVALID = OpenApiResponse(
     ProblemSerializer,
     "Invalid input on a field. On the status: transition_not_allowed, a state that cannot follow;"
     " vial_has_history, entered in error after a change; strain_material_destroyed, the strain"
-    " was deaccessioned with its material destroyed and its vials go only to destruction;"
-    " destruction_needs_record, the strain is regulated and its vial is destroyed only with a"
-    " destruction record a second person confirms (ADR 0009)",
+    " was deaccessioned with its material destroyed and its vials go only to destruction. A"
+    " vial is destroyed only through a destruction record (#160)",
 )
 RELEASE_RULE = OpenApiResponse(
     ProblemSerializer,
@@ -107,6 +118,28 @@ CHECK_INVALID = OpenApiResponse(
 CHECK_CONFLICT = OpenApiResponse(
     ProblemSerializer,
     "batch_exhausted; vial_not_available; check_entered_in_error; vial_not_in_collection",
+)
+DESTRUCTION_INVALID = OpenApiResponse(
+    ProblemSerializer,
+    "Invalid input on a field: an unknown strain, vial (vials.<i>) or member, a vial twice, a"
+    " date in the future or before a vial was marked to destroy, other without its description,"
+    " a firm without its handover document; for a regulated strain a missing verification; for"
+    " a VRAT a missing witness or one who is the recorder (witness_is_recorder), material"
+    " handed to a firm alive (inactivate_before_handover); for a quarantine pest no permit on"
+    " the day (lab_authorisation_required) or another method than the permit declares"
+    " (method_not_authorised)",
+)
+DESTRUCTION_CONFLICT = OpenApiResponse(
+    ProblemSerializer,
+    "vial_not_to_destroy and vial_in_destruction (on vials.<i>); destruction_not_awaiting: the"
+    " record was confirmed, entered in error or needed no confirmation; destruction_outdated:"
+    " the strain's restrictions changed and the record no longer holds what they ask;"
+    " destruction_entered_in_error",
+)
+DESTRUCTION_RULE = OpenApiResponse(
+    ProblemSerializer,
+    "reason_required; authorisation_method_missing: the lab's ÚKZÚZ permit has no declared"
+    " destruction method recorded",
 )
 LAB_PARAMETER = OpenApiParameter("lab_public_id", OpenApiTypes.UUID, OpenApiParameter.PATH)
 
@@ -351,6 +384,105 @@ class BatchCheckViewSet(LabNested):
             access=access_of(request), check=check, reason=data.validated_data["reason"]
         )
         return Response(BatchCheckOutputSerializer(self.scoped_queryset().get(pk=check.pk)).data)
+
+
+# The destruction records of the lab's strains (#160, ADR 0008 and ADR 0009 amendments of
+# 2026-11-03), newest first, entered in error included. Viewers and up read (strains.view);
+# technicians and up record one and enter a waiting or unconfirmed one in error (vials.handle);
+# a manager other than the recorder confirms a regulated strain's record, which destroys its
+# vials, and enters a confirmed one in error (vials.confirm_destruction, checked by the
+# service). Records are never changed otherwise or deleted. No answer holds a place.
+@extend_schema(parameters=[LAB_PARAMETER])
+class DestructionViewSet(LabNested):
+    model = DestructionRecord
+    action_perms = {
+        "list": Perm.VIEW_STRAINS,
+        "retrieve": Perm.VIEW_STRAINS,
+        "create": Perm.HANDLE_VIALS,
+        "confirm": Perm.CONFIRM_DESTRUCTION,
+        "enter_in_error": Perm.HANDLE_VIALS,
+    }
+    serializer_class = DestructionOutputSerializer
+    filterset_class = DestructionFilter
+
+    def scoped_queryset(self) -> QuerySet[Any]:
+        return selectors.destruction_list(access=access_of(self.request), lab=self.lab)
+
+    def _fresh(self, record: DestructionRecord, code: int = status.HTTP_200_OK) -> Response:
+        """The record as committed now, through the same scoped query."""
+        fresh = self.scoped_queryset().get(pk=record.pk)
+        return Response(DestructionOutputSerializer(fresh).data, status=code)
+
+    @extend_schema(
+        request=DestructionInputSerializer,
+        responses={
+            201: DestructionOutputSerializer,
+            (400, PROBLEM): DESTRUCTION_INVALID,
+            (409, PROBLEM): DESTRUCTION_CONFLICT,
+            (422, PROBLEM): DESTRUCTION_RULE,
+        },
+    )
+    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        lab = self.lab  # first: an outsider gets 404, never a 400 that reveals the lab
+        data = DestructionInputSerializer(data=request.data, context=self.get_serializer_context())
+        data.is_valid(raise_exception=True)
+        values = data.validated_data
+        strain: Strain = values["strain"]
+        if strain.lab_id != lab.pk:  # the same error as an unknown strain
+            raise services.InvalidDestruction(
+                "Invalid strain.", code="does_not_exist", attr="strain"
+            )
+        member: Membership | None = values["witness"]
+        if member is not None and member.lab_id != lab.pk:
+            raise services.InvalidDestruction(
+                "Invalid member.", code="does_not_exist", attr="witness"
+            )
+        record = services.destruction_record(
+            access=access_of(request),
+            strain=strain,
+            data=services.NewDestruction(
+                vials=values["vials"],
+                destroyed_on=values["destroyed_on"],
+                method=DestructionMethod(values["method"]),
+                reason=values["reason"],
+                method_detail=values["method_detail"],
+                verification=values["verification"],
+                contractor=values["contractor"],
+                handover_document=values["handover_document"],
+                inactivated_in_lab=values["inactivated_in_lab"],
+                run=values["run"],
+                witness=None if member is None else member.user,
+            ),
+        )
+        return self._fresh(record, status.HTTP_201_CREATED)
+
+    @extend_schema(
+        request=None,
+        responses={200: DestructionOutputSerializer, (409, PROBLEM): DESTRUCTION_CONFLICT},
+    )
+    @action(detail=True, methods=["post"], url_path="confirm")
+    def confirm(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        record: DestructionRecord = self.get_object()
+        services.destruction_confirm(access=access_of(request), record=record)
+        return self._fresh(record)
+
+    @extend_schema(
+        request=DestructionErrorInputSerializer,
+        responses={
+            200: DestructionOutputSerializer,
+            (409, PROBLEM): DESTRUCTION_CONFLICT,
+            (422, PROBLEM): RULE,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="enter-in-error")
+    def enter_in_error(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        record: DestructionRecord = self.get_object()
+        data = DestructionErrorInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.destruction_enter_in_error(
+            access=access_of(request), record=record, reason=data.validated_data["reason"]
+        )
+        return self._fresh(record)
 
 
 # Vials of the lab's strains, paged, by strain, batch and number. Viewers and up read

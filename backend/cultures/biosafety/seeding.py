@@ -10,7 +10,7 @@ from datetime import date
 from cultures.labs.models import Lab
 
 from . import services
-from .models import AuthorisationKind, LabAuthorisation
+from .models import AuthorisationKind, DestructionMethod, LabAuthorisation
 
 
 @dataclass(frozen=True)
@@ -21,6 +21,7 @@ class SeedAuthorisation:
     expires_on: date | None = None  # the last valid day
     ended_on: date | None = None  # the first invalid day
     end_reason: str = ""
+    destruction_method: DestructionMethod | None = None  # a quarantine pest's permit (#160)
 
 
 def authorisation(lab: Lab, data: SeedAuthorisation) -> LabAuthorisation:
@@ -34,6 +35,7 @@ def authorisation(lab: Lab, data: SeedAuthorisation) -> LabAuthorisation:
             permit_reference=data.permit_reference,
             valid_from=data.valid_from,
             expires_on=data.expires_on,
+            destruction_method=data.destruction_method,
         )
     if data.ended_on is not None and found.ended_on is None:
         services.authorisation_end(

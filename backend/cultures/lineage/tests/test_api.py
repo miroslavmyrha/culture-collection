@@ -191,7 +191,7 @@ def test_a_state_change_through_the_api(
     assert_problem(
         client.post(url, {"status": "destroyed", "reason": "r"}, content_type="application/json"),
         400,
-        "transition_not_allowed",
+        "invalid",
         "status",
     )
     assert_problem(
@@ -207,11 +207,12 @@ def test_a_state_change_through_the_api(
 
 
 @pytest.mark.rule("R-END-03")
-def test_a_regulated_strains_vial_to_destroy_is_not_destroyed_through_the_api(
-    technician: User, regulated: Strain, make_batch: MakeBatch
+def test_no_vial_is_destroyed_through_the_status_endpoint(
+    technician: User, passage0: Passage, make_batch: MakeBatch
 ) -> None:
-    """#158, ADR 0009: the code says the record with a second person is needed."""
-    vial = vials_of(make_batch(Passage.objects.get(strain=regulated, number=0), vial_count=1))[0]
+    """#160: destroyed is not a state a person sets, for a strain without restrictions too: the
+    destruction record is the way."""
+    vial = vials_of(make_batch(passage0, vial_count=1))[0]
     url = f"{VIALS_URL}{vial.public_id}/status/"
     client = logged_in(technician)
     marked = client.post(
@@ -221,8 +222,7 @@ def test_a_regulated_strains_vial_to_destroy_is_not_destroyed_through_the_api(
     refused = client.post(
         url, {"status": "destroyed", "reason": "autoclaved"}, content_type="application/json"
     )
-    assert_problem(refused, 400, "destruction_needs_record", "status")
-    assert "second person" in refused.json()["errors"][0]["detail"]
+    assert_problem(refused, 400, "invalid", "status")
     assert Vial.objects.get(pk=vial.pk).status == "to_destroy"
 
 

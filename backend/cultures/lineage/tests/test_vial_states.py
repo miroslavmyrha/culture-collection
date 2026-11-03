@@ -1,18 +1,19 @@
 """The vial's states (ADR 0008, D7), edge by edge: all 81 pairs through the service and through
-the trigger, for a strain in the collection, a regulated one (#158), one deaccessioned with its
+the trigger, for a strain in the collection, a regulated one, one deaccessioned with its
 material destroyed and one deaccessioned with its material kept (#150, a quarantine pest, so
-regulated too), against lineage.models.vial_edges. Neither may allow a pair the other refuses."""
+regulated too), against lineage.models.vial_edges. Neither may allow a pair the other refuses.
+The edge to destroyed is the destruction record's (#160): no state change takes it, and the
+deferred trigger that asks for the record is off here (vial_edges_alone); its own tests are in
+test_destruction_guards.py."""
 
 from collections.abc import Callable
 
 import pytest
 from django.db import IntegrityError, InternalError, connection, transaction
 
-from cultures.audit.context import AuditContext, audit_context
-from cultures.audit.models import AuditEvent, Channel
-from cultures.biosafety.models import AuthorisationKind, RestrictionKind
+from cultures.audit.context import AuditContext
+from cultures.audit.models import AuditEvent
 from cultures.labs.access import Access, access_for
-from cultures.labs.models import Lab
 from cultures.lineage import services
 from cultures.lineage.models import (
     EDGES,
@@ -24,23 +25,12 @@ from cultures.lineage.models import (
     vial_edges,
 )
 from cultures.lineage.services import MANUAL_TARGETS
-from cultures.strains import services as strains
 from cultures.strains.models import (
     FinalUse,
     Strain,
-    StrainRestriction,
     StrainStatus,
 )
 from cultures.strains.selectors import regulating_restrictions
-from cultures.strains.services import RestrictionInput
-from cultures.strains.tests.conftest import (
-    DUAL_USE,
-    GMO,
-    QUARANTINE,
-    VRAT,
-    end_restriction,
-    make_permit,
-)
 from cultures.users.models import User
 
 from .support import MakeBatch, deaccession, deaccessioned_past_the_service, vials_of
@@ -57,24 +47,13 @@ Vials = Callable[[VialStatus], tuple[Strain, list[Vial]]]
 
 
 def put(vial: Vial, status: str) -> Vial:
-    """Into the state along allowed edges, past the service (no event). A destroyed vial of a
-    regulated strain is one destroyed before #158 or before its restriction: for that step the
-    vial guard is off, in this test's transaction only (rolled back with it). PostgreSQL
-    refuses ALTER TABLE while trigger events are pending ("cannot ALTER TABLE ... because it has
-    pending trigger events"), so the deferred checks (foreign keys) run first."""
-    off = status == S.DESTROYED and is_regulated(Vial.objects.get(pk=vial.pk).batch.strain)
+    """Into the state along allowed edges, past the service (no event)."""
     with connection.cursor() as cursor:
-        if off:
-            cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
         for step in PATHS[status]:
-            if off and step == S.DESTROYED:
-                cursor.execute("ALTER TABLE lineage_vial DISABLE TRIGGER lineage_vial_guard")
             cursor.execute(
                 "UPDATE lineage_vial SET status = %s, status_changed_at = now() WHERE id = %s",
                 [step, vial.pk],
             )
-        if off:
-            cursor.execute("ALTER TABLE lineage_vial ENABLE TRIGGER lineage_vial_guard")
     return Vial.objects.get(pk=vial.pk)
 
 
@@ -124,12 +103,7 @@ def is_regulated(strain: Strain) -> bool:
 
 
 def allowed(strain: Strain, old: VialStatus, new: VialStatus) -> bool:
-    return new == old or new in vial_edges(strain, regulated=is_regulated(strain))[old]
-
-
-def refused_for_regulation(strain: Strain, old: VialStatus, new: VialStatus) -> bool:
-    """An edge the strain's vials would take if it were not regulated (#158)."""
-    return new in vial_edges(strain, regulated=False)[old] and not allowed(strain, old, new)
+    return new == old or new in vial_edges(strain)[old]
 
 
 def refused_for_the_strain(strain: Strain, old: VialStatus, new: VialStatus) -> bool:
@@ -167,9 +141,7 @@ def test_the_trigger_allows_exactly_the_edges(vials_in: Vials, old: VialStatus) 
                 )
             done = True
         except (IntegrityError, InternalError) as error:
-            if refused_for_regulation(strain, old, new):
-                expected = "a vial of a regulated strain is destroyed only"
-            elif refused_for_the_strain(strain, old, new):
+            if refused_for_the_strain(strain, old, new):
                 expected = "deaccessioned with its material destroyed"
             else:
                 expected = "a vial cannot go from"
@@ -191,7 +163,7 @@ def test_the_service_allows_exactly_the_edges_a_person_may_take(
             services.vial_transition(access=access, vial=vial, status=new, reason="test")
             done = True
         except services.EdgeNotAllowed as error:
-            if new in MANUAL_TARGETS and refused_for_regulation(strain, old, new):
+            if new == VialStatus.DESTROYED:
                 expected = "destruction_needs_record"
             elif new in MANUAL_TARGETS and refused_for_the_strain(strain, old, new):
                 expected = "strain_material_destroyed"
@@ -201,8 +173,9 @@ def test_the_service_allows_exactly_the_edges_a_person_may_take(
             done = False
         except services.VialReserved:
             done = False
-        # Reserved and distributed are distribution's (#18), also as the same state again, and
-        # a reserved vial leaves its state only through its request.
+        # Reserved and distributed are distribution's (#18), destroyed the destruction record's
+        # (#160), also as the same state again, and a reserved vial leaves its state only
+        # through its request.
         expected_done = (
             allowed(strain, old, new) and new in MANUAL_TARGETS and old != VialStatus.RESERVED
         )
@@ -235,79 +208,13 @@ def test_a_vial_with_a_history_is_not_entered_in_error(
 
 
 @pytest.mark.rule("R-END-03")
-def test_a_regulated_strain_takes_every_edge_but_the_one_to_destroyed() -> None:
-    """The table on its own (#158): only to_destroy > destroyed goes, for either kind of strain."""
+def test_no_state_change_destroys_a_vial_of_any_strain() -> None:
+    """#160: destroyed is not a target a person sets; the destruction record is the way."""
+    assert VialStatus.DESTROYED not in MANUAL_TARGETS
     for strain in (
         Strain(status=StrainStatus.ACTIVE),
         Strain(status=StrainStatus.DEACCESSIONED, final_use=FinalUse.DESTRUCTION),
     ):
-        free = vial_edges(strain, regulated=False)
-        held = vial_edges(strain, regulated=True)
-        gone = {(old, new) for old in free for new in free[old] - held[old]}
-        assert gone == {(S.TO_DESTROY, S.DESTROYED)}
-        assert all(held[old] <= free[old] for old in free)
-
-
-# "Regulated" is written twice: strains.selectors.regulating_restrictions() and the vial guard's
-# "ended_at IS NULL" (lineage 0010). Each case the predicate tells apart, tried on the trigger and
-# on the service: a vial to destroy is refused its destruction exactly when Python says regulated.
-
-RESTRICTIONS: dict[RestrictionKind, RestrictionInput] = {
-    RestrictionKind.CZ_VRAT: VRAT,
-    RestrictionKind.CZ_RAT: RestrictionInput(RestrictionKind.CZ_RAT, "Příloha 2, bod 1"),
-    RestrictionKind.DUAL_USE: DUAL_USE,
-    RestrictionKind.QUARANTINE_PEST: QUARANTINE,
-    RestrictionKind.GMO: GMO,
-}
-
-
-@pytest.mark.parametrize(
-    "case", ["none", "ended", *(f"active {kind}" for kind in RestrictionKind.values)]
-)
-@pytest.mark.rule("R-KIND-09")
-def test_the_trigger_and_the_service_agree_with_the_python_predicate_on_destruction(
-    *,
-    case: str,
-    lab: Lab,
-    strain: Strain,
-    passage0: Passage,
-    make_batch: MakeBatch,
-    curator: User,
-    manager: User,
-    technician: User,
-    as_technician: AuditContext,
-) -> None:
-    assert set(RESTRICTIONS) == set(RestrictionKind)  # a new kind needs a case here
-    make_permit(lab, AuthorisationKind.CZ_VRAT)
-    make_permit(lab, AuthorisationKind.QUARANTINE_PEST)
-    if case != "none":
-        restriction = GMO if case == "ended" else RESTRICTIONS[RestrictionKind(case.split()[1])]
-        with audit_context(channel=Channel.API, actor=curator, request_id="req-setup"):
-            strains.strain_restriction_add(
-                access=access_for(curator), strain=strain, restriction=restriction, reason="listed"
-            )
-        if case == "ended":
-            end_restriction(
-                StrainRestriction.objects.get(strain=strain), proposer=curator, confirmer=manager
-            )
-    regulated = is_regulated(strain)
-    assert regulated == case.startswith("active")
-    raw, served = (put(v, S.TO_DESTROY) for v in vials_of(make_batch(passage0, vial_count=2)))
-    try:
-        with transaction.atomic(), connection.cursor() as cursor:
-            cursor.execute("UPDATE lineage_vial SET status = 'destroyed' WHERE id = %s", [raw.pk])
-    except (IntegrityError, InternalError) as error:
-        assert regulated, f"{case}: the trigger refused although not regulated: {error}"
-        assert "a vial of a regulated strain is destroyed only" in str(error)
-    else:
-        assert not regulated, f"{case}: the trigger let one person destroy a regulated vial"
-    try:
-        services.vial_transition(
-            access=access_for(technician), vial=served, status=S.DESTROYED, reason="autoclaved"
-        )
-    except services.DestructionNeedsRecord:
-        assert regulated, f"{case}: the service refused although not regulated"
-    else:
-        assert not regulated, f"{case}: the service let one person destroy a regulated vial"
-    expected = S.TO_DESTROY if regulated else S.DESTROYED
-    assert {Vial.objects.get(pk=v.pk).status for v in (raw, served)} == {expected}
+        assert {old for old, new in vial_edges(strain).items() if VialStatus.DESTROYED in new} == {
+            VialStatus.TO_DESTROY
+        }

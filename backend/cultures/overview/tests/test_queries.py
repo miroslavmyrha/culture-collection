@@ -18,7 +18,7 @@ from cultures.labs.permissions import Role
 from cultures.labs.tests.conftest import make_lab
 from cultures.lineage import services as lineage
 from cultures.lineage.models import Batch, VialStatus
-from cultures.lineage.tests.support import vials_of
+from cultures.lineage.tests.support import destroy, mark_to_destroy, vials_of
 from cultures.strains.services import RestrictionInput
 from cultures.strains.tests.conftest import make_permit
 from cultures.users.models import User
@@ -44,9 +44,12 @@ def every_kind(
         today = permit_today()
         for i in range(rows):
             make_deposit(name_as_received=f"Testella exempli Q{i}")
-            # A RAT (invented Testella exempli): one vial to destroy, one lost (#159).
-            strain = supply(release=False, vials=2, restrictions=[RAT])
-            vial, gone = vials_of(Batch.objects.get(strain=strain))
+            # A RAT (invented Testella exempli): one vial to destroy, one lost (#159), one in a
+            # destruction record that waits for its confirmation (#160).
+            strain = supply(release=False, vials=3, restrictions=[RAT])
+            vial, gone, recorded = vials_of(Batch.objects.get(strain=strain))
+            mark_to_destroy(curator, [recorded])
+            destroy(curator, [recorded])
             with as_actor(curator):
                 lineage.vial_transition(
                     access=access_for(curator),
@@ -87,7 +90,8 @@ def test_the_overview_query_count_is_exact_and_flat(
     client = logged_in(manager)
     # Session, user, memberships; labs, strains, batches, vials, vials by state, free positions,
     # requests and deposits counted per lab; then deposits, batches, requests, recipient
-    # permits, lab permits, vials to destroy and losses to report, each one query for all its rows.
+    # permits, lab permits, vials to destroy, destructions to confirm and losses to report, each
+    # one query for all its rows.
     with query_baseline("overview_manager") as captured:
         response = client.get(OVERVIEW_URL)
     kinds = {group["kind"]: group["total"] for group in response.json()["waiting"]}
@@ -98,6 +102,7 @@ def test_the_overview_query_count_is_exact_and_flat(
         "recipient_permit_expiring": rows,
         "lab_permit_expiring": rows,
         "vials_to_destroy": rows,
+        "destruction_to_confirm": rows,
         "loss_to_report": rows,
     }
     for table in (

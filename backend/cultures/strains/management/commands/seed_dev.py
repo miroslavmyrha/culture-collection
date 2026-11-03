@@ -79,7 +79,7 @@ from cultures.audit.context import audit_context, audited_atomic
 from cultures.audit.models import ActorKind, AuditEvent, Channel
 from cultures.audit.registry import LAB_CREATED
 from cultures.biosafety import seeding as seed_biosafety
-from cultures.biosafety.models import AuthorisationKind, RestrictionKind
+from cultures.biosafety.models import AuthorisationKind, DestructionMethod, RestrictionKind
 from cultures.deposits import seeding as seed_deposits
 from cultures.deposits import services as deposits
 from cultures.deposits.models import (
@@ -538,6 +538,9 @@ def authorisation(row: dict[str, Any]) -> seed_biosafety.SeedAuthorisation:
         expires_on=day(row["expires_on"]),
         ended_on=ended_on,
         end_reason=row["end_reason"] if ended_on is not None else "",
+        destruction_method=(
+            DestructionMethod(row["destruction_method"]) if row.get("destruction_method") else None
+        ),
     )
 
 
