@@ -587,6 +587,7 @@ def test_each_step_starts_only_from_its_state(
 # The biosafety gates of #11 at acceptance.
 
 
+@pytest.mark.rule("R-RISK-02")
 def test_a_risk_group_4_agent_is_refused_at_acceptance(
     *, as_curator: AuditContext, curator_access: Access, make_deposit: MakeDeposit, exempli: Taxon
 ) -> None:

@@ -66,6 +66,7 @@ def leaks(text: str, box: StorageUnit) -> bool:
 
 @pytest.mark.parametrize("granted", [False, True], ids=["without", "with the grant"])
 @pytest.mark.parametrize("role", ROLES)
+@pytest.mark.rule("R-MASK-01")
 def test_lists_and_details_never_carry_a_regulated_location(
     *,
     role: Role,
@@ -110,6 +111,7 @@ def test_lists_and_details_never_carry_a_regulated_location(
 
 
 @pytest.mark.parametrize("role", ROLES)
+@pytest.mark.rule("R-MASK-02")
 def test_without_the_grant_no_role_reveals(
     role: Role, team: dict[Role, User], masked: list[Vial], secret_box: StorageUnit
 ) -> None:
@@ -121,6 +123,7 @@ def test_without_the_grant_no_role_reveals(
 
 
 @pytest.mark.parametrize("role", ROLES)
+@pytest.mark.rule("R-MASK-02")
 def test_a_holder_of_the_grant_reveals_and_the_reveal_is_recorded(
     *,
     role: Role,
@@ -171,6 +174,7 @@ def test_a_plain_vial_is_revealed_by_anyone_without_an_event(viewer: User, plain
     assert AuditEvent.objects.count() == events
 
 
+@pytest.mark.rule("R-MASK-02")
 def test_a_failed_event_write_fails_the_reveal_without_the_location(
     keeper: User, masked: list[Vial], secret_box: StorageUnit, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -187,6 +191,7 @@ def test_a_failed_event_write_fails_the_reveal_without_the_location(
 
 @pytest.mark.slow
 @pytest.mark.django_db(transaction=True)
+@pytest.mark.rule("R-MASK-02")
 def test_the_reveal_is_committed_before_the_location_is_read(
     keeper: User, masked: list[Vial], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -265,6 +270,7 @@ def test_a_deactivated_holder_reveals_nothing(keeper: User, masked: list[Vial], 
     assert LocationGrant.objects.filter(user=keeper, revoked_at__isnull=True).exists()
 
 
+@pytest.mark.rule("R-MASK-02")
 def test_no_role_implies_the_grant(team: dict[Role, User], lab: Lab, masked: list[Vial]) -> None:
     assert not any("location" in perm.value for perm in Perm)
     assert not any("location" in perm for perms in GRANTS.values() for perm in perms)
@@ -280,6 +286,7 @@ def test_a_grant_in_another_lab_counts_only_there(
     assert all(row["can_reveal"] for row in body["results"])
 
 
+@pytest.mark.rule("R-MASK-01")
 def test_moving_a_regulated_vial_shows_neither_where_it_was_nor_where_it_went(
     technician: User,
     masked: list[Vial],
@@ -387,6 +394,7 @@ def test_after_the_last_restriction_ended_the_write_answers_show_the_place(
 
 
 @pytest.mark.parametrize("role", ROLES)
+@pytest.mark.rule("R-MASK-01")
 def test_one_ended_and_one_active_restriction_stay_masked(
     *,
     role: Role,

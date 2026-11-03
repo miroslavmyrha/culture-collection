@@ -589,6 +589,7 @@ def test_a_blocker_refuses_the_approval_and_names_every_finding(
     assert "9" in error.detail and "MTA STD version 1" in error.detail
 
 
+@pytest.mark.rule("R-DIST-03")
 def test_a_regulated_line_needs_a_manager_and_a_reason(
     *,
     as_curator: AuditContext,

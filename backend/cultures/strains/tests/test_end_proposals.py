@@ -152,6 +152,7 @@ def test_two_managers_may_end_one_together(manager: User, lab: Lab, gmo: StrainR
 # Who may.
 
 
+@pytest.mark.rule("R-KIND-07")
 def test_nobody_confirms_their_own_proposal(manager: User, gmo: StrainRestriction) -> None:
     proposal = propose(manager, gmo)
     refused(
@@ -265,6 +266,7 @@ def test_an_ended_restriction_takes_no_proposal(
 # The window of the review: one curator alone could end a VRAT, approve and ship it unregulated.
 
 
+@pytest.mark.rule("R-KIND-07")
 def test_a_curator_alone_no_longer_lets_a_vrat_out_of_its_rules(
     lab: Lab, curator: User, make_strain: MakeStrain
 ) -> None:
@@ -346,6 +348,7 @@ def raw_proposal(restriction: StrainRestriction, by: User, **fields: Any) -> Res
     )
 
 
+@pytest.mark.rule("R-KIND-07")
 def test_a_restriction_ends_only_at_a_confirmed_proposal(
     curator: User, manager: User, gmo: StrainRestriction
 ) -> None:
@@ -443,6 +446,7 @@ def test_the_runtime_role_works_the_two_steps_and_cannot_skip_them(
 NOT_ENDED = "a confirmed proposal ends its restriction"
 
 
+@pytest.mark.rule("R-KIND-07")
 def test_the_runtime_role_cannot_confirm_an_end_that_did_not_happen(
     as_curator: AuditContext,
     curator: User,

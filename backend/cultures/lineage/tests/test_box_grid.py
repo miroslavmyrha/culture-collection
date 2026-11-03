@@ -91,6 +91,7 @@ def identities(vial: Vial) -> list[str]:
 
 @pytest.mark.parametrize("granted", [False, True], ids=["without", "with the grant"])
 @pytest.mark.parametrize("role", ROLES)
+@pytest.mark.rule("R-MASK-04")
 def test_a_regulated_position_is_taken_but_names_nothing(
     *,
     role: Role,
@@ -303,6 +304,7 @@ def test_a_code_from_another_lab_finds_nothing(
     assert found(viewer, "TUBE-0042") == [str(labelled.public_id)]
 
 
+@pytest.mark.rule("R-MASK-04")
 def test_a_regulated_vial_found_by_its_code_keeps_its_place_masked(
     *, technician: User, viewer: User, mixed: tuple[list[Vial], list[Vial]], tree: Tree
 ) -> None:

@@ -85,6 +85,7 @@ def approved(
         ({"lab_evidence": "  "}, "distribution_requester_lab_evidence_given"),
     ],
 )
+@pytest.mark.rule("R-DIST-02")
 def test_requester_constraints(requester: Requester, fields: dict[str, Any], name: str) -> None:
     contact = Contact.objects.create(lab_id=requester.lab_id, name="Someone")
     values = {

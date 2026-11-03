@@ -172,6 +172,7 @@ def test_the_approver_may_prepare_and_another_person_confirms(
 # Who may confirm.
 
 
+@pytest.mark.rule("R-SHIP-01")
 def test_the_approver_does_not_confirm(
     *, approver: User, curator: User, regulated: Regulated
 ) -> None:
@@ -182,6 +183,7 @@ def test_the_approver_does_not_confirm(
     assert error.status_code == 403
 
 
+@pytest.mark.rule("R-SHIP-01")
 def test_the_preparer_does_not_confirm(*, curator: User, regulated: Regulated) -> None:
     request = regulated(prepared_by=curator)
     refused(
@@ -225,6 +227,7 @@ def test_a_viewer_or_technician_neither_prepares_nor_confirms(
 # Which request goes which way.
 
 
+@pytest.mark.rule("R-SHIP-01")
 def test_a_regulated_request_is_not_shipped_in_one_step(
     *, curator: User, manager: User, regulated: Regulated
 ) -> None:
@@ -298,6 +301,7 @@ def test_a_shipped_request_is_not_prepared_confirmed_or_withdrawn_again(
 # The gates again, on the confirmation day.
 
 
+@pytest.mark.rule("R-DIST-14")
 def test_a_permit_that_expires_between_preparation_and_confirmation_blocks_it(
     *,
     approver: User,
@@ -351,6 +355,7 @@ def test_a_batch_held_after_the_preparation_blocks_the_confirmation(
     assert "0 of its 1 reserved vials may still go out" in error.detail
 
 
+@pytest.mark.rule("R-SHIP-03")
 def test_a_risk_group_raised_after_the_preparation_makes_the_exemption_refused_at_confirmation(
     *, curator: User, manager: User, approver: User, regulated: Regulated
 ) -> None:
@@ -442,6 +447,7 @@ def confirmation_row(
         ("approver", "nobody confirms the shipment of their own approval"),
     ],
 )
+@pytest.mark.rule("R-SHIP-01")
 def test_the_table_refuses_a_confirmation_by_the_preparer_or_the_approver(
     *, who: str, message: str, curator: User, approver: User, regulated: Regulated
 ) -> None:
@@ -491,6 +497,7 @@ def test_the_table_refuses_a_confirmation_by_another_classifier(
         confirmation_row(request, preparation, shipped_by=manager, classified_by_id=approver.pk)
 
 
+@pytest.mark.rule("R-SHIP-01")
 def test_the_table_refuses_a_regulated_shipment_without_a_preparation(
     *, manager: User, regulated: Regulated
 ) -> None:

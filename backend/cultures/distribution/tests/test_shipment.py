@@ -222,6 +222,7 @@ def test_a_regulated_request_waits_for_a_second_person(
 # The gates again, on the ship day.
 
 
+@pytest.mark.rule("R-DIST-14")
 def test_a_permit_that_expired_since_the_approval_blocks_the_shipment(
     *,
     manager: User,
@@ -264,6 +265,7 @@ def test_a_batch_held_since_the_approval_blocks_until_it_is_released(
     assert request.status == RequestStatus.SHIPPED
 
 
+@pytest.mark.rule("R-SHIP-03")
 def test_a_manager_finding_is_not_asked_again_at_shipment(
     *, manager: User, curator: User, supply: Supply, approved: Any
 ) -> None:
@@ -348,6 +350,7 @@ def test_a_manager_finding_is_not_asked_again_at_shipment(
         ({"carrier": "  "}, "carrier", "invalid"),
     ],
 )
+@pytest.mark.rule("R-SHIP-04")
 def test_shipment_errors_name_their_field_and_change_nothing(
     *, changes: dict[str, Any], attr: str, code: str, curator: User, supply: Supply, approved: Any
 ) -> None:
@@ -510,6 +513,7 @@ def at_commit() -> None:
         ({"tracking_number": "EX1 "}, "distribution_shipment_tracking_trimmed"),
     ],
 )
+@pytest.mark.rule("R-SHIP-02", "R-SHIP-04")
 def test_the_table_refuses_a_shipment_the_rules_refuse(
     *, changes: dict[str, Any], constraint: str, supply: Supply, approved: Any
 ) -> None:
@@ -716,6 +720,7 @@ def test_a_shipment_through_the_service_passes_the_checks_at_commit(
     assert AuditEvent.objects.filter(event_type="request_shipped").count() == 1
 
 
+@pytest.mark.rule("R-DIST-14")
 def test_the_ship_day_is_a_czech_day(*, curator: User, supply: Supply, approved: Any) -> None:
     """23:30 UTC on 31 December is already 1 January in Prague."""
     request = approved(supply(vials=6))

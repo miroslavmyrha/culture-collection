@@ -92,10 +92,12 @@ def test_new_terms_after_entry_block(ask: Any, supply: Supply, curator: User) ->
     assert codes(request) == {"terms_replaced": Severity.BLOCK}
 
 
+@pytest.mark.rule("R-DIST-13")
 def test_an_unknown_abs_scope_blocks(ask: Any, supply: Supply) -> None:
     assert codes(ask(supply(abs_scope=AbsScope.UNKNOWN))) == {"abs_scope_unknown": Severity.BLOCK}
 
 
+@pytest.mark.rule("R-DIST-13")
 def test_material_in_scope_goes_out_only_for_uses_the_mat_covers(ask: Any, supply: Supply) -> None:
     in_scope = {"abs_scope": AbsScope.IN_SCOPE, "ircc": "ABSCH-IRCC-XX-1 (invented example)"}
     none = ask(supply(**in_scope))
@@ -141,6 +143,7 @@ def test_the_mta_must_be_accepted_by_someone_who_may_bind_the_requester(
 
 
 @pytest.mark.parametrize(("level", "blocked"), [(1, True), (2, False), (3, False)])
+@pytest.mark.rule("R-DIST-10")
 def test_the_declared_containment_must_reach_the_risk_group(
     *, ask: Any, supply: Supply, requester: Requester, curator: User, level: int, blocked: bool
 ) -> None:
@@ -152,6 +155,7 @@ def test_the_declared_containment_must_reach_the_risk_group(
 @pytest.mark.parametrize(
     ("permit_group", "expected"), [(None, True), (1, True), (2, False), (3, False)]
 )
+@pytest.mark.rule("R-DIST-11")
 def test_a_pathogen_without_a_work_permit_needs_a_manager(
     *,
     ask: Any,
@@ -169,6 +173,7 @@ def test_a_pathogen_without_a_work_permit_needs_a_manager(
         assert found["work_permit_missing"] == Severity.MANAGER
 
 
+@pytest.mark.rule("R-DIST-12")
 def test_risk_group_3_may_be_category_a(
     ask: Any, supply: Supply, requester: Requester, curator: User
 ) -> None:
@@ -178,12 +183,14 @@ def test_risk_group_3_may_be_category_a(
     }
 
 
+@pytest.mark.rule("R-DIST-03")
 def test_a_regulated_strain_needs_a_manager(ask: Any, supply: Supply, mockia: Taxon) -> None:
     found = evaluate(ask(supply(mockia, restrictions=[DUAL_USE])), permit_today()).findings
     assert [(f.code, f.severity) for f in found] == [("regulated", Severity.MANAGER)]
     assert "dual_use" in found[0].sentence
 
 
+@pytest.mark.rule("R-DIST-04")
 def test_a_vrat_goes_only_to_a_holder_of_a_permit_that_names_it(
     ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User
 ) -> None:
@@ -195,6 +202,7 @@ def test_a_vrat_goes_only_to_a_holder_of_a_permit_that_names_it(
     assert codes(ask(strain)) == {"regulated": Severity.MANAGER}
 
 
+@pytest.mark.rule("R-DIST-04")
 def test_an_sujb_exception_lets_a_vrat_go_to_a_non_holder(
     ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User
 ) -> None:
@@ -213,6 +221,7 @@ def test_an_sujb_exception_lets_a_vrat_go_to_a_non_holder(
         ({"ended": "tomorrow"}, True),
     ],
 )
+@pytest.mark.rule("R-DIST-04")
 def test_a_permit_counts_only_on_the_days_it_holds(
     *,
     ask: Any,
@@ -245,6 +254,7 @@ def test_a_permit_counts_only_on_the_days_it_holds(
     assert ("rat_notice_missing" not in found) == valid
 
 
+@pytest.mark.rule("R-DIST-05")
 def test_a_rat_goes_only_to_a_requester_who_notified_sujb(
     ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User
 ) -> None:
@@ -261,6 +271,7 @@ def test_a_rat_goes_only_to_a_requester_who_notified_sujb(
     ("entry", "blocked"),
     [("1C351.d.4", True), ("1C351.d.5", True), ("1C351.d.1", False), ("1C351.c", False)],
 )
+@pytest.mark.rule("R-DIST-06")
 def test_only_ricin_and_saxitoxin_need_a_transfer_licence_inside_the_eu(
     ask: Any, supply: Supply, mockia: Taxon, entry: str, blocked: bool
 ) -> None:
@@ -269,6 +280,7 @@ def test_only_ricin_and_saxitoxin_need_a_transfer_licence_inside_the_eu(
     assert ("transfer_licence_required" in found) == blocked
 
 
+@pytest.mark.rule("R-DIST-07")
 def test_a_quarantine_pest_needs_a_letter_with_quantity_and_sendings_left(
     *, ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User, manager: User
 ) -> None:
@@ -284,6 +296,7 @@ def test_a_quarantine_pest_needs_a_letter_with_quantity_and_sendings_left(
     assert codes(ask(strain, 1)) == {"regulated": Severity.MANAGER}
 
 
+@pytest.mark.rule("R-DIST-07")
 def test_a_letter_runs_out_of_sendings(
     *, ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User, manager: User
 ) -> None:
@@ -295,6 +308,7 @@ def test_a_letter_runs_out_of_sendings(
     assert codes(ask(strain, 1)) == {"regulated": Severity.MANAGER, "loa_exhausted": Severity.BLOCK}
 
 
+@pytest.mark.rule("R-DIST-07")
 def test_a_cancelled_request_gives_its_quantity_back_to_the_letter(
     *, ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User, manager: User
 ) -> None:
@@ -309,6 +323,7 @@ def test_a_cancelled_request_gives_its_quantity_back_to_the_letter(
 
 
 @pytest.mark.parametrize(("category", "blocked"), [(None, True), (1, True), (2, False), (3, False)])
+@pytest.mark.rule("R-DIST-08")
 def test_a_gmo_needs_a_contained_use_authorisation_of_its_category_or_higher(
     *,
     ask: Any,
@@ -326,6 +341,7 @@ def test_a_gmo_needs_a_contained_use_authorisation_of_its_category_or_higher(
     assert ("gmo_authorisation_missing" in found) == blocked
 
 
+@pytest.mark.rule("R-DIST-09")
 def test_one_strain_with_several_kinds_meets_each(
     ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User
 ) -> None:
@@ -343,6 +359,7 @@ def test_one_strain_with_several_kinds_meets_each(
     assert {p.pk for _, p in evaluation.used} == {rat.pk, loa.pk}
 
 
+@pytest.mark.rule("R-DIST-01")
 def test_the_destination_and_an_erased_contact_block_the_whole_request(
     ask: Any, supply: Supply, requester: Requester
 ) -> None:
@@ -358,12 +375,14 @@ def test_the_destination_and_an_erased_contact_block_the_whole_request(
     }
 
 
+@pytest.mark.rule("R-DIST-01")
 def test_the_eu_is_its_27_member_states() -> None:
     assert len(policy.EU_MEMBER_STATES) == 27
     assert policy.in_eu("CZ") and policy.in_eu("SE") and not policy.in_eu("GB")
     assert not policy.in_eu("NO") and not policy.in_eu("CH")
 
 
+@pytest.mark.rule("R-DIST-04")
 def test_a_permit_names_a_synonym_through_its_accepted_name(exempli: Taxon) -> None:
     old = make_synonym("Fictivibrio exempli", Rank.SPECIES, exempli)
     assert names("Testella exempli (formerly Fictivibrio exempli)", exempli)
@@ -392,6 +411,7 @@ def test_findings_are_request_wide_first_then_by_line(
     assert lines == sorted(lines, key=[first.pk, second.pk].index)
 
 
+@pytest.mark.rule("R-DIST-05")
 def test_only_a_section_17a_notice_lets_a_rat_go_out(
     *, ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User
 ) -> None:
@@ -402,6 +422,7 @@ def test_only_a_section_17a_notice_lets_a_rat_go_out(
     assert "rat_notice_missing" in codes(ask(strain))
 
 
+@pytest.mark.rule("R-DIST-05")
 def test_a_rat_notice_that_names_a_highly_risky_agent_does_not_let_it_go_out(
     *, ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User
 ) -> None:
@@ -411,6 +432,7 @@ def test_a_rat_notice_that_names_a_highly_risky_agent_does_not_let_it_go_out(
     assert "vrat_permit_missing" in codes(ask(strain))
 
 
+@pytest.mark.rule("R-DIST-07")
 def test_two_lines_of_one_request_draw_on_one_letter_together(
     *,
     as_curator: AuditContext,

@@ -267,6 +267,7 @@ def test_an_ended_recipient_permit_does_not_wait(
 
 
 @pytest.mark.parametrize(("days", "shown"), [(-1, False), (0, True), (30, True), (31, False)])
+@pytest.mark.rule("R-PERMIT-07")
 def test_a_lab_permit_waits_for_managers_within_thirty_days_of_its_expiry(
     days: int, shown: bool, lab: Lab, team: dict[Role, User]
 ) -> None:

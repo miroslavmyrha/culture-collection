@@ -121,6 +121,7 @@ def test_legacy_and_pending_strains_have_no_sequence_and_do_not_collide(
         ({"isolation_source": " soil"}, "strains_strain_isolation_source_trimmed"),
     ],
 )
+@pytest.mark.rule("R-RISK-01", "R-RISK-05")
 def test_a_strain_row_that_cannot_be_true_is_refused(
     lab: Lab, exempli: Taxon, fields: dict[str, Any], constraint: str
 ) -> None:
@@ -129,6 +130,7 @@ def test_a_strain_row_that_cannot_be_true_is_refused(
 
 
 @pytest.mark.parametrize("risk_group", [1, 2, 3, 4])
+@pytest.mark.rule("R-RISK-01")
 def test_risk_groups_one_to_four_are_stored(lab: Lab, exempli: Taxon, risk_group: int) -> None:
     """4 is a valid fact for the database; the services refuse it at accession (ADR 0009)."""
     assert raw_strain(lab, exempli, risk_group=risk_group).risk_group == risk_group
@@ -224,6 +226,7 @@ def restriction(strain: Strain, **fields: Any) -> StrainRestriction:
         ({"end_reason": "annex changed"}, "strains_restriction_end_has_reason"),
     ],
 )
+@pytest.mark.rule("R-KIND-01", "R-KIND-02", "R-KIND-03", "R-KIND-04")
 def test_a_restriction_has_the_fields_of_its_kind(
     make_strain: MakeStrain, fields: dict[str, Any], constraint: str
 ) -> None:
@@ -241,12 +244,14 @@ def test_a_restriction_has_the_fields_of_its_kind(
         {"kind": "gmo", "reference": "notification 1", "gmo_category": 4},
     ],
 )
+@pytest.mark.rule("R-KIND-01", "R-KIND-04")
 def test_restrictions_of_the_right_shape_are_stored(
     make_strain: MakeStrain, fields: dict[str, Any]
 ) -> None:
     restriction(make_strain(), **fields)
 
 
+@pytest.mark.rule("R-KIND-05")
 def test_one_active_restriction_of_a_kind_and_entry_per_strain(
     make_strain: MakeStrain, curator: User, manager: User
 ) -> None:
@@ -333,6 +338,7 @@ def test_an_identification_only_stops_being_current(make_strain: MakeStrain, moc
         StrainIdentification.objects.filter(pk=current.pk).delete()
 
 
+@pytest.mark.rule("R-KIND-06")
 def test_a_restriction_only_ends_once(
     make_strain: MakeStrain, curator: User, manager: User
 ) -> None:

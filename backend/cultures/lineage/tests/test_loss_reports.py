@@ -91,6 +91,7 @@ def lost(
     return move(vial, VialStatus.LOST, technician)
 
 
+@pytest.mark.rule("R-END-04")
 def test_a_manager_records_the_report_once_with_its_event(lost: Vial, manager: User) -> None:
     made = report(lost, manager)
     assert (made.lab_id, made.vial_id, made.recorded_by_id) == (lost.lab_id, lost.pk, manager.pk)
@@ -127,6 +128,7 @@ def test_a_reason_is_required(lost: Vial, manager: User, reason: str) -> None:
 
 
 @pytest.mark.parametrize("role", [Role.VIEWER, Role.TECHNICIAN, Role.CURATOR])
+@pytest.mark.rule("R-END-04")
 def test_only_a_manager_records_it(lost: Vial, team: dict[Role, User], role: Role) -> None:
     with pytest.raises(Forbidden):
         report(lost, team[role])
@@ -170,6 +172,7 @@ def test_the_report_needs_an_audit_context(lost: Vial, manager: User) -> None:
     assert not VialLossReport.objects.exists()
 
 
+@pytest.mark.rule("R-END-04")
 def test_the_reference_and_the_day_are_checked(lost: Vial, manager: User) -> None:
     lost_on = permit_today()
     for changes, attr in (
@@ -196,6 +199,7 @@ def test_a_vial_found_before_the_report_owes_none(
         report(lost, manager, lost_at=lost_at)
 
 
+@pytest.mark.rule("R-END-04")
 def test_a_vial_found_and_lost_again_owes_a_new_report(
     lost: Vial, manager: User, technician: User
 ) -> None:
@@ -233,6 +237,7 @@ CASES = [
 
 
 @pytest.mark.parametrize("case", CASES)
+@pytest.mark.rule("R-END-04")
 def test_the_trigger_and_the_service_agree_with_the_python_definition(
     *,
     case: str,

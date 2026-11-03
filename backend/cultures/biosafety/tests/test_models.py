@@ -27,6 +27,7 @@ def refused(constraint: str) -> Any:
         ("gmo", Issuer.SUJB),
     ],
 )
+@pytest.mark.rule("R-PERMIT-04")
 def test_each_kind_has_its_issuer_and_no_other_kind_is_a_permit(
     lab: Lab, kind: str, issuer: str
 ) -> None:
@@ -42,6 +43,7 @@ def test_the_reference_is_trimmed_and_not_blank(lab: Lab, reference: str) -> Non
         make_permit(lab, permit_reference=reference)
 
 
+@pytest.mark.rule("R-PERMIT-06")
 def test_the_expiry_is_not_before_the_start(lab: Lab) -> None:
     with refused("biosafety_labauthorisation_expires_after_start"), transaction.atomic():
         make_permit(lab, expires_on=date(2025, 12, 31))
@@ -56,6 +58,7 @@ def test_the_end_is_not_before_the_start(lab: Lab) -> None:
 @pytest.mark.parametrize(
     ("ended_on", "reason"), [(date(2026, 6, 1), ""), (date(2026, 6, 1), "  "), (None, "revoked")]
 )
+@pytest.mark.rule("R-PERMIT-06")
 def test_an_end_date_comes_with_a_reason_and_only_then(
     lab: Lab, ended_on: date | None, reason: str
 ) -> None:

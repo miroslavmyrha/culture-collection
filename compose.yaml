@@ -29,8 +29,9 @@ services:
       DATABASE_URL: ${BACKEND_DATABASE_URL:-postgres://cultures:cultures@db:5432/cultures}
       DB_RUNTIME_ROLE_REQUIRED: ${DB_RUNTIME_ROLE_REQUIRED:-false}
     ports: ["${BACKEND_PORT:-8000}:8000"]
-    # The virtualenv lives in /venv inside the image, outside this mount.
-    volumes: ["./backend:/app"]
+    # The virtualenv lives in /venv inside the image, outside this mount. docs/ is read by
+    # core/tests/test_compliance.py (docs/compliance.md against the code and the tests).
+    volumes: ["./backend:/app", "./docs:/docs:ro"]
     depends_on:
       db: {condition: service_healthy}
 
