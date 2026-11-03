@@ -1,0 +1,2478 @@
+{
+  "list": "eu-2019-2072-annex-ii",
+  "title": "Implementing Regulation (EU) 2019/2072, annex II: Union quarantine pests",
+  "act": "2019/2072",
+  "source_url": "http://publications.europa.eu/resource/celex/02019R2072-20261015",
+  "version": "02019R2072-20261015",
+  "version_date": "2026-10-15",
+  "fetched_on": "2026-11-03",
+  "sha256": "07cb54a239f97317a8e7db322d2e88c371c3fd3c5ae383abc42dd6d35c2d1720",
+  "identity": [
+    "code"
+  ],
+  "entry_count": 186,
+  "counts": {
+    "A": 161,
+    "B": 25
+  },
+  "entries": [
+    {
+      "part": "A",
+      "group": "1",
+      "group_name": "1. Bacteria",
+      "code": "A.1.1",
+      "number": "1",
+      "name": "Candidatus Liberibacter africanus [LIBEAF]",
+      "eppo_codes": [
+        "LIBEAF"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "1",
+      "group_name": "1. Bacteria",
+      "code": "A.1.2",
+      "number": "2",
+      "name": "Candidatus Liberibacter americanus [LIBEAM]",
+      "eppo_codes": [
+        "LIBEAM"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "1",
+      "group_name": "1. Bacteria",
+      "code": "A.1.3",
+      "number": "3",
+      "name": "Candidatus Liberibacter asiaticus [LIBEAS]",
+      "eppo_codes": [
+        "LIBEAS"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "1",
+      "group_name": "1. Bacteria",
+      "code": "A.1.4",
+      "number": "4",
+      "name": "Curtobacterium flaccumfaciens pv. flaccumfaciens (Hedges) Collins and Jones [CORBFL]",
+      "eppo_codes": [
+        "CORBFL"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "1",
+      "group_name": "1. Bacteria",
+      "code": "A.1.5",
+      "number": "5",
+      "name": "Pantoea stewartii subsp. stewartii (Smith) Mergaert, Verdonck & Kersters [ERWIST]",
+      "eppo_codes": [
+        "ERWIST"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "1",
+      "group_name": "1. Bacteria",
+      "code": "A.1.7",
+      "number": "7",
+      "name": "Ralstonia syzygii subsp. celebesensis Safni et al. [RALSSC]",
+      "eppo_codes": [
+        "RALSSC"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "1",
+      "group_name": "1. Bacteria",
+      "code": "A.1.8",
+      "number": "8",
+      "name": "Ralstonia syzygii subsp. indonesiensis Safni et al.[RALSSI]",
+      "eppo_codes": [
+        "RALSSI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "1",
+      "group_name": "1. Bacteria",
+      "code": "A.1.9",
+      "number": "9",
+      "name": "Xanthomonas oryzae pv. oryzae (Ishiyama) Swings et al. [XANTOR]",
+      "eppo_codes": [
+        "XANTOR"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "1",
+      "group_name": "1. Bacteria",
+      "code": "A.1.10",
+      "number": "10",
+      "name": "Xanthomonas oryzae pv. oryzicola (Fang et al.) Swings et al. [XANTTO]",
+      "eppo_codes": [
+        "XANTTO"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "1",
+      "group_name": "1. Bacteria",
+      "code": "A.1.11",
+      "number": "11",
+      "name": "Xanthomonas citri pv. aurantifolii (Schaad et al.) Constantin et al. [XANTAU]",
+      "eppo_codes": [
+        "XANTAU"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "1",
+      "group_name": "1. Bacteria",
+      "code": "A.1.12",
+      "number": "12",
+      "name": "Xanthomonas citri pv. citri (Hasse) Constantin et al. [XANTCI]",
+      "eppo_codes": [
+        "XANTCI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.1",
+      "number": "1",
+      "name": "Anisogramma anomala (Peck) E. Müller [CRSPAN]",
+      "eppo_codes": [
+        "CRSPAN"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.2",
+      "number": "2",
+      "name": "Apiosporina morbosa (Schwein.) Arx [DIBOMO]",
+      "eppo_codes": [
+        "DIBOMO"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.3",
+      "number": "3",
+      "name": "Atropellis spp. [1ATRPG]",
+      "eppo_codes": [
+        "1ATRPG"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.4",
+      "number": "4",
+      "name": "Botryosphaeria kuwatsukai (Hara) G.Y. Sun and E. Tanaka [PHYOPI]",
+      "eppo_codes": [
+        "PHYOPI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.5",
+      "number": "5",
+      "name": "Bretziella fagacearum (Bretz) Z.W de Beer, T.A. Duong & M.J. Wingfield, comb. nov. [CERAFA]",
+      "eppo_codes": [
+        "CERAFA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.6",
+      "number": "6",
+      "name": "Chrysomyxa arctostaphyli Dietel [CHMYAR]",
+      "eppo_codes": [
+        "CHMYAR"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.7",
+      "number": "7",
+      "name": "Cronartium spp. [1CRONG], except Cronartium gentianeum (Thümen) [CRONGE], Cronartium pini (Willdenow) Jørstad [ENDCPI] and Cronartium ribicola Fischer [CRONRI]",
+      "eppo_codes": [
+        "1CRONG",
+        "CRONGE",
+        "ENDCPI",
+        "CRONRI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.8",
+      "number": "8",
+      "name": "Davidsoniella virescens (R.W. Davidson) Z.W. de Beer, T.A. Duong & M.J. Wingfield [CERAVI]",
+      "eppo_codes": [
+        "CERAVI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.9",
+      "number": "9",
+      "name": "Elsinoë australis Bitanc. & Jenkins [ELSIAU]",
+      "eppo_codes": [
+        "ELSIAU"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.10",
+      "number": "10",
+      "name": "Elsinoë citricola X.L. Fan, R.W. Barreto & Crous [ELSICI ]",
+      "eppo_codes": [],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.11",
+      "number": "11",
+      "name": "Elsinoë fawcettii Bitanc. & Jenkins [ELSIFA]",
+      "eppo_codes": [
+        "ELSIFA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.12",
+      "number": "12",
+      "name": "Fusarium oxysporum f. sp. albedinis (Kill. & Maire) W.L. Gordon [FUSAAL]",
+      "eppo_codes": [
+        "FUSAAL"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.14",
+      "number": "14",
+      "name": "Gymnosporangium spp. [1GYMNG], except: Gymnosporangium amelanchieris E. Fisch. ex F. Kern [GYMNAM], Gymnosporangium atlanticum Guyot & Malençon [GYMNAT], Gymnosporangium clavariiforme (Wulfen) DC [GYMNCF], Gymnosporangium confusum Plowr. [GYMNCO], Gymnosporangium cornutum Arthur ex F. Kern [GYMNCR], Gymnosporangium fusisporum E. Fisch. [GYMNFS], Gymnosporangium gaeumannii H. Zogg [GYMNGA], Gymnosporangium gracile Pat. [GYMNGR], Gymnosporangium minus Crowell [GYMNMI], Gymnosporangium orientale P. Syd. & Syd. [GYMNOR], Gymnosporangium sabinae (Dicks.) G. Winter [GYMNFU], Gymnosporangium torminali-juniperini E. Fisch. [GYMNTJ], Gymnosporangium tremelloides R. Hartig [GYMNTR]",
+      "eppo_codes": [
+        "1GYMNG",
+        "GYMNAM",
+        "GYMNAT",
+        "GYMNCF",
+        "GYMNCO",
+        "GYMNCR",
+        "GYMNFS",
+        "GYMNGA",
+        "GYMNGR",
+        "GYMNMI",
+        "GYMNOR",
+        "GYMNFU",
+        "GYMNTJ",
+        "GYMNTR"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.15",
+      "number": "15",
+      "name": "Coniferiporia sulphurascens (Pilát) L.W. Zhou & Y.C. Dai [PHELSU]",
+      "eppo_codes": [
+        "PHELSU"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.16",
+      "number": "16",
+      "name": "Coniferiporia weirii (Murrill) L.W. Zhou & Y.C. Dai [INONWE]",
+      "eppo_codes": [
+        "INONWE"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.17",
+      "number": "17",
+      "name": "Melampsora farlowii (Arthur) Davis [MELMFA]",
+      "eppo_codes": [
+        "MELMFA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.19",
+      "number": "19",
+      "name": "Mycodiella laricis-leptolepidis (Kaz. Itô, K. Satô & M. Ota) Crous [MYCOLL]",
+      "eppo_codes": [
+        "MYCOLL"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.20",
+      "number": "20",
+      "name": "Neocosmospora ambrosia (Gadd & Loos) L. Lombard & Crous [FUSAAM]",
+      "eppo_codes": [
+        "FUSAAM"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.21",
+      "number": "21",
+      "name": "Neocosmospora euwallaceae (S. Freeman, Z. Mendel, T. Aoki & O’Donnell) Sandoval-Denis, L. Lombard & Crous [FUSAEW]",
+      "eppo_codes": [
+        "FUSAEW"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.21.1",
+      "number": "21.1",
+      "name": "Neofusicoccum laricinum (Sawada) Y. Hattori & C. Nakashima [GUIGLA]",
+      "eppo_codes": [
+        "GUIGLA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.22",
+      "number": "22",
+      "name": "Phyllosticta citricarpa (McAlpine) Van der Aa [GUIGCI]",
+      "eppo_codes": [
+        "GUIGCI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.23",
+      "number": "23",
+      "name": "Phyllosticta solitaria Ellis & Everhart [PHYSSL]",
+      "eppo_codes": [
+        "PHYSSL"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.24",
+      "number": "24",
+      "name": "Phymatotrichopsis omnivora (Duggar) Hennebert [PHMPOM]",
+      "eppo_codes": [
+        "PHMPOM"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.25",
+      "number": "25",
+      "name": "Phytophthora ramorum (non-EU isolates) Werres, De Cock & Man in 't Veld [PHYTRA]",
+      "eppo_codes": [
+        "PHYTRA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.26",
+      "number": "26",
+      "name": "Pseudocercospora angolensis (T. Carvalho & O. Mendes) Crous & U. Braun [CERCAN]",
+      "eppo_codes": [
+        "CERCAN"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.27",
+      "number": "27",
+      "name": "Pseudocercospora pini-densiflorae (Hori & Nambu) Deighton [CERSPD]",
+      "eppo_codes": [
+        "CERSPD"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.28",
+      "number": "28",
+      "name": "Puccinia pittieriana Hennings [PUCCPT]",
+      "eppo_codes": [
+        "PUCCPT"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.29",
+      "number": "29",
+      "name": "Septoria malagutii E.T. Cline [SEPTLM]",
+      "eppo_codes": [
+        "SEPTLM"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.30",
+      "number": "30",
+      "name": "Sphaerulina musiva (Peck) Quaedvlieg, Verkley & Crous. [MYCOPP]",
+      "eppo_codes": [
+        "MYCOPP"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.31",
+      "number": "31",
+      "name": "Stagonosporopsis andigena (Turkensteen) Aveskamp, Gruyter & Verkley [PHOMAN]",
+      "eppo_codes": [
+        "PHOMAN"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.32",
+      "number": "32",
+      "name": "Stegophora ulmea (Fr.) Syd. & P. Syd [GNOMUL]",
+      "eppo_codes": [
+        "GNOMUL"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.33",
+      "number": "33",
+      "name": "Thecaphora solani (Thirumulachar & O'Brien) Mordue [THPHSO]",
+      "eppo_codes": [
+        "THPHSO"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.34",
+      "number": "34",
+      "name": "Tilletia indica Mitra [NEOVIN]",
+      "eppo_codes": [
+        "NEOVIN"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "A.2.35",
+      "number": "35",
+      "name": "Venturia nashicola S. Tanaka & S. Yamamoto [VENTNA]",
+      "eppo_codes": [
+        "VENTNA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.1",
+      "number": "1",
+      "name": "Acleris spp.: 1.1. Acleris gloverana (Walsingham) [ACLRGL] 1.2. Acleris issikii Oku [ACLRIS] 1.3. Acleris minuta (Robinson) [ACLRMI] 1.4. Acleris nishidai Brown [ACLRNI] 1.5. Acleris nivisellana (Walsingham) [ACLRNV] 1.6. Acleris robinsoniana (Forbes) [ACLRRO] 1.7. Acleris semipurpurana (Kearfott) [CROISE] 1.8. Acleris senescens (Zeller) [ACLRSE] 1.9. Acleris variana (Fernald) [ACLRVA]",
+      "eppo_codes": [
+        "ACLRGL",
+        "ACLRIS",
+        "ACLRMI",
+        "ACLRNI",
+        "ACLRNV",
+        "ACLRRO",
+        "CROISE",
+        "ACLRSE",
+        "ACLRVA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.2",
+      "number": "2",
+      "name": "Acrobasis pyrivorella (Matsumura) [NUMOPI]",
+      "eppo_codes": [
+        "NUMOPI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.3",
+      "number": "3",
+      "name": "Agrilus anxius Gory [AGRLAX]",
+      "eppo_codes": [
+        "AGRLAX"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.3.1",
+      "number": "3.1",
+      "name": "Agrilus bilineatus (Weber) [AGRLBL]",
+      "eppo_codes": [
+        "AGRLBL"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.4",
+      "number": "4",
+      "name": "Agrilus planipennis Fairmaire [AGRLPL]",
+      "eppo_codes": [
+        "AGRLPL"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.5",
+      "number": "5",
+      "name": "Aleurocanthus citriperdus Quaintance & Baker [ALECCT]",
+      "eppo_codes": [
+        "ALECCT"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.6",
+      "number": "6",
+      "name": "Aleurocanthus woglumi Ashby [ALECWO]",
+      "eppo_codes": [
+        "ALECWO"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.7",
+      "number": "7",
+      "name": "Andean potato weevil complex: 7.1. Phyrdenus muriceus Germar [PHRDMU] 7.2. Premnotrypes spp. [1PREMG] 7.3. Rhigopsidius tucumanus Heller [RHGPTU]",
+      "eppo_codes": [
+        "PHRDMU",
+        "1PREMG",
+        "RHGPTU"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.8",
+      "number": "8",
+      "name": "Anthonomus bisignifer Schenkling [ANTHBI]",
+      "eppo_codes": [
+        "ANTHBI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.9",
+      "number": "9",
+      "name": "Anthonomus eugenii Cano [ANTHEU]",
+      "eppo_codes": [
+        "ANTHEU"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.10",
+      "number": "10",
+      "name": "Anthonomus grandis (Boh.) [ANTHGR]",
+      "eppo_codes": [
+        "ANTHGR"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.11",
+      "number": "11",
+      "name": "Anthonomus quadrigibbus Say [TACYQU]",
+      "eppo_codes": [
+        "TACYQU"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.12",
+      "number": "12",
+      "name": "Anthonomus signatus Say [ANTHSI]",
+      "eppo_codes": [
+        "ANTHSI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.13",
+      "number": "13",
+      "name": "Apriona cinerea Chevrolat [APRICI]",
+      "eppo_codes": [
+        "APRICI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.14",
+      "number": "14",
+      "name": "Apriona germari (Hope) [APRIGE]",
+      "eppo_codes": [
+        "APRIGE"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.15",
+      "number": "15",
+      "name": "Apriona rugicollis Chevrolat [APRIJA]",
+      "eppo_codes": [
+        "APRIJA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.16",
+      "number": "16",
+      "name": "Arrhenodes minutus Drury [ARRHMI]",
+      "eppo_codes": [
+        "ARRHMI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.17",
+      "number": "17",
+      "name": "Aschistonyx eppoi Inouye [ASCXEP]",
+      "eppo_codes": [
+        "ASCXEP"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.18",
+      "number": "18",
+      "name": "Bactericera cockerelli (Šulc.) [PARZCO]",
+      "eppo_codes": [
+        "PARZCO"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.19",
+      "number": "19",
+      "name": "Bemisia tabaci Genn. (non-European populations) known to be vector of viruses [BEMITA]",
+      "eppo_codes": [
+        "BEMITA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.20",
+      "number": "20",
+      "name": "Carposina sasakii Matsumara [CARSSA]",
+      "eppo_codes": [
+        "CARSSA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.21",
+      "number": "21",
+      "name": "Ceratothripoides claratris (Shumsher) [CRTZCL]",
+      "eppo_codes": [
+        "CRTZCL"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.22",
+      "number": "22",
+      "name": "Choristoneura spp.: 22.1. Choristoneura carnana Barnes & Busck [CHONCA] 22.2. Choristoneura conﬂictana Walker [ARCHCO] 22.3. Choristoneura fumiferana Clemens [CHONFU] 22.4. Choristoneura lambertiana Busck [TORTLA] ►M15 22.5. Choristoneura occidentalis biennis Freeman [CHONBI] ◄ 22.6. Choristoneura occidentalis occidentalis Freeman [CHONOC] 22.7. Choristoneura orae Freeman [CHONOR] 22.8. Choristoneura parallela Robinson [CHONPA] 22.9. Choristoneura pinus Freeman [CHONPI] 22.10. Choristoneura retiniana Walsingham [CHONRE] 22.11. Choristoneura rosaceana Harris [CHONRO]",
+      "eppo_codes": [
+        "CHONCA",
+        "ARCHCO",
+        "CHONFU",
+        "TORTLA",
+        "CHONBI",
+        "CHONOC",
+        "CHONOR",
+        "CHONPA",
+        "CHONPI",
+        "CHONRE",
+        "CHONRO"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.23",
+      "number": "23",
+      "name": "Cicadomorpha, known to be vectors of Xylella fastidiosa (Wells et al.): 23.1. Acrogonia citrina Marucci [ACRGCI] 23.2. Acrogonia virescens (Metcalf) [ACRGVI] 23.3. Aphrophora angulata Ball [APHRAN] 23.4. Aphrophora permutata Uhler [APHRPE] 23.5. Bothrogonia ferruginea (Fabricius) [TETTFE] 23.6. Bucephalogonia xanthophis (Berg) [BUCLXA] 23.7. Clastoptera achatina Germar [CLASAC] 23.8. Clastoptera brunes Ball [CLASBR] 23.9. Cuerna costalis (Fabricius) [CUERCO] 23.10. Cuerna occidentalis Osman and Beamer [CUEROC] 23.11. Cyphonia clavigera (Fabricius) [CYPACG] 23.12. Dechacona missionum (Berg) [ONCMMI] 23.13. Dilobopterus costalimai Young [DLBPCO] 23.14. Draeculacephala sp. [DRAESP] 23.15. Ferrariana trivittata (Signoret) [FRRATR] 23.16. Fingeriana dubia Cavichioli [FINGDU] 23.17. Friscanus friscanus (Ball) [FRISFR] 23.18. Graphocephala atropunctata (Signoret) [GRCPAT] 23.19. Graphocephala conﬂuens (Uhler) [GRCPCF] 23.20. Graphocephala versuta (Say) [GRCPVE] 23.21. Helochara delta Oman [HELHDE] 23.22. Homalodisca ignorata Melichar [HOMLIG] 23.23. Homalodisca insolita Walker [HOMLIN] 23.24. Homalodisca vitripennis (Germar) [HOMLTR] 23.25. Lepyronia quadrangularis (Say) [LEPOQU] 23.26. Macugonalia cavifrons (Stal) [MAGOCA] 23.27. Macugonalia leucomelas (Walker) [MAGOLE] 23.28. Molomea consolida Schroder [MOLMCO] 23.29. Neokolla hieroglyphica (Say) [GRCPHI] 23.30. Neokolla severini DeLong [NKOLSE] 23.31. Oncometopia facialis Signoret [ONCMFA] 23.32. Oncometopia nigricans Walker [ONCMNI] 23.33. Oncometopia orbona (Fabricius) [ONCMUN] 23.34. Oragua discoidula Osborn [ORAGDI] 23.35. Pagaronia confusa Oman [PGARCO] 23.36. Pagaronia furcata Oman [PGARFU] 23.37. Pagaronia tredecimpunctata Ball [PGARTR] 23.38. Pagaronia triunata Ball [PGARTN] 23.39. Parathona gratiosa (Blanchard) [PTHOGR] 23.40. Plesiommata corniculata Young [PLSOCO] 23.41. Plesiommata mollicella (Fowler) [PLSOMO] 23.42. Poophilus costalis (Walker) [POOPCO] 23.43. Sibovia sagata (Signoret) [SIBOSA] 23.44. Sonesimia grossa (Signoret) [SONEGR] 23.45. Tapajosa rubromarginata (Signoret) [TAPARU] 23.46. Xyphon ﬂaviceps (Riley) [CARNFL] 23.47. Xyphon fulgida (Nottingham) [CARNFU] 23.48. Xyphon triguttata (Nottingham) [CARNTR]",
+      "eppo_codes": [
+        "ACRGCI",
+        "ACRGVI",
+        "APHRAN",
+        "APHRPE",
+        "TETTFE",
+        "BUCLXA",
+        "CLASAC",
+        "CLASBR",
+        "CUERCO",
+        "CUEROC",
+        "CYPACG",
+        "ONCMMI",
+        "DLBPCO",
+        "DRAESP",
+        "FRRATR",
+        "FINGDU",
+        "FRISFR",
+        "GRCPAT",
+        "GRCPCF",
+        "GRCPVE",
+        "HELHDE",
+        "HOMLIG",
+        "HOMLIN",
+        "HOMLTR",
+        "LEPOQU",
+        "MAGOCA",
+        "MAGOLE",
+        "MOLMCO",
+        "GRCPHI",
+        "NKOLSE",
+        "ONCMFA",
+        "ONCMNI",
+        "ONCMUN",
+        "ORAGDI",
+        "PGARCO",
+        "PGARFU",
+        "PGARTR",
+        "PGARTN",
+        "PTHOGR",
+        "PLSOCO",
+        "PLSOMO",
+        "POOPCO",
+        "SIBOSA",
+        "SONEGR",
+        "TAPARU",
+        "CARNFL",
+        "CARNFU",
+        "CARNTR"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.24",
+      "number": "24",
+      "name": "Conotrachelus nenuphar (Herbst) [CONHNE]",
+      "eppo_codes": [
+        "CONHNE"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.25",
+      "number": "25",
+      "name": "Dendrolimus sibiricus Chetverikov [DENDSI]",
+      "eppo_codes": [
+        "DENDSI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.26",
+      "number": "26",
+      "name": "Diabrotica barberi Smith and Lawrence [DIABLO]",
+      "eppo_codes": [
+        "DIABLO"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.27",
+      "number": "27",
+      "name": "Diabrotica undecimpunctata howardi Barber [DIABUH]",
+      "eppo_codes": [
+        "DIABUH"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.28",
+      "number": "28",
+      "name": "Diabrotica undecimpunctata undecimpunctata Mannerheim [DIABUN]",
+      "eppo_codes": [
+        "DIABUN"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.29",
+      "number": "29",
+      "name": "Diabrotica virgifera zeae Krysan & Smith [DIABVZ]",
+      "eppo_codes": [
+        "DIABVZ"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.30",
+      "number": "30",
+      "name": "Diaphorina citri Kuwayana [DIAACI]",
+      "eppo_codes": [
+        "DIAACI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.31",
+      "number": "31",
+      "name": "Eotetranychus lewisi (McGregor) [EOTELE]",
+      "eppo_codes": [
+        "EOTELE"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.32",
+      "number": "32",
+      "name": "Euwallacea fornicatus sensu lato [XYLBFO]",
+      "eppo_codes": [
+        "XYLBFO"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.33",
+      "number": "33",
+      "name": "Exomala orientalis (Waterhouse) [ANMLOR]",
+      "eppo_codes": [
+        "ANMLOR"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.34",
+      "number": "34",
+      "name": "Grapholita inopinata (Heinrich) [CYDIIN]",
+      "eppo_codes": [
+        "CYDIIN"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.35",
+      "number": "35",
+      "name": "Grapholita packardi Zeller [LASPPA]",
+      "eppo_codes": [
+        "LASPPA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.36",
+      "number": "36",
+      "name": "Grapholita prunivora (Walsh) [LASPPR]",
+      "eppo_codes": [
+        "LASPPR"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.36.1",
+      "number": "36.1",
+      "name": "Gymnandrosoma aurantianum Lima [ECDYAU]",
+      "eppo_codes": [
+        "ECDYAU"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.37",
+      "number": "37",
+      "name": "Helicoverpa zea (Boddie) [HELIZE]",
+      "eppo_codes": [
+        "HELIZE"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.38",
+      "number": "38",
+      "name": "Hishimonus phycitis (Distant) [HISHPH]",
+      "eppo_codes": [
+        "HISHPH"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.39",
+      "number": "39",
+      "name": "Keiferia lycopersicella (Walsingham) [GNORLY]",
+      "eppo_codes": [
+        "GNORLY"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.40",
+      "number": "40",
+      "name": "Liriomyza sativae Blanchard [LIRISA]",
+      "eppo_codes": [
+        "LIRISA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.41",
+      "number": "41",
+      "name": "Listronotus bonariensis (Kuschel) [HYROBO]",
+      "eppo_codes": [
+        "HYROBO"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.42",
+      "number": "42",
+      "name": "Lopholeucaspis japonica Cockerell [LOPLJA]",
+      "eppo_codes": [
+        "LOPLJA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.43",
+      "number": "43",
+      "name": "Lycorma delicatula (White) [LYCMDE]",
+      "eppo_codes": [
+        "LYCMDE"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.44",
+      "number": "44",
+      "name": "Margarodidae: 44.1. Dimargarodes meridionalis Morrison 44.2. Eumargarodes laingi Allsopp et al. [EUMGLA] 44.3. Eurhizococcus brasiliensis Jakubski [EURHBR] ►M15 44.4. Eurhizococcus colombianus Jakubski [EURHCO] ◄ 44.5. Margarodes capensis Giard [MARGCA] 44.6. Margarodes greeni Brain [MARGGR] 44.7. Margarodes prieskaensis (Jakubski) [MARGPR] 44.8. Margarodes trimeni Brain [MARGTR] 44.9. Margarodes vitis Reed [MARGVI] 44.10. Margarodes vredendalensis de Klerk [MARGVR] 44.11. Porphyrophora tritici Sarkisov et al. [PORPTR]",
+      "eppo_codes": [
+        "EUMGLA",
+        "EURHBR",
+        "EURHCO",
+        "MARGCA",
+        "MARGGR",
+        "MARGPR",
+        "MARGTR",
+        "MARGVI",
+        "MARGVR",
+        "PORPTR"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.45",
+      "number": "45",
+      "name": "Massicus raddei (Blessig) [MALLRA]",
+      "eppo_codes": [
+        "MALLRA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.46",
+      "number": "46",
+      "name": "Monochamus spp. (non-European populations) [1MONCG]",
+      "eppo_codes": [
+        "1MONCG"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.47",
+      "number": "47",
+      "name": "Myndus crudus van Duzee [MYNDCR]",
+      "eppo_codes": [
+        "MYNDCR"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.48",
+      "number": "48",
+      "name": "Naupactus leucoloma Boheman [GRAGLE]",
+      "eppo_codes": [
+        "GRAGLE"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.48.1",
+      "number": "48.1",
+      "name": "Naupactus xanthographus (Germar) [NAUPXA]",
+      "eppo_codes": [
+        "NAUPXA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.49",
+      "number": "49",
+      "name": "Nemorimyza maculosa (Malloch) [AMAZMA]",
+      "eppo_codes": [
+        "AMAZMA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.50",
+      "number": "50",
+      "name": "Neoleucinodes elegantalis (Guenée) [NEOLEL]",
+      "eppo_codes": [
+        "NEOLEL"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.51",
+      "number": "51",
+      "name": "Oemona hirta (Fabricius) [OEMOHI]",
+      "eppo_codes": [
+        "OEMOHI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.52",
+      "number": "52",
+      "name": "Oligonychus perditus Pritchard and Baker [OLIGPD]",
+      "eppo_codes": [
+        "OLIGPD"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.52.1",
+      "number": "52.1",
+      "name": "Phyllocoptes fructiphilus (Germar) [PHYCFR]",
+      "eppo_codes": [
+        "PHYCFR"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.53",
+      "number": "53",
+      "name": "Pissodes cibriani O'Brien [PISOCI]",
+      "eppo_codes": [
+        "PISOCI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.54",
+      "number": "54",
+      "name": "Pissodes fasciatus Leconte [PISOFA]",
+      "eppo_codes": [
+        "PISOFA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.55",
+      "number": "55",
+      "name": "Pissodes nemorensis Germar [PISONE]",
+      "eppo_codes": [
+        "PISONE"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.56",
+      "number": "56",
+      "name": "Pissodes nitidus Roelofs [PISONI]",
+      "eppo_codes": [
+        "PISONI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.57",
+      "number": "57",
+      "name": "Pissodes punctatus Langor & Zhang [PISOPU]",
+      "eppo_codes": [
+        "PISOPU"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.58",
+      "number": "58",
+      "name": "Pissodes strobi (Peck) [PISOST]",
+      "eppo_codes": [
+        "PISOST"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.59",
+      "number": "59",
+      "name": "Pissodes terminalis Hopping [PISOTE]",
+      "eppo_codes": [
+        "PISOTE"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.60",
+      "number": "60",
+      "name": "Pissodes yunnanensis Langor & Zhang [PISOYU]",
+      "eppo_codes": [
+        "PISOYU"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.61",
+      "number": "61",
+      "name": "Pissodes zitacuarense Sleeper [PISOZI]",
+      "eppo_codes": [
+        "PISOZI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.62",
+      "number": "62",
+      "name": "Polygraphus proximus Blandford [POLGPR]",
+      "eppo_codes": [
+        "POLGPR"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.63",
+      "number": "63",
+      "name": "Prodiplosis longifila Gagné [PRDILO]",
+      "eppo_codes": [
+        "PRDILO"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.64",
+      "number": "64",
+      "name": "Pseudopityophthorus minutissimus (Zimmermann) [PSDPMI]",
+      "eppo_codes": [
+        "PSDPMI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.65",
+      "number": "65",
+      "name": "Pseudopityophthorus pruinosus (Eichhoff) [PSDPPR]",
+      "eppo_codes": [
+        "PSDPPR"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.66",
+      "number": "66",
+      "name": "Rhynchophorus palmarum (L.) [RHYCPA]",
+      "eppo_codes": [
+        "RHYCPA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.68",
+      "number": "68",
+      "name": "Saperda candida Fabricius [SAPECN]",
+      "eppo_codes": [
+        "SAPECN"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.69",
+      "number": "69",
+      "name": "Scirtothrips aurantii Faure [SCITAU]",
+      "eppo_codes": [
+        "SCITAU"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.70",
+      "number": "70",
+      "name": "Scirtothrips citri (Moulton) [SCITCI]",
+      "eppo_codes": [
+        "SCITCI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.71",
+      "number": "71",
+      "name": "Scirtothrips dorsalis Hood [SCITDO]",
+      "eppo_codes": [
+        "SCITDO"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.72",
+      "number": "72",
+      "name": "Scolytinae spp. (non-European) [1SCOLF]",
+      "eppo_codes": [
+        "1SCOLF"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.73",
+      "number": "73",
+      "name": "Spodoptera eridania (Cramer) [PRODER]",
+      "eppo_codes": [
+        "PRODER"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.74",
+      "number": "74",
+      "name": "Spodoptera frugiperda (Smith) [LAPHFR]",
+      "eppo_codes": [
+        "LAPHFR"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.75",
+      "number": "75",
+      "name": "Spodoptera litura (Fabricus) [PRODLI]",
+      "eppo_codes": [
+        "PRODLI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.76",
+      "number": "76",
+      "name": "Tecia solanivora (Povolný) [TECASO]",
+      "eppo_codes": [
+        "TECASO"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.77",
+      "number": "77",
+      "name": "Tephritidae: ►M28 ◄ 77.3. Acroceratitis distincta (Zia) [ACRSDI] 77.4. Adrama spp. [1ADRAG] 77.5. Anastrepha spp. [1ANSTG] 77.6. Anastrepha ludens (Loew) [ANSTLU] 77.7. Asimoneura pantomelas (Bezzi) [ASIMPA] 77.8. Austrotephritis protrusa (Hardy & Drew) [AUSHPR] 77.9. Bactrocera spp. [1BCTRG], except Bactrocera oleae (Gmelin) [DACUOL] 77.10. Bactrocera dorsalis (Hendel) [DACUDO] 77.11. Bactrocera latifrons (Hendel) [DACULA] 77.12. Bactrocera zonata (Saunders) [DACUZO] 77.13. Bistrispinaria fortis (Speiser) [BISRFO] 77.14. Bistrispinaria magniceps (Bezzi) BISRMA] ►M28 ◄ 77.16. Campiglossa albiceps (Loew) [CAMGAL] 77.17. Campiglossa californica (Novak) [CAMGCA] 77.18. Campiglossa duplex (Becker) [CAMGDU] 77.19. Campiglossa reticulata (Becker) [CAMGRE] 77.20. Campiglossa snowi (Hering) [CAMGSN] 77.21. Carpomya incompleta (Becker) [CARYIN] 77.22. Carpomya pardalina (Bigot) [CARYPA] 77.23. Ceratitis spp. [1CERTG], except Ceratitis capitata (Wiedemann) [CERTCA] 77.24. Craspedoxantha marginalis (Wiedemann) [CRSXMA] 77.25. Dacus spp. [1DACUG] 77.26. Dioxyna chilensis (Macquart) [DIOXCH] 77.27. Dirioxa pornia (Walker) [TRYEMU] 77.28. Euleia separata (Becker) [EULISE] 77.29. Euphranta camelliae (Ito) [EPHNCA] 77.30. Euphranta canadensis (Loew) [EPOCCA] 77.31. Euphranta cassiae (Munro) [RHACCA] 77.32. Euphranta japonica (Ito) [RHACJA] ►M28 ◄ 77.34. Eurosta solidaginis (Fitch) [EUOSSO] 77.35. Eutreta spp. [1EUTTG] ►M28 ◄ 77.37. Goedenia stenoparia (Steyskal) [GOEDST] 77.38. Gymnocarena spp. [GYMRSP] ►M28 ◄ 77.40. Marriottella exquisita Munro [MARREX] 77.41. Monacrostichus citricola Bezzi [MNAHCI] 77.42. Neaspilota alba (Loew) [NEAIAL] 77.43. Neaspilota reticulata Norrbom & Foote [NEAIRE] 77.44. Neoceratitis asiatica (Becker) [NCERAS] 77.45. Neoceratitis cyanescens (Bezzi) [CERTCY] 77.46. Neotephritis finalis (Loew) [NTPRFI] 77.47. Paracantha trinotata (Foote) [PCANTR] 77.48. Parastenopa limata (Coquillett) [PSTELI] ►M28 ◄ 77.51. Paraterellia varipennis (Coquillett) [PTLLVA] 77.52. Philophylla fossata (Fabricius) [PHIPFO] 77.53. Procecidochares spp. [1PROIG] 77.54. Ptilona conﬁnis (Walker) [PTIOCO] 77.55. Ptilona persimilis Hendel [PTIOPE] 77.56. Rhagoletis spp. [1RHAGG], except Rhagoletis alternata (Fallén) [RHAGAL], Rhagoletis batava Hering [RHAGBA], Rhagoletis berberidis Jermy [RHAGBE], Rhagoletis cerasi L. [RHAGCE], Rhagoletis cingulata (Loew) [RHAGCI], Rhagoletis completa Cresson [RHAGCO], Rhagoletis meigenii (Loew) [CERTME], Rhagoletis suavis (Loew) [RHAGSU], Rhagoletis zernyi Hendel [RHAGZR] 77.57. Rhagoletis pomonella (Walsh) [RHAGPO] 77.58. Rioxoptilona dunlopi (Wulp) [ACNVDU] 77.59. Sphaeniscus binoculatus (Bezzi) [SFANBI] 77.60. Sphenella nigricornis Bezzi [SFENNI] 77.61. Strauzia spp. [1STRAG], except Strauzia longipennis (Wiedemann) [STRALO] 77.62. Taomyia marshalli Bezzi [TAOMMA] 77.63. Tephritis leavittensis Blanc [TEPRLE] 77.64. Tephritis luteipes Merz [TEPRLU] 77.65. Tephritis ovatipennis Foote [TEPROV] 77.66. Tephritis pura (Loew) [TEPRPU] 77.67. Toxotrypana curvicauda Gerstaecker [TOXTCU] 77.68. Toxotrypana recurcauda Tigrero [ANSTRE] 77.69. Trupanea bisetosa (Coquillett) [TRUPBI] 77.70. Trupanea femoralis (Thomson) [TRUPFE] 77.71. Trupanea wheeleri (Curran) [TRUPWH] 77.72. Trypanocentra nigrithorax Malloch [TRYNNI] 77.73. Trypeta ﬂaveola Coquillett [TRYEFL] ►M28 ◄ 77.75. Xanthaciura insecta (Loew) [XANRIN] 77.76. Zacerata asparagi Coquillett [ZACEAS] 77.77. Zeugodacus spp. [1ZEUDG] 77.78. Zonosemata electa (Say) [ZONOEL]",
+      "eppo_codes": [
+        "ACRSDI",
+        "1ADRAG",
+        "1ANSTG",
+        "ANSTLU",
+        "ASIMPA",
+        "AUSHPR",
+        "1BCTRG",
+        "DACUOL",
+        "DACUDO",
+        "DACULA",
+        "DACUZO",
+        "BISRFO",
+        "CAMGAL",
+        "CAMGCA",
+        "CAMGDU",
+        "CAMGRE",
+        "CAMGSN",
+        "CARYIN",
+        "CARYPA",
+        "1CERTG",
+        "CERTCA",
+        "CRSXMA",
+        "1DACUG",
+        "DIOXCH",
+        "TRYEMU",
+        "EULISE",
+        "EPHNCA",
+        "EPOCCA",
+        "RHACCA",
+        "RHACJA",
+        "EUOSSO",
+        "1EUTTG",
+        "GOEDST",
+        "GYMRSP",
+        "MARREX",
+        "MNAHCI",
+        "NEAIAL",
+        "NEAIRE",
+        "NCERAS",
+        "CERTCY",
+        "NTPRFI",
+        "PCANTR",
+        "PSTELI",
+        "PTLLVA",
+        "PHIPFO",
+        "1PROIG",
+        "PTIOCO",
+        "PTIOPE",
+        "1RHAGG",
+        "RHAGAL",
+        "RHAGBA",
+        "RHAGBE",
+        "RHAGCE",
+        "RHAGCI",
+        "RHAGCO",
+        "CERTME",
+        "RHAGSU",
+        "RHAGZR",
+        "RHAGPO",
+        "ACNVDU",
+        "SFANBI",
+        "SFENNI",
+        "1STRAG",
+        "STRALO",
+        "TAOMMA",
+        "TEPRLE",
+        "TEPRLU",
+        "TEPROV",
+        "TEPRPU",
+        "TOXTCU",
+        "ANSTRE",
+        "TRUPBI",
+        "TRUPFE",
+        "TRUPWH",
+        "TRYNNI",
+        "TRYEFL",
+        "XANRIN",
+        "ZACEAS",
+        "1ZEUDG",
+        "ZONOEL"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.78",
+      "number": "78",
+      "name": "Thaumatotibia leucotreta (Meyrick) [ARGPLE]",
+      "eppo_codes": [
+        "ARGPLE"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.79",
+      "number": "79",
+      "name": "Thrips palmi Karny [THRIPL]",
+      "eppo_codes": [
+        "THRIPL"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.80",
+      "number": "80",
+      "name": "Trirachys sartus Solsky [AELSSA]",
+      "eppo_codes": [
+        "AELSSA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "A.3.81",
+      "number": "81",
+      "name": "Unaspis citri (Comstock) [UNASCI]",
+      "eppo_codes": [
+        "UNASCI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "4",
+      "group_name": "4. Nematodes",
+      "code": "A.4.1",
+      "number": "1",
+      "name": "Hirschmanniella spp. Luc & Goodey [1HIRSG], except: Hirschmanniella behningi (Micoletzky) Luc & Goodey [HIRSBE], Hirschmanniella gracilis (de Man) Luc & Goodey [HIRSGR], Hirschmanniella halophila Sturhan & Hall [HIRSHA], Hirschmanniella loofi Sher [HIRSLO] and Hirschmanniella zostericola (Allgén) Luc & Goodey [HIRSZO]",
+      "eppo_codes": [
+        "1HIRSG",
+        "HIRSBE",
+        "HIRSGR",
+        "HIRSHA",
+        "HIRSLO",
+        "HIRSZO"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "4",
+      "group_name": "4. Nematodes",
+      "code": "A.4.2",
+      "number": "2",
+      "name": "Longidorus diadecturus Eveleigh and Allen [LONGDI]",
+      "eppo_codes": [
+        "LONGDI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "4",
+      "group_name": "4. Nematodes",
+      "code": "A.4.3",
+      "number": "3",
+      "name": "Meloidogyne enterolobii Yang & Eisenback [MELGMY]",
+      "eppo_codes": [
+        "MELGMY"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "4",
+      "group_name": "4. Nematodes",
+      "code": "A.4.4",
+      "number": "4",
+      "name": "Nacobbus aberrans (Thorne) Thorne and Allen [NACOBA]",
+      "eppo_codes": [
+        "NACOBA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "4",
+      "group_name": "4. Nematodes",
+      "code": "A.4.5",
+      "number": "5",
+      "name": "Xiphinema americanum Cobb sensu stricto [XIPHAA]",
+      "eppo_codes": [
+        "XIPHAA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "4",
+      "group_name": "4. Nematodes",
+      "code": "A.4.6",
+      "number": "6",
+      "name": "Xiphinema bricolense Ebsary, Vrain & Graham [XIPHBC]",
+      "eppo_codes": [
+        "XIPHBC"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "4",
+      "group_name": "4. Nematodes",
+      "code": "A.4.7",
+      "number": "7",
+      "name": "Xiphinema californicum Lamberti & Bleve-Zacheo [XIPHCA]",
+      "eppo_codes": [
+        "XIPHCA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "4",
+      "group_name": "4. Nematodes",
+      "code": "A.4.8",
+      "number": "8",
+      "name": "Xiphinema inaequale Khan et Ahmad [XIPHNA ]",
+      "eppo_codes": [],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "4",
+      "group_name": "4. Nematodes",
+      "code": "A.4.9",
+      "number": "9",
+      "name": "Xiphinema intermedium Lamberti & Bleve-Zacheo [XIPHIM]",
+      "eppo_codes": [
+        "XIPHIM"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "4",
+      "group_name": "4. Nematodes",
+      "code": "A.4.10",
+      "number": "10",
+      "name": "Xiphinema rivesi (non-EU populations) Dalmasso [XIPHRI]",
+      "eppo_codes": [
+        "XIPHRI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "4",
+      "group_name": "4. Nematodes",
+      "code": "A.4.11",
+      "number": "11",
+      "name": "Xiphinema tarjanense Lamberti & Bleve-Zacheo [XIPHTA]",
+      "eppo_codes": [
+        "XIPHTA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "5",
+      "group_name": "5. Parasitic plants",
+      "code": "A.5.1",
+      "number": "1",
+      "name": "Arceuthobium spp. [1AREG], except : Arceuthobium azoricum Wiens & Hawksworth [AREAZ], Arceuthobium gambyi Fridl [AREGA] and Arceuthobium oxycedri DC. M. Bieb. [AREOX]",
+      "eppo_codes": [
+        "1AREG",
+        "AREAZ",
+        "AREGA",
+        "AREOX"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.1",
+      "number": "1",
+      "name": "Beet curly top virus [BCTV00]",
+      "eppo_codes": [
+        "BCTV00"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.2",
+      "number": "2",
+      "name": "Begomoviruses, except: Abutilon mosaic virus [ABMV00], Papaya leaf crumple virus [PALCRV], Sweet potato leaf curl virus [SPLCV0], Tomato leaf curl New Delhi Virus [TOLCND], Tomato yellow leaf curl virus [TYLCV0], Tomato yellow leaf curl Sardinia virus [TYLCSV], Tomato yellow leaf curl Malaga virus [TYLCMA], Tomato yellow leaf curl Axarquia virus [TYLCAX]",
+      "eppo_codes": [
+        "ABMV00",
+        "PALCRV",
+        "SPLCV0",
+        "TOLCND",
+        "TYLCV0",
+        "TYLCSV",
+        "TYLCMA",
+        "TYLCAX"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.3",
+      "number": "3",
+      "name": "Black raspberry latent virus [TSVBL0]",
+      "eppo_codes": [
+        "TSVBL0"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.4",
+      "number": "4",
+      "name": "Candidatus Phytoplasma aurantifolia-reference strain [PHYPAF]",
+      "eppo_codes": [
+        "PHYPAF"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.5",
+      "number": "5",
+      "name": "Chrysanthemum stem necrosis virus [CSNV00]",
+      "eppo_codes": [
+        "CSNV00"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.6",
+      "number": "6",
+      "name": "Citrus leprosis viruses: 6.1. Citrus leprosis virus C [CILVC0] 6.2. Citrus leprosis virus C2 [CILVC2] 6.3. Hibiscus green spot virus 2 [HGSV20] 6.4. Citrus strain of Orchid fleck virus [OFV00] (citrus strain) 6.5. Citrus leprosis virus N sensu novo [CILVNO] 6.6. Citrus chlorotic spot virus [CICSV0]",
+      "eppo_codes": [
+        "CILVC0",
+        "CILVC2",
+        "HGSV20",
+        "OFV00",
+        "CILVNO",
+        "CICSV0"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.7",
+      "number": "7",
+      "name": "Citrus tristeza virus (non-EU isolates) [CTV000]",
+      "eppo_codes": [
+        "CTV000"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.8",
+      "number": "8",
+      "name": "Coconut cadang-cadang viroid [CCCVD0]",
+      "eppo_codes": [
+        "CCCVD0"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.9",
+      "number": "9",
+      "name": "Cowpea mild mottle virus [CPMMV0]",
+      "eppo_codes": [
+        "CPMMV0"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.10",
+      "number": "10",
+      "name": "Lettuce infectious yellows virus [LIYV00]",
+      "eppo_codes": [
+        "LIYV00"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.11",
+      "number": "11",
+      "name": "Melon yellowing-associated virus [MYAV00]",
+      "eppo_codes": [
+        "MYAV00"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.12",
+      "number": "12",
+      "name": "Palm lethal yellowing phytoplasmas [PHYP56]: 12.1. Candidatus Phytoplasma cocostanzania – subgroup16SrIV-C 12.2. Candidatus Phytoplasma palmae – subgroups 16SrIV-A, 16SrIV-B, 16SrIV-D, 16SrIV-E, 16SrIV-F 12.3. Candidatus Phytoplasma palmicola – 16SrXXII-A 12.4. Candidatus Phytoplasma palmicola-related strain 16SrXXII-B 12.5. New Candidatus Phytoplasma causing palm lethal yellowing from 16SrIV group – ‘Bogia coconut syndrome’",
+      "eppo_codes": [
+        "PHYP56"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.12.1",
+      "number": "12.1",
+      "name": "Rose rosette virus [RRV000]",
+      "eppo_codes": [
+        "RRV000"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.13",
+      "number": "13",
+      "name": "Satsuma dwarf virus [SDV000]",
+      "eppo_codes": [
+        "SDV000"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.14",
+      "number": "14",
+      "name": "Squash vein yellowing virus [SQVYVX]",
+      "eppo_codes": [
+        "SQVYVX"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.18",
+      "number": "18",
+      "name": "Tomato chocolate virus [TOCHV0]",
+      "eppo_codes": [
+        "TOCHV0"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.19",
+      "number": "19",
+      "name": "Tomato marchitez virus [TOANV0]",
+      "eppo_codes": [
+        "TOANV0"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.20",
+      "number": "20",
+      "name": "Tomato mild mottle virus [TOMMOV]",
+      "eppo_codes": [
+        "TOMMOV"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.22",
+      "number": "22",
+      "name": "Viruses, viroids and phytoplasmas of Cydonia Mill., Fragaria L., Malus Mill., Prunus L., Pyrus L., Ribes L., Rubus L. and Vitis L.: 22.1. American plum line pattern virus [APLPV0] 22.2. Apple fruit crinkle viroid [AFCVD0] 22.3. Apple necrotic mosaic virus 22.4. Buckland valley grapevine yellows phytoplasma [PHYP77] 22.5. Blueberry leaf mottle virus [BLMOV0] 22.6. Candidatus Phytoplasma aurantifolia-related strains (Pear decline Taiwan II, Crotalaria witches’ broom phytoplasma, Sweet potato little leaf phytoplasma [PHYP39]) 22.7. Candidatus Phytoplasma australiense Davis et al. [PHYPAU] (reference strain) 22.8. Candidatus Phytoplasma fraxini (reference strain) Griffiths et al. [PHYPFR] 22.9. Candidatus Phytoplasma hispanicum (reference strain) Davis et al. [PHYP07] 22.10. Candidatus Phytoplasma phoenicium [PHYPPH] 22.11. Candidatus Phytoplasma pruni-related strain (North American grapevine yellows, NAGYIII) Davis et al. 22.12. Candidatus Phytoplasma pyri-related strain (Peach yellow leaf roll) Norton et al. 22.13. Candidatus Phytoplasma ziziphi (reference strain) Jung et al. [PHYPZI] 22.14. Cherry rasp leaf virus (CRLV) [CRLV00] 22.15. Cherry rosette virus 22.16. Cherry rusty mottle associated virus [CRMAV0] 22.17. Cherry twisted leaf associated virus [CTLAV0] 22.18. Grapevine berry inner necrosis virus [GINV00] 22.19. Grapevine red blotch virus [GRBAV0] 22.20. Grapevine vein-clearing virus [GVCV00] 22.21. Peach mosaic virus [PCMV00] 22.22. Peach rosette mosaic virus [PRMV00] 22.23. Raspberry latent virus [RPLV00] 22.24. Raspberry leaf curl virus [RLCV00] 22.25. Strawberry chlorotic ﬂeck-associated virus 22.26. Strawberry leaf curl virus 22.27. Strawberry necrotic shock virus [SNSV00] 22.28. Temperate fruit decay-associated virus",
+      "eppo_codes": [
+        "APLPV0",
+        "AFCVD0",
+        "PHYP77",
+        "BLMOV0",
+        "PHYP39",
+        "PHYPAU",
+        "PHYPFR",
+        "PHYP07",
+        "PHYPPH",
+        "PHYPZI",
+        "CRLV00",
+        "CRMAV0",
+        "CTLAV0",
+        "GINV00",
+        "GRBAV0",
+        "GVCV00",
+        "PCMV00",
+        "PRMV00",
+        "RPLV00",
+        "RLCV00",
+        "SNSV00"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "A",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "A.6.23",
+      "number": "23",
+      "name": "Viruses, viroids and phytoplasmas of Solanum tuberosum L. and other tuber-forming Solanum spp.: 23.1. Andean potato latent virus [APLV00] 23.2. Andean potato mild mosaic virus [APMMV0] 23.3. Andean potato mottle virus [APMOV0] 23.4. Candidatus Phytoplasma americanum 23.5. Candidatus Phytoplasma aurantifolia–related strains (GD32; St_JO_10, 14, 17; PPT-SA; Rus-343F; PPT-GTO29, -GTO30, -SINTV; Potato Huayao Survey 2; Potato hair sprouts) 23.6. Candidatus Phytoplasma fragariae-related strains (YN-169, YN-10G) 23.7. Candidatus Phytoplasma pruni-related strains (Clover yellow edge, Potato purple top Akpot7, MT117, Akpot6; PPT-COAHP, -GTOP) 23.8. Chilli leaf curl virus [CHILCU] 23.9. Potato black ringspot virus [PBRSV0] 23.10. Potato virus B [PVB000] 23.11. Potato virus H [PVH000] 23.12. Potato virus P [PVP000] 23.13. Potato virus T [PVT000] 23.14. Potato yellow dwarf virus [PYDV00] 23.15. Potato yellow mosaic virus [PYMV00] 23.16. Potato yellow vein virus [PYVV00] 23.17. Potato yellowing virus [PYV000] 23.18. Tomato mosaic Havana virus [THV000] 23.19. Tomato mottle Taino virus [TOMOTV] 23.20. Tomato severe rugose virus [TOSRV0] 23.21. Tomato yellow vein streak virus [TOYVSV] 23.22. Non-EU isolates of potato viruses S, X and Potato leafroll virus [PVS000], [PVX000] and [PLRV00]",
+      "eppo_codes": [
+        "APLV00",
+        "APMMV0",
+        "APMOV0",
+        "CHILCU",
+        "PBRSV0",
+        "PVB000",
+        "PVH000",
+        "PVP000",
+        "PVT000",
+        "PYDV00",
+        "PYMV00",
+        "PYVV00",
+        "PYV000",
+        "THV000",
+        "TOMOTV",
+        "TOSRV0",
+        "TOYVSV",
+        "PVS000",
+        "PVX000",
+        "PLRV00"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "1",
+      "group_name": "1. Bacteria",
+      "code": "B.1.1",
+      "number": "1",
+      "name": "Clavibacter sepedonicus (Spieckermann and Kottho) Nouioui et al. [CORBSE]",
+      "eppo_codes": [
+        "CORBSE"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "1",
+      "group_name": "1. Bacteria",
+      "code": "B.1.1.1",
+      "number": "1.1",
+      "name": "Ralstonia pseudosolanacearum Safni et al. [RALSPS]",
+      "eppo_codes": [
+        "RALSPS"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "1",
+      "group_name": "1. Bacteria",
+      "code": "B.1.2",
+      "number": "2",
+      "name": "Ralstonia solanacearum (Smith) Yabuuchi et al. Emend. Safni et al. [RALSSL]",
+      "eppo_codes": [
+        "RALSSL"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "1",
+      "group_name": "1. Bacteria",
+      "code": "B.1.3",
+      "number": "3",
+      "name": "Xylella fastidiosa (Wells et al.) [XYLEFA]",
+      "eppo_codes": [
+        "XYLEFA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "B.2.1",
+      "number": "1",
+      "name": "Ceratocystis platani (J. M. Walter) Engelbr. & T. C. Harr [CERAFP]",
+      "eppo_codes": [
+        "CERAFP"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "B.2.2",
+      "number": "2",
+      "name": "Fusarium circinatum Nirenberg & O’Donnell [GIBBCI]",
+      "eppo_codes": [
+        "GIBBCI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "B.2.3",
+      "number": "3",
+      "name": "Geosmithia morbida Kolarík, Freeland, Utley & Tisserat [GEOHMO]",
+      "eppo_codes": [
+        "GEOHMO"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "2",
+      "group_name": "2. Fungi and oomycetes",
+      "code": "B.2.4",
+      "number": "4",
+      "name": "Synchytrium endobioticum (Schilb.) Percival [SYNCEN]",
+      "eppo_codes": [
+        "SYNCEN"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "B.3.1",
+      "number": "1",
+      "name": "Aleurocanthus spiniferus (Quaintance) [ALECSN]",
+      "eppo_codes": [
+        "ALECSN"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "B.3.2",
+      "number": "2",
+      "name": "Anoplophora chinensis (Thomson) [ANOLCN]",
+      "eppo_codes": [
+        "ANOLCN"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "B.3.3",
+      "number": "3",
+      "name": "Anoplophora glabripennis (Motschulsky) [ANOLGL]",
+      "eppo_codes": [
+        "ANOLGL"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "B.3.4",
+      "number": "4",
+      "name": "Aromia bungii (Faldermann) [AROMBU]",
+      "eppo_codes": [
+        "AROMBU"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "B.3.5",
+      "number": "5",
+      "name": "Pityophthorus juglandis Blackman [PITOJU]",
+      "eppo_codes": [
+        "PITOJU"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "B.3.6",
+      "number": "6",
+      "name": "Popillia japonica Newman [POPIJA]",
+      "eppo_codes": [
+        "POPIJA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "B.3.7",
+      "number": "7",
+      "name": "Toxoptera citricida (Kirkaldy) [TOXOCI]",
+      "eppo_codes": [
+        "TOXOCI"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "3",
+      "group_name": "3. Insects and mites",
+      "code": "B.3.8",
+      "number": "8",
+      "name": "Trioza erytreae Del Guercio [TRIZER]",
+      "eppo_codes": [
+        "TRIZER"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "4",
+      "group_name": "4. Molluscs",
+      "code": "B.4.1",
+      "number": "1",
+      "name": "Pomacea (Perry) [1POMAG]",
+      "eppo_codes": [
+        "1POMAG"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "5",
+      "group_name": "5. Nematodes",
+      "code": "B.5.1",
+      "number": "1",
+      "name": "Bursaphelenchus xylophilus (Steiner and Bührer) Nickle et al. [BURSXY]",
+      "eppo_codes": [
+        "BURSXY"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "5",
+      "group_name": "5. Nematodes",
+      "code": "B.5.2",
+      "number": "2",
+      "name": "Globodera pallida (Stone) Behrens [HETDPA]",
+      "eppo_codes": [
+        "HETDPA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "5",
+      "group_name": "5. Nematodes",
+      "code": "B.5.3",
+      "number": "3",
+      "name": "Globodera rostochiensis (Wollenweber) Behrens [HETDRO]",
+      "eppo_codes": [
+        "HETDRO"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "5",
+      "group_name": "5. Nematodes",
+      "code": "B.5.4",
+      "number": "4",
+      "name": "Meloidogyne chitwoodi Golden et al. [MELGCH]",
+      "eppo_codes": [
+        "MELGCH"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "5",
+      "group_name": "5. Nematodes",
+      "code": "B.5.5",
+      "number": "5",
+      "name": "Meloidogyne fallax Karssen [MELGFA]",
+      "eppo_codes": [
+        "MELGFA"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "5",
+      "group_name": "5. Nematodes",
+      "code": "B.5.6",
+      "number": "6",
+      "name": "Meloidogyne graminicola Golden & Birchfield [MELGGC]",
+      "eppo_codes": [
+        "MELGGC"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "B.6.1",
+      "number": "1",
+      "name": "Grapevine flavescence dorée phytoplasma [PHYP64]",
+      "eppo_codes": [
+        "PHYP64"
+      ],
+      "kind": "organism"
+    },
+    {
+      "part": "B",
+      "group": "6",
+      "group_name": "6. Viruses, viroids and phytoplasmas",
+      "code": "B.6.2",
+      "number": "2",
+      "name": "Tomato leaf curl New Delhi virus [TOLCND]",
+      "eppo_codes": [
+        "TOLCND"
+      ],
+      "kind": "organism"
+    }
+  ]
+}
