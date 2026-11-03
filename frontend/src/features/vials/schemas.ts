@@ -124,6 +124,22 @@ export const nextStates = (vial: Vial, materialDestroyed: boolean, regulated: bo
     (s) => (s !== 'entered_in_error' || vial.status_changed_at === null) && (s !== 'destroyed' || !regulated),
   )
 
+/**
+ * Act 281/2002 Sb., § 5(5) (#159): whoever finds a loss of a highly risky (VRAT) or risky (RAT)
+ * agent reports it to the police. A strain with an active restriction of these kinds owes it for
+ * a lost vial (lineage.models.LOSS_REPORTED_KINDS); the server decides which loss owes one.
+ */
+const LOSS_REPORTED_KINDS: readonly string[] = ['cz_vrat', 'cz_rat']
+export const lossMustBeReported = (strain: { restrictions: readonly { kind: string }[] }): boolean =>
+  strain.restrictions.some((r) => LOSS_REPORTED_KINDS.includes(r.kind))
+
+/** What the state dialog says when Lost is chosen for such a vial. */
+export const LOSS_DUTY =
+  "Its strain is a highly risky or risky agent: whoever finds the loss reports it to the Police of the Czech Republic without undue delay (Act 281/2002 Sb., § 5(5)). Home lists the loss for the lab's managers until they record the report."
+
+/** Managers record that a loss was reported (distribution.approve_regulated). The server decides; this only hides. */
+export const canRecordLossReport = (role: Role | undefined): boolean => role === 'manager'
+
 /** D6: rows as letters, columns as numbers, both from 1. */
 export const rowLabel = (row: number) => String.fromCodePoint(64 + row)
 
@@ -220,6 +236,17 @@ export const statusSchema = z.object({
   reason: reasonSchema,
 })
 export type StatusForm = z.input<typeof statusSchema>
+
+/** The report of a loss to the police (#159): the day, the police reference, why. */
+export const lossReportSchema = z.object({
+  reported_on: z.iso.date('Enter a date as YYYY-MM-DD').refine((d) => d <= today(), 'This date is in the future'),
+  reference: required('Give the reference the police gave the report').max(100, 'Use at most 100 characters'),
+  reason: reasonSchema,
+})
+export type LossReportForm = z.input<typeof lossReportSchema>
+
+/** A new report: reported today, unless the person says another day. */
+export const emptyLossReport = (): LossReportForm => ({ reported_on: today(), reference: '', reason: '' })
 
 /** What the scanner sends or a person types to find a vial: its barcode or its label. */
 export const findSchema = z.object({ code: required('Scan or type the label or barcode').max(200, 'Use at most 200 characters') })

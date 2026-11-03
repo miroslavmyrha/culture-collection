@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
+import { LOSS_DUTY } from '@/features/vials/schemas'
 import { makeBatch, makeHistoryLine, makeLab, makeMe, makePassage, makeStrain, makeTaxon, makeTerms, makeUnitRow, makeVial, page } from '@/test/factories'
 import { mockApi } from '@/test/mockApi'
 import { vialAction } from '@/test/actions'
@@ -156,5 +157,39 @@ describe('the strain page in tabs (#19)', () => {
     await screen.findByRole('table', { name: 'Vials' })
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Actions for vial MYC 42 / 1 / 1' }))
     expect((await screen.findAllByRole('menuitem')).map((item) => item.textContent)).toEqual(items)
+  })
+
+  // #159: the page tells the Material tab whether the strain is a VRAT or RAT (its active
+  // restrictions), and whether the role records a police report (managers).
+  it.each([
+    ['a RAT, to a manager', 'cz_rat', 'manager', true, ['Change state', 'Record the police report']],
+    ['a VRAT, to a technician', 'cz_vrat', 'technician', true, ['Change state']],
+    ['a GMO, to a manager', 'gmo', 'manager', false, ['Change state', 'Record the police report']],
+  ] as const)('states the duty to report a loss of %s', async (_, kind, role, duty, items) => {
+    strainPage(role)
+    const restriction = { ...GMO, kind, gmo_category: kind === 'gmo' ? 2 : null }
+    mockApi(
+      'get',
+      STRAIN,
+      makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42', restrictions: [{ kind, reference: restriction.reference }], restriction_history: [restriction] }),
+    )
+    mockApi(
+      'get',
+      VIALS,
+      page([
+        makeVial({ label: 'MYC 42 / 1 / 1' }),
+        makeVial({ label: 'MYC 42 / 1 / 2', status: 'lost', status_changed_at: '2026-10-02T10:00:00Z', police_report: { reported_on: null, reference: null } }),
+      ]),
+    )
+    renderApp({ path: `${BASE}/material` })
+    await screen.findByRole('table', { name: 'Vials' })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Actions for vial MYC 42 / 1 / 2' }))
+    expect((await screen.findAllByRole('menuitem')).map((item) => item.textContent)).toEqual(items)
+    await user.keyboard('{Escape}')
+    await vialAction(user, 'MYC 42 / 1 / 1', 'Change state')
+    const state = within(await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 1' })).getByRole('combobox', { name: 'New state' })
+    await user.selectOptions(state, 'lost')
+    expect(state).toHaveAccessibleDescription(duty ? LOSS_DUTY : '')
   })
 })

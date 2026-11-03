@@ -59,6 +59,13 @@ export function useSetVialStatus(labId: string, strainId: string) {
   )
 }
 
+/** Records that the loss of a VRAT or RAT vial was reported to the police (#159), managers only. */
+export function useReportLoss(labId: string, strainId: string) {
+  return useStrainWrite(labId, strainId, ({ vialId, ...body }: Schemas['LossReportInputRequest'] & { vialId: string }) =>
+    unwrap(api.POST('/api/v1/labs/{lab_public_id}/vials/{public_id}/loss-report/', { params: vial(labId, vialId), body })),
+  )
+}
+
 export function useRevive(labId: string, strainId: string) {
   return useStrainWrite(labId, strainId, ({ vialId, growth }: { vialId: string; growth: GrowthBody | undefined }) =>
     unwrap(api.POST('/api/v1/labs/{lab_public_id}/vials/{public_id}/revive/', { params: vial(labId, vialId), body: growth ? { growth } : {} })),

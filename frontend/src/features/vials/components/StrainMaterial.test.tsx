@@ -9,7 +9,7 @@ import { holdApi, mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { vialAction } from '@/test/actions'
 import { renderWithProviders } from '@/test/render'
 import { vialKeys } from '../api/keys'
-import type { VialPage } from '../schemas'
+import { LOSS_DUTY, type VialPage } from '../schemas'
 import { StrainMaterial } from './StrainMaterial'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
@@ -58,6 +58,8 @@ function Material({
   strainGrowth = noGrowth(),
   materialDestroyed = false,
   regulated = false,
+  lossReported = false,
+  canReportLoss = false,
 }: {
   canHandle: boolean
   limit?: number
@@ -65,6 +67,8 @@ function Material({
   strainGrowth?: Growth
   materialDestroyed?: boolean
   regulated?: boolean
+  lossReported?: boolean
+  canReportLoss?: boolean
 }) {
   const [vialPage, setVialPage] = useState<VialPage>({ limit, offset: 0, batch: undefined, vial })
   return (
@@ -76,6 +80,8 @@ function Material({
       canRelease={canHandle}
       materialDestroyed={materialDestroyed}
       regulated={regulated}
+      lossReported={lossReported}
+      canReportLoss={canReportLoss}
       strainGrowth={strainGrowth}
       vialPage={vialPage}
       onVialPage={(next) => setVialPage((current) => ({ ...current, ...next }))}
@@ -489,6 +495,80 @@ describe('StrainMaterial', () => {
     )
     const state = within(dialog).getByRole('combobox', { name: 'New state' })
     expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(['Quarantined', 'To destroy', 'Consumed', 'Lost', 'Entered in error'])
+  })
+
+  it.each([
+    ['a VRAT or RAT strain, when Lost is chosen', true, 'lost', true],
+    ['a VRAT or RAT strain, when another state is chosen', true, 'quarantined', false],
+    ['a strain of another restriction or none', false, 'lost', false],
+  ])('states the duty to report a loss to the police for %s (#159)', async (_case, lossReported, chosen, shown) => {
+    mockMaterial([loose])
+    await renderWithProviders(<Material canHandle lossReported={lossReported} regulated={lossReported} />)
+    const user = userEvent.setup()
+    await vialAction(user, 'MYC 42 / 1 / 2', 'Change state')
+    const dialog = await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 2' })
+    const state = within(dialog).getByRole('combobox', { name: 'New state' })
+    await user.selectOptions(state, chosen)
+    expect(state).toHaveAccessibleDescription(shown ? LOSS_DUTY : '')
+    expect(within(dialog).queryByText(/Act 281\/2002 Sb\., § 5\(5\)/) !== null).toBe(shown)
+  })
+
+  it('shows a lost VRAT or RAT vial as not reported, and a manager records the report (#159)', async () => {
+    const due = makeVial({ label: 'MYC 42 / 1 / 6', status: 'lost', status_changed_at: '2026-10-02T10:00:00.123456Z', police_report: { reported_on: null, reference: null } })
+    const done = makeVial({ label: 'MYC 42 / 1 / 7', status: 'lost', status_changed_at: '2026-10-01T10:00:00Z', police_report: { reported_on: '2026-10-01', reference: 'KRPB-1/TČ-2026' } })
+    mockMaterial([due, done])
+    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/loss-report/', { ...due, police_report: { reported_on: '2026-10-02', reference: 'KRPB-2' } })
+    await renderWithProviders(<Material canHandle lossReported regulated canReportLoss />)
+    const vials = await screen.findByRole('table', { name: 'Vials' })
+    const [dueRow, doneRow] = within(vials).getAllByRole('row').slice(1)
+    expect(dueRow).toHaveTextContent('LostNot reported to the police yet')
+    expect(doneRow).toHaveTextContent('LostReported to the police on 2026-10-01, reference KRPB-1/TČ-2026')
+    const user = userEvent.setup()
+    // The reported loss offers no second record.
+    await user.click(screen.getByRole('button', { name: 'Actions for vial MYC 42 / 1 / 7' }))
+    expect((await screen.findAllByRole('menuitem')).map((item) => item.textContent)).toEqual(['Change state'])
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: 'Actions for vial MYC 42 / 1 / 6' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Record the police report' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Record the police report of vial MYC 42 / 1 / 6' })
+    expect(dialog).toHaveAccessibleDescription(/Act 281\/2002 Sb\., § 5\(5\)/)
+    const day = within(dialog).getByRole('textbox', { name: 'Reported on' })
+    await user.clear(day)
+    await user.type(day, '2026-10-02')
+    await user.click(within(dialog).getByRole('button', { name: 'Record report' }))
+    // Reference and reason are required before anything is sent.
+    expect(within(dialog).getByRole('textbox', { name: 'Police reference' })).toHaveAccessibleDescription('As the police wrote it. Name no person. Give the reference the police gave the report')
+    expect(within(dialog).getByRole('textbox', { name: 'Reason' })).toHaveAccessibleDescription('Stored for good with the change. Name no person. Say why')
+    expect(calls).toHaveLength(0)
+    await user.type(within(dialog).getByRole('textbox', { name: 'Police reference' }), ' KRPB-2 ')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'Reported at the station.')
+    await user.click(within(dialog).getByRole('button', { name: 'Record report' }))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    expect(calls[0]?.body).toEqual({ lost_at: '2026-10-02T10:00:00.123456Z', reported_on: '2026-10-02', reference: 'KRPB-2', reason: 'Reported at the station.' })
+  })
+
+  it('offers the record of a police report to managers only (#159)', async () => {
+    const due = makeVial({ label: 'MYC 42 / 1 / 6', status: 'lost', status_changed_at: '2026-10-02T10:00:00Z', police_report: { reported_on: null, reference: null } })
+    mockMaterial([due])
+    await renderWithProviders(<Material canHandle lossReported regulated />)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Actions for vial MYC 42 / 1 / 6' }))
+    expect((await screen.findAllByRole('menuitem')).map((item) => item.textContent)).toEqual(['Change state'])
+  })
+
+  it('names a loss found and lost again since the page loaded, inside the report dialog (#159)', async () => {
+    const due = makeVial({ label: 'MYC 42 / 1 / 6', status: 'lost', status_changed_at: '2026-10-02T10:00:00Z', police_report: { reported_on: null, reference: null } })
+    mockMaterial([due])
+    mockApiError('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/loss-report/', 409, problem(409, { code: 'loss_changed' }))
+    await renderWithProviders(<Material canHandle lossReported regulated canReportLoss />)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Actions for vial MYC 42 / 1 / 6' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Record the police report' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Record the police report of vial MYC 42 / 1 / 6' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Police reference' }), 'KRPB-2')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'Reported.')
+    await user.click(within(dialog).getByRole('button', { name: 'Record report' }))
+    expect(await within(dialog).findByText('This vial was found and lost again since the page was loaded. Reload and record the report of the new loss.')).toBeInTheDocument()
   })
 
   it('offers no "entered in error" for a vial whose state changed before', async () => {

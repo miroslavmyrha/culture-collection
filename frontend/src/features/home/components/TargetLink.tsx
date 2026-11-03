@@ -6,9 +6,22 @@ type Target = WaitingItem['target'] | NonNullable<ActivityLine['target']>
 
 /**
  * The page where an item of Home is handled or a line's subject lives, from the server's target
- * and ids. A target that needs an id and has none, or no target, renders the words alone.
+ * and ids; a strain with a vial opens its Material tab narrowed to that vial. A target that needs an id and has none, or no target, renders the words alone.
  */
-export function TargetLink({ labId, target, id, children }: { labId: string; target: Target | null; id: string | null; children: ReactNode }) {
+export function TargetLink({
+  labId,
+  target,
+  id,
+  vial = null,
+  children,
+}: {
+  labId: string
+  target: Target | null
+  id: string | null
+  /** With a strain: the vial its Material tab narrows to (#159). */
+  vial?: string | null
+  children: ReactNode
+}) {
   if (target === 'lab') {
     return (
       <Link to="/labs/$labId" params={{ labId }}>
@@ -34,6 +47,13 @@ export function TargetLink({ labId, target, id, children }: { labId: string; tar
   if (target === 'deposit') {
     return (
       <Link to="/labs/$labId/deposits/$depositId" params={{ labId, depositId: id }}>
+        {children}
+      </Link>
+    )
+  }
+  if (target === 'strain' && vial !== null) {
+    return (
+      <Link to="/labs/$labId/strains/$strainId/material" params={{ labId, strainId: id }} search={{ vial }}>
         {children}
       </Link>
     )

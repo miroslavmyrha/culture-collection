@@ -15,6 +15,10 @@ export function vialError(error: unknown): string {
   if (isApiError(error, 409) && error.code === 'check_entered_in_error') return 'This check was entered in error already. Reload to see it.'
   if (isApiError(error, 422) && error.code === 'checks_not_passed') return 'A batch is released once its latest identity, purity and viability checks passed. Reload to see its checks.'
   if (isApiError(error, 409) && error.code === 'transition_not_allowed') return 'The batch changed meanwhile. Reload and try again.'
+  if (isApiError(error, 409) && error.code === 'vial_not_lost') return 'This vial was found meanwhile: there is no loss to report. Reload to see it.'
+  if (isApiError(error, 409) && error.code === 'loss_changed') return 'This vial was found and lost again since the page was loaded. Reload and record the report of the new loss.'
+  if (isApiError(error, 409) && error.code === 'loss_reported') return 'The report of this loss is recorded already. Reload to see it.'
+  if (isApiError(error, 409) && error.code === 'loss_not_reportable') return 'Its strain was not a highly risky or risky agent when the vial was lost: the act asks no report to the police.'
   if (isApiError(error, 403) && error.code === 'location_grant_required') return "Only people the lab's managers named may see where regulated strains are."
   return errorMessage(error)
 }

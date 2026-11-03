@@ -630,3 +630,40 @@ to destroy (#150). A strain without restrictions, or whose restrictions all ende
 
 Migration impact: the vial guard function replaced, no data change. A vial already destroyed
 stays so. Reversible: `migrate lineage 0009`.
+
+## Amendment 2026-11-02: the loss of a VRAT or RAT vial is reported to the police (#159)
+
+Act 281/2002 Sb., § 5(5): whoever finds a loss of a highly risky or risky agent or toxin reports
+it to the Police of the Czech Republic without undue delay, and the police tell SÚJB. Until now
+the collection recorded a vial as lost and said nothing about this duty. The collection cannot
+report for anyone; it states the duty and keeps the fact that the report was made:
+
+- A loss that owes a report is a vial in the status lost whose strain had a cz_vrat or cz_rat
+  restriction in force when the vial went lost (created at or before that moment, not ended by
+  then): `lineage.selectors.reportable_loss()`. The other kinds (dual use, quarantine pest, GMO)
+  are not on the lists of § 5(5). A restriction ended after the loss does not end the duty; one
+  added after the loss does not create it.
+- The report is `lineage.VialLossReport`: the vial, the moment of the loss (the vial's
+  `status_changed_at` then), the Czech day of the report, the police reference, who recorded it
+  and when. One per loss (unique vial and moment), so a vial found and lost again owes a new
+  one. Added once, never changed or deleted: its trigger (`lineage` 0012) refuses UPDATE and
+  DELETE and checks on insert that the vial is lost in that loss, that the strain was a VRAT or
+  RAT then, and that the day is not before the loss. A test asserts the trigger and the Python
+  definition agree for every restriction kind and for a restriction ended or added around the
+  loss. Every column is row-audited; the runtime role has SELECT and INSERT.
+- `lineage.services.vial_loss_report` records it with a reason (`vial_loss_reported`, reason
+  required). Managers record it (`distribution.approve_regulated`: they answer to the authority
+  for regulated agents). The body names the loss it read (`lost_at`): a vial found and lost
+  again since is refused with `loss_changed`, not filed on the new loss. The reference is the
+  police's and names no person; the event holds the report's id, the loss, the day and the
+  reference.
+- A vial found before a report is no longer lost: nothing is owed and nothing is recorded.
+- The vial's state dialog states the duty with the section when Lost is chosen for a vial of a
+  strain with an active cz_vrat or cz_rat restriction. Home lists each unreported loss for the
+  lab's managers, oldest first and above every other group, linking to the vial on its strain's
+  Material tab, where the vial row shows the loss as reported or not and offers the record to
+  managers.
+
+Migration impact: additive, a new table with its trigger and row audit, and one more event type
+in the reason constraint (added NOT VALID, validated in its own migration). Reversible:
+`migrate lineage 0010` and `migrate audit 0027`.
