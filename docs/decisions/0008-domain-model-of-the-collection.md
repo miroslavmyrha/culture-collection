@@ -1032,12 +1032,13 @@ is a running count over the vials' status changes in the audit trail.
 
 Open, the smaller option chosen until the owner decides: the method codes (four, `other` with
 words); verification as a text (not an indicator type and result); the witness any member who
-handles vials (not only one on the VRAT access list of act 281/2002 Sb., § 14a(4)); the witness
+handles vials, until the VRAT access list exists (below); the witness
 may also be the confirmer; the run as a text (not a row); a performer apart from the recorder
 (WHO LBM4's "operator name") not recorded; a completed record entered in error has no
-correcting record that takes its vials (they stay destroyed); a RAT goes to an outside firm
-without the in-lab inactivation the VRAT rule asks, though SÚJB's page allows giving RAT only to
-persons who notified RAT handling.
+correcting record that takes its vials (they stay destroyed). Decided 2026-11-03: the witness
+will be limited to the lab's list of people with access to VRAT (act 281/2002 Sb., § 14a(4)),
+built in its own issue; a RAT, like a VRAT, goes to an outside firm only inactivated in the lab
+(ADR 0009).
 
 Migration impact: `lineage` 0013 and 0014 add the two tables, their row audit and triggers, and
 replace the vial guard; `audit` 0030 and 0031 add four event types to the reason constraint (NOT

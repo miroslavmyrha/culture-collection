@@ -629,22 +629,24 @@ listed here so that the test can tell them from a regulated gate without a rule.
 - Code: `backend/cultures/lineage/services/destructions.py::Required.confirmation`, `backend/cultures/lineage/services/destructions.py::destruction_confirm`, `backend/cultures/lineage/services/errors.py::ConfirmOwnDestruction`, `backend/cultures/lineage/models.py::"lineage_destructionrecord_confirmer_not_recorder"`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
 - Tests: `backend/cultures/lineage/tests/test_destructions.py::test_each_kind_asks_exactly_its_rules`, `backend/cultures/lineage/tests/test_destructions.py::test_a_manager_other_than_the_recorder_confirms_and_the_vials_go_then`, `backend/cultures/lineage/tests/test_destructions.py::test_the_recorder_does_not_confirm_even_as_a_manager`, `backend/cultures/lineage/tests/test_destructions.py::test_only_a_manager_confirms`, `backend/cultures/lineage/tests/test_destructions.py::test_a_manager_demoted_since_the_request_began_is_refused`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_asks_a_second_person_exactly_when_python_does`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_recorder_never_confirms_also_past_the_service`
 
-#### R-END-08 A VRAT goes to an outside firm only inactivated in the lab
+#### R-END-08 A VRAT or RAT goes to an outside firm only inactivated in the lab
 
 - Kind: law in part
-- Source: act 281/2002 Sb., § 13 h): a VRAT goes only to a holder of a permit, which a waste
-  firm is not, so the material is inactivated in the lab first (the owner's decision Q9 of
-  2026-11-02). Whether SÚJB accepts inactivated material as ordinary infectious waste is
-  Q-SUJB-3.
+- Source: act 281/2002 Sb., § 13 h) for a VRAT (a permit holder only). For a RAT, SÚJB's page
+  "Přesun a předání VRAT nebo RAT v rámci ČR" (guidance of the authority): „RAT si mohou
+  navzájem poskytovat pouze osoby, které SÚJB ohlásily nakládání s RAT podle § 17a“ (RAT may be
+  supplied only between persons who notified SÚJB of their handling of RAT). A waste firm holds
+  no permit and made no notice, so the material is inactivated first (the owner's decisions of
+  2026-11-02 and 2026-11-03). Whether SÚJB accepts inactivated material as ordinary infectious
+  waste is Q-SUJB-3.
 - Quote: „…poskytovat vysoce rizikové biologické agens nebo toxin pouze držiteli povolení podle § 6 odst. 1, pokud Úřad ve výjimečném odůvodněném případě na omezenou dobu rozhodnutím nestanoví jinak a pokud současně nebude ohrožen účel tohoto zákona,“
 - English: The permit holder must supply a highly risky agent or toxin only to a holder of a
   permit under § 6(1), unless the Office decides otherwise for a limited time in an exceptional,
   justified case and the purpose of this act is not endangered.
 - Code: `backend/cultures/lineage/services/destructions.py::Required.inactivated_before_handover`, `backend/cultures/lineage/services/destructions.py::_check_rules`, `backend/cultures/lineage/models.py::DestructionRecord.inactivated_in_lab`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
-- Tests: `backend/cultures/lineage/tests/test_destructions.py::test_each_kind_asks_exactly_its_rules`, `backend/cultures/lineage/tests/test_destructions.py::test_a_vrat_goes_to_a_firm_only_inactivated`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_holds_each_kinds_rule_exactly_when_python_does`
-- Limits: an SÚJB exception under § 13 h) for live material is not recorded: every VRAT handed
-  to a firm is inactivated first. A RAT is asked for nothing yet, though SÚJB gives RAT only to
-  persons who notified their handling of it under § 17a.
+- Tests: `backend/cultures/lineage/tests/test_destructions.py::test_each_kind_asks_exactly_its_rules`, `backend/cultures/lineage/tests/test_destructions.py::test_a_vrat_goes_to_a_firm_only_inactivated`, `backend/cultures/lineage/tests/test_destructions.py::test_a_rat_goes_to_a_firm_only_inactivated`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_holds_each_kinds_rule_exactly_when_python_does`
+- Limits: an SÚJB exception under § 13 h) for live material is not recorded: every VRAT or RAT
+  handed to a firm is inactivated first.
 
 #### R-END-09 A quarantine pest is destroyed by the method its ÚKZÚZ authorisation declares
 

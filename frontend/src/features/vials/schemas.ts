@@ -387,7 +387,7 @@ export type DestructionRules = {
   verification: boolean
   /** A VRAT: the member present at the destruction. */
   witness: boolean
-  /** A VRAT goes to an outside firm only inactivated in the lab (act 281/2002 Sb., § 13 h)). */
+  /** A VRAT or RAT goes to an outside firm only inactivated in the lab (act 281/2002 Sb., § 13 h), § 17a). */
   inactivatedBeforeHandover: boolean
   /** A quarantine pest: the method its permit declares. */
   declaredMethod: boolean
@@ -400,7 +400,7 @@ export function destructionRules(kinds: readonly string[]): DestructionRules {
     confirmation: regulated,
     verification: regulated,
     witness: kinds.includes('cz_vrat'),
-    inactivatedBeforeHandover: kinds.includes('cz_vrat'),
+    inactivatedBeforeHandover: kinds.includes('cz_vrat') || kinds.includes('cz_rat'),
     declaredMethod: kinds.includes('quarantine_pest'),
   }
 }
@@ -433,7 +433,7 @@ export const destructionSchema = (rules: DestructionRules) =>
       if (v.outside && v.contractor === '') ctx.addIssue({ code: 'custom', path: ['contractor'], message: 'Name the firm' })
       if (v.outside && v.handover_document === '') ctx.addIssue({ code: 'custom', path: ['handover_document'], message: 'Give the number of the handover document' })
       if (v.outside && rules.inactivatedBeforeHandover && !v.inactivated_in_lab)
-        ctx.addIssue({ code: 'custom', path: ['inactivated_in_lab'], message: 'A highly risky agent (VRAT) is inactivated in the lab before a firm takes it' })
+        ctx.addIssue({ code: 'custom', path: ['inactivated_in_lab'], message: 'A highly risky or risky agent (VRAT, RAT) is inactivated in the lab before a firm takes it' })
     })
 export type DestructionForm = z.input<ReturnType<typeof destructionSchema>>
 export type DestructionValues = z.output<ReturnType<typeof destructionSchema>>

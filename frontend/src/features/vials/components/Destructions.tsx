@@ -27,7 +27,8 @@ function rulesText(kinds: readonly string[]): string {
   const parts = [
     'Its strain is regulated: the record says how the inactivation was verified, and a manager other than the one who recorded it confirms it. The vials are destroyed then.',
   ]
-  if (rules.witness) parts.push('A highly risky agent (VRAT) names the member who witnessed the destruction, and goes to an outside firm only inactivated in the lab.')
+  if (rules.witness) parts.push('A highly risky agent (VRAT) names the member who witnessed the destruction.')
+  if (rules.inactivatedBeforeHandover) parts.push('A highly risky or risky agent (VRAT, RAT) goes to an outside firm only inactivated in the lab.')
   if (rules.declaredMethod) parts.push("A quarantine pest is destroyed by the method the lab's ÚKZÚZ permit declares.")
   return parts.join(' ')
 }

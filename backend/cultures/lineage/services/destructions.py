@@ -11,9 +11,10 @@ decisions of 2026-11-02:
   recorder confirms the record, which destroys the vials (Q2, ADR 0009: "No single account can
   destroy, deaccession or ship a regulated strain"; WHO Laboratory biosecurity guidance 2024,
   p. 31, "removal of biological material from the inventory by two employees");
-- cz_vrat: the witness present at the destruction, a member other than the recorder (Q2), and
-  the material inactivated in the lab before an outside firm takes it (Q9; act 281/2002 Sb.,
-  § 13 h) gives VRAT only to a permit holder);
+- cz_vrat: the witness present at the destruction, a member other than the recorder (Q2);
+- cz_vrat and cz_rat: the material inactivated in the lab before an outside firm takes it (Q9;
+  act 281/2002 Sb., § 13 h) gives VRAT only to a permit holder, and SÚJB gives RAT only to
+  persons who notified RAT handling under § 17a, owner's decision of 2026-11-03);
 - quarantine_pest: the method the lab's ÚKZÚZ permit declares (Q6; Regulation (EU) 2019/829,
   Annex I (i)).
 
@@ -114,8 +115,8 @@ class Required:
 
     @property
     def inactivated_before_handover(self) -> bool:
-        """Decision Q9: a VRAT."""
-        return RestrictionKind.CZ_VRAT in self.kinds
+        """Decision Q9 and the owner's decision of 2026-11-03: a VRAT or a RAT."""
+        return bool(self.kinds & {RestrictionKind.CZ_VRAT, RestrictionKind.CZ_RAT})
 
     @property
     def authorised_method(self) -> bool:
@@ -258,8 +259,9 @@ def _check_rules(
         )
     if required.inactivated_before_handover and data.contractor and not data.inactivated_in_lab:
         raise InvalidDestruction(
-            "A highly risky agent (VRAT) is inactivated in the lab before a firm takes it: the act"
-            " gives VRAT only to a permit holder (act 281/2002 Sb., § 13 h)).",
+            "A highly risky or risky agent (VRAT, RAT) is inactivated in the lab before a firm"
+            " takes it: the act gives VRAT only to a permit holder (act 281/2002 Sb., § 13 h)), and"
+            " RAT only to persons who notified RAT handling (§ 17a).",
             code="inactivate_before_handover",
             attr="inactivated_in_lab",
         )

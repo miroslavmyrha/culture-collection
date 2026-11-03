@@ -114,7 +114,7 @@ describe('the destruction record (#160)', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Record for confirmation' }))
     expect(within(dialog).getByRole('textbox', { name: 'Verification of the inactivation' })).toHaveAccessibleDescription(/Say how the inactivation was verified/)
     expect(witness).toHaveAccessibleDescription(/Choose the member who witnessed it/)
-    expect(within(dialog).getByText('A highly risky agent (VRAT) is inactivated in the lab before a firm takes it')).toBeInTheDocument()
+    expect(within(dialog).getByText('A highly risky or risky agent (VRAT, RAT) is inactivated in the lab before a firm takes it')).toBeInTheDocument()
     expect(calls).toHaveLength(0)
     await user.type(within(dialog).getByRole('textbox', { name: 'Verification of the inactivation' }), 'Spore strip: no growth.')
     await user.selectOptions(witness, other.public_id)

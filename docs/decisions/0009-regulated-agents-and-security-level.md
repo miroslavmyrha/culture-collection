@@ -756,7 +756,7 @@ has several), from the destruction study and the owner's decisions of 2026-11-02
 | a verification of the inactivation | no | yes | yes | yes | yes | yes |
 | a manager other than the recorder confirms; the vials go then | no | yes | yes | yes | yes | yes |
 | a witness, a member other than the recorder | no | yes | no | no | no | no |
-| inactivated in the lab before an outside firm takes it | no | yes | no | no | no | no |
+| inactivated in the lab before an outside firm takes it | no | yes | yes | no | no | no |
 | the method the lab's permit declares | no | no | no | no | yes | no |
 
 Sources and reasons:
@@ -771,10 +771,14 @@ Sources and reasons:
   re-reads the confirmer's role under the lab lock.
 - **Witness for a VRAT** (decision Q2): not found in the law either; a choice for the highest
   risk. The witness is an active member of the lab who handles vials, other than the recorder,
-  named by user (ADR 0005: a user reference, never a name).
-- **Inactivated before an outside firm** (decision Q9): act 281/2002 Sb., § 13 h) lets a VRAT
-  holder give the agent only to another permit holder, and SÚJB restates it on its page
-  "Přesun a předání VRAT nebo RAT v rámci ČR". A waste firm holds no such permit.
+  named by user (ADR 0005: a user reference, never a name). Decided 2026-11-03: the witness will
+  be limited to the lab's list of people with access to VRAT (act 281/2002 Sb., § 14a(4)), which
+  does not exist yet and is built in its own issue (#n to follow); until then any such member.
+- **Inactivated before an outside firm, VRAT and RAT** (decision Q9, extended to RAT by the
+  owner on 2026-11-03): act 281/2002 Sb., § 13 h) lets a VRAT holder give the agent only to
+  another permit holder, and SÚJB's page "Přesun a předání VRAT nebo RAT v rámci ČR" says "RAT si
+  mohou navzájem poskytovat pouze osoby, které SÚJB ohlásily nakládání s RAT podle § 17a". A
+  waste firm usually holds no permit and made no such notice.
 - **Verification for every regulated kind** (decision Q4): the law asks it only for a GMO
   (decree 209/2004 Sb., § 8(8) h)); WHO LBM4 asks a validated decontamination for any agent.
 - **The declared method for a quarantine pest** (decision Q6): Regulation (EU) 2019/829, Annex I

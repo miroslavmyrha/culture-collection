@@ -4,8 +4,8 @@ and ADR 0009, amendments of 2026-11-03; destruction study s12, decisions of 2026
 - lineage_destructionrecord: never deleted. Inserted valid and unconfirmed, for a strain of its
   lab. A strain without an active restriction is destroyed at recording (completed_at =
   recorded_at); a regulated one waits for its confirmation (completed_at null) and says how the
-  inactivation was verified; a cz_vrat names its witness and is inactivated in the lab before an
-  outside firm takes it; a quarantine_pest names the lab's ÚKZÚZ permit, started by the day of
+  inactivation was verified; a cz_vrat names its witness; a cz_vrat or cz_rat is inactivated in
+  the lab before an outside firm takes it; a quarantine_pest names the lab's ÚKZÚZ permit, started by the day of
   the destruction, whose declared method it used, and nothing else names a permit. Its one
   change is the confirmation (once, while it waits; completed_at = confirmed_at, by someone
   other than the recorder: check constraints) or being entered in error (once, with a reason);
@@ -99,10 +99,10 @@ BEGIN
             RAISE EXCEPTION 'a VRAT record names the witness of the destruction (record %)',
                 NEW.public_id USING ERRCODE = 'check_violation';
         END IF;
-        IF NEW.contractor <> '' AND NOT NEW.inactivated_in_lab THEN
-            RAISE EXCEPTION 'a VRAT is inactivated in the lab before an outside firm takes it (record %)',
-                NEW.public_id USING ERRCODE = 'check_violation';
-        END IF;
+    END IF;
+    IF kinds && ARRAY['cz_vrat', 'cz_rat'] AND NEW.contractor <> '' AND NOT NEW.inactivated_in_lab THEN
+        RAISE EXCEPTION 'a VRAT or RAT is inactivated in the lab before an outside firm takes it (record %)',
+            NEW.public_id USING ERRCODE = 'check_violation';
     END IF;
     IF 'quarantine_pest' = ANY (kinds) THEN
         EXECUTE format('SELECT lab_id, kind, destruction_method, valid_from'

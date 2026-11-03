@@ -630,7 +630,7 @@ class DestructionRecord(PublicModel):
     contractor = models.CharField(max_length=200, blank=True)
     handover_document = models.CharField(max_length=100, blank=True)
     # The material was inactivated in the lab before it went to the firm: required for a VRAT
-    # (act 281/2002 Sb., § 13 h), decision Q9). Always true without a firm.
+    # (act 281/2002 Sb., § 13 h), decision Q9) and a RAT (§ 17a). Always true without a firm.
     inactivated_in_lab = models.BooleanField(default=True)
     # The autoclave cycle or run that destroyed this with other records, as the lab names it
     # (decision Q3). Records with the same run in a lab belong together.

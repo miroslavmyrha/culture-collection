@@ -208,7 +208,7 @@ def test_a_strain_without_restrictions_is_destroyed_at_once_and_leaves_its_place
 NEEDS_CONFIRMATION = {"cz_vrat", "cz_rat", "dual_use", "quarantine_pest", "gmo"}
 NEEDS_VERIFICATION = NEEDS_CONFIRMATION
 NEEDS_WITNESS = {"cz_vrat"}
-INACTIVATED_BEFORE_HANDOVER = {"cz_vrat"}
+INACTIVATED_BEFORE_HANDOVER = {"cz_vrat", "cz_rat"}
 DECLARED_METHOD = {"quarantine_pest"}
 
 
@@ -521,6 +521,34 @@ def test_a_vrat_goes_to_a_firm_only_inactivated(
     event = AuditEvent.objects.get(event_type="destruction_recorded")
     assert event.changes["destruction"][1]["outside_firm"] is True
     assert "Spalovna" not in str(event.changes)
+
+
+@pytest.mark.rule("R-END-08")
+def test_a_rat_goes_to_a_firm_only_inactivated(
+    *,
+    strain: Strain,
+    passage0: Passage,
+    make_batch: MakeBatch,
+    curator: User,
+    technician: User,
+    manager: User,
+) -> None:
+    """The owner's decision of 2026-11-03: SÚJB gives RAT only to persons who notified RAT
+    handling (§ 17a), which a waste firm usually has not. No witness is asked of a RAT."""
+    restrict(strain, curator, "cz_rat")
+    vials = marked(make_batch, passage0, technician, count=1)
+    firm = {"contractor": "Spalovna s.r.o., IČO 12345678", "handover_document": "PP-2026-8"}
+    error = refused(
+        services.InvalidDestruction,
+        "inactivate_before_handover",
+        lambda: record_as(technician, vials, inactivated_in_lab=False, **firm),
+        "inactivated_in_lab",
+    )
+    assert "§ 17a" in error.detail
+    made = record_as(technician, vials, **firm)
+    assert (made.witness, made.inactivated_in_lab) == (None, True)
+    confirm_as(manager, made)
+    assert statuses(vials) == {VialStatus.DESTROYED}
 
 
 # Quarantine pests: the method the permit declares (decision Q6).
