@@ -208,10 +208,11 @@ export function makeBoxType(overrides: Partial<BoxType> = {}): BoxType {
   return { public_id: uuid(n), name: `Cryobox ${n}`, rows: 9, cols: 9, ...overrides }
 }
 
-/** A freezer by default; a rack or box needs `parent`, a box also its size. */
+/** A freezer by default; a rack or box needs `parent`, a box also its size. Empty unless `counts` says otherwise: a box has all its positions free. */
 export function makeUnitRow(overrides: Partial<UnitRow> = {}): UnitRow {
   const n = next()
   const at = new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString()
+  const free = (overrides.rows ?? 0) * (overrides.cols ?? 0)
   return {
     public_id: uuid(n),
     kind: 'freezer',
@@ -227,6 +228,7 @@ export function makeUnitRow(overrides: Partial<UnitRow> = {}): UnitRow {
     max_risk_group: 2,
     effective_max_risk_group: 2,
     path_active: true,
+    counts: { boxes: 0, vials: 0, free_positions: free },
     created_at: at,
     retired_at: null,
     ...overrides,
@@ -340,7 +342,7 @@ export type BoxGrid = Schemas['BoxGridOutput']
 export type BoxPosition = Schemas['BoxPosition']
 export type BoxVial = Schemas['BoxVial']
 
-/** An available vial of MYC 42 in a box. */
+/** An available vial of MYC 42 (Testella exempli, an invented taxon) in a box. */
 export function makeBoxVial(overrides: Partial<BoxVial> = {}): BoxVial {
   const n = next()
   return {
@@ -350,6 +352,7 @@ export function makeBoxVial(overrides: Partial<BoxVial> = {}): BoxVial {
     barcode: null,
     strain: uuid(9001),
     accession_number: 'MYC 42',
+    taxon_name: 'Testella exempli',
     ...overrides,
   }
 }

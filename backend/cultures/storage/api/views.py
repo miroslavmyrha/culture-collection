@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from functools import cached_property
 from typing import Any
 
@@ -83,8 +84,14 @@ class StorageUnitViewSet(ScopedReadOnlyViewSet):
 
     def _shown(self, unit: StorageUnit, status_code: int = status.HTTP_200_OK) -> Response:
         vars(unit)["ancestors"] = selectors.unit_path(unit)
-        vars(unit)["contents"] = list(selectors.unit_children(unit))
+        children = list(selectors.unit_children(unit))
+        vars(unit)["contents"] = children
+        counted([unit, *children])
         return Response(UnitDetailOutputSerializer(unit).data, status=status_code)
+
+    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        units = counted(self.filter_queryset(self.get_queryset()))
+        return Response(UnitOutputSerializer(units, many=True).data)
 
     def retrieve(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         return self._shown(self.get_object())  # read through the same scoped tree query
@@ -183,6 +190,15 @@ class StorageUnitViewSet(ScopedReadOnlyViewSet):
             reason=data.validated_data["reason"],
         )
         return self._detail(unit)
+
+
+def counted(units: Iterable[StorageUnit]) -> list[StorageUnit]:
+    """The units, each with `counts` set (selectors.unit_counts, one query for all of them)."""
+    rows = list(units)
+    counts = selectors.unit_counts(rows)
+    for unit in rows:
+        vars(unit)["counts"] = counts[unit.pk]
+    return rows
 
 
 # The global box types, read only: every signed-in user reads them, staff add and rename them

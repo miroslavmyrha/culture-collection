@@ -7,5 +7,7 @@
   "passage_list": 6,
   "reveal_log": 6,
   "strain_list_with_vials": 7,
+  "unit_detail_with_vials": 8,
+  "unit_tree_with_vials": 6,
   "vial_list": 9
 }

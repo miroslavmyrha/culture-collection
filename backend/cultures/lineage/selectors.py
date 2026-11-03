@@ -182,8 +182,9 @@ def box_list(*, access: Access, lab: Lab) -> QuerySet[StorageUnit]:
 
 
 def box_positions(*, access: Access, box: StorageUnit) -> QuerySet[VialPlacement]:
-    """The open placements of one box, each with its vial, batch and strain, and `regulated`
-    (the strain has an active restriction), by row and column. One query for the whole grid.
+    """The open placements of one box, each with its vial, batch, strain and the strain's taxon,
+    and `regulated` (the strain has an active restriction), by row and column. One query for the
+    whole grid.
 
     The serializer leaves the vial out of every regulated row: a reader learns that the position
     is taken, never by what (ADR 0009). The row is still read whole here, so a caller that
@@ -192,7 +193,7 @@ def box_positions(*, access: Access, box: StorageUnit) -> QuerySet[VialPlacement
     return (
         VialPlacement.objects.for_access(access, Perm.VIEW_STRAINS)
         .filter(box=box, removed_at__isnull=True)
-        .select_related("vial__batch__strain")
+        .select_related("vial__batch__strain__taxon")
         .annotate(
             regulated=Exists(
                 regulating_restrictions().filter(strain_id=OuterRef("vial__batch__strain_id"))

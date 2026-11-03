@@ -55,6 +55,7 @@ def test_the_list_is_the_whole_tree_in_tree_order(
         "max_risk_group": None,
         "effective_max_risk_group": 2,
         "path_active": True,
+        "counts": {"boxes": 0, "vials": 0, "free_positions": 81},
         "created_at": by_name["Box 1"]["created_at"],
         "retired_at": None,
     }
@@ -238,7 +239,7 @@ def test_the_tree_query_count_is_exact_and_flat(
         make_unit(UnitKind.BOX, f"Box {i + 2}", tree.rack)
     client = logged_in(viewer)
     # Session, user, memberships, the lab, then the whole tree with its box types, parents
-    # and the facts of each path in one query.
+    # and the facts of each path in one query, and the counts of every unit in one more.
     with query_baseline("unit_tree") as captured:
         response = client.get(UNITS_URL)
     assert len(response.json()) == boxes + 2
@@ -252,6 +253,8 @@ def test_the_detail_query_count_is_exact_and_flat(
     for i in range(boxes - 1):
         make_unit(UnitKind.BOX, f"Box {i + 2}", tree.rack)
     client = logged_in(viewer)
+    # Session, user, memberships, the lab, the unit, its breadcrumbs, what it holds, and the
+    # counts of the unit and each unit it holds in one query.
     with query_baseline("unit_detail"):
         response = client.get(f"{UNITS_URL}{tree.rack.public_id}/")
     assert len(response.json()["children"]) == boxes

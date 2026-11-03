@@ -38,10 +38,11 @@ test('T1 preserve a fresh batch and put it in a box', async ({ browser }, info) 
   await w.type(dialog.getByRole('textbox', { name: 'Number of vials' }), '4')
   const boxes = dialog.getByRole('combobox', { name: 'Box' })
   w.look()
-  await w.choose(boxes, `${s.freezer} / Rack 1 / ${box}`)
+  // Each box with its free positions (#80): the new box has all 81.
+  await w.choose(boxes, `${s.freezer} / Rack 1 / ${box}, 81 free`)
   await w.click(dialog.getByRole('button', { name: 'Preserve batch' }))
   await expect(w.page.getByRole('table', { name: 'Vials' }).getByRole('row', { name: new RegExp(`${box}, A4`) })).toBeVisible()
-  w.note('The box list holds every box of the lab by its path, with no free places shown, and it grows with the storage')
+  w.note('The box list holds every box of the lab by its path with its free positions, and it grows with the storage')
   await w.done()
 })
 
@@ -72,7 +73,8 @@ test('T3 place freeze-dried ampoules into a box', async ({ browser }, info) => {
   await w.click(w.page.getByRole('checkbox', { name: 'Every vial in no box on this page (3)' }))
   await w.click(w.page.getByRole('button', { name: 'Place 3 vials in a box' }))
   const dialog = w.page.getByRole('dialog', { name: 'Place 3 vials in a box' })
-  await w.choose(dialog.getByRole('combobox', { name: 'Box' }), `${s.freezer} / Rack 1 / ${box}`)
+  // Each box with its free positions (#80): the new box has all 81.
+  await w.choose(dialog.getByRole('combobox', { name: 'Box' }), `${s.freezer} / Rack 1 / ${box}, 81 free`)
   await expect(dialog.getByText('81 of 81 positions free.')).toBeVisible()
   w.look() // the plan: each vial and the free position it goes to
   await w.shot('place-dialog')
@@ -80,7 +82,6 @@ test('T3 place freeze-dried ampoules into a box', async ({ browser }, info) => {
   await expect(dialog).toBeHidden()
   const vials = w.page.getByRole('table', { name: 'Vials' })
   for (const [i, label] of labels.entries()) await expect(vials.getByRole('row', { name: new RegExp(`${label}.*${box}, A${i + 1}`) })).toBeVisible()
-  w.note('The free positions show once a box is chosen: the box list itself still names every box by its path with no free count (as in T1)')
   await w.done()
 })
 
@@ -130,7 +131,7 @@ test('T5 rearrange a box: move a vial to another position', async ({ browser }, 
   await expandUnit(w, [freezer, /^Rack 1, rack/])
   await openUnit(w, [freezer, /^Rack 1, rack/, new RegExp(`^${box}, box`)])
   const grid = w.page.getByRole('grid', { name: `Positions of ${box}` })
-  await w.click(grid.getByRole('gridcell', { name: `A1, ${labels[0] ?? ''}, available` }))
+  await w.click(grid.getByRole('gridcell', { name: `A1, ${labels[0] ?? ''}, Bacillus subtilis, available` }))
   await w.click(grid.getByRole('gridcell', { name: 'C4, empty' }))
   await expect(w.page.getByRole('status')).toHaveText(`${labels[0] ?? ''} moved to C4.`)
   await w.done()

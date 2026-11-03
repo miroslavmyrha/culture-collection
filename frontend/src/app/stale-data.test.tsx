@@ -526,7 +526,7 @@ describe('a failed background refresh keeps the screen (#63)', () => {
     await refreshAll(client)
     await waitFor(() => expect(client.getQueryState(['storage', LAB_ID, 'tree'])?.status).toBe('error'))
     expect(within(dialog).getByRole('combobox', { name: 'Box' })).toHaveValue(box.public_id)
-    expect(within(within(dialog).getByRole('combobox', { name: 'Box' })).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Freezer A / Box 1'])
+    expect(within(within(dialog).getByRole('combobox', { name: 'Box' })).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Freezer A / Box 1, 81 free'])
   })
 
   it('keeps the grant buttons of the members when the grants fail to refresh', async () => {

@@ -10,9 +10,11 @@ import { UnitTree } from './UnitTree'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const TREE = '/api/v1/labs/{lab_public_id}/storage-units/'
-const freezer = makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000f1', name: 'Freezer A', temperature_c: -80 })
-const rack = makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000a1', kind: 'rack', name: 'Rack 1', parent: freezer.public_id, slot: 1, max_risk_group: null })
-const box = makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000b1', kind: 'box', name: 'Box 1', parent: rack.public_id, slot: 1, rows: 9, cols: 9, max_risk_group: null })
+// Box 1 holds five vials: Rack 1 and Freezer A count them too (#80).
+const held = { boxes: 1, vials: 5, free_positions: 76 }
+const freezer = makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000f1', name: 'Freezer A', temperature_c: -80, counts: held })
+const rack = makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000a1', kind: 'rack', name: 'Rack 1', parent: freezer.public_id, slot: 1, max_risk_group: null, counts: held })
+const box = makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000b1', kind: 'box', name: 'Box 1', parent: rack.public_id, slot: 1, rows: 9, cols: 9, max_risk_group: null, counts: { ...held, boxes: 0 } })
 const tank = makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000f2', kind: 'ln2_tank', name: 'Tank B', status: 'out_of_service', path_active: false })
 const ROWS = [freezer, rack, box, tank]
 
@@ -24,14 +26,14 @@ async function render(onOpen = vi.fn<(unitId: string) => void>()) {
 const item = (name: RegExp) => screen.getByRole('treeitem', { name })
 
 describe('StorageTree', () => {
-  it('shows the roots open, each unit named by its kind, slot, size and status', async () => {
+  it('shows the roots open, each unit named by its kind, slot, size, what it holds and status', async () => {
     const { tree } = await render()
     expect(tree).toHaveAccessibleDescription('Arrow keys move through the units and open or close them, Enter shows a unit.')
     const items = within(tree).getAllByRole('treeitem')
     // Freezer A open, so Rack 1 shows; Rack 1 closed, so Box 1 does not; the tank has no children.
     const names = items.map((el) => document.getElementById(el.getAttribute('aria-labelledby') ?? '')?.textContent)
-    expect(names).toEqual(['Freezer A, freezer, -80\u00a0°C', 'Rack 1, rack in slot 1', 'Tank B, LN2 tank, out of service'])
-    expect(item(/^Freezer A/)).toHaveAccessibleName('Freezer A, freezer, -80\u00a0°C')
+    expect(names).toEqual(['Freezer A, freezer, -80\u00a0°C, 1 box, 5 vials, 76 free', 'Rack 1, rack in slot 1, 1 box, 5 vials, 76 free', 'Tank B, LN2 tank, 0 boxes, 0 vials, 0 free, out of service'])
+    expect(item(/^Freezer A/)).toHaveAccessibleName('Freezer A, freezer, -80\u00a0°C, 1 box, 5 vials, 76 free')
     expect(item(/^Freezer A/)).toHaveAttribute('aria-expanded', 'true')
     expect(item(/^Rack 1/)).toHaveAttribute('aria-expanded', 'false')
     expect(item(/^Tank B/)).not.toHaveAttribute('aria-expanded')
@@ -54,7 +56,7 @@ describe('StorageTree', () => {
     await user.keyboard('{ArrowRight}')
     expect(item(/^Rack 1/)).toHaveAttribute('aria-expanded', 'true')
     expect(item(/^Box 1/)).toBeInTheDocument()
-    expect(item(/^Box 1/)).toHaveAccessibleName('Box 1, box in slot 1, 9 x 9')
+    expect(item(/^Box 1/)).toHaveAccessibleName('Box 1, box in slot 1, 9 x 9, 5 vials, 76 free')
     await user.keyboard('{ArrowRight}')
     expect(item(/^Box 1/)).toHaveFocus()
     await user.keyboard('{ArrowLeft}{ArrowLeft}')

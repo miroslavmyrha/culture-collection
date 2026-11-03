@@ -9029,6 +9029,8 @@ components:
           format: uuid
         accession_number:
           type: string
+        taxon_name:
+          type: string
       required:
       - accession_number
       - barcode
@@ -9036,6 +9038,7 @@ components:
       - public_id
       - status
       - strain
+      - taxon_name
     CauseEnum:
       enum:
       - non_viable
@@ -9221,8 +9224,13 @@ components:
           type: integer
           readOnly: true
           nullable: true
+        counts:
+          allOf:
+          - $ref: '#/components/schemas/UnitCounts'
+          readOnly: true
       required:
       - cols
+      - counts
       - kind
       - name
       - public_id
@@ -13786,6 +13794,24 @@ components:
       - kind
       - name
       - public_id
+    UnitCounts:
+      type: object
+      description: What the unit and everything below it holds (selectors.unit_counts).
+      properties:
+        boxes:
+          type: integer
+          description: Boxes below the unit, retired ones not counted
+        vials:
+          type: integer
+          description: Vials placed in the unit or below it, of every strain
+        free_positions:
+          type: integer
+          description: Positions of those boxes, or of the box itself, that hold no
+            vial
+      required:
+      - boxes
+      - free_positions
+      - vials
     UnitCreateInputRequest:
       type: object
       properties:
@@ -13885,6 +13911,10 @@ components:
         path_active:
           type: boolean
           readOnly: true
+        counts:
+          allOf:
+          - $ref: '#/components/schemas/UnitCounts'
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -13910,6 +13940,7 @@ components:
       - box_type
       - children
       - cols
+      - counts
       - created_at
       - effective_max_risk_group
       - kind
@@ -14035,6 +14066,10 @@ components:
         path_active:
           type: boolean
           readOnly: true
+        counts:
+          allOf:
+          - $ref: '#/components/schemas/UnitCounts'
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -14048,6 +14083,7 @@ components:
       - barcode
       - box_type
       - cols
+      - counts
       - created_at
       - effective_max_risk_group
       - kind

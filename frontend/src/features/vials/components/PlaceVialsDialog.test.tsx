@@ -13,8 +13,8 @@ const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const STRAIN_ID = '00000000-0000-4000-8000-0000000000d1'
 const BOX = '/api/v1/labs/{lab_public_id}/boxes/{public_id}/'
 const PLACE = '/api/v1/labs/{lab_public_id}/boxes/{public_id}/place/'
-const ONE: BoxChoice = { public_id: '00000000-0000-4000-8000-0000000000b1', label: 'Freezer A / Rack 1 / Box 1', rows: 3, cols: 3 }
-const TWO: BoxChoice = { public_id: '00000000-0000-4000-8000-0000000000b2', label: 'Freezer A / Rack 1 / Box 2', rows: 3, cols: 3 }
+const ONE: BoxChoice = { public_id: '00000000-0000-4000-8000-0000000000b1', label: 'Freezer A / Rack 1 / Box 1', rows: 3, cols: 3, free: 7 }
+const TWO: BoxChoice = { public_id: '00000000-0000-4000-8000-0000000000b2', label: 'Freezer A / Rack 1 / Box 2', rows: 3, cols: 3, free: 9 }
 // Fixed ids: the factory counter starts again in every test.
 const a = makeVial({ public_id: '00000000-0000-4000-8000-0000000000f1', label: 'MYC 42 / 2 / 1' })
 const b = makeVial({ public_id: '00000000-0000-4000-8000-0000000000f2', label: 'MYC 42 / 2 / 2' })
@@ -48,6 +48,9 @@ describe('PlaceVialsDialog', () => {
     const calls = mockApi('post', PLACE, placed([a, b, c]))
     const { onClose } = await render()
     const user = userEvent.setup()
+    // Each box says how many positions it has free before it is chosen (#80, walkthrough T3).
+    const boxes = await within(dialog()).findByRole('combobox', { name: 'Box' })
+    expect(within(boxes).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Freezer A / Rack 1 / Box 1, 7 free', 'Freezer A / Rack 1 / Box 2, 9 free'])
     await chooseBoxOne(user)
     expect(screen.getByText('7 of 9 positions free.')).toBeInTheDocument()
     // Taken says only taken, a regulated vial's place too.

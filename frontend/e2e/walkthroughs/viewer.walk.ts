@@ -77,8 +77,10 @@ test('V6 see what a box holds', async ({ browser }, info) => {
   await openUnit(w, [freezer, /^Rack 1, rack/, /^Box 1, box/])
   const grid = w.page.getByRole('grid', { name: 'Positions of Box 1' })
   await w.read(grid)
-  await expect(grid.getByRole('gridcell', { name: /^A1, BAC 29 \/ 2 \/ 1/ })).toBeVisible()
-  w.note('The grid shows labels (strain number, batch, vial) but no organism: what is stored where needs a strain page per number')
+  // Each taken position names the organism with the label (#80): seed_dev keeps BAC 29, a
+  // Bacillus subtilis, in Box 1.
+  await expect(grid.getByRole('gridcell', { name: /^A1, BAC 29 \/ 2 \/ 1, Bacillus subtilis, / })).toBeVisible()
+  await expect(grid.getByRole('gridcell', { name: /^A1,/ })).toContainText('Bacillus subtilis')
   await w.done()
 })
 

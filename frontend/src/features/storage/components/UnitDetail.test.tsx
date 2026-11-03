@@ -22,10 +22,12 @@ const rack = makeUnit({
   slot: 1,
   max_risk_group: null,
   effective_max_risk_group: 2,
+  // Box 2 is retired: it counts nowhere (#80).
+  counts: { boxes: 1, vials: 5, free_positions: 76 },
   ancestors: [freezer],
   children: [
-    { public_id: '00000000-0000-4000-8000-0000000000b1', kind: 'box', name: 'Box 1', slot: 1, status: 'active', rows: 9, cols: 9 },
-    { public_id: '00000000-0000-4000-8000-0000000000b2', kind: 'box', name: 'Box 2', slot: null, status: 'retired', rows: 10, cols: 10 },
+    { public_id: '00000000-0000-4000-8000-0000000000b1', kind: 'box', name: 'Box 1', slot: 1, status: 'active', rows: 9, cols: 9, counts: { boxes: 0, vials: 5, free_positions: 76 } },
+    { public_id: '00000000-0000-4000-8000-0000000000b2', kind: 'box', name: 'Box 2', slot: null, status: 'retired', rows: 10, cols: 10, counts: { boxes: 0, vials: 0, free_positions: 0 } },
   ],
 })
 const box = makeUnit({
@@ -39,6 +41,7 @@ const box = makeUnit({
   cols: 9,
   max_risk_group: 3,
   effective_max_risk_group: 2,
+  counts: { boxes: 0, vials: 5, free_positions: 76 },
   ancestors: [freezer, { public_id: rack.public_id, kind: 'rack', name: 'Rack 1' }],
 })
 
@@ -60,17 +63,42 @@ describe('UnitDetail', () => {
     expect(crumbs.map((li) => li.textContent)).toEqual(['Storage of Mycology/', 'Freezer A/', 'Rack 1'])
     expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByRole('link', { name: 'Freezer A' })).toHaveAttribute('href', `/labs/${LAB_ID}/storage/${freezer.public_id}`)
     expect(crumbs[2]).toHaveAttribute('aria-current', 'page')
-    expect(facts()).toEqual({ Kind: 'Rack', Status: 'Active', Slot: '1', 'Highest risk group': '2, set above it', Barcode: 'None' })
+    expect(facts()).toEqual({ Kind: 'Rack', Status: 'Active', Slot: '1', 'Highest risk group': '2, set above it', Contents: '1 box, 5 vials, 76 free positions', Barcode: 'None' })
     const holds = screen.getByRole('table', { name: 'What Rack 1 holds' })
-    expect(within(holds).getAllByRole('row').slice(1).map((row) => row.textContent)).toEqual(['1Box 1Box9 x 9Active', 'Box 2Box10 x 10Retired'])
+    // Only boxes held: no boxes column.
+    expect(within(holds).getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['Slot', 'Name', 'Kind', 'Size', 'Vials', 'Free positions', 'Status'])
+    expect(within(holds).getAllByRole('row').slice(1).map((row) => row.textContent)).toEqual(['1Box 1Box9 x 9576Active', 'Box 2Box10 x 1000Retired'])
     expect(screen.getByRole('region', { name: 'Holds table' })).toHaveAttribute('tabindex', '0')
+  })
+
+  it('counts the boxes, vials and free positions of a freezer and of each unit it holds (#80)', async () => {
+    const whole = makeUnit({
+      public_id: freezer.public_id,
+      name: 'Freezer A',
+      counts: { boxes: 2, vials: 6, free_positions: 156 },
+      children: [
+        { public_id: rack.public_id, kind: 'rack', name: 'Rack 1', slot: 1, status: 'active', rows: null, cols: null, counts: { boxes: 1, vials: 5, free_positions: 76 } },
+        { public_id: '00000000-0000-4000-8000-0000000000b3', kind: 'box', name: 'Box F', slot: 2, status: 'active', rows: 9, cols: 9, counts: { boxes: 0, vials: 1, free_positions: 80 } },
+      ],
+    })
+    mockApi('get', DETAIL, whole)
+    await render(whole)
+    await screen.findByRole('heading', { level: 1, name: 'Freezer A' })
+    expect(facts()).toMatchObject({ Contents: '2 boxes, 6 vials, 156 free positions' })
+    const holds = screen.getByRole('table', { name: 'What Freezer A holds' })
+    expect(within(holds).getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['Slot', 'Name', 'Kind', 'Size', 'Boxes', 'Vials', 'Free positions', 'Status'])
+    // A box has no boxes of its own: its cell stays empty.
+    expect(within(holds).getAllByRole('row').slice(1).map((row) => [...row.querySelectorAll('td')].map((td) => td.textContent))).toEqual([
+      ['1', 'Rack 1', 'Rack', '', '1', '5', '76', 'Active'],
+      ['2', 'Box F', 'Box', '9 x 9', '', '1', '80', 'Active'],
+    ])
   })
 
   it('shows a box with its size from A1 and a cap lowered above it', async () => {
     mockApi('get', DETAIL, box)
     await render(box)
     await screen.findByRole('heading', { level: 1, name: 'Box 1' })
-    expect(facts()).toMatchObject({ Size: '9 x 9, A1 to I9', 'Box type': '81-place cryobox (9 x 9)', 'Highest risk group': '2, lower above it than its own 3' })
+    expect(facts()).toMatchObject({ Size: '9 x 9, A1 to I9', 'Box type': '81-place cryobox (9 x 9)', 'Highest risk group': '2, lower above it than its own 3', Contents: '5 vials, 76 free positions' })
     expect(screen.queryByRole('heading', { name: 'Holds' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Add a/ })).not.toBeInTheDocument() // a box holds no unit
   })
