@@ -7,7 +7,7 @@ import { authenticatedRoute } from '@/routes/authenticated'
 import { depositDetailRoute, depositListRoute, depositorListRoute, depositReceiveRoute, mtaDetailRoute, mtaListRoute, mtaNewRoute } from '@/routes/deposits'
 import { requestDetailRoute, requesterListRoute, requestListRoute, requestNewRoute, shipmentDocumentRoute } from '@/routes/distribution'
 import { homeRoute } from '@/routes/home'
-import { labDetailRoute, labListRoute } from '@/routes/labs'
+import { labDetailRoute, labListRoute, vratAccessRoute } from '@/routes/labs'
 import { loginRoute } from '@/routes/login'
 import { mediaListRoute } from '@/routes/media'
 import { permitListRoute } from '@/routes/permits'
@@ -18,7 +18,7 @@ import { strainDetailRoute, strainHistoryRoute, strainListRoute, strainMaterialR
 
 export const routeTree = rootRoute.addChildren([
   loginRoute,
-  authenticatedRoute.addChildren([homeRoute, labListRoute, labDetailRoute, strainListRoute, strainDetailRoute.addChildren([strainOverviewRoute, strainMaterialRoute, strainTermsRoute, strainHistoryRoute]), depositorListRoute, mtaListRoute, mtaNewRoute, mtaDetailRoute, depositListRoute, depositReceiveRoute, depositDetailRoute, storageRoute, storageUnitRoute, requestListRoute, requestNewRoute, requestDetailRoute, requesterListRoute, shipmentDocumentRoute, permitListRoute, mediaListRoute, revealListRoute]),
+  authenticatedRoute.addChildren([homeRoute, labListRoute, labDetailRoute, strainListRoute, strainDetailRoute.addChildren([strainOverviewRoute, strainMaterialRoute, strainTermsRoute, strainHistoryRoute]), depositorListRoute, mtaListRoute, mtaNewRoute, mtaDetailRoute, depositListRoute, depositReceiveRoute, depositDetailRoute, storageRoute, storageUnitRoute, requestListRoute, requestNewRoute, requestDetailRoute, requesterListRoute, shipmentDocumentRoute, permitListRoute, mediaListRoute, revealListRoute, vratAccessRoute]),
 ])
 
 export function createAppRouter(queryClient: QueryClient, history?: RouterHistory) {

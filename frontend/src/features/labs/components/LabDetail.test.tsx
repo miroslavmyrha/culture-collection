@@ -22,6 +22,7 @@ function mockLab(role: Role) {
     ]),
   )
   mockApi('get', '/api/v1/labs/{lab_public_id}/location-grants/', [])
+  mockApi('get', '/api/v1/labs/{lab_public_id}/vrat-access/', [])
 }
 
 const render = () => renderWithProviders(<LabDetail labId={LAB_ID} params={PARAMS} onOffsetChange={vi.fn<(offset: number) => void>()} />)

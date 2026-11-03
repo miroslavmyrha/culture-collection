@@ -31,3 +31,12 @@ export const labDetailRoute = createRoute({
     ]),
   component: lazyRouteComponent(() => import('@/pages/LabDetailPage'), 'LabDetailPage'),
 })
+
+// The VRAT access list to print (#167). Only managers read it: the page loads the lab first and
+// asks for the list and the permits only for a manager, so the loader prefetches the lab alone.
+export const vratAccessRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: 'labs/$labId/vrat-access',
+  loader: ({ context, params }) => context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
+  component: lazyRouteComponent(() => import('@/pages/VratAccessPage'), 'VratAccessPage'),
+})

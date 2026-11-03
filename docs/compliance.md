@@ -287,7 +287,7 @@ and the rules and duties it decides are changed in the same commit.
 - Code: `backend/cultures/labs/services.py::location_grant_revoke`, `backend/cultures/labs/services.py::membership_delete`, `backend/cultures/labs/migrations/0004_locationgrant_audit_and_guard.py::"labs_locationgrant_guard"`
 - Tests: `backend/cultures/labs/tests/test_location_grants.py::test_a_grant_is_revoked_once`, `backend/cultures/labs/tests/test_location_grants.py::test_removing_the_member_revokes_the_grant_in_the_same_transaction`, `backend/cultures/labs/tests/test_location_grants.py::test_one_open_grant_per_person_and_lab`
 - Limits: this is the grant to see a stored location, not the list of people with access to the
-  agent (act 281/2002 Sb., § 14a(4)). See D-09 (#167).
+  agent (act 281/2002 Sb., § 14a(4)): that is R-ACCESS-01. The two are not linked.
 
 #### R-MASK-04 The box grid shows a regulated position as taken and names nothing
 
@@ -302,6 +302,30 @@ and the rules and duties it decides are changed in the same commit.
 - Source: ADR 0009, amendment 2026-10-27 (#83).
 - Code: `backend/cultures/lineage/selectors.py::reveal_list`, `backend/cultures/labs/permissions.py::Perm.VIEW_REVEALS`
 - Tests: `backend/cultures/lineage/tests/test_reveal_log.py::test_only_managers_read_the_log`, `backend/cultures/lineage/tests/test_reveal_log.py::test_a_holder_of_the_grant_does_not_read_the_log`, `backend/cultures/lineage/tests/test_reveal_log.py::test_the_answer_holds_no_location_anywhere`, `backend/cultures/lineage/tests/test_reveal_log.py::TestFilters::test_a_month_is_its_czech_days`
+
+### Who has access to VRAT agents
+
+#### R-ACCESS-01 The lab keeps the list of the people with access to its VRAT agents, with its history
+
+- Kind: law in part
+- Source: act 281/2002 Sb., § 14a(4); the offence § 21a(2) f). ADR 0009, amendment 2026-11-03
+  (#167). What an entry holds (from, until, who decided, a reason both ways) is our own choice:
+  the act states no form or content.
+- Quote: „Držitel povolení je povinen vytvořit a aktualizovat seznam osob, které mají přístup k vysoce rizikovému biologickému agens nebo toxinu.“
+- English: the permit holder makes and keeps up to date a list of the people who have access to
+  a highly risky agent or toxin.
+- Code: `backend/cultures/labs/services.py::vrat_access_grant`, `backend/cultures/labs/services.py::vrat_access_end`, `backend/cultures/labs/selectors.py::vrat_access_list`, `backend/cultures/labs/selectors.py::has_vrat_access`, `backend/cultures/labs/migrations/0006_vrataccess_audit_and_guards.py::"labs_vrataccess_guard"`, `backend/cultures/labs/models.py::"labs_vrataccess_one_open"`
+- Tests: `backend/cultures/labs/tests/test_vrat_access.py::test_a_manager_puts_a_member_on_the_list_and_takes_them_off_with_reasons_and_events`, `backend/cultures/labs/tests/test_vrat_access.py::test_only_a_manager_puts_on_and_takes_off`, `backend/cultures/labs/tests/test_vrat_access.py::test_a_reason_is_required_both_ways`, `backend/cultures/labs/tests/test_vrat_access.py::test_an_entry_ends_once`, `backend/cultures/labs/tests/test_vrat_access.py::test_one_open_entry_per_person_and_lab`, `backend/cultures/labs/tests/test_vrat_access.py::test_an_entry_changes_only_when_it_ends_and_is_never_deleted`, `backend/cultures/labs/tests/test_vrat_access.py::test_an_ended_entry_is_never_reopened`, `backend/cultures/labs/tests/test_vrat_access.py::test_the_runtime_role_puts_on_and_ends_but_deletes_nothing`, `backend/cultures/labs/tests/test_vrat_access.py::test_has_vrat_access_answers_for_a_moment_before_during_and_after`, `backend/cultures/labs/tests/test_vrat_access.py::test_only_managers_see_and_change_the_list`
+- Limits: the list of the people with access to the workplace (§ 14a(5)) is D-17, the yearly
+  training (§ 14a(6)) D-18. Nothing requires the lab to hold a VRAT permit to keep the list.
+
+#### R-ACCESS-02 Only an active member of the lab is on the list: leaving the lab, deactivation and erasure end the entry
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-03 (#167). The act names no condition; a person without an
+  account or outside the lab cannot be checked by the app.
+- Code: `backend/cultures/labs/services.py::vrat_access_end_for_users`, `backend/cultures/labs/services.py::membership_delete`, `backend/cultures/users/services.py::user_deactivate`, `backend/cultures/users/services.py::users_deactivate`, `backend/cultures/users/services.py::user_erase`, `backend/cultures/labs/migrations/0006_vrataccess_audit_and_guards.py::"labs_vrataccess_holder_deactivated"`, `backend/cultures/labs/migrations/0006_vrataccess_audit_and_guards.py::"labs_vrataccess_member_left"`
+- Tests: `backend/cultures/labs/tests/test_vrat_access.py::test_only_an_active_member_goes_on_the_list`, `backend/cultures/labs/tests/test_vrat_access.py::test_removing_the_member_ends_the_entry_in_the_same_transaction`, `backend/cultures/labs/tests/test_vrat_access.py::test_deactivating_the_user_ends_every_entry_in_the_same_transaction`, `backend/cultures/labs/tests/test_vrat_access.py::test_deactivating_many_users_ends_their_entries`, `backend/cultures/labs/tests/test_vrat_access.py::test_erasing_the_user_ends_the_entry_and_keeps_it_under_the_tombstone`, `backend/cultures/labs/tests/test_vrat_access.py::test_the_database_puts_only_an_active_member_on_the_list`, `backend/cultures/labs/tests/test_vrat_access.py::test_a_deactivation_past_the_service_with_an_open_entry_fails_at_commit`, `backend/cultures/labs/tests/test_vrat_access.py::test_a_membership_deleted_past_the_service_with_an_open_entry_fails_at_commit`
 
 ### Distribution: request, approval and gates
 
@@ -656,15 +680,6 @@ Each duty is the law's. Until its issue is built it is the lab's to keep outside
 - Today: not recorded.
 - Issue: #172
 
-### D-09 A list of the people with access to a VRAT
-
-- Source: act 281/2002 Sb., § 14a(4)
-- Quote: „Držitel povolení je povinen vytvořit a aktualizovat seznam osob, které mají přístup k vysoce rizikovému biologickému agens nebo toxinu.“
-- English: the permit holder keeps an up-to-date list of the people who have access to the
-  agent.
-- Today: kept by the lab outside the app (ADR 0009).
-- Issue: #167
-
 ### D-10 A GMO's label or accompanying document says "Geneticky modifikovaný organismus"
 
 - Source: act 78/2004 Sb., § 11(1)
@@ -726,6 +741,25 @@ Each duty is the law's. Until its issue is built it is the lab's to keep outside
 - Source: act 258/2000 Sb., § 41, as summarised in the lab domain study. Not verified: the text
   is not among the sources read, nor which authority receives the notice.
 - Today: not recorded.
+- Issue: none
+
+### D-17 A list of the people with access to a workplace that handles a VRAT
+
+- Source: act 281/2002 Sb., § 14a(5); the offence § 21a(2) g)
+- Quote: „Držitel povolení, který provozuje pracoviště podle § 5 odst. 6, kde se nakládá s vysoce rizikovým biologickým agens nebo toxinem, je povinen vytvořit seznam osob, které mají na toto pracoviště přístup.“
+- English: a permit holder who runs a workplace under § 5(6) where a highly risky agent or toxin
+  is handled makes a list of the people who have access to that workplace.
+- Today: kept by the lab outside the app. The app keeps the list of access to the agent
+  (R-ACCESS-01), and a lab has no workplace (D-05).
+- Issue: none
+
+### D-18 Everyone with access to a VRAT is trained every year
+
+- Source: act 281/2002 Sb., § 14a(6); the offence § 21a(2) h)
+- Quote: „Držitel povolení je povinen zajistit, aby všechny osoby, které mají přístup k vysoce rizikovému biologickému agens nebo toxinu, byly každoročně proškoleny v oblasti zabezpečení vysoce rizikového biologického agens a toxinu proti zneužití, ztrátě a krádeži.“
+- English: the permit holder ensures that everyone with access to a highly risky agent or toxin
+  is trained every year in securing it against misuse, loss and theft.
+- Today: not recorded. The people it concerns are the open entries of R-ACCESS-01.
 - Issue: none
 
 ## Rules that break a source

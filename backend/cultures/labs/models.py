@@ -116,3 +116,62 @@ class LocationGrant(PublicModel):
 
     def __str__(self) -> str:
         return f"{self.user_id} sees locations in {self.lab_id}"
+
+
+VRAT_ACCESS_OPEN_UNIQUE = "labs_vrataccess_one_open"
+
+
+class VratAccess(PublicModel):
+    """A person on the lab's list of the people with access to its highly risky agents (VRAT):
+    act 281/2002 Sb., § 14a(4), ADR 0009 amendment of 2026-11-03. Per person and lab, put on
+    the list and taken off it by a manager with a reason; part of no role.
+
+    On the list from created_at until ended_at. Only an active member of the lab is put on it
+    (the service and the insert guard), and leaving the lab, a deactivation or an erasure ends
+    the entry in the same transaction. Ended once, never reopened, never deleted (a trigger): a
+    new entry is a new row, so the rows are the list's history. Separate from LocationGrant:
+    seeing where a regulated strain is stored is not access to the agent.
+    """
+
+    lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="+", db_index=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    reason = models.TextField()
+    ended_at = models.DateTimeField(null=True, blank=True)
+    ended_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    end_reason = models.TextField(blank=True)
+
+    objects = LabScopedQuerySet["VratAccess"].as_manager()
+
+    class Meta(PublicModel.Meta):
+        constraints = [
+            *PublicModel.Meta.constraints,
+            models.UniqueConstraint(
+                fields=["lab", "user"],
+                condition=Q(ended_at__isnull=True),
+                name=VRAT_ACCESS_OPEN_UNIQUE,
+            ),
+            models.CheckConstraint(
+                condition=Q(reason__regex=r"\S"), name="labs_vrataccess_reason_given"
+            ),
+            # isnull=False spelled out: a CHECK passes when its condition is NULL. ended_by stays
+            # null when nobody signed in ended it (a command deactivated the account).
+            models.CheckConstraint(
+                condition=Q(ended_at__isnull=True, ended_by__isnull=True, end_reason="")
+                | Q(ended_at__isnull=False, end_reason__regex=r"\S"),
+                name="labs_vrataccess_end_complete",
+            ),
+            # The interval has_vrat_access reads: never ends before it starts.
+            models.CheckConstraint(
+                condition=Q(ended_at__isnull=True) | Q(ended_at__gte=models.F("created_at")),
+                name="labs_vrataccess_ends_after_start",
+            ),
+        ]
+        indexes = [models.Index(fields=["lab", "user"], name="labs_vrataccess_lab_user_idx")]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} has VRAT access in {self.lab_id}"

@@ -12,6 +12,7 @@ import {
   makeDepositRow,
   makeLab,
   makeLocationGrant,
+  makeVratAccess,
   makeMe,
   makeMember,
   makeMedium,
@@ -63,6 +64,7 @@ const MTAS = '/api/v1/labs/{lab_public_id}/mta-templates/'
 const MTA = '/api/v1/labs/{lab_public_id}/mta-templates/{public_id}/'
 const MEDIA = '/api/v1/labs/{lab_public_id}/media/'
 const PERMITS = '/api/v1/labs/{lab_public_id}/permits/'
+const VRAT = '/api/v1/labs/{lab_public_id}/vrat-access/'
 const REVEALS = '/api/v1/labs/{public_id}/reveals/'
 const TERMS = '/api/v1/labs/{lab_public_id}/strains/{public_id}/terms/'
 const HISTORY = '/api/v1/labs/{lab_public_id}/strains/{public_id}/history/'
@@ -137,6 +139,13 @@ async function menuField(user: UserEvent, menu: string, item: string, field: str
   return input
 }
 
+/** A field of one named form, where the page has more than one field of that name. */
+async function namedFormField(user: UserEvent, form: string, field: string) {
+  const input = within(await screen.findByRole('form', { name: form })).getByRole('textbox', { name: field })
+  await user.type(input, TYPED)
+  return input
+}
+
 async function formField(user: UserEvent, field: string, role: 'textbox' | 'searchbox' = 'textbox') {
   const input = await screen.findByRole(role, { name: field })
   await user.type(input, TYPED)
@@ -153,8 +162,9 @@ const SCREENS: Screen[] = [
     data: () => {
       mockApi('get', MEMBERS, page([alice]))
       mockApi('get', '/api/v1/labs/{lab_public_id}/location-grants/', [])
+      mockApi('get', VRAT, [])
     },
-    type: (user) => formField(user, 'Username'),
+    type: (user) => namedFormField(user, 'Add a member', 'Username'),
   },
   {
     name: 'LabGate, on the storage page with the add dialog',
@@ -320,6 +330,32 @@ const SCREENS: Screen[] = [
     type: (user) => dialogField(user, 'Change Jan Novák', 'Postal address'),
   },
   {
+    name: 'VratAccessList, with the end dialog',
+    role: 'manager',
+    path: `/labs/${LAB_ID}`,
+    fails: VRAT,
+    what: 'the VRAT access list',
+    data: () => {
+      mockApi('get', MEMBERS, page([alice]))
+      mockApi('get', '/api/v1/labs/{lab_public_id}/location-grants/', [])
+      mockApi('get', VRAT, [makeVratAccess({ username: 'alice' })])
+    },
+    type: (user) => dialogField(user, 'End VRAT access of alice', 'Reason'),
+  },
+  {
+    name: 'VratAccessList, with the form to put a member on it',
+    role: 'manager',
+    path: `/labs/${LAB_ID}`,
+    fails: VRAT,
+    what: 'the VRAT access list',
+    data: () => {
+      mockApi('get', MEMBERS, page([alice]))
+      mockApi('get', '/api/v1/labs/{lab_public_id}/location-grants/', [])
+      mockApi('get', VRAT, [makeVratAccess({ username: 'alice' })])
+    },
+    type: (user) => namedFormField(user, 'Put a member on the VRAT access list', 'Reason'),
+  },
+  {
     name: 'MemberTable, with the location grant dialog',
     role: 'manager',
     path: `/labs/${LAB_ID}`,
@@ -328,6 +364,7 @@ const SCREENS: Screen[] = [
     data: () => {
       mockApi('get', MEMBERS, page([alice]))
       mockApi('get', '/api/v1/labs/{lab_public_id}/location-grants/', [makeLocationGrant({ member: alice.public_id, username: 'alice' })])
+      mockApi('get', VRAT, [])
     },
     type: (user) => dialogField(user, 'Revoke regulated locations for alice', 'Reason'),
   },
@@ -413,6 +450,17 @@ describe('a failed background refresh keeps the screen (#63)', () => {
     ['MtaTemplateList', `/labs/${LAB_ID}/mta-templates`, MTAS, 'the MTA templates', () => mockApi('get', MTAS, page([template])), () => screen.findByRole('link', { name: 'MTA-A version 1' })],
     ['MediaList', `/labs/${LAB_ID}/media`, MEDIA, 'the media', () => mockApi('get', MEDIA, page([makeMedium({ name: 'LB' })])), () => screen.findByRole('cell', { name: 'LB' })],
     ['PermitList', `/labs/${LAB_ID}/permits`, PERMITS, 'the permits', () => mockApi('get', PERMITS, [makeLabPermit({ permit_reference: 'DEV/VRAT/1' })]), () => screen.findByText('SÚJB DEV/VRAT/1')],
+    [
+      'VratAccessSheet',
+      `/labs/${LAB_ID}/vrat-access`,
+      VRAT,
+      'the VRAT access list',
+      () => {
+        mockApi('get', VRAT, [makeVratAccess({ username: 'alice' })])
+        mockApi('get', PERMITS, [])
+      },
+      () => screen.findByRole('cell', { name: 'alice' }),
+    ],
     ['RevealLog', `/labs/${LAB_ID}/reveals`, REVEALS, 'the reveals', () => mockApi('get', REVEALS, page([makeReveal({ vial_label: 'MYC 42 / 1 / 1' })])), () => screen.findByRole('link', { name: 'MYC 42 / 1 / 1' })],
     ['LabList', '/labs', '/api/v1/labs/', 'your labs', () => mockApi('get', '/api/v1/labs/', page([makeLab({ public_id: LAB_ID, name: 'Mycology' })])), () => screen.findByRole('link', { name: 'Mycology' })],
     [
@@ -535,6 +583,7 @@ describe('a failed background refresh keeps the screen (#63)', () => {
     mockApi('get', MEMBERS, page([alice]))
     const GRANTS = '/api/v1/labs/{lab_public_id}/location-grants/'
     mockApi('get', GRANTS, [makeLocationGrant({ member: alice.public_id, username: 'alice' })])
+    mockApi('get', VRAT, [])
     const { client } = renderApp({ path: `/labs/${LAB_ID}` })
     const revoke = await screen.findByRole('button', { name: 'Revoke regulated locations for alice' })
     const failed = mockApiError('get', GRANTS, 500)

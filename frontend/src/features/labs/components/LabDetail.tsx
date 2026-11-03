@@ -1,12 +1,13 @@
 import { PageTitle, Typography } from '@/components/ui'
-import { grantableRoles, type PageParams, ROLE_LABELS } from '../schemas'
+import { canManageMembers, grantableRoles, type PageParams, ROLE_LABELS } from '../schemas'
 import { AddMemberForm } from './AddMemberForm'
 import { LabGate } from './LabGate'
 import { MemberTable } from './MemberTable'
+import { VratAccessList } from './VratAccessList'
 
 type Props = { labId: string; params: PageParams; onOffsetChange: (offset: number) => void }
 
-/** One lab: its name, my role, its strains and storage, its members, and for managers the controls to manage them. */
+/** One lab: its name, my role, its strains and storage, its members, and for managers the controls to manage them and the VRAT access list. */
 export function LabDetail({ labId, params, onOffsetChange }: Props) {
   return (
     <LabGate labId={labId}>
@@ -23,6 +24,7 @@ export function LabDetail({ labId, params, onOffsetChange }: Props) {
             </Typography>
             <MemberTable labId={labId} labName={name} grantable={grantable} params={params} onOffsetChange={onOffsetChange} />
             {grantable.length > 0 && <AddMemberForm labId={labId} roles={grantable} />}
+            {canManageMembers(role) && <VratAccessList labId={labId} />}
           </>
         )
       }}

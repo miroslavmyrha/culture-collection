@@ -13,7 +13,10 @@ in Django's forms and commands: these are the trusted writes behind them.
 Deactivation keeps every lab with an active manager: it locks the users' rows
 (by pk), then cultures.labs.services locks their labs (by pk) and refuses with
 LastManager when a lab would have none left. Nothing is changed and nothing is
-recorded then. The admin makes another member a manager first (ADR 0006).
+recorded then. The admin makes another member a manager first (ADR 0006). Under
+the same locks it ends the users' open entries on the VRAT access lists (act
+281/2002 Sb., § 14a(4), ADR 0009 amendment of 2026-11-03), one vrat_access_ended
+event each, before the accounts become inactive; erasure does the same.
 
 No event holds a personal value (ADR 0005, update of 2026-10-18): the profile
 fields are personal, so user_created and user_changed record {field: "changed"}
@@ -53,7 +56,13 @@ from cultures.audit.registry import (
 )
 from cultures.core.exceptions import Conflict, NotFound, RuleViolation
 from cultures.labs.models import Membership
-from cultures.labs.services import membership_delete, users_deactivation_check
+from cultures.labs.services import (
+    DEACTIVATED,
+    ERASED,
+    membership_delete,
+    users_deactivation_check,
+    vrat_access_end_for_users,
+)
 
 from . import login_limits
 from .models import ERASED_PREFIX, User
@@ -253,6 +262,7 @@ def user_deactivate(*, user: User, reason: str | None = None) -> User:
     with audited_atomic():
         user = _locked(user)
         users_deactivation_check(users=[user])
+        vrat_access_end_for_users(users=[user], reason=DEACTIVATED)
         was_active = user.is_active
         user.is_active = False
         user.save(update_fields=["is_active"])
@@ -277,6 +287,7 @@ def users_deactivate(*, users: Sequence[User], reason: str | None = None) -> int
             .order_by("pk")
         )
         users_deactivation_check(users=locked)
+        vrat_access_end_for_users(users=locked, reason=DEACTIVATED)
         User.objects.filter(pk__in=[u.pk for u in locked]).update(is_active=False)
         record_batch(
             USER_DEACTIVATED,
@@ -309,7 +320,8 @@ def user_erase(*, user: User, reason: str | None = None) -> User:
     PROTECT foreign key still resolves. Gone: the username (now "erased-<public_id>"),
     the names, the email and the password (unusable). The user ends inactive,
     without staff or superuser status, with erased_at set, without memberships
-    (removed through membership_delete, one member_removed event each), without
+    (removed through membership_delete, one member_removed event each), with its
+    VRAT access entries ended (the rows stay, the history SÚJB may check), without
     sessions and without login counters. Admin log entries about the user get the
     tombstone name, because Django stores the old username in them.
 
@@ -338,6 +350,7 @@ def user_erase(*, user: User, reason: str | None = None) -> User:
         ):
             raise LastSuperuser
         users_deactivation_check(users=[target])
+        vrat_access_end_for_users(users=[target], reason=ERASED)
         memberships = list(Membership.objects.filter(user=target).order_by("lab_id", "pk"))
         for membership in memberships:
             membership_delete(membership=membership)

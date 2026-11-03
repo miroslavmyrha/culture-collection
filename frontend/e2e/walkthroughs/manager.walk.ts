@@ -1,8 +1,8 @@
 import { type Page, expect, test } from '@playwright/test'
 import { RUN, Walk, api, batchOf, field, labId, openLab, openWaiting, passAll, release, requestFor, rows, setupAs, supplyStrain } from './walk.js'
 
-// A manager of Bacteriology and of Regulated agents (seed_dev): people, rights and the lab's
-// legal texts. dev-no-lab is a user in no lab, reg-technician works in Regulated agents.
+// A manager of Bacteriology and of Regulated agents (seed_dev): people, rights, the VRAT access
+// list and the lab's legal texts. dev-no-lab is a user in no lab, reg-technician works in Regulated agents.
 const BAC = 'Bacteriology'
 const REG = 'Regulated agents'
 const COLLEAGUE = 'dev-no-lab'
@@ -22,6 +22,12 @@ async function grant(page: Page, lab: string, username: string, open: boolean) {
   if (!open) return
   const member = rows(await api(page, lab, 'members/?limit=200')).find((m) => m.username === username)
   await api(page, lab, 'location-grants/', { member: field(member, 'public_id'), reason: 'Set up before a walkthrough.' })
+}
+
+/** Takes a member of Regulated agents off its VRAT access list (#167), before a task. */
+async function offVratList(page: Page, lab: string, username: string) {
+  const open = rows(await api(page, lab, 'vrat-access/')).filter((e) => e.username === username && e.ended_at === null)
+  for (const entry of open) await api(page, lab, `vrat-access/${field(entry, 'public_id')}/end/`, { reason: 'Reset before a walkthrough.' })
 }
 
 async function prepare(browser: Parameters<typeof setupAs>[0], user: 'bac-manager' | 'reg-manager', lab: string, step: (page: Page, lab: string) => Promise<void>) {
@@ -77,7 +83,7 @@ test('M4 grant a colleague the right to see regulated locations', async ({ brows
   const dialog = w.page.getByRole('dialog', { name: 'Let reg-technician see regulated locations' })
   await w.type(dialog.getByRole('textbox', { name: 'Reason' }), `Takes over the inventory of the locked freezer (${RUN}).`)
   await w.click(dialog.getByRole('button', { name: 'Grant' }))
-  await expect(w.page.getByRole('row', { name: /^reg-technician / })).toContainText('May see')
+  await expect(w.page.getByRole('table', { name: 'Members' }).getByRole('row', { name: /^reg-technician / })).toContainText('May see')
   await w.done()
 })
 
@@ -90,7 +96,7 @@ test('M5 revoke the regulated location right', async ({ browser }, info) => {
   const dialog = w.page.getByRole('dialog', { name: /reg-technician/ })
   await w.type(dialog.getByRole('textbox', { name: 'Reason' }), 'The inventory is finished.')
   await w.click(dialog.getByRole('button', { name: 'Revoke' }))
-  await expect(w.page.getByRole('row', { name: /^reg-technician / })).toContainText('Hidden')
+  await expect(w.page.getByRole('table', { name: 'Members' }).getByRole('row', { name: /^reg-technician / })).toContainText('Hidden')
   await w.done()
 })
 
@@ -179,7 +185,30 @@ test('M10 review who has access to the regulated lab and what they may see', asy
   await openLab(w, REG)
   await w.read(w.page.getByRole('table', { name: 'Members' }))
   await expect(w.page.getByRole('columnheader', { name: 'Regulated locations' })).toBeVisible()
+  // Who has access to the VRAT agents themselves (#167, § 14a(4)): a list of its own, under the members.
+  await w.read(w.page.getByRole('region', { name: 'VRAT access list' }))
   w.note('Names are empty for every seeded member: the table shows usernames only')
+  await w.done()
+})
+
+test('M12 put a colleague on the VRAT access list and print it for SÚJB', async ({ browser }, info) => {
+  await prepare(browser, 'reg-manager', REG, (page, lab) => offVratList(page, lab, 'reg-technician'))
+  const w = await Walk.as(browser, info, 'reg-manager', manager('M12', 'Put a colleague on the VRAT access list and print it'))
+  await w.start()
+  await openLab(w, REG)
+  const section = w.page.getByRole('region', { name: 'VRAT access list' })
+  const form = section.getByRole('form', { name: 'Put a member on the VRAT access list' })
+  await w.type(form.getByRole('textbox', { name: 'Username' }), 'reg-technician')
+  await w.type(form.getByRole('textbox', { name: 'Reason' }), `Takes over the work in the BSL-3 suite (${RUN}).`)
+  await w.click(form.getByRole('button', { name: 'Put on the list' }))
+  await expect(section.getByRole('table', { name: 'People with VRAT access' }).getByRole('row', { name: /^reg-technician / })).toBeVisible()
+  await w.click(section.getByRole('link', { name: 'Print the VRAT access list' }))
+  await expect(w.page.getByRole('heading', { level: 1, name: /^VRAT access list of / })).toBeVisible()
+  // seed_dev: REG holds one SÚJB VRAT permit with no expiry, which the printed list names.
+  await expect(w.page.locator('main dl')).toContainText('SÚJB/DEV/0001')
+  w.look()
+  await w.shot('vrat-access-list')
+  w.note('The printed list is the browser\'s print of the page: no PDF of its own, no signature line')
   await w.done()
 })
 

@@ -41,3 +41,19 @@ export type LocationGrant = components['schemas']['LocationGrantOutput']
 /** A grant or a revocation of the regulated locations: always with a reason (ADR 0009). */
 export const locationGrantSchema = z.object({ reason: z.string().trim().min(1, 'Say why').max(2000, 'Use at most 2000 characters') })
 export type LocationGrantInput = z.input<typeof locationGrantSchema>
+
+/** An entry of the lab's VRAT access list (act 281/2002 Sb., § 14a(4)): open while `ended_at` is null. */
+export type VratAccess = components['schemas']['VratAccessOutput']
+
+/** Put a member on the VRAT access list: by username, with a reason. Limits mirror the backend. */
+export const vratAccessSchema = z.object({
+  username: z.string().trim().min(1, 'Enter a username').max(150, 'Use at most 150 characters'),
+  reason: z.string().trim().min(1, 'Say why').max(2000, 'Use at most 2000 characters'),
+})
+export type VratAccessInput = z.input<typeof vratAccessSchema>
+
+/** Who ended an entry: a manager, or nobody signed in when a command deactivated the account. */
+export const endedBy = (entry: VratAccess): string => entry.ended_by ?? 'the system'
+
+/** The name of a person on the list, or nothing when the account holds none (or was erased). */
+export const personName = (entry: Pick<VratAccess, 'first_name' | 'last_name'>): string => [entry.first_name, entry.last_name].filter(Boolean).join(' ')

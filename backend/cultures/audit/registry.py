@@ -240,6 +240,23 @@ LOCATION_GRANT_REVOKED = register(
         reason_required=True,
     )
 )
+# The VRAT access list (act 281/2002 Sb., § 14a(4), ADR 0009 amendment of 2026-11-03): who has
+# access to the lab's highly risky agents. Per person, with a reason both ways; the event holds the
+# person's public id only.
+VRAT_ACCESS_GRANTED = register(
+    EventType(
+        "vrat_access_granted",
+        "{actor} put {user} on the VRAT access list",
+        reason_required=True,
+    )
+)
+VRAT_ACCESS_ENDED = register(
+    EventType(
+        "vrat_access_ended",
+        "{actor} took {user} off the VRAT access list",
+        reason_required=True,
+    )
+)
 # Preservation, batches and vials (#16, ADR 0008 amendment of 2026-10-19). Every event names
 # the strain. A placement event holds the box and position; the timeline (#19) masks them
 # for a regulated strain. A reveal holds no location at all.
@@ -809,6 +826,24 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "revoked_at",
             "revoked_by_id",
             "revoke_reason",
+        ),
+    ),
+    # ADR 0009 amendment of 2026-11-03: who is on the VRAT access list. Ids, times and reasons
+    # that name nobody; the person is reached only through users_user.
+    "labs_vrataccess": RowAudit(
+        label="labs.vrataccess",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "user_id",
+            "granted_by_id",
+            "reason",
+            "ended_at",
+            "ended_by_id",
+            "end_reason",
         ),
     ),
     # #18. The requester holds ids and its institution, an organisation, with the institution's

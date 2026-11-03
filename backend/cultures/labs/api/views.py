@@ -14,7 +14,7 @@ from cultures.core.errors import PROBLEM_CONTENT_TYPE as PROBLEM
 from cultures.core.errors import ProblemSerializer
 from cultures.labs import selectors, services
 from cultures.labs.access import access_of
-from cultures.labs.models import Lab, LocationGrant, Membership
+from cultures.labs.models import Lab, LocationGrant, Membership, VratAccess
 from cultures.labs.permissions import Perm
 from cultures.lineage import selectors as lineage
 from cultures.lineage.api.serializers import RevealFilterSerializer, RevealLogEntrySerializer
@@ -27,6 +27,9 @@ from .serializers import (
     MemberCreateInputSerializer,
     MemberOutputSerializer,
     MemberRoleInputSerializer,
+    VratAccessEndInputSerializer,
+    VratAccessInputSerializer,
+    VratAccessOutputSerializer,
 )
 
 # 401, 403, 404 and 429 with the Problem body are added to every operation by core.schema.
@@ -232,5 +235,78 @@ class LocationGrantViewSet(ScopedReadOnlyViewSet):
         data.is_valid(raise_exception=True)
         services.location_grant_revoke(
             access=access_of(request), grant=grant, reason=data.validated_data["reason"]
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+VRAT_INVALID = OpenApiResponse(
+    ProblemSerializer,
+    "An unknown or inactive user, or one who is not a member (invalid_user), or on the list"
+    " already (already_on_list)",
+)
+VRAT_ENDED = OpenApiResponse(ProblemSerializer, "vrat_access_ended: ended already")
+
+
+# The lab's list of the people with access to its highly risky agents (act 281/2002 Sb.,
+# § 14a(4), ADR 0009 amendment of 2026-11-03), with its history. Part of no role: a manager puts
+# a member on it and takes them off, each with a reason. Only managers read it
+# (labs.manage_members), like the location grants. Every entry, open and ended, not paged: the
+# printed list for SÚJB holds all of them.
+@extend_schema(parameters=[LAB_PARAMETER])
+class VratAccessViewSet(ScopedReadOnlyViewSet):
+    action_perms = {
+        "list": Perm.MANAGE_MEMBERS,
+        "retrieve": Perm.MANAGE_MEMBERS,
+        "create": Perm.MANAGE_MEMBERS,
+        "end": Perm.MANAGE_MEMBERS,
+    }
+    serializer_class = VratAccessOutputSerializer
+    pagination_class = None
+
+    @cached_property
+    def lab(self) -> Lab:
+        return selectors.lab_get(
+            access=access_of(self.request), public_id=self.kwargs["lab_public_id"]
+        )
+
+    def scoped_queryset(self) -> QuerySet[Any]:
+        return selectors.vrat_access_list(access=access_of(self.request), lab=self.lab)
+
+    def has_perm(self, perm: str, obj: Model | None) -> bool:
+        lab_id = obj.lab_id if isinstance(obj, VratAccess) else self.lab.pk
+        return access_of(self.request).can(Perm(perm), lab_id)
+
+    @extend_schema(
+        request=VratAccessInputSerializer,
+        responses={
+            201: VratAccessOutputSerializer,
+            (400, PROBLEM): VRAT_INVALID,
+            (422, PROBLEM): REASON,
+        },
+    )
+    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        lab = self.lab  # first: an outsider gets 404, never a 400 that reveals the lab
+        data = VratAccessInputSerializer(data=request.data, context=self.get_serializer_context())
+        data.is_valid(raise_exception=True)
+        entry = services.vrat_access_grant(
+            access=access_of(request),
+            lab=lab,
+            user=data.validated_data["username"],
+            reason=data.validated_data["reason"],
+        )
+        fresh = self.scoped_queryset().get(pk=entry.pk)
+        return Response(VratAccessOutputSerializer(fresh).data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        request=VratAccessEndInputSerializer,
+        responses={204: None, (409, PROBLEM): VRAT_ENDED, (422, PROBLEM): REASON},
+    )
+    @action(detail=True, methods=["post"], url_path="end")
+    def end(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        entry: VratAccess = self.get_object()
+        data = VratAccessEndInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.vrat_access_end(
+            access=access_of(request), entry=entry, reason=data.validated_data["reason"]
         )
         return Response(status=status.HTTP_204_NO_CONTENT)

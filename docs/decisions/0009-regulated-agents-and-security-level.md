@@ -6,6 +6,7 @@ Amended 2026-10-19: location masking as built (#16). Amended 2026-10-20: the box
 distribution of regulated strains (#18, part A). Amended 2026-10-22: the shipment before the
 second person (#88); the second person at shipment (#89). Amended 2026-10-23: the
 documents of a shipment (#90). Amended 2026-10-24: a restriction ends by two people (#105).
+Amended 2026-11-03: the app keeps the VRAT access list (#167).
 Deciders: maintainer
 
 ## Context
@@ -133,9 +134,10 @@ production data, or the rows written before it stay outside it.
   missed day leaves a gap in the anchors, not in the chain.
 - The chain proves that history is intact. It does not stop someone with
   database access from changing data, only makes it visible.
-- The app records decisions about people and locations. The locks and the
-  access list SÚJB checks (§ 14a(4)) stay the lab's duty. The app does not
-  replace them.
+- The app records decisions about people and locations. The locks stay the
+  lab's duty; the app does not replace them. The list of the people with
+  access to the VRAT agents (§ 14a(4)) is kept in the app (amendment of
+  2026-11-03).
 
 ## Alternatives considered
 
@@ -667,3 +669,75 @@ report for anyone; it states the duty and keeps the fact that the report was mad
 Migration impact: additive, a new table with its trigger and row audit, and one more event type
 in the reason constraint (added NOT VALID, validated in its own migration). Reversible:
 `migrate lineage 0010` and `migrate audit 0027`.
+
+## Amendment 2026-11-03: the app keeps the VRAT access list (#167)
+
+Act 281/2002 Sb., § 14a, as in force from 2022-02-01 (zakonyprolidi.cz):
+
+> (4) Držitel povolení je povinen vytvořit a aktualizovat seznam osob, které mají přístup k vysoce
+> rizikovému biologickému agens nebo toxinu.
+>
+> (5) Držitel povolení, který provozuje pracoviště podle § 5 odst. 6, kde se nakládá s vysoce
+> rizikovým biologickým agens nebo toxinem, je povinen vytvořit seznam osob, které mají na toto
+> pracoviště přístup.
+
+(4): the permit holder makes and keeps up to date a list of the people who have access to a VRAT
+agent or toxin. Not making it or not updating it is an offence of the permit holder (§ 21a(2)(f)),
+fined up to 500 000 Kč (§ 21a(4)(c)). Until now the consequences above left this list to the lab
+outside the app. The witness of a VRAT destruction (#160) must be a person on it, so the app keeps
+it (decided by the maintainer on 2026-11-03: the witness only from people with approved access).
+The act says nothing about the list's form or content; the app keeps who, from when, until when,
+and who decided it, with a reason both ways.
+
+**A row per person and lab, not a role.** `labs.VratAccess` names a user and a lab, who put them
+on the list, when and why, and when, by whom and why the entry ended. One open entry per user and
+lab (a partial unique index); a new entry is a new row, so the rows are the list's history. It is
+in no role's `GRANTS`. A lab's managers put members on it and end entries (`labs.manage_members`,
+like the location grant), each with a reason: `vrat_access_granted` and `vrat_access_ended`, both
+`reason_required`. The events hold the person's public id, never a name. Separate from
+`labs.LocationGrant`: seeing where a regulated strain is stored is not access to the agent, and
+access to the agent does not need the place on a screen. They are not linked (see below).
+
+**Only an active member is on it.** The service locks the user's row, then the lab, re-reads the
+manager's role and refuses a user who is inactive, unknown or not a member of the lab, with the
+same field error. Leaving the lab (`membership_delete`, so also `member_remove`), a deactivation
+(`user_deactivate`, `users_deactivate`) and an erasure (`user_erase`) end the person's open
+entries in the same transaction, under the lab lock, with a reason that names nobody ("The member
+left the lab.", "The account was deactivated.", "The account was erased."). Activating the account
+again or adding the person back does not reopen anything: a manager puts them on the list anew.
+
+**Held by the database.** A guard trigger (`labs` 0006) refuses DELETE, any change but the one
+end, and a reopening; on INSERT it refuses an entry that starts ended or names a user who is not
+an active member of the lab. Two deferred constraint triggers hold the other direction at commit:
+an account that became inactive holds no open entry, and a membership that is gone leaves no open
+entry in its lab. The services end the entries before they deactivate or delete, so these hold
+also in a session that set its constraints immediate. Every column is row-audited; the runtime role
+has SELECT, INSERT and UPDATE, no DELETE.
+
+**Erasure.** An erased person's entries stay: they are the history SÚJB may check. The row points
+at the tombstone user, so the list shows `erased-<public_id>` with no name, read at read time
+(ADR 0005).
+
+**The question #160 asks.** `labs.selectors.has_vrat_access(user=, lab=, at=)`: whether the user
+was on the lab's list at that moment (an entry created at or before it, not ended by then). It
+reads the list's history, so it answers for a past moment as well; a service that decides on the
+present holds the lab lock.
+
+**On screen and on paper.** The lab page shows managers the list: who is on it now with an End
+action, the form to put a member on it, and the ended entries. A printable page
+(`/labs/<lab>/vrat-access`) shows the lab, the lab's SÚJB VRAT permits in force today
+(`biosafety.LabAuthorisation` of kind `cz_vrat`, valid or expiring soon) or that none is, every
+entry with from and until, who decided and why, and when it was printed; on paper the bar, the tabs
+and the buttons are left out. The API refuses every other role (403 on the list, 404 on an
+entry) and the screens show them neither.
+
+**Not done here.** The list of the people with access to the workplace (§ 14a(5)) and the yearly
+training of everyone with access (§ 14a(6), an offence under § 21a(2)(h)) stay the lab's duty
+outside the app. A lab may keep the list before it holds a permit; nothing requires a permit to put
+someone on it. Linking the list to the location grant (granting one with the other, or requiring
+one for the other) is left out until a lab says how it works: the law ties neither to the other.
+
+Migration impact: additive, `labs` 0005 and 0006 (the table, then its row audit and guards, with
+the two deferred triggers on `users_user` and `labs_membership`), and two more event types in the
+reason constraint of `audit_auditevent` (`audit` 0030, NOT VALID, validated by 0031). Reversible:
+`migrate labs 0004` and `migrate audit 0029`.

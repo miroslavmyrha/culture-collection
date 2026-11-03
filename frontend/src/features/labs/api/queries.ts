@@ -48,3 +48,14 @@ export const locationGrantsOptions = (labId: string) =>
 export function useLocationGrants(labId: string, enabled: boolean) {
   return useQuery({ ...locationGrantsOptions(labId), enabled })
 }
+
+export const vratAccessOptions = (labId: string) =>
+  queryOptions({
+    queryKey: labKeys.vratAccess(labId),
+    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/labs/{lab_public_id}/vrat-access/', { signal, params: { path: { lab_public_id: labId } } })),
+  })
+
+/** Only managers read the VRAT access list: for anybody else the request is not even sent. */
+export function useVratAccess(labId: string, enabled = true) {
+  return useQuery({ ...vratAccessOptions(labId), enabled })
+}
