@@ -832,6 +832,8 @@ def _pest_heading(
         return group
     match = PEST_GROUP.match(text)
     if match:
+        # Before the pest numbering would refuse: a renumbered group restarts the count, and the
+        # refusal then names a pest row instead of the heading that changed.
         expected = str(int(group[0]) + 1) if group else "1"
         if match.group(1) != expected:
             raise ShapeError(

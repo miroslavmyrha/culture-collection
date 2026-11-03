@@ -10,6 +10,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from pathlib import Path
@@ -28,6 +29,9 @@ from tools.fetch_regulatory_lists import (
     Fetched,
     ShapeError,
     Source,
+    cell_text,
+    eu_row,
+    find_eu_entry,
     fragment_tree,
     load_fixture,
     write_source,
@@ -247,6 +251,42 @@ def with_an_unknown_category(fetched: Fetched) -> Fetched:
     return reshaped(fetched, root)
 
 
+def retoken(cell: ET.Element, value: str) -> None:
+    """Write a new number or letter into the cell that holds an item's numbering."""
+    for element in cell.iter():
+        if (element.text or "").strip():
+            element.text = value
+            return
+    raise AssertionError("the numbering cell holds no text")
+
+
+def with_an_item_of_an_entry_renumbered(fetched: Fetched) -> Fetched:
+    """The second item under 1C351.a is numbered as if two items before it were missing."""
+    root = copy.deepcopy(fetched.document)
+    entry = find_eu_entry(root, "1C351")
+    letter = eu_row(entry).children[0]
+    second = eu_row(letter).children[1]
+    retoken(cells_of(rows_of(second)[0])[0], "4.")
+    return reshaped(fetched, root)
+
+
+def with_a_pest_group_renumbered(fetched: Fetched) -> Fetched:
+    """The second group of part A is numbered as if groups were missing before it."""
+    root = copy.deepcopy(fetched.document)
+    table = next(iter(root.iter(XHTML + "table")))
+    headings = [
+        cells_of(row)[0]
+        for row in rows_of(table)
+        if len(cells_of(row)) == 1 and re.match(r"^\d+\.\s", cell_text(cells_of(row)[0])[0])
+    ]
+    assert len(headings) >= 2, "the slice must hold two group headings, or the case proves nothing"
+    for element in headings[1].iter():
+        if re.match(r"^\s*\d+\.", element.text or ""):
+            element.text = re.sub(r"^\s*\d+\.", "5.", element.text or "")
+            return reshaped(fetched, root)
+    raise AssertionError("the group heading holds no number")
+
+
 def without_part_b(fetched: Fetched) -> Fetched:
     root = copy.deepcopy(fetched.document)
     for paragraph in root.iter(XHTML + "p"):
@@ -363,6 +403,18 @@ CASES: tuple[Case, ...] = (
         "a category the parser does not know",
         with_an_unknown_category,
         r"^annex I: entry 1C351 opens with a category the parser does not know$",
+    ),
+    Case(
+        "eu-2021-821-annex-i",
+        "an item of an entry renumbered",
+        with_an_item_of_an_entry_renumbered,
+        r"^annex I, entry 1C351: the items under 1C351\.a run 1 then 4$",
+    ),
+    Case(
+        "eu-2019-2072-annex-ii",
+        "a pest group renumbered",
+        with_a_pest_group_renumbered,
+        r"^annex II, part A, row \d+: group 5 follows group 1$",
     ),
     Case(
         "eu-2019-2072-annex-ii",
