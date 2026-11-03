@@ -4,22 +4,25 @@ parity of #158 kept: "regulated" and the kinds' rules are written twice, in
 services.destructions and in the record's trigger, and both agree for every restriction kind,
 for an ended restriction and for none."""
 
+from datetime import timedelta
 from typing import Any
 
 import pytest
+import time_machine
 from django.db import IntegrityError, InternalError, connection, transaction
 from django.db.backends.utils import CursorWrapper
 from django.utils import timezone
 
 from cultures.audit.context import audit_context
 from cultures.audit.models import Channel
-from cultures.audit.tests.conftest import refused
+from cultures.audit.tests.conftest import TEST_ROLES, refused
 from cultures.biosafety.models import AuthorisationKind, DestructionMethod, LabAuthorisation
 from cultures.biosafety.policy import permit_today
 from cultures.core.exceptions import DomainError
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
+from cultures.labs.selectors import has_vrat_access
 from cultures.labs.tests.conftest import member_of
 from cultures.lineage import services
 from cultures.lineage.models import DestructionRecord, DestructionVial, Passage, Vial, VialStatus
@@ -30,7 +33,13 @@ from cultures.strains.tests.conftest import GMO, end_restriction
 from cultures.users.models import User
 
 from .support import VERIFIED, MakeBatch, destroy, mark_to_destroy, new_destruction, vials_of
-from .test_destructions import RESTRICTIONS, end_vrat_access, restrict, with_vrat_access
+from .test_destructions import (
+    RESTRICTIONS,
+    _prague_noon,
+    end_vrat_access,
+    restrict,
+    with_vrat_access,
+)
 
 pytestmark = pytest.mark.django_db
 DB_ERRORS = (IntegrityError, InternalError)
@@ -242,6 +251,51 @@ def test_the_trigger_reads_the_witness_access_of_the_records_own_lab_and_day(
     allowed = member_of(lab, Role.TECHNICIAN, "on-the-list")
     with_vrat_access(allowed, lab, manager)
     rolled_back(lambda: raw_record(strain, technician, witness=allowed, completed_at=None))
+
+
+@pytest.mark.rule("R-END-07")
+@pytest.mark.parametrize("had_access_then", [True, False])
+def test_the_trigger_reads_the_access_list_of_the_day_of_the_destruction_not_of_today(
+    *,
+    had_access_then: bool,
+    strain: Strain,
+    lab: Lab,
+    curator: User,
+    manager: User,
+    technician: User,
+    database_roles: CursorWrapper,
+) -> None:
+    """A record is entered after the fact, so `destroyed_on` and the day of the record differ.
+    The guard's `(NEW.destroyed_on + 1)::timestamp AT TIME ZONE 'Europe/Prague'` reads the list
+    as it was at the end of the day of the destruction, never as it is now: an access that ended
+    after that day passes, one granted after it does not. Written as the runtime role, past
+    every service."""
+    restrict(strain, curator, "cz_vrat")
+    person = member_of(lab, Role.TECHNICIAN, "then-or-now")
+    day = permit_today() - timedelta(days=5)
+    if had_access_then:
+        with time_machine.travel(_prague_noon(day - timedelta(days=1)), tick=False):
+            entry = with_vrat_access(person, lab, manager)
+        with time_machine.travel(_prague_noon(day + timedelta(days=1)), tick=False):
+            end_vrat_access(entry, manager)
+    else:
+        with time_machine.travel(_prague_noon(day + timedelta(days=1)), tick=False):
+            with_vrat_access(person, lab, manager)
+    assert has_vrat_access(user=person, lab=lab, at=timezone.now()) is not had_access_then
+    database_roles.execute(f"SET LOCAL ROLE {TEST_ROLES.runtime}")
+    # The roles fixture made the constraints immediate so it could change the owners; the
+    # record's own deferred checks go back to the commit, as every service sets them.
+    deferred_again()
+
+    def write() -> DestructionRecord:
+        return raw_record(strain, technician, witness=person, destroyed_on=day, completed_at=None)
+
+    if had_access_then:
+        rolled_back(write)
+    else:
+        with pytest.raises(DB_ERRORS, match="was on the lab's VRAT access list on that day"):
+            rolled_back(write)
+    database_roles.execute("RESET ROLE")
 
 
 # The parity: Python and the trigger agree, case by case.

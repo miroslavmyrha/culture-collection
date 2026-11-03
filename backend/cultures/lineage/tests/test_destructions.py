@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 import time_machine
+from django.utils import timezone
 
 from cultures.audit.context import MissingAuditContext, audit_context
 from cultures.audit.models import AuditEvent, Channel
@@ -21,6 +22,7 @@ from cultures.labs import services as labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, Membership, VratAccess
 from cultures.labs.permissions import Role
+from cultures.labs.selectors import has_vrat_access
 from cultures.labs.tests.conftest import member_of, membership
 from cultures.lineage import services
 from cultures.lineage.api.views import DestructionViewSet
@@ -561,6 +563,54 @@ def test_a_vrat_witness_was_on_the_vrat_access_list_on_the_day(
         lambda: record_as(technician, again, witness=person),
         "witness",
     )
+
+
+@pytest.mark.rule("R-END-07")
+@pytest.mark.parametrize("had_access_then", [True, False])
+def test_a_record_of_a_past_day_asks_the_access_list_of_that_day_not_of_today(
+    *,
+    had_access_then: bool,
+    strain: Strain,
+    passage0: Passage,
+    make_batch: MakeBatch,
+    lab: Lab,
+    curator: User,
+    technician: User,
+    manager: User,
+) -> None:
+    """A destruction is recorded after the fact: only a future day is refused (_checked_input),
+    so the day of the destruction and the day of the record differ. The access list is then read
+    as it was at the end of the day of the destruction, never as it is now:
+
+    - `had_access_then`: the witness was on the list on that day and was taken off after it, so
+      they hold no access today, and the record is accepted;
+    - otherwise the witness was put on the list after that day, so they hold access today, and
+      the record is refused."""
+    restrict(strain, curator, "cz_vrat")
+    person = member_of(lab, Role.TECHNICIAN, "then-or-now")
+    day = permit_today() - timedelta(days=5)
+    if had_access_then:
+        with time_machine.travel(_prague_noon(day - timedelta(days=1)), tick=False):
+            entry = with_vrat_access(person, lab, manager)
+        with time_machine.travel(_prague_noon(day + timedelta(days=1)), tick=False):
+            end_vrat_access(entry, manager)
+    else:
+        with time_machine.travel(_prague_noon(day + timedelta(days=1)), tick=False):
+            with_vrat_access(person, lab, manager)
+    assert has_vrat_access(user=person, lab=lab, at=timezone.now()) is not had_access_then
+    # The vials were marked to destroy on that day: a record is not dated before that.
+    with time_machine.travel(_prague_noon(day), tick=False):
+        vials = marked(make_batch, passage0, technician, count=1)
+
+    def call() -> DestructionRecord:
+        return record_as(technician, vials, witness=person, destroyed_on=day)
+
+    if not had_access_then:
+        refused(services.InvalidDestruction, "witness_without_vrat_access", call, "witness")
+        return
+    made = call()
+    assert (made.witness, made.destroyed_on) == (person, day)
+    assert made.recorded_at.date() != day  # recorded today, for a destruction of that day
 
 
 @pytest.mark.rule("R-END-07")
