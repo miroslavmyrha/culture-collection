@@ -40,6 +40,24 @@ async function pretendMembers(page: Page, count: number) {
   })
 }
 
+/**
+ * The VRAT access list on the lab page (#167), cut to the signed-in user like the members:
+ * vrat-access.spec.ts puts e2e-technician on it and takes them off at the same time, and that
+ * row's End button would otherwise be a stop of the walk some of the time.
+ */
+async function ownVratAccess(page: Page) {
+  await page.route('**/api/v1/labs/*/vrat-access/', async (route) => {
+    try {
+      const response = await route.fetch()
+      const rows: unknown = await response.json()
+      const own = Array.isArray(rows) ? rows.filter((row: unknown) => typeof row === 'object' && row !== null && Reflect.get(row, 'username') === username) : []
+      await route.fulfill({ response, json: own })
+    } catch {
+      // The page navigated away while the request ran: nothing to answer.
+    }
+  })
+}
+
 /** From the labs list to the seeded lab, with an optional search (?limit=1 shows the pager). */
 async function openLab(page: Page, search = '') {
   await page.goto('/labs')
@@ -381,6 +399,7 @@ test.describe('keyboard walk through every page', () => {
 
     const { page, close } = await open(browser)
     await pretendMembers(page, 3)
+    await ownVratAccess(page)
     for (const path of ['/', '/labs']) {
       await page.goto(path)
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
@@ -418,6 +437,11 @@ test.describe('keyboard walk through every page', () => {
       'input:',
       'select:ViewerTechnicianCuratorManager',
       'button:Add member',
+      // The VRAT access list (#167): nobody on it here, so the link and the form.
+      'a:Print the VRAT access list',
+      'input:',
+      'input:',
+      'button:Put on the list',
     ])
     // The storage tree is one stop, on its first unit (seed_e2e's E2E freezer sorts first).
     // Loaded directly, like the pages above: the walk starts at the top of a fresh page.

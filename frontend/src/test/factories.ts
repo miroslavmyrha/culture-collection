@@ -339,6 +339,26 @@ export function makeLocationGrant(overrides: Partial<LocationGrant> = {}): Locat
   return { public_id: uuid(n), member: uuid(9003), username: 'bob', reason: 'keeps the register', created_at: '2026-10-01T10:00:00Z', ...overrides }
 }
 
+export type VratAccess = Schemas['VratAccessOutput']
+
+/** An open entry of the VRAT access list; pass ended_at, ended_by and end_reason for an ended one. */
+export function makeVratAccess(overrides: Partial<VratAccess> = {}): VratAccess {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    username: `member-${n}`,
+    first_name: '',
+    last_name: '',
+    granted_at: '2026-10-01T10:00:00Z',
+    granted_by: 'alice',
+    reason: 'works with the VRAT strains',
+    ended_at: null,
+    ended_by: null,
+    end_reason: '',
+    ...overrides,
+  }
+}
+
 export type BoxGrid = Schemas['BoxGridOutput']
 export type BoxPosition = Schemas['BoxPosition']
 export type BoxVial = Schemas['BoxVial']

@@ -316,8 +316,8 @@ and the rules and duties it decides are changed in the same commit.
   a highly risky agent or toxin.
 - Code: `backend/cultures/labs/services.py::vrat_access_grant`, `backend/cultures/labs/services.py::vrat_access_end`, `backend/cultures/labs/selectors.py::vrat_access_list`, `backend/cultures/labs/selectors.py::has_vrat_access`, `backend/cultures/labs/migrations/0006_vrataccess_audit_and_guards.py::"labs_vrataccess_guard"`, `backend/cultures/labs/models.py::"labs_vrataccess_one_open"`
 - Tests: `backend/cultures/labs/tests/test_vrat_access.py::test_a_manager_puts_a_member_on_the_list_and_takes_them_off_with_reasons_and_events`, `backend/cultures/labs/tests/test_vrat_access.py::test_only_a_manager_puts_on_and_takes_off`, `backend/cultures/labs/tests/test_vrat_access.py::test_a_reason_is_required_both_ways`, `backend/cultures/labs/tests/test_vrat_access.py::test_an_entry_ends_once`, `backend/cultures/labs/tests/test_vrat_access.py::test_one_open_entry_per_person_and_lab`, `backend/cultures/labs/tests/test_vrat_access.py::test_an_entry_changes_only_when_it_ends_and_is_never_deleted`, `backend/cultures/labs/tests/test_vrat_access.py::test_an_ended_entry_is_never_reopened`, `backend/cultures/labs/tests/test_vrat_access.py::test_the_runtime_role_puts_on_and_ends_but_deletes_nothing`, `backend/cultures/labs/tests/test_vrat_access.py::test_has_vrat_access_answers_for_a_moment_before_during_and_after`, `backend/cultures/labs/tests/test_vrat_access.py::test_only_managers_see_and_change_the_list`
-- Limits: the list of the people with access to the workplace (§ 14a(5)) and the yearly training
-  (§ 14a(6)) are not kept (none). Nothing requires the lab to hold a VRAT permit to keep the list.
+- Limits: the list of the people with access to the workplace (§ 14a(5)) is D-17, the yearly
+  training (§ 14a(6)) D-18. Nothing requires the lab to hold a VRAT permit to keep the list.
 
 #### R-ACCESS-02 Only an active member of the lab is on the list: leaving the lab, deactivation and erasure end the entry
 
@@ -741,6 +741,25 @@ Each duty is the law's. Until its issue is built it is the lab's to keep outside
 - Source: act 258/2000 Sb., § 41, as summarised in the lab domain study. Not verified: the text
   is not among the sources read, nor which authority receives the notice.
 - Today: not recorded.
+- Issue: none
+
+### D-17 A list of the people with access to a workplace that handles a VRAT
+
+- Source: act 281/2002 Sb., § 14a(5); the offence § 21a(2) g)
+- Quote: „Držitel povolení, který provozuje pracoviště podle § 5 odst. 6, kde se nakládá s vysoce rizikovým biologickým agens nebo toxinem, je povinen vytvořit seznam osob, které mají na toto pracoviště přístup.“
+- English: a permit holder who runs a workplace under § 5(6) where a highly risky agent or toxin
+  is handled makes a list of the people who have access to that workplace.
+- Today: kept by the lab outside the app. The app keeps the list of access to the agent
+  (R-ACCESS-01), and a lab has no workplace (D-05).
+- Issue: none
+
+### D-18 Everyone with access to a VRAT is trained every year
+
+- Source: act 281/2002 Sb., § 14a(6); the offence § 21a(2) h)
+- Quote: „Držitel povolení je povinen zajistit, aby všechny osoby, které mají přístup k vysoce rizikovému biologickému agens nebo toxinu, byly každoročně proškoleny v oblasti zabezpečení vysoce rizikového biologického agens a toxinu proti zneužití, ztrátě a krádeži.“
+- English: the permit holder ensures that everyone with access to a highly risky agent or toxin
+  is trained every year in securing it against misuse, loss and theft.
+- Today: not recorded. The people it concerns are the open entries of R-ACCESS-01.
 - Issue: none
 
 ## Rules that break a source

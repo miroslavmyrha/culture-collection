@@ -416,6 +416,7 @@ describe('a write refreshes the data other features show', () => {
     mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([me]))
     const grant = makeLocationGrant({ member: me.public_id, username: 'alice' })
     mockApi('get', GRANTS, before ? [grant] : [])
+    mockApi('get', '/api/v1/labs/{lab_public_id}/vrat-access/', [])
     await router.navigate({ to: '/labs/$labId', params: { labId: LAB_ID } })
     await screen.findByRole('table', { name: 'Members' })
     if (action === 'granting') mockApi('post', GRANTS, grant)

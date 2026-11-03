@@ -9,7 +9,8 @@ import { labKeys } from './keys'
 // A location grant decides whether a vial offers "Reveal location" (can_reveal) to its holder,
 // and a manager may grant or revoke their own, so both also invalidate the lab's material (shared
 // keys). Removing a member ends their grant too, but they lose the lab with it: nothing of it
-// stays on their screen to refresh.
+// stays on their screen to refresh. It also ends their entry of the VRAT access list, which the
+// member writes refresh through labKeys.all. The VRAT access list is read by its own section only.
 
 export function useAddMember(labId: string) {
   const qc = useQueryClient()
@@ -84,5 +85,34 @@ export function useRevokeLocation(labId: string) {
     meta: { handlesError: true },
     onSuccess: () =>
       Promise.all([qc.invalidateQueries({ queryKey: labKeys.locationGrants(labId) }), qc.invalidateQueries({ queryKey: sharedKeys.material(labId) })]),
+  })
+}
+
+export function useGrantVratAccess(labId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: { username: string; reason: string }) => {
+      await ensureCsrf()
+      return unwrap(api.POST('/api/v1/labs/{lab_public_id}/vrat-access/', { params: { path: { lab_public_id: labId } }, body }))
+    },
+    meta: { handlesError: true },
+    onSuccess: () => qc.invalidateQueries({ queryKey: labKeys.vratAccess(labId) }),
+  })
+}
+
+export function useEndVratAccess(labId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ entryId, reason }: { entryId: string; reason: string }) => {
+      await ensureCsrf()
+      await unwrap(
+        api.POST('/api/v1/labs/{lab_public_id}/vrat-access/{public_id}/end/', {
+          params: { path: { lab_public_id: labId, public_id: entryId } },
+          body: { reason },
+        }),
+      )
+    },
+    meta: { handlesError: true },
+    onSuccess: () => qc.invalidateQueries({ queryKey: labKeys.vratAccess(labId) }),
   })
 }
