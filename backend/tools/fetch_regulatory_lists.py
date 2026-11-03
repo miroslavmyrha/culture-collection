@@ -295,6 +295,8 @@ def annex_slice(fragments: Sequence[dict[str, Any]], number: int) -> list[dict[s
         for index, fragment in enumerate(fragments)
         if fragment["kodTypuFragmentu"] == ANNEX_HEADER
     ]
+    # Both refusals here come before the parse would report the annex as empty: without them a
+    # missing header reads as "no numbered item at all", which sends the reader to the wrong place.
     if not starts:
         raise ShapeError("the text has no annex headers")
     for position, index in enumerate(starts):
@@ -305,6 +307,11 @@ def annex_slice(fragments: Sequence[dict[str, Any]], number: int) -> list[dict[s
 
 
 def part_kind(code: str, heading: str) -> str:
+    """The kind of thing a part lists, from the one known word its heading must carry.
+
+    Without this refusal the part is read as an organism part and only the check on the four part
+    codes notices, naming the codes instead of the heading.
+    """
     low = heading.lower()
     kinds = sorted({kind for word, kind in CZ_PART_KINDS if word in low})
     if len(kinds) != 1:
@@ -640,6 +647,7 @@ def find_eu_entry(root: ET.Element, code: str) -> ET.Element:
         for cells in table_rows(table):
             if any(own_text(cell) == code for cell in cells[:-1]):
                 return table
+    # Before the walk would report an empty item table for an entry that is simply not there.
     raise ShapeError(f"annex I: entry {code} is not in the text")
 
 
@@ -779,13 +787,15 @@ def _annex_ii_window(sequence: Sequence[tuple[str, Any]]) -> list[tuple[str, Any
 
 
 def _table_after(window: Sequence[tuple[str, Any]], part: str) -> ET.Element:
+    """The table a part heading introduces. The heading must be there, and the table right after."""
     for index, (kind, value) in enumerate(window):
         if kind == "p" and value == part:
-            for next_kind, next_value in window[index + 1 :]:
-                if next_kind == "table":
-                    table: ET.Element = next_value
-                    return table
+            after = window[index + 1 :]
+            if not after or after[0][0] != "table":
                 raise ShapeError(f"annex II: {part} is not followed by a table")
+            table: ET.Element = after[0][1]
+            return table
+    # Before the pest table would report itself empty for a part the annex no longer prints.
     raise ShapeError(f"annex II: it has no {part}")
 
 

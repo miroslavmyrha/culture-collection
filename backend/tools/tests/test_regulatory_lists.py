@@ -13,7 +13,7 @@ import json
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import pytest
 
@@ -158,6 +158,16 @@ def without_the_annex_heading(fetched: Fetched) -> Fetched:
     return reshaped(fetched, kept)
 
 
+def without_the_first_annex_heading(fetched: Fetched) -> Fetched:
+    """Only the first annex loses its header, so the other annexes are still found."""
+    kept = copy.deepcopy(fetched.document)
+    for index, fragment in enumerate(kept):
+        if fragment["kodTypuFragmentu"] == "Hlavicka_priloha":
+            del kept[index]
+            break
+    return reshaped(fetched, kept)
+
+
 def with_an_item_renumbered(fetched: Fetched) -> Fetched:
     document = copy.deepcopy(fetched.document)
     first = fragments_of(reshaped(fetched, document), "Bod_Dd")[0]
@@ -245,6 +255,20 @@ def without_part_b(fetched: Fetched) -> Fetched:
     return reshaped(fetched, root)
 
 
+def with_a_paragraph_before_the_part_table(fetched: Fetched) -> Fetched:
+    """Something printed between a part heading and its table."""
+    root = copy.deepcopy(fetched.document)
+    body = root.find(XHTML + "body")
+    assert body is not None
+    for index, child in enumerate(list(body)):
+        if child.tag == XHTML + "p" and (child.text or "").strip() == "PART A":
+            spacer = ET.Element(XHTML + "p")
+            spacer.text = "Something the parser does not expect here"
+            body.insert(index + 1, spacer)
+            break
+    return reshaped(fetched, root)
+
+
 def with_pests_out_of_order(fetched: Fetched) -> Fetched:
     root = copy.deepcopy(fetched.document)
     table = next(iter(root.iter(XHTML + "table")))
@@ -259,31 +283,115 @@ def with_pests_out_of_order(fetched: Fetched) -> Fetched:
     return reshaped(fetched, root)
 
 
-RESHAPES: tuple[tuple[str, str, Reshape], ...] = (
-    ("cz-474-2002", "no annex header", without_the_annex_heading),
-    ("cz-474-2002", "an item renumbered", with_an_item_renumbered),
-    ("cz-474-2002", "an item at another depth", with_an_item_moved_deeper),
-    ("cz-474-2002", "a part heading that names no kind", with_a_part_heading_unnamed),
-    ("cz-361-2007-annex-7", "no annex header", without_the_annex_heading),
-    ("cz-361-2007-annex-7", "a table with a column less", with_a_table_column_dropped),
-    ("cz-361-2007-annex-7", "the group column renamed", with_the_group_column_renamed),
-    ("cz-361-2007-annex-7", "a table missing", with_a_table_dropped),
-    ("eu-2021-821-annex-i", "an entry code gone", without_an_entry_code),
-    ("eu-2021-821-annex-i", "a category the parser does not know", with_an_unknown_category),
-    ("eu-2019-2072-annex-ii", "no part B", without_part_b),
-    ("eu-2019-2072-annex-ii", "two pests swapped", with_pests_out_of_order),
+class Case(NamedTuple):
+    """One reshaped source text and the refusal it must draw.
+
+    ``refusal`` is matched against the message, so the case proves which guard refused. Asserting
+    ShapeError alone proves nothing: a reshape that slips past its own check usually trips a
+    later one, and then deleting the check leaves every test green (found in review).
+    """
+
+    source: str
+    what: str
+    reshape: Reshape
+    refusal: str
+
+
+CASES: tuple[Case, ...] = (
+    Case(
+        "cz-474-2002",
+        "no annex header at all",
+        without_the_annex_heading,
+        r"^the text has no annex headers$",
+    ),
+    Case(
+        "cz-474-2002",
+        "the header of annex 1 gone",
+        without_the_first_annex_heading,
+        r"^the text has no annex 1$",
+    ),
+    Case(
+        "cz-474-2002",
+        "an item renumbered",
+        with_an_item_renumbered,
+        r"^annex 1, group I\.I: the items are numbered 0 then 4$",
+    ),
+    Case(
+        "cz-474-2002",
+        "an item at another depth",
+        with_an_item_moved_deeper,
+        r"^annex 1, part I: a numbered item sits at depth 9, expected 6$",
+    ),
+    Case(
+        "cz-474-2002",
+        "a part heading that names no kind",
+        with_a_part_heading_unnamed,
+        r"^part IX: its heading matches 0 of the known kinds, expected one$",
+    ),
+    Case(
+        "cz-361-2007-annex-7",
+        "no annex header at all",
+        without_the_annex_heading,
+        r"^the text has no annex headers$",
+    ),
+    Case(
+        "cz-361-2007-annex-7",
+        "a table with a column less",
+        with_a_table_column_dropped,
+        r"^annex 7, table 1: its rows have \[2\] cells, expected 3$",
+    ),
+    Case(
+        "cz-361-2007-annex-7",
+        "the group column renamed",
+        with_the_group_column_renamed,
+        r"^annex 7, table 1: its columns are headed .*expected the second 'Skupina'",
+    ),
+    Case(
+        "cz-361-2007-annex-7",
+        "a table missing",
+        with_a_table_dropped,
+        r"^annex 7, part 1: 4 tables, expected 5$",
+    ),
+    Case(
+        "eu-2021-821-annex-i",
+        "an entry code gone",
+        without_an_entry_code,
+        r"^annex I: entry 1C353 is not in the text$",
+    ),
+    Case(
+        "eu-2021-821-annex-i",
+        "a category the parser does not know",
+        with_an_unknown_category,
+        r"^annex I: entry 1C351 opens with a category the parser does not know$",
+    ),
+    Case(
+        "eu-2019-2072-annex-ii",
+        "no part B",
+        without_part_b,
+        r"^annex II: it has no PART B$",
+    ),
+    Case(
+        "eu-2019-2072-annex-ii",
+        "something between part A and its table",
+        with_a_paragraph_before_the_part_table,
+        r"^annex II: PART A is not followed by a table$",
+    ),
+    Case(
+        "eu-2019-2072-annex-ii",
+        "two pests swapped",
+        with_pests_out_of_order,
+        r"^annex II, part A, row 5: 2 is followed by 1$",
+    ),
 )
 
 
-@pytest.mark.parametrize(
-    ("key", "what", "reshape"), RESHAPES, ids=[f"{key}: {what}" for key, what, _ in RESHAPES]
-)
-def test_a_parser_refuses_a_reshaped_source(key: str, what: str, reshape: Reshape) -> None:
-    source = BY_ID[key]
-    fetched = load_fixture(fixture_path(key))
+@pytest.mark.parametrize("case", CASES, ids=[f"{c.source}: {c.what}" for c in CASES])
+def test_a_parser_refuses_a_reshaped_source(case: Case) -> None:
+    source = BY_ID[case.source]
+    fetched = load_fixture(fixture_path(case.source))
     assert source.parse(fetched), "the saved text itself must parse, or the case proves nothing"
-    with pytest.raises(ShapeError):
-        source.parse(reshape(fetched))
+    with pytest.raises(ShapeError, match=case.refusal):
+        source.parse(case.reshape(fetched))
 
 
 # --------------------------------------------------------------------------------------
