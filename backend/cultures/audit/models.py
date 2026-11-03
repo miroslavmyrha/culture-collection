@@ -23,6 +23,11 @@ request line) carries the strain's public id, so the strain's history is one
 indexed query and needs no walk through the tree. No foreign key: the strain
 table comes later, and an event must outlive the row it names, like
 subject_id. Events about users and labs have no strain.
+
+Both tables also carry the hash chain of ADR 0009 (#175): chain_version,
+chain_prev and chain_hash, written by a BEFORE INSERT trigger (migration 0034)
+and never by Python. What the chain is and how it is read back:
+cultures/audit/chain.py.
 """
 
 from typing import Any, NoReturn
@@ -34,6 +39,7 @@ from django.db.models import Q
 
 from cultures.labs.querysets import LabScopedQuerySet
 
+from .chain import VERSION as CHAIN_VERSION
 from .registry import reason_required_codes
 
 
@@ -130,6 +136,12 @@ class AuditEvent(models.Model):
     # {field: [old, new]}, ids only, never secrets; a personal field is "changed", no value
     changes = models.JSONField(default=dict)
     schema_version = models.PositiveSmallIntegerField(default=1)
+    # The hash chain of ADR 0009, written by the BEFORE INSERT trigger of migration 0034
+    # and by nothing else: whatever an insert passes here is replaced. chain_prev is null
+    # only for the first row of the chain. cultures/audit/chain.py verifies them.
+    chain_version = models.PositiveSmallIntegerField(db_default=CHAIN_VERSION)
+    chain_prev = models.BinaryField(null=True)
+    chain_hash = models.BinaryField(null=True)
 
     objects = AuditEventQuerySet.as_manager()
 
@@ -216,6 +228,10 @@ class RowChange(models.Model):
     request_id = models.CharField(max_length=64, null=True)  # noqa: DJ001
     db_role = models.CharField(max_length=63)  # session_user: the login, also from psql
     db_application = models.CharField(max_length=64)  # application_name, set by the client
+    # The hash chain of ADR 0009 (see AuditEvent above): its own chain, its own trigger.
+    chain_version = models.PositiveSmallIntegerField(db_default=CHAIN_VERSION)
+    chain_prev = models.BinaryField(null=True)
+    chain_hash = models.BinaryField(null=True)
 
     objects = AppendOnlyQuerySet["RowChange"].as_manager()
 

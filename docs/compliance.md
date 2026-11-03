@@ -698,6 +698,51 @@ listed here so that the test can tell them from a regulated gate without a rule.
   is a name and the number of its handover document, and the person who carried out the
   destruction inside the lab is the recorder, not a separate field.
 
+### The audit trail's integrity
+
+#### R-AUDIT-01 Every audit row carries the hash of its content and of the row before it, written by the database
+
+- Kind: own control
+- Source: ADR 0009, Decision, Tamper evidence: "Every audit row (service events and row changes)
+  joins a hash chain: each row's hash covers its content and the previous hash, so a row edited,
+  removed or inserted inside the database breaks the chain from that point." No legal text read
+  asks it of the collection.
+- Code: `backend/cultures/audit/chain.py::CHAINS`, `backend/cultures/audit/chain.py::hash_sql`, `backend/cultures/audit/migrations/0034_hash_chain.py::APPEND`, `backend/cultures/audit/migrations/0034_hash_chain.py::BACKFILL`, `backend/cultures/audit/context.py::audited_atomic`
+- Tests: `backend/cultures/audit/tests/test_chain.py::test_a_service_write_is_chained_on_both_tables`, `backend/cultures/audit/tests/test_chain.py::test_every_row_of_one_insert_statement_gets_its_own_place`, `backend/cultures/audit/tests/test_chain.py::test_an_admin_write_is_chained`, `backend/cultures/audit/tests/test_chain.py::test_a_data_migration_write_is_chained`, `backend/cultures/audit/tests/test_chain.py::test_raw_sql_as_the_runtime_role_is_chained`, `backend/cultures/audit/tests/test_chain.py::test_the_chain_adds_no_query_per_audit_row`, `backend/cultures/audit/tests/test_migration_hash_chain.py::test_the_chain_migration_covers_the_rows_already_there_and_goes_back`
+- Limits: one chain per table, not one over both, because nothing records how the two tables'
+  rows interleaved inside a transaction. The chain covers the rows that were already in the
+  database when migration 0034 ran, hashed from their content at that moment, so it says nothing
+  about what happened to those rows earlier; that is why ADR 0009 asks for the chain before the
+  first production data. The chain alone is evidence only against someone who cannot recompute
+  it; the anchors are R-AUDIT-03.
+
+#### R-AUDIT-02 No writer chooses an audit row's place in the chain or its hash
+
+- Kind: own control
+- Source: ADR 0009, Decision, Tamper evidence (the chain must cover every audit row) with
+  ADR 0005 (the runtime role owns nothing and may only insert events). A trigger is the only
+  place a write past the services cannot skip.
+- Code: `backend/cultures/audit/migrations/0034_hash_chain.py::APPEND`, `backend/cultures/audit/chain.py::LOCK`
+- Tests: `backend/cultures/audit/tests/test_chain.py::test_the_runtime_role_cannot_choose_the_chain_columns`, `backend/cultures/audit/tests/test_chain.py::test_two_transactions_appending_at_once_make_one_chain`, `backend/cultures/audit/tests/test_chain.py::test_a_multi_row_insert_outside_the_services_is_still_one_chain`, `backend/cultures/audit/tests/test_chain.py::test_every_column_of_a_chained_table_is_in_the_chain`
+- Limits: every audited write serialises on one advisory lock, held until commit. Appending
+  2001 events in one statement takes 0.43 to 0.54 s on PostgreSQL 18.6, but the lock's effect on
+  concurrent writers has not been measured under load. A write that reaches a regulated table
+  without passing audited_atomic() (psql, a script) takes the lock only in the trigger, after
+  any lock of its own, so it can deadlock with an application write; PostgreSQL ends one of the
+  two and nothing is written half way.
+
+#### R-AUDIT-03 A changed, removed, reordered or re-hashed audit row breaks the chain, and the break is reported with the row's id
+
+- Kind: own control
+- Source: ADR 0009, Consequences: "An edit of the history is detectable from outside the
+  database", and Decision, Tamper evidence: "A command verifies the chain."
+- Code: `backend/cultures/audit/chain.py::walk`, `backend/cultures/audit/chain.py::Break`
+- Tests: `backend/cultures/audit/tests/test_chain.py::test_a_changed_column_is_found`, `backend/cultures/audit/tests/test_chain.py::test_a_removed_row_is_found`, `backend/cultures/audit/tests/test_chain.py::test_a_forged_hash_is_found`, `backend/cultures/audit/tests/test_chain.py::test_a_changed_row_whose_hash_was_recomputed_breaks_the_next_row`, `backend/cultures/audit/tests/test_chain.py::test_a_reordered_pair_is_found`, `backend/cultures/audit/tests/test_chain.py::test_a_row_with_no_hash_is_found`, `backend/cultures/audit/tests/test_chain.py::test_a_chain_version_this_build_does_not_know_is_found`
+- Limits: the walk reports the first break of each chain, not every one, and it reads the rows
+  through the same database it checks. Somebody who can replace rows and recompute the whole
+  chain from the change onwards leaves it intact; only a stamped head catches that (#175, the
+  anchors).
+
 ## Legal duties the app does not enforce yet
 
 Each duty is the law's. Until its issue is built it is the lab's to keep outside the app.

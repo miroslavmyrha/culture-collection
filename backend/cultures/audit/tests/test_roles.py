@@ -56,6 +56,9 @@ AUDIT_FUNCTIONS = (
     "audit_refuse_truncate",
     "audit_row_change",
     "audit_row_truncate",
+    # The hash chain of ADR 0009 (#175): one trigger function per chained table.
+    "audit_chain_event",
+    "audit_chain_rowchange",
 )
 
 

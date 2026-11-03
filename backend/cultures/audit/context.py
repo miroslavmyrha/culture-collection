@@ -26,6 +26,7 @@ from django.http import HttpRequest, HttpResponse
 from cultures.core.request_id import NO_REQUEST, current_request_id, is_valid_request_id
 from cultures.users.models import User
 
+from . import chain
 from .models import ActorKind, Channel
 
 
@@ -123,7 +124,17 @@ class AuditRequestMiddleware:
 # One statement: both settings are transaction-local (the third argument), so
 # they end with the transaction and never leak into the next one on a pooled
 # connection. The trigger reads them with current_setting(name, true).
-_SET = "SELECT set_config('app.actor_id', %s, true), set_config('app.request_id', %s, true)"
+#
+# The same statement takes the hash chain's advisory lock (ADR 0009, #175). It
+# belongs here, not only in the chain triggers, for two reasons: taken at the
+# start of the transaction it comes before every domain lock, so an audited write
+# and the chain can never be taken in opposite orders and deadlock; and folded
+# into this statement it adds no query, so no query baseline moves. The chain
+# triggers take it too, for writes that never pass through here (psql, a script).
+_SET = (
+    "SELECT set_config('app.actor_id', %s, true), set_config('app.request_id', %s, true),"
+    f" {chain.LOCK}"
+)
 _GET = "SELECT current_setting('app.actor_id', true), current_setting('app.request_id', true)"
 
 
