@@ -623,6 +623,7 @@ export function makeMyLab(overrides: Partial<MyLab> = {}): MyLab {
     strains: 0,
     batches: { pending_check: 0, released: 0, on_hold: 0, exhausted: 0 },
     vials_available: 0,
+    vials: null,
     free_positions: 0,
     open_requests: 0,
     requests_to_decide: null,

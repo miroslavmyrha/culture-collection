@@ -32,7 +32,6 @@ from django.db.models import (
     Q,
     QuerySet,
     Subquery,
-    Sum,
     Value,
     When,
     Window,
@@ -54,7 +53,7 @@ from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm, Role
 from cultures.lineage.models import PASSING, Batch, BatchStatus, CheckKind, Vial, VialStatus
 from cultures.lineage.selectors import latest_result
-from cultures.storage.models import StorageUnit, UnitKind
+from cultures.storage.selectors import free_positions
 from cultures.strains.models import Strain
 
 WAITING_LIMIT = 20  # rows per kind; the group's total says how many wait
@@ -462,6 +461,8 @@ class LabFigures:
     strains: int = 0
     batches: dict[str, int] = field(default_factory=dict)
     vials_available: int = 0
+    # Vials by state (#81), only where the person holds VIEW_LAB_FIGURES (managers), else None.
+    vials: dict[str, int] | None = None
     free_positions: int = 0
     open_requests: int = 0
     # Only where the person decides on them (curators and up), else None: the lab tabs show them.
@@ -472,6 +473,20 @@ class LabFigures:
 
 def _counts(rows: QuerySet[Any], key: str = "lab_id") -> dict[Any, int]:
     return {row[key]: row["n"] for row in rows}
+
+
+def _vials_by_state(access: Access) -> dict[int, dict[str, int]]:
+    """Every state with its count (0 for none) for each lab where the person holds
+    VIEW_LAB_FIGURES (#81), one grouped query for all of them. A count is no location: regulated
+    vials count like the others (ADR 0009 masks the place, lineage.selectors)."""
+    labs = access.labs_with(Perm.VIEW_LAB_FIGURES)
+    by_state = {lab_id: dict.fromkeys(VialStatus.values, 0) for lab_id in labs}
+    if not by_state:
+        return {}
+    rows = Vial.objects.for_access(access, Perm.VIEW_LAB_FIGURES).values("lab_id", "status")
+    for row in rows.annotate(n=Count("pk")).order_by():
+        by_state[row["lab_id"]][row["status"]] = row["n"]
+    return by_state
 
 
 def my_labs(*, access: Access) -> list[LabFigures]:
@@ -491,7 +506,9 @@ def my_labs(*, access: Access) -> list[LabFigures]:
     vials = Vial.objects.for_access(access, Perm.VIEW_STRAINS).filter(status=VialStatus.AVAILABLE)
     for lab_id, n in _counts(vials.values(*by_lab).annotate(n=Count("pk")).order_by()).items():
         figures[lab_id].vials_available = n
-    for lab_id, n in _free_positions(access).items():
+    for lab_id, states in _vials_by_state(access).items():
+        figures[lab_id].vials = states
+    for lab_id, n in free_positions(access=access).items():
         figures[lab_id].free_positions = n
     requests = DistributionRequest.objects.for_access(access, Perm.VIEW_DISTRIBUTION)
     deciders = access.labs_with(KIND_PERM[Kind.REQUEST_TO_DECIDE])
@@ -518,26 +535,6 @@ def my_labs(*, access: Access) -> list[LabFigures]:
     for entry in figures.values():
         entry.actions = [a for a in Action if access.can(ACTION_PERM[a], entry.lab.pk)]
     return list(figures.values())
-
-
-def _free_positions(access: Access) -> dict[int, int]:
-    """Free positions in the boxes that may take material now: the box and every unit above it
-    active (storage.policy.may_store reads the same path facts). Positions minus open placements."""
-    taken = (
-        StorageUnit.objects.filter(pk=OuterRef("pk"))
-        .annotate(n=Count("placements", filter=Q(placements__removed_at__isnull=True)))
-        .values("n")
-    )
-    boxes = (
-        StorageUnit.objects.for_access(access, Perm.VIEW_STORAGE)
-        .filter(kind=UnitKind.BOX)
-        .with_path_facts()
-        .filter(Q(path_active=True))
-        .values("lab_id")
-        .annotate(n=Sum(F("rows") * F("cols") - Subquery(taken)))
-        .order_by()
-    )
-    return {row["lab_id"]: row["n"] or 0 for row in boxes}
 
 
 def _number(strain: Strain) -> str:

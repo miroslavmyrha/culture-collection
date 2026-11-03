@@ -2,6 +2,7 @@
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Any
 
 from django.db.models import Count, F, Q, QuerySet
 
@@ -56,6 +57,34 @@ class Counts:
     free_positions: int
 
 
+def _boxes_with_taken(boxes: QuerySet[StorageUnit]) -> QuerySet[Any]:
+    """The boxes that are not retired, each with `taken`, its open placements: the one place
+    that says which boxes count and what a taken position is (unit_counts, free_positions)."""
+    return (
+        boxes.filter(kind=UnitKind.BOX)
+        .exclude(status=UnitStatus.RETIRED)
+        .annotate(taken=Count("placements", filter=Q(placements__removed_at__isnull=True)))
+    )
+
+
+def free_positions(*, access: Access) -> dict[int, int]:
+    """Free positions per lab id in the boxes that may take material now: the box and every unit
+    above it active (path_active, the facts storage.policy.may_store reads), for the labs where
+    the person may view storage, in one query. The same boxes and the same taken positions as
+    unit_counts; it differs from the sum of that over a lab's roots by the boxes under a unit out
+    of service, which hold their vials but take none (Home's figure and a unit's own are
+    therefore equal when every unit is active)."""
+    boxes = _boxes_with_taken(
+        StorageUnit.objects.for_access(access, Perm.VIEW_STORAGE).with_path_facts()
+    ).filter(Q(path_active=True))
+    free: dict[int, int] = {}
+    for lab_id, rows, cols, taken in boxes.values_list(
+        "lab_id", "rows", "cols", "taken"
+    ).order_by():
+        free[lab_id] = free.get(lab_id, 0) + (rows or 0) * (cols or 0) - taken
+    return free
+
+
 def unit_counts(units: Iterable[StorageUnit]) -> dict[int, Counts]:
     """The counts of each unit by its id, in one query whatever the number of units: every box
     whose path passes through one of them, with its open placements, summed up the path."""
@@ -63,11 +92,9 @@ def unit_counts(units: Iterable[StorageUnit]) -> dict[int, Counts]:
     if not wanted:
         return {}
     held = (
-        StorageUnit.objects.filter(
-            lab_id__in=set(wanted.values()), kind=UnitKind.BOX, path__overlap=list(wanted)
+        _boxes_with_taken(
+            StorageUnit.objects.filter(lab_id__in=set(wanted.values()), path__overlap=list(wanted))
         )
-        .exclude(status=UnitStatus.RETIRED)
-        .annotate(taken=Count("placements", filter=Q(placements__removed_at__isnull=True)))
         .values_list("pk", "path", "rows", "cols", "taken")
         .order_by()
     )

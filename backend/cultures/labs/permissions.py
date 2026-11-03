@@ -8,7 +8,8 @@ Enforced today: view the lab and its members, manage members (#9), view strains
 and manage them (#11), view and manage depositors and deposits, publish MTA
 versions (#10, #12), view and manage storage (#14), handle vials (#16), release
 and hold batches (#17), read, enter and decide requests (#18), read the lab's permits (#82),
-deaccession strains (#20), read who revealed regulated locations (#83).
+deaccession strains (#20), read who revealed regulated locations (#83), read the lab's vials
+by state (#81).
 The others are named now so later features plug into the same map instead of inventing their
 own checks.
 """
@@ -89,6 +90,10 @@ class Perm(StrEnum):
     # (labs.manage_members), so they read what the holders did with it. Holding the grant does
     # not give this, and this does not give the grant (ADR 0009).
     VIEW_REVEALS = "vials.view_reveals"
+    # #81: the lab's vials by state on Home. Managers answer for the stock of the lab, so the
+    # figures are theirs; every role that sees strains already reads the lab's batches by status
+    # and the vials available there (VIEW_STRAINS). A count names no place.
+    VIEW_LAB_FIGURES = "labs.view_figures"
 
 
 # What each role adds to the roles below it.
@@ -125,6 +130,7 @@ GRANTS: dict[Role, frozenset[Perm]] = {
             Perm.CONFIRM_DEACCESSION,
             Perm.VIEW_LAB_PERMITS,
             Perm.VIEW_REVEALS,
+            Perm.VIEW_LAB_FIGURES,
         }
     ),
 }

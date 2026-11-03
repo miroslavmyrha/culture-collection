@@ -46,3 +46,22 @@ export function batchSummary(batches: MyLab['batches']): string {
   const shown = parts.filter(([count]) => count > 0).map(([count, label]) => `${count} ${label}`)
   return shown.length ? shown.join(', ') : 'None'
 }
+
+/** The vial states and their words on Home, in the order of a vial's life (the same words as the vials feature, app/search-labels.test.ts). */
+export const VIAL_STATE_WORDS = [
+  ['available', 'available'],
+  ['reserved', 'reserved'],
+  ['quarantined', 'quarantined'],
+  ['to_destroy', 'to destroy'],
+  ['consumed', 'consumed'],
+  ['distributed', 'distributed'],
+  ['lost', 'lost'],
+  ['destroyed', 'destroyed'],
+  ['entered_in_error', 'entered in error'],
+] as const satisfies readonly (readonly [keyof NonNullable<MyLab['vials']>, string])[]
+
+/** How many vials in each state, the states there are: "7 available, 1 reserved". */
+export function vialSummary(vials: NonNullable<MyLab['vials']>): string {
+  const shown = VIAL_STATE_WORDS.filter(([state]) => vials[state] > 0).map(([state, word]) => `${vials[state]} ${word}`)
+  return shown.length ? shown.join(', ') : 'None'
+}

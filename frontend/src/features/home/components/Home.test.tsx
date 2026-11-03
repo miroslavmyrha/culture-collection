@@ -87,6 +87,26 @@ describe('Home', () => {
     expect(within(myc).queryByRole('link', { name: /Requests to decide|Deposits to check/ })).not.toBeInTheDocument()
   })
 
+  it('shows the vials by state of a lab to its managers only', async () => {
+    const managed = makeMyLab({
+      public_id: BAC,
+      name: 'Bacteriology',
+      code: 'BAC',
+      role: 'manager',
+      vials_available: 7,
+      vials: { available: 7, reserved: 1, consumed: 0, quarantined: 2, to_destroy: 0, destroyed: 0, lost: 1, distributed: 0, entered_in_error: 0 },
+    })
+    mockApi('get', OVERVIEW, makeOverview({ labs: [managed, curatorLab].map((lab, i) => (i === 1 ? { ...lab, public_id: MYC, name: 'Mycology', code: 'MYC' } : lab)) }))
+    noActivity()
+    await renderWithProviders(<Home />)
+    const bac = await within(await screen.findByRole('region', { name: 'My labs' })).findByRole('article', { name: 'Bacteriology' })
+    expect(bac).toHaveTextContent('Vials by state7 available, 1 reserved, 2 quarantined, 1 lost')
+    // A curator's card has the line "Vials available" and no by-state line.
+    const myc = within(section('My labs')).getByRole('article', { name: 'Mycology' })
+    expect(myc).toHaveTextContent('Vials available18')
+    expect(myc).not.toHaveTextContent('Vials by state')
+  })
+
   it('offers the actions of the roles, once per lab where there are several', async () => {
     const tech = makeMyLab({ public_id: MYC, code: 'MYC', role: 'technician', actions: ['record_check', 'find_vial'] })
     mockApi('get', OVERVIEW, makeOverview({ labs: [curatorLab, tech] }))
