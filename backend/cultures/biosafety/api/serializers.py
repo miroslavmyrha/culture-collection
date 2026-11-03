@@ -2,7 +2,12 @@ from datetime import date
 
 from rest_framework import serializers
 
-from cultures.biosafety.models import AuthorisationKind, Issuer, LabAuthorisation
+from cultures.biosafety.models import (
+    AuthorisationKind,
+    DestructionMethod,
+    Issuer,
+    LabAuthorisation,
+)
 from cultures.biosafety.selectors import Standing
 
 
@@ -13,6 +18,10 @@ class LabPermitOutputSerializer(serializers.ModelSerializer[LabAuthorisation]):
     kind_label = serializers.CharField(source="get_kind_display", read_only=True)
     issuer = serializers.ChoiceField(choices=Issuer.choices, read_only=True)
     issuer_label = serializers.CharField(source="get_issuer_display", read_only=True)
+    # A quarantine pest's permit: the method its destruction records use (#160). Empty otherwise.
+    destruction_method = serializers.ChoiceField(
+        choices=DestructionMethod.choices, allow_blank=True, read_only=True
+    )
     # Annotated by selectors.permit_list for the same Czech day.
     standing = serializers.ChoiceField(
         choices=[(s.value, s.value) for s in Standing], read_only=True
@@ -33,6 +42,7 @@ class LabPermitOutputSerializer(serializers.ModelSerializer[LabAuthorisation]):
             "expires_on",
             "ended_on",
             "end_reason",
+            "destruction_method",
             "standing",
             "last_valid_day",
             "days_left",

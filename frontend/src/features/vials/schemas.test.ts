@@ -6,6 +6,7 @@ import {
   boxChoices,
   boxOption,
   canRecordLossReport,
+  destructionRules,
   checkDetails,
   emptyCheck,
   formatValue,
@@ -147,5 +148,19 @@ describe('the loss of a VRAT or RAT vial (#159, act 281/2002 Sb., § 5(5))', () 
   it('only managers record the report', () => {
     const roles = [undefined, 'viewer', 'technician', 'curator', 'manager'] as const
     expect(roles.map((role) => canRecordLossReport(role))).toEqual([false, false, false, false, true])
+  })
+})
+
+describe('destructionRules (#160)', () => {
+  it.each([
+    [[], { confirmation: false, verification: false, witness: false, inactivatedBeforeHandover: false, declaredMethod: false }],
+    [['cz_vrat'], { confirmation: true, verification: true, witness: true, inactivatedBeforeHandover: true, declaredMethod: false }],
+    // A RAT goes to an outside firm only inactivated in the lab, as a VRAT, and names no witness.
+    [['cz_rat'], { confirmation: true, verification: true, witness: false, inactivatedBeforeHandover: true, declaredMethod: false }],
+    [['dual_use'], { confirmation: true, verification: true, witness: false, inactivatedBeforeHandover: false, declaredMethod: false }],
+    [['quarantine_pest'], { confirmation: true, verification: true, witness: false, inactivatedBeforeHandover: false, declaredMethod: true }],
+    [['gmo'], { confirmation: true, verification: true, witness: false, inactivatedBeforeHandover: false, declaredMethod: false }],
+  ])('asks %j for its rules', (kinds, rules) => {
+    expect(destructionRules(kinds)).toEqual(rules)
   })
 })

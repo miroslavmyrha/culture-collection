@@ -99,6 +99,7 @@
     {
      "kind": "quarantine_pest",
      "permit_reference": "ÚKZÚZ/DEV/0001",
+     "destruction_method": "autoclave",
      "valid_from": "2021-05-01",
      "expires_on": null,
      "ended_on": "2024-06-30",
@@ -107,6 +108,7 @@
     {
      "kind": "quarantine_pest",
      "permit_reference": "ÚKZÚZ/DEV/0002",
+     "destruction_method": "autoclave",
      "valid_from": "2024-07-01",
      "expires_on": null
     }

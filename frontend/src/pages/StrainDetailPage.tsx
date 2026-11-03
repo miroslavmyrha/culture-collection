@@ -10,7 +10,7 @@ import { StrainTabs } from '@/features/strains/components/StrainTabs'
 import { StrainTerms } from '@/features/strains/components/StrainTerms'
 import { canConfirmDeaccession, canConfirmRestrictionEnd, canManageStrains } from '@/features/strains/schemas'
 import { StrainMaterial } from '@/features/vials/components/StrainMaterial'
-import { canHandleVials, canRecordLossReport, canReleaseBatches, lossMustBeReported, strainMaterialDestroyed } from '@/features/vials/schemas'
+import { canConfirmDestruction, canHandleVials, canRecordLossReport, canReleaseBatches, lossMustBeReported, strainMaterialDestroyed } from '@/features/vials/schemas'
 
 const route = getRouteApi('/_authenticated/labs/$labId/strains/$strainId')
 const historyRoute = getRouteApi('/_authenticated/labs/$labId/strains/$strainId/history')
@@ -87,8 +87,9 @@ export function StrainMaterialPage() {
         canHandle={canHandleVials(role)}
         canRelease={canReleaseBatches(role)}
         materialDestroyed={strain !== undefined && strainMaterialDestroyed(strain)}
-        // Until the strain loaded nothing says it is not regulated: no destruction is offered.
-        regulated={strain?.regulated ?? true}
+        // Until the strain loaded nothing says what its destruction asks: none is offered.
+        restrictionKinds={strain?.restrictions.map((r) => r.kind)}
+        canConfirmDestruction={canConfirmDestruction(role)}
         lossReported={strain !== undefined && lossMustBeReported(strain)}
         canReportLoss={canRecordLossReport(role)}
         vialPage={page}

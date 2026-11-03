@@ -979,3 +979,69 @@ state is never a held one. Reversible: `migrate lineage 0008`.
 
 Revisit when: the destruction record lands (a found vial may then need its own witness or
 reason), or a deaccession entered in error must bring a strain's vials back.
+
+## Amendment 2026-11-03: the destruction of material is a record (#160)
+
+Until now a person took a vial from to destroy to destroyed with a reason, one vial at a time:
+no method, no day apart from the moment of the change, nothing an authority asks of a
+destruction. The destruction study (2026-11-02) read what the law asks per regime and the owner
+decided the record. Destroyed is now set only by it, for every strain:
+
+- **One record per strain per destruction** (`lineage.DestructionRecord`, decision Q3): the
+  VRAT/RAT register keeps one sheet per agent (decree 474/2002 Sb., § 5(3) c)) and its column 7
+  ("Druh a číslo dokladu") cites one document. Its vials are rows of
+  `lineage.DestructionVial`, each marked to destroy when the record takes it; a vial is in one
+  valid record at most. Records of one autoclave cycle share a `run`, a text the lab names it by
+  (the smaller option of Q3, open below).
+- **What it holds**: the lab, the strain, a number per lab and year (`2026/7`, the document
+  number part 2's protocol prints), the Czech day of the destruction (not in the future, not
+  before a vial was marked; decree 209/2004 Sb., § 8(8) h) "datum likvidace"), a method code
+  (`autoclave`, `chemical`, `incineration`, `other` with its description; required for every
+  strain, decision Q5), the method in words, how the inactivation was verified (a text,
+  decision Q4), an outside firm with the number of its handover document (decision Q9) and
+  whether the lab inactivated the material before it, the run, the reason, the witness, the
+  quarantine permit it used, who recorded it and when, who confirmed it and when, and when its
+  vials went destroyed (`completed_at`). Free text names no person; people are user references
+  (ADR 0005, decision Q10).
+- **The vials go destroyed and leave their places in the same transaction** as the record's
+  completion: at recording for a strain without restrictions, at the confirmation for a
+  regulated one (ADR 0009, amendment of the same day). Each vial records its status change with
+  the closed place, and one `vials_destroyed` sums them, with the record's reason.
+- **Entered in error, never changed** (decree 474/2002 Sb., § 5(4): a correction keeps the
+  original readable): a wrong record stays, marked, with the reason. A record waiting for its
+  confirmation leaves its vials to destroy, for a new record. A completed one leaves them
+  destroyed: the material is gone. A confirmed record is entered in error by a manager.
+- **The edges.** `lineage.models.EDGES` keeps `to_destroy > destroyed`; no state change takes
+  it (`vial_transition` refuses with `destruction_needs_record`, and the status input no longer
+  offers destroyed). The vial guard (`lineage` 0014) allows the edge, and a deferred constraint
+  trigger refuses at commit a destroyed vial without a record completed at the same moment, as
+  the reservation and the shipment are held (distribution 0003, 0005). The record's own deferred
+  trigger refuses a record without vials, a completed one whose vials are not destroyed with it,
+  and a waiting one whose vials are not to destroy. The record's guard refuses DELETE and every
+  UPDATE but the confirmation (once, while it waits) and the entry in error (once).
+- **Home** lists vials marked to destroy and in no record for curators, as before, and records
+  that wait for a confirmation for managers.
+
+What part 2 (the frozen protocol of a VRAT or RAT record and the yearly export for SÚJB) needs is
+in the record: the agent (the strain's restriction reference), the quantity (its vials), the day,
+the number for column 7, the method for the note, the verification, the firm and its document,
+who recorded, witnessed and confirmed it, and the stock after it, which is the count of the
+strain's vials held at `completed_at` (vials never disappear, so it is a query, not a stored
+column). The largest number of vials held at any moment in a year (decision Q8, SÚJB's form)
+is a running count over the vials' status changes in the audit trail.
+
+A VRAT's witness is a member who handles vials and was on the lab's VRAT access list (#167) at
+the destruction, read at the end of its Czech day (decided 2026-11-03, ADR 0009). A RAT, like a
+VRAT, goes to an outside firm only inactivated in the lab (decided the same day, ADR 0009).
+
+Open, the smaller option chosen until the owner decides: the method codes (four, `other` with
+words); verification as a text (not an indicator type and result); the witness may also be the
+confirmer; the run as a text (not a row); a performer apart from the recorder (WHO LBM4's
+"operator name") not recorded; a completed record entered in error has no correcting record that
+takes its vials (they stay destroyed).
+
+Migration impact: `lineage` 0013 and 0014 add the two tables, their row audit and triggers, and
+replace the vial guard, which reads the VRAT access list of `labs` 0006 for a VRAT's witness;
+`audit` 0032 and 0033 add four event types to the reason constraint (NOT VALID, then VALIDATE).
+A vial destroyed before stays so: a constraint trigger checks only rows written after it
+exists. Reversible: `migrate lineage 0012`, `migrate audit 0031`.

@@ -39,6 +39,19 @@ class AuthorisationKind(models.TextChoices):
     QUARANTINE_PEST = RestrictionKind.QUARANTINE_PEST.value, "Permit to hold quarantine pests"
 
 
+class DestructionMethod(models.TextChoices):
+    """How material is destroyed (#160): one code on every destruction record, and the method a
+    quarantine pest's permit declares (Regulation (EU) 2019/829, Annex I (i): "the method of
+    destruction or treatment of the specified material on completion of the specified
+    activity"). A short list and `other` described in words; how to inactivate a given agent is
+    the lab's validated procedure, not the collection's."""
+
+    AUTOCLAVE = "autoclave", "Autoclaving"
+    CHEMICAL = "chemical", "Chemical inactivation"
+    INCINERATION = "incineration", "Incineration"
+    OTHER = "other", "Other"
+
+
 class Issuer(models.TextChoices):
     SUJB = "sujb", "SÚJB"
     UKZUZ = "ukzuz", "ÚKZÚZ"
@@ -66,6 +79,14 @@ class LabAuthorisation(PublicModel):
     # in error), with the reason. The row stays.
     ended_on = models.DateField(null=True, blank=True)
     end_reason = models.TextField(blank=True)
+    # A quarantine pest's permit: the destruction method its application declared (Regulation
+    # (EU) 2019/829, Annex I (i); ÚKZÚZ's form asks "Navrhovaná metoda případné likvidace").
+    # A destruction record of a quarantine pest must use it (#160, decision Q6). Empty for a
+    # VRAT permit, and for a quarantine permit recorded before #160: such a permit refuses every
+    # destruction until staff record it again with its method.
+    destruction_method = models.CharField(
+        max_length=20, choices=DestructionMethod.choices, blank=True, db_default=""
+    )
 
     objects = LabScopedQuerySet["LabAuthorisation"].as_manager()
 
@@ -92,6 +113,14 @@ class LabAuthorisation(PublicModel):
             models.CheckConstraint(
                 condition=Q(ended_on__isnull=True) | Q(ended_on__gte=F("valid_from")),
                 name="biosafety_labauthorisation_ends_after_start",
+            ),
+            models.CheckConstraint(
+                condition=Q(destruction_method="")
+                | Q(
+                    kind=AuthorisationKind.QUARANTINE_PEST,
+                    destruction_method__in=DestructionMethod.values,
+                ),
+                name="biosafety_labauthorisation_destruction_method_of_kind",
             ),
             # An end date if and only if a reason.
             models.CheckConstraint(

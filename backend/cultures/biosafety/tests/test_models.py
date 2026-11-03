@@ -73,3 +73,24 @@ def test_a_permit_is_recorded_once_per_lab_and_kind(lab: Lab, other_lab: Lab) ->
     make_permit(other_lab)
     make_permit(lab, AuthorisationKind.QUARANTINE_PEST)
     assert LabAuthorisation.objects.count() == 3
+
+
+@pytest.mark.rule("R-END-09")
+@pytest.mark.parametrize(
+    ("kind", "method", "allowed"),
+    [
+        (AuthorisationKind.QUARANTINE_PEST, "autoclave", True),
+        (AuthorisationKind.QUARANTINE_PEST, "", True),  # recorded before #160
+        (AuthorisationKind.QUARANTINE_PEST, "boiling", False),
+        (AuthorisationKind.CZ_VRAT, "autoclave", False),
+    ],
+)
+def test_only_a_quarantine_permit_declares_a_destruction_method(
+    lab: Lab, kind: AuthorisationKind, method: str, allowed: bool
+) -> None:
+    """Regulation (EU) 2019/829, Annex I (i): a quarantine pest's application declares it (#160)."""
+    if allowed:
+        assert make_permit(lab, kind, destruction_method=method).destruction_method == method
+        return
+    with refused("biosafety_labauthorisation_destruction_method_of_kind"), transaction.atomic():
+        make_permit(lab, kind, destruction_method=method)

@@ -142,8 +142,8 @@ and the rules and duties it decides are changed in the same commit.
 
 - Kind: own control
 - Source: ADR 0009, Decision: "A strain with any restriction is a regulated strain in this ADR".
-- Code: `backend/cultures/strains/selectors.py::regulating_restrictions`, `backend/cultures/strains/migrations/0009_deaccession_audit_and_guards.py::"strains_strain_guard"`, `backend/cultures/lineage/migrations/0010_vial_guard_regulated_destroy.py::"lineage_vial_guard"`
-- Tests: `backend/cultures/strains/tests/test_deaccession.py::test_the_trigger_and_the_python_predicate_agree_on_regulated`, `backend/cultures/lineage/tests/test_vial_states.py::test_the_trigger_and_the_service_agree_with_the_python_predicate_on_destruction`
+- Code: `backend/cultures/strains/selectors.py::regulating_restrictions`, `backend/cultures/strains/migrations/0009_deaccession_audit_and_guards.py::"strains_strain_guard"`, `backend/cultures/lineage/services/destructions.py::required_for`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
+- Tests: `backend/cultures/strains/tests/test_deaccession.py::test_the_trigger_and_the_python_predicate_agree_on_regulated`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_asks_a_second_person_exactly_when_python_does`
 
 ### Risk groups
 
@@ -583,13 +583,15 @@ listed here so that the test can tell them from a regulated gate without a rule.
 - Code: `backend/cultures/strains/services.py::_check_final_use`, `backend/cultures/strains/models.py::FinalUse`, `backend/cultures/strains/models.py::KEEPS_MATERIAL`, `backend/cultures/strains/migrations/0009_deaccession_audit_and_guards.py::"strains_strain_guard"`
 - Tests: `backend/cultures/strains/tests/test_deaccession.py::test_a_quarantine_pest_states_its_final_use`, `backend/cultures/strains/tests/test_deaccession.py::test_only_a_quarantine_pest_states_a_final_use`, `backend/cultures/strains/tests/test_deaccession.py::test_a_proposal_whose_final_use_no_longer_fits_is_not_confirmed`, `backend/cultures/strains/tests/test_deaccession.py::test_the_database_asks_a_quarantine_pest_for_its_final_use`
 
-#### R-END-03 No vial of a regulated strain is destroyed until the destruction record exists
+#### R-END-03 A vial is destroyed only with a destruction record, never by a state change
 
 - Kind: own control
-- Source: ADR 0009, amendment 2026-11-02 (#158): a block until the destruction record (#160).
-  Study s12: no law read asks a second person at destruction.
-- Code: `backend/cultures/lineage/models.py::vial_edges`, `backend/cultures/lineage/services/errors.py::DestructionNeedsRecord`, `backend/cultures/lineage/migrations/0010_vial_guard_regulated_destroy.py::"lineage_vial_guard"`
-- Tests: `backend/cultures/lineage/tests/test_vial_states.py::test_a_regulated_strain_takes_every_edge_but_the_one_to_destroyed`, `backend/cultures/lineage/tests/test_api.py::test_a_regulated_strains_vial_to_destroy_is_not_destroyed_through_the_api`, `backend/cultures/lineage/tests/test_runtime_role.py::test_the_runtime_role_cannot_destroy_a_vial_of_a_regulated_strain`
+- Source: ADR 0008 and ADR 0009, amendments 2026-11-03 (#160); the amendment of 2026-11-02
+  (#158) blocked a regulated strain until this record existed. Study s12: no law read asks a
+  record of this shape, and WHO's Laboratory biosafety manual (4th ed., 2020), 8.2, asks the
+  inventory to document "an inactivation and/or disposal of the materials".
+- Code: `backend/cultures/lineage/models.py::vial_edges`, `backend/cultures/lineage/services/errors.py::DestructionNeedsRecord`, `backend/cultures/lineage/services/destructions.py::destruction_record`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_vial_destroyed_by_record"`
+- Tests: `backend/cultures/lineage/tests/test_vial_states.py::test_no_state_change_destroys_a_vial_of_any_strain`, `backend/cultures/lineage/tests/test_api.py::test_no_vial_is_destroyed_through_the_status_endpoint`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_a_vial_is_destroyed_only_with_its_record`, `backend/cultures/lineage/tests/test_destructions.py::test_a_strain_without_restrictions_is_destroyed_at_once_and_leaves_its_places`
 
 #### R-END-04 A lost vial of a strain that was a VRAT or RAT at the loss owes a report to the police
 
@@ -600,6 +602,101 @@ listed here so that the test can tell them from a regulated gate without a rule.
   the Police of the Czech Republic without undue delay, and the police pass it on to the Office.
 - Code: `backend/cultures/lineage/selectors.py::reportable_loss`, `backend/cultures/lineage/models.py::LOSS_REPORTED_KINDS`, `backend/cultures/lineage/services/losses.py::vial_loss_report`, `backend/cultures/lineage/migrations/0012_vial_loss_report_audit_and_guard.py::"lineage_viallossreport_guard"`
 - Tests: `backend/cultures/lineage/tests/test_loss_reports.py::test_a_manager_records_the_report_once_with_its_event`, `backend/cultures/lineage/tests/test_loss_reports.py::test_the_trigger_and_the_service_agree_with_the_python_definition`, `backend/cultures/lineage/tests/test_loss_reports.py::test_a_vial_found_and_lost_again_owes_a_new_report`, `backend/cultures/lineage/tests/test_loss_reports.py::test_only_a_manager_records_it`, `backend/cultures/lineage/tests/test_loss_reports.py::test_the_reference_and_the_day_are_checked`
+
+#### R-END-05 A destruction record is one strain's vials with the day and the method, never changed, and a wrong one is entered in error with a reason
+
+- Kind: law in part
+- Source: decree 474/2002 Sb., § 5(4) (a correction keeps the original readable) and § 5(3) c)
+  (a sheet per agent, quoted in D-05); decree 209/2004 Sb., § 8(8) h) (the day and the
+  description of a GMO's destruction). That the record is a row per strain and destruction, with
+  a method code and a run, is our own choice (ADR 0008, amendment 2026-11-03).
+- Quote: „Opravy chybných záznamů v evidenční knize se provádějí tak, aby bylo možno zjistit obsah původního záznamu.“ and „popis a datum likvidace použitých geneticky modifikovaných organismů , jakož i ověření účinnosti likvidace“
+- English: corrections of wrong entries in the register book are made so that the content of the
+  original entry can still be found; and: the description and date of the destruction of the
+  genetically modified organisms used, as well as the verification of its effect.
+- Code: `backend/cultures/lineage/models.py::DestructionRecord`, `backend/cultures/lineage/models.py::DestructionVial`, `backend/cultures/lineage/services/destructions.py::destruction_enter_in_error`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destruction_complete"`
+- Tests: `backend/cultures/lineage/tests/test_destructions.py::test_a_strain_without_restrictions_is_destroyed_at_once_and_leaves_its_places`, `backend/cultures/lineage/tests/test_destructions.py::test_input_is_checked_before_anything`, `backend/cultures/lineage/tests/test_destructions.py::test_the_vials_are_of_the_strain_to_destroy_and_in_no_waiting_record`, `backend/cultures/lineage/tests/test_destructions.py::test_a_waiting_record_entered_in_error_frees_its_vials_for_a_new_one`, `backend/cultures/lineage/tests/test_destructions.py::test_a_confirmed_record_is_entered_in_error_by_a_manager_and_its_vials_stay_destroyed`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_a_record_never_changes_but_once_and_is_never_deleted`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_an_entry_in_error_is_once_and_then_nothing_changes`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_a_record_holds_vials_destroyed_with_it`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_a_record_takes_vials_to_destroy_of_its_strain_in_no_other_valid_record`
+- Limits: the record writes no register entry of decree 474/2002 Sb. yet (D-05, D-06), and the
+  frozen protocol per VRAT or RAT record waits for part 2 of #160.
+
+#### R-END-06 A regulated strain's vials are destroyed only when a manager other than the recorder confirms the record
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-03 (#160): "No single account can destroy, deaccession or
+  ship a regulated strain". WHO Laboratory biosecurity guidance (2024), 6.3.1: "removal of
+  biological material from the inventory by two employees" (a guidance, not a law). Study s12
+  found no law that asks a second person at a destruction, for any kind.
+- Code: `backend/cultures/lineage/services/destructions.py::Required.confirmation`, `backend/cultures/lineage/services/destructions.py::destruction_confirm`, `backend/cultures/lineage/services/errors.py::ConfirmOwnDestruction`, `backend/cultures/lineage/models.py::"lineage_destructionrecord_confirmer_not_recorder"`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
+- Tests: `backend/cultures/lineage/tests/test_destructions.py::test_each_kind_asks_exactly_its_rules`, `backend/cultures/lineage/tests/test_destructions.py::test_a_manager_other_than_the_recorder_confirms_and_the_vials_go_then`, `backend/cultures/lineage/tests/test_destructions.py::test_the_recorder_does_not_confirm_even_as_a_manager`, `backend/cultures/lineage/tests/test_destructions.py::test_only_a_manager_confirms`, `backend/cultures/lineage/tests/test_destructions.py::test_a_manager_demoted_since_the_request_began_is_refused`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_asks_a_second_person_exactly_when_python_does`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_recorder_never_confirms_also_past_the_service`
+
+#### R-END-07 A VRAT destruction names a witness who was on the lab's VRAT access list that day
+
+- Kind: law in part
+- Source: act 281/2002 Sb., § 14a(4) keeps the list of the people with access (R-ACCESS-01).
+  That a VRAT destruction is witnessed, and that the witness comes from that list and is not the
+  recorder, is our own control (ADR 0009, amendment 2026-11-03, the owner's decisions of
+  2026-11-02 and 2026-11-03).
+- Quote: „Držitel povolení je povinen vytvořit a aktualizovat seznam osob, které mají přístup k vysoce rizikovému biologickému agens nebo toxinu.“
+- English: the permit holder makes and keeps up to date a list of the people who have access to a
+  highly risky agent or toxin.
+- Code: `backend/cultures/lineage/services/destructions.py::Required.witness`, `backend/cultures/lineage/services/destructions.py::Required.witness_with_access`, `backend/cultures/lineage/services/destructions.py::_check_rules`, `backend/cultures/lineage/services/destructions.py::_end_of_czech_day`, `backend/cultures/lineage/models.py::"lineage_destructionrecord_witness_not_recorder"`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
+- Tests: `backend/cultures/lineage/tests/test_destructions.py::test_each_kind_asks_exactly_its_rules`, `backend/cultures/lineage/tests/test_destructions.py::test_a_vrat_names_a_witness_other_than_the_recorder`, `backend/cultures/lineage/tests/test_destructions.py::test_a_vrat_witness_was_on_the_vrat_access_list_on_the_day`, `backend/cultures/lineage/tests/test_destructions.py::test_the_witness_access_is_read_at_the_end_of_the_day_of_the_destruction`, `backend/cultures/lineage/tests/test_destructions.py::test_a_record_of_a_past_day_asks_the_access_list_of_that_day_not_of_today`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_reads_the_witness_access_of_the_records_own_lab_and_day`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_reads_the_access_list_of_the_day_of_the_destruction_not_of_today`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_holds_each_kinds_rule_exactly_when_python_does`
+- Limits: the record holds the day of the destruction, not its time, so the list is read at the
+  end of that Czech day, never as the list stands when the record is entered (a destruction of a
+  past day is recorded after the fact). The witness select offers the lab's members who handle vials, because
+  reading the access list needs `labs.manage_members`; the server refuses a witness without
+  access.
+
+#### R-END-08 A VRAT or RAT goes to an outside firm only inactivated in the lab
+
+- Kind: law in part
+- Source: act 281/2002 Sb., § 13 h) for a VRAT (a permit holder only). For a RAT, SÚJB's page
+  "Přesun a předání VRAT nebo RAT v rámci ČR" (guidance of the authority): „RAT si mohou
+  navzájem poskytovat pouze osoby, které SÚJB ohlásily nakládání s RAT podle § 17a“ (RAT may be
+  supplied only between persons who notified SÚJB of their handling of RAT). A waste firm holds
+  no permit and made no notice, so the material is inactivated first (the owner's decisions of
+  2026-11-02 and 2026-11-03). Whether SÚJB accepts inactivated material as ordinary infectious
+  waste is Q-SUJB-3.
+- Quote: „…poskytovat vysoce rizikové biologické agens nebo toxin pouze držiteli povolení podle § 6 odst. 1, pokud Úřad ve výjimečném odůvodněném případě na omezenou dobu rozhodnutím nestanoví jinak a pokud současně nebude ohrožen účel tohoto zákona,“
+- English: The permit holder must supply a highly risky agent or toxin only to a holder of a
+  permit under § 6(1), unless the Office decides otherwise for a limited time in an exceptional,
+  justified case and the purpose of this act is not endangered.
+- Code: `backend/cultures/lineage/services/destructions.py::Required.inactivated_before_handover`, `backend/cultures/lineage/services/destructions.py::_check_rules`, `backend/cultures/lineage/models.py::DestructionRecord.inactivated_in_lab`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
+- Tests: `backend/cultures/lineage/tests/test_destructions.py::test_each_kind_asks_exactly_its_rules`, `backend/cultures/lineage/tests/test_destructions.py::test_a_vrat_goes_to_a_firm_only_inactivated`, `backend/cultures/lineage/tests/test_destructions.py::test_a_rat_goes_to_a_firm_only_inactivated`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_holds_each_kinds_rule_exactly_when_python_does`
+- Limits: an SÚJB exception under § 13 h) for live material is not recorded: every VRAT or RAT
+  handed to a firm is inactivated first.
+
+#### R-END-09 A quarantine pest is destroyed by the method its ÚKZÚZ authorisation declares
+
+- Kind: law
+- Source: Implementing Regulation (EU) 2019/829, Annex I (i); ÚKZÚZ's application forms ask for
+  the method ("Navrhovaná metoda případné likvidace nebo ošetření karanténního materiálu po
+  ukončení povolených činností"). Which permit a record of a past day uses (the one in force
+  that day, else the last one started before it) follows Art. 5(d), under which the material is
+  destroyed when the activity ends.
+- Quote: "the method of destruction or treatment of the specified material on completion of the specified activity where applicable."
+- Code: `backend/cultures/lineage/services/destructions.py::Required.authorised_method`, `backend/cultures/lineage/services/destructions.py::_declaring_authorisation`, `backend/cultures/biosafety/models.py::DestructionMethod`, `backend/cultures/biosafety/models.py::"biosafety_labauthorisation_destruction_method_of_kind"`, `backend/cultures/biosafety/services.py::authorisation_create`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
+- Tests: `backend/cultures/lineage/tests/test_destructions.py::test_each_kind_asks_exactly_its_rules`, `backend/cultures/lineage/tests/test_destructions.py::test_a_quarantine_pest_is_destroyed_by_the_method_its_permit_declares`, `backend/cultures/lineage/tests/test_destructions.py::test_a_permit_without_a_declared_method_refuses_and_a_lab_without_one_too`, `backend/cultures/biosafety/tests/test_services.py::test_a_quarantine_permit_declares_its_destruction_method_and_only_it`, `backend/cultures/biosafety/tests/test_models.py::test_only_a_quarantine_permit_declares_a_destruction_method`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_holds_each_kinds_rule_exactly_when_python_does`
+- Limits: the declared method is one of four codes, not the words of the decision. Whether
+  another method needs a changed decision first is Q-UKZUZ-4; the record refuses it either way.
+
+#### R-END-10 Every regulated strain's destruction says how the inactivation was verified
+
+- Kind: law in part
+- Source: decree 209/2004 Sb., § 8(8) h) asks it for a GMO. For the other kinds it is our own
+  control (the owner's decision Q4 of 2026-11-02), backed by WHO's Laboratory biosafety manual
+  (4th ed., 2020), monograph "Decontamination and waste management", which asks a validated
+  method with indicators.
+- Quote: „popis a datum likvidace použitých geneticky modifikovaných organismů , jakož i ověření účinnosti likvidace, včetně jména (názvu nebo obchodní firmy) osoby, která pro osobu oprávněnou k nakládání s geneticky modifikovaným organismem likvidaci prováděla nebo ověřovala její účinnost, neprováděla-li tyto činnosti oprávněná osoba sama,“
+- English: the description and date of the destruction of the genetically modified organisms
+  used, as well as the verification of its effect, including the name (or business name) of the
+  person who carried out the destruction or verified its effect for the authorised person, where
+  the authorised person did not do it itself.
+- Code: `backend/cultures/lineage/services/destructions.py::Required.verification`, `backend/cultures/lineage/services/destructions.py::_check_rules`, `backend/cultures/lineage/models.py::DestructionRecord.verification`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
+- Tests: `backend/cultures/lineage/tests/test_destructions.py::test_each_kind_asks_exactly_its_rules`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_holds_each_kinds_rule_exactly_when_python_does`
+- Limits: the verification is free text, not an indicator type with its result. The outside firm
+  is a name and the number of its handover document, and the person who carried out the
+  destruction inside the lab is the recorder, not a separate field.
 
 ## Legal duties the app does not enforce yet
 
@@ -648,8 +745,9 @@ Each duty is the law's. Until its issue is built it is the lab's to keep outside
 - Quote: „Evidence musí být vedena podle pracoviště, kde se evidovaná činnost provádí, podle jednotlivých druhů a množství vysoce rizikových biologických agens nebo toxinů.“ and „alespoň jeden samostatný evidenční list pro každé jednotlivé biologické agens nebo toxin“
 - English: the register is kept per workplace where the activity takes place, per kind and
   quantity of agent, with at least one sheet for each agent.
-- Today: only a shipment writes an entry (R-SHIP-07). Accession, passages, consumption, loss and
-  destruction write none, and a lab has no workplace.
+- Today: only a shipment writes an entry (R-SHIP-07). A destruction is recorded with everything
+  an entry needs (R-END-05) but writes none; accession, passages, consumption and loss record
+  no entry either, and a lab has no workplace.
 - Issue: #171
 
 ### D-06 A yearly declaration to SÚJB by 31 January
@@ -658,8 +756,9 @@ Each duty is the law's. Until its issue is built it is the lab's to keep outside
 - Quote: „Držitel povolení je povinen předložit Úřadu deklaraci za uplynulý kalendářní rok nejpozději do 31. ledna následujícího roku.“
 - English: the permit holder submits to the Office a declaration for the past calendar year by
   31 January of the following year (§ 17(2) the same for RAT).
-- Today: no export.
-- Issue: #160, #171
+- Today: no export. The destructions of the year are recorded (R-END-05); the largest quantity
+  held at any moment, which the form asks, is still to be counted.
+- Issue: #160 (part 2, the export), #171
 
 ### D-07 SÚJB is notified when a VRAT or RAT enters or leaves the Czech Republic
 
@@ -704,9 +803,9 @@ Each duty is the law's. Until its issue is built it is the lab's to keep outside
 - Quote: „zaslat ministerstvu vždy k 15. únoru kalendářního roku přehled geneticky modifikovaných organismů, údaje o jejich množství, o způsobu nakládání s nimi a vyjádření k přezkoumání hodnocení rizika za uplynulý kalendářní rok,“
 - English: send the ministry by 15 February each year an overview of the GMOs, their quantities,
   how they were handled, and a statement on the review of the risk assessment, for the past year.
-- Today: not built.
-- Issue: #160 (the yearly export only, "Matching exports for GMO"). The operating diary has no
-  issue.
+- Today: no export. A GMO's destruction records the day, the description and the verification of
+  the inactivation that § 8(8) h) asks for (R-END-05, R-END-10).
+- Issue: #160 (part 2, the yearly export only). The operating diary has no issue.
 
 ### D-13 A Letter of Authority is endorsed by the member state of origin
 
@@ -721,8 +820,10 @@ Each duty is the law's. Until its issue is built it is the lab's to keep outside
 - Quote: "the pests, plants, plant products and other objects entering and leaving the station or facility;" with "Those records shall be kept for three years." The ÚKZÚZ guide: „vést evidenční knihu práce s karanténním materiálem“ and „oznámit ukončení činnosti alespoň 1 měsíc před plánovaným termínem ukončení“
 - English (ÚKZÚZ): keep a register book of the work with quarantine material, and notify the end
   of the activity at least one month before the planned end.
-- Today: not built. Whether destroyed material "leaves" the facility is Q-UKZUZ-3.
-- Issue: #162 (the end notice), #160 (the export for quarantine pests)
+- Today: not built. A destruction of quarantine material is recorded with its authorised method
+  (R-END-09); the export of the three years of records is not. Whether destroyed material
+  "leaves" the facility is Q-UKZUZ-3.
+- Issue: #162 (the end notice), #160 (part 2, the export for quarantine pests)
 
 ### D-15 An escape is reported: a VRAT to SÚJB, quarantine material to ÚKZÚZ
 
@@ -812,14 +913,17 @@ reference, and change what it decides.
 - Q-SUJB-1 How is a destruction in the lab written in the register book (decree 474/2002 Sb.,
   Annex 3): the quantity under "Výdej", the supplier or recipient column empty or the own
   workplace, "zničení" with the method in the note, the protocol number in the document column,
-  and a reference to the protocols on the first page? Waits: the destruction protocol (#160).
+  and a reference to the protocols on the first page? Waits: the destruction protocol (part 2 of
+  #160); the record it is written from exists (R-END-05).
 - Q-SUJB-2 Which unit does a collection of cryovials use in the declaration, whose form has a
   fixed list of units without a vial, and is a destruction in the year "použití (spotřeba)"?
-  Waits: the declaration export (#160) and the unit "vials" on every register entry
+  Waits: the declaration export (part 2 of #160) and the unit "vials" on every register entry
   (R-SHIP-07).
 - Q-SUJB-3 May material from work with VRAT or RAT, inactivated in the lab by a validated
   autoclave run, go to an authorised firm as ordinary infectious waste, and what proof of the
-  inactivation is wanted? Waits: the outside firm of a destruction record (#160).
+  inactivation is wanted? Waits: nothing in the app. A record already names the firm, its
+  handover document and the in-lab inactivation it asks for (R-END-08); the answer decides
+  whether that is enough for SÚJB.
 - Q-SUJB-4 May the register be kept electronically, or does the bound book with numbered sheets
   stay the register and the app only its source? Waits: whether the app's register is the
   register or a copy (#171, ADR 0009 open question). Until then every register page says the
@@ -833,10 +937,12 @@ reference, and change what it decides.
 ### ÚKZÚZ
 
 - Q-UKZUZ-1 Is each destruction of quarantine material notified, or are the register book entry
-  and the notice of the end of the activity a month before enough? Waits: #160, #162.
+  and the notice of the end of the activity a month before enough? Waits: part 2 of #160, #162.
 - Q-UKZUZ-2 What does the register book entry of a destruction hold (day, quantity, method, who,
-  check of the effect), and how long is the book kept? Waits: #160.
+  check of the effect), and how long is the book kept? Waits: part 2 of #160. The record holds
+  all five (R-END-05, R-END-10); what the book's entry prints is the open part.
 - Q-UKZUZ-3 Does destroyed material count as material that leaves the facility, so that the
   three years of Regulation (EU) 2016/2031, Art. 62(3) apply to its records? Waits: D-14.
 - Q-UKZUZ-4 Does a destruction by a method other than the one in the authorisation need a changed
-  decision first? Waits: #160 (the method must match the authorisation).
+  decision first? Waits: nothing in the app: a record with another method is refused (R-END-09).
+  The answer decides whether the lab must hold a changed decision before it uses another method.

@@ -61,11 +61,12 @@ function mockMaterial(batches: Batch[] = [pending, ready, released, held]) {
   mockApi('get', '/api/v1/labs/{lab_public_id}/vials/', page([vialOne, vialTwo, usedVial, otherBatchVial]))
   mockApi('get', '/api/v1/labs/{lab_public_id}/storage-units/', [])
   mockApi('get', CHECKS, page([viability, wrong, identity]))
+  mockApi('get', '/api/v1/labs/{lab_public_id}/destructions/', page([]))
 }
 
 const FIRST_PAGE = { limit: 50, offset: 0, batch: undefined }
 const render = ({ canHandle = true, canRelease = false } = {}) =>
-  renderWithProviders(<StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} canRelease={canRelease} materialDestroyed={false} regulated={false} lossReported={false} canReportLoss={false} strainGrowth={noGrowth()} vialPage={FIRST_PAGE} onVialPage={() => undefined} />)
+  renderWithProviders(<StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} canRelease={canRelease} materialDestroyed={false} restrictionKinds={[]} canConfirmDestruction={false} lossReported={false} canReportLoss={false} strainGrowth={noGrowth()} vialPage={FIRST_PAGE} onVialPage={() => undefined} />)
 
 async function openChecks(number: number) {
   const user = userEvent.setup()

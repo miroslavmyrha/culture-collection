@@ -17,7 +17,7 @@ from django.db import models
 from django.db.models import F, Func, Q
 from django.db.models.lookups import Exact
 
-from cultures.biosafety.models import RestrictionKind
+from cultures.biosafety.models import DestructionMethod, LabAuthorisation, RestrictionKind
 from cultures.core.models import PublicModel
 from cultures.deposits.models import Deposit
 from cultures.growth.models import GrowthConditions, growth_constraints, medium_index
@@ -187,7 +187,7 @@ class Batch(PublicModel):
 
 
 class VialStatus(models.TextChoices):
-    """ADR 0008, D7. The edges are in EDGES below and in the vial trigger (migration 0010)."""
+    """ADR 0008, D7. The edges are in EDGES below and in the vial trigger (migration 0014)."""
 
     AVAILABLE = "available", "Available"
     RESERVED = "reserved", "Reserved"
@@ -233,15 +233,11 @@ def material_destroyed(strain: Strain) -> bool:
     return strain.status == StrainStatus.DEACCESSIONED and strain.final_use not in KEEPS_MATERIAL
 
 
-def vial_edges(strain: Strain, *, regulated: bool) -> dict[VialStatus, frozenset[VialStatus]]:
-    """The edges of the strain's vials. `regulated`: the strain has an active restriction
-    (strains.selectors.regulating_restrictions, read by the caller). ADR 0009: no single account
-    destroys a regulated strain, so until the destruction record with a second person (#160) its
-    vials take no edge to destroyed. The vial trigger (migration 0010) refuses the same."""
-    edges = EDGES_MATERIAL_DESTROYED if material_destroyed(strain) else EDGES
-    if not regulated:
-        return edges
-    return {old: targets - {S.DESTROYED} for old, targets in edges.items()}
+def vial_edges(strain: Strain) -> dict[VialStatus, frozenset[VialStatus]]:
+    """The edges of the strain's vials. The one to destroyed is taken only by a destruction
+    record (#160, services.destructions), never by a state change on its own; the vial trigger
+    (migration 0014) asks for the record at commit."""
+    return EDGES_MATERIAL_DESTROYED if material_destroyed(strain) else EDGES
 
 
 # A vial in one of these is not in a box: its placement is closed with the status as reason.
@@ -581,3 +577,202 @@ class VialLossReport(PublicModel):
 
     def __str__(self) -> str:
         return f"loss report of {self.vial_id}"
+
+
+# The destruction of material (#160, ADR 0008 and ADR 0009 amendments of 2026-11-03; study s12,
+# decisions of 2026-11-02). One record per strain per destruction: the strain's vials marked to
+# destroy go destroyed with it, their placements closed in the same transaction. The rules by
+# restriction kind are the service's (services.destructions.required_by); the trigger of
+# migration 0014 holds the shape.
+
+
+class DestructionStatus(models.TextChoices):
+    """A record is never changed or deleted. A wrong one is entered in error with a reason
+    (decree 474/2002 Sb., § 5(4): a correction keeps the original readable)."""
+
+    VALID = "valid", "Valid"
+    ENTERED_IN_ERROR = "entered_in_error", "Entered in error"
+
+
+DESTRUCTION_NUMBER_UNIQUE = "lineage_destructionrecord_lab_year_number_uniq"
+DESTRUCTION_VIAL_UNIQUE = "lineage_destructionvial_record_vial_uniq"
+
+
+class DestructionRecord(PublicModel):
+    """The destruction of vials of one strain at one time (#160). One strain per record: the
+    VRAT/RAT register keeps one sheet per agent (decree 474/2002 Sb., § 5(3) c)) and its column 7
+    cites one document. Numbered per lab and year ("2026/7"), the number part 2's protocol and
+    register line cite.
+
+    A strain that is not regulated is destroyed at recording (`completed_at` = `recorded_at`).
+    A regulated strain's record waits for a manager other than the recorder (ADR 0009, decision
+    Q2), and its vials are destroyed at the confirmation (`completed_at` = `confirmed_at`).
+    Inserted once; its one change is the confirmation or being entered in error (the trigger,
+    migration 0014). Free text names no person: who did what is a user reference only (ADR
+    0005, decision Q10)."""
+
+    lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="+")
+    strain = models.ForeignKey(Strain, on_delete=models.PROTECT, related_name="destructions")
+    # The Czech year of recording and the running number in it, per lab.
+    year = models.PositiveSmallIntegerField()
+    number = models.PositiveIntegerField()
+    # The Czech day of the destruction (decree 209/2004 Sb., § 8(8) h) "datum likvidace").
+    destroyed_on = models.DateField()
+    # How, a code on every record (decision Q5), and in words for `other` (method_detail).
+    method = models.CharField(max_length=20, choices=DestructionMethod.choices)
+    method_detail = models.CharField(max_length=200, blank=True)
+    # How the inactivation was verified (an indicator and its result, a cycle printout).
+    # Required for every regulated strain (decision Q4). Names no person.
+    verification = models.CharField(max_length=500, blank=True)
+    # The outside firm that took the material, when the lab did not finish it itself: its name
+    # and company number, with the number of the handover document (decision Q9). A sole
+    # trader's name names a person, so the row audit stores a marker and events leave it out.
+    contractor = models.CharField(max_length=200, blank=True)
+    handover_document = models.CharField(max_length=100, blank=True)
+    # The material was inactivated in the lab before it went to the firm: required for a VRAT
+    # (act 281/2002 Sb., § 13 h), decision Q9) and a RAT (§ 17a). Always true without a firm.
+    inactivated_in_lab = models.BooleanField(default=True)
+    # The autoclave cycle or run that destroyed this with other records, as the lab names it
+    # (decision Q3). Records with the same run in a lab belong together.
+    run = models.CharField(max_length=100, blank=True)
+    # Why the material was destroyed. Names no person.
+    reason = models.TextField()
+    # A VRAT: the member present at the destruction, not the recorder (decision Q2).
+    witness = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    # A quarantine pest: the lab's permit whose declared method this record used (decision Q6).
+    authorisation = models.ForeignKey(
+        LabAuthorisation, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    recorded_at = models.DateTimeField()
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    # When its vials went destroyed: null while a regulated record waits for its confirmation.
+    completed_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20, choices=DestructionStatus.choices, default=DestructionStatus.VALID
+    )
+    error_reason = models.TextField(blank=True)
+    entered_in_error_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    entered_in_error_at = models.DateTimeField(null=True, blank=True)
+
+    objects = LabScopedQuerySet["DestructionRecord"].as_manager()
+
+    class Meta(PublicModel.Meta):
+        constraints = [
+            *PublicModel.Meta.constraints,
+            models.UniqueConstraint(
+                fields=["lab", "year", "number"], name=DESTRUCTION_NUMBER_UNIQUE
+            ),
+            models.CheckConstraint(
+                condition=Q(number__gte=1), name="lineage_destructionrecord_number_positive"
+            ),
+            models.CheckConstraint(
+                condition=Q(method__in=DestructionMethod.values),
+                name="lineage_destructionrecord_method_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(method_detail="") | Q(method_detail__regex=TRIMMED),
+                name="lineage_destructionrecord_method_detail_trimmed",
+            ),
+            models.CheckConstraint(
+                condition=~Q(method=DestructionMethod.OTHER) | ~Q(method_detail=""),
+                name="lineage_destructionrecord_other_described",
+            ),
+            models.CheckConstraint(
+                condition=Q(verification="") | Q(verification__regex=TRIMMED),
+                name="lineage_destructionrecord_verification_trimmed",
+            ),
+            models.CheckConstraint(
+                condition=Q(run="") | Q(run__regex=TRIMMED),
+                name="lineage_destructionrecord_run_trimmed",
+            ),
+            # A firm with its handover document, or neither; without a firm the lab finished it.
+            models.CheckConstraint(
+                condition=Q(contractor="", handover_document="", inactivated_in_lab=True)
+                | Q(contractor__regex=TRIMMED, handover_document__regex=TRIMMED),
+                name="lineage_destructionrecord_contractor_with_document",
+            ),
+            models.CheckConstraint(
+                condition=Q(reason__regex=r"\S"), name="lineage_destructionrecord_reason_given"
+            ),
+            # Decision Q2: the second person and the witness are not the recorder.
+            models.CheckConstraint(
+                condition=Q(witness__isnull=True) | ~Q(witness=F("recorded_by")),
+                name="lineage_destructionrecord_witness_not_recorder",
+            ),
+            models.CheckConstraint(
+                condition=Q(confirmed_by__isnull=True) | ~Q(confirmed_by=F("recorded_by")),
+                name="lineage_destructionrecord_confirmer_not_recorder",
+            ),
+            models.CheckConstraint(
+                condition=Q(confirmed_at__isnull=True, confirmed_by__isnull=True)
+                | Q(
+                    confirmed_at__isnull=False,
+                    confirmed_by__isnull=False,
+                    completed_at=F("confirmed_at"),
+                ),
+                name="lineage_destructionrecord_confirmation_complete",
+            ),
+            # Done at recording, at the confirmation, or not yet.
+            models.CheckConstraint(
+                condition=Q(completed_at__isnull=True)
+                | Q(completed_at=F("recorded_at"))
+                | Q(completed_at=F("confirmed_at")),
+                name="lineage_destructionrecord_completed_when",
+            ),
+            models.CheckConstraint(
+                condition=Q(
+                    status=DestructionStatus.VALID,
+                    error_reason="",
+                    entered_in_error_by__isnull=True,
+                    entered_in_error_at__isnull=True,
+                )
+                | Q(
+                    status=DestructionStatus.ENTERED_IN_ERROR,
+                    error_reason__regex=r"\S",
+                    entered_in_error_by__isnull=False,
+                    entered_in_error_at__isnull=False,
+                ),
+                name="lineage_destructionrecord_error_complete",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"destruction {self.year}/{self.number}"
+
+    @property
+    def label(self) -> str:
+        return f"{self.year}/{self.number}"
+
+
+class DestructionVial(models.Model):
+    """One vial of a destruction record: to destroy when it is added, destroyed when the record
+    completes. Added with the record in its transaction, never changed (the trigger). A vial is
+    in one valid record at most: a record entered in error before its confirmation lets its
+    vials take a new one."""
+
+    lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="+")
+    # No index of its own: the unique (record, vial) leads with it.
+    record = models.ForeignKey(
+        DestructionRecord, on_delete=models.PROTECT, related_name="vials", db_index=False
+    )
+    vial = models.ForeignKey(Vial, on_delete=models.PROTECT, related_name="destructions")
+
+    objects = LabScopedQuerySet["DestructionVial"].as_manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["record", "vial"], name=DESTRUCTION_VIAL_UNIQUE),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.vial_id} in {self.record_id}"

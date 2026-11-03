@@ -315,6 +315,7 @@ SPECTACULAR_SETTINGS = {
         "CheckResult": "cultures.lineage.models.CheckResult",
         "CheckUnit": "cultures.lineage.models.CheckUnit",
         "CheckStatus": "cultures.lineage.models.CheckStatus",
+        "DestructionMethod": "cultures.biosafety.models.DestructionMethod",
         "LegalForm": "cultures.distribution.models.LegalForm",
         "PermitKind": "cultures.distribution.models.PermitKind",
         "RequestStatus": "cultures.distribution.models.RequestStatus",

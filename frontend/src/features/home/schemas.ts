@@ -24,6 +24,7 @@ export const KIND_TITLES: Record<Kind, string> = {
   recipient_permit_expiring: 'Recipient permits expiring',
   lab_permit_expiring: 'Lab permits expiring',
   vials_to_destroy: 'Vials to destroy',
+  destruction_to_confirm: 'Destructions to confirm',
 }
 
 export const ACTION_LABELS: Record<Action, string> = {

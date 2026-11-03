@@ -7,6 +7,7 @@ import { vialKeys } from '@/features/vials/api/keys'
 import {
   makeBatch,
   makeBoxGrid,
+  makeDestruction,
   makeDeposit,
   makeLab,
   makeLocationGrant,
@@ -90,6 +91,7 @@ function strainPage(strain = regulated, vial: ReturnType<typeof makeVial> = mask
   mockApi('get', STRAIN, strain)
   mockApi('get', PASSAGES, page([makePassage({ number: 0 })]))
   mockApi('get', BATCHES, page([makeBatch()]))
+  mockApi('get', '/api/v1/labs/{lab_public_id}/destructions/', page([]))
   mockApi('get', TERMS, { deposit: null, versions: [makeTerms()] })
   mockApi('get', HISTORY, page([makeHistoryLine()]))
   return mockApi('get', VIALS, page([vial]))
@@ -606,6 +608,29 @@ describe('a write refreshes the data other features show', () => {
     expect(client.getQueryState(grid)?.isInvalidated).toBe(true)
     expect(client.getQueryState(requests)?.isInvalidated).toBe(true)
     // The lab tabs show what waits (their counts): asked again, once.
+    expect(waiting.length - waitingBefore).toBe(1)
+  })
+
+  it('recording a destruction refreshes the strain\'s vials and marks the box grids and what waits stale (#160)', async () => {
+    const plain = { ...regulated, restriction_history: [], restrictions: [], regulated: false }
+    const marked = { ...masked, status: 'to_destroy' as const, status_changed_at: '2026-10-21T10:00:00Z' }
+    const { client, user } = await openStrainPage('technician', plain, marked)
+    const grid = vialKeys.box(LAB_ID, box.public_id)
+    client.setQueryData(grid, makeBoxGrid({ public_id: box.public_id }))
+    const waiting = mockApi('get', '/api/v1/me/overview/', makeOverview())
+    const vials = mockApi('get', VIALS, page([{ ...marked, status: 'destroyed' }]))
+    mockApi('post', '/api/v1/labs/{lab_public_id}/destructions/', makeDestruction())
+    await user.click(await screen.findByRole('button', { name: 'Record a destruction' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Record a destruction' })
+    await user.type(await within(dialog).findByRole('textbox', { name: 'Reason' }), 'Contaminated.')
+    const waitingBefore = waiting.length
+    const vialsBefore = vials.length
+    await user.click(within(dialog).getByRole('button', { name: 'Record and destroy' }))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    // The dialog closes only once the vials on screen are fresh (the page and the dialog's list).
+    expect(vials.length - vialsBefore).toBeGreaterThan(0)
+    expect(client.getQueryState(grid)?.isInvalidated).toBe(true)
+    // Home's groups (vials to destroy, destructions to confirm): asked again, once.
     expect(waiting.length - waitingBefore).toBe(1)
   })
 })

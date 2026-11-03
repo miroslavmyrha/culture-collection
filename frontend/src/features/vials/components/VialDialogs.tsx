@@ -13,6 +13,7 @@ import {
   boxOption,
   emptyLossReport,
   emptyPreserve,
+  DESTROYED_BY_RECORD,
   LOSS_DUTY,
   type LossReportForm,
   lossReportSchema,
@@ -226,23 +227,17 @@ export function PlaceVialDialog({ labId, strainId, vial, boxes, boxesFailed, ope
 type StatusProps = VialProps & {
   /** The strain was deaccessioned with its material destroyed (#150): its vials go only to destruction. */
   materialDestroyed: boolean
-  /** The strain has an active restriction: its vials are not destroyed by one person (ADR 0009, #158). */
-  regulated: boolean
   /** The strain is a VRAT or RAT: a loss is reported to the police (act 281/2002 Sb., § 5(5), #159). */
   lossReported: boolean
 }
 
-/** Why a regulated strain's vial is marked to destroy and stays so (#158, until #160). */
-export const DESTRUCTION_NEEDS_RECORD =
-  'Its strain is regulated: a vial is destroyed only with a destruction record that a second person confirms, which the collection does not keep yet. Marked to destroy, it stays so.'
-
-export function VialStatusDialog({ labId, strainId, vial, materialDestroyed, regulated, lossReported, open, onClose, onExited }: StatusProps) {
+export function VialStatusDialog({ labId, strainId, vial, materialDestroyed, lossReported, open, onClose, onExited }: StatusProps) {
   const change = useSetVialStatus(labId, strainId)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
-  const states = nextStates(vial, materialDestroyed, regulated)
+  const states = nextStates(vial, materialDestroyed)
   const found = materialDestroyed && vial.status === 'lost' ? ' Its strain was deaccessioned and its material destroyed: a found vial goes to destruction.' : ''
-  const destruction = regulated && states.includes('to_destroy') ? ` ${DESTRUCTION_NEEDS_RECORD}` : ''
+  const destruction = states.includes('to_destroy') ? ` ${DESTROYED_BY_RECORD}` : ''
 
   const { register, handleSubmit, formState, setError, control } = useForm<StatusForm>({
     resolver: zodResolver(statusSchema),
@@ -265,7 +260,7 @@ export function VialStatusDialog({ labId, strainId, vial, materialDestroyed, reg
     <ConfirmDialog
       open={open}
       title={`Change the state of vial ${vial.label}`}
-      description={`Now ${VIAL_STATUS_LABELS[vial.status].toLowerCase()}.${found}${destruction} A vial that is consumed, destroyed, lost or entered in error leaves its position.`}
+      description={`Now ${VIAL_STATUS_LABELS[vial.status].toLowerCase()}.${found}${destruction} A vial that is consumed, lost or entered in error leaves its position.`}
       confirmLabel="Save state"
       form={formId}
       pending={change.isPending}

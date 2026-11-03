@@ -22,6 +22,12 @@ export const vialKeys = {
   vialPage: (labId: string, strainId: string, page: VialPage) => [...vialKeys.vials(labId, strainId), page] as const,
   /** The checks of one batch, under its strain: a check, a release or a hold refreshes them with the rest. */
   checks: (labId: string, strainId: string, batchId: string) => [...vialKeys.strain(labId, strainId), 'checks', batchId] as const,
+  /** The strain's destruction records (#160), under its material: every strain write refreshes them. */
+  destructions: (labId: string, strainId: string) => [...vialKeys.strain(labId, strainId), 'destructions'] as const,
+  /** The strain's vials marked to destroy, which a destruction record takes. */
+  toDestroy: (labId: string, strainId: string) => [...vialKeys.vials(labId, strainId), 'to-destroy'] as const,
+  /** Who may witness a destruction: the lab's members who handle vials, under the members' root. */
+  witnesses: (labId: string) => [...sharedKeys.members(labId), 'witnesses'] as const,
   boxGrids: sharedKeys.boxGrids,
   box: (labId: string, boxId: string) => [...vialKeys.boxGrids(labId), boxId] as const,
   /**

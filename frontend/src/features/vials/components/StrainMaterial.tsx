@@ -26,6 +26,7 @@ import {
 } from '../schemas'
 import { BatchChecks } from './BatchChecks'
 import { BatchDecisionDialog, CheckErrorDialog, RecordCheckDialog } from './CheckDialogs'
+import { Destructions } from './Destructions'
 import { PlaceVialsDialog } from './PlaceVialsDialog'
 import { scrollable } from './scroll'
 import { VialPlace } from './VialPlace'
@@ -41,8 +42,10 @@ type Props = {
   canRelease: boolean
   /** The strain was deaccessioned with its material destroyed (#150): its vials go only to destruction. */
   materialDestroyed: boolean
-  /** The strain has an active restriction (ADR 0009): its vials are not destroyed by one person (#158). */
-  regulated: boolean
+  /** The strain's active restriction kinds, undefined until it loaded: what its destruction record asks (#160). */
+  restrictionKinds: readonly string[] | undefined
+  /** Managers confirm a regulated strain's destruction (#160). */
+  canConfirmDestruction: boolean
   /** The strain is a VRAT or RAT: a loss is reported to the police (act 281/2002 Sb., § 5(5), #159). */
   lossReported: boolean
   /** Managers record that a loss was reported (#159). */
@@ -68,7 +71,7 @@ type Open =
  * a regulated strain's places are masked, and only a holder of the lab's location grant
  * reveals one (ADR 0009). A batch's checks open in its row (D16): technicians record them,
  * curators release and hold. Vials in no box are selected in their rows and placed into one box
- * in one step (#77).
+ * in one step (#77). Vials marked to destroy are destroyed only with a destruction record (#160).
  */
 export function StrainMaterial({
   labId,
@@ -78,7 +81,8 @@ export function StrainMaterial({
   canHandle,
   canRelease,
   materialDestroyed,
-  regulated,
+  restrictionKinds,
+  canConfirmDestruction,
   lossReported,
   canReportLoss,
   vialPage,
@@ -354,7 +358,7 @@ export function StrainMaterial({
                       </TableCell>
                       {canHandle && (
                         <TableCell>
-                          <Actions vial={v} materialDestroyed={materialDestroyed} regulated={regulated} canReportLoss={canReportLoss} show={showFrom} />
+                          <Actions vial={v} materialDestroyed={materialDestroyed} canReportLoss={canReportLoss} show={showFrom} />
                         </TableCell>
                       )}
                     </TableRow>
@@ -373,6 +377,10 @@ export function StrainMaterial({
             />
           </>
         )}
+      </Section>
+
+      <Section title="Destruction">
+        <Destructions labId={labId} strainId={strainId} accession={accession} kinds={restrictionKinds} canHandle={canHandle} canConfirm={canConfirmDestruction} />
       </Section>
 
       {/* Mounted until they have faded out, so onExited can place the focus; outside the
@@ -395,7 +403,7 @@ export function StrainMaterial({
         />
       )}
       {open?.kind === 'status' && (
-        <VialStatusDialog {...common} vial={open.vial} materialDestroyed={materialDestroyed} regulated={regulated} lossReported={lossReported} open={open.open} />
+        <VialStatusDialog {...common} vial={open.vial} materialDestroyed={materialDestroyed} lossReported={lossReported} open={open.open} />
       )}
       {open?.kind === 'loss-report' && open.vial.status_changed_at !== null && (
         <LossReportDialog {...common} vial={open.vial} lostAt={open.vial.status_changed_at} open={open.open} />
@@ -524,7 +532,6 @@ function PlaceSeveral({ loose, selected, onAll, onPlace }: PlaceSeveralProps) {
 type ActionsProps = {
   vial: Vial
   materialDestroyed: boolean
-  regulated: boolean
   canReportLoss: boolean
   show: (next: NonNullable<Open>) => (button: HTMLButtonElement) => void
 }
@@ -533,10 +540,10 @@ type ActionsProps = {
  * A vial's bench work in one menu per row (#19): move or place, change its state, revive it; for
  * a manager, record the police report of a loss that owes one (#159).
  */
-function Actions({ vial, materialDestroyed, regulated, canReportLoss, show }: ActionsProps) {
+function Actions({ vial, materialDestroyed, canReportLoss, show }: ActionsProps) {
   const items: ActionItem[] = []
   if (!OUT_OF_A_BOX.includes(vial.status)) items.push({ label: vial.placed ? 'Move' : 'Place', onSelect: show({ kind: 'place', vial, open: true }) })
-  if (nextStates(vial, materialDestroyed, regulated).length > 0) items.push({ label: 'Change state', onSelect: show({ kind: 'status', vial, open: true }) })
+  if (nextStates(vial, materialDestroyed).length > 0) items.push({ label: 'Change state', onSelect: show({ kind: 'status', vial, open: true }) })
   if (vial.status === 'available') items.push({ label: 'Revive', onSelect: show({ kind: 'revive', vial, open: true }) })
   if (canReportLoss && vial.police_report?.reported_on === null) items.push({ label: 'Record the police report', onSelect: show({ kind: 'loss-report', vial, open: true }) })
   if (items.length === 0) return <Typography variant="body2" color="text.secondary">None</Typography>

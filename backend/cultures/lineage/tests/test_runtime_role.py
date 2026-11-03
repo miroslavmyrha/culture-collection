@@ -21,7 +21,6 @@ from cultures.lineage.models import (
     VialStatus,
 )
 from cultures.storage.tests.conftest import Tree
-from cultures.strains.models import Strain
 from cultures.users.models import User
 
 from .support import deaccession, new_batch, new_check, open_place, record, vials_of
@@ -107,40 +106,6 @@ def test_the_runtime_role_cannot_bring_back_a_vial_of_a_strain_whose_material_wa
     assert runtime_role.fetchone() == ("to_destroy",)
 
 
-@pytest.mark.rule("R-END-03")
-def test_the_runtime_role_cannot_destroy_a_vial_of_a_regulated_strain(
-    *,
-    as_technician: AuditContext,
-    technician: User,
-    passage0: Passage,
-    regulated: Strain,
-    runtime_role: CursorWrapper,
-) -> None:
-    """#158, ADR 0009: written past the services as the app's own role, a regulated strain's
-    vial to destroy stays so; a vial of a strain without restrictions is destroyed."""
-    access = access_for(technician)
-    vials = {}
-    for strain, passage in (
-        (regulated, Passage.objects.get(strain=regulated, number=0)),
-        (passage0.strain, passage0),
-    ):
-        batch = services.batch_preserve(access=access, passage=passage, data=new_batch())
-        vials[strain.pk] = vial = vials_of(batch)[0]
-        services.vial_transition(
-            access=access, vial=vial, status=VialStatus.TO_DESTROY, reason="tube cracked"
-        )
-    refused(
-        runtime_role,
-        f"UPDATE lineage_vial SET status = 'destroyed' WHERE id = {vials[regulated.pk].pk}",  # noqa: S608 (a pk)
-        "a vial of a regulated strain is destroyed only with a destruction record",
-    )
-    runtime_role.execute(
-        "UPDATE lineage_vial SET status = 'destroyed' WHERE id = %s RETURNING status",
-        [vials[passage0.strain_id].pk],
-    )
-    assert runtime_role.fetchone() == ("destroyed",)
-
-
 @pytest.mark.parametrize(
     "table",
     [
@@ -149,6 +114,8 @@ def test_the_runtime_role_cannot_destroy_a_vial_of_a_regulated_strain(
         "lineage_vialplacement",
         "lineage_passage",
         "lineage_batchcheck",
+        "lineage_destructionrecord",
+        "lineage_destructionvial",
     ],
 )
 def test_the_runtime_role_deletes_nothing(

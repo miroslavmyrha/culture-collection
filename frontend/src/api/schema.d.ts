@@ -454,6 +454,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/destructions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        get: operations["labs_destructions_list"];
+        put?: never;
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        post: operations["labs_destructions_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/destructions/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        get: operations["labs_destructions_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/destructions/{public_id}/confirm/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        post: operations["labs_destructions_confirm_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/destructions/{public_id}/enter-in-error/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        post: operations["labs_destructions_enter_in_error_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/documents/{public_id}/": {
         parameters: {
             query?: never;
@@ -2513,6 +2597,97 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        DestructionErrorInputRequest: {
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
+        DestructionInputRequest: {
+            /** Format: uuid */
+            strain: string;
+            vials: string[];
+            /** Format: date */
+            destroyed_on: string;
+            method: components["schemas"]["DestructionMethod"];
+            /**
+             * @description The method in words: required for other. Name no person.
+             * @default
+             */
+            method_detail: string;
+            /**
+             * @description How the inactivation was verified, for example the indicator and its result. Required for a regulated strain. Name no person.
+             * @default
+             */
+            verification: string;
+            /**
+             * @description The outside firm that took the material: its name and company number.
+             * @default
+             */
+            contractor: string;
+            /** @default  */
+            handover_document: string;
+            /** @default true */
+            inactivated_in_lab: boolean;
+            /**
+             * @description The autoclave cycle or run, as the lab names it. Name no person.
+             * @default
+             */
+            run: string;
+            /** Format: uuid */
+            witness?: string | null;
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
+        /**
+         * @description * `autoclave` - Autoclaving
+         *     * `chemical` - Chemical inactivation
+         *     * `incineration` - Incineration
+         *     * `other` - Other
+         * @enum {string}
+         */
+        DestructionMethod: "autoclave" | "chemical" | "incineration" | "other";
+        /**
+         * @description A destruction record as recorded. People are usernames, shown to the lab's members like
+         *     the member list; the audit trail holds only their ids (ADR 0005).
+         */
+        DestructionOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly number: string;
+            /** Format: uuid */
+            readonly strain: string;
+            /** Format: date */
+            readonly destroyed_on: string;
+            readonly method: components["schemas"]["DestructionMethod"];
+            readonly method_detail: string;
+            readonly verification: string;
+            readonly contractor: string;
+            readonly handover_document: string;
+            readonly inactivated_in_lab: boolean;
+            readonly run: string;
+            readonly reason: string;
+            readonly witness: string | null;
+            readonly permit_reference: string | null;
+            readonly recorded_by: string;
+            /** Format: date-time */
+            readonly recorded_at: string;
+            readonly confirmed_by: string | null;
+            /** Format: date-time */
+            readonly confirmed_at: string | null;
+            /** Format: date-time */
+            readonly completed_at: string | null;
+            readonly awaits_confirmation: boolean;
+            readonly status: components["schemas"]["CheckStatus"];
+            readonly error_reason: string;
+            readonly entered_in_error_by: string | null;
+            /** Format: date-time */
+            readonly entered_in_error_at: string | null;
+            readonly vials: components["schemas"]["DestructionVial"][];
+        };
+        DestructionVial: {
+            /** Format: uuid */
+            public_id: string;
+            readonly label: string;
+        };
         DocumentOutput: {
             /** Format: uuid */
             readonly public_id: string;
@@ -2669,6 +2844,7 @@ export interface components {
             /** Format: date */
             readonly ended_on: string | null;
             readonly end_reason: string;
+            readonly destruction_method: components["schemas"]["DestructionMethod"] | components["schemas"]["BlankEnum"];
             readonly standing: components["schemas"]["StandingEnum"];
             /** Format: date */
             readonly last_valid_day: string | null;
@@ -2987,6 +3163,21 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["DepositorOutput"][];
+        };
+        PaginatedDestructionOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["DestructionOutput"][];
         };
         PaginatedLabOutputList: {
             /** @example 123 */
@@ -4178,12 +4369,11 @@ export interface components {
          *     * `consumed` - Consumed
          *     * `quarantined` - Quarantined
          *     * `to_destroy` - To destroy
-         *     * `destroyed` - Destroyed
          *     * `lost` - Lost
          *     * `entered_in_error` - Entered in error
          * @enum {string}
          */
-        VialStatusInputStatusEnum: "available" | "consumed" | "quarantined" | "to_destroy" | "destroyed" | "lost" | "entered_in_error";
+        VialStatusInputStatusEnum: "available" | "consumed" | "quarantined" | "to_destroy" | "lost" | "entered_in_error";
         VratAccessEndInputRequest: {
             /** @description Why, in a sentence. Stored for good: name no person. */
             reason: string;
@@ -4232,9 +4422,10 @@ export interface components {
          *     * `recipient_permit_expiring` - recipient_permit_expiring
          *     * `lab_permit_expiring` - lab_permit_expiring
          *     * `vials_to_destroy` - vials_to_destroy
+         *     * `destruction_to_confirm` - destruction_to_confirm
          * @enum {string}
          */
-        WaitingGroupKindEnum: "loss_to_report" | "deposit_received" | "deposit_checking" | "batch_checks_missing" | "batch_to_release" | "batch_on_hold" | "request_to_decide" | "shipment_to_confirm" | "request_to_ship" | "recipient_permit_expiring" | "lab_permit_expiring" | "vials_to_destroy";
+        WaitingGroupKindEnum: "loss_to_report" | "deposit_received" | "deposit_checking" | "batch_checks_missing" | "batch_to_release" | "batch_on_hold" | "request_to_decide" | "shipment_to_confirm" | "request_to_ship" | "recipient_permit_expiring" | "lab_permit_expiring" | "vials_to_destroy" | "destruction_to_confirm";
         WaitingItem: {
             /** Format: uuid */
             readonly lab: string;
@@ -6176,6 +6367,360 @@ export interface operations {
                 };
             };
             /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_destructions_list: {
+        parameters: {
+            query?: {
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+                strain?: string;
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedDestructionOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_destructions_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DestructionInputRequest"];
+                "multipart/form-data": components["schemas"]["DestructionInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DestructionOutput"];
+                };
+            };
+            /** @description Invalid input on a field: an unknown strain, vial (vials.<i>) or member, a vial twice, a date in the future or before a vial was marked to destroy, other without its description, a firm without its handover document; for a regulated strain a missing verification; for a VRAT a missing witness, one who is the recorder (witness_is_recorder) or one who was not on the lab's VRAT access list on the day (witness_without_vrat_access), material handed to a firm alive (inactivate_before_handover); for a quarantine pest no permit on the day (lab_authorisation_required) or another method than the permit declares (method_not_authorised) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description vial_not_to_destroy and vial_in_destruction (on vials.<i>); destruction_not_awaiting: the record was confirmed, entered in error or needed no confirmation; destruction_outdated: the strain's restrictions changed and the record no longer holds what they ask; destruction_entered_in_error */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required; authorisation_method_missing: the lab's ÚKZÚZ permit has no declared destruction method recorded */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_destructions_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DestructionOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_destructions_confirm_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DestructionOutput"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description vial_not_to_destroy and vial_in_destruction (on vials.<i>); destruction_not_awaiting: the record was confirmed, entered in error or needed no confirmation; destruction_outdated: the strain's restrictions changed and the record no longer holds what they ask; destruction_entered_in_error */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_destructions_enter_in_error_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DestructionErrorInputRequest"];
+                "multipart/form-data": components["schemas"]["DestructionErrorInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DestructionOutput"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description vial_not_to_destroy and vial_in_destruction (on vials.<i>); destruction_not_awaiting: the record was confirmed, entered in error or needed no confirmation; destruction_outdated: the strain's restrictions changed and the record no longer holds what they ask; destruction_entered_in_error */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -11545,6 +12090,18 @@ export interface operations {
                 limit?: number;
                 /** @description The initial index from which to return the results. */
                 offset?: number;
+                /**
+                 * @description * `available` - Available
+                 *     * `reserved` - Reserved
+                 *     * `consumed` - Consumed
+                 *     * `quarantined` - Quarantined
+                 *     * `to_destroy` - To destroy
+                 *     * `destroyed` - Destroyed
+                 *     * `lost` - Lost
+                 *     * `distributed` - Distributed
+                 *     * `entered_in_error` - Entered in error
+                 */
+                status?: "available" | "consumed" | "destroyed" | "distributed" | "entered_in_error" | "lost" | "quarantined" | "reserved" | "to_destroy";
                 strain?: string;
                 vial?: string;
             };
@@ -12048,7 +12605,7 @@ export interface operations {
                     "application/json": components["schemas"]["VialOutput"];
                 };
             };
-            /** @description Invalid input on a field. On the status: transition_not_allowed, a state that cannot follow; vial_has_history, entered in error after a change; strain_material_destroyed, the strain was deaccessioned with its material destroyed and its vials go only to destruction; destruction_needs_record, the strain is regulated and its vial is destroyed only with a destruction record a second person confirms (ADR 0009) */
+            /** @description Invalid input on a field. On the status: transition_not_allowed, a state that cannot follow; vial_has_history, entered in error after a change; strain_material_destroyed, the strain was deaccessioned with its material destroyed and its vials go only to destruction. A vial is destroyed only through a destruction record (#160) */
             400: {
                 headers: {
                     [name: string]: unknown;

@@ -22,6 +22,8 @@ export type CheckStage = Schemas['CheckStage']
 export type CheckMethod = Schemas['CheckMethod']
 export type CheckResult = Schemas['CheckResult']
 export type CheckUnit = Schemas['CheckUnit']
+export type Destruction = Schemas['DestructionOutput']
+export type DestructionMethod = Schemas['DestructionMethod']
 
 /**
  * The Material tab's URL (#72): a page of the strain's vials, of all batches or of one. A
@@ -71,13 +73,14 @@ export const VIAL_STATUS_LABELS: Record<VialStatus, string> = {
 
 /**
  * The states a person may set from each state (ADR 0008, D7, without reservation and dispatch,
- * which distribution records). The server checks the same edges; this only offers them.
+ * which distribution records, and without destroyed, which only a destruction record sets, #160).
+ * The server checks the same edges; this only offers them.
  */
 export const NEXT_STATES: Record<VialStatus, ManualStatus[]> = {
   available: ['quarantined', 'to_destroy', 'consumed', 'lost', 'entered_in_error'],
   reserved: ['to_destroy'],
   quarantined: ['available', 'to_destroy'],
-  to_destroy: ['destroyed'],
+  to_destroy: [],
   lost: ['available'],
   consumed: [],
   destroyed: [],
@@ -93,7 +96,7 @@ export const NEXT_STATES_MATERIAL_DESTROYED: Record<VialStatus, ManualStatus[]> 
   available: ['to_destroy', 'consumed', 'lost', 'entered_in_error'],
   reserved: ['to_destroy'],
   quarantined: ['to_destroy'],
-  to_destroy: ['destroyed'],
+  to_destroy: [],
   lost: ['to_destroy'],
   consumed: [],
   destroyed: [],
@@ -113,16 +116,14 @@ const KEEPS_MATERIAL: readonly string[] = ['collection', 'storage']
 export const strainMaterialDestroyed = (strain: { status: Schemas['StrainStatus']; deaccession: { final_use: string } | null }): boolean =>
   strain.status === 'deaccessioned' && !KEEPS_MATERIAL.includes(strain.deaccession?.final_use ?? '')
 
-/**
- * `regulated`: the strain has an active restriction (the server's `regulated`). ADR 0009: no
- * single account destroys a regulated strain, so until the destruction record with a second
- * person (#160) its vials are not offered "Destroyed" (lineage.models.vial_edges).
- */
-export const nextStates = (vial: Vial, materialDestroyed: boolean, regulated: boolean): ManualStatus[] =>
+export const nextStates = (vial: Vial, materialDestroyed: boolean): ManualStatus[] =>
   (materialDestroyed ? NEXT_STATES_MATERIAL_DESTROYED : NEXT_STATES)[vial.status].filter(
     // Entered in error only while the state never changed (the server says so too).
-    (s) => (s !== 'entered_in_error' || vial.status_changed_at === null) && (s !== 'destroyed' || !regulated),
+    (s) => s !== 'entered_in_error' || vial.status_changed_at === null,
   )
+
+/** What the state dialog says when To destroy is offered (#160). */
+export const DESTROYED_BY_RECORD = 'A vial marked to destroy is destroyed with a destruction record, in the Destruction section of this tab.'
 
 /**
  * Act 281/2002 Sb., § 5(5) (#159): whoever finds a loss of a highly risky (VRAT) or risky (RAT)
@@ -232,7 +233,7 @@ export type PlaceForm = z.input<typeof placeSchema>
 export type PlaceValues = z.output<typeof placeSchema>
 
 export const statusSchema = z.object({
-  status: z.enum(['available', 'consumed', 'quarantined', 'to_destroy', 'destroyed', 'lost', 'entered_in_error'], 'Choose the new state'),
+  status: z.enum(['available', 'consumed', 'quarantined', 'to_destroy', 'lost', 'entered_in_error'], 'Choose the new state'),
   reason: reasonSchema,
 })
 export type StatusForm = z.input<typeof statusSchema>
@@ -368,3 +369,94 @@ export function emptyCheck(batch: Batch): CheckForm {
 /** A release, a hold or a check entered in error: why, in a sentence. */
 export const decisionSchema = z.object({ reason: reasonSchema })
 export type DecisionForm = z.input<typeof decisionSchema>
+
+// The destruction record (#160). One record per strain per destruction; what it asks depends on
+// the strain's active restriction kinds (lineage.services.destructions.Required, decisions of the
+// destruction study). The server checks every rule again; this only asks for the fields.
+export const DESTRUCTION_METHOD_LABELS: Record<DestructionMethod, string> = {
+  autoclave: 'Autoclaving',
+  chemical: 'Chemical inactivation',
+  incineration: 'Incineration',
+  other: 'Other',
+}
+
+export type DestructionRules = {
+  /** A manager other than the recorder confirms it, and the vials go then (ADR 0009). */
+  confirmation: boolean
+  /** How the inactivation was verified. */
+  verification: boolean
+  /** A VRAT: the member present at the destruction. */
+  witness: boolean
+  /** A VRAT or RAT goes to an outside firm only inactivated in the lab (act 281/2002 Sb., § 13 h), § 17a). */
+  inactivatedBeforeHandover: boolean
+  /** A quarantine pest: the method its permit declares. */
+  declaredMethod: boolean
+}
+
+/** The rules of a strain with these active restriction kinds: the union of the kinds' rules. */
+export function destructionRules(kinds: readonly string[]): DestructionRules {
+  const regulated = kinds.length > 0
+  return {
+    confirmation: regulated,
+    verification: regulated,
+    witness: kinds.includes('cz_vrat'),
+    inactivatedBeforeHandover: kinds.includes('cz_vrat') || kinds.includes('cz_rat'),
+    declaredMethod: kinds.includes('quarantine_pest'),
+  }
+}
+
+/** Managers confirm a regulated strain's destruction (vials.confirm_destruction). The server decides; this only hides. */
+export const canConfirmDestruction = (role: Role | undefined): boolean => role === 'manager'
+
+const optionalText = (max: number) => z.string().trim().max(max, `Use at most ${max} characters`)
+
+export const destructionSchema = (rules: DestructionRules) =>
+  z
+    .object({
+      vials: z.array(z.string()).min(1, 'Choose at least one vial'),
+      destroyed_on: z.iso.date('Enter a date as YYYY-MM-DD').refine((d) => d <= today(), 'This date is in the future'),
+      method: z.enum(['autoclave', 'chemical', 'incineration', 'other'], 'Choose how it was destroyed'),
+      method_detail: optionalText(200),
+      verification: optionalText(500),
+      outside: z.boolean(),
+      contractor: optionalText(200),
+      handover_document: optionalText(100),
+      inactivated_in_lab: z.boolean(),
+      run: optionalText(100),
+      witness: z.string(),
+      reason: reasonSchema,
+    })
+    .superRefine((v, ctx) => {
+      if (v.method === 'other' && v.method_detail === '') ctx.addIssue({ code: 'custom', path: ['method_detail'], message: 'Describe the method' })
+      if (rules.verification && v.verification === '') ctx.addIssue({ code: 'custom', path: ['verification'], message: 'Say how the inactivation was verified' })
+      if (rules.witness && v.witness === '') ctx.addIssue({ code: 'custom', path: ['witness'], message: 'Choose the member who witnessed it' })
+      if (v.outside && v.contractor === '') ctx.addIssue({ code: 'custom', path: ['contractor'], message: 'Name the firm' })
+      if (v.outside && v.handover_document === '') ctx.addIssue({ code: 'custom', path: ['handover_document'], message: 'Give the number of the handover document' })
+      if (v.outside && rules.inactivatedBeforeHandover && !v.inactivated_in_lab)
+        ctx.addIssue({ code: 'custom', path: ['inactivated_in_lab'], message: 'A highly risky or risky agent (VRAT, RAT) is inactivated in the lab before a firm takes it' })
+    })
+export type DestructionForm = z.input<ReturnType<typeof destructionSchema>>
+export type DestructionValues = z.output<ReturnType<typeof destructionSchema>>
+
+export const emptyDestruction = (): DestructionForm => ({
+  vials: [],
+  destroyed_on: today(),
+  method: 'autoclave',
+  method_detail: '',
+  verification: '',
+  outside: false,
+  contractor: '',
+  handover_document: '',
+  inactivated_in_lab: true,
+  run: '',
+  witness: '',
+  reason: '',
+})
+
+/** What a record's row says of where it stands. */
+export function destructionState(d: Destruction): string {
+  if (d.status === 'entered_in_error') return `Entered in error by ${d.entered_in_error_by ?? ''}: ${d.error_reason}`
+  if (d.awaits_confirmation) return `Waits for a manager other than ${d.recorded_by} to confirm`
+  if (d.confirmed_by) return `Destroyed. Recorded by ${d.recorded_by}, confirmed by ${d.confirmed_by}`
+  return `Destroyed. Recorded by ${d.recorded_by}`
+}

@@ -29,6 +29,7 @@ MATRIX = [
     (Perm.MANAGE_MEDIA, {C, M}),
     (Perm.CONFIRM_RESTRICTION_END, {M}),
     (Perm.CONFIRM_DEACCESSION, {M}),
+    (Perm.CONFIRM_DESTRUCTION, {M}),
     (Perm.VIEW_DEPOSITS, {C, M}),
     (Perm.VIEW_TERMS, {V, T, C, M}),
     (Perm.MANAGE_DEPOSITS, {C, M}),

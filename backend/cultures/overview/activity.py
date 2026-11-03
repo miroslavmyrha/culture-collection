@@ -133,6 +133,13 @@ SHOWN: dict[str, Shown] = {
     "vials_marked_for_destruction": Shown(
         S, "marked {count} vials of {subject} for destruction", STRAIN
     ),
+    # #160: the record names the strain; the firm and the people are not on the line.
+    "destruction_recorded": Shown(S, "recorded the destruction of vials of {subject}", STRAIN),
+    "destruction_confirmed": Shown(S, "confirmed the destruction of vials of {subject}", STRAIN),
+    "destruction_entered_in_error": Shown(
+        S, "entered a destruction record of {subject} in error", STRAIN
+    ),
+    "vials_destroyed": Shown(S, "destroyed {count} vials of {subject}", STRAIN),
     "vial_moved": Shown(S, "moved vial {subject}", VIAL),
     "vial_status_changed": Shown(S, "set vial {subject} to {status}", VIAL),
     "vial_barcode_set": Shown(S, "set the barcode of vial {subject}", VIAL),

@@ -28,7 +28,7 @@ from cultures.strains import services as strains
 from cultures.strains.services import RestrictionInput
 from cultures.users.models import User
 
-from .support import MakeBatch, new_batch, new_check, vials_of
+from .support import MakeBatch, new_batch, new_check, new_destruction, vials_of
 
 pytestmark = pytest.mark.django_db
 
@@ -60,6 +60,9 @@ SCENARIOS: dict[str, Scenario] = {
     "batch_release": lambda a, p, v, t: _decide(a, v, services.batch_release),
     "batch_hold": lambda a, p, v, t: _decide(a, v, services.batch_hold),
     "vial_loss_report": lambda a, p, v, t: _report_loss(a, v),
+    "destruction_record": lambda a, p, v, t: _record_destruction(a, v),
+    "destruction_confirm": lambda a, p, v, t: _confirm_destruction(a, v),
+    "destruction_enter_in_error": lambda a, p, v, t: _destruction_in_error(a, v),
 }
 
 
@@ -118,7 +121,43 @@ def _report_loss(access: Access, vial: Vial) -> Callable[[], object]:
     )
 
 
+def _record_destruction(access: Access, vial: Vial) -> Callable[[], object]:
+    """The vial in Box 1 marked to destroy first; a strain without restrictions is destroyed at
+    once, so its placement closes too."""
+    services.vial_transition(access=access, vial=vial, status=VialStatus.TO_DESTROY, reason="r")
+    strain = vial.batch.strain
+    return lambda: services.destruction_record(
+        access=access, strain=strain, data=new_destruction([vial])
+    )
+
+
+def _confirm_destruction(access: Access, vial: Vial) -> Callable[[], object]:
+    """The strain made a RAT, the vial recorded by the technician; a manager confirms."""
+    curator = User.objects.get(username="curator")
+    strains.strain_restriction_add(
+        access=access_for(curator),
+        strain=vial.batch.strain,
+        restriction=RestrictionInput(RestrictionKind.CZ_RAT, "Příloha 2, bod 1"),
+        reason="listed",
+    )
+    services.vial_transition(access=access, vial=vial, status=VialStatus.TO_DESTROY, reason="r")
+    record = services.destruction_record(
+        access=access, strain=vial.batch.strain, data=new_destruction([vial])
+    )
+    manager = access_for(member_of(vial.lab, Role.MANAGER, "destruction-manager"))
+    return lambda: services.destruction_confirm(access=manager, record=record)
+
+
+def _destruction_in_error(access: Access, vial: Vial) -> Callable[[], object]:
+    services.vial_transition(access=access, vial=vial, status=VialStatus.TO_DESTROY, reason="r")
+    record = services.destruction_record(
+        access=access, strain=vial.batch.strain, data=new_destruction([vial])
+    )
+    return lambda: services.destruction_enter_in_error(access=access, record=record, reason="typo")
+
+
 EXEMPT: dict[str, str] = {
+    "required_for": "a read the destruction services call under their lock",
     "is_regulated": "a read the reveal calls under its lock",
     "kinds_text": "names of kinds joined, no query",
     "latest_checks": "a read the check services call under their lock",
@@ -211,6 +250,15 @@ def test_the_lab_lock_comes_first(
         assert batch_lock < vial_lock, f"{name} locks the vial before the batch"
     if name in CHECK_SERVICES:
         assert batch_lock is not None, f"{name} decides on a batch it never locked"
+    if name.startswith("destruction_"):
+        strain_lock = first(statements, locks("strains_strain"))
+        record_lock = first(statements, locks("lineage_destructionrecord"))
+        assert strain_lock is not None, f"{name} never locks the strain"
+        assert vial_lock is None or strain_lock < vial_lock, f"{name} locks a vial first"
+        if name != "destruction_record":
+            assert record_lock is not None, f"{name} changes a record it never locked"
+            assert strain_lock < record_lock, f"{name} locks the record before the strain"
+            assert vial_lock is None or record_lock < vial_lock, f"{name}: vial before record"
     if name in ("vial_place", "vials_place", "vial_transition", "vial_set_barcode", "vial_revive"):
         assert vial_lock is not None, f"{name} changes a vial it never locked"
     if name in ("vial_place", "vials_place", "batch_preserve"):

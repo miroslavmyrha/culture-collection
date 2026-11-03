@@ -741,3 +741,86 @@ Migration impact: additive, `labs` 0005 and 0006 (the table, then its row audit 
 the two deferred triggers on `users_user` and `labs_membership`), and two more event types in the
 reason constraint of `audit_auditevent` (`audit` 0030, NOT VALID, validated by 0031). Reversible:
 `migrate labs 0004` and `migrate audit 0029`.
+
+## Amendment 2026-11-03: the destruction record and its second person (#160)
+
+The amendment of 2026-11-02 (#158) refused the destruction of a regulated strain's vial until a
+record with a second person existed. That record now exists, and it is the only way any vial
+becomes destroyed (ADR 0008, amendment of the same day). What it asks depends on the strain's
+active restriction kinds (`strains.selectors.regulating_restrictions()`, the union when a strain
+has several), from the destruction study and the owner's decisions of 2026-11-02:
+
+| Rule | none | `cz_vrat` | `cz_rat` | `dual_use` | `quarantine_pest` | `gmo` |
+|---|---|---|---|---|---|---|
+| a method code | yes | yes | yes | yes | yes | yes |
+| a verification of the inactivation | no | yes | yes | yes | yes | yes |
+| a manager other than the recorder confirms; the vials go then | no | yes | yes | yes | yes | yes |
+| a witness, a member other than the recorder with VRAT access that day | no | yes | no | no | no | no |
+| inactivated in the lab before an outside firm takes it | no | yes | yes | no | no | no |
+| the method the lab's permit declares | no | no | no | no | yes | no |
+
+Sources and reasons:
+
+- **Second person.** No law found asks one for any kind (act 281/2002 Sb., decree 474/2002 Sb.,
+  act 78/2004 Sb., decree 209/2004 Sb., Directive 2009/41/EC, Regulations 2016/2031, 2019/829,
+  2021/821). It is this ADR's own rule ("No single account can destroy ... a regulated strain"),
+  backed by WHO's Laboratory biosecurity guidance (2024, p. 31: "removal of biological material
+  from the inventory by two employees"). The confirmer holds `vials.confirm_destruction`
+  (managers), as the deaccession's (#20). The recorder never confirms, also as a manager: the
+  service refuses (403 `confirm_own_destruction`) and a check constraint holds it. The service
+  re-reads the confirmer's role under the lab lock.
+- **Witness for a VRAT** (decision Q2): not found in the law either; a choice for the highest
+  risk. The witness is an active member of the lab who handles vials, other than the recorder,
+  named by user (ADR 0005: a user reference, never a name). Decided 2026-11-03 and built here:
+  the witness was also on the lab's VRAT access list (act 281/2002 Sb., § 14a(4), the list of
+  #167) at the destruction, so only a person the lab approved for the agent witnesses it. The
+  service asks `labs.selectors.has_vrat_access` under the lab lock it holds, and the record's
+  guard reads `labs_vrataccess` in SQL for the same answer (400 `witness_without_vrat_access`).
+  A record holds the day of the destruction, not its time, so both read the list at the end of
+  that Czech day: a person put on the list on the day of the destruction counts, one whose access
+  ended before the day was over does not, and a record of a past day asks the list as it was
+  then (the entries are history, so the answer never changes afterwards). The witness select
+  offers the lab's members who handle vials, not the access list: reading the list needs
+  `labs.manage_members` (#167), which the technician who records a destruction does not hold, so
+  the form says the rule and the server refuses what breaks it.
+- **Inactivated before an outside firm, VRAT and RAT** (decision Q9, extended to RAT by the
+  owner on 2026-11-03): act 281/2002 Sb., § 13 h) lets a VRAT holder give the agent only to
+  another permit holder, and SÚJB's page "Přesun a předání VRAT nebo RAT v rámci ČR" says "RAT si
+  mohou navzájem poskytovat pouze osoby, které SÚJB ohlásily nakládání s RAT podle § 17a". A
+  waste firm usually holds no permit and made no such notice.
+- **Verification for every regulated kind** (decision Q4): the law asks it only for a GMO
+  (decree 209/2004 Sb., § 8(8) h)); WHO LBM4 asks a validated decontamination for any agent.
+- **The declared method for a quarantine pest** (decision Q6): Regulation (EU) 2019/829, Annex I
+  (i) asks the application for "the method of destruction or treatment of the specified material
+  on completion of the specified activity", and both ÚKZÚZ forms ask for it. The lab's permit
+  row now stores it (`biosafety.LabAuthorisation.destruction_method`, set by staff with the
+  permit, only for a quarantine pest's permit, a check constraint). A record uses the method of
+  the permit in force on the day of the destruction, else of the last one started before it
+  (material is destroyed when the activity ends, after a permit too: 2019/829, Art. 5 (d)), and
+  names that permit. Another method is refused (`method_not_authorised`); the refusal says a
+  change is notified to ÚKZÚZ first. A permit recorded before #160 has no method: staff record
+  the permit again with its method (`authorisation_method_missing`), as for any wrong permit row.
+- **A found vial of a destroyed strain** (#150, decision Q11) takes the same record and the
+  same rules: nothing distinguishes it.
+
+The database holds the shape against every writer (`lineage` 0014): the record's trigger checks
+the kinds' rules on insert with the same definition of "regulated" in SQL (`ended_at IS NULL`),
+and a deferred trigger refuses a destroyed vial whose record is not completed at that moment
+with a confirmer for a regulated strain. Tests assert the trigger and the Python rules agree for
+every kind, for an ended restriction and for none, as #158's test did. #158's refusal in the
+vial guard is gone: the record and its confirmation hold it now.
+
+The event of a record holds its id and number, the day, the method, the verification, whether an
+outside firm took it (never the firm's name, which may be a sole trader's), the handover document
+number, the run, the vials and the witness by public id. The confirmation's event holds both
+people by public id and both times. The firm's name is a personal column in the row audit.
+
+Still open, for part 2 of #160: the frozen protocol of a VRAT or RAT record with names and
+signature lines (decision Q10, as the shipment documents), and the yearly export per agent for
+the SÚJB declaration (decision Q8). The record holds what both need (see ADR 0008).
+
+Migration impact: additive. A column with an empty default and a check constraint on the lab
+permits; the vial guard replaced without #158's refusal; the record's guard reads the VRAT
+access list of `labs` 0006, which the migration depends on; four more event types in the reason
+constraint of `audit_auditevent` (`audit` 0032, validated by 0033). Reversible:
+`migrate lineage 0012`, `migrate biosafety 0002` and `migrate audit 0031`.

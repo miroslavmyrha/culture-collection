@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import type { QueryClient } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { allowConsole } from '@/test/console'
 import { makeBatch, makeBoxGrid, makeMedium, makePassage, makeUnitRow, makeVial, mediumBrief, noGrowth, page, problem, validationProblem, type Growth } from '@/test/factories'
 import { holdApi, mockApi, mockApiError, recordRequests } from '@/test/mockApi'
@@ -21,6 +21,7 @@ const VIALS = '/api/v1/labs/{lab_public_id}/vials/'
 const UNITS = '/api/v1/labs/{lab_public_id}/storage-units/'
 const MEDIA = '/api/v1/labs/{lab_public_id}/media/'
 const REVEAL = '/api/v1/labs/{lab_public_id}/vials/{public_id}/reveal-location/'
+const DESTRUCTIONS = '/api/v1/labs/{lab_public_id}/destructions/'
 
 const zero = makePassage({ number: 0 })
 const one = makePassage({ number: 1, source_kind: 'passage', source_passage: zero.public_id, parent: zero.public_id })
@@ -45,7 +46,11 @@ function mockMaterial(vials = [placed, loose, consumed]) {
   mockApi('get', VIALS, page(vials))
   mockApi('get', UNITS, [freezer, rack, box])
   mockApi('get', MEDIA, page([lb, r2a, old]))
+  mockApi('get', DESTRUCTIONS, page([]))
 }
+
+// The Destruction section (#160) loads the strain's records with the tab.
+beforeEach(() => void mockApi('get', DESTRUCTIONS, page([])))
 
 /** Vials number `from` to `to` of a strain with 200 in batch 1 and the rest in batch 2. */
 const many = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => makeVial({ label: `MYC 42 / ${from + i > 200 ? 2 : 1} / ${((from + i - 1) % 200) + 1}` }))
@@ -57,7 +62,7 @@ function Material({
   vial,
   strainGrowth = noGrowth(),
   materialDestroyed = false,
-  regulated = false,
+  kinds = [],
   lossReported = false,
   canReportLoss = false,
 }: {
@@ -66,7 +71,8 @@ function Material({
   vial?: string
   strainGrowth?: Growth
   materialDestroyed?: boolean
-  regulated?: boolean
+  /** The strain's active restriction kinds. */
+  kinds?: readonly string[]
   lossReported?: boolean
   canReportLoss?: boolean
 }) {
@@ -79,7 +85,8 @@ function Material({
       canHandle={canHandle}
       canRelease={canHandle}
       materialDestroyed={materialDestroyed}
-      regulated={regulated}
+      restrictionKinds={kinds}
+      canConfirmDestruction={false}
       lossReported={lossReported}
       canReportLoss={canReportLoss}
       strainGrowth={strainGrowth}
@@ -89,8 +96,8 @@ function Material({
   )
 }
 
-const render = (canHandle = true, limit = 50, strainGrowth: Growth = noGrowth(), materialDestroyed = false, regulated = false) =>
-  renderWithProviders(<Material canHandle={canHandle} limit={limit} strainGrowth={strainGrowth} materialDestroyed={materialDestroyed} regulated={regulated} />)
+const render = (canHandle = true, limit = 50, strainGrowth: Growth = noGrowth(), materialDestroyed = false, kinds: readonly string[] = []) =>
+  renderWithProviders(<Material canHandle={canHandle} limit={limit} strainGrowth={strainGrowth} materialDestroyed={materialDestroyed} kinds={kinds} />)
 
 describe('StrainMaterial', () => {
   it('shows the passages, the batches and where each vial is', async () => {
@@ -457,32 +464,18 @@ describe('StrainMaterial', () => {
     const user = userEvent.setup()
     await vialAction(user, 'MYC 42 / 1 / 4', 'Change state')
     const dialog = await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 4' })
-    expect(dialog).toHaveAccessibleDescription('Now lost. A vial that is consumed, destroyed, lost or entered in error leaves its position.')
+    expect(dialog).toHaveAccessibleDescription('Now lost. A vial that is consumed, lost or entered in error leaves its position.')
     const state = within(dialog).getByRole('combobox', { name: 'New state' })
     expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(['Available'])
   })
 
-  it('destroys a vial to destroy of a strain without restrictions, as before (#158)', async () => {
-    const marked = makeVial({ label: 'MYC 42 / 1 / 5', status: 'to_destroy', status_changed_at: '2026-10-02T10:00:00Z' })
-    mockMaterial([marked])
-    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/status/', { ...marked, status: 'destroyed' })
-    await render()
-    const user = userEvent.setup()
-    await vialAction(user, 'MYC 42 / 1 / 5', 'Change state')
-    const dialog = await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 5' })
-    expect(dialog).toHaveAccessibleDescription('Now to destroy. A vial that is consumed, destroyed, lost or entered in error leaves its position.')
-    const state = within(dialog).getByRole('combobox', { name: 'New state' })
-    expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(['Destroyed'])
-    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'Autoclaved.')
-    await user.click(within(dialog).getByRole('button', { name: 'Save state' }))
-    await waitFor(() => expect(dialog).not.toBeInTheDocument())
-    expect(calls[0]?.body).toEqual({ status: 'destroyed', reason: 'Autoclaved.' })
-  })
-
-  it('offers a regulated strain\'s vial to destroy no state, and says in the dialog why it stays so (#158)', async () => {
+  it.each([
+    ['without restrictions', []],
+    ['regulated', ['dual_use']],
+  ])('offers a vial to destroy of a strain %s no state: a destruction record destroys it (#160)', async (_case, kinds) => {
     const marked = makeVial({ label: 'MYC 42 / 1 / 5', status: 'to_destroy', status_changed_at: '2026-10-02T10:00:00Z' })
     mockMaterial([marked, loose])
-    await render(true, 50, noGrowth(), false, true)
+    await render(true, 50, noGrowth(), false, kinds)
     const user = userEvent.setup()
     // Its menu still places it, but has no state to change to.
     await user.click(await screen.findByRole('button', { name: 'Actions for vial MYC 42 / 1 / 5' }))
@@ -491,7 +484,7 @@ describe('StrainMaterial', () => {
     await vialAction(user, 'MYC 42 / 1 / 2', 'Change state')
     const dialog = await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 2' })
     expect(dialog).toHaveAccessibleDescription(
-      'Now available. Its strain is regulated: a vial is destroyed only with a destruction record that a second person confirms, which the collection does not keep yet. Marked to destroy, it stays so. A vial that is consumed, destroyed, lost or entered in error leaves its position.',
+      'Now available. A vial marked to destroy is destroyed with a destruction record, in the Destruction section of this tab. A vial that is consumed, lost or entered in error leaves its position.',
     )
     const state = within(dialog).getByRole('combobox', { name: 'New state' })
     expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(['Quarantined', 'To destroy', 'Consumed', 'Lost', 'Entered in error'])
@@ -503,7 +496,7 @@ describe('StrainMaterial', () => {
     ['a strain of another restriction or none', false, 'lost', false],
   ])('states the duty to report a loss to the police for %s (#159)', async (_case, lossReported, chosen, shown) => {
     mockMaterial([loose])
-    await renderWithProviders(<Material canHandle lossReported={lossReported} regulated={lossReported} />)
+    await renderWithProviders(<Material canHandle lossReported={lossReported} kinds={lossReported ? ['cz_rat'] : []} />)
     const user = userEvent.setup()
     await vialAction(user, 'MYC 42 / 1 / 2', 'Change state')
     const dialog = await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 2' })
@@ -518,7 +511,7 @@ describe('StrainMaterial', () => {
     const done = makeVial({ label: 'MYC 42 / 1 / 7', status: 'lost', status_changed_at: '2026-10-01T10:00:00Z', police_report: { reported_on: '2026-10-01', reference: 'KRPB-1/TČ-2026' } })
     mockMaterial([due, done])
     const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/loss-report/', { ...due, police_report: { reported_on: '2026-10-02', reference: 'KRPB-2' } })
-    await renderWithProviders(<Material canHandle lossReported regulated canReportLoss />)
+    await renderWithProviders(<Material canHandle lossReported kinds={['cz_rat']} canReportLoss />)
     const vials = await screen.findByRole('table', { name: 'Vials' })
     const [dueRow, doneRow] = within(vials).getAllByRole('row').slice(1)
     expect(dueRow).toHaveTextContent('LostNot reported to the police yet')
@@ -550,7 +543,7 @@ describe('StrainMaterial', () => {
   it('offers the record of a police report to managers only (#159)', async () => {
     const due = makeVial({ label: 'MYC 42 / 1 / 6', status: 'lost', status_changed_at: '2026-10-02T10:00:00Z', police_report: { reported_on: null, reference: null } })
     mockMaterial([due])
-    await renderWithProviders(<Material canHandle lossReported regulated />)
+    await renderWithProviders(<Material canHandle lossReported kinds={['cz_rat']} />)
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Actions for vial MYC 42 / 1 / 6' }))
     expect((await screen.findAllByRole('menuitem')).map((item) => item.textContent)).toEqual(['Change state'])
@@ -560,7 +553,7 @@ describe('StrainMaterial', () => {
     const due = makeVial({ label: 'MYC 42 / 1 / 6', status: 'lost', status_changed_at: '2026-10-02T10:00:00Z', police_report: { reported_on: null, reference: null } })
     mockMaterial([due])
     mockApiError('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/loss-report/', 409, problem(409, { code: 'loss_changed' }))
-    await renderWithProviders(<Material canHandle lossReported regulated canReportLoss />)
+    await renderWithProviders(<Material canHandle lossReported kinds={['cz_rat']} canReportLoss />)
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Actions for vial MYC 42 / 1 / 6' }))
     await user.click(await screen.findByRole('menuitem', { name: 'Record the police report' }))

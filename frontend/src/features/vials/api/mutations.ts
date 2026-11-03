@@ -143,3 +143,45 @@ export function useFindVial(labId: string) {
     meta: { handlesError: true },
   })
 }
+
+/**
+ * The destruction record (#160): recorded, confirmed or entered in error. It changes the strain's
+ * vials and their boxes, and what waits on Home (vials to destroy, a record to confirm).
+ */
+function useDestructionWrite<T, R>(labId: string, strainId: string, write: (input: T) => Promise<R>) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: T) => {
+      await ensureCsrf()
+      return write(input)
+    },
+    meta: { handlesError: true },
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: vialKeys.strain(labId, strainId) }),
+        qc.invalidateQueries({ queryKey: vialKeys.boxGrids(labId) }),
+        qc.invalidateQueries({ queryKey: sharedKeys.overview() }),
+      ]),
+  })
+}
+
+const destruction = (labId: string, recordId: string) => ({ path: { lab_public_id: labId, public_id: recordId } })
+
+export function useRecordDestruction(labId: string, strainId: string) {
+  return useDestructionWrite(labId, strainId, (body: Schemas['DestructionInputRequest']) =>
+    unwrap(api.POST('/api/v1/labs/{lab_public_id}/destructions/', { params: lab(labId), body })),
+  )
+}
+
+/** A manager other than the recorder confirms a regulated strain's record: its vials are destroyed then. */
+export function useConfirmDestruction(labId: string, strainId: string) {
+  return useDestructionWrite(labId, strainId, (recordId: string) =>
+    unwrap(api.POST('/api/v1/labs/{lab_public_id}/destructions/{public_id}/confirm/', { params: destruction(labId, recordId) })),
+  )
+}
+
+export function useDestructionInError(labId: string, strainId: string) {
+  return useDestructionWrite(labId, strainId, ({ recordId, reason }: { recordId: string; reason: string }) =>
+    unwrap(api.POST('/api/v1/labs/{lab_public_id}/destructions/{public_id}/enter-in-error/', { params: destruction(labId, recordId), body: { reason } })),
+  )
+}

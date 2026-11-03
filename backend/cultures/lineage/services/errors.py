@@ -1,6 +1,6 @@
 """The refusals of the lineage services."""
 
-from cultures.core.exceptions import Conflict, DomainError, RuleViolation
+from cultures.core.exceptions import Conflict, DomainError, Forbidden, RuleViolation
 
 
 class InvalidVial(DomainError):
@@ -59,14 +59,13 @@ class MaterialDestroyed(EdgeNotAllowed):
 
 
 class DestructionNeedsRecord(EdgeNotAllowed):
-    """#158, ADR 0009: no single account destroys a regulated strain. Until the destruction
-    record with a second person (#160), a vial of a strain with an active restriction is marked
-    to destroy and stays so."""
+    """#160: a vial is destroyed only through a destruction record (services.destructions),
+    never by a state change: for every strain, regulated or not."""
 
     default_code = "destruction_needs_record"
     default_detail = (
-        "This strain is regulated: its vial is destroyed only with a destruction record that a"
-        " second person confirms, which the collection does not keep yet. It stays to destroy."
+        "A vial is destroyed only with a destruction record: mark it to destroy, then record the"
+        " destruction on the strain's Material tab."
     )
 
 
@@ -140,3 +139,63 @@ class LossNotReportable(Conflict):
 class LossReported(Conflict):
     default_code = "loss_reported"
     default_detail = "The report of this loss is recorded already."
+
+
+# The destruction record (#160).
+
+
+class InvalidDestruction(DomainError):
+    """A field error (400 with the field): the form shows it there."""
+
+    default_code = "invalid"
+
+
+class VialNotToDestroy(Conflict):
+    default_code = "vial_not_to_destroy"
+    default_detail = "This vial is not marked to destroy. Mark it to destroy first."
+
+
+class VialInDestruction(Conflict):
+    default_code = "vial_in_destruction"
+    default_detail = "This vial is in a destruction record that waits for its confirmation already."
+
+
+class DestructionNotAwaiting(Conflict):
+    default_code = "destruction_not_awaiting"
+    default_detail = (
+        "This record does not wait for a confirmation: it was confirmed, entered in error, or"
+        " needed none. Reload the page."
+    )
+
+
+class DestructionEnteredInError(Conflict):
+    default_code = "destruction_entered_in_error"
+    default_detail = "This record was entered in error already."
+
+
+class DestructionOutdated(Conflict):
+    """The strain's restrictions changed since the record: it no longer holds what they ask."""
+
+    default_code = "destruction_outdated"
+    default_detail = (
+        "The strain's restrictions changed since the destruction was recorded, and the record no"
+        " longer holds what they ask. Enter it in error and record the destruction again."
+    )
+
+
+class ConfirmOwnDestruction(Forbidden):
+    """ADR 0009, decision Q2: a manager other than the recorder confirms."""
+
+    default_code = "confirm_own_destruction"
+    default_detail = "You recorded this destruction: a different manager confirms it."
+
+
+class AuthorisationMethodMissing(RuleViolation):
+    """Decision Q6: a quarantine pest is destroyed by the method its permit declares, and the
+    collection holds no declared method for the permit."""
+
+    default_code = "authorisation_method_missing"
+    default_detail = (
+        "The lab's ÚKZÚZ permit for quarantine pests has no destruction method recorded here."
+        " Staff record the permit again with the method its application declared."
+    )

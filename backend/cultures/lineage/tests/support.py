@@ -14,6 +14,8 @@ from django.utils import timezone
 
 from cultures.audit.context import audit_context
 from cultures.audit.models import AuditEvent, Channel, RowChange
+from cultures.biosafety.models import DestructionMethod
+from cultures.biosafety.policy import permit_today
 from cultures.labs.access import access_for
 from cultures.lineage import services
 from cultures.lineage.models import (
@@ -24,11 +26,14 @@ from cultures.lineage.models import (
     CheckResult,
     CheckStage,
     CheckUnit,
+    DestructionRecord,
+    DestructionVial,
     Method,
     Passage,
     Purpose,
     Vial,
     VialPlacement,
+    VialStatus,
 )
 from cultures.storage.models import StorageUnit
 from cultures.strains import services as strains
@@ -42,6 +47,7 @@ BATCHES_URL = f"{LAB_URL}/batches/"
 VIALS_URL = f"{LAB_URL}/vials/"
 GRANTS_URL = f"{LAB_URL}/location-grants/"
 CHECKS_URL = f"{LAB_URL}/batch-checks/"
+DESTRUCTIONS_URL = f"{LAB_URL}/destructions/"
 # A method of each kind, for checks that do not care which.
 A_METHOD = {
     CheckKind.IDENTITY: CheckMethod.SEQUENCING,
@@ -129,7 +135,7 @@ def open_place(vial: Vial) -> tuple[StorageUnit, int, int] | None:
 
 def snapshot() -> tuple[Any, ...]:
     """Every lineage table, every event and every row change."""
-    tables = (Passage, Batch, Vial, VialPlacement, BatchCheck)
+    tables = (Passage, Batch, Vial, VialPlacement, BatchCheck, DestructionRecord, DestructionVial)
     rows = tuple(list(m._default_manager.order_by("pk").values()) for m in tables)
     return (*rows, AuditEvent.objects.count(), RowChange.objects.count())
 
@@ -168,3 +174,48 @@ def deaccession(
         return strains.strain_deaccession_confirm(
             access=access_for(confirmer), strain=strain, proposal=proposal.public_id
         )
+
+
+# The destruction record (#160).
+VERIFIED = "Spore strip in the load: no growth after 7 days."
+
+
+def new_destruction(vials: list[Vial], **changes: Any) -> services.NewDestruction:
+    """Autoclaved today with a verification (what a regulated strain needs, harmless for
+    another), for the reason a test does not care about."""
+    values: dict[str, Any] = {
+        "vials": vials,
+        "destroyed_on": permit_today(),
+        "method": DestructionMethod.AUTOCLAVE,
+        "reason": "Contaminated on every plate.",
+        "verification": VERIFIED,
+        **changes,
+    }
+    return services.NewDestruction(**values)
+
+
+def mark_to_destroy(actor: User, vials: list[Vial]) -> list[Vial]:
+    """Each vial to destroy through the service, in an audit context of the actor's own."""
+    with audit_context(channel=Channel.API, actor=actor, request_id="req-mark"):
+        return [
+            services.vial_transition(
+                access=access_for(actor), vial=v, status=VialStatus.TO_DESTROY, reason="cracked"
+            )
+            for v in vials
+        ]
+
+
+def destroy(
+    actor: User, vials: list[Vial], *, confirmer: User | None = None, **changes: Any
+) -> DestructionRecord:
+    """The destruction through the services, each step in an audit context of its own: recorded
+    by `actor`, and for a regulated strain confirmed by `confirmer`."""
+    strain = vials[0].batch.strain
+    with audit_context(channel=Channel.API, actor=actor, request_id="req-destroy"):
+        record = services.destruction_record(
+            access=access_for(actor), strain=strain, data=new_destruction(vials, **changes)
+        )
+    if confirmer is None:
+        return record
+    with audit_context(channel=Channel.API, actor=confirmer, request_id="req-confirm"):
+        return services.destruction_confirm(access=access_for(confirmer), record=record)

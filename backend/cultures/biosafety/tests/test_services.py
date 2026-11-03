@@ -11,7 +11,12 @@ from django.test.utils import CaptureQueriesContext
 from cultures.audit.context import AuditContext, MissingAuditContext
 from cultures.audit.models import AuditEvent, RowChange
 from cultures.biosafety import services
-from cultures.biosafety.models import AuthorisationKind, Issuer, LabAuthorisation
+from cultures.biosafety.models import (
+    AuthorisationKind,
+    DestructionMethod,
+    Issuer,
+    LabAuthorisation,
+)
 from cultures.core.exceptions import DomainError, RuleViolation
 from cultures.labs.models import Lab
 from cultures.users.models import User
@@ -47,6 +52,8 @@ def create(lab: Lab, **changes: Any) -> LabAuthorisation:
         "expires_on": date(2027, 12, 31),
         **changes,
     }
+    if values["kind"] == AuthorisationKind.QUARANTINE_PEST:
+        values.setdefault("destruction_method", DestructionMethod.AUTOCLAVE)
     return services.authorisation_create(**values)
 
 
@@ -73,7 +80,38 @@ def test_staff_record_a_permit_with_its_issuer(
         "permit_reference": [None, "ÚKZÚZ 2026/7"],
         "valid_from": [None, "2026-01-01"],
         "expires_on": [None, "2027-12-31"],
+        "destruction_method": [None, "autoclave"],
     }
+    assert permit.destruction_method == DestructionMethod.AUTOCLAVE
+
+
+@pytest.mark.rule("R-END-09")
+def test_a_quarantine_permit_declares_its_destruction_method_and_only_it(
+    as_staff: AuditContext, lab: Lab
+) -> None:
+    """Regulation (EU) 2019/829, Annex I (i): the method is declared with the application, and
+    destruction records of the lab's quarantine pests use it (#160)."""
+    missing = refused(
+        services.InvalidAuthorisation,
+        "invalid_authorisation",
+        lambda: create(lab, destruction_method=None),
+    )
+    assert missing.attr == "destruction_method"
+    vrat = refused(
+        services.InvalidAuthorisation,
+        "invalid_authorisation",
+        lambda: create(
+            lab,
+            kind=AuthorisationKind.CZ_VRAT,
+            permit_reference="SÚJB/1",
+            destruction_method=DestructionMethod.AUTOCLAVE,
+        ),
+    )
+    assert vrat.attr == "destruction_method"
+    assert (
+        create(lab, kind=AuthorisationKind.CZ_VRAT, permit_reference="SÚJB/2").destruction_method
+        == ""
+    )
 
 
 def test_a_permit_without_an_expiry(as_staff: AuditContext, lab: Lab) -> None:

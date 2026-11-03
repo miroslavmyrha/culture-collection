@@ -54,6 +54,7 @@ from .checks import (
     _move_batch,
 )
 from .errors import (
+    DestructionNeedsRecord,
     EdgeNotAllowed,
     InvalidVial,
     PositionTaken,
@@ -280,8 +281,11 @@ def _check_positions(
 
 def vial_transition(*, access: Access, vial: Vial, status: VialStatus, reason: str) -> Vial:
     """One step along D7, with a reason. Reserved and distributed are distribution's (#18):
-    a reserved vial leaves its state only through its request."""
+    a reserved vial leaves its state only through its request. Destroyed is the destruction
+    record's (#160)."""
     reason = _check_reason(reason)
+    if status == VialStatus.DESTROYED:
+        raise DestructionNeedsRecord
     if status not in MANUAL_TARGETS:
         raise EdgeNotAllowed("Reservation and dispatch are recorded by distribution.")
     with audited_atomic():

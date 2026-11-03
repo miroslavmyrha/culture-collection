@@ -175,6 +175,7 @@ test('T7 record a cracked tube to be destroyed', async ({ browser }, info) => {
   await w.type(dialog.getByRole('textbox', { name: 'Reason' }), 'Tube cracked in the box.')
   await w.click(dialog.getByRole('button', { name: 'Save state' }))
   await expect(w.page.getByRole('table', { name: 'Vials' }).getByRole('row', { name: new RegExp(`^${label} To destroy`) })).toBeVisible()
+  w.note('The tube is destroyed later with a destruction record in the Destruction section of the tab, never by a state change', '#160')
   await w.done()
 })
 

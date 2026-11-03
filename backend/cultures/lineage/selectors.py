@@ -17,7 +17,7 @@ from cultures.audit.models import AuditEvent
 from cultures.audit.registry import VIAL_LOCATION_REVEALED
 from cultures.biosafety.policy import PERMIT_TIME_ZONE
 from cultures.labs.access import Access
-from cultures.labs.models import Lab
+from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Perm
 from cultures.storage.models import StorageUnit, UnitKind
 from cultures.strains.models import Strain, StrainRestriction, StrainStatus
@@ -30,6 +30,8 @@ from .models import (
     BatchStatus,
     CheckKind,
     CheckStatus,
+    DestructionRecord,
+    DestructionVial,
     Passage,
     Purpose,
     Vial,
@@ -314,6 +316,43 @@ def vials_to_check(access: Access) -> QuerySet[Vial]:
 
 def checks_to_correct(access: Access) -> QuerySet[BatchCheck]:
     return BatchCheck.objects.for_access(access, Perm.HANDLE_VIALS)
+
+
+def destruction_list(*, access: Access, lab: Lab) -> QuerySet[DestructionRecord]:
+    """The destruction records of one lab the user may view (#160), entered in error included,
+    newest first, each with its vials (accession, batch and number, never a place)."""
+    return (
+        DestructionRecord.objects.for_access(access, Perm.VIEW_STRAINS)
+        .filter(lab=lab)
+        .select_related(
+            "strain",
+            "witness",
+            "authorisation",
+            "recorded_by",
+            "confirmed_by",
+            "entered_in_error_by",
+        )
+        .prefetch_related(
+            Prefetch(
+                "vials",
+                queryset=DestructionVial.objects.select_related("vial__batch").order_by(
+                    "vial__batch__number", "vial__seq"
+                ),
+            )
+        )
+        .order_by("-recorded_at", "-pk")
+    )
+
+
+def strains_to_destroy(access: Access) -> QuerySet[Strain]:
+    """Strains of any lab where the user handles vials: the view keeps the URL's lab."""
+    return Strain.objects.for_access(access, Perm.HANDLE_VIALS)
+
+
+def witnesses(access: Access) -> QuerySet[Membership]:
+    """Memberships of the labs where the user handles vials: the view keeps the URL's lab, the
+    service the role (a witness handles vials too)."""
+    return Membership.objects.for_access(access, Perm.HANDLE_VIALS).select_related("user")
 
 
 def _czech_midnight(day: date) -> datetime:

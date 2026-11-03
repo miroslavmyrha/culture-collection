@@ -104,3 +104,51 @@ export const boxGridOptions = (labId: string, boxId: string) =>
 export function useBoxGrid(labId: string, boxId: string, enabled = true) {
   return useQuery({ ...boxGridOptions(labId, boxId), enabled })
 }
+
+/** The strain's destruction records, newest first, entered in error included (#160): a strain has few. */
+export const destructionsOptions = (labId: string, strainId: string) =>
+  queryOptions({
+    queryKey: vialKeys.destructions(labId, strainId),
+    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/labs/{lab_public_id}/destructions/', { signal, params: strainQuery(labId, strainId) })),
+  })
+
+export function useDestructions(labId: string, strainId: string) {
+  return useQuery(destructionsOptions(labId, strainId))
+}
+
+/** The strain's vials marked to destroy (at most 200 at once), loaded with the destruction dialog. */
+export function useVialsToDestroy(labId: string, strainId: string) {
+  return useQuery({
+    queryKey: vialKeys.toDestroy(labId, strainId),
+    queryFn: ({ signal }) =>
+      unwrap(
+        api.GET('/api/v1/labs/{lab_public_id}/vials/', {
+          signal,
+          params: { path: { lab_public_id: labId }, query: { strain: strainId, status: 'to_destroy', limit: MATERIAL_PAGE } },
+        }),
+      ),
+  })
+}
+
+type Member = { public_id: string; username: string; first_name: string; last_name: string; role: string }
+const HANDLE_VIALS: readonly string[] = ['technician', 'curator', 'manager']
+
+/** A member who handles vials, as a witness select offers them: "alice (Alice Smith)". */
+export const witnessChoices = (data: { results: readonly Member[] }) =>
+  data.results
+    .filter((m) => HANDLE_VIALS.includes(m.role))
+    .map((m) => {
+      const name = `${m.first_name} ${m.last_name}`.trim()
+      return { value: m.public_id, label: name ? `${m.username} (${name})` : m.username, username: m.username }
+    })
+
+/** The lab's members who may witness a destruction (#160): a VRAT's record names one. */
+export function useWitnesses(labId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: vialKeys.witnesses(labId),
+    queryFn: ({ signal }) =>
+      unwrap(api.GET('/api/v1/labs/{lab_public_id}/members/', { signal, params: { path: { lab_public_id: labId }, query: { limit: MATERIAL_PAGE } } })),
+    select: witnessChoices,
+    enabled,
+  })
+}

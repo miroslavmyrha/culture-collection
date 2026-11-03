@@ -27,6 +27,7 @@ from cultures.audit.tests.conftest import database_roles, runtime_role  # noqa: 
 from cultures.biosafety.models import (
     ISSUER_OF,
     AuthorisationKind,
+    DestructionMethod,
     LabAuthorisation,
     RestrictionKind,
 )
@@ -174,6 +175,10 @@ def make_permit(lab: Lab, kind: AuthorisationKind, **fields: Any) -> LabAuthoris
         "permit_reference": f"{kind}-permit",
         "valid_from": date(2020, 1, 1),
         "expires_on": None,
+        # A quarantine pest's permit declares its destruction method (#160).
+        "destruction_method": (
+            DestructionMethod.AUTOCLAVE if kind == AuthorisationKind.QUARANTINE_PEST else ""
+        ),
         **fields,
     }
     return LabAuthorisation.objects.create(lab=lab, kind=kind, **values)

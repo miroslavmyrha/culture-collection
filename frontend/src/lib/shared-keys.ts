@@ -21,7 +21,10 @@ import { api, unwrap } from './api'
  *   Home and the counts on the lab tabs: overview;
  * - a strain that leaves the collection (#20) cancels its open requests and marks its vials for
  *   destruction: requests, strainMaterial, boxGrids, strainLists and overview;
- * - a reveal of a regulated vial's place adds a row to the lab's reveal log (#83): reveals.
+ * - a reveal of a regulated vial's place adds a row to the lab's reveal log (#83): reveals;
+ * - a destruction recorded, confirmed or entered in error (#160) changes the strain's vials, the
+ *   box grids and what waits on Home: strainMaterial, boxGrids and overview. Its witness is chosen
+ *   from the lab's members, which the members screen changes: members.
  *
  * Shared roots rather than invalidation in the page: the mutation names every key it changes
  * and stays pending until all of them are fresh, wherever the dialog that runs it is mounted.
@@ -50,6 +53,8 @@ export const sharedKeys = {
   requests: (labId: string) => ['requests', labId] as const,
   /** The lab's reveal log (#83): who revealed where a regulated vial is. */
   reveals: (labId: string) => ['reveals', labId] as const,
+  /** A lab's members (#9): the members screen changes them, a destruction names one as witness (#160). */
+  members: (labId: string) => ['labs', 'detail', labId, 'members'] as const,
   /** What waits for the signed-in person across their labs, and each lab's figures (#69). */
   overview: () => ['overview'] as const,
 }
