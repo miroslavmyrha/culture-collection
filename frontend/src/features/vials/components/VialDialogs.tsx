@@ -7,11 +7,15 @@ import { ConfirmDialog, SelectField, Stack, TextField, Typography } from '@/comp
 import { isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
 import { type Growth, type GrowthBody, type GrowthForm, GROWTH_FIELDS, growthBody, growthDefaults, growthSchema, mediaListOptions } from '@/lib/growth'
-import { usePlace, usePreserve, useRevive, useSetVialStatus, useSubculture } from '../api/mutations'
+import { usePlace, usePreserve, useReportLoss, useRevive, useSetVialStatus, useSubculture } from '../api/mutations'
 import {
   type BoxChoice,
   boxOption,
+  emptyLossReport,
   emptyPreserve,
+  LOSS_DUTY,
+  type LossReportForm,
+  lossReportSchema,
   METHOD_LABELS,
   nextStates,
   type Passage,
@@ -224,13 +228,15 @@ type StatusProps = VialProps & {
   materialDestroyed: boolean
   /** The strain has an active restriction: its vials are not destroyed by one person (ADR 0009, #158). */
   regulated: boolean
+  /** The strain is a VRAT or RAT: a loss is reported to the police (act 281/2002 Sb., § 5(5), #159). */
+  lossReported: boolean
 }
 
 /** Why a regulated strain's vial is marked to destroy and stays so (#158, until #160). */
 export const DESTRUCTION_NEEDS_RECORD =
   'Its strain is regulated: a vial is destroyed only with a destruction record that a second person confirms, which the collection does not keep yet. Marked to destroy, it stays so.'
 
-export function VialStatusDialog({ labId, strainId, vial, materialDestroyed, regulated, open, onClose, onExited }: StatusProps) {
+export function VialStatusDialog({ labId, strainId, vial, materialDestroyed, regulated, lossReported, open, onClose, onExited }: StatusProps) {
   const change = useSetVialStatus(labId, strainId)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
@@ -238,10 +244,12 @@ export function VialStatusDialog({ labId, strainId, vial, materialDestroyed, reg
   const found = materialDestroyed && vial.status === 'lost' ? ' Its strain was deaccessioned and its material destroyed: a found vial goes to destruction.' : ''
   const destruction = regulated && states.includes('to_destroy') ? ` ${DESTRUCTION_NEEDS_RECORD}` : ''
 
-  const { register, handleSubmit, formState, setError } = useForm<StatusForm>({
+  const { register, handleSubmit, formState, setError, control } = useForm<StatusForm>({
     resolver: zodResolver(statusSchema),
     defaultValues: { status: states[0] ?? 'available', reason: '' },
   })
+  // The duty shows with the choice, before the person saves it: it describes the select.
+  const chosen = useWatch({ control, name: 'status' })
   const onSubmit = handleSubmit((values) => {
     setFailure(undefined)
     change.mutate(
@@ -271,9 +279,69 @@ export function VialStatusDialog({ labId, strainId, vial, materialDestroyed, reg
           options={states.map((value) => ({ value, label: VIAL_STATUS_LABELS[value] }))}
           // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
           autoFocus
+          hint={lossReported && chosen === 'lost' ? LOSS_DUTY : undefined}
           error={formState.errors.status?.message}
           {...register('status')}
         />
+        <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} error={formState.errors.reason?.message} {...register('reason')} />
+      </Stack>
+    </ConfirmDialog>
+  )
+}
+
+type LossReportProps = VialProps & {
+  /** When the vial went lost, as the list read it: the loss the report is of. */
+  lostAt: string
+}
+
+/**
+ * Records that the loss of a VRAT or RAT vial was reported to the police (#159, act 281/2002 Sb.,
+ * § 5(5)): the day, the reference the police gave, and why. Managers only; the server decides.
+ */
+export function LossReportDialog({ labId, strainId, vial, lostAt, open, onClose, onExited }: LossReportProps) {
+  const report = useReportLoss(labId, strainId)
+  const formId = useId()
+  const [failure, setFailure] = useState<string>()
+  const { register, handleSubmit, formState, setError } = useForm<LossReportForm>({
+    resolver: zodResolver(lossReportSchema),
+    defaultValues: emptyLossReport(),
+  })
+  const onSubmit = handleSubmit((values) => {
+    setFailure(undefined)
+    report.mutate(
+      { vialId: vial.public_id, lost_at: lostAt, reported_on: values.reported_on, reference: values.reference.trim(), reason: values.reason.trim() },
+      {
+        onSuccess: onClose,
+        onError: (error) =>
+          setFailure(
+            placeError(error, ['reported_on', 'reference', 'reason'], setError, () => setError('reason', { type: 'server', message: 'Say why' }, { shouldFocus: true })),
+          ),
+      },
+    )
+  })
+  return (
+    <ConfirmDialog
+      open={open}
+      title={`Record the police report of vial ${vial.label}`}
+      description="Act 281/2002 Sb., § 5(5): the loss of a highly risky or risky agent is reported to the Police of the Czech Republic without undue delay. Record when it was reported and the reference the police gave."
+      confirmLabel="Record report"
+      form={formId}
+      pending={report.isPending}
+      error={failure}
+      onClose={onClose}
+      onExited={onExited}
+    >
+      <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Police report" spacing={2} sx={{ mt: 2 }}>
+        <TextField
+          label="Reported on"
+          hint="YYYY-MM-DD"
+          autoComplete="off"
+          // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
+          autoFocus
+          error={formState.errors.reported_on?.message}
+          {...register('reported_on')}
+        />
+        <TextField label="Police reference" hint="As the police wrote it. Name no person." autoComplete="off" error={formState.errors.reference?.message} {...register('reference')} />
         <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} error={formState.errors.reason?.message} {...register('reason')} />
       </Stack>
     </ConfirmDialog>

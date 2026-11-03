@@ -67,6 +67,35 @@ describe('Home', () => {
     expect(within(permits).getByRole('link', { name: 'SÚJB DEV/VRAT/7' })).toHaveAttribute('href', `/labs/${BAC}/permits`)
   })
 
+  it('lists a loss to report to the police, linked to the vial on its strain\'s Material tab (#159)', async () => {
+    const vial = '00000000-0000-4000-8000-0000000000f2'
+    mockApi('get', OVERVIEW, makeOverview({
+      labs: [makeMyLab({ public_id: BAC, code: 'BAC', role: 'manager' })],
+      waiting: [
+        makeWaitingGroup({
+          kind: 'loss_to_report',
+          items: [
+            makeWaitingItem({
+              lab: BAC,
+              subject: 'BAC 7 / 1 / 2',
+              reason: 'Lost: report it to the police without undue delay (act 281/2002 Sb., § 5(5)), then record the day and the reference',
+              target: 'strain',
+              target_id: STRAIN,
+              vial,
+              since: '2026-11-02',
+            }),
+          ],
+        }),
+      ],
+    }))
+    noActivity()
+    await renderWithProviders(<Home />)
+    const losses = await screen.findByRole('region', { name: 'Losses to report to the police (1)' })
+    expect(within(losses).getByRole('link', { name: 'BAC 7 / 1 / 2' })).toHaveAttribute('href', `/labs/${BAC}/strains/${STRAIN}/material?vial=${vial}`)
+    expect(losses).toHaveTextContent('Since 2026-11-02')
+    expect(losses).toHaveTextContent('act 281/2002 Sb., § 5(5)')
+  })
+
   it('says nothing waits, and shows each lab with its role and figures linked to their lists', async () => {
     mockApi('get', OVERVIEW, makeOverview({ labs: [curatorLab, viewerLab] }))
     noActivity()

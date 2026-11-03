@@ -7849,6 +7849,91 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/vials/{public_id}/loss-report/:
+    post:
+      operationId: labs_vials_loss_report_create
+      description: |-
+        The lab comes from the URL and is resolved through the caller's labs first: not a
+        member gives 404 for every action, before any role check or input validation.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LossReportInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LossReportInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VialOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'Invalid input on a field: a reference left empty, a day in
+            the future or before the loss'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'vial_not_lost: the vial was found; loss_changed: found and
+            lost again since it was read; loss_not_reportable: its strain was not
+            a VRAT or RAT when it was lost; loss_reported: this loss''s report is
+            recorded already'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: reason_required
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/vials/{public_id}/place/:
     post:
       operationId: labs_vials_place_create
@@ -10827,6 +10912,30 @@ components:
       required:
       - password
       - username
+    LossReportInputRequest:
+      type: object
+      properties:
+        lost_at:
+          type: string
+          format: date-time
+        reported_on:
+          type: string
+          format: date
+        reference:
+          type: string
+          minLength: 1
+          description: The reference the police gave the report, as they wrote it.
+            Name no person.
+          maxLength: 100
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+      required:
+      - lost_at
+      - reason
+      - reference
+      - reported_on
     MeOutput:
       type: object
       properties:
@@ -11954,6 +12063,23 @@ components:
       - col
       - row
       - vial
+    PoliceReport:
+      type: object
+      description: |-
+        The loss a vial is in, when the police must be told of it (#159, act 281/2002 Sb.,
+        § 5(5)): the day it was reported and the police reference, both null until a manager records
+        them.
+      properties:
+        reported_on:
+          type: string
+          format: date
+          nullable: true
+        reference:
+          type: string
+          nullable: true
+      required:
+      - reference
+      - reported_on
     PreparationOutput:
       type: object
       description: |-
@@ -14225,6 +14351,11 @@ components:
         can_reveal:
           type: boolean
           readOnly: true
+        police_report:
+          allOf:
+          - $ref: '#/components/schemas/PoliceReport'
+          nullable: true
+          readOnly: true
       required:
       - barcode
       - batch
@@ -14234,6 +14365,7 @@ components:
       - location
       - location_masked
       - placed
+      - police_report
       - public_id
       - seq
       - status
@@ -14307,6 +14439,7 @@ components:
       - total
     WaitingGroupKindEnum:
       enum:
+      - loss_to_report
       - deposit_received
       - deposit_checking
       - batch_checks_missing
@@ -14320,6 +14453,7 @@ components:
       - vials_to_destroy
       type: string
       description: |-
+        * `loss_to_report` - loss_to_report
         * `deposit_received` - deposit_received
         * `deposit_checking` - deposit_checking
         * `batch_checks_missing` - batch_checks_missing
@@ -14357,6 +14491,10 @@ components:
           nullable: true
         needs_manager:
           type: boolean
+        vial:
+          type: string
+          format: uuid
+          nullable: true
       required:
       - due
       - lab
@@ -14366,6 +14504,7 @@ components:
       - subject
       - target
       - target_id
+      - vial
     WaitingItemTargetEnum:
       enum:
       - deposit

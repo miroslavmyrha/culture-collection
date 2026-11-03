@@ -40,7 +40,7 @@ function Group({ group, codes }: { group: WaitingGroup; codes: Map<string, strin
       </Box>
       <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
         {group.items.map((item) => (
-          <Item key={`${item.lab}-${item.target_id ?? ''}-${item.subject}`} item={item} code={codes.get(item.lab) ?? ''} />
+          <Item key={`${item.lab}-${item.target_id ?? ''}-${item.vial ?? ''}-${item.subject}`} item={item} code={codes.get(item.lab) ?? ''} />
         ))}
       </Box>
       {hidden > 0 && (
@@ -57,7 +57,7 @@ function Item({ item, code }: { item: WaitingItem; code: string }) {
     <Box component="li" sx={{ px: 2, py: 1, '& + &': { borderTop: 1, borderColor: 'divider' } }}>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 1, rowGap: 0.5 }}>
         <Box component="span" sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>
-          <TargetLink labId={item.lab} target={item.target} id={item.target_id}>
+          <TargetLink labId={item.lab} target={item.target} id={item.target_id} vial={item.vial}>
             {item.subject}
           </TargetLink>
         </Box>

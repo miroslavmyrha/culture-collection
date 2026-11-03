@@ -1,6 +1,7 @@
 """Every write on passages, batches, vials and placements (#16, ADR 0008 amendment of
-2026-10-19), the reveal of a regulated location (ADR 0009 amendment of the same day), and the
-checks of a batch with its release (#17, ADR 0008 amendment of 2026-10-20).
+2026-10-19), the reveal of a regulated location (ADR 0009 amendment of the same day), the
+checks of a batch with its release (#17, ADR 0008 amendment of 2026-10-20), and the report of
+a lost VRAT or RAT vial to the police (#159, ADR 0009 amendment of 2026-11-02).
 
 Each service runs in audited_atomic() and records its events, each naming the strain
 (Change(strain_id=...), D13). Lock order, as everywhere: the lab row first
@@ -49,12 +50,16 @@ from .errors import (
     EdgeNotAllowed,
     InvalidCheck,
     InvalidVial,
+    LossChanged,
+    LossNotReportable,
+    LossReported,
     MaterialDestroyed,
     PositionTaken,
     StrainNotActive,
     VialAlreadyPlaced,
     VialNotAvailable,
     VialNotInCollection,
+    VialNotLost,
     VialPlacedMeanwhile,
     VialReserved,
 )
@@ -65,6 +70,7 @@ from .locations import (
     position_label,
     vial_reveal_location,
 )
+from .losses import vial_loss_report
 from .passages import (
     NewBatch,
     batch_preserve,
@@ -103,6 +109,9 @@ __all__ = [
     "InvalidCheck",
     "InvalidVial",
     "Location",
+    "LossChanged",
+    "LossNotReportable",
+    "LossReported",
     "MaterialDestroyed",
     "NewBatch",
     "NewCheck",
@@ -112,6 +121,7 @@ __all__ = [
     "VialAlreadyPlaced",
     "VialNotAvailable",
     "VialNotInCollection",
+    "VialNotLost",
     "VialPlacedMeanwhile",
     "VialReserved",
     "_move_batch",
@@ -130,6 +140,7 @@ __all__ = [
     "passage_subculture",
     "position_label",
     "strain_vials_leave_locked",
+    "vial_loss_report",
     "vial_place",
     "vial_release_locked",
     "vial_reserve_locked",

@@ -84,6 +84,8 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     "lineage_vialplacement": ("SELECT", "INSERT", "UPDATE"),
     # #17: a check is only added, and its one change is being entered in error (a trigger).
     "lineage_batchcheck": ("SELECT", "INSERT", "UPDATE"),
+    # #159: a loss report is only added (its trigger refuses UPDATE and DELETE).
+    "lineage_viallossreport": ("SELECT", "INSERT"),
     # #18: nothing of distribution is ever deleted (triggers refuse it as well). Requesters and
     # the counter change; a permit is ended once; a request changes its status; a reservation
     # ends once. Documents, lines, the permits a line was approved against and acceptances are

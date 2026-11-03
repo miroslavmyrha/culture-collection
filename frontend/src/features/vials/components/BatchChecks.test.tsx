@@ -65,7 +65,7 @@ function mockMaterial(batches: Batch[] = [pending, ready, released, held]) {
 
 const FIRST_PAGE = { limit: 50, offset: 0, batch: undefined }
 const render = ({ canHandle = true, canRelease = false } = {}) =>
-  renderWithProviders(<StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} canRelease={canRelease} materialDestroyed={false} regulated={false} strainGrowth={noGrowth()} vialPage={FIRST_PAGE} onVialPage={() => undefined} />)
+  renderWithProviders(<StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} canRelease={canRelease} materialDestroyed={false} regulated={false} lossReported={false} canReportLoss={false} strainGrowth={noGrowth()} vialPage={FIRST_PAGE} onVialPage={() => undefined} />)
 
 async function openChecks(number: number) {
   const user = userEvent.setup()

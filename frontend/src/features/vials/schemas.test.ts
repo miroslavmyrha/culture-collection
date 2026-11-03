@@ -1,6 +1,23 @@
 import { describe, expect, it } from 'vitest'
+import type { components } from '@/api/schema'
 import { makeBatch, makeCheck, makePassage, makeUnitRow } from '@/test/factories'
-import { batchStatusReason, boxChoices, boxOption, checkDetails, emptyCheck, formatValue, kindsText, mayHold, mayRelease, notPassed, passageTree, sourceLabel, strainMaterialDestroyed } from './schemas'
+import {
+  batchStatusReason,
+  boxChoices,
+  boxOption,
+  canRecordLossReport,
+  checkDetails,
+  emptyCheck,
+  formatValue,
+  kindsText,
+  lossMustBeReported,
+  mayHold,
+  mayRelease,
+  notPassed,
+  passageTree,
+  sourceLabel,
+  strainMaterialDestroyed,
+} from './schemas'
 
 const none = { identity: null, purity: null, viability: null } as const
 
@@ -113,5 +130,22 @@ describe('the boxes a vial may go into (#80)', () => {
     const choices = boxChoices([freezer, box, off])
     expect(choices).toEqual([{ public_id: box.public_id, label: 'Freezer A / Box 1', rows: 9, cols: 9, free: 76 }])
     expect(choices.map(boxOption)).toEqual([{ value: box.public_id, label: 'Freezer A / Box 1, 76 free' }])
+  })
+})
+
+describe('the loss of a VRAT or RAT vial (#159, act 281/2002 Sb., § 5(5))', () => {
+  const kinds: components['schemas']['RestrictionKind'][] = ['cz_vrat', 'cz_rat', 'dual_use', 'quarantine_pest', 'gmo']
+  it.each(kinds)('a strain with an active %s restriction owes a report when a vial is lost: only VRAT and RAT', (kind) => {
+    expect(lossMustBeReported({ restrictions: [{ kind }] })).toBe(kind === 'cz_vrat' || kind === 'cz_rat')
+  })
+
+  it('a strain without restrictions owes none, and one with several owes it when one is VRAT or RAT', () => {
+    expect(lossMustBeReported({ restrictions: [] })).toBe(false)
+    expect(lossMustBeReported({ restrictions: [{ kind: 'gmo' }, { kind: 'cz_rat' }] })).toBe(true)
+  })
+
+  it('only managers record the report', () => {
+    const roles = [undefined, 'viewer', 'technician', 'curator', 'manager'] as const
+    expect(roles.map((role) => canRecordLossReport(role))).toEqual([false, false, false, false, true])
   })
 })

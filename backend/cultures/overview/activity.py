@@ -133,6 +133,10 @@ SHOWN: dict[str, Shown] = {
     "vial_moved": Shown(S, "moved vial {subject}", VIAL),
     "vial_status_changed": Shown(S, "set vial {subject} to {status}", VIAL),
     "vial_barcode_set": Shown(S, "set the barcode of vial {subject}", VIAL),
+    # The reference is the police's and names no person; the line does not show it (#159).
+    "vial_loss_reported": Shown(
+        S, "recorded that the loss of vial {subject} was reported to the police", VIAL
+    ),
     "batch_check_recorded": Shown(S, "recorded a check of {subject}", BATCH),
     "batch_check_entered_in_error": Shown(S, "entered a check of {subject} in error", BATCH),
     "batch_status_changed": Shown(S, "set {subject} to {status}", BATCH),

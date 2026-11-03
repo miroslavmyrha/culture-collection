@@ -256,6 +256,16 @@ VIAL_BARCODE_SET = register(EventType("vial_barcode_set", "{actor} set the barco
 VIAL_LOCATION_REVEALED = register(
     EventType("vial_location_revealed", "{actor} revealed where {subject} is stored")
 )
+# #159: the loss of a VRAT or RAT vial was reported to the police (act 281/2002 Sb., § 5(5)).
+# The event holds the report's id, the loss, the day and the police reference, which names no
+# person.
+VIAL_LOSS_REPORTED = register(
+    EventType(
+        "vial_loss_reported",
+        "{actor} recorded that the loss of {subject} was reported to the police",
+        reason_required=True,
+    )
+)
 # Checks of a batch and its release (#17, ADR 0008, D16). Every event names the strain. A batch
 # moved by a check records its status change with the check's words as the reason.
 BATCH_CHECK_RECORDED = register(
@@ -764,6 +774,24 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "removed_at",
             "removed_by_id",
             "removal_reason",
+        ),
+    ),
+    # #159. The police reference names no person; recorded_by is an internal user id, the
+    # person is reached only through users_user.
+    "lineage_viallossreport": RowAudit(
+        label="lineage.viallossreport",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "vial_id",
+            "lost_at",
+            "reported_on",
+            "reference",
+            "recorded_by_id",
+            "recorded_at",
         ),
     ),
     # ADR 0009: who may see regulated locations. Ids, times and reasons that name nobody.

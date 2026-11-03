@@ -1449,6 +1449,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/vials/{public_id}/loss-report/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The lab comes from the URL and is resolved through the caller's labs first: not a
+         *     member gives 404 for every action, before any role check or input validation.
+         */
+        post: operations["labs_vials_loss_report_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/vials/{public_id}/place/": {
         parameters: {
             query?: never;
@@ -2690,6 +2710,16 @@ export interface components {
             username: string;
             password: string;
         };
+        LossReportInputRequest: {
+            /** Format: date-time */
+            lost_at: string;
+            /** Format: date */
+            reported_on: string;
+            /** @description The reference the police gave the report, as they wrote it. Name no person. */
+            reference: string;
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
         MeOutput: {
             /** Format: uuid */
             readonly public_id: string;
@@ -3222,6 +3252,16 @@ export interface components {
             vial: string;
             row: number;
             col: number;
+        };
+        /**
+         * @description The loss a vial is in, when the police must be told of it (#159, act 281/2002 Sb.,
+         *     § 5(5)): the day it was reported and the police reference, both null until a manager records
+         *     them.
+         */
+        PoliceReport: {
+            /** Format: date */
+            reported_on: string | null;
+            reference: string | null;
         };
         /**
          * @description A prepared shipment (#89): open while it waits for a second person, or withdrawn and
@@ -4065,6 +4105,7 @@ export interface components {
             readonly location: components["schemas"]["Location"] | null;
             readonly location_masked: boolean;
             readonly can_reveal: boolean;
+            readonly police_report: components["schemas"]["PoliceReport"] | null;
         };
         /**
          * @description * `available` - Available
@@ -4101,7 +4142,8 @@ export interface components {
             items: components["schemas"]["WaitingItem"][];
         };
         /**
-         * @description * `deposit_received` - deposit_received
+         * @description * `loss_to_report` - loss_to_report
+         *     * `deposit_received` - deposit_received
          *     * `deposit_checking` - deposit_checking
          *     * `batch_checks_missing` - batch_checks_missing
          *     * `batch_to_release` - batch_to_release
@@ -4114,7 +4156,7 @@ export interface components {
          *     * `vials_to_destroy` - vials_to_destroy
          * @enum {string}
          */
-        WaitingGroupKindEnum: "deposit_received" | "deposit_checking" | "batch_checks_missing" | "batch_to_release" | "batch_on_hold" | "request_to_decide" | "shipment_to_confirm" | "request_to_ship" | "recipient_permit_expiring" | "lab_permit_expiring" | "vials_to_destroy";
+        WaitingGroupKindEnum: "loss_to_report" | "deposit_received" | "deposit_checking" | "batch_checks_missing" | "batch_to_release" | "batch_on_hold" | "request_to_decide" | "shipment_to_confirm" | "request_to_ship" | "recipient_permit_expiring" | "lab_permit_expiring" | "vials_to_destroy";
         WaitingItem: {
             /** Format: uuid */
             readonly lab: string;
@@ -4128,6 +4170,8 @@ export interface components {
             /** Format: uuid */
             target_id: string | null;
             needs_manager: boolean;
+            /** Format: uuid */
+            vial: string | null;
         };
         /**
          * @description * `deposit` - deposit
@@ -11581,6 +11625,92 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_vials_loss_report_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LossReportInputRequest"];
+                "multipart/form-data": components["schemas"]["LossReportInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VialOutput"];
+                };
+            };
+            /** @description Invalid input on a field: a reference left empty, a day in the future or before the loss */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description vial_not_lost: the vial was found; loss_changed: found and lost again since it was read; loss_not_reportable: its strain was not a VRAT or RAT when it was lost; loss_reported: this loss's report is recorded already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

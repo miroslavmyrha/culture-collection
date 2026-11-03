@@ -329,6 +329,7 @@ export function makeVial(overrides: Partial<VialRow> = {}): VialRow {
     location: null,
     location_masked: false,
     can_reveal: false,
+    police_report: null,
     ...overrides,
   }
 }
@@ -604,6 +605,7 @@ export function makeWaitingItem(overrides: Partial<WaitingItem> = {}): WaitingIt
     target: 'deposit',
     target_id: uuid(n),
     needs_manager: false,
+    vial: null,
     ...overrides,
   }
 }

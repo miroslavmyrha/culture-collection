@@ -12,6 +12,7 @@ export { actorLabel, moment } from '@/lib/activity'
 
 /** The heading of each group on Home, in the server's order (overview/selectors.py, Kind). */
 export const KIND_TITLES: Record<Kind, string> = {
+  loss_to_report: 'Losses to report to the police',
   deposit_received: 'Deposits received',
   deposit_checking: 'Deposits in checking',
   batch_checks_missing: 'Batches waiting for their checks',

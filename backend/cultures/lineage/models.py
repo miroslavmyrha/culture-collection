@@ -17,6 +17,7 @@ from django.db import models
 from django.db.models import F, Func, Q
 from django.db.models.lookups import Exact
 
+from cultures.biosafety.models import RestrictionKind
 from cultures.core.models import PublicModel
 from cultures.deposits.models import Deposit
 from cultures.growth.models import GrowthConditions, growth_constraints, medium_index
@@ -536,3 +537,47 @@ class BatchCheck(PublicModel):
 
     def __str__(self) -> str:
         return f"{self.kind} check of {self.batch_id}"
+
+
+# Act 281/2002 Sb., § 5(5): whoever finds a loss of a highly risky (VRAT) or risky (RAT) agent
+# reports it to the Police of the Czech Republic without undue delay (#159). These are the
+# restriction kinds of those two lists (decree 474/2002 Sb., Annexes 1 and 2).
+LOSS_REPORTED_KINDS: tuple[RestrictionKind, ...] = (RestrictionKind.CZ_VRAT, RestrictionKind.CZ_RAT)
+LOSS_REPORT_ONE_PER_LOSS = "lineage_viallossreport_one_per_loss"
+
+
+class VialLossReport(PublicModel):
+    """That the loss of a vial of a VRAT or RAT strain was reported to the police (#159, act
+    281/2002 Sb., § 5(5)): the Czech day of the report and the police reference. One per loss: a
+    loss is the vial's going to lost, named by the moment it went (the vial's status_changed_at
+    then), so a vial found and lost again owes a new report. Added once, never changed or
+    deleted (the trigger, migration 0012). The reason is the event's."""
+
+    lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="+")
+    # No index of its own: the unique (vial, lost_at) leads with it.
+    vial = models.ForeignKey(
+        Vial, on_delete=models.PROTECT, related_name="loss_reports", db_index=False
+    )
+    lost_at = models.DateTimeField()
+    reported_on = models.DateField()
+    # The reference the police gave the report (a case number). Names no person.
+    reference = models.CharField(max_length=100)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    recorded_at = models.DateTimeField()
+
+    objects = LabScopedQuerySet["VialLossReport"].as_manager()
+
+    class Meta(PublicModel.Meta):
+        constraints = [
+            *PublicModel.Meta.constraints,
+            models.UniqueConstraint(fields=["vial", "lost_at"], name=LOSS_REPORT_ONE_PER_LOSS),
+            models.CheckConstraint(
+                condition=Q(reference__regex=TRIMMED),
+                name="lineage_viallossreport_reference_trimmed",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"loss report of {self.vial_id}"

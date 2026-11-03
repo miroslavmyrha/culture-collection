@@ -5,7 +5,7 @@ from datetime import timedelta
 
 import pytest
 
-from cultures.biosafety.models import AuthorisationKind
+from cultures.biosafety.models import AuthorisationKind, RestrictionKind
 from cultures.biosafety.policy import permit_today
 from cultures.core.testing import logged_in
 from cultures.deposits import services as deposits
@@ -30,10 +30,11 @@ from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
 from cultures.labs.tests.conftest import make_user, member_of
 from cultures.lineage import services as lineage
-from cultures.lineage.models import Batch, CheckKind, CheckResult, VialStatus
+from cultures.lineage.models import Batch, CheckKind, CheckResult, Vial, VialStatus
 from cultures.lineage.tests.support import record, vials_of
 from cultures.overview import selectors
 from cultures.strains.models import Strain
+from cultures.strains.services import RestrictionInput
 from cultures.strains.tests.conftest import make_permit
 from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
@@ -331,6 +332,59 @@ def test_vials_marked_to_destroy_wait_for_curators_one_line_per_batch(
                 reason="Autoclaved.",
             )
     assert "vials_to_destroy" not in waiting(curator)
+
+
+# Losses of VRAT and RAT vials: managers record that the police were told (#159).
+
+RAT = RestrictionInput(RestrictionKind.CZ_RAT, "Příloha 2, bod 1")
+
+
+def lose(vial: Vial, actor: User, status: VialStatus = VialStatus.LOST) -> Vial:
+    with as_actor(actor):
+        return lineage.vial_transition(
+            access=access_for(actor), vial=vial, status=status, reason="Not in its box."
+        )
+
+
+def test_a_lost_rat_vial_waits_for_managers_until_the_report_is_recorded(
+    supply: Supply, mockia: Taxon, team: dict[Role, User], curator: User, manager: User
+) -> None:
+    strain = supply(mockia, restrictions=[RAT], vials=3, release=False)
+    first, second, _ = vials_of(batch_of(strain))
+    lose(second, curator)
+    lose(first, curator)
+    plain = supply(release=False)  # no restriction: its loss owes no report
+    lose(vials_of(batch_of(plain))[0], curator)
+    number = strain.accession_number
+    for role, user in team.items():
+        expected = [f"{number} / 1 / 2", f"{number} / 1 / 1"] if role == Role.MANAGER else []
+        assert subjects(user, "loss_to_report") == expected, role
+    oldest = waiting(manager)["loss_to_report"][0]
+    assert (oldest["target"], oldest["target_id"]) == ("strain", str(strain.public_id))
+    assert oldest["vial"] == str(second.public_id)
+    assert "act 281/2002 Sb., § 5(5)" in oldest["reason"]
+    # The group is the first on Home: the act asks the report without undue delay.
+    assert overview(manager)["waiting"][0]["kind"] == "loss_to_report"
+
+    fresh = Vial.objects.get(pk=second.pk)
+    assert fresh.status_changed_at is not None
+    with as_actor(manager):
+        lineage.vial_loss_report(
+            access=access_for(manager),
+            vial=fresh,
+            lost_at=fresh.status_changed_at,
+            reported_on=permit_today(),
+            reference="KRPB-1234-1/TČ-2026-060000",
+            reason="Reported at the police station.",
+        )
+    assert subjects(manager, "loss_to_report") == [f"{number} / 1 / 1"]
+    # Found before anyone reported it: nothing to report, the item goes.
+    lose(first, curator, VialStatus.AVAILABLE)
+    assert "loss_to_report" not in waiting(manager)
+    # Lost again after a report: a new loss, a new item.
+    lose(second, curator, VialStatus.AVAILABLE)
+    lose(second, curator)
+    assert subjects(manager, "loss_to_report") == [f"{number} / 1 / 2"]
 
 
 # Scope: memberships decide, never anything else.

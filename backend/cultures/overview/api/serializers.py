@@ -25,6 +25,8 @@ class WaitingItemSerializer(serializers.Serializer[Item]):
     target_id = serializers.UUIDField(allow_null=True)
     # A request only a manager may approve: a line of a regulated strain (ADR 0009).
     needs_manager = serializers.BooleanField()
+    # A vial on the strain's Material tab (target strain): the link narrows the tab to it.
+    vial = serializers.UUIDField(source="vial_id", allow_null=True)
 
     @extend_schema_field(OpenApiTypes.UUID)
     def get_lab(self, item: Item) -> str:

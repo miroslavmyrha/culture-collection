@@ -20,10 +20,11 @@ from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
 from cultures.storage.models import StorageUnit, UnitKind
-from cultures.strains.models import Strain, StrainStatus
+from cultures.strains.models import Strain, StrainRestriction, StrainStatus
 from cultures.strains.selectors import regulating_restrictions
 
 from .models import (
+    LOSS_REPORTED_KINDS,
     Batch,
     BatchCheck,
     BatchStatus,
@@ -32,6 +33,7 @@ from .models import (
     Passage,
     Purpose,
     Vial,
+    VialLossReport,
     VialPlacement,
     VialStatus,
 )
@@ -151,14 +153,48 @@ def _regulated() -> Exists:
     return Exists(regulating_restrictions().filter(strain_id=OuterRef("batch__strain_id")))
 
 
+def _listed_at_loss() -> Exists:
+    """A cz_vrat or cz_rat restriction of the vial's strain was in force when the vial took its
+    current status (status_changed_at): created at or before that moment, not ended by then."""
+    at = OuterRef("status_changed_at")
+    return Exists(
+        StrainRestriction.objects.filter(
+            strain_id=OuterRef("batch__strain_id"),
+            kind__in=LOSS_REPORTED_KINDS,
+            created_at__lte=at,
+        ).filter(Q(ended_at__isnull=True) | Q(ended_at__gt=at))
+    )
+
+
+def reportable_loss() -> Q:
+    """Vials in a loss the police must be told of (#159, act 281/2002 Sb., § 5(5)): lost while
+    their strain was a VRAT or RAT. The one definition the report service, the vial list and
+    Home read; the loss report's trigger (migration 0012) holds the same in SQL. A found vial is
+    no longer lost, so its loss leaves this set, reported or not."""
+    return Q(status=VialStatus.LOST) & Q(_listed_at_loss())
+
+
+def loss_reports_of_this_loss() -> QuerySet[VialLossReport]:
+    """The report of the loss the outer vial is in: one at most (one per vial and loss)."""
+    return VialLossReport.objects.filter(vial=OuterRef("pk"), lost_at=OuterRef("status_changed_at"))
+
+
 def vial_list(*, access: Access, lab: Lab) -> QuerySet[Vial]:
     """The vials of one lab the user may view, by strain, batch and number, each with
-    `regulated` and its open placement (`open_placements`, at most one)."""
+    `regulated`, its open placement (`open_placements`, at most one) and, for a vial in a loss
+    the police must be told of, `loss_reportable` with the report's day and reference once
+    recorded (`loss_reported_on`, `loss_reference`, else None)."""
+    report = loss_reports_of_this_loss()
     return (
         Vial.objects.for_access(access, Perm.VIEW_STRAINS)
         .filter(lab=lab)
         .select_related("batch__strain")
-        .annotate(regulated=_regulated())
+        .annotate(
+            regulated=_regulated(),
+            loss_reportable=Case(When(reportable_loss(), then=True), default=False),
+            loss_reported_on=Subquery(report.values("reported_on")[:1]),
+            loss_reference=Subquery(report.values("reference")[:1]),
+        )
         .prefetch_related(
             Prefetch(
                 "placements",

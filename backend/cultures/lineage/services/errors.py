@@ -109,3 +109,34 @@ class CheckEnteredInError(Conflict):
 
 class ChecksNotPassed(RuleViolation):
     default_code = "checks_not_passed"
+
+
+# The loss report (#159, act 281/2002 Sb., § 5(5)).
+
+
+class VialNotLost(Conflict):
+    """The vial was found (or never lost): there is no loss to report."""
+
+    default_code = "vial_not_lost"
+    default_detail = "This vial is not lost: it was found, so there is no loss to report."
+
+
+class LossChanged(Conflict):
+    """The vial was found and lost again since the caller read it: the report would be of
+    another loss than the one the person saw."""
+
+    default_code = "loss_changed"
+    default_detail = "This vial was found and lost again since the page was loaded. Reload it."
+
+
+class LossNotReportable(Conflict):
+    default_code = "loss_not_reportable"
+    default_detail = (
+        "Its strain was not a highly risky or risky agent when the vial was lost: the act asks"
+        " no report to the police."
+    )
+
+
+class LossReported(Conflict):
+    default_code = "loss_reported"
+    default_detail = "The report of this loss is recorded already."
