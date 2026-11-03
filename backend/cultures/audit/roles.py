@@ -110,6 +110,8 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     "distribution_shipmentdocument": ("SELECT", "INSERT"),
     # ADR 0009: a location grant is revoked, never deleted.
     "labs_locationgrant": ("SELECT", "INSERT", "UPDATE"),
+    # ADR 0009 (2026-11-03): a VRAT access entry is ended, never deleted.
+    "labs_vrataccess": ("SELECT", "INSERT", "UPDATE"),
     # Storage units are retired, never deleted: events and, from #16, placements point at
     # them. Box types are referenced by boxes. A trigger refuses deletes too.
     "storage_boxtype": ("SELECT", "INSERT", "UPDATE"),

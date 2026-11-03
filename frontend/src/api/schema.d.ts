@@ -1549,6 +1549,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/vrat-access/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_vrat_access_list"];
+        put?: never;
+        post: operations["labs_vrat_access_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/vrat-access/{public_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labs_vrat_access_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/vrat-access/{public_id}/end/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_vrat_access_end_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{public_id}/": {
         parameters: {
             query?: never;
@@ -4136,6 +4184,36 @@ export interface components {
          * @enum {string}
          */
         VialStatusInputStatusEnum: "available" | "consumed" | "quarantined" | "to_destroy" | "destroyed" | "lost" | "entered_in_error";
+        VratAccessEndInputRequest: {
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
+        VratAccessInputRequest: {
+            /** @description Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only. */
+            username: string;
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
+        /**
+         * @description An entry of the lab's VRAT access list (act 281/2002 Sb., § 14a(4)): who, from when, until
+         *     when, put on and taken off by whom and why. Open while `ended_at` is null. People are read
+         *     through the user rows at read time: an erased person is their tombstone username.
+         */
+        VratAccessOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly username: string;
+            readonly first_name: string;
+            readonly last_name: string;
+            /** Format: date-time */
+            readonly granted_at: string;
+            readonly granted_by: string;
+            readonly reason: string;
+            /** Format: date-time */
+            readonly ended_at: string | null;
+            readonly ended_by: string | null;
+            readonly end_reason: string;
+        };
         WaitingGroup: {
             kind: components["schemas"]["WaitingGroupKindEnum"];
             total: number;
@@ -11996,6 +12074,273 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_vrat_access_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VratAccessOutput"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_vrat_access_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VratAccessInputRequest"];
+                "multipart/form-data": components["schemas"]["VratAccessInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VratAccessOutput"];
+                };
+            };
+            /** @description An unknown or inactive user, or one who is not a member (invalid_user), or on the list already (already_on_list) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_vrat_access_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VratAccessOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_vrat_access_end_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VratAccessEndInputRequest"];
+                "multipart/form-data": components["schemas"]["VratAccessEndInputRequest"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description vrat_access_ended: ended already */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

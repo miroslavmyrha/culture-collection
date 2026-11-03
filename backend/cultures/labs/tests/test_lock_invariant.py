@@ -11,6 +11,9 @@ until someone puts it on one side. For each scenario the captured SQL must show:
   then labs, then memberships), and such a lock in every service that adds a
   member or deactivates users (LOCKS_USER): a membership cannot appear for a
   user while the user is being deactivated.
+- a lock on an entry of the VRAT access list after the lab lock, in every
+  service that ends one (ENDS_VRAT_ACCESS: leaving the lab, deactivation and
+  erasure end the leaving person's entry, set up by the scenario).
 SQL is text, so this proves the order of statements, not what PostgreSQL
 does with them: the thread races in test_concurrency.py prove that part.
 """
@@ -55,8 +58,16 @@ def membership_set_role(lab: Lab) -> Callable[[], object]:
     return lambda: labs.membership_set_role(membership=membership(first, lab), role=Role.VIEWER)
 
 
+def _on_vrat_list(lab: Lab, *people: User) -> None:
+    """Puts them on the lab's VRAT access list, so the scenario also ends an entry."""
+    manager = next(m.user for m in lab.memberships.filter(role=Role.MANAGER).select_related("user"))
+    for person in people:
+        labs.vrat_access_grant(access=access_for(manager), lab=lab, user=person, reason=REASON)
+
+
 def membership_delete(lab: Lab) -> Callable[[], object]:
     first, _ = _two_managers(lab)
+    _on_vrat_list(lab, first)
     return lambda: labs.membership_delete(membership=membership(first, lab))
 
 
@@ -75,22 +86,26 @@ def member_change_role(lab: Lab) -> Callable[[], object]:
 
 def member_remove(lab: Lab) -> Callable[[], object]:
     first, second = _two_managers(lab)
+    _on_vrat_list(lab, second)
     return lambda: labs.member_remove(access=access_for(first), membership=membership(second, lab))
 
 
 def user_deactivate(lab: Lab) -> Callable[[], object]:
     first, _ = _two_managers(lab)
+    _on_vrat_list(lab, first)
     return lambda: users.user_deactivate(user=first, reason=REASON)
 
 
 def users_deactivate(lab: Lab) -> Callable[[], object]:
     first, _ = _two_managers(lab)
     viewer = member_of(lab, Role.VIEWER, "viewer")
+    _on_vrat_list(lab, first, viewer)
     return lambda: users.users_deactivate(users=[first, viewer], reason=REASON)
 
 
 def user_erase(lab: Lab) -> Callable[[], object]:
     first, _ = _two_managers(lab)
+    _on_vrat_list(lab, first)
     return lambda: users.user_erase(user=first, reason=REASON)
 
 
@@ -107,6 +122,26 @@ def location_grant_revoke(lab: Lab) -> Callable[[], object]:
         access=access_for(first), lab=lab, membership=membership(second, lab), reason=REASON
     )
     return lambda: labs.location_grant_revoke(access=access_for(first), grant=grant, reason=REASON)
+
+
+def vrat_access_grant(lab: Lab) -> Callable[[], object]:
+    first, second = _two_managers(lab)
+    return lambda: labs.vrat_access_grant(
+        access=access_for(first), lab=lab, user=second, reason=REASON
+    )
+
+
+def vrat_access_end(lab: Lab) -> Callable[[], object]:
+    first, second = _two_managers(lab)
+    entry = labs.vrat_access_grant(access=access_for(first), lab=lab, user=second, reason=REASON)
+    return lambda: labs.vrat_access_end(access=access_for(first), entry=entry, reason=REASON)
+
+
+def vrat_access_end_for_users(lab: Lab) -> Callable[[], object]:
+    """Its callers lock the users first (user_deactivate, users_deactivate, user_erase)."""
+    _, second = _two_managers(lab)
+    _on_vrat_list(lab, second)
+    return lambda: labs.vrat_access_end_for_users(users=[second], reason=REASON)
 
 
 def users_deactivation_check(lab: Lab) -> Callable[[], object]:
@@ -129,6 +164,9 @@ SCENARIOS: dict[str, Scenario] = {
         users_deactivation_check,
         location_grant_add,
         location_grant_revoke,
+        vrat_access_grant,
+        vrat_access_end,
+        vrat_access_end_for_users,
     )
 }
 
@@ -139,6 +177,18 @@ LOCKS_USER = {
     "user_deactivate",
     "users_deactivate",
     "user_erase",
+    "vrat_access_grant",
+}
+
+# Scenarios that end an entry of the VRAT access list: they lock it after the lab.
+ENDS_VRAT_ACCESS = {
+    "membership_delete",
+    "member_remove",
+    "user_deactivate",
+    "users_deactivate",
+    "user_erase",
+    "vrat_access_end",
+    "vrat_access_end_for_users",
 }
 
 # Public services that neither change memberships nor make a user inactive.
@@ -208,3 +258,6 @@ def test_the_lab_lock_comes_before_the_managers_are_read(
     user_lock = first(statements, locks("users_user"))
     assert (user_lock is not None) == (name in LOCKS_USER), f"{name}: user lock {user_lock}"
     assert user_lock is None or user_lock < lab_lock, f"{name} locks a user after a lab"
+    entry_lock = first(statements, locks("labs_vrataccess"))
+    assert (entry_lock is not None) == (name in ENDS_VRAT_ACCESS), f"{name}: entry {entry_lock}"
+    assert entry_lock is None or entry_lock > lab_lock, f"{name} locks an entry before the lab"

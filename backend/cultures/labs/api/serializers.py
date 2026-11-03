@@ -6,7 +6,7 @@ from rest_framework.request import Request
 
 from cultures.core.api import ScopedRelatedField
 from cultures.labs.access import access_of
-from cultures.labs.models import Lab, LocationGrant, Membership
+from cultures.labs.models import Lab, LocationGrant, Membership, VratAccess
 from cultures.labs.permissions import Perm, Role
 from cultures.users.models import User
 
@@ -81,4 +81,45 @@ class LocationGrantInputSerializer(serializers.Serializer[None]):
 
 
 class LocationRevokeInputSerializer(serializers.Serializer[None]):
+    reason = serializers.CharField(help_text=REASON_HELP)
+
+
+class VratAccessOutputSerializer(serializers.ModelSerializer[VratAccess]):
+    """An entry of the lab's VRAT access list (act 281/2002 Sb., § 14a(4)): who, from when, until
+    when, put on and taken off by whom and why. Open while `ended_at` is null. People are read
+    through the user rows at read time: an erased person is their tombstone username."""
+
+    username = serializers.CharField(source="user.username", read_only=True)
+    first_name = serializers.CharField(source="user.first_name", read_only=True)
+    last_name = serializers.CharField(source="user.last_name", read_only=True)
+    granted_at = serializers.DateTimeField(source="created_at", read_only=True)
+    granted_by = serializers.CharField(source="granted_by.username", read_only=True)
+    # Null when nobody signed in ended it (a command deactivated the account).
+    ended_by = serializers.CharField(source="ended_by.username", read_only=True, allow_null=True)
+
+    class Meta:
+        model = VratAccess
+        fields = (
+            "public_id",
+            "username",
+            "first_name",
+            "last_name",
+            "granted_at",
+            "granted_by",
+            "reason",
+            "ended_at",
+            "ended_by",
+            "end_reason",
+        )
+        read_only_fields = fields
+
+
+class VratAccessInputSerializer(serializers.Serializer[None]):
+    # By username, like adding a member: a missing, an inactive and a malformed username give
+    # the same error, and the service gives it too for an active user who is not a member.
+    username = ScopedRelatedField(model=User, scope=active_users, slug_field="username")
+    reason = serializers.CharField(help_text=REASON_HELP)
+
+
+class VratAccessEndInputSerializer(serializers.Serializer[None]):
     reason = serializers.CharField(help_text=REASON_HELP)

@@ -8231,6 +8231,244 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/vrat-access/:
+    get:
+      operationId: labs_vrat_access_list
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VratAccessOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+    post:
+      operationId: labs_vrat_access_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VratAccessInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VratAccessInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VratAccessOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: An unknown or inactive user, or one who is not a member (invalid_user),
+            or on the list already (already_on_list)
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: reason_required
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/vrat-access/{public_id}/:
+    get:
+      operationId: labs_vrat_access_retrieve
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VratAccessOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/vrat-access/{public_id}/end/:
+    post:
+      operationId: labs_vrat_access_end_create
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VratAccessEndInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VratAccessEndInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'vrat_access_ended: ended already'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: reason_required
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{public_id}/:
     get:
       operationId: labs_retrieve
@@ -14422,6 +14660,83 @@ components:
         * `destroyed` - Destroyed
         * `lost` - Lost
         * `entered_in_error` - Entered in error
+    VratAccessEndInputRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+      required:
+      - reason
+    VratAccessInputRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+      required:
+      - reason
+      - username
+    VratAccessOutput:
+      type: object
+      description: |-
+        An entry of the lab's VRAT access list (act 281/2002 Sb., § 14a(4)): who, from when, until
+        when, put on and taken off by whom and why. Open while `ended_at` is null. People are read
+        through the user rows at read time: an erased person is their tombstone username.
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+        first_name:
+          type: string
+          readOnly: true
+        last_name:
+          type: string
+          readOnly: true
+        granted_at:
+          type: string
+          format: date-time
+          readOnly: true
+        granted_by:
+          type: string
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        ended_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        ended_by:
+          type: string
+          readOnly: true
+          nullable: true
+        end_reason:
+          type: string
+          readOnly: true
+      required:
+      - end_reason
+      - ended_at
+      - ended_by
+      - first_name
+      - granted_at
+      - granted_by
+      - last_name
+      - public_id
+      - reason
+      - username
     WaitingGroup:
       type: object
       properties:

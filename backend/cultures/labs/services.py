@@ -19,9 +19,10 @@ count: an inactive user keeps the membership but cannot manage anybody.
 
 Deactivating users (cultures.users.services) holds their rows locked and calls
 users_deactivation_check, which locks every lab they belong to and refuses to
-leave a lab without an active manager. membership_create locks the new
-member's user row, so no membership appears for a user while the user is
-being deactivated. The admin names a replacement first: there is no forced
+leave a lab without an active manager, then vrat_access_end_for_users, which
+ends their open VRAT access entries under the same lab locks. membership_create
+locks the new member's user row, so no membership appears for a user while the
+user is being deactivated. The admin names a replacement first: there is no forced
 deactivation (ADR 0006). One exception to the order: the admin lab form runs
 lab_update before its inline adds members (ADR 0006, known limits).
 """
@@ -42,6 +43,8 @@ from cultures.audit.registry import (
     MEMBER_ADDED,
     MEMBER_REMOVED,
     MEMBER_ROLE_CHANGED,
+    VRAT_ACCESS_ENDED,
+    VRAT_ACCESS_GRANTED,
 )
 from cultures.core.exceptions import DomainError, Forbidden, NotFound, RuleViolation
 from cultures.users.models import User
@@ -52,16 +55,21 @@ from .models import (
     LAB_NAME_UNIQUE,
     LOCATION_GRANT_OPEN_UNIQUE,
     MEMBERSHIP_UNIQUE,
+    VRAT_ACCESS_OPEN_UNIQUE,
     Lab,
     LocationGrant,
     Membership,
+    VratAccess,
 )
 from .permissions import Perm, Role, may_grant, role_has
 
 LAB = "lab"
 MEMBERSHIP = "membership"
 LOCATION_GRANT = "location_grant"
+VRAT_ACCESS = "vrat_access"
 LEFT_THE_LAB = "The member left the lab."
+DEACTIVATED = "The account was deactivated."
+ERASED = "The account was erased."
 
 
 class DuplicateLab(DomainError):
@@ -209,6 +217,8 @@ def membership_delete(*, membership: Membership) -> None:
         public_id, lab_id, role = locked.public_id, locked.lab_id, locked.role
         user = _user_id(locked.user)
         _revoke_open_grant(lab_id, locked.user, LEFT_THE_LAB)
+        # Before the delete: the guard at commit (labs 0006) finds no open entry of a member gone.
+        _end_open_vrat_access(lab_id, locked.user, LEFT_THE_LAB)
         locked.delete()
         record_event(
             MEMBER_REMOVED,
@@ -463,6 +473,129 @@ def _end(grant: LocationGrant, reason: str) -> None:
             grant.public_id,
             {"user": [_user_id(grant.user), _user_id(grant.user)], "revoked": [False, True]},
             lab_id=grant.lab_id,
+        ),
+        reason=reason,
+    )
+
+
+# The VRAT access list (act 281/2002 Sb., § 14a(4), ADR 0009 amendment of 2026-11-03): who has
+# access to the lab's highly risky agents. Put on it and taken off it by the lab's managers, each
+# with a reason; part of no role. Only an active member is on it: leaving the lab, a deactivation
+# and an erasure end the entry in the same transaction. Separate from the location grant.
+
+
+class NotAMember(DomainError):
+    """The same field error as an unknown or inactive user (UnknownUser)."""
+
+    default_code = "invalid_user"
+    default_detail = "No active member of this lab with this username."
+
+    def __init__(self, detail: str | None = None, *, attr: str | None = "username") -> None:
+        super().__init__(detail, attr=attr)
+
+
+class AlreadyOnList(DomainError):
+    default_code = "already_on_list"
+    default_detail = "This member is on the VRAT access list already."
+
+    def __init__(self, detail: str | None = None, *, attr: str | None = "username") -> None:
+        super().__init__(detail, attr=attr)
+
+
+class VratAccessEnded(DomainError):
+    status_code = 409
+    default_code = "vrat_access_ended"
+    default_detail = "This entry of the VRAT access list has ended already."
+
+
+def vrat_access_grant(*, access: Access, lab: Lab, user: User, reason: str) -> VratAccess:
+    """A manager puts an active member of the lab on its VRAT access list, with a reason.
+
+    Lock order: the user's row (a deactivation of this user waits for us, or we see it
+    inactive), then the lab (a removal of the member waits, or we see it gone)."""
+    reason = _reason(reason)
+    with audited_atomic():
+        _lock_active_user(user)
+        _lock_lab(lab.pk)
+        _grantor_role(access, lab.pk)
+        if not Membership.objects.filter(lab_id=lab.pk, user=user).exists():
+            raise NotAMember
+        entry = VratAccess(lab_id=lab.pk, user=user, granted_by=access.user, reason=reason)
+        _save(entry, {VRAT_ACCESS_OPEN_UNIQUE: AlreadyOnList()})
+        record_event(
+            VRAT_ACCESS_GRANTED,
+            Change(VRAT_ACCESS, entry.public_id, {"user": [None, _user_id(user)]}, lab_id=lab.pk),
+            reason=reason,
+        )
+    return entry
+
+
+def vrat_access_end(*, access: Access, entry: VratAccess, reason: str) -> VratAccess:
+    """A manager takes a person off the lab's VRAT access list, with a reason. The row stays."""
+    reason = _reason(reason)
+    with audited_atomic():
+        _lock_lab(entry.lab_id)
+        _grantor_role(access, entry.lab_id)
+        locked = (
+            VratAccess.objects.select_for_update(of=("self",))
+            .select_related("user")
+            .filter(pk=entry.pk)
+            .first()
+        )
+        if locked is None:
+            raise NotFound
+        if locked.ended_at is not None:
+            raise VratAccessEnded
+        _end_vrat_access(locked, reason)
+    return locked
+
+
+def vrat_access_end_for_users(*, users: Collection[User], reason: str) -> int:
+    """End every open VRAT access entry of these users, before they become inactive or erased.
+
+    Caller holds the users' rows locked (cultures.users.services). Locks the labs of the open
+    entries by pk (users_deactivation_check took them already: taking them again changes
+    nothing), then the entries. Returns how many ended.
+    """
+    user_ids = [user.pk for user in users]
+    open_entries = VratAccess.objects.filter(user_id__in=user_ids, ended_at__isnull=True)
+    lab_ids = sorted(set(open_entries.values_list("lab_id", flat=True)))
+    if not lab_ids:
+        return 0
+    for lab_id in lab_ids:
+        _lock_lab(lab_id)
+    entries = list(
+        open_entries.select_for_update(of=("self",)).select_related("user").order_by("pk")
+    )
+    for entry in entries:
+        _end_vrat_access(entry, reason)
+    return len(entries)
+
+
+def _end_open_vrat_access(lab_id: int, user: User, reason: str) -> None:
+    """With the membership: caller holds the lab lock."""
+    entry = (
+        VratAccess.objects.select_for_update(of=("self",))
+        .select_related("user")
+        .filter(lab_id=lab_id, user=user, ended_at__isnull=True)
+        .first()
+    )
+    if entry is not None:
+        _end_vrat_access(entry, reason)
+
+
+def _end_vrat_access(entry: VratAccess, reason: str) -> None:
+    entry.ended_at = timezone.now()
+    entry.ended_by = current_context().actor
+    entry.end_reason = reason
+    entry.save(update_fields=["ended_at", "ended_by", "end_reason", "updated_at"])
+    record_event(
+        VRAT_ACCESS_ENDED,
+        Change(
+            VRAT_ACCESS,
+            entry.public_id,
+            {"user": [_user_id(entry.user), _user_id(entry.user)], "ended": [False, True]},
+            lab_id=entry.lab_id,
         ),
         reason=reason,
     )

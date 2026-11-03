@@ -84,6 +84,9 @@ SHOWN: dict[str, Shown] = {
     "location_grant_revoked": Shown(
         Perm.MANAGE_MEMBERS, "revoked a member's regulated locations", LAB
     ),
+    # The VRAT access list is kept to the managers too (labs.VratAccessViewSet).
+    "vrat_access_granted": Shown(Perm.MANAGE_MEMBERS, "put a member on the VRAT access list", LAB),
+    "vrat_access_ended": Shown(Perm.MANAGE_MEMBERS, "took a member off the VRAT access list", LAB),
     # Lab permits are recorded by staff; a manager answers for them.
     "lab_authorisation_added": Shown(Perm.APPROVE_REGULATED, "recorded a lab permit", LAB),
     "lab_authorisation_ended": Shown(Perm.APPROVE_REGULATED, "ended a lab permit", LAB),
