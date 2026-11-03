@@ -4,20 +4,22 @@ entered in error, its events and its API. The triggers that hold the same are in
 test_destruction_guards.py."""
 
 from collections.abc import Callable
-from datetime import timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 import pytest
+import time_machine
 
 from cultures.audit.context import MissingAuditContext, audit_context
 from cultures.audit.models import AuditEvent, Channel
 from cultures.biosafety.models import AuthorisationKind, DestructionMethod, RestrictionKind
-from cultures.biosafety.policy import permit_today
+from cultures.biosafety.policy import PERMIT_TIME_ZONE, permit_today
 from cultures.core.exceptions import DomainError, Forbidden, RuleViolation
 from cultures.core.testing import QueryBaseline, Write, assert_problem, logged_in
 from cultures.core.testing.contract import ViewsetContract
+from cultures.labs import services as labs
 from cultures.labs.access import access_for
-from cultures.labs.models import Lab, Membership
+from cultures.labs.models import Lab, Membership, VratAccess
 from cultures.labs.permissions import Role
 from cultures.labs.tests.conftest import member_of, membership
 from cultures.lineage import services
@@ -118,14 +120,34 @@ def in_error_as(actor: User, record: DestructionRecord, reason: str = "Wrong via
         )
 
 
+def _prague_noon(day: date) -> datetime:
+    """Midday in Prague: inside the Czech day whatever the offset, for a grant or an end on it."""
+    return datetime.combine(day, time(12), tzinfo=PERMIT_TIME_ZONE)
+
+
 def statuses(vials: list[Vial]) -> set[str]:
     return set(Vial.objects.filter(pk__in=[v.pk for v in vials]).values_list("status", flat=True))
 
 
 @pytest.fixture
-def witness(lab: Lab) -> User:
-    """A technician of the lab, present at the destruction."""
-    return member_of(lab, Role.TECHNICIAN, "present-member")
+def witness(lab: Lab, manager: User) -> User:
+    """A technician of the lab on its VRAT access list, as a VRAT's witness must be (#167)."""
+    person = member_of(lab, Role.TECHNICIAN, "present-member")
+    with_vrat_access(person, lab, manager)
+    return person
+
+
+def with_vrat_access(person: User, lab: Lab, manager: User) -> VratAccess:
+    """The manager puts the person on the lab's VRAT access list, through the service (#167)."""
+    with audit_context(channel=Channel.API, actor=manager, request_id="req-access"):
+        return labs.vrat_access_grant(
+            access=access_for(manager), lab=lab, user=person, reason="witnesses destructions"
+        )
+
+
+def end_vrat_access(entry: VratAccess, manager: User) -> VratAccess:
+    with audit_context(channel=Channel.API, actor=manager, request_id="req-access-end"):
+        return labs.vrat_access_end(access=access_for(manager), entry=entry, reason="moved on")
 
 
 @pytest.fixture
@@ -208,11 +230,12 @@ def test_a_strain_without_restrictions_is_destroyed_at_once_and_leaves_its_place
 NEEDS_CONFIRMATION = {"cz_vrat", "cz_rat", "dual_use", "quarantine_pest", "gmo"}
 NEEDS_VERIFICATION = NEEDS_CONFIRMATION
 NEEDS_WITNESS = {"cz_vrat"}
+WITNESS_WITH_VRAT_ACCESS = {"cz_vrat"}
 INACTIVATED_BEFORE_HANDOVER = {"cz_vrat", "cz_rat"}
 DECLARED_METHOD = {"quarantine_pest"}
 
 
-@pytest.mark.rule("R-END-06", "R-END-08", "R-END-09", "R-END-10")
+@pytest.mark.rule("R-END-06", "R-END-07", "R-END-08", "R-END-09", "R-END-10")
 @pytest.mark.parametrize("kind", KINDS)
 def test_each_kind_asks_exactly_its_rules(
     *,
@@ -220,6 +243,7 @@ def test_each_kind_asks_exactly_its_rules(
     strain: Strain,
     passage0: Passage,
     make_batch: MakeBatch,
+    lab: Lab,
     curator: User,
     technician: User,
     witness: User,
@@ -246,6 +270,10 @@ def test_each_kind_asks_exactly_its_rules(
     assert outcome(method="") == "invalid"
     assert outcome(verification="") == ("required" if kind in NEEDS_VERIFICATION else None)
     assert outcome(witness=None) == ("required" if kind in NEEDS_WITNESS else None)
+    # A member on no VRAT access list: only a VRAT asks for one (#167).
+    assert outcome(witness=member_of(lab, Role.TECHNICIAN, f"no-access-{kind}")) == (
+        "witness_without_vrat_access" if kind in WITNESS_WITH_VRAT_ACCESS else None
+    )
     alive = {"contractor": "Firm s.r.o., IČO 12345678", "handover_document": "PP-7"}
     assert outcome(**alive, inactivated_in_lab=False) == (
         "inactivate_before_handover" if kind in INACTIVATED_BEFORE_HANDOVER else None
@@ -472,6 +500,7 @@ def vrat_vials(
     return marked(make_batch, passage0, technician, count=1)
 
 
+@pytest.mark.rule("R-END-07")
 def test_a_vrat_names_a_witness_other_than_the_recorder(
     *,
     vrat_vials: list[Vial],
@@ -495,6 +524,88 @@ def test_a_vrat_names_a_witness_other_than_the_recorder(
     assert event.changes["destruction"][1]["witness"] == str(witness.public_id)
     confirm_as(manager, made)
     assert statuses(vrat_vials) == {VialStatus.DESTROYED}
+
+
+@pytest.mark.rule("R-END-07")
+def test_a_vrat_witness_was_on_the_vrat_access_list_on_the_day(
+    *,
+    vrat_vials: list[Vial],
+    passage0: Passage,
+    make_batch: MakeBatch,
+    lab: Lab,
+    technician: User,
+    manager: User,
+) -> None:
+    """The owner's decision of 2026-11-03: the witness is a person with access to the agent (act
+    281/2002 Sb., § 14a(4), the list of #167). The service asks labs.selectors.has_vrat_access at
+    the end of the Czech day of the destruction."""
+    person = member_of(lab, Role.TECHNICIAN, "no-access")
+    error = refused(
+        services.InvalidDestruction,
+        "witness_without_vrat_access",
+        lambda: record_as(technician, vrat_vials, witness=person),
+        "witness",
+    )
+    assert "§ 14a(4)" in error.detail
+    entry = with_vrat_access(person, lab, manager)
+    made = record_as(technician, vrat_vials, witness=person)
+    assert made.witness == person
+    confirm_as(manager, made)
+    assert statuses(vrat_vials) == {VialStatus.DESTROYED}
+    # Taken off the list, the person witnesses no destruction recorded for today any more.
+    end_vrat_access(entry, manager)
+    again = marked(make_batch, passage0, technician, count=1)
+    refused(
+        services.InvalidDestruction,
+        "witness_without_vrat_access",
+        lambda: record_as(technician, again, witness=person),
+        "witness",
+    )
+
+
+@pytest.mark.rule("R-END-07")
+@pytest.mark.parametrize(
+    ("granted", "ended", "allowed"),
+    [
+        (-10, None, True),  # on the list since before, still on it
+        (-10, -1, False),  # taken off the day before the destruction
+        (-10, 1, True),  # taken off the day after
+        (0, None, True),  # put on the list on the day of the destruction
+        (1, None, False),  # put on the list the day after
+    ],
+)
+def test_the_witness_access_is_read_at_the_end_of_the_day_of_the_destruction(
+    *,
+    granted: int,
+    ended: int | None,
+    allowed: bool,
+    strain: Strain,
+    passage0: Passage,
+    make_batch: MakeBatch,
+    lab: Lab,
+    curator: User,
+    technician: User,
+    manager: User,
+) -> None:
+    """The access list is history: a record of a past day asks the list as it was then. The days
+    are counted from the day of the destruction, which is today here (`destroyed_on`)."""
+    restrict(strain, curator, "cz_vrat")
+    person = member_of(lab, Role.TECHNICIAN, "in-and-out")
+    day = permit_today()
+    with time_machine.travel(_prague_noon(day + timedelta(days=granted)), tick=False):
+        entry = with_vrat_access(person, lab, manager)
+    if ended is not None:
+        with time_machine.travel(_prague_noon(day + timedelta(days=ended)), tick=False):
+            end_vrat_access(entry, manager)
+    vials = marked(make_batch, passage0, technician, count=1)
+
+    def call() -> DestructionRecord:
+        return record_as(technician, vials, witness=person)
+
+    if not allowed:
+        refused(services.InvalidDestruction, "witness_without_vrat_access", call, "witness")
+        return
+    assert call().witness == person
 
 
 @pytest.mark.rule("R-END-08")

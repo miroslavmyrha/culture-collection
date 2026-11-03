@@ -124,7 +124,8 @@ DESTRUCTION_INVALID = OpenApiResponse(
     "Invalid input on a field: an unknown strain, vial (vials.<i>) or member, a vial twice, a"
     " date in the future or before a vial was marked to destroy, other without its description,"
     " a firm without its handover document; for a regulated strain a missing verification; for"
-    " a VRAT a missing witness or one who is the recorder (witness_is_recorder), material"
+    " a VRAT a missing witness, one who is the recorder (witness_is_recorder) or one who was"
+    " not on the lab's VRAT access list on the day (witness_without_vrat_access), material"
     " handed to a firm alive (inactivate_before_handover); for a quarantine pest no permit on"
     " the day (lab_authorisation_required) or another method than the permit declares"
     " (method_not_authorised)",

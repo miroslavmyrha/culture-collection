@@ -755,7 +755,7 @@ has several), from the destruction study and the owner's decisions of 2026-11-02
 | a method code | yes | yes | yes | yes | yes | yes |
 | a verification of the inactivation | no | yes | yes | yes | yes | yes |
 | a manager other than the recorder confirms; the vials go then | no | yes | yes | yes | yes | yes |
-| a witness, a member other than the recorder | no | yes | no | no | no | no |
+| a witness, a member other than the recorder with VRAT access that day | no | yes | no | no | no | no |
 | inactivated in the lab before an outside firm takes it | no | yes | yes | no | no | no |
 | the method the lab's permit declares | no | no | no | no | yes | no |
 
@@ -771,9 +771,18 @@ Sources and reasons:
   re-reads the confirmer's role under the lab lock.
 - **Witness for a VRAT** (decision Q2): not found in the law either; a choice for the highest
   risk. The witness is an active member of the lab who handles vials, other than the recorder,
-  named by user (ADR 0005: a user reference, never a name). Decided 2026-11-03: the witness will
-  be limited to the lab's list of people with access to VRAT (act 281/2002 Sb., § 14a(4)), which
-  does not exist yet and is built in its own issue (#n to follow); until then any such member.
+  named by user (ADR 0005: a user reference, never a name). Decided 2026-11-03 and built here:
+  the witness was also on the lab's VRAT access list (act 281/2002 Sb., § 14a(4), the list of
+  #167) at the destruction, so only a person the lab approved for the agent witnesses it. The
+  service asks `labs.selectors.has_vrat_access` under the lab lock it holds, and the record's
+  guard reads `labs_vrataccess` in SQL for the same answer (400 `witness_without_vrat_access`).
+  A record holds the day of the destruction, not its time, so both read the list at the end of
+  that Czech day: a person put on the list on the day of the destruction counts, one whose access
+  ended before the day was over does not, and a record of a past day asks the list as it was
+  then (the entries are history, so the answer never changes afterwards). The witness select
+  offers the lab's members who handle vials, not the access list: reading the list needs
+  `labs.manage_members` (#167), which the technician who records a destruction does not hold, so
+  the form says the rule and the server refuses what breaks it.
 - **Inactivated before an outside firm, VRAT and RAT** (decision Q9, extended to RAT by the
   owner on 2026-11-03): act 281/2002 Sb., § 13 h) lets a VRAT holder give the agent only to
   another permit holder, and SÚJB's page "Přesun a předání VRAT nebo RAT v rámci ČR" says "RAT si
@@ -811,5 +820,7 @@ signature lines (decision Q10, as the shipment documents), and the yearly export
 the SÚJB declaration (decision Q8). The record holds what both need (see ADR 0008).
 
 Migration impact: additive. A column with an empty default and a check constraint on the lab
-permits; the vial guard replaced without #158's refusal. Reversible: `migrate lineage 0012`,
-`migrate biosafety 0002`.
+permits; the vial guard replaced without #158's refusal; the record's guard reads the VRAT
+access list of `labs` 0006, which the migration depends on; four more event types in the reason
+constraint of `audit_auditevent` (`audit` 0032, validated by 0033). Reversible:
+`migrate lineage 0012`, `migrate biosafety 0002` and `migrate audit 0031`.

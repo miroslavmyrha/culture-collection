@@ -146,6 +146,32 @@ describe('the destruction record (#160)', () => {
     expect(within(dialog).getByRole('combobox', { name: 'Method' })).toHaveFocus()
   })
 
+  it("names the server's refusal of a witness without VRAT access on the witness field (#167)", async () => {
+    mockApi('get', DESTRUCTIONS, page([]))
+    mockApi('get', VIALS, page([first]))
+    mockApi('get', MEMBERS, page([tech, other, viewer]))
+    mockApiError(
+      'post',
+      DESTRUCTIONS,
+      400,
+      problem(400, {
+        code: 'invalid',
+        errors: [{ attr: 'witness', code: 'witness_without_vrat_access', detail: 'Not on the list.' }],
+      }),
+    )
+    await render({ kinds: ['cz_vrat'] })
+    const { user, dialog } = await openRecord()
+    const witness = await within(dialog).findByRole('combobox', { name: 'Witness' })
+    // The form says the rule before anything is sent: the access list is a manager's to read.
+    expect(witness).toHaveAccessibleDescription(/on the lab's VRAT access list on that day/)
+    await user.selectOptions(witness, other.public_id)
+    await user.type(within(dialog).getByRole('textbox', { name: 'Verification of the inactivation' }), 'Spore strip: no growth.')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'Activity ended.')
+    await user.click(within(dialog).getByRole('button', { name: 'Record for confirmation' }))
+    await waitFor(() => expect(witness).toHaveAccessibleDescription(/Not on the list\./))
+    expect(witness).toHaveFocus()
+  })
+
   it('leaves vials of a record that waits for its confirmation out of a new one', async () => {
     mockApi('get', DESTRUCTIONS, page([makeDestruction({ awaits_confirmation: true, completed_at: null, vials: [{ public_id: first.public_id, label: first.label }] })]))
     mockApi('get', VIALS, page([first, second]))

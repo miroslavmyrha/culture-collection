@@ -629,6 +629,23 @@ listed here so that the test can tell them from a regulated gate without a rule.
 - Code: `backend/cultures/lineage/services/destructions.py::Required.confirmation`, `backend/cultures/lineage/services/destructions.py::destruction_confirm`, `backend/cultures/lineage/services/errors.py::ConfirmOwnDestruction`, `backend/cultures/lineage/models.py::"lineage_destructionrecord_confirmer_not_recorder"`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
 - Tests: `backend/cultures/lineage/tests/test_destructions.py::test_each_kind_asks_exactly_its_rules`, `backend/cultures/lineage/tests/test_destructions.py::test_a_manager_other_than_the_recorder_confirms_and_the_vials_go_then`, `backend/cultures/lineage/tests/test_destructions.py::test_the_recorder_does_not_confirm_even_as_a_manager`, `backend/cultures/lineage/tests/test_destructions.py::test_only_a_manager_confirms`, `backend/cultures/lineage/tests/test_destructions.py::test_a_manager_demoted_since_the_request_began_is_refused`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_asks_a_second_person_exactly_when_python_does`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_recorder_never_confirms_also_past_the_service`
 
+#### R-END-07 A VRAT destruction names a witness who was on the lab's VRAT access list that day
+
+- Kind: law in part
+- Source: act 281/2002 Sb., § 14a(4) keeps the list of the people with access (R-ACCESS-01).
+  That a VRAT destruction is witnessed, and that the witness comes from that list and is not the
+  recorder, is our own control (ADR 0009, amendment 2026-11-03, the owner's decisions of
+  2026-11-02 and 2026-11-03).
+- Quote: „Držitel povolení je povinen vytvořit a aktualizovat seznam osob, které mají přístup k vysoce rizikovému biologickému agens nebo toxinu.“
+- English: the permit holder makes and keeps up to date a list of the people who have access to a
+  highly risky agent or toxin.
+- Code: `backend/cultures/lineage/services/destructions.py::Required.witness`, `backend/cultures/lineage/services/destructions.py::Required.witness_with_access`, `backend/cultures/lineage/services/destructions.py::_check_rules`, `backend/cultures/lineage/services/destructions.py::_end_of_czech_day`, `backend/cultures/lineage/models.py::"lineage_destructionrecord_witness_not_recorder"`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
+- Tests: `backend/cultures/lineage/tests/test_destructions.py::test_each_kind_asks_exactly_its_rules`, `backend/cultures/lineage/tests/test_destructions.py::test_a_vrat_names_a_witness_other_than_the_recorder`, `backend/cultures/lineage/tests/test_destructions.py::test_a_vrat_witness_was_on_the_vrat_access_list_on_the_day`, `backend/cultures/lineage/tests/test_destructions.py::test_the_witness_access_is_read_at_the_end_of_the_day_of_the_destruction`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_reads_the_witness_access_of_the_records_own_lab_and_day`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_holds_each_kinds_rule_exactly_when_python_does`
+- Limits: the record holds the day of the destruction, not its time, so the list is read at the
+  end of that Czech day. The witness select offers the lab's members who handle vials, because
+  reading the access list needs `labs.manage_members`; the server refuses a witness without
+  access.
+
 #### R-END-08 A VRAT or RAT goes to an outside firm only inactivated in the lab
 
 - Kind: law in part

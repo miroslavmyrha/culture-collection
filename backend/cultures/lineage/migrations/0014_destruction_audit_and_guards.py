@@ -4,8 +4,9 @@ and ADR 0009, amendments of 2026-11-03; destruction study s12, decisions of 2026
 - lineage_destructionrecord: never deleted. Inserted valid and unconfirmed, for a strain of its
   lab. A strain without an active restriction is destroyed at recording (completed_at =
   recorded_at); a regulated one waits for its confirmation (completed_at null) and says how the
-  inactivation was verified; a cz_vrat names its witness; a cz_vrat or cz_rat is inactivated in
-  the lab before an outside firm takes it; a quarantine_pest names the lab's ÚKZÚZ permit, started by the day of
+  inactivation was verified; a cz_vrat names as its witness a person who was on the lab's VRAT
+  access list at the end of the Czech day of the destruction (labs_vrataccess, #167); a cz_vrat
+  or cz_rat is inactivated in the lab before an outside firm takes it; a quarantine_pest names the lab's ÚKZÚZ permit, started by the day of
   the destruction, whose declared method it used, and nothing else names a permit. Its one
   change is the confirmation (once, while it waits; completed_at = confirmed_at, by someone
   other than the recorder: check constraints) or being entered in error (once, with a reason);
@@ -45,6 +46,7 @@ DECLARE
     permit_kind text;
     permit_method text;
     permit_from date;
+    witness_access boolean;
 BEGIN
     IF TG_OP = 'DELETE' THEN
         RAISE EXCEPTION 'a destruction record is never deleted: enter it in error (record %)',
@@ -97,6 +99,18 @@ BEGIN
     IF 'cz_vrat' = ANY (kinds) THEN
         IF NEW.witness_id IS NULL THEN
             RAISE EXCEPTION 'a VRAT record names the witness of the destruction (record %)',
+                NEW.public_id USING ERRCODE = 'check_violation';
+        END IF;
+        -- The lab's VRAT access list (act 281/2002 Sb., § 14a(4)) as it was at the end of the
+        -- Czech day of the destruction, the moment the service reads too
+        -- (lineage.services.destructions._end_of_czech_day, labs.selectors.has_vrat_access).
+        EXECUTE format('SELECT EXISTS (SELECT FROM %I.labs_vrataccess a'
+            ' WHERE a.lab_id = $1 AND a.user_id = $2 AND a.created_at <= $3'
+            ' AND (a.ended_at IS NULL OR a.ended_at > $3))', TG_TABLE_SCHEMA)
+            INTO witness_access USING NEW.lab_id, NEW.witness_id,
+                ((NEW.destroyed_on + 1)::timestamp AT TIME ZONE 'Europe/Prague');
+        IF NOT witness_access THEN
+            RAISE EXCEPTION 'the witness of a VRAT destruction was on the lab''s VRAT access list on that day (record %)',
                 NEW.public_id USING ERRCODE = 'check_violation';
         END IF;
     END IF;
@@ -401,7 +415,11 @@ DROP FUNCTION lineage_destructionrecord_guard();
 
 
 class Migration(migrations.Migration):
-    dependencies = [("lineage", "0013_destruction_record")]
+    # labs 0006: the record's guard reads the lab's VRAT access list (labs_vrataccess, #167).
+    dependencies = [
+        ("labs", "0006_vrataccess_audit_and_guards"),
+        ("lineage", "0013_destruction_record"),
+    ]
 
     operations = [
         attach_row_audit(

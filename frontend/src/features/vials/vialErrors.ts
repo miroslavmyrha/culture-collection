@@ -26,6 +26,8 @@ export function vialError(error: unknown): string {
     return "The strain's restrictions changed since the destruction was recorded. Enter this record in error and record the destruction again."
   if (isApiError(error, 409) && error.code === 'destruction_entered_in_error') return 'This record was entered in error already. Reload to see it.'
   if (isApiError(error, 403) && error.code === 'confirm_own_destruction') return 'You recorded this destruction: a different manager confirms it.'
+  if (isApiError(error, 400) && error.code === 'witness_without_vrat_access')
+    return "This member was not on the lab's VRAT access list on the day of the destruction. A manager keeps that list on the lab page."
   if (isApiError(error, 422) && error.code === 'authorisation_method_missing')
     return "The lab's ÚKZÚZ permit has no destruction method recorded here. Ask staff to record the permit again with the method its application declared."
   if (isApiError(error, 403) && error.code === 'location_grant_required') return "Only people the lab's managers named may see where regulated strains are."

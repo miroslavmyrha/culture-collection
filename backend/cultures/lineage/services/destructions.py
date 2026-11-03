@@ -11,7 +11,8 @@ decisions of 2026-11-02:
   recorder confirms the record, which destroys the vials (Q2, ADR 0009: "No single account can
   destroy, deaccession or ship a regulated strain"; WHO Laboratory biosecurity guidance 2024,
   p. 31, "removal of biological material from the inventory by two employees");
-- cz_vrat: the witness present at the destruction, a member other than the recorder (Q2);
+- cz_vrat: the witness present at the destruction, a member other than the recorder who was on
+  the lab's VRAT access list then (Q2; act 281/2002 Sb., § 14a(4), the list of #167);
 - cz_vrat and cz_rat: the material inactivated in the lab before an outside firm takes it (Q9;
   act 281/2002 Sb., § 13 h) gives VRAT only to a permit holder, and SÚJB gives RAT only to
   persons who notified RAT handling under § 17a, owner's decision of 2026-11-03);
@@ -31,7 +32,7 @@ with their completed record.
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
-from datetime import date
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from django.db import connection
@@ -57,8 +58,9 @@ from cultures.biosafety.policy import PERMIT_TIME_ZONE, permit_today, valid_on
 from cultures.core.exceptions import Conflict, DomainError, NotFound
 from cultures.labs.access import Access
 from cultures.labs.locks import lock_lab
-from cultures.labs.models import Membership
+from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Perm, Role, role_has
+from cultures.labs.selectors import has_vrat_access
 from cultures.strains.models import Strain
 from cultures.strains.selectors import regulating_restrictions
 from cultures.users.models import User
@@ -111,6 +113,11 @@ class Required:
     @property
     def witness(self) -> bool:
         """Decision Q2: a VRAT."""
+        return RestrictionKind.CZ_VRAT in self.kinds
+
+    @property
+    def witness_with_access(self) -> bool:
+        """The owner's decision of 2026-11-03: a VRAT, as `witness`."""
         return RestrictionKind.CZ_VRAT in self.kinds
 
     @property
@@ -202,6 +209,15 @@ def _checked_input(data: NewDestruction) -> NewDestruction:
     )
 
 
+def _end_of_czech_day(day: date) -> datetime:
+    """The moment the Czech day ends: the next day's midnight in Europe/Prague, the exclusive
+    end of a day everywhere in the project (lineage.selectors.reveal_list,
+    biosafety.policy.permit_today). A record holds the day of the destruction, not its time, so
+    the witness's access is read at the day's end: a person put on the list that day counts, and
+    one whose access ended before the day was over does not."""
+    return datetime.combine(day + timedelta(days=1), time.min, tzinfo=PERMIT_TIME_ZONE)
+
+
 def _declaring_authorisation(lab_id: int, day: date, method: str) -> LabAuthorisation:
     """The lab's ÚKZÚZ permit whose declared method the record uses: one in force on the day of
     the destruction, else the last one that started before it (material is destroyed when the
@@ -236,7 +252,7 @@ def _declaring_authorisation(lab_id: int, day: date, method: str) -> LabAuthoris
 
 
 def _check_rules(
-    required: Required, data: NewDestruction, recorder: User, lab_id: int
+    required: Required, data: NewDestruction, recorder: User, lab: Lab
 ) -> LabAuthorisation | None:
     """The kinds' rules. Caller holds the lab lock. Returns the declaring permit of a quarantine
     pest."""
@@ -257,6 +273,18 @@ def _check_rules(
         raise InvalidDestruction(
             "The witness is a member other than you.", code="witness_is_recorder", attr="witness"
         )
+    if (
+        required.witness_with_access
+        and data.witness is not None
+        and not has_vrat_access(user=data.witness, lab=lab, at=_end_of_czech_day(data.destroyed_on))
+    ):
+        raise InvalidDestruction(
+            "This member was not on the lab's VRAT access list on the day of the destruction: a"
+            " highly risky agent (VRAT) is witnessed by a person with access to it (act 281/2002"
+            " Sb., § 14a(4)).",
+            code="witness_without_vrat_access",
+            attr="witness",
+        )
     if required.inactivated_before_handover and data.contractor and not data.inactivated_in_lab:
         raise InvalidDestruction(
             "A highly risky or risky agent (VRAT, RAT) is inactivated in the lab before a firm"
@@ -266,7 +294,7 @@ def _check_rules(
             attr="inactivated_in_lab",
         )
     if required.authorised_method:
-        return _declaring_authorisation(lab_id, data.destroyed_on, data.method)
+        return _declaring_authorisation(lab.pk, data.destroyed_on, data.method)
     return None
 
 
@@ -399,13 +427,13 @@ def destruction_record(
     regulated one waits for a manager other than the recorder (destruction_confirm)."""
     data = _checked_input(data)
     with audited_atomic():
-        lock_lab(strain.lab_id)
+        lab = lock_lab(strain.lab_id)
         _require(access, strain.lab_id)
         locked = _locked_strain(strain.pk)
         required = required_for(locked)
         vials = _locked_vials(data, locked)
         _check_witness(data.witness, locked.lab_id)
-        authorisation = _check_rules(required, data, access.user, locked.lab_id)
+        authorisation = _check_rules(required, data, access.user, lab)
         _defer_destruction_checks()
         now = timezone.now()
         year = permit_today().year
@@ -486,7 +514,7 @@ def destruction_confirm(*, access: Access, record: DestructionRecord) -> Destruc
     decision Q2): its vials are destroyed now. Refused when the strain's restrictions changed
     so that the record no longer holds what they ask."""
     with audited_atomic():
-        lock_lab(record.lab_id)
+        lab = lock_lab(record.lab_id)
         _require(access, record.lab_id, Perm.CONFIRM_DESTRUCTION)
         _locked_strain(record.strain_id)
         locked = _locked_record(record)
@@ -510,7 +538,7 @@ def destruction_confirm(*, access: Access, record: DestructionRecord) -> Destruc
         )
         required = required_for(locked.strain)
         try:
-            authorisation = _check_rules(required, as_recorded, locked.recorded_by, locked.lab_id)
+            authorisation = _check_rules(required, as_recorded, locked.recorded_by, lab)
         except DomainError:
             raise DestructionOutdated from None
         if authorisation is not None and authorisation.pk != locked.authorisation_id:

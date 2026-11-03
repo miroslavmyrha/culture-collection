@@ -1030,17 +1030,18 @@ strain's vials held at `completed_at` (vials never disappear, so it is a query, 
 column). The largest number of vials held at any moment in a year (decision Q8, SÚJB's form)
 is a running count over the vials' status changes in the audit trail.
 
+A VRAT's witness is a member who handles vials and was on the lab's VRAT access list (#167) at
+the destruction, read at the end of its Czech day (decided 2026-11-03, ADR 0009). A RAT, like a
+VRAT, goes to an outside firm only inactivated in the lab (decided the same day, ADR 0009).
+
 Open, the smaller option chosen until the owner decides: the method codes (four, `other` with
-words); verification as a text (not an indicator type and result); the witness any member who
-handles vials, until the VRAT access list exists (below); the witness
-may also be the confirmer; the run as a text (not a row); a performer apart from the recorder
-(WHO LBM4's "operator name") not recorded; a completed record entered in error has no
-correcting record that takes its vials (they stay destroyed). Decided 2026-11-03: the witness
-will be limited to the lab's list of people with access to VRAT (act 281/2002 Sb., § 14a(4)),
-built in its own issue; a RAT, like a VRAT, goes to an outside firm only inactivated in the lab
-(ADR 0009).
+words); verification as a text (not an indicator type and result); the witness may also be the
+confirmer; the run as a text (not a row); a performer apart from the recorder (WHO LBM4's
+"operator name") not recorded; a completed record entered in error has no correcting record that
+takes its vials (they stay destroyed).
 
 Migration impact: `lineage` 0013 and 0014 add the two tables, their row audit and triggers, and
-replace the vial guard; `audit` 0030 and 0031 add four event types to the reason constraint (NOT
-VALID, then VALIDATE). A vial destroyed before stays so: a constraint trigger checks only rows
-written after it exists. Reversible: `migrate lineage 0012`, `migrate audit 0029`.
+replace the vial guard, which reads the VRAT access list of `labs` 0006 for a VRAT's witness;
+`audit` 0032 and 0033 add four event types to the reason constraint (NOT VALID, then VALIDATE).
+A vial destroyed before stays so: a constraint trigger checks only rows written after it
+exists. Reversible: `migrate lineage 0012`, `migrate audit 0031`.

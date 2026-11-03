@@ -184,7 +184,7 @@ function DestructionFields({ formId, labId, rules, vials, more, onSubmit }: Fiel
         ) : (
           <SelectField
             label="Witness"
-            hint="A highly risky agent (VRAT): the member present at the destruction, not you."
+            hint="A highly risky agent (VRAT): the member present at the destruction, not you, and on the lab's VRAT access list on that day."
             options={[{ value: '', label: 'Choose a member' }, ...witnesses.data.map(({ value, label }) => ({ value, label }))]}
             error={errors.witness?.message}
             {...register('witness')}

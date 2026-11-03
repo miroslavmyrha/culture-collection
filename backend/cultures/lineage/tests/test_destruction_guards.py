@@ -18,7 +18,7 @@ from cultures.biosafety.models import AuthorisationKind, DestructionMethod, LabA
 from cultures.biosafety.policy import permit_today
 from cultures.core.exceptions import DomainError
 from cultures.labs.access import access_for
-from cultures.labs.models import Lab
+from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
 from cultures.labs.tests.conftest import member_of
 from cultures.lineage import services
@@ -30,7 +30,7 @@ from cultures.strains.tests.conftest import GMO, end_restriction
 from cultures.users.models import User
 
 from .support import VERIFIED, MakeBatch, destroy, mark_to_destroy, new_destruction, vials_of
-from .test_destructions import RESTRICTIONS, restrict
+from .test_destructions import RESTRICTIONS, end_vrat_access, restrict, with_vrat_access
 
 pytestmark = pytest.mark.django_db
 DB_ERRORS = (IntegrityError, InternalError)
@@ -214,6 +214,36 @@ def test_a_record_takes_vials_to_destroy_of_its_strain_in_no_other_valid_record(
         transaction.set_rollback(True)  # the records hold vials still to destroy
 
 
+@pytest.mark.rule("R-END-07")
+def test_the_trigger_reads_the_witness_access_of_the_records_own_lab_and_day(
+    *,
+    strain: Strain,
+    lab: Lab,
+    other_lab: Lab,
+    curator: User,
+    manager: User,
+    technician: User,
+) -> None:
+    """The record's guard reads labs_vrataccess of the record's lab as it was at the end of the
+    Czech day of the destruction: an entry of another lab, one that ended before the day was
+    over, and no entry at all are all refused."""
+    restrict(strain, curator, "cz_vrat")
+    elsewhere = member_of(other_lab, Role.TECHNICIAN, "elsewhere")
+    Membership.objects.create(lab=lab, user=elsewhere, role=Role.TECHNICIAN)
+    with_vrat_access(elsewhere, other_lab, member_of(other_lab, Role.MANAGER, "other-manager"))
+    ended = member_of(lab, Role.TECHNICIAN, "was-on-the-list")
+    end_vrat_access(with_vrat_access(ended, lab, manager), manager)
+    none = member_of(lab, Role.TECHNICIAN, "never-on-the-list")
+    for person in (elsewhere, ended, none):
+        with pytest.raises(DB_ERRORS, match="was on the lab's VRAT access list on that day"):
+            rolled_back(
+                lambda who=person: raw_record(strain, technician, witness=who, completed_at=None)
+            )
+    allowed = member_of(lab, Role.TECHNICIAN, "on-the-list")
+    with_vrat_access(allowed, lab, manager)
+    rolled_back(lambda: raw_record(strain, technician, witness=allowed, completed_at=None))
+
+
 # The parity: Python and the trigger agree, case by case.
 
 
@@ -238,15 +268,29 @@ def case_strain(
     return strain
 
 
+@pytest.fixture
+def witness(lab: Lab, manager: User) -> User:
+    """A technician on the lab's VRAT access list, as a VRAT's witness must be (#167)."""
+    person = member_of(lab, Role.TECHNICIAN, "w")
+    with_vrat_access(person, lab, manager)
+    return person
+
+
 @pytest.mark.rule("R-END-06", "R-KIND-09")
 @pytest.mark.parametrize("case_strain", CASES, indirect=True)
 def test_the_trigger_asks_a_second_person_exactly_when_python_does(
-    case_strain: Strain, passage0: Passage, make_batch: MakeBatch, technician: User, lab: Lab
+    *,
+    case_strain: Strain,
+    passage0: Passage,
+    make_batch: MakeBatch,
+    technician: User,
+    witness: User,
+    lab: Lab,
 ) -> None:
     """The record's guard (a completed record at recording) and the vial's deferred trigger (a
     destroyed vial of a completed record nobody confirmed), each against required_for."""
     required = services.required_for(case_strain)
-    extra: dict[str, Any] = {"witness": member_of(lab, Role.TECHNICIAN, "w")}
+    extra: dict[str, Any] = {"witness": witness}
     if required.authorised_method:
         extra["authorisation"] = LabAuthorisation.objects.get(
             lab=lab, kind=AuthorisationKind.QUARANTINE_PEST
@@ -288,6 +332,9 @@ def test_the_trigger_asks_a_second_person_exactly_when_python_does(
 RULES: dict[str, dict[str, Any]] = {
     "no verification": {"verification": ""},
     "no witness": {"witness": None},
+    # The witness is replaced by a member who is on no VRAT access list (#167, the owner's
+    # decision of 2026-11-03).
+    "a witness without VRAT access": {"witness": "no access"},
     "alive to a firm": {
         "contractor": "Firm s.r.o.",
         "handover_document": "PP-1",
@@ -297,18 +344,20 @@ RULES: dict[str, dict[str, Any]] = {
 }
 
 
-@pytest.mark.rule("R-END-08", "R-END-09", "R-END-10")
+@pytest.mark.rule("R-END-07", "R-END-08", "R-END-09", "R-END-10")
 @pytest.mark.parametrize("rule", sorted(RULES))
 @pytest.mark.parametrize("case_strain", CASES, indirect=True)
 def test_the_trigger_holds_each_kinds_rule_exactly_when_python_does(
-    case_strain: Strain, rule: str, technician: User, lab: Lab
+    *, case_strain: Strain, rule: str, technician: User, witness: User, lab: Lab
 ) -> None:
     required = services.required_for(case_strain)
-    witness = member_of(lab, Role.TECHNICIAN, "w")
     permit = LabAuthorisation.objects.get(lab=lab, kind=AuthorisationKind.QUARANTINE_PEST)
-    data = new_destruction([], **{"witness": witness, **RULES[rule]})
+    changes = dict(RULES[rule])
+    if changes.get("witness") == "no access":
+        changes["witness"] = member_of(lab, Role.TECHNICIAN, "no-access")
+    data = new_destruction([], **{"witness": witness, **changes})
     try:
-        authorisation = _check_rules(required, data, technician, lab.pk)
+        authorisation = _check_rules(required, data, technician, lab)
         python_refused = False
     except DomainError:
         authorisation = permit if required.authorised_method else None
