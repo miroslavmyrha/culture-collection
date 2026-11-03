@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Box, Link, Mono, Paper, Typography } from '@/components/ui'
-import { batchSummary, type MyLab, ROLE_LABELS } from '../schemas'
+import { batchSummary, type MyLab, ROLE_LABELS, vialSummary } from '../schemas'
 
 /**
  * One compact card per lab: the role and the lab's figures as the role may see them. A figure
@@ -50,6 +50,7 @@ function LabCard({ lab }: { lab: MyLab }) {
         </Figure>
         <Figure label="Batches">{batchSummary(lab.batches)}</Figure>
         <Figure label="Vials available">{lab.vials_available}</Figure>
+        {lab.vials !== null && <Figure label="Vials by state">{vialSummary(lab.vials)}</Figure>}
         <Figure label="Free box positions">
           <Link to="/labs/$labId/storage" params={{ labId }} aria-label={`Free box positions: ${lab.free_positions}`} sx={figureLink}>
             {lab.free_positions}

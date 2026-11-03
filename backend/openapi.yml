@@ -11129,6 +11129,10 @@ components:
           $ref: '#/components/schemas/BatchCounts'
         vials_available:
           type: integer
+        vials:
+          allOf:
+          - $ref: '#/components/schemas/VialCounts'
+          nullable: true
         free_positions:
           type: integer
         open_requests:
@@ -11155,6 +11159,7 @@ components:
       - requests_to_decide
       - role
       - strains
+      - vials
       - vials_available
     NullEnum:
       enum:
@@ -14139,6 +14144,37 @@ components:
         * `reference_qc` - Reference material and quality control
         * `patent_deposit_related` - Related to a patent deposit
         * `redistribution` - Redistribution to third parties
+    VialCounts:
+      type: object
+      properties:
+        available:
+          type: integer
+        reserved:
+          type: integer
+        consumed:
+          type: integer
+        quarantined:
+          type: integer
+        to_destroy:
+          type: integer
+        destroyed:
+          type: integer
+        lost:
+          type: integer
+        distributed:
+          type: integer
+        entered_in_error:
+          type: integer
+      required:
+      - available
+      - consumed
+      - destroyed
+      - distributed
+      - entered_in_error
+      - lost
+      - quarantined
+      - reserved
+      - to_destroy
     VialOutput:
       type: object
       description: |-

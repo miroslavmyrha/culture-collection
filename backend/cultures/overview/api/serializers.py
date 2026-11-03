@@ -7,7 +7,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from cultures.labs.permissions import Role
-from cultures.lineage.models import BatchStatus
+from cultures.lineage.models import BatchStatus, VialStatus
 
 from ..activity import DEPOSIT as DEPOSIT_PAGE
 from ..activity import LAB, MTA, REQUEST, REQUESTERS, STRAIN, UNIT, Line
@@ -49,6 +49,21 @@ class BatchCountsSerializer(serializers.Serializer[dict[str, int]]):
         return {status: instance.get(status, 0) for status in BatchStatus.values}
 
 
+class VialCountsSerializer(serializers.Serializer[dict[str, int]]):
+    available = serializers.IntegerField()
+    reserved = serializers.IntegerField()
+    consumed = serializers.IntegerField()
+    quarantined = serializers.IntegerField()
+    to_destroy = serializers.IntegerField()
+    destroyed = serializers.IntegerField()
+    lost = serializers.IntegerField()
+    distributed = serializers.IntegerField()
+    entered_in_error = serializers.IntegerField()
+
+    def to_representation(self, instance: dict[str, int]) -> dict[str, Any]:
+        return {status: instance.get(status, 0) for status in VialStatus.values}
+
+
 class MyLabSerializer(serializers.Serializer[LabFigures]):
     public_id = serializers.UUIDField(source="lab.public_id")
     name = serializers.CharField(source="lab.name")
@@ -57,6 +72,8 @@ class MyLabSerializer(serializers.Serializer[LabFigures]):
     strains = serializers.IntegerField()
     batches = BatchCountsSerializer()
     vials_available = serializers.IntegerField()
+    # Every state with its count, only for the lab's managers (labs.view_figures), else null.
+    vials = VialCountsSerializer(allow_null=True)
     # In boxes that may take material now: the box and every unit above it active.
     free_positions = serializers.IntegerField()
     # Submitted, approved or awaiting a second person.

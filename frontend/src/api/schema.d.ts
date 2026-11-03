@@ -2801,6 +2801,7 @@ export interface components {
             strains: number;
             batches: components["schemas"]["BatchCounts"];
             vials_available: number;
+            vials: components["schemas"]["VialCounts"] | null;
             free_positions: number;
             open_requests: number;
             requests_to_decide: number | null;
@@ -4033,6 +4034,17 @@ export interface components {
          * @enum {string}
          */
         Use: "research_noncommercial" | "research_commercial" | "teaching" | "diagnostics" | "production" | "reference_qc" | "patent_deposit_related" | "redistribution";
+        VialCounts: {
+            available: number;
+            reserved: number;
+            consumed: number;
+            quarantined: number;
+            to_destroy: number;
+            destroyed: number;
+            lost: number;
+            distributed: number;
+            entered_in_error: number;
+        };
         /**
          * @description Context: `paths`, the box paths of the rows shown (selectors.box_paths), and
          *     `may_reveal`, whether the reader holds the lab's location grant: vial_context.

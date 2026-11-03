@@ -116,11 +116,12 @@ test('M6 publish a new version of the MTA', async ({ browser }, info) => {
 test('M7 see how the lab stands: strains, vials, batches waiting', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-manager', manager('M7', 'See how the lab stands (strains, vials, batches waiting)'))
   await w.start()
-  // The lab's card on Home (#69): strains, batches by status, vials available, free places, open requests.
+  // The lab's card on Home (#69, #81): strains, batches by status, vials available and by state (managers), free places, open requests.
   const card = w.page.getByRole('region', { name: 'My labs' }).getByRole('article', { name: BAC })
   await w.read(card)
   await expect(card.getByRole('link', { name: /^Strains: \d+$/ })).toBeVisible()
   await expect(card).toContainText('Vials available')
+  await expect(card).toContainText('Vials by state')
   await expect(card).toContainText('Free box positions')
   w.look()
   await w.shot('lab-card')
@@ -142,7 +143,7 @@ test('M7 see how the lab stands: strains, vials, batches waiting', async ({ brow
   }).toPass()
   w.look()
   await w.shot('strains-with-vials')
-  w.note('The figures are of today: no trend')
+  w.note('The figures are of today: no trend. The vials left of each strain are the column of the strain list (#13), the lab\'s vials by state are on its card (#81)')
   await w.done()
 })
 

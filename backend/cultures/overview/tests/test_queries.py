@@ -13,7 +13,9 @@ from cultures.deposits.tests.support import MakeDeposit
 from cultures.distribution.models import PermitKind, Requester
 from cultures.distribution.tests.support import Supply, add_permit, as_actor, submit
 from cultures.labs.access import access_for
-from cultures.labs.models import Lab
+from cultures.labs.models import Lab, Membership
+from cultures.labs.permissions import Role
+from cultures.labs.tests.conftest import make_lab
 from cultures.lineage import services as lineage
 from cultures.lineage.models import Batch, VialStatus
 from cultures.lineage.tests.support import vials_of
@@ -73,9 +75,9 @@ def test_the_overview_query_count_is_exact_and_flat(
 ) -> None:
     every_kind(rows)
     client = logged_in(manager)
-    # Session, user, memberships; labs, strains, batches, vials, free positions, requests and
-    # deposits counted per lab; then deposits, batches, requests, recipient permits, lab
-    # permits and vials to destroy, each one query for all its rows.
+    # Session, user, memberships; labs, strains, batches, vials, vials by state, free positions,
+    # requests and deposits counted per lab; then deposits, batches, requests, recipient
+    # permits, lab permits and vials to destroy, each one query for all its rows.
     with query_baseline("overview_manager") as captured:
         response = client.get(OVERVIEW_URL)
     kinds = {group["kind"]: group["total"] for group in response.json()["waiting"]}
@@ -94,6 +96,26 @@ def test_the_overview_query_count_is_exact_and_flat(
         "lineage_vial",
     ):
         assert scoped(captured.captured_queries, table), table
+
+
+@pytest.mark.parametrize("labs", [1, 3])  # one key for both: a lab adds no query (#81)
+def test_the_lab_figures_cost_the_same_for_one_lab_and_three(
+    labs: int, supply: Supply, manager: User, query_baseline: QueryBaseline
+) -> None:
+    supply(vials=3)
+    for i in range(labs - 1):
+        other = make_lab(name=f"Extra {i}", code=f"X{i}")
+        Membership.objects.create(user=manager, lab=other, role=Role.MANAGER)
+    client = logged_in(manager)
+    # Session, user, memberships, the labs, then one grouped query each for strains, batches,
+    # vials available, vials by state, free positions, requests and deposits, for all the labs;
+    # no waiting kind has a row, but each is asked once.
+    with query_baseline("overview_manager_labs") as captured:
+        response = client.get(OVERVIEW_URL)
+    figures = response.json()["labs"]
+    assert len(figures) == labs
+    assert all(entry["vials"] is not None for entry in figures)
+    assert scoped(captured.captured_queries, "lineage_vial")
 
 
 @pytest.mark.parametrize("rows", [1, 20])
