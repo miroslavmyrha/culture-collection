@@ -1,0 +1,346 @@
+{
+  "fixture": true,
+  "url": "https://e-sbirka.gov.cz/sbr-cache/dokumenty-sbirky/%2Fsb%2F2002%2F474%2F2026-01-01/fragmenty",
+  "version": "/sb/2002/474/2026-01-01",
+  "version_date": "2026-01-01",
+  "sha256": "4b70192a65823376fd941e0edf64747373e44574a3285ef3daee5202c3aa8a0b",
+  "kind": "fragments",
+  "document": [
+    {
+      "id": 5418035,
+      "kodTypuFragmentu": "Hlavicka_priloha",
+      "hloubka": 3,
+      "xhtml": "<var>Příloha č. 1</var> k vyhlášce č. 474/2002 Sb."
+    },
+    {
+      "id": 5418037,
+      "kodTypuFragmentu": "Nadpis",
+      "hloubka": 4,
+      "xhtml": "Seznam vysoce rizikových biologických agens a toxinů"
+    },
+    {
+      "id": 5418039,
+      "kodTypuFragmentu": "Vztah_K",
+      "hloubka": 4,
+      "xhtml": "[K <a data-odkaz-id=\"31839683\" href=\"#\" class=\"ext_odkaz\">§ 6 odst. 4</a> <a data-odkaz-id=\"31839685\" href=\"#\" class=\"ext_odkaz\">zákona</a>]"
+    },
+    {
+      "id": 569356,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 4,
+      "xhtml": "I. Lidské a živočišné patogeny"
+    },
+    {
+      "id": 569374,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 5,
+      "xhtml": "I.I Viry"
+    },
+    {
+      "id": 1118978,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>1.</var> virus afrického moru koní (African horse sickness virus);"
+    },
+    {
+      "id": 1118980,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>2.</var> virus afrického moru prasat (African swine fever virus);"
+    },
+    {
+      "id": 569456,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 5,
+      "xhtml": "I.II Bakterie"
+    },
+    {
+      "id": 1119058,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>1.</var> Bacillus anthracis;"
+    },
+    {
+      "id": 1119060,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>2.</var> Brucella abortus;"
+    },
+    {
+      "id": 569500,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 4,
+      "xhtml": "II. Patogeny rostlin"
+    },
+    {
+      "id": 569502,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 5,
+      "xhtml": "II.I Viry"
+    },
+    {
+      "id": 1119100,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>1.</var> andský latentní tymovir bramboru (Andean potato latent virus);"
+    },
+    {
+      "id": 1119102,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>2.</var> viroid vřetenovitosti hlíz bramboru (Potato spindle tuber viroid)."
+    },
+    {
+      "id": 569508,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 5,
+      "xhtml": "II.II Houby"
+    },
+    {
+      "id": 1119104,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>1.</var> Bipolaris oryzae (Cochliobolus miyabeanus, Helminthosporium oryzae);"
+    },
+    {
+      "id": 1119106,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>2.</var> Magnaporthe oryzae (Pyricularia oryzae);"
+    },
+    {
+      "id": 569516,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 4,
+      "xhtml": "III. Toxiny a jejich podjednotky"
+    },
+    {
+      "id": 1119110,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 5,
+      "xhtml": "<var>1.</var> abrin;"
+    },
+    {
+      "id": 1119112,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 5,
+      "xhtml": "<var>2.</var> aflatoxiny;"
+    },
+    {
+      "id": 569556,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 4,
+      "xhtml": "IV. Genetické elementy a geneticky modifikované organismy"
+    },
+    {
+      "id": 569558,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 5,
+      "xhtml": "Jakýkoli geneticky modifikovaný organismus, který obsahuje, nebo genetický element, který kóduje, kteroukoli z následujících variant:"
+    },
+    {
+      "id": 1119178,
+      "kodTypuFragmentu": "Odrazka_Db",
+      "hloubka": 4,
+      "xhtml": "<var>1)</var> Mezi mikroorganismy s vysokou patogenitou uvedené v bodě I.I 27 patří:"
+    },
+    {
+      "id": 1119174,
+      "kodTypuFragmentu": "Pismeno_Lb",
+      "hloubka": 5,
+      "xhtml": "<var>a)</var> viry typu A, které mají IVPI (index intravenózní patogenity) u šestitýdenních kuřat vyšší než 1,2 a"
+    },
+    {
+      "id": 1119176,
+      "kodTypuFragmentu": "Pismeno_Lb",
+      "hloubka": 5,
+      "xhtml": "<var>b)</var> viry typu A, podtypu H5 nebo H7 s genovými sekvencemi, které kódují mnohočetné bazické aminokyseliny v oblasti štěpení hemaglutininu podobně jako u jiných virů vysoce patogenní ptačí chřipky (HPAI), což značí, že hemaglutinin může být štěpen hostitelskou buněčnou proteázou."
+    },
+    {
+      "id": 1119182,
+      "kodTypuFragmentu": "Odrazka_Db",
+      "hloubka": 4,
+      "xhtml": "<var>2)</var> Mezi mikroorganismy uvedené v bodě I.II. 12. Escherichia coli produkující Shiga toxin (STEC) patří zejména enterohemoragická E. coli (EHEC), verotoxin produkující E. coli (VTEC) nebo verocytotoxin produkující E. coli (VTEC)."
+    },
+    {
+      "id": 1119184,
+      "kodTypuFragmentu": "Odrazka_Db",
+      "hloubka": 4,
+      "xhtml": "<var>3)</var> Pravidla pro nakládání s toxiny se nevztahují na botulinové toxiny (bod III. 3.) nebo conotoxiny (bod III. 5.) obsažené v léčivých přípravcích registrovaných podle zákona o léčivech."
+    },
+    {
+      "id": 5417963,
+      "kodTypuFragmentu": "Block_Priloha",
+      "hloubka": 2,
+      "xhtml": null
+    },
+    {
+      "id": 5418249,
+      "kodTypuFragmentu": "Hlavicka_priloha",
+      "hloubka": 3,
+      "xhtml": "<var>Příloha č. 2</var> k vyhlášce č. 474/2002 Sb."
+    },
+    {
+      "id": 569620,
+      "kodTypuFragmentu": "Nadpis",
+      "hloubka": 4,
+      "xhtml": "Seznam rizikových biologických agens a toxinů"
+    },
+    {
+      "id": 5418253,
+      "kodTypuFragmentu": "Vztah_K",
+      "hloubka": 4,
+      "xhtml": "[K <a data-odkaz-id=\"31836441\" href=\"#\" class=\"ext_odkaz\">§ 17 odst. 5</a> <a data-odkaz-id=\"31836443\" href=\"#\" class=\"ext_odkaz\">zákona</a>]"
+    },
+    {
+      "id": 569644,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 4,
+      "xhtml": "I. Lidské a živočišné patogeny"
+    },
+    {
+      "id": 569646,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 5,
+      "xhtml": "I.I Viry"
+    },
+    {
+      "id": 1119198,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>1.</var> virus australské encefalitidy (Murray Valley encephalitis virus);"
+    },
+    {
+      "id": 1119200,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>2.</var> virus Dobrava-Belgrade;"
+    },
+    {
+      "id": 569684,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 5,
+      "xhtml": "I.II Bakterie"
+    },
+    {
+      "id": 1119234,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>1.</var> Bacillus cereus biovar anthracis;"
+    },
+    {
+      "id": 1119236,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>2.</var> Clostridium perfringens - kmeny produkující epsilon toxin;"
+    },
+    {
+      "id": 569696,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 5,
+      "xhtml": "I.III Houby"
+    },
+    {
+      "id": 1119244,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>1.</var> Coccidioides immitis;"
+    },
+    {
+      "id": 1119246,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>2.</var> Coccidioides posadasii."
+    },
+    {
+      "id": 569702,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 4,
+      "xhtml": "II. Patogeny rostlin"
+    },
+    {
+      "id": 569704,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 5,
+      "xhtml": "II.I Bakterie"
+    },
+    {
+      "id": 1119248,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>1.</var> Clavibacter michiganensis subsp. sepedonicus (Corynebacterium michiganensis subsp. sepedonicum nebo Corynebacterium sepedonicum);"
+    },
+    {
+      "id": 1119250,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>2.</var> Ralstonia solanacearum, odrůda 3, biovar 2;"
+    },
+    {
+      "id": 569716,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 5,
+      "xhtml": "II.II Houby"
+    },
+    {
+      "id": 1119258,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>1.</var> Colletotrichum kahawae (Colletotrichum coffeanum var. virulans);"
+    },
+    {
+      "id": 1119260,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 6,
+      "xhtml": "<var>2.</var> Peronosclerospora philippinensis (Peronosclerospora sacchari);"
+    },
+    {
+      "id": 569734,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 4,
+      "xhtml": "III. Toxiny a jejich podjednotky"
+    },
+    {
+      "id": 1119274,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 5,
+      "xhtml": "<var>1.</var> Choleratoxin;"
+    },
+    {
+      "id": 1119276,
+      "kodTypuFragmentu": "Bod_Dd",
+      "hloubka": 5,
+      "xhtml": "<var>2.</var> Tetanotoxin."
+    },
+    {
+      "id": 569740,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 4,
+      "xhtml": "IV. Genetické elementy a geneticky modifikované organismy"
+    },
+    {
+      "id": 569742,
+      "kodTypuFragmentu": "Obecny_text",
+      "hloubka": 5,
+      "xhtml": "Jakýkoli geneticky modifikovaný organismus, který obsahuje, nebo genetický element, který kóduje jakoukoli z následujících variant:"
+    },
+    {
+      "id": 1119278,
+      "kodTypuFragmentu": "Odrazka_Db",
+      "hloubka": 4,
+      "xhtml": "<var>1)</var> Geneticky modifikované organismy zahrnují organismy, jejichž řetězce nukleových kyselin byly vytvořeny či změněny záměrnou molekulární manipulací."
+    },
+    {
+      "id": 1119280,
+      "kodTypuFragmentu": "Odrazka_Db",
+      "hloubka": 4,
+      "xhtml": "<var>2)</var> Genetické elementy zahrnují chromozomy, genomy, plazmidy, transpozony, vektory a inaktivované organismy obsahující obnovitelné fragmenty nukleové kyseliny, ať již geneticky modifikované nebo nikoliv, nebo chemicky syntetizované zcela nebo zčásti. Pro účely kontroly genetických elementů se nukleové kyseliny z inaktivovaného organismu, viru nebo vzorku považují za obnovitelné, pokud je inaktivace a příprava materiálu určena k usnadnění izolace, čištění, amplifikace, detekce nebo identifikace nukleových kyselin nebo je známo, že tyto procesy usnadňuje."
+    },
+    {
+      "id": 5417965,
+      "kodTypuFragmentu": "Block_Priloha",
+      "hloubka": 2,
+      "xhtml": null
+    }
+  ]
+}

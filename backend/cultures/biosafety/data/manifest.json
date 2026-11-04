@@ -1,0 +1,73 @@
+{
+  "written_by": "tools/fetch_regulatory_lists.py",
+  "sources": [
+    {
+      "list": "cz-474-2002",
+      "file": "cz-474-2002.json",
+      "act": "474/2002 Sb.",
+      "source_url": "https://e-sbirka.gov.cz/sbr-cache/dokumenty-sbirky/%2Fsb%2F2002%2F474%2F2026-01-01/fragmenty",
+      "version": "/sb/2002/474/2026-01-01",
+      "version_date": "2026-01-01",
+      "fetched_on": "2026-11-03",
+      "sha256": "018eda2e2ef220ca126f56289994f5e19393dc1dede0f63ab21cc1a654c77e72",
+      "entry_count": 125,
+      "counts": {
+        "annex-1": 85,
+        "annex-2": 40
+      },
+      "file_sha256": "1312dab172795d9cdd8a592d4c819dd00e1cb275d2b49c12e766e17c331916a4"
+    },
+    {
+      "list": "cz-361-2007-annex-7",
+      "file": "cz-361-2007-annex-7.json",
+      "act": "361/2007 Sb.",
+      "source_url": "https://e-sbirka.gov.cz/sbr-cache/dokumenty-sbirky/%2Fsb%2F2007%2F361%2F2026-09-01/fragmenty",
+      "version": "/sb/2007/361/2026-09-01",
+      "version_date": "2026-09-01",
+      "fetched_on": "2026-11-03",
+      "sha256": "6dd28ebb7fede464528d766d7dd58d066281a6a7fac6ccca99a76c7eb251d64c",
+      "entry_count": 603,
+      "counts": {
+        "1": 204,
+        "2": 255,
+        "3": 6,
+        "4": 93,
+        "5": 45
+      },
+      "file_sha256": "8b879d814c29f6d7a1a95600a52b2acf90d8dddb4ec62b6e9a1fe25b39d24bbc"
+    },
+    {
+      "list": "eu-2021-821-annex-i",
+      "file": "eu-2021-821-annex-i.json",
+      "act": "2021/821",
+      "source_url": "http://publications.europa.eu/resource/celex/32025R2003",
+      "version": "32025R2003",
+      "version_date": "2025-09-08",
+      "fetched_on": "2026-11-03",
+      "sha256": "bbc6105058613c80a2370d7110b505af8153dacc762fc32cb9d319ed4362481d",
+      "entry_count": 147,
+      "counts": {
+        "1C351": 117,
+        "1C353": 8,
+        "1C354": 22
+      },
+      "file_sha256": "d4d081c8e250a2d49a0cd2ee51e49852a8e4c5dbe944e61645eee8a5eebbe51b"
+    },
+    {
+      "list": "eu-2019-2072-annex-ii",
+      "file": "eu-2019-2072-annex-ii.json",
+      "act": "2019/2072",
+      "source_url": "http://publications.europa.eu/resource/celex/02019R2072-20261015",
+      "version": "02019R2072-20261015",
+      "version_date": "2026-10-15",
+      "fetched_on": "2026-11-03",
+      "sha256": "07cb54a239f97317a8e7db322d2e88c371c3fd3c5ae383abc42dd6d35c2d1720",
+      "entry_count": 186,
+      "counts": {
+        "A": 161,
+        "B": 25
+      },
+      "file_sha256": "b46de7e4bab0c16dce5c6366d1cc92801e5e6a00977efc6e624b7e1c14d9ee9c"
+    }
+  ]
+}

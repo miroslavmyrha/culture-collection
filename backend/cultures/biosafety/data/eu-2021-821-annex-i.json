@@ -1,0 +1,1197 @@
+{
+  "list": "eu-2021-821-annex-i",
+  "title": "Regulation (EU) 2021/821, annex I, entries 1C351, 1C353 and 1C354",
+  "act": "2021/821",
+  "source_url": "http://publications.europa.eu/resource/celex/32025R2003",
+  "version": "32025R2003",
+  "version_date": "2025-09-08",
+  "fetched_on": "2026-11-03",
+  "sha256": "bbc6105058613c80a2370d7110b505af8153dacc762fc32cb9d319ed4362481d",
+  "identity": [
+    "code"
+  ],
+  "entry_count": 147,
+  "counts": {
+    "1C351": 117,
+    "1C353": 8,
+    "1C354": 22
+  },
+  "entries": [
+    {
+      "entry": "1C351",
+      "code": "1C351",
+      "parent": null,
+      "name": "Human and animal pathogens and \"toxins\", as follows:",
+      "has_children": true,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a",
+      "parent": "1C351",
+      "name": "Viruses, whether natural, enhanced or modified, either in the form of \"isolated live cultures\" or as material including living material which has been deliberately inoculated or contaminated with such cultures, as follows:",
+      "has_children": true,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.1",
+      "parent": "1C351.a",
+      "name": "African horse sickness virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.2",
+      "parent": "1C351.a",
+      "name": "African swine fever virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.3",
+      "parent": "1C351.a",
+      "name": "Andes virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.4",
+      "parent": "1C351.a",
+      "name": "Avian influenza virus, which are:",
+      "has_children": true,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.4.a",
+      "parent": "1C351.a.4",
+      "name": "Uncharacterised; or",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.4.b",
+      "parent": "1C351.a.4",
+      "name": "Defined in Annex I(2) EC Directive 2005/94/EC (OJ. L.10 14.1.2006 p.16) as having high pathogenicity, as follows:",
+      "has_children": true,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.4.b.1",
+      "parent": "1C351.a.4.b",
+      "name": "Type A viruses with an IVPI (intravenous pathogenicity index) in 6 week old chickens of greater than 1,2; or",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.4.b.2",
+      "parent": "1C351.a.4.b",
+      "name": "Type A viruses of the subtypes H5 or H7 with genome sequences codified for multiple basic amino acids at the cleavage site of the haemagglutinin molecule similar to that observed for other HPAI viruses, indicating that the haemagglutinin molecule can be cleaved by a host ubiquitous protease;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.5",
+      "parent": "1C351.a",
+      "name": "Bluetongue virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.6",
+      "parent": "1C351.a",
+      "name": "Chapare virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.7",
+      "parent": "1C351.a",
+      "name": "Chikungunya virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.8",
+      "parent": "1C351.a",
+      "name": "Choclo virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.9",
+      "parent": "1C351.a",
+      "name": "Crimean-Congo hemorrhagic fever virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.10",
+      "parent": "1C351.a",
+      "name": "Not used;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.11",
+      "parent": "1C351.a",
+      "name": "Dobrava-Belgrade virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.12",
+      "parent": "1C351.a",
+      "name": "Eastern equine encephalitis virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.13",
+      "parent": "1C351.a",
+      "name": "Ebolavirus: all members of the Ebolavirus genus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.14",
+      "parent": "1C351.a",
+      "name": "Foot-and-mouth disease virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.15",
+      "parent": "1C351.a",
+      "name": "Goatpox virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.16",
+      "parent": "1C351.a",
+      "name": "Guanarito virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.17",
+      "parent": "1C351.a",
+      "name": "Hantaan virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.18",
+      "parent": "1C351.a",
+      "name": "Hendra virus (Equine morbillivirus);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.19",
+      "parent": "1C351.a",
+      "name": "Suid herpesvirus 1 (Pseudorabies virus; Aujeszky's disease);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.20",
+      "parent": "1C351.a",
+      "name": "Classical swine fever virus (Hog cholera virus);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.21",
+      "parent": "1C351.a",
+      "name": "Japanese encephalitis virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.22",
+      "parent": "1C351.a",
+      "name": "Junin virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.23",
+      "parent": "1C351.a",
+      "name": "Kyasanur Forest disease virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.24",
+      "parent": "1C351.a",
+      "name": "Laguna Negra virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.25",
+      "parent": "1C351.a",
+      "name": "Lassa virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.26",
+      "parent": "1C351.a",
+      "name": "Louping ill virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.27",
+      "parent": "1C351.a",
+      "name": "Lujo virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.28",
+      "parent": "1C351.a",
+      "name": "Lumpy skin disease virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.29",
+      "parent": "1C351.a",
+      "name": "Lymphocytic choriomeningitis virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.30",
+      "parent": "1C351.a",
+      "name": "Machupo virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.31",
+      "parent": "1C351.a",
+      "name": "Marburgvirus: all members of the Marburgvirus genus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.32",
+      "parent": "1C351.a",
+      "name": "Monkeypox virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.33",
+      "parent": "1C351.a",
+      "name": "Murray Valley encephalitis virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.34",
+      "parent": "1C351.a",
+      "name": "Newcastle disease virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.35",
+      "parent": "1C351.a",
+      "name": "Nipah virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.36",
+      "parent": "1C351.a",
+      "name": "Omsk hemorrhagic fever virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.37",
+      "parent": "1C351.a",
+      "name": "Oropouche virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.38",
+      "parent": "1C351.a",
+      "name": "Peste-des-petits-ruminants virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.39",
+      "parent": "1C351.a",
+      "name": "Swine vesicular disease virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.40",
+      "parent": "1C351.a",
+      "name": "Powassan virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.41",
+      "parent": "1C351.a",
+      "name": "Rabies virus and all other members of the Lyssavirus genus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.42",
+      "parent": "1C351.a",
+      "name": "Rift Valley fever virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.43",
+      "parent": "1C351.a",
+      "name": "Rinderpest virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.44",
+      "parent": "1C351.a",
+      "name": "Rocio virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.45",
+      "parent": "1C351.a",
+      "name": "Sabia virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.46",
+      "parent": "1C351.a",
+      "name": "Seoul virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.47",
+      "parent": "1C351.a",
+      "name": "Sheeppox virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.48",
+      "parent": "1C351.a",
+      "name": "Sin Nombre virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.49",
+      "parent": "1C351.a",
+      "name": "St. Louis encephalitis virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.50",
+      "parent": "1C351.a",
+      "name": "Porcine Teschovirus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.51",
+      "parent": "1C351.a",
+      "name": "Tick-borne encephalitis virus (Far Eastern subtype);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.52",
+      "parent": "1C351.a",
+      "name": "Variola virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.53",
+      "parent": "1C351.a",
+      "name": "Venezuelan equine encephalitis virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.54",
+      "parent": "1C351.a",
+      "name": "Vesicular stomatitis virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.55",
+      "parent": "1C351.a",
+      "name": "Western equine encephalitis virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.56",
+      "parent": "1C351.a",
+      "name": "Yellow fever virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.57",
+      "parent": "1C351.a",
+      "name": "Severe acute respiratory syndrome-related coronavirus (SARS-related coronavirus);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.58",
+      "parent": "1C351.a",
+      "name": "Reconstructed 1918 influenza virus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.a.59",
+      "parent": "1C351.a",
+      "name": "Middle East respiratory syndrome-related coronavirus (MERS-related coronavirus);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.b",
+      "parent": "1C351",
+      "name": "Not used;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c",
+      "parent": "1C351",
+      "name": "Bacteria, whether natural, enhanced or modified, either in the form of \"isolated live cultures\" or as material including living material which has been deliberately inoculated or contaminated with such cultures, as follows:",
+      "has_children": true,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.1",
+      "parent": "1C351.c",
+      "name": "Bacillus anthracis;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.2",
+      "parent": "1C351.c",
+      "name": "Brucella abortus;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.3",
+      "parent": "1C351.c",
+      "name": "Brucella melitensis;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.4",
+      "parent": "1C351.c",
+      "name": "Brucella suis;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.5",
+      "parent": "1C351.c",
+      "name": "Burkholderia mallei (Pseudomonas mallei);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.6",
+      "parent": "1C351.c",
+      "name": "Burkholderia pseudomallei (Pseudomonas pseudomallei);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.7",
+      "parent": "1C351.c",
+      "name": "Chlamydia psittaci (Chlamydophila psittaci);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.8",
+      "parent": "1C351.c",
+      "name": "Clostridium argentinense (formerly known as Clostridium botulinum Type G), botulinum neurotoxin producing strains;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.9",
+      "parent": "1C351.c",
+      "name": "Clostridium baratii, botulinum neurotoxin producing strains;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.10",
+      "parent": "1C351.c",
+      "name": "Clostridium botulinum;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.11",
+      "parent": "1C351.c",
+      "name": "Clostridium butyricum, botulinum neurotoxin producing strains;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.12",
+      "parent": "1C351.c",
+      "name": "Clostridium perfringens epsilon toxin producing types;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.13",
+      "parent": "1C351.c",
+      "name": "Coxiella burnetii;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.14",
+      "parent": "1C351.c",
+      "name": "Francisella tularensis;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.15",
+      "parent": "1C351.c",
+      "name": "Mycoplasma capricolum subspecies capripneumoniae (strain F38);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.16",
+      "parent": "1C351.c",
+      "name": "Mycoplasma mycoides subspecies mycoides SC (small colony);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.17",
+      "parent": "1C351.c",
+      "name": "Rickettsia prowazekii;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.18",
+      "parent": "1C351.c",
+      "name": "Salmonella enterica subspecies enterica serovar Typhi (Salmonella typhi);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.19",
+      "parent": "1C351.c",
+      "name": "Shiga toxin producing Escherichia coli (STEC) of serogroups O26, O45, O103, O104, O111, O121, O145, O157, and other shiga toxin producing serogroups; Note: Shiga toxin producing Escherichia coli (STEC) includes inter alia enterohaemorrhagic E. coli (EHEC), verotoxin producing E. coli (VTEC) or verocytotoxin producing E. coli (VTEC).",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.20",
+      "parent": "1C351.c",
+      "name": "Shigella dysenteriae;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.21",
+      "parent": "1C351.c",
+      "name": "Vibrio cholerae;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.c.22",
+      "parent": "1C351.c",
+      "name": "Yersinia pestis;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d",
+      "parent": "1C351",
+      "name": "\"Toxins\", as follows, and \"sub-unit of toxins\" thereof:",
+      "has_children": true,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.1",
+      "parent": "1C351.d",
+      "name": "Botulinum neurotoxins;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.2",
+      "parent": "1C351.d",
+      "name": "Clostridium perfringens alpha, beta 1, beta 2, epsilon and iota toxins;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.3",
+      "parent": "1C351.d",
+      "name": "Conotoxins;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.4",
+      "parent": "1C351.d",
+      "name": "Ricin;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.5",
+      "parent": "1C351.d",
+      "name": "Saxitoxin;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.6",
+      "parent": "1C351.d",
+      "name": "Shiga toxins (shiga-like toxins, verotoxins and verocytotoxins)",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.7",
+      "parent": "1C351.d",
+      "name": "Staphylococcus aureus enterotoxins, hemolysin alpha toxin, and toxic shock syndrome toxin (formerly known as Staphylococcus enterotoxin F);",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.8",
+      "parent": "1C351.d",
+      "name": "Tetrodotoxin;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.9",
+      "parent": "1C351.d",
+      "name": "Not used;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.10",
+      "parent": "1C351.d",
+      "name": "Microcystins (Cyanginosins);",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.11",
+      "parent": "1C351.d",
+      "name": "Aflatoxins;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.12",
+      "parent": "1C351.d",
+      "name": "Abrin;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.13",
+      "parent": "1C351.d",
+      "name": "Not used;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.14",
+      "parent": "1C351.d",
+      "name": "Diacetoxyscirpenol;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.15",
+      "parent": "1C351.d",
+      "name": "T-2 toxin;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.16",
+      "parent": "1C351.d",
+      "name": "HT-2 toxin;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.17",
+      "parent": "1C351.d",
+      "name": "Modeccin;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.18",
+      "parent": "1C351.d",
+      "name": "Volkensin;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.19",
+      "parent": "1C351.d",
+      "name": "Viscumin (Viscum Album Lectin 1);",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.20",
+      "parent": "1C351.d",
+      "name": "Brevetoxins;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.21",
+      "parent": "1C351.d",
+      "name": "Gonyautoxins;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.22",
+      "parent": "1C351.d",
+      "name": "Nodularins;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.23",
+      "parent": "1C351.d",
+      "name": "Palytoxin;",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.d.24",
+      "parent": "1C351.d",
+      "name": "Neosaxitoxin (NEO).",
+      "has_children": false,
+      "kind": "toxin"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.e",
+      "parent": "1C351",
+      "name": "Fungi, whether natural, enhanced or modified, either in the form of \"isolated live cultures\" or as material including living material which has been deliberately inoculated or contaminated with such cultures, as follows:",
+      "has_children": true,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.e.1",
+      "parent": "1C351.e",
+      "name": "Coccidioides immitis;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C351",
+      "code": "1C351.e.2",
+      "parent": "1C351.e",
+      "name": "Coccidioides posadasii.",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C353",
+      "code": "1C353",
+      "parent": null,
+      "name": "'Genetic elements' and 'genetically-modified organisms', as follows: Technical Notes:",
+      "has_children": true,
+      "kind": "genetic_element"
+    },
+    {
+      "entry": "1C353",
+      "code": "1C353.a",
+      "parent": "1C353",
+      "name": "Any 'genetically-modified organism' which contains, or 'genetic element' that codes for, any of the following:",
+      "has_children": true,
+      "kind": "genetic_element"
+    },
+    {
+      "entry": "1C353",
+      "code": "1C353.a.1",
+      "parent": "1C353.a",
+      "name": "Any gene, genes, translated product or translated products, specific to any virus specified in 1C351.a. or 1C354.a.;",
+      "has_children": false,
+      "kind": "genetic_element"
+    },
+    {
+      "entry": "1C353",
+      "code": "1C353.a.2",
+      "parent": "1C353.a",
+      "name": "Any gene or genes specific to any bacterium specified in 1C351.c. or 1C354.b. or fungus specified in 1C351.e. or 1C354.c., and which is any of the following:",
+      "has_children": true,
+      "kind": "genetic_element"
+    },
+    {
+      "entry": "1C353",
+      "code": "1C353.a.2.a",
+      "parent": "1C353.a.2",
+      "name": "In itself or through its transcribed or translated products represents a significant hazard to human, animal or plant health; or",
+      "has_children": false,
+      "kind": "genetic_element"
+    },
+    {
+      "entry": "1C353",
+      "code": "1C353.a.2.b",
+      "parent": "1C353.a.2",
+      "name": "Could 'endow or enhance pathogenicity'; or",
+      "has_children": false,
+      "kind": "genetic_element"
+    },
+    {
+      "entry": "1C353",
+      "code": "1C353.a.3",
+      "parent": "1C353.a",
+      "name": "Any \"toxins\" specified in 1C351.d. or \"sub-units of toxins\" therefor;",
+      "has_children": false,
+      "kind": "genetic_element"
+    },
+    {
+      "entry": "1C353",
+      "code": "1C353.b",
+      "parent": "1C353",
+      "name": "Not used.",
+      "has_children": false,
+      "kind": "genetic_element"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354",
+      "parent": null,
+      "name": "Plant pathogens, as follows:",
+      "has_children": true,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.a",
+      "parent": "1C354",
+      "name": "Viruses, whether natural, enhanced or modified, either in the form of \"isolated live cultures\" or as material including living material which has been deliberately inoculated or contaminated with such cultures, as follows:",
+      "has_children": true,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.a.1",
+      "parent": "1C354.a",
+      "name": "Andean potato latent virus (Potato Andean latent tymovirus);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.a.2",
+      "parent": "1C354.a",
+      "name": "Potato spindle tuber viroid;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.b",
+      "parent": "1C354",
+      "name": "Bacteria, whether natural, enhanced or modified, either in the form of \"isolated live cultures\" or as material which has been deliberately inoculated or contaminated with such cultures, as follows:",
+      "has_children": true,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.b.1",
+      "parent": "1C354.b",
+      "name": "Xanthomonas albilineans;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.b.2",
+      "parent": "1C354.b",
+      "name": "Xanthomonas citri pv. citri (Xanthomonas axonopodis pv. citri, Xanthomonas campestris pv. citri);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.b.3",
+      "parent": "1C354.b",
+      "name": "Xanthomonas oryzae pv. oryzae (Pseudomonas campestris pv. oryzae);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.b.4",
+      "parent": "1C354.b",
+      "name": "Clavibacter michiganensis subsp. sepedonicus (Clavibacter sepedonicus, Clavibacter michiganense subsp. sepedonicus, Corynebacterium michiganensis subsp. sepedonicum or Corynebacterium sepedonicum);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.b.5",
+      "parent": "1C354.b",
+      "name": "Ralstonia solanacearum, race 3, biovar 2;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.c",
+      "parent": "1C354",
+      "name": "Fungi, whether natural, enhanced or modified, either in the form of \"isolated live cultures\" or as material which has been deliberately inoculated or contaminated with such cultures, as follows:",
+      "has_children": true,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.c.1",
+      "parent": "1C354.c",
+      "name": "Colletotrichum kahawae (Colletotrichum coffeanum var. virulans);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.c.2",
+      "parent": "1C354.c",
+      "name": "Bipolaris oryzae (Cochliobolus miyabeanus, Helminthosporium oryzae);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.c.3",
+      "parent": "1C354.c",
+      "name": "Pseudocercospora ulei (Microcyclus ulei, Dothidella ulei);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.c.4",
+      "parent": "1C354.c",
+      "name": "Puccinia graminis ssp. graminis var. graminis / Puccinia graminis ssp. graminis var. stakmanii (Puccinia graminis [syn. Puccinia graminis f. sp. tritici]);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.c.5",
+      "parent": "1C354.c",
+      "name": "Puccinia striiformis (syn. Puccinia glumarum);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.c.6",
+      "parent": "1C354.c",
+      "name": "Magnaporthe oryzae (Pyricularia oryzae);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.c.7",
+      "parent": "1C354.c",
+      "name": "Peronosclerospora philippinensis (Peronosclerospora sacchari);",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.c.8",
+      "parent": "1C354.c",
+      "name": "Sclerophthora rayssiae var. zeae;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.c.9",
+      "parent": "1C354.c",
+      "name": "Synchytrium endobioticium;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.c.10",
+      "parent": "1C354.c",
+      "name": "Tilletia indica;",
+      "has_children": false,
+      "kind": "organism"
+    },
+    {
+      "entry": "1C354",
+      "code": "1C354.c.11",
+      "parent": "1C354.c",
+      "name": "Thecaphora solani.",
+      "has_children": false,
+      "kind": "organism"
+    }
+  ]
+}

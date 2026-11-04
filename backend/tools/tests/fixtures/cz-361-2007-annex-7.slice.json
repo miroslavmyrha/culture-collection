@@ -1,0 +1,250 @@
+{
+  "fixture": true,
+  "url": "https://e-sbirka.gov.cz/sbr-cache/dokumenty-sbirky/%2Fsb%2F2007%2F361%2F2026-09-01/fragmenty",
+  "version": "/sb/2007/361/2026-09-01",
+  "version_date": "2026-09-01",
+  "sha256": "907557619102be2eecbb6777d81140fa6dc296563bd52443557eb7d69e80bb4b",
+  "kind": "fragments",
+  "document": [
+    {
+      "id": 6982623,
+      "kodTypuFragmentu": "Hlavicka_priloha",
+      "hloubka": 3,
+      "xhtml": "<var>Příloha č. 7</var> k nařízení vlády č. 361/2007 Sb."
+    },
+    {
+      "id": 6984437,
+      "kodTypuFragmentu": "Nadpis_nad",
+      "hloubka": 4,
+      "xhtml": "Biologické činitele, jejich zařazení do skupin, značení a požadavky na pracoviště"
+    },
+    {
+      "id": 6985059,
+      "kodTypuFragmentu": "Cast",
+      "hloubka": 4,
+      "xhtml": "ČÁST A"
+    },
+    {
+      "id": 6985061,
+      "kodTypuFragmentu": "Nadpis_pod",
+      "hloubka": 5,
+      "xhtml": "Seznam biologických činitelů a jejich zařazení do skupin 2, 3 nebo 4"
+    },
+    {
+      "id": 6985063,
+      "kodTypuFragmentu": "Nadpis",
+      "hloubka": 5,
+      "xhtml": "Tabulka č. 1: Biologický činitel – Bakterie"
+    },
+    {
+      "id": 6985065,
+      "kodTypuFragmentu": "Odstavec_Dc",
+      "hloubka": 5,
+      "xhtml": "U biologických činitelů uvedených v tomto seznamu zápis celého rodu s dodatkem „spp.“ znamená, že zahrnuje i ostatní druhy patřící do stejného rodu, které nejsou v seznamu jmenovitě uvedeny, ale které jsou známými lidskými patogeny. <czechvoc-termin koncept-id=\"256195\">Biologické činitele</czechvoc-termin>, které nebyly zařazeny do skupin 2 až 4 seznamu, nejsou automaticky zařazeny do skupiny 1. V případě rodů, o nichž je známo, že patogenní účinky na člověka má více než jeden druh, jsou do seznamu zahrnuty ty druhy, které vyvolávají tyto účinky u člověka nejčastěji, spolu s odkazem na skutečnost, že i ostatní druhy stejného rodu mohou mít následky pro zdraví. Pokud je v klasifikovaném seznamu biologických činitelů uveden celý rod, má se za to, že druhy a kmeny, o nichž je známo, že patogenní nejsou, jsou vyjmuty."
+    },
+    {
+      "id": 6985067,
+      "kodTypuFragmentu": "Tabulka",
+      "hloubka": 5,
+      "xhtml": "<html:table xmlns:html=\"http://www.w3.org/1999/xhtml\" class=\"TABLE1\" style=\"width:500px;\"><html:tbody><html:tr><html:th style=\"width:350px;text-align:left;\">Biologický činitel</html:th><html:th style=\"width:60px;text-align:left;\">Skupina</html:th><html:th style=\"width:100px;text-align:left;\">Poznámka</html:th></html:tr><html:tr><html:td>Acinetobacter baumannii</html:td><html:td>2</html:td><html:td /></html:tr><html:tr><html:td>Acinetobacter nosocomialis</html:td><html:td>2</html:td><html:td /></html:tr></html:tbody></html:table>"
+    },
+    {
+      "id": 6985069,
+      "kodTypuFragmentu": "Poznamka",
+      "hloubka": 5,
+      "xhtml": "Vysvětlivka k tabulce č. 1:"
+    },
+    {
+      "id": 457529697,
+      "kodTypuFragmentu": "Poznamka",
+      "hloubka": 6,
+      "xhtml": "<var>(<sup>*</sup>)</var> Biologičtí činitelé skupiny 3 označení v seznamu biologických činitelů jako 3 (<sup>*</sup>) mohou pro <czechvoc-termin koncept-id=\"275083\">zaměstnance</czechvoc-termin> představovat omezené riziko nákazy, neboť se za běžných podmínek nepřenášejí vzduchem, a proto lze upustit od některých požadavků stanovených v <a data-odkaz-id=\"92094831\" href=\"#\" class=\"int_odkaz\">příloze č. 7</a> k tomuto nařízení <a data-odkaz-id=\"92094833\" href=\"#\" class=\"int_odkaz\">části B tabulce č. 1</a> ve zvláštních případech, na základě hodnocení rizik a s přihlédnutím k povaze daných specifických činností a množství daného <czechvoc-termin koncept-id=\"256195\">biologického činitele</czechvoc-termin>."
+    },
+    {
+      "id": 6985073,
+      "kodTypuFragmentu": "Nadpis",
+      "hloubka": 5,
+      "xhtml": "Tabulka č. 2: Biologický činitel – Viry"
+    },
+    {
+      "id": 6985075,
+      "kodTypuFragmentu": "Odstavec_Dc",
+      "hloubka": 5,
+      "xhtml": "Viry jsou uvedeny podle jejich řádu (Ř), čeledě (Č) a rodu (R)."
+    },
+    {
+      "id": 6985077,
+      "kodTypuFragmentu": "Tabulka",
+      "hloubka": 5,
+      "xhtml": "<html:table xmlns:html=\"http://www.w3.org/1999/xhtml\" class=\"TABLE1\" style=\"width:600px;\"><html:tbody><html:tr><html:th style=\"width:350px;text-align:left;\">Biologický činitel</html:th><html:th style=\"width:60px;text-align:left;vertical-align:top;\">Skupina</html:th><html:th style=\"width:100px;text-align:left;\">Poznámka</html:th></html:tr><html:tr><html:td>Bunyavirales (Ř)</html:td><html:td style=\"vertical-align:top;\" /><html:td style=\"text-align:left;\" /></html:tr><html:tr><html:td>Hantaviridae (Č)</html:td><html:td style=\"vertical-align:top;\" /><html:td style=\"text-align:left;\" /></html:tr></html:tbody></html:table>"
+    },
+    {
+      "id": 6985079,
+      "kodTypuFragmentu": "Poznamka",
+      "hloubka": 5,
+      "xhtml": "Vysvětlivky k tabulce č. 2:"
+    },
+    {
+      "id": 6985081,
+      "kodTypuFragmentu": "Poznamka",
+      "hloubka": 6,
+      "xhtml": "<var>(<sup>*</sup>)</var> Klasifikace podle globálního akčního plánu Světové zdravotnické organizace pro minimalizaci rizika spojeného se zařízeními uchovávajícími poliovirus po druhově specifické eradikaci divokých poliovirů a následném ukončení používání orální poliovakcíny."
+    },
+    {
+      "id": 6985101,
+      "kodTypuFragmentu": "Nadpis",
+      "hloubka": 5,
+      "xhtml": "Tabulka č. 3: Biologický činitel – Původci přenosné spongiformní encefalopatie"
+    },
+    {
+      "id": 6985103,
+      "kodTypuFragmentu": "Tabulka",
+      "hloubka": 5,
+      "xhtml": "<html:table xmlns:html=\"http://www.w3.org/1999/xhtml\" class=\"TABLE1\" style=\"width:600px;\"><html:tbody><html:tr><html:th style=\"width:400px;text-align:left;\">Biologický činitel</html:th><html:th style=\"width:60px;text-align:left;\">Skupina</html:th><html:th style=\"width:140px;text-align:left;\">Poznámka</html:th></html:tr><html:tr><html:td>Původce Creutzfeldtovy-Jakobovy nemoci</html:td><html:td>3 (<html:sup>*</html:sup>)</html:td><html:td>D (<html:a data-odkaz-id=\"35757237\" href=\"#\" class=\"int_odkaz\"><html:sup>a</html:sup>)</html:a></html:td></html:tr><html:tr><html:td>Původce varianty Creutzfeldtovy-Jakobovy nemoci</html:td><html:td>3 (<html:sup>*</html:sup>)</html:td><html:td>D (<html:a data-odkaz-id=\"35757245\" href=\"#\" class=\"int_odkaz\"><html:sup>a</html:sup>)</html:a></html:td></html:tr></html:tbody></html:table>"
+    },
+    {
+      "id": 6985105,
+      "kodTypuFragmentu": "Poznamka",
+      "hloubka": 5,
+      "xhtml": "Vysvětlivky k tabulce č. 3:"
+    },
+    {
+      "id": 457529701,
+      "kodTypuFragmentu": "Poznamka",
+      "hloubka": 6,
+      "xhtml": "<var>(<sup>*</sup>)</var> Biologičtí činitelé skupiny 3 označení v seznamu biologických činitelů jako 3 (<sup>*</sup>) mohou pro <czechvoc-termin koncept-id=\"275083\">zaměstnance</czechvoc-termin> představovat omezené riziko nákazy, neboť se za běžných podmínek nepřenášejí vzduchem, a proto lze upustit od některých požadavků stanovených v <a data-odkaz-id=\"92094839\" href=\"#\" class=\"int_odkaz\">příloze č. 7</a> k tomuto nařízení <a data-odkaz-id=\"92094841\" href=\"#\" class=\"int_odkaz\">části B tabulce č. 1</a> ve zvláštních případech, na základě hodnocení rizik a s přihlédnutím k povaze daných specifických činností a množství daného <czechvoc-termin koncept-id=\"256195\">biologického činitele</czechvoc-termin>."
+    },
+    {
+      "id": 6985111,
+      "kodTypuFragmentu": "Nadpis",
+      "hloubka": 5,
+      "xhtml": "Tabulka č. 4: Biologický činitel – Parazité"
+    },
+    {
+      "id": 6985113,
+      "kodTypuFragmentu": "Odstavec_Dc",
+      "hloubka": 5,
+      "xhtml": "U biologických činitelů uvedených v tomto seznamu zápis celého rodu s dodatkem „spp.“ znamená, že zahrnuje i ostatní druhy patřící do stejného rodu, které nejsou v seznamu jmenovitě uvedeny, ale které jsou známými lidskými patogeny. <czechvoc-termin koncept-id=\"256195\">Biologické činitele</czechvoc-termin>, které nebyly zařazeny do skupin 2 až 4 seznamu, nejsou automaticky zařazeny do skupiny 1. V případě rodů, o nichž je známo, že patogenní účinky na člověka má více než jeden druh, jsou do seznamu zahrnuly ty druhy, které vyvolávají tyto účinky u člověka nejčastěji, spolu s odkazem na skutečnost, že i ostatní druhy stejného rodu mohou mít následky pro zdraví. Pokud je v klasifikovaném seznamu biologických činitelů uveden celý rod, má se za to, že druhy a kmeny, o nichž je známo, že patogenní nejsou, jsou vyjmuty."
+    },
+    {
+      "id": 6985115,
+      "kodTypuFragmentu": "Tabulka",
+      "hloubka": 5,
+      "xhtml": "<html:table xmlns:html=\"http://www.w3.org/1999/xhtml\" class=\"TABLE1\" style=\"width:600px;\"><html:tbody><html:tr><html:th style=\"width:400px;text-align:left;\">Biologický činitel</html:th><html:th style=\"width:60px;text-align:left;\">Skupina</html:th><html:th style=\"width:140px;text-align:left;\">Poznámka</html:th></html:tr><html:tr><html:td>Acanthamoeba castellani</html:td><html:td>2</html:td><html:td /></html:tr><html:tr><html:td>Ancylostoma duodenale</html:td><html:td>2</html:td><html:td /></html:tr></html:tbody></html:table>"
+    },
+    {
+      "id": 6985117,
+      "kodTypuFragmentu": "Poznamka",
+      "hloubka": 5,
+      "xhtml": "Vysvětlivky k tabulce č. 4:"
+    },
+    {
+      "id": 457529703,
+      "kodTypuFragmentu": "Poznamka",
+      "hloubka": 6,
+      "xhtml": "<var>(<sup>*</sup>)</var> Biologičtí činitelé skupiny 3 označení v seznamu biologických činitelů jako 3 (<sup>*</sup>) mohou pro <czechvoc-termin koncept-id=\"275083\">zaměstnance</czechvoc-termin> představovat omezené riziko nákazy, neboť se za běžných podmínek nepřenášejí vzduchem, a proto lze upustit od některých požadavků stanovených v <a data-odkaz-id=\"92094843\" href=\"#\" class=\"int_odkaz\">příloze č. 7</a> k tomuto nařízení <a data-odkaz-id=\"92094845\" href=\"#\" class=\"int_odkaz\">části B tabulce č. 1</a> ve zvláštních případech, na základě hodnocení rizik a s přihlédnutím k povaze daných specifických činností a množství daného <czechvoc-termin koncept-id=\"256195\">biologického činitele</czechvoc-termin>."
+    },
+    {
+      "id": 6985121,
+      "kodTypuFragmentu": "Nadpis",
+      "hloubka": 5,
+      "xhtml": "Tabulka č. 5: Biologický činitel – Houby"
+    },
+    {
+      "id": 6985123,
+      "kodTypuFragmentu": "Odstavec_Dc",
+      "hloubka": 5,
+      "xhtml": "U biologických činitelů uvedených v tomto seznamu zápis celého rodu s dodatkem „spp.“ znamená, že zahrnuje i ostatní druhy patřící do stejného rodu, které nejsou v seznamu jmenovitě uvedeny, ale které jsou známými lidskými patogeny. <czechvoc-termin koncept-id=\"256195\">Biologické činitele</czechvoc-termin>, které nebyly zařazeny do skupin 2 až 4 seznamu, nejsou automaticky zařazeny do skupiny 1. V případě rodů, o nichž je známo, že patogenní účinky na člověka má více než jeden druh, jsou do seznamu zahrnuty ty druhy, které vyvolávají tyto účinky u člověka nejčastěji, spolu s odkazem na skutečnost, že i ostatní druhy stejného rodu mohou mít následky pro zdraví. Pokud je v klasifikovaném seznamu biologických činitelů uveden celý rod, má se za to, že druhy a kmeny, o nichž je známo, že patogenní nejsou, jsou vyjmuty."
+    },
+    {
+      "id": 6985125,
+      "kodTypuFragmentu": "Tabulka",
+      "hloubka": 5,
+      "xhtml": "<html:table xmlns:html=\"http://www.w3.org/1999/xhtml\" class=\"TABLE1\" style=\"width:600px;\"><html:tbody><html:tr><html:th style=\"width:400px;text-align:left;\">Biologický činitel</html:th><html:th style=\"width:60px;text-align:left;vertical-align:top;\">Skupina</html:th><html:th style=\"width:140px;text-align:left;vertical-align:top;\">Poznámka</html:th></html:tr><html:tr><html:td>Aspergillus flavus</html:td><html:td style=\"text-align:left;vertical-align:top;\">2</html:td><html:td style=\"text-align:left;vertical-align:top;\">A, T</html:td></html:tr><html:tr><html:td>Aspergillus fumigatus</html:td><html:td style=\"text-align:left;vertical-align:top;\">2</html:td><html:td style=\"text-align:left;vertical-align:top;\">A</html:td></html:tr></html:tbody></html:table>"
+    },
+    {
+      "id": 6985127,
+      "kodTypuFragmentu": "Poznamka",
+      "hloubka": 5,
+      "xhtml": "Vysvětlivky ke sloupci „Poznámka“ v tabulkách č. 1 až 5:"
+    },
+    {
+      "id": 6985129,
+      "kodTypuFragmentu": "Uni_Odrazka",
+      "hloubka": 6,
+      "xhtml": "A: Možné alergické účinky."
+    },
+    {
+      "id": 6985131,
+      "kodTypuFragmentu": "Uni_Odrazka",
+      "hloubka": 6,
+      "xhtml": "D: Seznam <czechvoc-termin koncept-id=\"275083\">zaměstnanců</czechvoc-termin> vystavených biologickému činiteli, který je uchováván po dobu delší 10 let od skončení poslední známé expozice."
+    },
+    {
+      "id": 1235109649,
+      "kodTypuFragmentu": "Cast",
+      "hloubka": 4,
+      "xhtml": "ČÁST B"
+    },
+    {
+      "id": 1235109651,
+      "kodTypuFragmentu": "Nadpis_pod",
+      "hloubka": 5,
+      "xhtml": "Tabulka č. 1: Požadavky na pracoviště zdravotnického zařízení a zařízení, kde je vykonávána odborná veterinární činnost, pracoviště laboratoří, diagnostických laboratoří a prostory pro pokusná zvířata"
+    },
+    {
+      "id": 1235109653,
+      "kodTypuFragmentu": "Tabulka",
+      "hloubka": 5,
+      "xhtml": "<html:table xmlns:html=\"http://www.w3.org/1999/xhtml\" class=\"TABLE1\" cellspacing=\"0\" cellpadding=\"0\" style=\"width:800px;\"><html:tbody><html:tr><html:th style=\"width:308px;\">Požadavky</html:th><html:th colspan=\"3\" style=\"width:492px;\">Úroveň zabezpečení podle skupiny biologického činitele</html:th></html:tr><html:tr><html:th style=\"width:308px;vertical-align:top;\" /><html:th style=\"width:101px;\">2</html:th><html:th style=\"width:128px;\">3</html:th><html:th>4</html:th></html:tr><html:tr><html:td style=\"width:308px;\">Pracoviště</html:td><html:td style=\"width:101px;text-align:center;vertical-align:top;\" /><html:td style=\"width:128px;text-align:center;vertical-align:top;\" /><html:td style=\"text-align:center;vertical-align:top;\" /></html:tr></html:tbody></html:table>"
+    },
+    {
+      "id": 1235109655,
+      "kodTypuFragmentu": "Odstavec_Dc",
+      "hloubka": 5,
+      "xhtml": "Vysvětlivka k tabulce č. 1:"
+    },
+    {
+      "id": 1235109657,
+      "kodTypuFragmentu": "PPC",
+      "hloubka": 6,
+      "xhtml": "<var><sup>a)</sup></var> HEPA: vysoce účinný filtr pro odlučování částic ze vzduchu."
+    },
+    {
+      "id": 1235109659,
+      "kodTypuFragmentu": "Nadpis",
+      "hloubka": 5,
+      "xhtml": "Tabulka č. 2: Požadavky na pracoviště průmyslových procesů"
+    },
+    {
+      "id": 1235109661,
+      "kodTypuFragmentu": "Tabulka",
+      "hloubka": 5,
+      "xhtml": "<html:table xmlns:html=\"http://www.w3.org/1999/xhtml\" class=\"TABLEX\" style=\"width:800px;\"><html:tbody><html:tr><html:th class=\"CT CL\" style=\"width:35%;text-align:left;vertical-align:middle;\">Požadavky</html:th><html:th class=\"CT CR CL\" colspan=\"3\" style=\"width:65%;text-align:left;vertical-align:middle;\">Úroveň zabezpečení podle skupiny biologického činitele</html:th></html:tr><html:tr><html:th class=\"CT CL\" style=\"vertical-align:top;\" /><html:th class=\"CT CL\" style=\"vertical-align:middle;\">2</html:th><html:th class=\"CT CL\" style=\"vertical-align:middle;\">3</html:th><html:th class=\"CT CR CL\" style=\"vertical-align:middle;\">4</html:th></html:tr><html:tr><html:td class=\"CT CL\" style=\"vertical-align:middle;\">Obecná opatření</html:td><html:td class=\"CT CL\" style=\"text-align:center;vertical-align:top;\" /><html:td class=\"CT CL\" style=\"text-align:center;vertical-align:top;\" /><html:td class=\"CT CR CL\" style=\"text-align:center;vertical-align:top;\" /></html:tr></html:tbody></html:table>"
+    },
+    {
+      "id": 1235109663,
+      "kodTypuFragmentu": "Odstavec_Dc",
+      "hloubka": 5,
+      "xhtml": "Vysvětlivky k tabulce č. 2:"
+    },
+    {
+      "id": 1235109665,
+      "kodTypuFragmentu": "PPC",
+      "hloubka": 6,
+      "xhtml": "<var><sup>a)</sup></var> HEPA: vysoce účinný filtr pro odlučování částic ze vzduchu."
+    },
+    {
+      "id": 1235109667,
+      "kodTypuFragmentu": "PPC",
+      "hloubka": 6,
+      "xhtml": "<var><sup>b)</sup></var> Uzavřený systém: systém, který fyzicky odděluje proces od okolního prostředí (například inkubátory, nádrže)."
+    },
+    {
+      "id": 6984657,
+      "kodTypuFragmentu": "Block_Priloha",
+      "hloubka": 2,
+      "xhtml": null
+    }
+  ]
+}
