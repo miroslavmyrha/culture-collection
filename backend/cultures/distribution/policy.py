@@ -407,12 +407,13 @@ class _LineCheck:
                 f" or exception that names {taxon.name}.",
             )
         elif kind == RestrictionKind.CZ_RAT:
-            # § 17a(1): the recipient notified SÚJB; SÚJB asks senders to supply only them.
+            # § 17a(1): the recipient notified SÚJB; SÚJB asks senders to supply only them. The
+            # notice states the kind of agent (§ 17a(3) a)), so one for another agent is none.
             self.need(
-                [p for p in self.facts.permits if p.kind == PermitKind.SUJB_RAT_NOTICE],
+                _naming(self.facts.permits, {PermitKind.SUJB_RAT_NOTICE}, taxon),
                 "rat_notice_missing",
-                f"{self.name} is a risky agent: the requester shows no reference of its notice"
-                " to SÚJB (§ 17a).",
+                f"{self.name} is a risky agent: the requester shows no reference of a notice"
+                f" to SÚJB (§ 17a) that names {taxon.name}.",
             )
         elif kind == RestrictionKind.DUAL_USE:
             if restriction.reference.startswith(TRANSFER_LICENCE_ENTRIES):

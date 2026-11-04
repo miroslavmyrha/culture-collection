@@ -112,7 +112,7 @@ export const PERMIT_KIND_LABELS: Record<PermitKind, string> = {
   pathogen_work_permit: 'Permit to work with pathogens',
 }
 /** The kinds that name the agents or pests they cover: the server reads the strain's name there. */
-export const NAMES_AGENTS: readonly PermitKind[] = ['sujb_vrat', 'sujb_exception', 'plant_health_loa']
+export const NAMES_AGENTS: readonly PermitKind[] = ['sujb_vrat', 'sujb_rat_notice', 'sujb_exception', 'plant_health_loa']
 export const SIGNER_ROLES = ['responsible_scientist', 'head_of_institution', 'authorised_representative'] as const satisfies readonly SignerRole[]
 export const SIGNER_ROLE_LABELS: Record<SignerRole, string> = {
   responsible_scientist: 'Responsible scientist',

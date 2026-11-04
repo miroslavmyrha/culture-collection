@@ -263,8 +263,22 @@ def test_a_rat_goes_only_to_a_requester_who_notified_sujb(
         "regulated": Severity.MANAGER,
         "rat_notice_missing": Severity.BLOCK,
     }
-    add_permit(curator, requester, PermitKind.SUJB_RAT_NOTICE)
+    add_permit(curator, requester, PermitKind.SUJB_RAT_NOTICE, covers="Mockia vulgaris")
     assert codes(ask(strain)) == {"regulated": Severity.MANAGER}
+
+
+@pytest.mark.rule("R-DIST-05")
+def test_a_rat_notice_for_another_agent_does_not_let_this_one_go_out(
+    ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User
+) -> None:
+    """The notice states the kind of agent (§ 17a(3) a)): one for another agent is none here."""
+    strain = supply(mockia, restrictions=[RAT])
+    add_permit(curator, requester, PermitKind.SUJB_RAT_NOTICE, covers="Testella exempli")
+    found = evaluate(ask(strain), permit_today()).findings
+    sentences = {f.code: f.sentence for f in found}
+    assert sentences.keys() == {"regulated", "rat_notice_missing"}
+    said = sentences["rat_notice_missing"]
+    assert "no reference of a notice to SÚJB (§ 17a) that names Mockia vulgaris" in said
 
 
 @pytest.mark.parametrize(

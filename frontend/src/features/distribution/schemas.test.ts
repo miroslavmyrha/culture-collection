@@ -34,10 +34,10 @@ const issues = (value: unknown) => {
 }
 
 describe('the permit form', () => {
-  it('asks a VRAT permit, an exception and a Letter of Authority for what they name, as on the document', () => {
-    for (const kind of ['sujb_vrat', 'sujb_exception', 'plant_health_loa']) expect(issues(permit({ kind }))).toContain('covers')
+  it('asks a VRAT permit, a RAT notice, an exception and a Letter of Authority for what they name, as on the document', () => {
+    for (const kind of ['sujb_vrat', 'sujb_rat_notice', 'sujb_exception', 'plant_health_loa']) expect(issues(permit({ kind }))).toContain('covers')
     expect(issues(permit({ kind: 'sujb_vrat', covers: 'Mockia vulgaris' }))).toEqual([])
-    expect(issues(permit())).toEqual([])
+    expect(issues(permit({ covers: 'Mockia vulgaris' }))).toEqual([])
   })
 
   it('asks a letter for its quantity and sendings, a GMO authorisation for its category, a work permit for its risk group', () => {

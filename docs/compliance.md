@@ -419,19 +419,24 @@ and the rules and duties it decides are changed in the same commit.
 - Limits: the permit names the agent in free text, matched on the taxon's name as whole words
   (#169).
 
-#### R-DIST-05 A RAT goes only to a requester who notified SÚJB under § 17a
+#### R-DIST-05 A RAT goes only to a requester whose § 17a notice to SÚJB names that agent
 
 - Kind: own control
 - Source: the act puts the notice on the recipient (act 281/2002 Sb., § 17a(1)) and no duty on
   the sender. SÚJB asks senders to supply only notifiers, page "Přesun a předání" (guidance of
   the authority): „RAT si mohou navzájem poskytovat pouze osoby, které SÚJB ohlásily nakládání s
   RAT podle § 17a“ (RAT may be supplied only between persons who notified SÚJB of their handling
-  of RAT under § 17a).
-- Code: `backend/cultures/distribution/policy.py::_LineCheck.restriction`
-- Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_rat_goes_only_to_a_requester_who_notified_sujb`, `backend/cultures/distribution/tests/test_policy.py::test_only_a_section_17a_notice_lets_a_rat_go_out`, `backend/cultures/distribution/tests/test_policy.py::test_a_rat_notice_that_names_a_highly_risky_agent_does_not_let_it_go_out`
+  of RAT under § 17a). What the notice reaches is the act's: § 17a(3) a) „Ohlášení podle odstavce
+  1 musí obsahovat a) druh rizikového biologického agens nebo toxinu“ (the notice must state the
+  kind of risky biological agent or toxin), so a notice for another agent is no notice for this
+  one. The notice names its agents on the permit row, as the document writes them, and the gate
+  reads the strain's taxon there (`policy.names`), as it does for a VRAT permit.
+- Code: `backend/cultures/distribution/policy.py::_LineCheck.restriction`, `backend/cultures/distribution/models.py::NAMES_AGENTS`, `backend/cultures/distribution/models.py::"distribution_permit_names_what_it_covers"`
+- Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_rat_goes_only_to_a_requester_who_notified_sujb`, `backend/cultures/distribution/tests/test_policy.py::test_a_rat_notice_for_another_agent_does_not_let_this_one_go_out`, `backend/cultures/distribution/tests/test_policy.py::test_only_a_section_17a_notice_lets_a_rat_go_out`, `backend/cultures/distribution/tests/test_policy.py::test_a_rat_notice_that_names_a_highly_risky_agent_does_not_let_it_go_out`, `backend/cultures/distribution/tests/test_models.py::test_permit_constraints`, `backend/cultures/distribution/tests/test_services.py::test_permit_errors_name_their_field_and_change_nothing`
 - Gate codes: `rat_notice_missing`
-- Limits: any notice of the requester passes, though a notice names its kind of agent (§ 17a(3)
-  a)). See C-04 (#173).
+- Limits: the agents are read from the words a person copied from the notice, never from an
+  official list, and a notice that names an older name of the taxon blocks (`policy.names`, the
+  safe side). The quantity a notice covers is not part of it: § 17a(3) asks for the kind only.
 
 #### R-DIST-06 Inside the EU only ricin and saxitoxin need a transfer licence, which this collection does not hold
 
@@ -1008,12 +1013,6 @@ Each duty is the law's. Until its issue is built it is the lab's to keep outside
 - Source: decree 474/2002 Sb., § 5(3) c): a sheet per agent (quoted in D-05).
 - Today: two strains of one agent give a wrong stock (R-SHIP-07).
 - Issue: #171
-
-### C-04 Any RAT notice of the requester lets any RAT go
-
-- Source: act 281/2002 Sb., § 17a(3) a): the notice names „druh rizikového biologického agens nebo toxinu“ (the kind of risky agent or toxin).
-- Today: a notice for one agent lets another go (R-DIST-05).
-- Issue: #173
 
 ## Own controls decided and not built
 

@@ -181,9 +181,11 @@ class PermitKind(models.TextChoices):
 
 K = PermitKind
 # These name the agents or pests they cover, as written on them: the policy reads the strain's
-# taxon there (act 281/2002 Sb., § 11(3) fixes the kinds in a VRAT permit; 2019/829 Annex II
-# Part A names the pest).
-NAMES_AGENTS: frozenset[PermitKind] = frozenset({K.SUJB_VRAT, K.SUJB_EXCEPTION, K.PLANT_HEALTH_LOA})
+# taxon there (act 281/2002 Sb., § 11(3) fixes the kinds in a VRAT permit; § 17a(3) a) the kind
+# of agent in a RAT notice; 2019/829 Annex II Part A names the pest).
+NAMES_AGENTS: frozenset[PermitKind] = frozenset(
+    {K.SUJB_VRAT, K.SUJB_RAT_NOTICE, K.SUJB_EXCEPTION, K.PLANT_HEALTH_LOA}
+)
 
 
 class RecipientPermit(PublicModel):

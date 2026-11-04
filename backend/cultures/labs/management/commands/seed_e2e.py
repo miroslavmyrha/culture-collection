@@ -382,6 +382,9 @@ class Command(BaseCommand):
                         "SÚJB",
                         "SÚJB/DEV/17a/1 (invented example)",
                         date(2026, 1, 1),
+                        # The notice names its agent (§ 17a(3) a), #173): the risky agent of
+                        # the seed is the invented Testella exempli of REGULATED_DEPOSIT.
+                        covers="Testella exempli",
                     ),
                 ),
             ),

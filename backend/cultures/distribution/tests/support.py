@@ -19,6 +19,7 @@ from cultures.deposits.models import Contact, Decision, Use
 from cultures.deposits.tests.support import ALL_PERMITTED
 from cultures.distribution import services
 from cultures.distribution.models import (
+    NAMES_AGENTS,
     ClassificationBasis,
     DepositorAnswer,
     DistributionRequest,
@@ -99,7 +100,7 @@ def permit_input(
         "document": services.DocumentInput(PDF),
         **changes,
     }
-    if kind in (PermitKind.SUJB_VRAT, PermitKind.SUJB_EXCEPTION, PermitKind.PLANT_HEALTH_LOA):
+    if kind in NAMES_AGENTS:
         values.setdefault("covers", "Mockia vulgaris")
     if kind == PermitKind.PLANT_HEALTH_LOA:
         values.setdefault("quantity_allowed", 10)
