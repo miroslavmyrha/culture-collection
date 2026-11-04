@@ -30,7 +30,9 @@ def apply_database_roles(
                     " privileges unchanged.\n"
                 )
             return
-        apply_grants(cursor, roles)
+        # complete=True: the migrations have just run, so every function the app may call
+        # must exist by now (cultures/audit/roles.py, apply_grants).
+        apply_grants(cursor, roles, complete=True)
     if verbosity >= 1:
         out.write(
             f"Database roles: audit objects owned by {roles.audit_owner},"

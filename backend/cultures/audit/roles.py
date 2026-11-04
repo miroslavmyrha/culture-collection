@@ -14,10 +14,13 @@ Three roles, named in settings.DATABASE_ROLES:
   a cascade from a regulated table) nor disable or drop a trigger.
 
 setup() runs once per database as an admin (`manage.py db_roles`) and again
-whenever this file changes: it is idempotent. apply_grants() runs after every
-migrate as the migration role (post_migrate, apps.py): it hands audit tables
-and functions that a migration created to the audit owner and resets the
-runtime role's table privileges to APP_ROLE_GRANTS. Tables created outside
+whenever this file changes: it is idempotent. It runs before the first migrate
+(ADR 0005's deploy order, tools/up-with-runtime-role.sh), so it grants what
+exists and demands nothing. apply_grants() runs again after every migrate as
+the migration role (post_migrate, apps.py): it hands audit tables and functions
+that a migration created to the audit owner, resets the runtime role's table
+privileges to APP_ROLE_GRANTS, and there demands that every name in
+APP_ROLE_FUNCTIONS exists, because by then the migrations have created them. Tables created outside
 migrate (createcachetable) get the runtime privileges from the default
 privileges that setup() declares for the migration role.
 
@@ -242,13 +245,26 @@ def setup(cursor: CursorWrapper, roles: Roles) -> None:
     for table, owner in _tables(cursor).items():
         if table not in audit and owner != roles.migration:
             cursor.execute(f"ALTER TABLE public.{_quoted(table)} OWNER TO {roles.migration}")
-    apply_grants(cursor, roles)
+    # Before the first migrate the audit tables and functions do not exist yet: grant what
+    # is there (complete=False). The run after migrate is the one that demands all of them.
+    apply_grants(cursor, roles, complete=False)
 
 
-def apply_grants(cursor: CursorWrapper, roles: Roles) -> None:
+def apply_grants(cursor: CursorWrapper, roles: Roles, *, complete: bool) -> None:
     """Audit objects to the audit owner, runtime privileges exactly APP_ROLE_GRANTS.
 
-    Idempotent. Runs as the migration role after every migrate, or inside setup().
+    Idempotent. Two callers, and they see different databases, so each says which:
+
+    - `complete=False`, from setup() (`manage.py db_roles`): the roles are created before
+      the first migrate, so the audit tables and functions may all be missing. Whatever
+      exists is owned and granted correctly and nothing is demanded.
+    - `complete=True`, from the post_migrate receiver (apps.py): the migrations have just
+      run, so every name in APP_ROLE_FUNCTIONS must exist. One that does not means the
+      schema is older than the code, and the app would fail at its first call of it.
+
+    No default: a third caller has to decide which database it is looking at. ADR 0005's
+    deploy order is db_roles first, migrate third (tools/up-with-runtime-role.sh), and a
+    check that demanded the functions in the first step ended it on every fresh database.
     """
     tables = _tables(cursor)
     for table in audit_tables():
@@ -258,10 +274,12 @@ def apply_grants(cursor: CursorWrapper, roles: Roles) -> None:
     for function, owner in sorted(functions.items()):
         if owner != roles.audit_owner:
             cursor.execute(f"ALTER FUNCTION public.{function} OWNER TO {roles.audit_owner}")
-    unknown = sorted(set(APP_ROLE_FUNCTIONS) - set(functions))
-    if unknown:
+    missing = sorted(set(APP_ROLE_FUNCTIONS) - set(functions))
+    if complete and missing:
         raise ImproperlyConfigured(
-            f"APP_ROLE_FUNCTIONS names audit functions that do not exist: {unknown}"
+            f"APP_ROLE_FUNCTIONS names audit functions that do not exist after migrate:"
+            f" {missing}. The schema is older than the code: migrate to the latest"
+            " migrations, or take the name out of cultures/audit/roles.py."
         )
     tables = _tables(cursor)
     owners = (roles.migration, roles.audit_owner)
