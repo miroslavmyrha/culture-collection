@@ -55,7 +55,7 @@ can then never read the same previous row. One key for both chains, so a
 transaction that appends to the events and to the row changes can never take two
 chain locks in opposite orders. The lock is held until commit, so every audited
 write serialises; a lab register is not a write-heavy system, and a chain per
-table has no cheaper serialisation point (`docs/decisions/0009-...`, amendment).
+table has no cheaper serialisation point (ADR 0009, amendment of 2026-11-04).
 
 Each append reads the head from the table, also inside one INSERT statement with
 many rows (`record_batch` uses `bulk_create`): a plpgsql function is VOLATILE,
@@ -71,10 +71,18 @@ row), and that `chain_hash` is the digest over the stored content. The first
 catches a removed or reordered row, the second a changed column or a forged
 hash. The SQL is built here, not called as a stored function, so somebody who
 replaces the trigger cannot change what the verifier computes.
+
+**The anchors** (`verify`) are the outside evidence the chain alone cannot be: a
+chain its editor can recompute proves nothing (ADR 0009, Alternatives
+considered). Each anchor names a row of the chain and the hash that row held when
+a timestamp authority stamped it, so a head that is gone, a head that now hashes
+to something else, or a break inside stamped history is reported as such.
+Writing them is `cultures.audit.anchors`.
 """
 
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from django.db import connection
@@ -310,3 +318,124 @@ def head(chain: Chain) -> tuple[int, bytes] | None:
     if row is None or row[1] is None:
         return None
     return row[0], bytes(row[1])
+
+
+# Anchor findings: what the stamped heads say about the chain as it is now.
+ANCHOR_ROW_GONE = "anchor_row_gone"
+ANCHOR_HASH_MISMATCH = "anchor_hash_mismatch"
+ANCHOR_COVERS_BREAK = "anchor_covers_break"
+
+
+@dataclass(frozen=True)
+class Anchor:
+    id: int
+    chain: str
+    head_id: int
+    head_hash: bytes
+    anchored_at: datetime
+    authority: str
+    token_time: datetime | None
+
+
+@dataclass(frozen=True)
+class AnchorFinding:
+    kind: str
+    chain: str
+    anchor_id: int
+    head_id: int
+    detail: str
+
+
+@dataclass(frozen=True)
+class Report:
+    """One chain as the verifier found it: the walk, the anchors and what is wrong."""
+
+    walked: Walked
+    anchors: list[Anchor]
+    findings: list[AnchorFinding]
+
+    @property
+    def chain(self) -> str:
+        return self.walked.chain
+
+    @property
+    def intact(self) -> bool:
+        return self.walked.first_break is None and not self.findings
+
+
+def anchors(chain: Chain) -> list[Anchor]:
+    """Every anchor of this chain, the oldest head first."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT id, chain, head_id, head_hash, anchored_at, authority, token_time"
+            " FROM public.audit_chainanchor WHERE chain = %s ORDER BY head_id, id",
+            [chain.name],
+        )
+        return [
+            Anchor(row[0], row[1], row[2], bytes(row[3]), row[4], row[5], row[6])
+            for row in cursor.fetchall()
+        ]
+
+
+def _stored_hash(chain: Chain, row_id: int) -> bytes | None:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT a.chain_hash FROM public.{chain.table} a WHERE a.id = %s",  # noqa: S608
+            [row_id],
+        )
+        row = cursor.fetchone()
+    return None if row is None or row[0] is None else bytes(row[0])
+
+
+def _findings(chain: Chain, found: list[Anchor], broken: Break | None) -> list[AnchorFinding]:
+    """What each anchor says about the rows as they are now.
+
+    An anchor is outside evidence: the token covers the head's hash at a time a
+    trust service provider asserts. A head that is gone, a head that now hashes to
+    something else, or a break inside history an anchor covers is therefore not
+    only a break but a break in stamped history (ADR 0009: "the stamped heads then
+    no longer match").
+    """
+    results: list[AnchorFinding] = []
+    for one in found:
+        stored = _stored_hash(chain, one.head_id)
+        if stored is None:
+            results.append(
+                AnchorFinding(
+                    ANCHOR_ROW_GONE,
+                    chain.name,
+                    one.id,
+                    one.head_id,
+                    f"the anchored row {one.head_id} is gone",
+                )
+            )
+        elif stored != one.head_hash:
+            results.append(
+                AnchorFinding(
+                    ANCHOR_HASH_MISMATCH,
+                    chain.name,
+                    one.id,
+                    one.head_id,
+                    f"row {one.head_id} hashes to {_hex(stored)}, the anchor stamped"
+                    f" {_hex(one.head_hash)}",
+                )
+            )
+        if broken is not None and broken.row_id <= one.head_id:
+            results.append(
+                AnchorFinding(
+                    ANCHOR_COVERS_BREAK,
+                    chain.name,
+                    one.id,
+                    one.head_id,
+                    f"the break at row {broken.row_id} is inside history stamped at"
+                    f" {one.anchored_at.isoformat()} by {one.authority}",
+                )
+            )
+    return results
+
+
+def verify(chain: Chain, *, batch: int = 5000) -> Report:
+    """Walk one chain and check it against its anchors. Reads only."""
+    walked = walk(chain, batch=batch)
+    found = anchors(chain)
+    return Report(walked, found, _findings(chain, found, walked.first_break))

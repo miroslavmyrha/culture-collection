@@ -1181,6 +1181,11 @@ PERSONAL_FIELDS: dict[str, tuple[str, ...]] = {
 NOT_ROW_AUDITED: dict[str, str] = {
     "audit_auditevent": "the service events themselves: append-only, never changed",
     "audit_rowchange": "the row changes themselves: written only by the row trigger",
+    "audit_chainanchor": (
+        "the stamped heads of the hash chains (ADR 0009, #175): a row id, a hash, a time and "
+        "the authority's token, written only by audit_chain_anchor_record and never changed. "
+        "Nothing about a person can reach it"
+    ),
     "users_user_groups": (
         "Django groups grant nothing here: rights come from lab roles (ADR 0006), and the "
         "user admin offers no groups"

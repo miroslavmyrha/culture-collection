@@ -743,6 +743,35 @@ listed here so that the test can tell them from a regulated gate without a rule.
   chain from the change onwards leaves it intact; only a stamped head catches that (#175, the
   anchors).
 
+#### R-AUDIT-04 Each chain's head is stamped once a day by a qualified timestamp authority, and a day without one leaves a gap in the anchors only
+
+- Kind: own control
+- Source: ADR 0009, Decision, Tamper evidence: "Once a day the head of the chain gets a qualified
+  electronic timestamp from a qualified trust service provider (eIDAS, Regulation (EU) No
+  910/2014, Article 41), which carries a legal presumption of its date and of the integrity of the
+  data it covers", and Consequences: "A missed day leaves a gap in the anchors, not in the chain."
+  No legal text read asks it of the collection.
+- Code: `backend/cultures/audit/anchors.py::anchor`, `backend/cultures/audit/models.py::ChainAnchor`, `backend/cultures/audit/timestamping.py::authority`, `backend/cultures/audit/management/commands/audit_chain_anchor.py::Command`
+- Tests: `backend/cultures/audit/tests/test_anchors.py::test_the_job_stamps_each_chains_head`, `backend/cultures/audit/tests/test_anchors.py::test_the_job_twice_writes_no_second_anchor`, `backend/cultures/audit/tests/test_anchors.py::test_a_failing_authority_leaves_the_head_unanchored_and_alerts`, `backend/cultures/audit/tests/test_anchors.py::test_the_default_authority_stamps_nothing`, `backend/cultures/audit/tests/test_anchors.py::test_a_missed_run_leaves_a_gap_in_the_anchors_only`, `backend/cultures/audit/tests/test_anchors.py::test_an_anchor_holds_no_personal_value`, `backend/cultures/audit/tests/test_anchors.py::test_help_builds`
+- Limits: no qualified provider is contracted and no client for one is written, so the only
+  authority that stamps anything today is the fake one of development and tests; production
+  refuses it and leaves every day unanchored. The anchors live in the same database as the rows
+  they vouch for, and exporting them is not built. The ADR's amendment of 2026-11-04 lists both
+  as open questions and says what the operator must set up.
+
+#### R-AUDIT-05 A command verifies the chains and the anchors from outside the application and exits non-zero on the first break
+
+- Kind: own control
+- Source: ADR 0009, Decision, Tamper evidence: "A command verifies the chain", and Consequences:
+  "An edit of the history is detectable from outside the database."
+- Code: `backend/cultures/audit/management/commands/audit_chain_verify.py::Command`, `backend/cultures/audit/chain.py::verify`, `backend/cultures/audit/migrations/0035_chain_anchor.py::FORWARD`, `backend/cultures/audit/roles.py::APP_ROLE_FUNCTIONS`
+- Tests: `backend/cultures/audit/tests/test_chain_commands.py::test_intact_chains_are_reported_and_the_command_exits_zero`, `backend/cultures/audit/tests/test_chain_commands.py::test_a_break_exits_one_and_names_the_row`, `backend/cultures/audit/tests/test_chain_commands.py::test_a_removed_row_exits_one_and_names_the_next_row`, `backend/cultures/audit/tests/test_chain_commands.py::test_a_break_inside_stamped_history_exits_one`, `backend/cultures/audit/tests/test_chain_commands.py::test_an_anchor_catches_a_rewrite_the_chain_itself_cannot`, `backend/cultures/audit/tests/test_chain_commands.py::test_the_command_says_what_it_did_not_check_about_a_token`, `backend/cultures/audit/tests/test_chain_commands.py::test_the_command_runs_as_the_runtime_role`, `backend/cultures/audit/tests/test_anchors.py::test_an_anchor_over_a_head_that_never_held_that_hash_is_refused`, `backend/cultures/audit/tests/test_anchors.py::test_an_anchor_over_a_row_that_does_not_exist_is_refused`, `backend/cultures/audit/tests/test_anchors.py::test_the_runtime_role_cannot_write_the_anchor_table`, `backend/cultures/audit/tests/test_anchors.py::test_the_runtime_role_may_record_an_anchor_through_the_function`, `backend/cultures/audit/tests/test_anchors.py::test_an_anchor_is_never_changed_or_deleted`, `backend/cultures/audit/tests/test_chain_commands.py::test_an_empty_database_has_nothing_to_report`
+- Limits: the command reads the rows through the same database it checks, and it cannot check a
+  token's own signature: no RFC 3161 verifier is installed, so it prints that the token was not
+  verified here. It reports the first break of each chain, not every one. Someone who can replace
+  rows and recompute the whole chain from the change onwards is caught only by an anchor over a
+  head that is older than the change.
+
 ## Legal duties the app does not enforce yet
 
 Each duty is the law's. Until its issue is built it is the lab's to keep outside the app.

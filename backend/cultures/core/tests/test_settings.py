@@ -143,6 +143,10 @@ REFUSALS: list[tuple[dict[str, str], str]] = [
     ({"DJANGO_TRUSTED_PROXIES": "10.0.0.5/24"}, "DJANGO_TRUSTED_PROXIES"),
     ({"DJANGO_TRUSTED_PROXIES": "0.0.0.0/0"}, "would trust every client"),
     ({"LOG_FORMAT": "xml"}, "LOG_FORMAT"),
+    (
+        {"AUDIT_TIMESTAMP_BACKEND": "cultures.audit.timestamping.FakeAuthority"},
+        "AUDIT_TIMESTAMP_BACKEND",
+    ),
 ]
 
 

@@ -25,6 +25,7 @@ from cultures.audit.context import AuditContext
 from cultures.audit.models import AuditEvent, RowChange
 from cultures.audit.registry import ROW_AUDITED_TABLES
 from cultures.audit.roles import (
+    APP_ROLE_FUNCTIONS,
     APP_ROLE_GRANTS,
     DOMAIN_TABLE,
     Roles,
@@ -60,6 +61,8 @@ AUDIT_FUNCTIONS = (
     "audit_chain_event",
     "audit_chain_rowchange",
 )
+# Audit functions with arguments. owners() keys every function by its name alone.
+CALLABLE_FUNCTIONS = ("audit_chain_anchor_record",)
 
 
 def fetch(
@@ -169,11 +172,30 @@ def test_the_trigger_functions_cannot_be_executed_by_the_runtime_role(
         ) == [(False,)], function
 
 
+def test_the_runtime_role_may_call_exactly_the_functions_of_app_role_functions(
+    database_roles: CursorWrapper,
+) -> None:
+    """The anchor function is the app's only way into audit_chainanchor (#175)."""
+    assert APP_ROLE_FUNCTIONS
+    for function in APP_ROLE_FUNCTIONS:
+        assert fetch(
+            database_roles,
+            "SELECT has_function_privilege(%s, %s, 'EXECUTE')",
+            [TEST_ROLES.runtime, f"public.{function}"],
+        ) == [(True,)], function
+
+
 def test_the_audit_owner_owns_the_audit_tables_and_functions(database_roles: CursorWrapper) -> None:
     owned = owners(database_roles)
-    for name in ("audit_auditevent", "audit_rowchange", "audit_rowchange_id_seq"):
+    for name in (
+        "audit_auditevent",
+        "audit_rowchange",
+        "audit_rowchange_id_seq",
+        "audit_chainanchor",
+        "audit_chainanchor_id_seq",
+    ):
         assert owned[name] == TEST_ROLES.audit_owner, name
-    for function in AUDIT_FUNCTIONS:
+    for function in (*AUDIT_FUNCTIONS, *CALLABLE_FUNCTIONS):
         assert owned[f"{function}()"] == TEST_ROLES.audit_owner, function
 
 
@@ -269,7 +291,7 @@ def test_role_names_must_be_plain_and_distinct(names: tuple[str, str, str]) -> N
 
 def test_every_audit_table_needs_its_own_grant_entry(monkeypatch: pytest.MonkeyPatch) -> None:
     """A new audit table must not fall back to the domain privileges (UPDATE, DELETE)."""
-    assert audit_tables() == ["audit_auditevent", "audit_rowchange"]
+    assert audit_tables() == ["audit_auditevent", "audit_chainanchor", "audit_rowchange"]
     monkeypatch.delitem(roles_module.APP_ROLE_GRANTS, "audit_rowchange")
     with pytest.raises(ImproperlyConfigured, match="audit_rowchange"):
         audit_tables()

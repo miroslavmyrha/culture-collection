@@ -8,6 +8,7 @@ from .base import *  # noqa: F403
 from .base import (
     ADMIN_PATH,
     ALLOWED_HOSTS,
+    AUDIT_TIMESTAMP_AUTHORITY,
     DEFAULT_ADMIN_PATH,
     MIDDLEWARE,
     SECRET_KEY,
@@ -43,6 +44,13 @@ if not ALLOWED_HOSTS or any(host.strip() in {"*", ".*"} for host in ALLOWED_HOST
 
 if ADMIN_PATH.strip("/") in {DEFAULT_ADMIN_PATH.strip("/"), "admin"}:
     raise ImproperlyConfigured("Set DJANGO_ADMIN_PATH to a non-default path such as 'ops-x7k2/'.")
+
+# The fake authority's token is evidence of nothing (cultures/audit/timestamping.py).
+if AUDIT_TIMESTAMP_AUTHORITY["BACKEND"].endswith("FakeAuthority"):
+    raise ImproperlyConfigured(
+        "AUDIT_TIMESTAMP_BACKEND must not be the fake timestamp authority: point it at a"
+        " qualified trust service provider's client, or leave it unset to anchor nothing."
+    )
 
 DEBUG = False
 # manage.py seed_dev refuses to run (config/settings/local.py sets it on).

@@ -91,10 +91,11 @@ def test_the_chain_migration_covers_the_rows_already_there_and_goes_back() -> No
         assert walked.first_break is None, (chained_table.name, walked.first_break)
         assert walked.rows == before[counted]
 
-    # The append-only trigger is back on after the backfill.
+    # The append-only trigger of each chained table is back on after the backfill.
     with connection.cursor() as cursor:
         cursor.execute(
             "SELECT tgenabled FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid"
-            " WHERE t.tgname = 'audit_append_only' ORDER BY c.relname"
+            " WHERE t.tgname = 'audit_append_only' AND c.relname = ANY(%s) ORDER BY c.relname",
+            [["audit_auditevent", "audit_rowchange"]],
         )
         assert [state for (state,) in cursor.fetchall()] == ["O", "O"]

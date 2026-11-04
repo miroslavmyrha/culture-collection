@@ -8,7 +8,8 @@ Three roles, named in settings.DATABASE_ROLES:
   It is a member of the audit owner, so a migration can still change an audit
   table or function, and the TRUNCATE guard lets it through like the owner.
 - runtime role: what the app connects as. It owns nothing, is a member of no
-  role and has exactly APP_ROLE_GRANTS. No TRUNCATE, TRIGGER, REFERENCES or
+  role and has exactly APP_ROLE_GRANTS on the tables and APP_ROLE_FUNCTIONS of
+  the audit functions. No TRUNCATE, TRIGGER, REFERENCES or
   MAINTAIN anywhere, so it can neither empty the audit tables (also not through
   a cascade from a regulated table) nor disable or drop a trigger.
 
@@ -43,6 +44,10 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     "audit_auditevent": ("SELECT", "INSERT"),
     # Written only by the SECURITY DEFINER trigger as the audit owner, never by the app.
     "audit_rowchange": ("SELECT",),
+    # ADR 0009 (#175): the stamped heads of the hash chains. The app records one by calling
+    # audit_chain_anchor_record (APP_ROLE_FUNCTIONS), which checks that the anchor names the
+    # real head and inserts it as the audit owner, so the app needs no INSERT here.
+    "audit_chainanchor": ("SELECT",),
     # The readiness probe reads it, only migrate writes it.
     "django_migrations": ("SELECT",),
     # Login counters (cultures.users.login_limits): the upsert inserts, updates and returns
@@ -123,6 +128,14 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
 }
 
 
+# Audit functions the runtime role may call, and only these, spelt as pg_proc prints them
+# (oid::regprocedure::text): no space after a comma, every type by its full name. Every other
+# audit function loses EXECUTE for the runtime role in apply_grants.
+APP_ROLE_FUNCTIONS: tuple[str, ...] = (
+    "audit_chain_anchor_record(text,bigint,bytea,text,bytea,timestamp with time zone,uuid)",
+)
+
+
 def runtime_privileges(table: str) -> tuple[str, ...]:
     return APP_ROLE_GRANTS.get(table, DOMAIN_TABLE)
 
@@ -168,6 +181,19 @@ def _tables(cursor: CursorWrapper) -> dict[str, str]:
         " WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p')"
     )
     return dict(cursor.fetchall())
+
+
+def _audit_functions(cursor: CursorWrapper) -> dict[str, str]:
+    """Every audit_* function of the public schema with its owner, as pg_proc spells it."""
+    cursor.execute(
+        "SELECT p.oid::regprocedure::text, pg_get_userbyid(p.proowner) FROM pg_proc p"
+        " WHERE p.pronamespace = 'public'::regnamespace AND p.proname LIKE 'audit\\_%'"
+    )
+    found: dict[str, str] = dict(cursor.fetchall())
+    for function in found:
+        if not _FUNCTION.fullmatch(function):  # spliced into SQL as an identifier
+            raise ImproperlyConfigured(f"unexpected audit function signature: {function!r}")
+    return found
 
 
 def _refuse_privileged_roles(cursor: CursorWrapper, roles: Roles) -> None:
@@ -228,16 +254,15 @@ def apply_grants(cursor: CursorWrapper, roles: Roles) -> None:
     for table in audit_tables():
         if table in tables and tables[table] != roles.audit_owner:
             cursor.execute(f"ALTER TABLE public.{_quoted(table)} OWNER TO {roles.audit_owner}")
-    cursor.execute(
-        "SELECT p.oid::regprocedure::text FROM pg_proc p"
-        " WHERE p.pronamespace = 'public'::regnamespace AND p.proname LIKE 'audit\\_%%'"
-        " AND pg_get_userbyid(p.proowner) <> %s",
-        [roles.audit_owner],
-    )
-    for (function,) in cursor.fetchall():
-        if not _FUNCTION.fullmatch(function):
-            raise ImproperlyConfigured(f"unexpected audit function signature: {function!r}")
-        cursor.execute(f"ALTER FUNCTION public.{function} OWNER TO {roles.audit_owner}")
+    functions = _audit_functions(cursor)
+    for function, owner in sorted(functions.items()):
+        if owner != roles.audit_owner:
+            cursor.execute(f"ALTER FUNCTION public.{function} OWNER TO {roles.audit_owner}")
+    unknown = sorted(set(APP_ROLE_FUNCTIONS) - set(functions))
+    if unknown:
+        raise ImproperlyConfigured(
+            f"APP_ROLE_FUNCTIONS names audit functions that do not exist: {unknown}"
+        )
     tables = _tables(cursor)
     owners = (roles.migration, roles.audit_owner)
     foreign = sorted(table for table, owner in tables.items() if owner not in owners)
@@ -251,3 +276,8 @@ def apply_grants(cursor: CursorWrapper, roles: Roles) -> None:
     for table in sorted(tables):
         privileges = ", ".join(runtime_privileges(table))
         cursor.execute(f"GRANT {privileges} ON public.{_quoted(table)} TO {roles.runtime}")
+    for function in sorted(functions):
+        if function in APP_ROLE_FUNCTIONS:
+            cursor.execute(f"GRANT EXECUTE ON FUNCTION public.{function} TO {roles.runtime}")
+        else:
+            cursor.execute(f"REVOKE ALL ON FUNCTION public.{function} FROM {roles.runtime}")
