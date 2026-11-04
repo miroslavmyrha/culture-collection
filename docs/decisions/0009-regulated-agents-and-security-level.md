@@ -7,6 +7,7 @@ distribution of regulated strains (#18, part A). Amended 2026-10-22: the shipmen
 second person (#88); the second person at shipment (#89). Amended 2026-10-23: the
 documents of a shipment (#90). Amended 2026-10-24: a restriction ends by two people (#105).
 Amended 2026-11-03: the app keeps the VRAT access list (#167).
+Amended 2026-11-04: the hash chain and its anchors as built (#175).
 Deciders: maintainer
 
 ## Context
@@ -824,3 +825,114 @@ permits; the vial guard replaced without #158's refusal; the record's guard read
 access list of `labs` 0006, which the migration depends on; four more event types in the reason
 constraint of `audit_auditevent` (`audit` 0032, validated by 0033). Reversible:
 `migrate lineage 0012`, `migrate biosafety 0002` and `migrate audit 0031`.
+
+## Amendment 2026-11-04: the hash chain and its anchors as built (#175)
+
+"Tamper evidence" above is built, for both audit tables. What it costs and what it does not
+cover is below; what an operator must set up is at the end.
+
+**Two chains, one per table.** `audit_auditevent` and `audit_rowchange` each carry
+`chain_version`, `chain_prev` and `chain_hash` and are verified on their own. Not one chain over
+both: the two tables are written by different roles inside one transaction (the app inserts
+events, the SECURITY DEFINER row trigger writes row changes) and nothing records how their rows
+interleaved, because `occurred_at` is the transaction's start time on both. A chain needs a total
+order that can still be read back years later, and each table has exactly one, its identity
+column.
+
+**The hash is computed in the database**, by a BEFORE INSERT trigger per table (`audit` 0034).
+That is the only place a write past the services cannot skip, which is the whole point of the
+chain: in Python, `bulk_create`, `QuerySet.update()`, raw SQL, COPY and a psql session would all
+stay outside it. The digest is PostgreSQL's built-in `sha256(bytea)` (PostgreSQL 11 and later,
+checked on the project's postgres:18-alpine image, 18.6), so no extension is created and the
+migration role needs no privilege to create one; pgcrypto is available in the image and buys
+nothing here. The canonical content is a JSON array of text built in SQL: the previous row's hash
+first, then the row's columns in the order of `cultures.audit.chain`, never the two hash columns.
+A JSON array keeps the order and separates the values unambiguously. Timestamps are formatted in
+UTC with microseconds, never cast to text, whose form depends on the session's TimeZone and
+DateStyle. The trigger replaces whatever an insert passes in the three columns, so no role
+chooses a row's place in the chain or its hash, and the runtime role keeps its plain table-level
+INSERT grant.
+
+**Concurrency**: one advisory lock for both chains, taken by `audited_atomic()` inside its
+existing `set_config` statement (so no query count moves) and again by each trigger, for writes
+that never pass through it. Two transactions can then never read the same previous row. One key
+for both chains, so a transaction that appends to both cannot take two chain locks in opposite
+orders; taken at the start of the transaction it also comes before every domain lock. The price:
+every audited write serialises until commit. A lab register is not write-heavy, and 2001 events
+in one statement take 0.43 to 0.54 s here, but the effect on concurrent writers was not measured.
+A write that reaches a regulated table without `audited_atomic()` (psql, a script) takes the lock
+only inside the trigger, after any lock of its own, so it can deadlock with an application write;
+PostgreSQL ends one of the two and nothing is written half way.
+
+**A new column on an audit table** does not change the trigger: it adds a version to
+`cultures.audit.chain` with a trigger of its own, and every row keeps the version it was written
+with. Otherwise each earlier row would be hashed over a column it never had, and re-chaining the
+table would void every anchor that exists. A test fails while a column of an audit table is in no
+version, so the decision cannot be forgotten.
+
+**The rows that were already there** are chained by migration 0034, with the append-only trigger
+switched off for the length of that migration (the migration role is a member of the audit
+owner). After it every row is in the chain, so the verifier needs no "outside the chain" mode and
+there is no hole a writer could aim for. Their hashes are computed from their content at that
+moment, so they say nothing about what happened to those rows earlier: that is exactly why this
+ADR asks for the chain before the first production data. There is no production database;
+development, seed and test databases hold the rows it chains, and nothing was anchored yet, so no
+outside evidence was voided. A database that already holds rows therefore gets a complete chain
+whose beginning is trusted only as far as that database is.
+
+**The anchors.** `audit_chainanchor` holds, per chain, the head's row id, that row's hash, the
+time, the authority and its token. The token covers only the head's hash, so one anchor vouches
+for every row up to that id, and a day on which nothing was written needs no anchor. The row is
+written by `audit_chain_anchor_record` (`audit` 0035), a SECURITY DEFINER function owned by the
+audit owner that refuses an anchor which does not name a real row holding the hash it claims; the
+runtime role has only SELECT on the table and EXECUTE on that function, so it can record a true
+anchor and no other. The table is append-only and is not itself chained: the token is what
+vouches for it. The anchor row is also the record that the job ran, so no service event is
+written for it and anchoring an already anchored head writes nothing.
+
+**The authority** is a paid external service, so it is a setting,
+`AUDIT_TIMESTAMP_AUTHORITY`, with an interface of one method
+(`cultures.audit.timestamping`). The default, in production too, stamps nothing and reports that
+it is not configured; development and tests use a fake authority whose token says in its first
+bytes that it is not a qualified one, and production refuses that backend at startup. A client
+for a real provider is not written: an RFC 3161 request and response are DER-encoded ASN.1, no
+provider is contracted, and no library in the image can build or read one, so writing it now
+would be guesswork. A missing or failing authority ends `manage.py audit_chain_anchor` with exit
+code 1 and leaves the head unanchored; it never blocks a write, and no write path calls it.
+
+**Verifying** is `manage.py audit_chain_verify`. It reads each chain back in id order and checks
+two things per row: that `chain_prev` is the previous row's hash, and that `chain_hash` is the
+digest over the row's stored content. The first catches a row removed, inserted or reordered, the
+second a changed column or a forged hash; recomputing a changed row's own hash only moves the
+break to the next row. It then checks every anchor against the rows as they are now and reports a
+break inside stamped history as such. The digest expression lives in the command's own code, not
+in a stored function, so replacing the trigger does not change what the verifier computes. It
+needs only SELECT on the three tables, so it runs as the migration role, which can read
+everything, or as the runtime role; it exits 1 on any break or anchor finding, and 0 otherwise. A
+chain with no recent anchor is printed, not failed: that is a gap in the anchors, which the daily
+job alerts on. About the token itself the command says only what it checked: with no RFC 3161
+verifier installed it prints that the token was not verified here.
+
+**What the operator must set up**
+- A contract with a qualified trust service provider for timestamps, and
+  `AUDIT_TIMESTAMP_BACKEND` (with `AUDIT_TIMESTAMP_URL`) pointing at its client. Until then every
+  day is unanchored and the chain is evidence only against someone who cannot recompute it.
+- A daily schedule for `manage.py audit_chain_anchor`, outside the request path, and an alert on
+  its exit code: a non-zero run means the day is unanchored.
+- A schedule for `manage.py audit_chain_verify` (daily is enough), run from a job of its own and
+  not from the API process, as the migration role, with an alert on its exit code. A non-zero run
+  means the history was edited.
+- A place outside this database for the tokens and the anchored heads, because an anchor stored
+  only next to the rows it vouches for can be removed with them. Exporting the anchors is not
+  built (open question below).
+
+**Open questions this leaves**
+- A client and a verifier for RFC 3161, so the token's own signature is checked and not only the
+  stored chain.
+- Exporting the anchors (and their tokens) out of the database, so the evidence survives the
+  database.
+- A database role of its own for the two jobs, so a compromised application process can neither
+  write anchors nor stop the verifier. Today both run with whatever role the operator points them
+  at, and the runtime role may record a true anchor.
+- One chain per table serialises every audited write. If that ever hurts, a chain per lab, or per
+  day, with its own anchors, is the next shape; it was not needed to measure a lab register.

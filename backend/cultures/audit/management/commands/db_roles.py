@@ -10,6 +10,14 @@ hands every table to the migration role and the audit tables and functions to
 the audit owner, declares the default privileges for tables the migration role
 creates later, and grants the runtime role exactly APP_ROLE_GRANTS. Passwords
 are set separately (psql \\password), so they never pass through a command line.
+
+It runs before the first migrate (ADR 0005's deploy order,
+tools/up-with-runtime-role.sh), so on a fresh database most audit tables and all
+audit functions do not exist yet: it owns and grants what is there and demands
+nothing. What the migrations create is owned and granted by `migrate` itself,
+whose own run of apply_grants then requires every function the app may call
+(cultures/audit/roles.py). So after a deploy that changes roles.py, run this
+command and then migrate, in that order.
 """
 
 from typing import Any

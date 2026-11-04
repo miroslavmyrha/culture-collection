@@ -13,3 +13,9 @@ DEV_DATA_ALLOWED = True
 
 # Mail is printed to the runserver log, never sent.
 MAILERS = {"default": {"BACKEND": "django.core.mail.backends.console.EmailBackend"}}
+
+# Development and tests stamp with the fake authority, whose token says what it is.
+AUDIT_TIMESTAMP_AUTHORITY = {
+    "BACKEND": "cultures.audit.timestamping.FakeAuthority",
+    "OPTIONS": {},
+}

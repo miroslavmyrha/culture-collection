@@ -23,8 +23,14 @@ request line) carries the strain's public id, so the strain's history is one
 indexed query and needs no walk through the tree. No foreign key: the strain
 table comes later, and an event must outlive the row it names, like
 subject_id. Events about users and labs have no strain.
+
+Both tables also carry the hash chain of ADR 0009 (#175): chain_version,
+chain_prev and chain_hash, written by a BEFORE INSERT trigger (migration 0034)
+and never by Python. ChainAnchor holds the heads a timestamp authority stamped.
+What the chain is and how it is read back: cultures/audit/chain.py.
 """
 
+import uuid
 from typing import Any, NoReturn
 
 from django.conf import settings
@@ -34,6 +40,8 @@ from django.db.models import Q
 
 from cultures.labs.querysets import LabScopedQuerySet
 
+from .chain import CHAINS
+from .chain import VERSION as CHAIN_VERSION
 from .registry import reason_required_codes
 
 
@@ -130,6 +138,12 @@ class AuditEvent(models.Model):
     # {field: [old, new]}, ids only, never secrets; a personal field is "changed", no value
     changes = models.JSONField(default=dict)
     schema_version = models.PositiveSmallIntegerField(default=1)
+    # The hash chain of ADR 0009, written by the BEFORE INSERT trigger of migration 0034
+    # and by nothing else: whatever an insert passes here is replaced. chain_prev is null
+    # only for the first row of the chain. cultures/audit/chain.py verifies them.
+    chain_version = models.PositiveSmallIntegerField(db_default=CHAIN_VERSION)
+    chain_prev = models.BinaryField(null=True)
+    chain_hash = models.BinaryField(null=True)
 
     objects = AuditEventQuerySet.as_manager()
 
@@ -216,6 +230,10 @@ class RowChange(models.Model):
     request_id = models.CharField(max_length=64, null=True)  # noqa: DJ001
     db_role = models.CharField(max_length=63)  # session_user: the login, also from psql
     db_application = models.CharField(max_length=64)  # application_name, set by the client
+    # The hash chain of ADR 0009 (see AuditEvent above): its own chain, its own trigger.
+    chain_version = models.PositiveSmallIntegerField(db_default=CHAIN_VERSION)
+    chain_prev = models.BinaryField(null=True)
+    chain_hash = models.BinaryField(null=True)
 
     objects = AppendOnlyQuerySet["RowChange"].as_manager()
 
@@ -243,6 +261,60 @@ class RowChange(models.Model):
 
     def save(self, *args: Any, **kwargs: Any) -> NoReturn:
         raise AppendOnly("row changes are written by the database trigger only")
+
+    def delete(self, *args: Any, **kwargs: Any) -> NoReturn:
+        raise AppendOnly("audit rows are append-only")
+
+
+class ChainAnchor(models.Model):
+    """One head of one chain with a timestamp authority's token over it (ADR 0009, #175).
+
+    The chain alone proves that history is internally consistent; whoever can
+    edit rows can recompute it. An anchor is the outside evidence: a qualified
+    electronic timestamp over the head's hash carries a legal presumption of its
+    date and of the integrity of the data it covers (eIDAS, Regulation (EU) No
+    910/2014, Article 41), so history stamped before an edit no longer matches.
+
+    `head_id` is the last row of the chain the token covers; later rows are
+    covered by the next anchor. A day on which the authority could not be reached
+    leaves a gap in the anchors, not in the chain (ADR 0009, Consequences), so
+    nothing here is per day and no write ever waits for the authority.
+
+    Written only by `manage.py audit_chain_anchor` through
+    `audit_chain_anchor_record` (migration 0035), which inserts as the audit owner
+    and refuses an anchor that does not name a real row holding the hash it
+    claims. The runtime role has only SELECT on the table. Append-only like the
+    other audit tables: the model refuses changes and the triggers of migration
+    0002 refuse UPDATE, DELETE and a TRUNCATE by anyone but the owner. The table
+    is not itself chained: the token is what vouches for it.
+    """
+
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True)
+    chain = models.CharField(max_length=40)  # a key of chain.CHAINS
+    head_id = models.BigIntegerField()  # the last row of the chain the token covers
+    head_hash = models.BinaryField()  # that row's chain_hash
+    anchored_at = models.DateTimeField(db_default=TransactionNow())
+    # Who stamped it: "fake" in development and tests, else the provider's name.
+    authority = models.CharField(max_length=100)
+    token = models.BinaryField()  # the authority's answer as it came, byte for byte
+    # The time the authority asserts, when the client can read it out of the token.
+    token_time = models.DateTimeField(null=True, blank=True)
+
+    objects = AppendOnlyQuerySet["ChainAnchor"].as_manager()
+
+    class Meta:
+        constraints = (
+            models.CheckConstraint(
+                condition=Q(chain__in=sorted(CHAINS)), name="audit_chainanchor_chain_valid"
+            ),
+        )
+        indexes = (models.Index(fields=["chain", "head_id"], name="audit_anchor_chain_head_idx"),)
+
+    def __str__(self) -> str:
+        return f"{self.chain} up to {self.head_id} by {self.authority}"
+
+    def save(self, *args: Any, **kwargs: Any) -> NoReturn:
+        raise AppendOnly("anchors are written by manage.py audit_chain_anchor only")
 
     def delete(self, *args: Any, **kwargs: Any) -> NoReturn:
         raise AppendOnly("audit rows are append-only")

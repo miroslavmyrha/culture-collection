@@ -240,6 +240,15 @@ MAILERS: dict[str, dict[str, Any]] = {
 DEFAULT_FROM_EMAIL = env_str("DEFAULT_FROM_EMAIL", "webmaster@localhost")
 SERVER_EMAIL = env_str("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
 
+# ADR 0009: the head of each audit hash chain is stamped once a day by a qualified trust
+# service provider (cultures/audit/timestamping.py, manage.py audit_chain_anchor). A
+# qualified timestamp is a paid external service, so the default stamps nothing: the days
+# stay unanchored and the daily job alerts on its exit code. No write ever waits for it.
+AUDIT_TIMESTAMP_AUTHORITY: dict[str, Any] = {
+    "BACKEND": env_str("AUDIT_TIMESTAMP_BACKEND", "cultures.audit.timestamping.NoAuthority"),
+    "OPTIONS": {"url": env_str("AUDIT_TIMESTAMP_URL", "")},
+}
+
 DEFAULT_ADMIN_PATH = "admin-local/"
 ADMIN_PATH = env_str("DJANGO_ADMIN_PATH", DEFAULT_ADMIN_PATH)
 

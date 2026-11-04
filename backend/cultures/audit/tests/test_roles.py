@@ -7,6 +7,7 @@ privileges in the database are exactly APP_ROLE_GRANTS, checked here with
 has_table_privilege, not with the code that grants them.
 """
 
+from collections.abc import Iterator
 from datetime import timedelta
 from io import StringIO
 from typing import Any
@@ -25,6 +26,7 @@ from cultures.audit.context import AuditContext
 from cultures.audit.models import AuditEvent, RowChange
 from cultures.audit.registry import ROW_AUDITED_TABLES
 from cultures.audit.roles import (
+    APP_ROLE_FUNCTIONS,
     APP_ROLE_GRANTS,
     DOMAIN_TABLE,
     Roles,
@@ -56,7 +58,12 @@ AUDIT_FUNCTIONS = (
     "audit_refuse_truncate",
     "audit_row_change",
     "audit_row_truncate",
+    # The hash chain of ADR 0009 (#175): one trigger function per chained table.
+    "audit_chain_event",
+    "audit_chain_rowchange",
 )
+# Audit functions with arguments. owners() keys every function by its name alone.
+CALLABLE_FUNCTIONS = ("audit_chain_anchor_record",)
 
 
 def fetch(
@@ -166,11 +173,30 @@ def test_the_trigger_functions_cannot_be_executed_by_the_runtime_role(
         ) == [(False,)], function
 
 
+def test_the_runtime_role_may_call_exactly_the_functions_of_app_role_functions(
+    database_roles: CursorWrapper,
+) -> None:
+    """The anchor function is the app's only way into audit_chainanchor (#175)."""
+    assert APP_ROLE_FUNCTIONS
+    for function in APP_ROLE_FUNCTIONS:
+        assert fetch(
+            database_roles,
+            "SELECT has_function_privilege(%s, %s, 'EXECUTE')",
+            [TEST_ROLES.runtime, f"public.{function}"],
+        ) == [(True,)], function
+
+
 def test_the_audit_owner_owns_the_audit_tables_and_functions(database_roles: CursorWrapper) -> None:
     owned = owners(database_roles)
-    for name in ("audit_auditevent", "audit_rowchange", "audit_rowchange_id_seq"):
+    for name in (
+        "audit_auditevent",
+        "audit_rowchange",
+        "audit_rowchange_id_seq",
+        "audit_chainanchor",
+        "audit_chainanchor_id_seq",
+    ):
         assert owned[name] == TEST_ROLES.audit_owner, name
-    for function in AUDIT_FUNCTIONS:
+    for function in (*AUDIT_FUNCTIONS, *CALLABLE_FUNCTIONS):
         assert owned[f"{function}()"] == TEST_ROLES.audit_owner, function
 
 
@@ -266,7 +292,7 @@ def test_role_names_must_be_plain_and_distinct(names: tuple[str, str, str]) -> N
 
 def test_every_audit_table_needs_its_own_grant_entry(monkeypatch: pytest.MonkeyPatch) -> None:
     """A new audit table must not fall back to the domain privileges (UPDATE, DELETE)."""
-    assert audit_tables() == ["audit_auditevent", "audit_rowchange"]
+    assert audit_tables() == ["audit_auditevent", "audit_chainanchor", "audit_rowchange"]
     monkeypatch.delitem(roles_module.APP_ROLE_GRANTS, "audit_rowchange")
     with pytest.raises(ImproperlyConfigured, match="audit_rowchange"):
         audit_tables()
@@ -316,11 +342,83 @@ def test_migrate_as_another_role_changes_nothing_and_says_so(
     assert f"not {TEST_ROLES.migration}: privileges unchanged" in out.getvalue()
 
 
+# The two callers see different databases (roles.py, apply_grants).
+
+NEVER_CREATED = "audit_gone(text)"
+
+
+@pytest.fixture
+def before_the_chain_migrations() -> Iterator[CursorWrapper]:
+    """The database as `manage.py db_roles` finds it on a fresh deploy.
+
+    ADR 0005's order is db_roles first and migrate third
+    (tools/up-with-runtime-role.sh), so at step 1 the audit app's newest table and
+    function are not there. Dropping them inside the savepoint is that state without
+    migrating back, and the savepoint is always rolled back, so the schema returns with
+    it. The real order is exercised by tools/up-with-runtime-role.sh itself.
+    """
+    with transaction.atomic(), connection.cursor() as cursor:
+        cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")  # ALTER and DROP refuse pending checks
+        cursor.execute("DROP TABLE public.audit_chainanchor")
+        cursor.execute(f"DROP FUNCTION public.{APP_ROLE_FUNCTIONS[0]}")
+        yield cursor
+        transaction.set_rollback(True)
+
+
+def test_db_roles_works_before_the_migrations_create_the_functions(
+    before_the_chain_migrations: CursorWrapper, settings: Settings
+) -> None:
+    """db_roles must not demand what migrate has not created yet: it ran first and ended
+    every fresh deploy with "APP_ROLE_FUNCTIONS names audit functions that do not exist"."""
+    settings.DATABASE_ROLES = TEST_ROLES.__dict__
+    cursor = before_the_chain_migrations
+    assert APP_ROLE_FUNCTIONS  # the walk below is not vacuous
+    for function in APP_ROLE_FUNCTIONS:
+        assert fetch(cursor, "SELECT to_regprocedure(%s) IS NULL", [f"public.{function}"]) == [
+            (True,)
+        ], function
+
+    call_command("db_roles", stdout=StringIO())  # the operator's command, as in step 1
+
+    owned = owners(cursor)
+    assert owned["audit_auditevent"] == TEST_ROLES.audit_owner
+    assert "audit_chainanchor" not in owned  # not created yet, and nothing demanded it
+    assert fetch(
+        cursor,
+        "SELECT has_table_privilege(%s, 'audit_auditevent', 'SELECT, INSERT')",
+        [TEST_ROLES.runtime],
+    ) == [(True,)]
+
+
+def test_a_function_no_migration_creates_ends_the_migrate(
+    database_roles: CursorWrapper, settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The run after migrate is the strict one: by then every name must exist, and one that
+    does not means the schema is older than the code."""
+    settings.DATABASE_ROLES = TEST_ROLES.__dict__
+    monkeypatch.setattr(roles_module, "APP_ROLE_FUNCTIONS", (*APP_ROLE_FUNCTIONS, NEVER_CREATED))
+    database_roles.execute(f"SET LOCAL ROLE {TEST_ROLES.migration}")
+    with pytest.raises(ImproperlyConfigured, match="schema is older than the code"):
+        emit_post_migrate_signal(1, False, "default", stdout=StringIO())
+
+
+def test_the_same_missing_function_does_not_stop_db_roles(
+    database_roles: CursorWrapper, settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other side of the split: before migrate the same name is no error."""
+    settings.DATABASE_ROLES = TEST_ROLES.__dict__
+    monkeypatch.setattr(roles_module, "APP_ROLE_FUNCTIONS", (*APP_ROLE_FUNCTIONS, NEVER_CREATED))
+    roles_module.apply_grants(database_roles, TEST_ROLES, complete=False)
+    assert fetch(database_roles, "SELECT to_regprocedure('public.audit_gone(text)') IS NULL") == [
+        (True,)
+    ]
+
+
 def test_apply_refuses_a_table_the_roles_do_not_own(database_roles: CursorWrapper) -> None:
     database_roles.execute("RESET ROLE")
     database_roles.execute("CREATE TABLE public.probe_foreign (id int)")  # owned by the login
     with pytest.raises(ImproperlyConfigured, match="probe_foreign"):
-        roles_module.apply_grants(database_roles, TEST_ROLES)
+        roles_module.apply_grants(database_roles, TEST_ROLES, complete=True)
 
 
 # What the runtime role cannot do

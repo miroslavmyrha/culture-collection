@@ -17,6 +17,12 @@ REST_FRAMEWORK = {
 # Mail stays in django.core.mail.outbox (the test runner sets locmem for every alias too).
 MAILERS = {"default": {"BACKEND": "django.core.mail.backends.locmem.EmailBackend"}}
 
+# Development and tests stamp with the fake authority, whose token says what it is.
+AUDIT_TIMESTAMP_AUTHORITY = {
+    "BACKEND": "cultures.audit.timestamping.FakeAuthority",
+    "OPTIONS": {},
+}
+
 # Tests connect as the owner. tests/test_health.py turns the check on where it tests it.
 DB_RUNTIME_ROLE_REQUIRED = False
 
