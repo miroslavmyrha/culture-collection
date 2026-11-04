@@ -36,6 +36,15 @@ differently; `STAMP` formats it in UTC with microseconds. `changes`, `old` and
 `new` are jsonb, whose text form is already canonical (keys sorted, one
 spelling per number).
 
+None of that is held by the trigger and this module agreeing: they agree inside
+any one session even when both are wrong together, and every row of a test
+database is written by the trigger under test, so a wrong form stays green and
+only breaks a verifier in another session or another year. Two tests hold it
+instead (`tests/test_chain.py`): one writes rows and verifies both chains in a
+session with another TimeZone and DateStyle, and one writes version 1's payload
+out in full for both chains and checks the digest against Python's hashlib, so a
+verifier outside PostgreSQL can reproduce it.
+
 `chain_prev` and `chain_hash` are not in the payload: a row cannot hash itself.
 `chain_version` is, so nobody can move a row to another payload definition
 without breaking its hash.

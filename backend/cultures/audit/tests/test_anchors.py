@@ -259,6 +259,38 @@ def test_an_anchor_is_never_changed_or_deleted(written: None) -> None:
 
 
 @pytest.mark.rule("R-AUDIT-04")
+def test_the_anchors_verify_in_a_session_with_other_time_settings(written: None) -> None:
+    """Nothing of the anchor path renders a timestamp into hashed or compared content.
+
+    audit_chain_anchor_record compares only bytea against bytea (the head's hash);
+    anchored_at and token_time are stored as timestamps and never rendered, and the token
+    is kept byte for byte. So a verifier in another zone must find the anchors matching,
+    as it must find the chain intact (test_chain.py, the session's time settings).
+    """
+    assert run()[0] == 0
+    assert anchor_rows()
+    # Only the zone here, not DateStyle: reading an anchor reads its anchored_at, and psycopg
+    # refuses to parse a timestamptz under a non-ISO DateStyle at all ("can't parse timestamptz
+    # with DateStyle 'German, DMY'"), so no Django code runs in such a session. The chain's own
+    # payload is checked under both settings in test_chain.py, which reads back only bytea.
+    with connection.cursor() as cursor:
+        cursor.execute("SET LOCAL TIME ZONE 'America/New_York'")
+        cursor.execute("SELECT current_setting('TimeZone')")
+        assert cursor.fetchone() == ("America/New_York",)
+    for table in chain.CHAINS.values():
+        report = chain.verify(table)
+        assert report.anchors, table.name
+        assert report.findings == [], (table.name, report.findings)
+        assert report.intact, (table.name, report.walked.first_break)
+    # Anchoring again in this session is still a no-op: a head is matched by its hash.
+    before = [one.pk for one in anchor_rows()]
+    code, output = run()
+    assert code == 0, output
+    assert "covered" in output
+    assert [one.pk for one in anchor_rows()] == before
+
+
+@pytest.mark.rule("R-AUDIT-04")
 def test_an_anchor_holds_no_personal_value(written: None, member: User) -> None:
     """An anchor is a hash, a row id, a time, the authority's name and its token.
 

@@ -708,13 +708,18 @@ listed here so that the test can tell them from a regulated gate without a rule.
   removed or inserted inside the database breaks the chain from that point." No legal text read
   asks it of the collection.
 - Code: `backend/cultures/audit/chain.py::CHAINS`, `backend/cultures/audit/chain.py::hash_sql`, `backend/cultures/audit/migrations/0034_hash_chain.py::APPEND`, `backend/cultures/audit/migrations/0034_hash_chain.py::BACKFILL`, `backend/cultures/audit/context.py::audited_atomic`
-- Tests: `backend/cultures/audit/tests/test_chain.py::test_a_service_write_is_chained_on_both_tables`, `backend/cultures/audit/tests/test_chain.py::test_every_row_of_one_insert_statement_gets_its_own_place`, `backend/cultures/audit/tests/test_chain.py::test_an_admin_write_is_chained`, `backend/cultures/audit/tests/test_chain.py::test_a_data_migration_write_is_chained`, `backend/cultures/audit/tests/test_chain.py::test_raw_sql_as_the_runtime_role_is_chained`, `backend/cultures/audit/tests/test_chain.py::test_the_chain_adds_no_query_per_audit_row`, `backend/cultures/audit/tests/test_migration_hash_chain.py::test_the_chain_migration_covers_the_rows_already_there_and_goes_back`
+- Tests: `backend/cultures/audit/tests/test_chain.py::test_a_service_write_is_chained_on_both_tables`, `backend/cultures/audit/tests/test_chain.py::test_every_row_of_one_insert_statement_gets_its_own_place`, `backend/cultures/audit/tests/test_chain.py::test_an_admin_write_is_chained`, `backend/cultures/audit/tests/test_chain.py::test_a_data_migration_write_is_chained`, `backend/cultures/audit/tests/test_chain.py::test_raw_sql_as_the_runtime_role_is_chained`, `backend/cultures/audit/tests/test_chain.py::test_the_chain_adds_no_query_per_audit_row`, `backend/cultures/audit/tests/test_chain.py::test_the_hash_does_not_depend_on_the_sessions_time_settings`, `backend/cultures/audit/tests/test_chain.py::test_the_canonical_content_of_a_row_is_the_documented_text`, `backend/cultures/audit/tests/test_migration_hash_chain.py::test_the_chain_migration_covers_the_rows_already_there_and_goes_back`
 - Limits: one chain per table, not one over both, because nothing records how the two tables'
   rows interleaved inside a transaction. The chain covers the rows that were already in the
   database when migration 0034 ran, hashed from their content at that moment, so it says nothing
   about what happened to those rows earlier; that is why ADR 0009 asks for the chain before the
   first production data. The chain alone is evidence only against someone who cannot recompute
-  it; the anchors are R-AUDIT-03.
+  it; the anchors are R-AUDIT-04. What is pinned of the payload's form: version 1's exact text
+  for both chains, with its UTC timestamps, sorted jsonb keys, `null` for a NULL and its
+  escaping, and that the digest is sha256 of exactly those UTF-8 bytes, checked against Python's
+  hashlib so a verifier outside PostgreSQL can reproduce it. What is not: which columns a future
+  version covers and in what order, which is a decision per version, and that the trigger and
+  `cultures.audit.chain` say the same thing for a version other than 1 (only version 1 exists).
 
 #### R-AUDIT-02 No writer chooses an audit row's place in the chain or its hash
 
@@ -737,11 +742,13 @@ listed here so that the test can tell them from a regulated gate without a rule.
 - Source: ADR 0009, Consequences: "An edit of the history is detectable from outside the
   database", and Decision, Tamper evidence: "A command verifies the chain."
 - Code: `backend/cultures/audit/chain.py::walk`, `backend/cultures/audit/chain.py::Break`
-- Tests: `backend/cultures/audit/tests/test_chain.py::test_a_changed_column_is_found`, `backend/cultures/audit/tests/test_chain.py::test_a_removed_row_is_found`, `backend/cultures/audit/tests/test_chain.py::test_a_forged_hash_is_found`, `backend/cultures/audit/tests/test_chain.py::test_a_changed_row_whose_hash_was_recomputed_breaks_the_next_row`, `backend/cultures/audit/tests/test_chain.py::test_a_reordered_pair_is_found`, `backend/cultures/audit/tests/test_chain.py::test_a_row_with_no_hash_is_found`, `backend/cultures/audit/tests/test_chain.py::test_a_chain_version_this_build_does_not_know_is_found`
+- Tests: `backend/cultures/audit/tests/test_chain.py::test_a_changed_column_is_found`, `backend/cultures/audit/tests/test_chain.py::test_a_removed_row_is_found`, `backend/cultures/audit/tests/test_chain.py::test_a_forged_hash_is_found`, `backend/cultures/audit/tests/test_chain.py::test_a_changed_row_whose_hash_was_recomputed_breaks_the_next_row`, `backend/cultures/audit/tests/test_chain.py::test_a_reordered_pair_is_found`, `backend/cultures/audit/tests/test_chain.py::test_a_row_with_no_hash_is_found`, `backend/cultures/audit/tests/test_chain.py::test_a_chain_version_this_build_does_not_know_is_found`, `backend/cultures/audit/tests/test_chain.py::test_the_hash_does_not_depend_on_the_sessions_time_settings`
 - Limits: the walk reports the first break of each chain, not every one, and it reads the rows
   through the same database it checks. Somebody who can replace rows and recompute the whole
-  chain from the change onwards leaves it intact; only a stamped head catches that (#175, the
-  anchors).
+  chain from the change onwards leaves it intact; only a stamped head catches that (R-AUDIT-04).
+  A session that sets a non-ISO DateStyle cannot be used at all: psycopg refuses to parse any
+  timestamptz under one, so the walk, which reads back no timestamp, still works, but nothing
+  else of the app does.
 
 #### R-AUDIT-04 Each chain's head is stamped once a day by a qualified timestamp authority, and a day without one leaves a gap in the anchors only
 
@@ -752,7 +759,7 @@ listed here so that the test can tell them from a regulated gate without a rule.
   data it covers", and Consequences: "A missed day leaves a gap in the anchors, not in the chain."
   No legal text read asks it of the collection.
 - Code: `backend/cultures/audit/anchors.py::anchor`, `backend/cultures/audit/models.py::ChainAnchor`, `backend/cultures/audit/timestamping.py::authority`, `backend/cultures/audit/management/commands/audit_chain_anchor.py::Command`
-- Tests: `backend/cultures/audit/tests/test_anchors.py::test_the_job_stamps_each_chains_head`, `backend/cultures/audit/tests/test_anchors.py::test_the_job_twice_writes_no_second_anchor`, `backend/cultures/audit/tests/test_anchors.py::test_a_failing_authority_leaves_the_head_unanchored_and_alerts`, `backend/cultures/audit/tests/test_anchors.py::test_the_default_authority_stamps_nothing`, `backend/cultures/audit/tests/test_anchors.py::test_a_missed_run_leaves_a_gap_in_the_anchors_only`, `backend/cultures/audit/tests/test_anchors.py::test_an_anchor_holds_no_personal_value`, `backend/cultures/audit/tests/test_anchors.py::test_help_builds`
+- Tests: `backend/cultures/audit/tests/test_anchors.py::test_the_job_stamps_each_chains_head`, `backend/cultures/audit/tests/test_anchors.py::test_the_job_twice_writes_no_second_anchor`, `backend/cultures/audit/tests/test_anchors.py::test_a_failing_authority_leaves_the_head_unanchored_and_alerts`, `backend/cultures/audit/tests/test_anchors.py::test_the_default_authority_stamps_nothing`, `backend/cultures/audit/tests/test_anchors.py::test_a_missed_run_leaves_a_gap_in_the_anchors_only`, `backend/cultures/audit/tests/test_anchors.py::test_the_anchors_verify_in_a_session_with_other_time_settings`, `backend/cultures/audit/tests/test_anchors.py::test_an_anchor_holds_no_personal_value`, `backend/cultures/audit/tests/test_anchors.py::test_help_builds`
 - Limits: no qualified provider is contracted and no client for one is written, so the only
   authority that stamps anything today is the fake one of development and tests; production
   refuses it and leaves every day unanchored. The anchors live in the same database as the rows

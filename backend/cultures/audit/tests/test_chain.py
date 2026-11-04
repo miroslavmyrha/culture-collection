@@ -12,6 +12,7 @@ someone with database access from changing data, only makes it visible".
 """
 
 import contextlib
+import hashlib
 import threading
 import uuid
 from typing import Any
@@ -98,6 +99,14 @@ def event(member: User, audited: AuditContext) -> AuditEvent:
     """One service write: its event and the row changes of its transaction."""
     user_deactivate(user=member)
     return AuditEvent.objects.get()
+
+
+@pytest.fixture
+def both_chains(member: User, audited: AuditContext) -> None:
+    """Rows in both chains: a service write leaves events and row changes, a batch more events."""
+    user_deactivate(user=member)
+    with audited_atomic():
+        record_batch(ITEM, SUMMARY, [change(), change()])
 
 
 @pytest.fixture
@@ -367,6 +376,123 @@ def test_the_chain_of_a_table_with_no_rows_is_intact() -> None:
     walked = chain.walk(chain.EVENT)
     assert (walked.rows, walked.head_id, walked.first_break) == (0, None, None)
     assert chain.head(chain.EVENT) is None
+
+
+# The canonical content is the same text in every session, and it is this text.
+
+
+def recomputed() -> list[tuple[str, int, bytes | None, bytes | None]]:
+    """(chain, id, the stored hash, the hash recomputed now) for every row of both chains."""
+    found: list[tuple[str, int, bytes | None, bytes | None]] = []
+    for table in chain.CHAINS.values():
+        expression = chain.hash_sql(table, chain.VERSION, "a", "a.chain_prev")
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"SELECT a.id, a.chain_hash, {expression} FROM public.{table.table} a"  # noqa: S608
+                " ORDER BY a.id"
+            )
+            found += [
+                (table.name, row[0], _bytes(row[1]), _bytes(row[2])) for row in cursor.fetchall()
+            ]
+    return found
+
+
+@pytest.mark.rule("R-AUDIT-01")
+@pytest.mark.rule("R-AUDIT-03")
+def test_the_hash_does_not_depend_on_the_sessions_time_settings(both_chains: None) -> None:
+    """A verifier years later runs in another session, maybe on a server in another zone.
+
+    Every timestamp of the payload goes through `to_char(... AT TIME ZONE 'UTC', ...)`
+    (`chain.STAMP`), never a cast to text, whose form follows the session's TimeZone and
+    DateStyle. Without that, a verifier run from another job, or the same job after the
+    server's zone changed, would report a break over the whole history: the worst failure
+    a chain meant to be read years later can have, and a silent one, because the trigger
+    and the verifier agree inside any one session. `stmt_at` of the row changes goes
+    through the same stamp, so both chains are checked here.
+    """
+    before = recomputed()
+    assert {row[0] for row in before} == set(chain.CHAINS)  # both chains have rows
+    assert all(stored == computed for _, _, stored, computed in before)
+    with connection.cursor() as cursor:
+        cursor.execute("SET LOCAL TIME ZONE 'America/New_York'")
+        cursor.execute("SET LOCAL DateStyle TO 'German, DMY'")
+        cursor.execute("SELECT current_setting('TimeZone'), current_setting('DateStyle')")
+        assert cursor.fetchone() == ("America/New_York", "German, DMY")
+    assert recomputed() == before
+    for table in chain.CHAINS.values():
+        walked = chain.walk(table)
+        assert walked.rows > 0, table.name
+        assert walked.first_break is None, (table.name, walked.first_break)
+
+
+# One row of each chain, written out: the payload of version 1 is this text and no other.
+# A change to it (another separator, another order, a column added or dropped) is a new
+# version with its own trigger, because every row already written was hashed over this form
+# and every anchor stamped a head computed from it.
+EVENT_ROW = """
+SELECT 1::smallint AS chain_version, 7::bigint AS id,
+       '2026-11-04 01:02:03.456789+00'::timestamptz AS occurred_at,
+       99::bigint AS txid, 'taxon_created'::varchar AS event_type,
+       NULL::bigint AS actor_id, 'command:probe'::varchar AS actor_label,
+       'system'::varchar AS actor_kind, NULL::bigint AS lab_id,
+       '0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0'::uuid AS strain_id,
+       'command'::varchar AS channel, 'req-1'::varchar AS request_id,
+       NULL::uuid AS batch_id, 'a reason with ", a comma and null'::text AS reason,
+       'taxon'::varchar AS subject_type,
+       '11111111-2222-3333-4444-555555555555'::uuid AS subject_id,
+       '{"b": 1, "a": [2, 3.0]}'::jsonb AS changes, 1::smallint AS schema_version
+"""
+ROW_CHANGE_ROW = """
+SELECT 1::smallint AS chain_version, 8::bigint AS id,
+       '2026-11-04 01:02:03.456789+00'::timestamptz AS occurred_at,
+       '2026-11-04 01:02:03.654321+00'::timestamptz AS stmt_at,
+       99::bigint AS txid, 'users.user'::varchar AS table_label,
+       '5'::text AS row_pk, 'UPDATE'::varchar AS op,
+       '{"first_name": "personal"}'::jsonb AS old, NULL::jsonb AS new,
+       NULL::bigint AS actor_id, false AS actor_claim_invalid,
+       NULL::varchar AS request_id, 'cultures'::varchar AS db_role,
+       'cultures'::varchar AS db_application
+"""
+PAYLOADS = {
+    chain.EVENT.name: (
+        EVENT_ROW,
+        '["aa", "1", "7", "2026-11-04 01:02:03.456789", "99", "taxon_created", null,'
+        ' "command:probe", "system", null, "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0", "command",'
+        ' "req-1", null, "a reason with \\", a comma and null", "taxon",'
+        ' "11111111-2222-3333-4444-555555555555", "{\\"a\\": [2, 3.0], \\"b\\": 1}", "1"]',
+    ),
+    chain.ROW_CHANGE.name: (
+        ROW_CHANGE_ROW,
+        '["aa", "1", "8", "2026-11-04 01:02:03.456789", "2026-11-04 01:02:03.654321", "99",'
+        ' "users.user", "5", "UPDATE", "{\\"first_name\\": \\"personal\\"}", null, null,'
+        ' "false", null, "cultures", "cultures"]',
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(PAYLOADS))
+@pytest.mark.rule("R-AUDIT-01")
+def test_the_canonical_content_of_a_row_is_the_documented_text(name: str) -> None:
+    """The timestamps are UTC whatever the session says, the jsonb keys are sorted, a NULL
+    is `null` and not the text "null", and a value holding a quote or a comma cannot look
+    like two values.
+
+    The digest is checked against Python's hashlib over the same text, not against a hex
+    literal: it proves the hash is sha256 of exactly those UTF-8 bytes, so a verifier
+    written outside PostgreSQL years later can reproduce it from this file alone.
+    """
+    table = chain.CHAINS[name]
+    row, expected = PAYLOADS[name]
+    payload = chain.payload_sql(table, chain.VERSION, "a", "decode('aa', 'hex')")
+    digest = chain.hash_sql(table, chain.VERSION, "a", "decode('aa', 'hex')")
+    with connection.cursor() as cursor:
+        cursor.execute("SET LOCAL TIME ZONE 'America/New_York'")
+        cursor.execute("SET LOCAL DateStyle TO 'German, DMY'")
+        cursor.execute(f"SELECT {payload}, {digest} FROM ({row}) a")  # noqa: S608 (constants here)
+        found = cursor.fetchone()
+    assert found is not None
+    assert found[0] == expected
+    assert bytes(found[1]) == hashlib.sha256(expected.encode()).digest()
 
 
 # The chain costs no query: it is written and read inside the database.
