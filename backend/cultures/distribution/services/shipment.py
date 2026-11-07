@@ -22,7 +22,7 @@ from cultures.labs.access import Access
 from cultures.labs.permissions import Perm
 from cultures.lineage import services as lineage
 from cultures.lineage.models import Batch, Vial
-from cultures.strains.models import Strain
+from cultures.strains.models import Pathogenicity, Strain
 from cultures.strains.selectors import regulating_restrictions
 
 from .. import documents, policy
@@ -147,17 +147,32 @@ def _regulated(strains: list[Strain]) -> bool:
     return regulating_restrictions().filter(strain__in=strains).exists()
 
 
+def _pathogenic(strain: Strain) -> str | None:
+    """Why this strain is a pathogen, or None. The risk group rates harm to humans only
+    (government order 361/2007 Sb., § 36(2) a), Directive 2000/54/EC, Art. 2), so an organism
+    pathogenic to animals or plants holds group 1 and the strain's own pathogenicity is read
+    beside the group (R-RISK-05, #173). An unknown pathogenicity is no finding: it is what most
+    deposits state, and the shipper states the basis."""
+    if strain.risk_group >= 2:  # noqa: PLR2004
+        return "risk group 2 or higher is pathogenic to humans"
+    if strain.animal_pathogenicity == Pathogenicity.PATHOGENIC:
+        return "it is recorded as pathogenic to animals"
+    if strain.plant_pathogenicity == Pathogenicity.PATHOGENIC:
+        return "it is recorded as pathogenic to plants"
+    return None
+
+
 def _check_exempt(basis: str, strains: list[Strain]) -> None:
     """The one thing about the class the app can know: a pathogen is not exempt as
     non-pathogenic. Checked when the shipment is prepared and again when it is confirmed, as a
-    risk group may rise in between."""
+    strain's risk group or pathogenicity may change in between."""
     if basis != ClassificationBasis.EXEMPT_NON_PATHOGENIC:
         return
-    pathogens = [s.accession_number for s in strains if s.risk_group >= 2]  # noqa: PLR2004
-    if pathogens:
+    found = [(s.accession_number, why) for s in strains if (why := _pathogenic(s)) is not None]
+    if found:
         raise InvalidDistribution(
-            f"{', '.join(map(str, pathogens))}: risk group 2 or higher is pathogenic,"
-            " so the culture is not exempt as non-pathogenic.",
+            "; ".join(f"{name}: {why}" for name, why in found)
+            + ". The culture is not exempt as non-pathogenic.",
             code="not_exempt",
             attr="classification_basis",
         )

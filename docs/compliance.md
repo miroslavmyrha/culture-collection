@@ -189,7 +189,8 @@ and the rules and duties it decides are changed in the same commit.
 - Source: ADR 0009, Decision: the risk group rates harm to humans only.
 - Code: `backend/cultures/strains/models.py::Pathogenicity`, `backend/cultures/strains/models.py::"strains_strain_pathogenicity_valid"`
 - Tests: `backend/cultures/strains/tests/test_models.py::test_a_strain_row_that_cannot_be_true_is_refused`
-- Limits: no gate reads it. See C-01 below (#173).
+- Limits: one gate reads it, the exemption at shipment (R-SHIP-03). No other gate does, and the
+  value is typed by a person, never read from a list.
 
 #### R-RISK-06 A risk group drops only by two people: a proposal and a confirmation by another manager
 
@@ -456,9 +457,8 @@ and the rules and duties it decides are changed in the same commit.
 - Code: `backend/cultures/distribution/policy.py::_LineCheck.letter_of_authority`, `backend/cultures/distribution/policy.py::COUNTING`
 - Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_quarantine_pest_needs_a_letter_with_quantity_and_sendings_left`, `backend/cultures/distribution/tests/test_policy.py::test_a_letter_runs_out_of_sendings`, `backend/cultures/distribution/tests/test_policy.py::test_two_lines_of_one_request_draw_on_one_letter_together`, `backend/cultures/distribution/tests/test_policy.py::test_a_cancelled_request_gives_its_quantity_back_to_the_letter`
 - Gate codes: `loa_missing`, `loa_exhausted`
-- Limits: the endorsement by the member state of origin (Art. 6(2)) is stored and not checked,
-  D-13 (#173). The quantity is counted in vials, and the letter may state another unit (not
-  verified).
+- Limits: the quantity is counted in vials, and the letter may state another unit (not
+  verified). The endorsement of Art. 6(2) is its own rule, R-DIST-15.
 
 #### R-DIST-08 A GMO goes only to a holder of an authorisation for contained use of its category or higher
 
@@ -526,6 +526,22 @@ and the rules and duties it decides are changed in the same commit.
 - Code: `backend/cultures/distribution/services/shipment.py::_gates_today`, `backend/cultures/distribution/services/two_person.py::request_confirm_shipment`
 - Tests: `backend/cultures/distribution/tests/test_shipment.py::test_a_permit_that_expired_since_the_approval_blocks_the_shipment`, `backend/cultures/distribution/tests/test_shipment.py::test_the_ship_day_is_a_czech_day`, `backend/cultures/distribution/tests/test_two_person.py::test_a_permit_that_expires_between_preparation_and_confirmation_blocks_it`
 
+#### R-DIST-15 A quarantine pest goes out only on a Letter of Authority the state of origin endorsed
+
+- Kind: law
+- Source: Implementing Regulation (EU) 2019/829, Art. 6(2). Art. 6(3) asks the same of material
+  from a third country, endorsed by that country; this collection sends its own material inside
+  the EU, so the gate reads the endorsement without asking which state gave it.
+- Quote: "It shall be officially endorsed by the Member State of origin, for movement of the respective specified material under quarantine or confinement conditions."
+- Code: `backend/cultures/distribution/policy.py::_LineCheck.letter_of_authority`, `backend/cultures/distribution/models.py::"distribution_permit_endorsement_of_loa"`
+- Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_letter_of_authority_without_its_endorsement_lets_nothing_out`, `backend/cultures/distribution/tests/test_policy.py::test_the_pest_goes_out_on_the_endorsed_letter_beside_an_unendorsed_one`, `backend/cultures/distribution/tests/test_models.py::test_permit_constraints`
+- Gate codes: `loa_not_endorsed`
+- Limits: the endorsement is the reference and the day a person copied from the letter. Which
+  state endorsed it is not recorded, so a letter endorsed by another state than the material's
+  origin passes, and the endorsement itself is not verified against the authority. The gate runs
+  at the approval and again on the ship day (R-DIST-14); a letter endorsed later is recorded as
+  a new permit, because a permit row never changes (R-PERMIT-06).
+
 ### Gates that are not about regulated material
 
 These gate codes of `distribution.policy.gate_codes()` hold for every strain, regulated or not.
@@ -554,14 +570,24 @@ listed here so that the test can tell them from a regulated gate without a rule.
 - Limits: a GMO line is not refused, so it ships under a class the transport rules may not allow
   for it. See C-02 (#173).
 
-#### R-SHIP-03 A strain of risk group 2 or higher is not shipped as exempt, non-pathogenic
+#### R-SHIP-03 A strain pathogenic to humans, animals or plants is not shipped as exempt, non-pathogenic
 
 - Kind: not verified
 - Source: IATA DGR 3.6.2.2.3.2 ("non-pathogenic to humans or animals"), read only through study
-  s10. The IATA text is not among the sources read.
-- Code: `backend/cultures/distribution/services/shipment.py::_check_exempt`
-- Tests: `backend/cultures/distribution/tests/test_shipment.py::test_a_manager_finding_is_not_asked_again_at_shipment`, `backend/cultures/distribution/tests/test_two_person.py::test_a_risk_group_raised_after_the_preparation_makes_the_exemption_refused_at_confirmation`
-- Limits: animal and plant pathogenicity are not read. See C-01 (#173).
+  s10. The IATA text is not among the sources read. That the risk group alone does not answer the
+  question is read in the original: government order 361/2007 Sb., § 36(2) a) and Directive
+  2000/54/EC, Art. 2 rate human disease only, so an organism pathogenic to animals or to plants
+  holds group 1 and its recorded pathogenicity is read beside the group (R-RISK-05).
+- Quote: „Biologické činitele se člení podle míry rizika infekce na biologické činitele a) skupiny 1, u nichž není pravděpodobné, že by mohly způsobit onemocnění člověka“ ; Directive 2000/54/EC, Art. 2: "group 1 biological agent means one that is unlikely to cause human disease"
+- English: biological agents are divided by their level of risk of infection into a) group 1,
+  which are unlikely to cause human disease.
+- Code: `backend/cultures/distribution/services/shipment.py::_check_exempt`, `backend/cultures/distribution/services/shipment.py::_pathogenic`
+- Tests: `backend/cultures/distribution/tests/test_shipment.py::test_a_manager_finding_is_not_asked_again_at_shipment`, `backend/cultures/distribution/tests/test_shipment.py::test_a_pathogen_of_risk_group_1_is_not_shipped_as_exempt`, `backend/cultures/distribution/tests/test_shipment.py::test_a_strain_with_no_pathogenicity_known_ships_as_exempt`, `backend/cultures/distribution/tests/test_two_person.py::test_a_risk_group_raised_after_the_preparation_makes_the_exemption_refused_at_confirmation`
+- Limits: an unknown pathogenicity does not refuse the exemption, and unknown is what most
+  deposits state (R-RISK-05): the shipper answers for the basis. The plant half goes further than
+  the source, which names humans and animals; study s10 reads a culture of a plant-only pathogen
+  as outside Division 6.2, so refusing the exemption for a plant pathogen is this collection's
+  own choice, the safe side, until the IATA text is read.
 
 #### R-SHIP-04 UN 3373 is packed to P650, and dry ice is shipped with its quantity
 
@@ -936,13 +962,6 @@ Each duty is the law's. Until its issue is built it is the lab's to keep outside
   the inactivation that § 8(8) h) asks for (R-END-05, R-END-10).
 - Issue: #160 (part 2, the yearly export only). The operating diary has no issue.
 
-### D-13 A Letter of Authority is endorsed by the member state of origin
-
-- Source: Implementing Regulation (EU) 2019/829, Art. 6(2)
-- Quote: "It shall be officially endorsed by the Member State of origin, for movement of the respective specified material under quarantine or confinement conditions."
-- Today: the endorsement is stored, no gate reads it.
-- Issue: #173
-
 ### D-14 A confinement facility keeps records of quarantine material in and out for three years, and notifies the end of its activity a month before
 
 - Source: Regulation (EU) 2016/2031, Art. 62(3) c); ÚKZÚZ guide for confinement facilities (2022)
@@ -993,13 +1012,6 @@ Each duty is the law's. Until its issue is built it is the lab's to keep outside
 - Issue: none
 
 ## Rules that break a source
-
-### C-01 Exempt, non-pathogenic is refused only for risk group 2 or higher
-
-- Source: IATA DGR 3.6.2.2.3.2, "non-pathogenic to humans or animals", read only through study
-  s10 (not verified). The risk group rates harm to humans only (ADR 0009).
-- Today: an animal or plant pathogen of group 1 ships as exempt (R-SHIP-03).
-- Issue: #173
 
 ### C-02 A GMO line is not refused and UN 3245 is never recorded
 

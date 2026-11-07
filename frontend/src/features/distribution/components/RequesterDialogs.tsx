@@ -103,7 +103,7 @@ export function RequesterDialog({ labId, requester, open, onClose, onExited }: B
   )
 }
 
-const PERMIT_FIELDS = ['kind', 'issuer', 'issuer_country', 'reference', 'valid_from', 'expires_on', 'covers', 'quantity_allowed', 'sendings_allowed', 'gmo_category', 'risk_group', 'file'] as const
+const PERMIT_FIELDS = ['kind', 'issuer', 'issuer_country', 'reference', 'valid_from', 'expires_on', 'covers', 'endorsement_reference', 'endorsed_on', 'quantity_allowed', 'sendings_allowed', 'gmo_category', 'risk_group', 'file'] as const
 const orNull = (value: string) => (value === '' ? null : Number(value))
 
 /** A document the requester holds, with its file: recorded once it is in hand. */
@@ -122,6 +122,8 @@ export function PermitDialog({ labId, requester, open, onClose, onExited }: Base
       valid_from: '',
       expires_on: '',
       covers: '',
+      endorsement_reference: '',
+      endorsed_on: '',
       quantity_allowed: '',
       sendings_allowed: '',
       gmo_category: '',
@@ -145,7 +147,8 @@ export function PermitDialog({ labId, requester, open, onClose, onExited }: Base
           valid_from: values.valid_from,
           expires_on: values.expires_on || null,
           covers: NAMES_AGENTS.includes(values.kind) ? values.covers : '',
-          endorsement_reference: '',
+          endorsement_reference: values.kind === 'plant_health_loa' ? values.endorsement_reference : '',
+          endorsed_on: values.kind === 'plant_health_loa' && values.endorsed_on ? values.endorsed_on : null,
           quantity_allowed: values.kind === 'plant_health_loa' ? orNull(values.quantity_allowed) : null,
           sendings_allowed: values.kind === 'plant_health_loa' ? orNull(values.sendings_allowed) : null,
           gmo_category: values.kind === 'gmo_contained_use' ? orNull(values.gmo_category) : null,
@@ -187,6 +190,8 @@ export function PermitDialog({ labId, requester, open, onClose, onExited }: Base
           <>
             <TextField label="Quantity allowed" inputMode="numeric" autoComplete="off" error={errors.quantity_allowed?.message} {...register('quantity_allowed')} />
             <TextField label="Sendings allowed" inputMode="numeric" autoComplete="off" error={errors.sendings_allowed?.message} {...register('sendings_allowed')} />
+            <TextField label="Endorsement by the state of origin" hint="Its reference, as on the letter. Nothing goes out on a letter with no endorsement (Regulation (EU) 2019/829, Art. 6(2))." autoComplete="off" error={errors.endorsement_reference?.message} {...register('endorsement_reference')} />
+            <TextField label="Endorsed on" hint="YYYY-MM-DD, the day of the endorsement." autoComplete="off" error={errors.endorsed_on?.message} {...register('endorsed_on')} />
           </>
         )}
         {kind === 'gmo_contained_use' && <TextField label="Category" hint="1 to 4, act 78/2004 Sb." inputMode="numeric" autoComplete="off" error={errors.gmo_category?.message} {...register('gmo_category')} />}

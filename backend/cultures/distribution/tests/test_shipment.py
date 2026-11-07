@@ -54,7 +54,7 @@ from cultures.lineage.models import (
 )
 from cultures.lineage.tests.support import preserve
 from cultures.storage.tests.conftest import Tree
-from cultures.strains.models import Strain
+from cultures.strains.models import Pathogenicity, Strain
 from cultures.strains.services import RestrictionInput
 from cultures.taxonomy.models import Taxon
 from cultures.users import services as users
@@ -295,6 +295,66 @@ def test_a_manager_finding_is_not_asked_again_at_shipment(
         Coolant.DRY_ICE,
         Decimal("2.50"),
     )
+
+
+@pytest.mark.parametrize(
+    ("strain_facts", "said"),
+    [
+        (
+            {"animal_pathogenicity": Pathogenicity.PATHOGENIC},
+            "it is recorded as pathogenic to animals",
+        ),
+        (
+            {"plant_pathogenicity": Pathogenicity.PATHOGENIC},
+            "it is recorded as pathogenic to plants",
+        ),
+    ],
+)
+@pytest.mark.rule("R-SHIP-03")
+def test_a_pathogen_of_risk_group_1_is_not_shipped_as_exempt(
+    *,
+    strain_facts: dict[str, Any],
+    said: str,
+    curator: User,
+    supply: Supply,
+    approved: Any,
+) -> None:
+    """The risk group rates humans only, so group 1 holds an animal or plant pathogen (#173)."""
+    strain = supply(vials=6, **strain_facts)
+    request = approved(strain)
+    error = refused(
+        services.InvalidDistribution,
+        "not_exempt",
+        lambda: ship(curator, request),
+        attr="classification_basis",
+    )
+    assert f"{strain.accession_number}: {said}" in error.detail
+    assert "The culture is not exempt as non-pathogenic." in error.detail
+    # The same culture goes out as UN 3373, which the shipper may classify it as.
+    ship(
+        curator,
+        request,
+        transport_class=TransportClass.UN3373,
+        classification_basis=ClassificationBasis.PROFESSIONAL_JUDGEMENT,
+        basis_note="Not on the indicative list of Category A.",
+        packing_instruction=PackingInstruction.P650,
+    )
+    assert Shipment.objects.get(request=request).transport_class == TransportClass.UN3373
+
+
+@pytest.mark.rule("R-SHIP-03")
+def test_a_strain_with_no_pathogenicity_known_ships_as_exempt(
+    *, curator: User, supply: Supply, approved: Any
+) -> None:
+    """Unknown is what most deposits state, and "none known" is a statement of the literature:
+    neither refuses the exemption, the shipper states the basis (R-RISK-05)."""
+    for pathogenicity in (Pathogenicity.UNKNOWN, Pathogenicity.NONE_KNOWN):
+        strain = supply(
+            vials=6, animal_pathogenicity=pathogenicity, plant_pathogenicity=pathogenicity
+        )
+        request = ship(curator, approved(strain))
+        shipment = Shipment.objects.get(request=request)
+        assert shipment.classification_basis == ClassificationBasis.EXEMPT_NON_PATHOGENIC
 
 
 # The form's rules, before anything is locked.

@@ -235,6 +235,8 @@ export const permitSchema = z
     valid_from: isoDay,
     expires_on: optionalDay,
     covers: optionalText(2000),
+    endorsement_reference: optionalText(200),
+    endorsed_on: optionalDay,
     quantity_allowed: optionalNumber(1, 100000, 'Enter a whole number of 1 or more'),
     sendings_allowed: optionalNumber(1, 1000, 'Enter a whole number of 1 or more'),
     gmo_category: optionalNumber(1, 4, 'Enter a category from 1 to 4'),
@@ -245,6 +247,10 @@ export const permitSchema = z
     if (NAMES_AGENTS.some((k) => k === v.kind) && !v.covers) ctx.addIssue({ code: 'custom', path: ['covers'], message: 'Write the agents or pests it names, as on the document' })
     if (v.kind === 'plant_health_loa' && !v.quantity_allowed) ctx.addIssue({ code: 'custom', path: ['quantity_allowed'], message: 'Enter the quantity the letter allows' })
     if (v.kind === 'plant_health_loa' && !v.sendings_allowed) ctx.addIssue({ code: 'custom', path: ['sendings_allowed'], message: 'Enter the number of sendings' })
+    // Regulation (EU) 2019/829, Art. 6(2): the endorsement and its day travel together, and the
+    // server refuses one without the other. A letter with none is recorded and lets nothing out.
+    if (Boolean(v.endorsement_reference) !== Boolean(v.endorsed_on))
+      ctx.addIssue({ code: 'custom', path: [v.endorsement_reference ? 'endorsed_on' : 'endorsement_reference'], message: 'Give the endorsement with its day' })
     if (v.kind === 'gmo_contained_use' && !v.gmo_category) ctx.addIssue({ code: 'custom', path: ['gmo_category'], message: 'Enter the category' })
     if (v.kind === 'pathogen_work_permit' && !v.risk_group) ctx.addIssue({ code: 'custom', path: ['risk_group'], message: 'Enter the risk group it covers' })
   })

@@ -218,7 +218,7 @@ LOA = {"kind": PermitKind.PLANT_HEALTH_LOA, "covers": "Mockia vulgaris"}
         ({"risk_group": 2}, "distribution_permit_risk_group_iff_work_permit"),
     ],
 )
-@pytest.mark.rule("R-DIST-05")
+@pytest.mark.rule("R-DIST-05", "R-DIST-15")
 def test_permit_constraints(
     as_curator: AuditContext,
     curator: User,

@@ -138,6 +138,7 @@ function Permits({ labId, requester, canManage, show }: { labId: string; request
                 {PERMIT_KIND_LABELS[p.kind]}: {p.reference} ({p.issuer})
                 {p.covers ? `. Names: ${p.covers}` : ''}
                 {p.quantity_allowed !== null ? `. ${p.quantity_allowed} allowed in ${p.sendings_allowed} sendings` : ''}
+                {p.kind === 'plant_health_loa' ? (p.endorsed_on ? `. Endorsed on ${p.endorsed_on}: ${p.endorsement_reference}` : '. Not endorsed by the state of origin: nothing goes out on it') : ''}
                 {p.gmo_category !== null ? `. Category ${p.gmo_category}` : ''}
                 {p.risk_group !== null ? `. Up to risk group ${p.risk_group}` : ''}
               </TableCell>

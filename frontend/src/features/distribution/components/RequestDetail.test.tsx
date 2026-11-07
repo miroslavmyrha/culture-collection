@@ -506,10 +506,10 @@ describe('the request page', () => {
         'post',
         ACTION('ship'),
         400,
-        validationProblem([{ attr: 'classification_basis', code: 'not_exempt', detail: 'MYC 3: risk group 2 or higher is pathogenic.' }]),
+        validationProblem([{ attr: 'classification_basis', code: 'not_exempt', detail: 'MYC 3: it is recorded as pathogenic to animals. The culture is not exempt as non-pathogenic.' }]),
       )
       await user.click(within(dialog).getByRole('button', { name: 'Ship' }))
-      expect(await within(dialog).findByRole('combobox', { name: 'Basis of the classification', description: /risk group 2 or higher is pathogenic/ })).toBeInTheDocument()
+      expect(await within(dialog).findByRole('combobox', { name: 'Basis of the classification', description: /recorded as pathogenic to animals/ })).toBeInTheDocument()
     })
 
     describe('in two steps (#89)', () => {
