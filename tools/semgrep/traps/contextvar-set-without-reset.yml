@@ -1,0 +1,74 @@
+rules:
+  - id: contextvar-set-without-reset
+    languages: [python]
+    # WARNING: a reset done elsewhere (middleware, a signal, the caller with a returned
+    # token) is invisible to the rule. Name it in a nosemgrep comment.
+    severity: WARNING
+    message: >-
+      A ContextVar is set and never reset in this function. Under a thread pool, a sync
+      worker or Celery prefork (no context copy per task) the next request or task on the
+      same thread starts with this value, so a scope or an actor leaks into another user's
+      work. Keep the token and reset it in finally: token = var.set(value) ... finally:
+      var.reset(token).
+    patterns:
+      - pattern-inside: |
+          $VAR = $CV(...)
+          ...
+      # Cleared on request_finished instead: the fix for the request id trap, where a reset
+      # in finally runs before Django logs the 4xx or 5xx line.
+      - pattern-not-inside: |
+          $VAR = $CV(...)
+          ...
+          @receiver(request_finished, ...)
+          def $CLEAR(...):
+            ...
+          ...
+      - pattern-not-inside: |
+          $VAR = $CV(...)
+          ...
+          request_finished.connect(...)
+          ...
+      - metavariable-regex:
+          metavariable: $CV
+          regex: ^(contextvars\.)?ContextVar$
+      - pattern-inside: |
+          def $F(...):
+            ...
+      # Reset and clear helpers, pool initializers.
+      - metavariable-regex:
+          metavariable: $F
+          regex: (?i)^(?!.*(reset|clear|initializer)).*$
+      # Restoring the old value in finally is a reset.
+      - pattern-not-inside: |
+          def $F(...):
+            ...
+            try:
+              ...
+            finally:
+              ...
+              $VAR.set(...)
+              ...
+            ...
+      # The token goes back to the caller, who resets it.
+      - pattern-not-inside: |
+          $T = $VAR.set(...)
+          ...
+          return $T
+      - pattern-either:
+          - pattern: $VAR.set(...)
+          - pattern: $TOKEN = $VAR.set(...)
+      - pattern-not-inside: |
+          def $F(...):
+            ...
+            $VAR.reset(...)
+            ...
+      - pattern-not-inside: |
+          def $F(...):
+            ...
+            try:
+              ...
+            finally:
+              ...
+              $VAR.reset(...)
+              ...
+            ...

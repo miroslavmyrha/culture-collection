@@ -1,0 +1,15 @@
+rules:
+  - id: state-on-meta
+    languages: [python]
+    severity: ERROR
+    message: >-
+      _meta is one object shared by the model class, every instance and every thread. A value
+      stored there, or on an object hanging off it, leaks into other saves and other
+      requests: two concurrent saves swap each other's audit event. Keep per-save state in
+      local variables or on the instance.
+    pattern-either:
+      - pattern: $X._meta.$ATTR = $V
+      - pattern: $X._meta.$ATTR.$SUB = $V
+      - pattern: $X._meta.$ATTR[$KEY] = $V
+      - pattern: setattr($X._meta, ...)
+      - pattern: setattr($X._meta.$ATTR, ...)

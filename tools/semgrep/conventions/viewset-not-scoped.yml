@@ -1,0 +1,23 @@
+rules:
+  - id: viewset-not-scoped
+    languages: [python]
+    severity: ERROR
+    message: >-
+      A view inherits DRF's generic classes directly instead of ScopedModelViewSet or
+      ScopedReadOnlyViewSet. It loses the scoped get_queryset(), the action permissions and
+      the guard against overriding them, so one forgotten filter exposes every row. Inherit
+      from the project's scoped base classes (core/api.py).
+    paths:
+      exclude: ["**/core/api.py", "**/tests/**", "**/test_*.py"]
+    patterns:
+      - pattern: |
+          class $VIEW(..., $BASE, ...):
+            ...
+      - metavariable-regex:
+          metavariable: $BASE
+          regex: ^((viewsets|generics)\.)?(ModelViewSet|ReadOnlyModelViewSet|GenericViewSet|GenericAPIView|ListAPIView|RetrieveAPIView|CreateAPIView|UpdateAPIView|DestroyAPIView|ListCreateAPIView|RetrieveUpdateAPIView|RetrieveDestroyAPIView|RetrieveUpdateDestroyAPIView)$
+      # A project's own abstract scoped base (class LabNested(LabScoped, ..., abstract=True)).
+      - pattern-not: |
+          class $VIEW(..., abstract=True):
+            ...
+      - focus-metavariable: $BASE

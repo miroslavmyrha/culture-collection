@@ -24,7 +24,6 @@ from rest_framework.fields import get_error_detail
 from rest_framework.response import Response
 from rest_framework.settings import api_settings
 from rest_framework.views import exception_handler as drf_exception_handler
-from rest_framework.views import set_rollback
 
 from .exceptions import DomainError
 from .parsers import RequestTooLarge
@@ -80,8 +79,9 @@ def _as_api_exception(exc: Exception) -> Exception:
 
 
 def exception_handler(exc: Exception, context: dict[str, Any]) -> Response | None:
+    # No rollback here: ATOMIC_REQUESTS is off, so there is no request transaction to mark.
+    # A service makes its writes in one atomic block and raises inside it, which undoes them.
     if isinstance(exc, DomainError):
-        set_rollback()
         errors = [{"attr": exc.attr, "code": exc.code, "detail": exc.detail}] if exc.attr else []
         domain_response = Response(
             problem(exc.status_code, exc.code, exc.detail, errors), status=exc.status_code
@@ -90,9 +90,7 @@ def exception_handler(exc: Exception, context: dict[str, Any]) -> Response | Non
         return domain_response
 
     exc = _as_api_exception(exc)
-    response = drf_exception_handler(
-        exc, context
-    )  # headers (WWW-Authenticate, Retry-After), rollback
+    response = drf_exception_handler(exc, context)  # headers (WWW-Authenticate, Retry-After)
     if response is None or not isinstance(exc, exceptions.APIException):
         return response
     if isinstance(exc, exceptions.ValidationError):

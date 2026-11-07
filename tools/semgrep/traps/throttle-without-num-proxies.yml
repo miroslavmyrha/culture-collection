@@ -1,0 +1,16 @@
+rules:
+  - id: throttle-without-num-proxies
+    languages: [python]
+    severity: WARNING
+    message: >-
+      Throttling without NUM_PROXIES. DRF then uses the whole X-Forwarded-For header as the
+      client identity, so a client that sends a new value with every request is never
+      limited. Set NUM_PROXIES to the number of proxies in front of Django (0 without one).
+    patterns:
+      - pattern-either:
+          - pattern: |
+              REST_FRAMEWORK = {..., "DEFAULT_THROTTLE_CLASSES": $C, ...}
+          - pattern: |
+              REST_FRAMEWORK = {..., "DEFAULT_THROTTLE_RATES": $R, ...}
+      - pattern-not: |
+          REST_FRAMEWORK = {..., "NUM_PROXIES": $N, ...}

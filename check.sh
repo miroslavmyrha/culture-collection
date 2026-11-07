@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Verification before every commit. Levels:
-#   ./check.sh        secrets, migrations, API contract, lint, types, tests (both sides)
+#   ./check.sh        secrets, static analysis, migrations, API contract, lint, types, tests (both sides)
 #   ./check.sh e2e    plus Playwright against the real API (backend running, test user seeded)
 #   ./check.sh audit  plus known-vulnerability audit of Python and npm dependencies (network)
 # Each failure says what to run to fix it.
@@ -9,6 +9,7 @@ cd "$(dirname "$0")"
 level=${1:-}
 fail() { echo "FAILED: $1" >&2; exit 1; }
 GITLEAKS_IMAGE=ghcr.io/gitleaks/gitleaks:v8.30.1
+SEMGREP_IMAGE=semgrep/semgrep:1.179.0@sha256:93963d9295a366f59e4850127b1550400ee7b388f04fe144e4a1f6325d96e01b
 
 echo "== secrets"
 if git rev-parse --git-dir >/dev/null 2>&1; then
@@ -28,6 +29,16 @@ if git rev-parse --git-dir >/dev/null 2>&1; then
 else
   echo "(not a git repository, skipped)"
 fi
+
+echo "== static analysis"
+# Rules for known Django and DRF traps (tools/semgrep). ERROR and WARNING fail, INFO findings
+# are review prompts and are not reported here. Only backend/ and the rules are mounted: in a
+# linked worktree .git points outside the mount, and Semgrep's git calls fail noisily.
+docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/backend:/src:ro" \
+  -v "$PWD/tools/semgrep:/rules:ro" -w /src "$SEMGREP_IMAGE" \
+  semgrep scan --metrics=off --disable-version-check --quiet --error \
+  --severity ERROR --severity WARNING --config /rules . \
+  || fail "static analysis: fix the findings above, or mark one line with # nosemgrep: <rule-id> and the reason"
 
 echo "== CI"
 # The e2e job must run the API as the runtime role (ADR 0005), as production does.

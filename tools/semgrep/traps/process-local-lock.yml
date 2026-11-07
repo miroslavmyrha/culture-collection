@@ -1,0 +1,16 @@
+rules:
+  - id: process-local-lock
+    languages: [python]
+    severity: INFO
+    message: >-
+      This lock lives in one process. Gunicorn, Daphne and Celery run several, so two workers
+      enter the "locked" section at the same time. For data, lock the row (select_for_update)
+      or use a PostgreSQL advisory lock. A process lock is fine only for process-local state
+      such as an in-memory cache.
+    paths:
+      exclude: ["**/tests/**", "**/test_*.py"]
+    pattern-either:
+      - pattern: threading.Lock()
+      - pattern: threading.RLock()
+      - pattern: multiprocessing.Lock()
+      - pattern: asyncio.Lock()

@@ -1,0 +1,15 @@
+rules:
+  - id: environ-env-bool
+    languages: [python]
+    severity: WARNING
+    message: >-
+      django-environ's bool cast turns anything it does not know into False without an error:
+      DEBUG=ture or SECURE_SSL_REDIRECT=yes! become False and nobody notices. Parse booleans
+      with a strict helper that raises ImproperlyConfigured on an unknown value.
+    patterns:
+      - pattern-inside: |
+          $ENV = environ.Env(...)
+          ...
+      - pattern-either:
+          - pattern: $ENV.bool(...)
+          - pattern: $ENV(..., cast=bool, ...)

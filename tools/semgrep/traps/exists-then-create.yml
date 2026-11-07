@@ -1,0 +1,22 @@
+rules:
+  - id: exists-then-create
+    languages: [python]
+    severity: WARNING
+    message: >-
+      exists() check before create(). Two requests both see "not there" and both insert:
+      duplicates, or an IntegrityError you did not plan for. Put a unique constraint on the
+      fields and catch IntegrityError, or use get_or_create() backed by that constraint.
+    paths:
+      # Data migrations run alone.
+      exclude: ["**/migrations/**"]
+    pattern-either:
+      - pattern: |
+          if not $QS.exists():
+            ...
+            $M.objects.create(...)
+      - pattern: |
+          if $QS.exists():
+            ...
+          else:
+            ...
+            $M.objects.create(...)

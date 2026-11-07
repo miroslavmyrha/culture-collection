@@ -1,0 +1,27 @@
+rules:
+  - id: action-bypasses-get-object
+    languages: [python]
+    severity: ERROR
+    message: >-
+      A detail action loads the object by its pk itself. That skips the viewset's scoped
+      get_queryset() and check_object_permissions(), so any user who guesses an id reaches
+      another user's row (IDOR). Use self.get_object().
+    patterns:
+      - pattern-inside: |
+          @action(..., detail=True, ...)
+          def $ACTION(...):
+            ...
+      - pattern-either:
+          - pattern: $M.objects.get(..., pk=$X, ...)
+          - pattern: $M.objects.get(..., id=$X, ...)
+          - pattern: $M.objects.filter(..., pk=$X, ...)
+          - pattern: $M.objects.filter(..., id=$X, ...)
+          - pattern: $M._default_manager.get(..., pk=$X, ...)
+          - pattern: get_object_or_404($M, ..., pk=$X, ...)
+          - pattern: get_object_or_404($M, ..., id=$X, ...)
+      # Re-fetching an object that already came through get_object() is fine.
+      - pattern-not: $M.$MGR.$FN(..., pk=$OBJ.pk, ...)
+      - pattern-not: $M.$MGR.$FN(..., id=$OBJ.id, ...)
+      - pattern-not-inside: |
+          $OBJ = self.get_object()
+          ...

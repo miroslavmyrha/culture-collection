@@ -1,0 +1,35 @@
+rules:
+  - id: session-auth-first
+    languages: [python]
+    severity: WARNING
+    message: >-
+      DRF's SessionAuthentication is the first authenticator. It has no
+      authenticate_header(), so DRF answers anonymous requests with 403 instead of 401 and the
+      SPA cannot tell "log in" from "not allowed". Put a subclass with authenticate_header()
+      first (a project subclass such as core.authentication.SessionAuthentication).
+    pattern-either:
+      # Settings: only DRF's own class. A project subclass of the same name is the fix.
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  {..., "DEFAULT_AUTHENTICATION_CLASSES": [$FIRST, ...], ...}
+              - pattern: |
+                  {..., "DEFAULT_AUTHENTICATION_CLASSES": ($FIRST, ...), ...}
+          - metavariable-regex:
+              metavariable: $FIRST
+              regex: ^.?rest_framework\.authentication\.SessionAuthentication.?$
+      # A view: only when the name was imported from DRF.
+      - patterns:
+          - pattern-inside: |
+              from rest_framework.authentication import SessionAuthentication
+              ...
+          - pattern-either:
+              - pattern: authentication_classes = [SessionAuthentication, ...]
+              - pattern: authentication_classes = (SessionAuthentication, ...)
+      - patterns:
+          - pattern-inside: |
+              from rest_framework import authentication
+              ...
+          - pattern-either:
+              - pattern: authentication_classes = [authentication.SessionAuthentication, ...]
+              - pattern: authentication_classes = (authentication.SessionAuthentication, ...)

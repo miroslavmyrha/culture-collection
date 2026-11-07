@@ -1,0 +1,54 @@
+rules:
+  - id: side-effect-in-atomic
+    languages: [python]
+    severity: ERROR
+    message: >-
+      A side effect runs inside a transaction. If the transaction rolls back, the e-mail or
+      HTTP call already happened, and a task enqueued here can run before the commit and read
+      a missing or stale row. Wrap it: transaction.on_commit(lambda: ...), or
+      functools.partial inside a loop.
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              with transaction.atomic(...):
+                ...
+          - pattern-inside: |
+              with atomic(...):
+                ...
+          - pattern-inside: |
+              @transaction.atomic
+              def $F(...):
+                ...
+          - pattern-inside: |
+              @transaction.atomic(...)
+              def $F(...):
+                ...
+          - pattern-inside: |
+              @atomic
+              def $F(...):
+                ...
+      - pattern-either:
+          - pattern: send_mail(...)
+          - pattern: send_mass_mail(...)
+          - pattern: mail_admins(...)
+          - pattern: $TASK.delay(...)
+          - pattern: $TASK.apply_async(...)
+          # Only the HTTP libraries: a local queryset called "requests" is not one.
+          - patterns:
+              - pattern-inside: |
+                  import requests
+                  ...
+              - pattern: requests.$METHOD(...)
+          - patterns:
+              - pattern-inside: |
+                  import httpx
+                  ...
+              - pattern: httpx.$METHOD(...)
+      - pattern-not-inside: transaction.on_commit(...)
+      - pattern-not-inside: on_commit(...)
+      # A nested callback handed to on_commit runs after the commit.
+      - pattern-not-inside: |
+          def $CALLBACK(...):
+            ...
+          ...
+          transaction.on_commit($CALLBACK, ...)

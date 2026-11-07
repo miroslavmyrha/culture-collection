@@ -1,0 +1,63 @@
+rules:
+  - id: anonymous-write-without-csrf
+    languages: [python]
+    severity: ERROR
+    message: >-
+      An anonymous write without a CSRF check. DRF views are csrf_exempt and
+      SessionAuthentication checks CSRF only for a logged-in session, so a login, signup or
+      public form POST is open to cross-site requests (login CSRF). Wrapping the view in
+      csrf_protect does not help. Call SessionAuthentication().enforce_csrf(request) (a
+      small enforce_csrf() helper) at the start of the method. SameSite=Lax cookies limit
+      the harm for views that need a session, not for login.
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              class $VIEW(...):
+                ...
+                permission_classes = [..., $ALLOW, ...]
+                ...
+          - pattern-inside: |
+              class $VIEW(...):
+                ...
+                permission_classes = (..., $ALLOW, ...)
+                ...
+      - metavariable-regex:
+          metavariable: $ALLOW
+          regex: ^(permissions\.)?AllowAny$
+      # Cookie authentication only: the project default, or a list naming a session class.
+      # Token or bearer authentication sends no cookie, so CSRF does not apply.
+      - pattern-either:
+          - patterns:
+              - pattern-inside: |
+                  class $VIEW(...):
+                    ...
+              - pattern-not-inside: |
+                  class $VIEW(...):
+                    ...
+                    authentication_classes = $AUTH
+                    ...
+          - patterns:
+              - pattern-inside: |
+                  class $VIEW(...):
+                    ...
+                    authentication_classes = $AUTH
+                    ...
+              - metavariable-regex:
+                  metavariable: $AUTH
+                  regex: (?s).*Session.*
+      - pattern: |
+          def $METHOD(self, $REQUEST, ...):
+            ...
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: ^(post|put|patch|delete|create|update|partial_update|destroy)$
+      - pattern-not: |
+          def $METHOD(self, $REQUEST, ...):
+            ...
+            enforce_csrf(...)
+            ...
+      - pattern-not: |
+          def $METHOD(self, $REQUEST, ...):
+            ...
+            $AUTHN.enforce_csrf(...)
+            ...

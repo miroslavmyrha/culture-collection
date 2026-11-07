@@ -1,0 +1,23 @@
+rules:
+  - id: scoped-throttle-without-scope
+    languages: [python]
+    severity: ERROR
+    message: >-
+      ScopedRateThrottle on a view without throttle_scope. The throttle finds no scope and
+      allows every request, the limit never runs. Set throttle_scope on the view, or use a
+      SimpleRateThrottle subclass with its own get_cache_key().
+    patterns:
+      - pattern-inside: |
+          class $VIEW(...):
+            ...
+      - pattern-either:
+          - pattern: throttle_classes = [..., $T, ...]
+          - pattern: throttle_classes = (..., $T, ...)
+      - metavariable-regex:
+          metavariable: $T
+          regex: ^(throttling\.)?ScopedRateThrottle$
+      - pattern-not-inside: |
+          class $VIEW(...):
+            ...
+            throttle_scope = $SCOPE
+            ...
