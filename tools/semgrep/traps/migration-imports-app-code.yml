@@ -1,0 +1,22 @@
+rules:
+  - id: migration-imports-app-code
+    languages: [python]
+    severity: ERROR
+    message: >-
+      A migration imports app code. The migration runs against the schema of its point in
+      history, the import runs today's code, so an old migration changes meaning when models
+      or enums change, and breaks when they move. Use apps.get_model() and copy the
+      constants (choices too) into the migration.
+    paths:
+      # Numbered files only: other modules in a migrations package are not migrations.
+      include: ["**/migrations/[0-9]*.py"]
+    patterns:
+      - pattern: from $MOD import $X
+      # Migration tooling (e.g. a project's migrations.monkey.models) is not app code.
+      - metavariable-regex:
+          metavariable: $MOD
+          regex: ^(?!django\.)(?!.*\bmigrations\b)(.*\.)?(models|enums|choices|constants|services|selectors)$
+      # Managers with use_in_migrations = True are imported by makemigrations itself.
+      - metavariable-regex:
+          metavariable: $X
+          regex: ^(?!.*Manager$).*

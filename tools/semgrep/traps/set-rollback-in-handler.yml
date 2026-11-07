@@ -1,0 +1,12 @@
+rules:
+  - id: set-rollback-in-handler
+    languages: [python]
+    severity: WARNING
+    message: >-
+      DRF's set_rollback() marks the request transaction for rollback, and there is none unless
+      ATOMIC_REQUESTS is on: the writes made before the exception stay in the database. Let the
+      service run its writes in one transaction.atomic() block and raise, or drop the call.
+    # DRF's helper takes no arguments. Django's transaction.set_rollback(True) is a real API.
+    pattern-either:
+      - pattern: set_rollback()
+      - pattern: views.set_rollback()

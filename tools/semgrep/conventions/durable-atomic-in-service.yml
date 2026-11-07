@@ -1,0 +1,13 @@
+rules:
+  - id: durable-atomic-in-service
+    languages: [python]
+    severity: WARNING
+    message: >-
+      durable=True in a service. Services call each other, and a durable block inside another
+      transaction raises RuntimeError. Keep durable=True on entry points (views, tasks,
+      commands) only.
+    paths:
+      include: ["**/services.py", "**/services/*.py", "**/selectors.py", "**/selectors/*.py"]
+    pattern-either:
+      - pattern: transaction.atomic(..., durable=True, ...)
+      - pattern: atomic(..., durable=True, ...)

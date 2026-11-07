@@ -1,0 +1,24 @@
+rules:
+  - id: migration-callable-default
+    languages: [python]
+    severity: WARNING
+    message: >-
+      AddField with a callable default on an existing table. Django calls the callable once
+      and writes that value into every existing row: timestamps say "the migration ran" for
+      all old rows, and a unique field fails. The usual source is a one-off default typed at
+      the makemigrations prompt. Add the field nullable, backfill per row (from another
+      column if one exists), then make it NOT NULL and unique.
+    paths:
+      include: ["**/migrations/*.py"]
+      # An initial migration creates the table in the same file, it has no rows yet.
+      exclude: ["**/migrations/0001_*.py", "**/migrations/*squashed*.py"]
+    patterns:
+      - pattern: migrations.AddField(..., field=$FIELD, ...)
+      - metavariable-pattern:
+          metavariable: $FIELD
+          pattern-either:
+            - pattern: $T(..., default=uuid.uuid4, ...)
+            - pattern: $T(..., default=django.utils.timezone.now, ...)
+            - pattern: $T(..., default=timezone.now, ...)
+            - pattern: $T(..., default=datetime.datetime.now, ...)
+            - pattern: $T(..., default=secrets.$FN, ...)

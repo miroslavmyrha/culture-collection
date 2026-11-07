@@ -1,0 +1,63 @@
+rules:
+  - id: select-for-update-outside-atomic
+    languages: [python]
+    # INFO: on real code most hits are helpers whose every caller holds the transaction,
+    # and Semgrep cannot follow the call. Read each one, the tests will not catch it:
+    # Django raises only in autocommit, and TestCase runs inside atomic.
+    severity: INFO
+    message: >-
+      select_for_update() outside a visible transaction. Evaluated in autocommit it raises
+      TransactionManagementError, a broad except hides that, and TestCase never sees it
+      because each test runs inside atomic (only transaction=True tests do). Wrap it in
+      transaction.atomic(), or name the caller that holds the transaction in a comment with
+      "# nosemgrep: select-for-update-outside-atomic".
+    patterns:
+      - pattern: $QS.select_for_update(...)
+      # A private helper (_locked, _living_strain) is called by a public service that holds
+      # the transaction, and a name ending in _locked says the caller holds it
+      # (requests_cancel_for_deaccession_locked). Only other public functions are checked.
+      - pattern-inside: |
+          def $FN(...):
+            ...
+      - metavariable-regex:
+          metavariable: $FN
+          regex: ^(?!_)(?!.*_locked$).*
+      # A negative pattern cannot be filtered by a regex, so the atomic wrappers seen in
+      # real code are listed (Saleor traced_atomic_transaction, Sentry atomic_transaction,
+      # an audit-aware audited_atomic). Add a project's own wrapper here.
+      - pattern-not-inside: |
+          with audited_atomic(...):
+            ...
+      - pattern-not-inside: |
+          with $MOD.audited_atomic(...):
+            ...
+      - pattern-not-inside: |
+          with transaction.atomic(...):
+            ...
+      - pattern-not-inside: |
+          with atomic(...):
+            ...
+      - pattern-not-inside: |
+          with traced_atomic_transaction(...):
+            ...
+      - pattern-not-inside: |
+          with atomic_transaction(...):
+            ...
+      - pattern-not-inside: |
+          with $MOD.atomic_transaction(...):
+            ...
+      - pattern-not-inside: |
+          @transaction.atomic
+          def $F(...):
+            ...
+      - pattern-not-inside: |
+          @transaction.atomic(...)
+          def $F(...):
+            ...
+      - pattern-not-inside: |
+          @atomic
+          def $F(...):
+            ...
+      # A lazy queryset handed back to a caller is evaluated there.
+      - pattern-not-inside: return $Q.select_for_update(...)
+      - pattern-not-inside: return $Q.select_for_update(...).$M(...)

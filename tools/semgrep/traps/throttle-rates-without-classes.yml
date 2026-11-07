@@ -1,0 +1,20 @@
+rules:
+  - id: throttle-rates-without-classes
+    languages: [python]
+    severity: WARNING
+    message: >-
+      DEFAULT_THROTTLE_RATES names "anon" or "user" rates, but DEFAULT_THROTTLE_CLASSES is not
+      set. The rates only name limits, the classes apply them: only views that list
+      throttle_classes themselves are limited. Set DEFAULT_THROTTLE_CLASSES and test that a
+      request gets 429.
+    patterns:
+      - pattern: |
+          REST_FRAMEWORK = {..., "DEFAULT_THROTTLE_RATES": $RATES, ...}
+      - pattern-not: |
+          REST_FRAMEWORK = {..., "DEFAULT_THROTTLE_CLASSES": $CLASSES, ...}
+      # Rates for named scopes only are fine: views use them through ScopedRateThrottle.
+      - metavariable-pattern:
+          metavariable: $RATES
+          pattern-either:
+            - pattern: '{..., "anon": $A, ...}'
+            - pattern: '{..., "user": $U, ...}'

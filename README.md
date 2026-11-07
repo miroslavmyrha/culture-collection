@@ -60,7 +60,7 @@ questions still open with the authorities: [docs/compliance.md](docs/compliance.
 ## Check
 ```bash
 tools/install-hooks.sh   # once per clone: secrets + ./check.sh, commit message and branch name checks
-./check.sh               # secrets, migrations, API contract, lint, types, tests
+./check.sh               # secrets, static analysis (tools/semgrep), migrations, API contract, lint, types, tests
 ./check.sh e2e           # plus Playwright against the real API (backend running, seeded below)
 ./check.sh audit         # plus pip-audit and npm audit (network)
 ```

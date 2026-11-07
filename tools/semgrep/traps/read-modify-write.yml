@@ -1,0 +1,40 @@
+rules:
+  - id: read-modify-write
+    languages: [python]
+    severity: WARNING
+    message: >-
+      Read, change in Python, save. Two requests read the same value and the second save
+      overwrites the first (lost update): a volume or count goes wrong. Use
+      F() in an update(), or load the row with select_for_update() inside
+      transaction.atomic().
+    paths:
+      # Data migrations run alone.
+      exclude: ["**/migrations/**"]
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $O.$F += $X
+              ...
+              $O.save(...)
+          - pattern: |
+              $O.$F -= $X
+              ...
+              $O.save(...)
+          - pattern: |
+              $O.$F = $O.$F + $X
+              ...
+              $O.save(...)
+          - pattern: |
+              $O.$F = $O.$F - $X
+              ...
+              $O.save(...)
+      - pattern-not-inside: |
+          $O = $M.objects.select_for_update(...).get(...)
+          ...
+      - pattern-not-inside: |
+          $O = $QS.select_for_update(...).get(...)
+          ...
+      # select_for_update().filter(...).first() locks the row as well.
+      - pattern-not-inside: |
+          $O = $QS.select_for_update(...).$M(...).$N(...)
+          ...

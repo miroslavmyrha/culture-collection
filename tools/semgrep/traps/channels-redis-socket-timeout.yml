@@ -1,0 +1,15 @@
+rules:
+  - id: channels-redis-socket-timeout
+    languages: [python]
+    severity: ERROR
+    message: >-
+      channels-redis without an explicit socket_timeout. redis-py 8 defaults socket_timeout
+      to 5 s, the same as channels-redis' blocking read, so idle websocket consumers crash
+      with "Timeout reading from redis", disconnect() never runs and per-connection state
+      leaks. The client's reconnect hides it. Use
+      "hosts": [{"address": url, "socket_timeout": None}] and pin redis.
+    patterns:
+      - pattern: |
+          {..., "BACKEND": "channels_redis.core.RedisChannelLayer", ...}
+      - pattern-not: |
+          {..., "CONFIG": {..., "hosts": [{..., "socket_timeout": $T, ...}, ...], ...}, ...}

@@ -1,0 +1,22 @@
+rules:
+  - id: migration-raw-drop-by-name
+    languages: [python]
+    severity: WARNING
+    message: >-
+      Raw SQL in a migration drops an index or constraint by name. Names in Meta.indexes and
+      Meta.constraints are written into the migration file, but the ones Django makes itself
+      (db_index, foreign keys, unique, unique_together) are not, and the database backend can
+      shorten them. The DROP then fails on another database or after a rename. Use
+      RemoveIndex, RemoveConstraint or AlterField, or look the name up in the catalog first.
+    paths:
+      include: ["**/migrations/*.py"]
+    patterns:
+      - pattern-either:
+          - pattern: migrations.RunSQL($SQL, ...)
+          - pattern: migrations.RunSQL(sql=$SQL, ...)
+      # Only names in Django's own style: an 8-hex-digit hash, _fk_, _uniq, _like. A name
+      # the project chose itself in an earlier RunSQL is stable. On the reference apps 81
+      # of 126 dropped names had Django's style, several of them truncated.
+      - metavariable-regex:
+          metavariable: $SQL
+          regex: (?is).*\bdrop\s+(index|constraint)\s+(concurrently\s+)?(if\s+exists\s+)?"?[\w.]*(_[0-9a-f]{8}(_like|_uniq)?\b|_fk_|_uniq\b).*

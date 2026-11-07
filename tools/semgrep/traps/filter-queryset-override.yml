@@ -1,0 +1,34 @@
+rules:
+  - id: filter-queryset-override
+    languages: [python]
+    severity: ERROR
+    message: >-
+      A view overrides filter_queryset() without starting from super(). DRF's get_object()
+      loads through filter_queryset(get_queryset()), so this override decides what list and
+      detail can reach, and one missing scope filter exposes other users' rows. Set
+      filter_backends or filterset_class instead, or start from
+      super().filter_queryset(queryset) and only narrow it.
+    paths:
+      exclude: ["**/filtersets.py", "**/filters.py"]
+    patterns:
+      - pattern-inside: |
+          class $VIEW(...):
+            ...
+      # Two parameters: a view method. Filter backends take (self, request, queryset, view).
+      - pattern: |
+          def filter_queryset(self, $QS):
+            ...
+      # Narrowing what super() returned keeps the scope.
+      - pattern-not: |
+          def filter_queryset(self, $QS):
+            ...
+            $Q = super().filter_queryset(...)
+            ...
+      - pattern-not: |
+          def filter_queryset(self, $QS):
+            ...
+            return super().filter_queryset(...)
+      - pattern-not: |
+          def filter_queryset(self, $QS):
+            ...
+            return super().filter_queryset(...).$M(...)

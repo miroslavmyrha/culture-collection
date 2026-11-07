@@ -1,0 +1,91 @@
+rules:
+  - id: task-swallows-exception
+    languages: [python]
+    # WARNING: periodic and best-effort tasks catch on purpose. Those report to the error
+    # tracker (capture_exception), which this rule accepts.
+    severity: WARNING
+    message: >-
+      A task catches every exception, does not re-raise and does not report it. The worker
+      sees success, there is no retry, and the job is lost with only a log line to show for
+      it. Catch the expected errors with autoretry_for or self.retry(), let the rest fail, or
+      report a deliberate best-effort failure with capture_exception().
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              @shared_task(...)
+              def $F(...):
+                ...
+          - pattern-inside: |
+              @shared_task
+              def $F(...):
+                ...
+          - pattern-inside: |
+              @$APP.task(...)
+              def $F(...):
+                ...
+          - pattern-inside: |
+              @$APP.task
+              def $F(...):
+                ...
+      - pattern-either:
+          - pattern: |
+              try:
+                ...
+              except Exception:
+                ...
+          - pattern: |
+              try:
+                ...
+              except Exception as $E:
+                ...
+          - pattern: |
+              try:
+                ...
+              except BaseException as $E:
+                ...
+      - pattern-not: |
+          try:
+            ...
+          except Exception:
+            ...
+            raise
+      - pattern-not: |
+          try:
+            ...
+          except Exception as $E:
+            ...
+            raise
+      - pattern-not: |
+          try:
+            ...
+          except Exception as $E:
+            ...
+            raise $X
+      - pattern-not: |
+          try:
+            ...
+          except Exception as $E:
+            ...
+            raise $X from $Y
+      # Reported to the error tracker: the failure stays visible.
+      - pattern-not: |
+          try:
+            ...
+          except Exception:
+            ...
+            capture_exception(...)
+            ...
+      - pattern-not: |
+          try:
+            ...
+          except Exception as $E:
+            ...
+            capture_exception(...)
+            ...
+      - pattern-not: |
+          try:
+            ...
+          except Exception as $E:
+            ...
+            sentry_sdk.capture_exception(...)
+            ...

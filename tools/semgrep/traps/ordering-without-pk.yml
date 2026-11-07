@@ -1,0 +1,40 @@
+rules:
+  - id: ordering-without-pk
+    languages: [python]
+    severity: WARNING
+    message: >-
+      Ordering that does not end with a unique field is not stable: rows with equal values
+      come back in any order, so pages repeat or skip rows. End the ordering with "pk".
+    paths:
+      exclude: ["**/migrations/**"]
+    patterns:
+      - pattern-inside: |
+          class $C(...):
+            ...
+      # The admin changelist appends the pk itself.
+      - pattern-not-inside: |
+          class $C(..., admin.ModelAdmin, ...):
+            ...
+      - pattern-not-inside: |
+          class $C(..., ModelAdmin, ...):
+            ...
+      # A typed alias as the base (LabAdminBase = admin.ModelAdmin[Lab]) hides the admin,
+      # the registration does not.
+      - pattern-not-inside: |
+          @admin.register(...)
+          class $C(...):
+            ...
+      # A serializer or filter field called "ordering".
+      - pattern-not: ordering = $FIELD(...)
+      - pattern-either:
+          - pattern: ordering = [...]
+          - pattern: ordering = (...)
+      - pattern-not: ordering = []
+      - pattern-not: ordering = [..., "pk"]
+      - pattern-not: ordering = [..., "-pk"]
+      - pattern-not: ordering = [..., "id"]
+      - pattern-not: ordering = [..., "-id"]
+      - pattern-not: ordering = (..., "pk")
+      - pattern-not: ordering = (..., "-pk")
+      - pattern-not: ordering = (..., "id")
+      - pattern-not: ordering = (..., "-id")

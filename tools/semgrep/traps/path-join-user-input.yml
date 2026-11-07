@@ -1,0 +1,44 @@
+rules:
+  - id: path-join-user-input
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >-
+      A request value reaches a file read, write or delete. os.path.join and Path drop
+      everything before an absolute part, and "../" climbs out, so the user picks any file
+      the process can reach. Generate the name on the server, or resolve() the joined path
+      and check is_relative_to(root) before touching the file.
+    # Uploaded file names are not a source: Django keeps only the basename.
+    pattern-sources:
+      - pattern-either:
+          - pattern: request.GET
+          - pattern: request.POST
+          - pattern: request.data
+          - pattern: request.query_params
+          - pattern: self.request.GET
+          - pattern: self.request.POST
+          - pattern: self.request.data
+          - pattern: self.request.query_params
+          - pattern: self.kwargs
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: os.path.basename(...)
+          - pattern: get_valid_filename(...)
+          - pattern: secure_filename(...)
+          - pattern: pathvalidate.sanitize_filename(...)
+          - pattern: sanitize_filename(...)
+          - pattern: Path(...).name
+    # Joining is harmless, touching the file is not. Taint flows through join and "/".
+    pattern-sinks:
+      - pattern-either:
+          - pattern: open(...)
+          - pattern: $P.open(...)
+          - pattern: $P.read_bytes(...)
+          - pattern: $P.read_text(...)
+          - pattern: $P.write_bytes(...)
+          - pattern: $P.write_text(...)
+          - pattern: $P.unlink(...)
+          - pattern: os.remove(...)
+          - pattern: os.unlink(...)
+          - pattern: shutil.$FN(...)
+          - pattern: FileResponse(...)

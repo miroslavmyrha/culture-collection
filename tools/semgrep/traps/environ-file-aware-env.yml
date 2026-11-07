@@ -1,0 +1,11 @@
+rules:
+  - id: environ-file-aware-env
+    languages: [python]
+    severity: WARNING
+    message: >-
+      environ.FileAwareEnv reads NAME_FILE secrets with the trailing newline that most editors
+      and "echo" add, so the database password or secret key has an extra "\n" and
+      authentication fails or the key differs. Read the file yourself and strip it.
+    pattern-either:
+      - pattern: environ.FileAwareEnv(...)
+      - pattern: FileAwareEnv(...)

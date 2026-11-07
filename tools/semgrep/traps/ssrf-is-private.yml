@@ -1,0 +1,32 @@
+rules:
+  - id: ssrf-is-private
+    languages: [python]
+    severity: ERROR
+    message: >-
+      ip.is_private as an SSRF guard misses the shared range 100.64.0.0/10 (neither private
+      nor global) and, on older Pythons, IPv4-mapped addresses. is_global alone is not enough
+      either: NAT64 64:ff9b::/96 is global and reaches internal IPv4 behind a NAT64 gateway.
+      Unwrap ipv4_mapped, deny 100.64.0.0/10 and 64:ff9b::/96 explicitly, then require
+      is_global.
+    patterns:
+      # Only modules that use ipaddress: a model field called is_private is fine.
+      - pattern-either:
+          - pattern-inside: |
+              import ipaddress
+              ...
+          - pattern-inside: |
+              from ipaddress import $NAMES
+              ...
+      - pattern: $IP.is_private
+      # A guard that already unwraps mapped addresses next to is_private.
+      - pattern-not-inside: |
+          def $F(...):
+            ...
+            $X.ipv4_mapped
+            ...
+      - pattern-not-inside: |
+          def $F(...):
+            ...
+            if <... $X.ipv4_mapped ...>:
+              ...
+            ...

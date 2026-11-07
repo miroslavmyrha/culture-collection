@@ -1,0 +1,15 @@
+rules:
+  - id: services-raise-drf-exceptions
+    languages: [python]
+    severity: WARNING
+    message: >-
+      A service or selector depends on DRF. Tasks and management commands call services too,
+      and an HTTP exception there has no request to answer. Raise a domain exception and map
+      it once in the EXCEPTION_HANDLER.
+    paths:
+      include: ["**/services.py", "**/services/*.py", "**/selectors.py", "**/selectors/*.py"]
+    pattern-either:
+      - pattern: from rest_framework import $X
+      - pattern: from rest_framework.$MOD import $X
+      - pattern: import rest_framework
+      - pattern: import rest_framework.$MOD

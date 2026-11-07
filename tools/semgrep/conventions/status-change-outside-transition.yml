@@ -1,0 +1,32 @@
+rules:
+  - id: status-change-outside-transition
+    languages: [python]
+    severity: ERROR
+    message: >-
+      The status changes outside a service. A view, serializer, admin action, task or signal
+      that sets it skips the service's row lock, its check of the expected state and the
+      audit event, so impossible states and gaps in the history appear. Call the service
+      (or the one transition function, such as sample_transition()).
+    paths:
+      # Services own state changes: lock, check the expected state, save, record the event.
+      exclude:
+        - "**/services.py"
+        - "**/services/*.py"
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/migrations/**"
+        - "**/conftest.py"
+    patterns:
+      # A transition function anywhere, and a form's clean() that only sets the value the
+      # model checks will see (the admin saves through a service), are fine.
+      - pattern-inside: |
+          def $FN(...):
+            ...
+      - metavariable-regex:
+          metavariable: $FN
+          regex: ^(?!.*transition)(?!clean).*$
+      - pattern-either:
+          - pattern: $QS.update(..., status=$V, ...)
+          - pattern: $QS.update(..., state=$V, ...)
+          - pattern: $OBJ.status = $V
+          - pattern: $OBJ.state = $V

@@ -1,0 +1,20 @@
+rules:
+  - id: thread-local-current-user
+    languages: [python]
+    severity: WARNING
+    message: >-
+      The acting user comes from thread-local state. Outside a request (tasks, commands,
+      async code, a thread pool) it is empty, stale or another request's user, and a fallback
+      user makes the audit record the wrong actor. Pass the actor explicitly to the service.
+    pattern-either:
+      # A module that creates a threading.local() and stores request.user on an attribute.
+      # Binding the local's name across module and method scope does not match in Semgrep
+      # 1.179, so the assignment target is left open.
+      - patterns:
+          - pattern-inside: |
+              $LOCAL = threading.local()
+              ...
+          - pattern: $X.$ATTR = $REQ.user
+      # Semgrep resolves "from crum import get_current_user" to this pattern. A bare
+      # get_current_user() also matched project helpers without a fallback user.
+      - pattern: crum.get_current_user()

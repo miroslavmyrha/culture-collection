@@ -1,0 +1,23 @@
+rules:
+  - id: serializer-all-fields
+    languages: [python]
+    severity: ERROR
+    message: >-
+      A serializer exposes every model field. Every field added to the model later becomes
+      readable, and writable when the serializer accepts input: status, owner, deleted,
+      is_superuser. List the fields, and split input and output serializers. (Ruff's DJ007
+      covers ModelForm, not DRF.)
+    patterns:
+      - pattern-inside: |
+          class $S(..., $BASE, ...):
+            ...
+      - metavariable-regex:
+          metavariable: $BASE
+          regex: .*Serializer$
+      - pattern-inside: |
+          class Meta:
+            ...
+      - pattern-either:
+          - pattern: fields = "__all__"
+          - pattern: exclude = [...]
+          - pattern: exclude = (...)
