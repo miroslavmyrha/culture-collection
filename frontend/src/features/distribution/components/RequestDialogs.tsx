@@ -447,8 +447,15 @@ export function ShipDialog({ labId, request, open, onClose, onExited, prepare = 
       onExited={onExited}
     >
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label={prepare ? 'Prepared shipment' : 'Shipment'} spacing={2} sx={{ mt: 2 }}>
-        {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
-        <SelectField label="Transport class" autoFocus options={options(TRANSPORT_CLASS_LABELS, TRANSPORT_CLASSES)} error={errors.transport_class?.message} {...transportClass} />
+        <SelectField
+          label="Transport class"
+          // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
+          autoFocus
+          hint="UN 3245 is for a genetically modified micro-organism, and a GMO is never exempt."
+          options={options(TRANSPORT_CLASS_LABELS, TRANSPORT_CLASSES)}
+          error={errors.transport_class?.message}
+          {...transportClass}
+        />
         <SelectField
           label="Basis of the classification"
           options={[{ value: '', label: 'Choose' }, ...options(BASIS_LABELS, bases)]}

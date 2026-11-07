@@ -1045,3 +1045,20 @@ replace the vial guard, which reads the VRAT access list of `labs` 0006 for a VR
 `audit` 0032 and 0033 add four event types to the reason constraint (NOT VALID, then VALIDATE).
 A vial destroyed before stays so: a constraint trigger checks only rows written after it
 exists. Reversible: `migrate lineage 0012`, `migrate audit 0031`.
+
+## Amendment 2026-11-04: UN 3245 for a GMO line (#173)
+
+The shipment record takes a third transport class, `un3245` ("UN 3245, Genetically modified
+micro-organisms"), and a fifth basis, `gmo_not_infectious`, which is the only basis it rests on.
+The pair is held by the check constraint of a package (`distribution.models.package_constraints`,
+`BASES`), for a preparation and a shipment alike, and the service checks the class against the
+strains of the request: a request with a line of a strain with an active GMO restriction is never
+exempt, and `un3245` is refused for a request with no such line
+(`distribution.services.shipment._check_gmo`). `not_subject` and `un3373` keep their bases.
+Category A (UN 2814, UN 2900) is still no choice. Why, and what the class rests on: ADR 0009,
+amendment of the same day.
+
+Migration impact: `distribution` 0015 replaces the `class_and_basis` check of
+`distribution_shipment` and `distribution_shipmentpreparation`; the old rows keep their classes,
+because the new condition only adds a third pair. Reversible: `migrate distribution 0014` once no
+row holds `un3245`.

@@ -6,8 +6,9 @@ rendered again: reading one returns the text as it was sent.
 - The delivery note, for every shipment (s10, section 8, "Shipment"): request, recipient and
   delivery address, the package, and each vial by its label with the strain, risk group and the
   terms and MTA version the line was pinned to. A dual-use line carries the notice Art. 11(9) of
-  Regulation (EU) 2021/821 asks for, a quarantine-pest line says that the Letter of Authority
-  travels with the package (Regulation (EU) 2019/829, Art. 6(1)).
+  Regulation (EU) 2021/821 asks for, a GMO line the words act 78/2004 Sb., § 11(1) asks for, and
+  a quarantine-pest line says that the Letter of Authority travels with the package (Regulation
+  (EU) 2019/829, Art. 6(1)).
 - The ABS sheet, for each line whose pinned terms are in scope of Regulation (EU) No 511/2014:
   the Art. 4(3) facts held on the terms version and the 20 years of Art. 4(6) (s10, section 5).
 - The register entry and handover protocol, for each line of a VRAT or RAT: the data decree
@@ -50,6 +51,15 @@ from .models import (
 DUAL_USE_NOTICE = (
     "This item is subject to controls if exported from the customs territory of the Union"
     " (Regulation (EU) 2021/821, Art. 11(9))."
+)
+# Act 78/2004 Sb., § 11(1): whoever supplies a GMO solely for contained use or release
+# „je povinna zajistit, aby na štítku nebo v průvodním dokumentu geneticky modifikovaného
+# organismu byla zřetelně uvedena slova „Geneticky modifikovaný organismus““ (must ensure that
+# its label or accompanying document clearly carries the words "Geneticky modifikovaný
+# organismus"). The delivery note is that accompanying document (s10, section 6). The Czech
+# words are the ones the act names, so they are printed as they stand.
+GMO_NOTICE = (
+    "Geneticky modifikovaný organismus (genetically modified organism; act 78/2004 Sb., § 11(1))."
 )
 # Regulation (EU) No 511/2014, Art. 4(6) (s10, section 5).
 ABS_RETENTION = (
@@ -233,6 +243,11 @@ def delivery_note(facts: Facts) -> str:
                 lines += [
                     f"   Dual-use item, Annex I entry {restriction.reference} (read in"
                     f" {restriction.act}). {DUAL_USE_NOTICE}"
+                ]
+            if restriction.kind == RestrictionKind.GMO:
+                lines += [
+                    f"   {GMO_NOTICE} Category {restriction.gmo_category} of contained use,"
+                    f" {restriction.reference}."
                 ]
         kinds = {r.kind for r in facts.restrictions.get(line.strain_id, [])}
         if RestrictionKind.QUARANTINE_PEST in kinds:

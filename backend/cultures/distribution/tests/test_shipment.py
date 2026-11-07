@@ -21,7 +21,7 @@ from cultures.biosafety.models import RestrictionKind
 from cultures.biosafety.policy import permit_today
 from cultures.core.testing import logged_in
 from cultures.deposits.models import Contact
-from cultures.deposits.tests.support import DUAL_USE, QUARANTINE
+from cultures.deposits.tests.support import DUAL_USE, GMO, QUARANTINE
 from cultures.distribution import services
 from cultures.distribution.models import (
     ClassificationBasis,
@@ -357,6 +357,66 @@ def test_a_strain_with_no_pathogenicity_known_ships_as_exempt(
         assert shipment.classification_basis == ClassificationBasis.EXEMPT_NON_PATHOGENIC
 
 
+@pytest.mark.rule("R-SHIP-02")
+def test_a_gmo_line_is_not_shipped_as_exempt_and_goes_as_un_3245(
+    *,
+    as_curator: AuditContext,
+    curator: User,
+    manager: User,
+    approver: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+    mockia: Taxon,
+) -> None:
+    """A GMO travels under a number: UN 3245 while it is no infectious substance (#173)."""
+    strain = supply(mockia, restrictions=[GMO], vials=6)
+    add_permit(curator, requester, PermitKind.GMO_CONTAINED_USE)
+    request = submit(curator, lab, requester, [(strain, 1)])
+    accept_mtas(curator, request)
+    approve(approver, request, "The recipient holds a contained-use authorisation.")
+    error = refused(
+        services.InvalidDistribution,
+        "gmo_not_exempt",
+        lambda: prepare(curator, request),
+        attr="transport_class",
+    )
+    assert f"{strain.accession_number}: a genetically modified organism is not exempt" in (
+        error.detail
+    )
+    prepare(
+        curator,
+        request,
+        transport_class=TransportClass.UN3245,
+        classification_basis=ClassificationBasis.GMO_NOT_INFECTIOUS,
+    )
+    confirm(manager, request)
+    shipment = Shipment.objects.get(request=request)
+    assert (shipment.transport_class, shipment.classification_basis) == (
+        TransportClass.UN3245,
+        ClassificationBasis.GMO_NOT_INFECTIOUS,
+    )
+
+
+@pytest.mark.rule("R-SHIP-02")
+def test_un_3245_is_refused_for_a_request_with_no_gmo_line(
+    *, curator: User, supply: Supply, approved: Any
+) -> None:
+    request = approved(supply(vials=6))
+    error = refused(
+        services.InvalidDistribution,
+        "un3245_without_a_gmo",
+        lambda: ship(
+            curator,
+            request,
+            transport_class=TransportClass.UN3245,
+            classification_basis=ClassificationBasis.GMO_NOT_INFECTIOUS,
+        ),
+        attr="transport_class",
+    )
+    assert "no strain of this request is one" in error.detail
+
+
 # The form's rules, before anything is locked.
 
 
@@ -546,6 +606,14 @@ def at_commit() -> None:
             "distribution_shipment_class_and_basis",
         ),
         ({"transport_class": "un2814"}, "distribution_shipment_class_and_basis"),
+        (
+            {"transport_class": TransportClass.UN3245},
+            "distribution_shipment_class_and_basis",
+        ),
+        (
+            {"classification_basis": ClassificationBasis.GMO_NOT_INFECTIOUS},
+            "distribution_shipment_class_and_basis",
+        ),
         (
             {
                 "transport_class": TransportClass.UN3373,

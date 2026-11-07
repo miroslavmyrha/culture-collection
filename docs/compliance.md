@@ -561,14 +561,23 @@ listed here so that the test can tell them from a regulated gate without a rule.
 - Code: `backend/cultures/distribution/services/two_person.py::request_prepare_shipment`, `backend/cultures/distribution/services/two_person.py::request_confirm_shipment`, `backend/cultures/distribution/services/errors.py::ConfirmOwnApproval`, `backend/cultures/distribution/services/errors.py::ConfirmOwnPreparation`, `backend/cultures/distribution/migrations/0008_preparation_audit_and_guards.py::"distribution_shipment_guard"`
 - Tests: `backend/cultures/distribution/tests/test_two_person.py::test_the_approver_does_not_confirm`, `backend/cultures/distribution/tests/test_two_person.py::test_the_preparer_does_not_confirm`, `backend/cultures/distribution/tests/test_two_person.py::test_a_regulated_request_is_not_shipped_in_one_step`, `backend/cultures/distribution/tests/test_two_person.py::test_the_table_refuses_a_confirmation_by_the_preparer_or_the_approver`, `backend/cultures/distribution/tests/test_two_person.py::test_the_table_refuses_a_regulated_shipment_without_a_preparation`
 
-#### R-SHIP-02 A shipment is exempt or UN 3373, never Category A or UN 3245
+#### R-SHIP-02 A shipment is exempt, UN 3373 or, for a GMO line, UN 3245, never Category A
 
-- Kind: own control
-- Source: a scope choice, ADR 0009, amendment 2026-10-22.
-- Code: `backend/cultures/distribution/models.py::TransportClass`
-- Tests: `backend/cultures/distribution/tests/test_shipment.py::test_the_table_refuses_a_shipment_the_rules_refuse`
-- Limits: a GMO line is not refused, so it ships under a class the transport rules may not allow
-  for it. See C-02 (#173).
+- Kind: not verified
+- Source: that Category A (UN 2814, UN 2900) is not shipped is a scope choice, ADR 0009,
+  amendment 2026-10-22. That a GMO travels under UN 3245 when it is not an infectious substance
+  is study s10, section 1, reading the WHO transport guidance 4.5 and IATA 3.6.2.4: "GMOs that
+  are not infectious go to UN 3245 (WHO 4.5 note)". Neither text was read in the original (RID
+  and ADR 2.2.9 are not among the sources), so the class rests on the study. An infectious GMO
+  is an infectious substance and stays Category B, which this collection ships as UN 3373.
+- Code: `backend/cultures/distribution/models.py::TransportClass`, `backend/cultures/distribution/models.py::BASES`, `backend/cultures/distribution/services/shipment.py::_check_gmo`, `backend/cultures/distribution/migrations/0015_un3245_for_a_gmo.py::"distribution_shipment_class_and_basis"`
+- Tests: `backend/cultures/distribution/tests/test_shipment.py::test_the_table_refuses_a_shipment_the_rules_refuse`, `backend/cultures/distribution/tests/test_shipment.py::test_a_gmo_line_is_not_shipped_as_exempt_and_goes_as_un_3245`, `backend/cultures/distribution/tests/test_shipment.py::test_un_3245_is_refused_for_a_request_with_no_gmo_line`, `backend/cultures/distribution/tests/test_two_person.py::test_a_gmo_restriction_added_after_the_preparation_refuses_the_exemption_at_confirmation`, `backend/cultures/distribution/tests/test_two_person.py::test_the_table_refuses_a_prepared_package_whose_class_and_basis_do_not_belong_together`
+- Limits: which of UN 3245 and UN 3373 a GMO is, the shipper states with the basis: the app
+  refuses the exemption for a GMO line and UN 3245 for a line that is no GMO, and it never
+  decides whether a culture is an infectious substance (WHO 2.1 leaves that to the shipper, and
+  an unknown animal pathogenicity is no proof that a GMO is not infectious). The packing
+  instruction of UN 3245 is not modelled: such a package takes either packing the app holds, and
+  no source read here says which one it must be.
 
 #### R-SHIP-03 A strain pathogenic to humans, animals or plants is not shipped as exempt, non-pathogenic
 
@@ -578,7 +587,7 @@ listed here so that the test can tell them from a regulated gate without a rule.
   question is read in the original: government order 361/2007 Sb., § 36(2) a) and Directive
   2000/54/EC, Art. 2 rate human disease only, so an organism pathogenic to animals or to plants
   holds group 1 and its recorded pathogenicity is read beside the group (R-RISK-05).
-- Quote: „Biologické činitele se člení podle míry rizika infekce na biologické činitele a) skupiny 1, u nichž není pravděpodobné, že by mohly způsobit onemocnění člověka“ ; Directive 2000/54/EC, Art. 2: "group 1 biological agent means one that is unlikely to cause human disease"
+- Quote: „Biologické činitele se člení podle míry rizika infekce na biologické činitele a) skupiny 1, u nichž není pravděpodobné, že by mohly způsobit onemocnění člověka“; Directive 2000/54/EC, Art. 2: "group 1 biological agent means one that is unlikely to cause human disease"
 - English: biological agents are divided by their level of risk of infection into a) group 1,
   which are unlikely to cause human disease.
 - Code: `backend/cultures/distribution/services/shipment.py::_check_exempt`, `backend/cultures/distribution/services/shipment.py::_pathogenic`
@@ -637,6 +646,22 @@ listed here so that the test can tell them from a regulated gate without a rule.
   cannot be removed or changed).
 - Code: `backend/cultures/distribution/migrations/0010_shipment_document_audit_and_guards.py::"distribution_shipmentdocument_guard"`
 - Tests: `backend/cultures/distribution/tests/test_documents.py::test_a_document_is_never_changed_or_deleted`, `backend/cultures/distribution/tests/test_documents.py::test_a_document_whose_sha256_is_not_of_its_text_is_refused`, `backend/cultures/distribution/tests/test_documents.py::test_the_stored_text_stays_after_the_strain_is_renamed_and_its_restriction_ends`
+
+#### R-SHIP-09 The delivery note of a GMO line carries the words "Geneticky modifikovaný organismus"
+
+- Kind: law
+- Source: act 78/2004 Sb., § 11(1). The collection supplies a GMO only to a holder of an
+  authorisation for contained use (R-DIST-08), which is the handover this section is about, and
+  the delivery note is the accompanying document (s10, section 6).
+- Quote: „Osoba poskytující geneticky modifikovaný organismus výlučně pro účely uzavřeného nakládání nebo uvádění do životního prostředí je povinna zajistit, aby na štítku nebo v průvodním dokumentu geneticky modifikovaného organismu byla zřetelně uvedena slova „Geneticky modifikovaný organismus“…“
+- English: whoever supplies a GMO solely for contained use or release ensures that its label or
+  accompanying document clearly carries the words "Geneticky modifikovaný organismus".
+- Code: `backend/cultures/distribution/documents.py::GMO_NOTICE`, `backend/cultures/distribution/documents.py::delivery_note`
+- Tests: `backend/cultures/distribution/tests/test_documents.py::test_only_a_gmo_line_carries_the_words_of_section_11_1`, `backend/cultures/distribution/tests/test_documents.py::test_the_gmo_notice_holds_the_words_of_the_act`, `backend/cultures/distribution/tests/test_documents.py::test_an_ended_gmo_restriction_prints_no_notice`
+- Limits: the words go on the delivery note, the accompanying document; the app prints no vial
+  label, so „na štítku“ is the lab's to do. The same sentence also asks for whatever else the
+  permit for contained use requires on the labelling, and no contained-use authorisation of this
+  lab is recorded (D-04), so nothing else is printed.
 
 ### Deaccession, destruction and loss
 
@@ -934,15 +959,6 @@ Each duty is the law's. Until its issue is built it is the lab's to keep outside
 - Today: not recorded.
 - Issue: #172
 
-### D-10 A GMO's label or accompanying document says "Geneticky modifikovaný organismus"
-
-- Source: act 78/2004 Sb., § 11(1)
-- Quote: „Osoba poskytující geneticky modifikovaný organismus výlučně pro účely uzavřeného nakládání nebo uvádění do životního prostředí je povinna zajistit, aby na štítku nebo v průvodním dokumentu geneticky modifikovaného organismu byla zřetelně uvedena slova „Geneticky modifikovaný organismus“…“
-- English: whoever supplies a GMO solely for contained use or release ensures that its label or
-  accompanying document clearly carries the words "Geneticky modifikovaný organismus".
-- Today: the delivery note says nothing of a GMO.
-- Issue: #173
-
 ### D-11 The ministry is told 5 days before a GMO is imported or exported
 
 - Source: act 78/2004 Sb., § 25(5)
@@ -1012,13 +1028,6 @@ Each duty is the law's. Until its issue is built it is the lab's to keep outside
 - Issue: none
 
 ## Rules that break a source
-
-### C-02 A GMO line is not refused and UN 3245 is never recorded
-
-- Source: study s10: "GMOs that are not infectious go to UN 3245 (WHO 4.5 note)". Not verified
-  against RID and ADR 2.2.9.
-- Today: a GMO can only be recorded under a class the source says is wrong (R-SHIP-02).
-- Issue: #173
 
 ### C-03 The stock left on a register entry is counted per strain
 

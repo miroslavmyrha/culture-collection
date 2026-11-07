@@ -614,8 +614,9 @@ class ReasonInputSerializer(serializers.Serializer[None]):
 
 
 class ShipInputSerializer(serializers.Serializer[None]):
-    """What the shipper decided and who answers for the package. Only the two classes this
-    collection ships are accepted (ADR 0009): Category A and UN 3245 are not choices."""
+    """What the shipper decided and who answers for the package. Only the classes this
+    collection ships are accepted (ADR 0009): Category A is no choice, and UN 3245 only for a
+    request with a GMO line (#173, the service decides against the strains)."""
 
     transport_class = serializers.ChoiceField(choices=TransportClass.choices)
     classification_basis = serializers.ChoiceField(choices=ClassificationBasis.choices)

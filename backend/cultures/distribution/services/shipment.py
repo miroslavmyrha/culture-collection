@@ -16,6 +16,7 @@ from cultures.audit.registry import (
     REQUEST_SHIPPED,
     SHIPMENT_DOCUMENT_GENERATED,
 )
+from cultures.biosafety.models import RestrictionKind
 from cultures.biosafety.policy import permit_today
 from cultures.deposits.models import Contact
 from cultures.labs.access import Access
@@ -178,6 +179,48 @@ def _check_exempt(basis: str, strains: list[Strain]) -> None:
         )
 
 
+def _gmo_strains(strains: list[Strain]) -> list[Strain]:
+    """The strains of these with an active GMO restriction, in the order given."""
+    ids = set(
+        regulating_restrictions()
+        .filter(strain__in=strains, kind=RestrictionKind.GMO)
+        .values_list("strain_id", flat=True)
+    )
+    return [s for s in strains if s.pk in ids]
+
+
+def _check_gmo(transport_class: str, strains: list[Strain]) -> None:
+    """A GMO travels under a number of its own, never exempt: study s10 (section 1, reading the
+    WHO transport guidance 4.5 and IATA 3.6.2.4) sends a genetically modified micro-organism
+    that is not an infectious substance to UN 3245, and an infectious one stays Category B
+    (UN 3373). Which of the two it is the shipper states (WHO 2.1): nothing here decides whether
+    a culture is infectious, and an unknown pathogenicity is no proof that it is not. UN 3245 is
+    for a GMO line only (#173)."""
+    gmo = _gmo_strains(strains)
+    if gmo and transport_class == TransportClass.NOT_SUBJECT:
+        names = ", ".join(str(s.accession_number) for s in gmo)
+        raise InvalidDistribution(
+            f"{names}: a genetically modified organism is not exempt from the transport rules."
+            " It travels as UN 3245 when it is not an infectious substance, else as UN 3373.",
+            code="gmo_not_exempt",
+            attr="transport_class",
+        )
+    if not gmo and transport_class == TransportClass.UN3245:
+        raise InvalidDistribution(
+            "UN 3245 is for a genetically modified micro-organism, and no strain of this request"
+            " is one.",
+            code="un3245_without_a_gmo",
+            attr="transport_class",
+        )
+
+
+def _check_class(transport_class: str, basis: str, strains: list[Strain]) -> None:
+    """What the app knows about the class from the strains themselves, at the preparation and
+    again at the confirmation: a pathogen is not exempt, a GMO travels under its number."""
+    _check_exempt(basis, strains)
+    _check_gmo(transport_class, strains)
+
+
 def _package(data: ShipmentInput, lab_id: int) -> dict[str, Any]:
     """The package's columns from the checked input, with a new contact for its person."""
     person = Contact.objects.create(
@@ -231,7 +274,7 @@ def request_ship(
         today = _gates_today(locked)
         if _regulated(strains):
             raise SecondPersonRequired
-        _check_exempt(data.classification_basis, strains)
+        _check_class(data.transport_class, data.classification_basis, strains)
         now = timezone.now()
         _defer_reservation_checks(shipment=True)
         shipment = Shipment.objects.create(

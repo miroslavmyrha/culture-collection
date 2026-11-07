@@ -484,6 +484,33 @@ describe('the request page', () => {
       expect(screen.getByRole('button', { name: 'Cancel the request' })).toBeInTheDocument()
     })
 
+    it('offers UN 3245 with its one basis and shows a refusal of the class on that field', async () => {
+      signedIn('curator')
+      mockApi('get', DETAIL, approved())
+      open()
+      const { user, dialog } = await openShipDialog()
+      const transport = within(dialog).getByRole('combobox', { name: 'Transport class' })
+      expect(within(transport).getAllByRole('option').map((o) => o.textContent)).toEqual([
+        'Not subject to the dangerous goods rules (exempt)',
+        'UN 3373, Biological substance, Category B',
+        'UN 3245, Genetically modified micro-organisms',
+      ])
+      await user.selectOptions(transport, 'un3245')
+      const basis = within(dialog).getByRole('combobox', { name: 'Basis of the classification' })
+      expect(within(basis).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'A genetically modified micro-organism that is not an infectious substance'])
+      await user.selectOptions(basis, 'gmo_not_infectious')
+      await fillPerson(user, dialog)
+      allowConsole(/API error 400/)
+      mockApiError(
+        'post',
+        ACTION('ship'),
+        400,
+        validationProblem([{ attr: 'transport_class', code: 'un3245_without_a_gmo', detail: 'UN 3245 is for a genetically modified micro-organism, and no strain of this request is one.' }]),
+      )
+      await user.click(within(dialog).getByRole('button', { name: 'Ship' }))
+      expect(await within(dialog).findByRole('combobox', { name: 'Transport class', description: /no strain of this request is one/ })).toBeInTheDocument()
+    })
+
     it('stays open while it runs and shows the refusals of the server in the dialog or on the field', async () => {
       signedIn('curator')
       mockApi('get', DETAIL, approved())
