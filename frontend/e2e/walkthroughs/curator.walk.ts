@@ -115,12 +115,13 @@ test('C6 see what happened to a strain: its risk group and restriction changes',
   // seed_dev: BAC 27 is the Mockia vulgaris strain with the reassessment in its history. BAC 30 is a later deposit of the same taxon.
   await searchStrain(w, 'BAC 27')
   await openTab(w, 'History')
-  // seed_dev: the risk group went from 2 to 1 with a reason, and a restriction ended.
+  // seed_dev: the risk group went from 2 to 1 by two people (#174), and a restriction ended.
   const history = w.page.getByRole('list', { name: 'History, newest first' })
   await expect(history.getByRole('listitem').filter({ hasText: 'changed the risk group of BAC 27' })).toHaveCount(1)
+  await expect(history.getByRole('listitem').filter({ hasText: 'proposed to lower the risk group of BAC 27' })).toHaveCount(1)
   await w.read(history)
   await w.shot('strain-history')
-  w.note('The line says the risk group changed, not from what to what or why: the reason stays in the audit trail', '#19')
+  w.note('The line says the risk group changed, not from what to what or why: the reason and the basis stay in the audit trail', '#19')
   await w.done()
 })
 
@@ -295,5 +296,36 @@ test('C10 deaccession a strain that no longer grows', async ({ browser }, info) 
   await w.type(dialog.getByRole('textbox', { name: 'Reason' }), 'No growth after three revivals on two media.')
   await w.click(dialog.getByRole('button', { name: 'Deaccession', exact: true }))
   await expect(w.page.getByRole('list', { name: 'Biosafety and status' }).getByText('Deaccessioned')).toBeVisible()
+  await w.done()
+})
+
+test('C12 propose a lower risk group after reading the annex', async ({ browser }, info) => {
+  // A strain of this run raised to group 2 by one person: lowering it again takes two (#174).
+  const name = `Bacillus subtilis group ${RUN}`
+  const setup = await setupAs(browser, 'bac-curator')
+  const lab = await labId(setup.page, LAB)
+  const made = await acceptedStrain(setup.page, lab, name, 'Bacillus subtilis')
+  await api(setup.page, lab, `strains/${made.id}/risk-group/`, {
+    risk_group: 2,
+    basis: 'NV 361/2007 Sb., Příloha 7, část A, tabulka č. 1 (invented example).',
+    reason: 'Reassessed at intake (invented example).',
+  })
+  await setup.close()
+
+  const w = await Walk.as(browser, info, 'bac-curator', curator('C12', 'Propose a lower risk group after reading the annex'))
+  await w.start()
+  await searchStrain(w, name, new RegExp(`^BAC \\d+, BAC, Active\\. .*${name}`))
+  await strainAction(w, 'Change risk group')
+  const dialog = w.page.getByRole('dialog', { name: /^Change the risk group of BAC/ })
+  await w.choose(dialog.getByRole('combobox', { name: 'Risk group' }), '1')
+  w.look()
+  await w.type(dialog.getByRole('textbox', { name: 'Basis' }), 'NV 361/2007 Sb., Příloha 7: the agent is in none of the groups 2 to 4.')
+  await w.type(dialog.getByRole('textbox', { name: 'Reason' }), 'Reassessed against the annex in force.')
+  await w.click(dialog.getByRole('button', { name: 'Propose the lower group' }))
+  const proposed = w.page.getByRole('region', { name: 'Proposed risk group' })
+  await expect(proposed).toContainText('You proposed it: a different manager confirms.')
+  await expect(w.page.getByRole('list', { name: 'Biosafety and status' }).getByText('Risk group 2')).toBeVisible()
+  await w.read(proposed)
+  w.note('The dialog is the same one as for a raise: the button and the text change once a lower group is chosen', '#174')
   await w.done()
 })

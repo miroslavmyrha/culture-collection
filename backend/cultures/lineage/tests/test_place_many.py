@@ -242,7 +242,12 @@ def test_a_strain_above_the_box_cap_names_its_vial(
         unit=tree.freezer,
         fields=storage.UnitFields(name="Freezer A", temperature_c=-80, max_risk_group=1),
     )
-    Strain.objects.filter(pk=loose[0].batch.strain_id).update(risk_group=2)
+    # Past the service, so the strain guard asks for the basis and the time too (#174).
+    Strain.objects.filter(pk=loose[0].batch.strain_id).update(
+        risk_group=2,
+        risk_group_basis="NV 361/2007 Sb., Příloha 7",
+        risk_group_set_at=timezone.now(),
+    )
     a, b, _ = loose
     refused(
         services.InvalidVial,

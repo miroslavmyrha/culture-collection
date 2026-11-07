@@ -52,7 +52,7 @@ def test_a_write_answers_with_the_deposit_too(accepted: Deposit, curator: User) 
     """The actions answer with the detail as committed: the same rule holds there."""
     response = logged_in(curator).post(
         f"{detail_url(accepted)}risk-group/",
-        {"risk_group": 2, "reason": "Reassessed."},
+        {"risk_group": 2, "basis": "NV 361/2007 Sb., Příloha 7", "reason": "Reassessed."},
         content_type="application/json",
     )
     assert response.status_code == 200, response.content

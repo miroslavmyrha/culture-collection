@@ -1,7 +1,8 @@
 """Every action of the strain API for every caller: 401 anonymous, 404 outside the lab,
 403 for a role without the permission, success for viewer and up reading, for curator and up
-writing, and for a manager confirming the end of a restriction (#105) or the deaccession of a
-regulated strain (#20). A refused write changes no row and records no event."""
+writing, and for a manager confirming the end of a restriction (#105), the deaccession of a
+regulated strain (#20) or a lower risk group (#174). A refused write changes no row and records
+no event."""
 
 from dataclasses import dataclass, field
 from typing import Any
@@ -19,6 +20,7 @@ from cultures.strains import services
 from cultures.strains.models import (
     DeaccessionCause,
     RestrictionEndProposal,
+    RiskGroupProposal,
     Strain,
     StrainDeaccessionProposal,
     StrainIdentification,
@@ -45,6 +47,8 @@ class Call:
     proposed: bool = False  # acts on an open proposal to end the restriction
     leaving: bool = False  # acts on an open proposal to deaccession the strain (#20)
     plain: bool = False  # needs the strain not regulated: its restriction ended first (#20)
+    raised: bool = False  # needs the strain above group 1, so there is a group to lower (#174)
+    lowering: bool = False  # acts on an open proposal to lower the risk group (#174)
 
     def body(self, taxon: Taxon) -> dict[str, Any]:
         proposal = RestrictionEndProposal.objects.filter(confirmed_at=None, withdrawn_at=None)
@@ -52,6 +56,9 @@ class Call:
         leaving = StrainDeaccessionProposal.objects.filter(confirmed_at=None, withdrawn_at=None)
         if leaving.exists():
             named = {"proposal": str(leaving.get().public_id)}
+        lowering = RiskGroupProposal.objects.filter(confirmed_at=None, withdrawn_at=None)
+        if lowering.exists():
+            named = {"proposal": str(lowering.get().public_id)}
         bodies: dict[str, dict[str, Any]] = {
             "reclassify": {
                 "taxon": str(taxon.public_id),
@@ -59,13 +66,24 @@ class Call:
                 "method": "m",
                 "reason": "r",
             },
-            "risk_group": {"risk_group": 2, "reason": "reassessed"},
+            "risk_group": {
+                "risk_group": 2,
+                "basis": "NV 361/2007 Sb., Příloha 7",
+                "reason": "reassessed",
+            },
             "growth": {"temperature_low_c": 30, "atmosphere": "aerobic", "reason": "sheet"},
             "add_restriction": {
                 "kind": "cz_rat",
                 "reference": "Příloha 2, bod 3",
                 "reason": "listed",
             },
+            "propose_risk_group": {
+                "risk_group": 1,
+                "basis": "NV 361/2007 Sb., Příloha 7",
+                "reason": "reassessed",
+            },
+            "confirm_risk_group": named,
+            "withdraw_risk_group": {**named, "reason": "still group 2"},
             "propose_end": {"reason": "delisted"},
             "confirm_end": named,
             "withdraw_end": {**named, "reason": "still listed"},
@@ -84,6 +102,22 @@ CALLS = [
     Call("terms", "get", "{strain}/terms/", write=False),
     Call("reclassify", "post", "{strain}/reclassify/", write=True),
     Call("risk_group", "post", "{strain}/risk-group/", write=True),
+    Call("propose_risk_group", "post", "{strain}/risk-group-proposal/", write=True, raised=True),
+    Call(
+        "confirm_risk_group",
+        "post",
+        "{strain}/risk-group-proposal/confirm/",
+        write=True,
+        allowed=frozenset({Role.MANAGER}),
+        lowering=True,
+    ),
+    Call(
+        "withdraw_risk_group",
+        "post",
+        "{strain}/risk-group-proposal/withdraw/",
+        write=True,
+        lowering=True,
+    ),
     Call("growth", "post", "{strain}/growth/", write=True),
     Call("add_restriction", "post", "{strain}/restrictions/", write=True),
     Call("propose_end", "post", "{strain}/restrictions/{restriction}/end-proposal/", write=True),
@@ -126,12 +160,32 @@ ROLES = [Role.VIEWER, Role.TECHNICIAN, Role.CURATOR, Role.MANAGER]
 
 def ready(call: Call) -> None:
     """An open proposal for the calls that act on one, by a curator who is none of the team;
-    for the one-step deaccession, the restriction ended by two people who are none of it."""
-    if not (call.proposed or call.leaving or call.plain):
+    for the one-step deaccession, the restriction ended by two people who are none of it; for
+    the risk group calls, the group raised to 2 by that curator first (#174)."""
+    if not (call.proposed or call.leaving or call.plain or call.raised or call.lowering):
         return
     strain = Strain.objects.get()
     proposer = member_of(strain.lab, Role.CURATOR, "proposer")
     restriction = StrainRestriction.objects.get(strain=strain)
+    if call.raised or call.lowering:
+        with audit_context(channel=Channel.API, actor=proposer, request_id="req-raise"):
+            services.strain_set_risk_group(
+                access=access_for(proposer),
+                strain=strain,
+                risk_group=2,
+                basis="NV 361/2007 Sb., Příloha 7",
+                reason="reassessed",
+            )
+        if call.lowering:
+            with audit_context(channel=Channel.API, actor=proposer, request_id="req-lower"):
+                services.strain_risk_group_lower_propose(
+                    access=access_for(proposer),
+                    strain=strain,
+                    risk_group=1,
+                    basis="NV 361/2007 Sb., Příloha 7",
+                    reason="reassessed",
+                )
+        return
     if call.plain:
         confirmer = member_of(strain.lab, Role.MANAGER, "confirmer")
         end_restriction(restriction, proposer=proposer, confirmer=confirmer)
@@ -163,6 +217,7 @@ def state() -> tuple[Any, ...]:
             StrainRestriction,
             RestrictionEndProposal,
             StrainDeaccessionProposal,
+            RiskGroupProposal,
         )
     )
     return (*rows, AuditEvent.objects.count())

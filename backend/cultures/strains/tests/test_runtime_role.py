@@ -32,7 +32,7 @@ def test_the_runtime_role_accessions_and_changes_a_strain(
         access=curator_access, lab=lab, data=new_strain(exempli, restrictions=[GMO])
     )
     services.strain_set_risk_group(
-        access=curator_access, strain=strain, risk_group=2, reason="reassessed"
+        access=curator_access, strain=strain, risk_group=2, basis="b", reason="reassessed"
     )
     assert Strain.objects.get(pk=strain.pk).risk_group == 2
     assert AuditEvent.objects.filter(strain_id=strain.public_id).count() == 2

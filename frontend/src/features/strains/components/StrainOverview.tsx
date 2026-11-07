@@ -11,16 +11,33 @@ import {
   GMO_CATEGORY_LABELS,
   PATHOGENICITY_LABELS,
   RESTRICTION_LABELS,
+  type RiskGroupProposal,
   STATUS_LABELS,
   type Strain,
 } from '../schemas'
 import { day, Facts, scrollable, Section } from './parts'
-import { ConfirmDeaccessionDialog, ConfirmEndDialog, ProposeEndDialog, WithdrawDeaccessionDialog, WithdrawEndDialog } from './StrainDialogs'
+import {
+  ConfirmDeaccessionDialog,
+  ConfirmEndDialog,
+  ConfirmRiskGroupDialog,
+  ProposeEndDialog,
+  WithdrawDeaccessionDialog,
+  WithdrawEndDialog,
+  WithdrawRiskGroupDialog,
+} from './StrainDialogs'
 import { StrainShipments } from './StrainShipments'
 import { ActiveTerms } from './StrainTerms'
 
-type Props = { labId: string; strain: Strain; canManage: boolean; canConfirm: boolean; canConfirmLeave?: boolean }
+type Props = {
+  labId: string
+  strain: Strain
+  canManage: boolean
+  canConfirm: boolean
+  canConfirmLeave?: boolean
+  canConfirmRisk?: boolean
+}
 type Settle = { step: 'confirm' | 'withdraw'; proposal: DeaccessionProposal; open: boolean } | null
+type SettleRisk = { step: 'confirm' | 'withdraw'; proposal: RiskGroupProposal; open: boolean } | null
 
 type Restriction = Strain['restriction_history'][number]
 type Step = 'propose' | 'confirm' | 'withdraw'
@@ -31,9 +48,10 @@ type Act = (step: Step, r: Restriction) => (event: MouseEvent<HTMLButtonElement>
  * What the strain is (#19): its facts, its restrictions, the terms of use in force and how it was
  * identified, from the strain the page already holds; only the terms are a read of their own.
  */
-export function StrainOverview({ labId, strain: s, canManage, canConfirm, canConfirmLeave = false }: Props) {
+export function StrainOverview({ labId, strain: s, canManage, canConfirm, canConfirmLeave = false, canConfirmRisk = false }: Props) {
   const [open, setOpen] = useState<Open>(null)
   const [settling, setSettling] = useState<Settle>(null)
+  const [settlingRisk, setSettlingRisk] = useState<SettleRisk>(null)
   const spot = useRef<FocusReturn | null>(null)
   const act: Act = (step, restriction) => (event) => {
     spot.current = rememberFocus(event.currentTarget)
@@ -45,12 +63,18 @@ export function StrainOverview({ labId, strain: s, canManage, canConfirm, canCon
     spot.current = null
     setOpen(null)
     setSettling(null)
+    setSettlingRisk(null)
   }
   const settle = (step: 'confirm' | 'withdraw', proposal: DeaccessionProposal) => (event: MouseEvent<HTMLButtonElement>) => {
     spot.current = rememberFocus(event.currentTarget)
     setSettling({ step, proposal, open: true })
   }
   const closeSettling = () => setSettling((current) => current && { ...current, open: false })
+  const settleRisk = (step: 'confirm' | 'withdraw', proposal: RiskGroupProposal) => (event: MouseEvent<HTMLButtonElement>) => {
+    spot.current = rememberFocus(event.currentTarget)
+    setSettlingRisk({ step, proposal, open: true })
+  }
+  const closeSettlingRisk = () => setSettlingRisk((current) => current && { ...current, open: false })
   const active = s.restriction_history.filter((r) => r.ended_at === null)
   const ended = s.restriction_history.filter((r) => r.ended_at !== null)
   return (
@@ -72,6 +96,9 @@ export function StrainOverview({ labId, strain: s, canManage, canConfirm, canCon
         <ProposedDeaccession proposal={s.deaccession_proposal} canManage={canManage} canConfirm={canConfirmLeave} onSettle={settle} />
       )}
       {s.deaccession && <StrainShipments labId={labId} strainId={s.public_id} />}
+      {s.risk_group_proposal && (
+        <ProposedRiskGroup proposal={s.risk_group_proposal} canManage={canManage} canConfirm={canConfirmRisk} onSettle={settleRisk} />
+      )}
 
       <Section title="Facts">
         <Facts
@@ -83,6 +110,9 @@ export function StrainOverview({ labId, strain: s, canManage, canConfirm, canCon
               : []),
             ['Status', <StatusChip key="status" tone={STRAIN_TONES[s.status]}>{STATUS_LABELS[s.status]}</StatusChip>],
             ['Risk group', String(s.risk_group)],
+            // #174: what the group rests on, once someone changed it; the group an accession
+            // recorded has none of its own yet.
+            ['Basis of the risk group', s.risk_group_basis || 'From the accession'],
             ['Animal pathogenicity', PATHOGENICITY_LABELS[s.animal_pathogenicity]],
             ['Plant pathogenicity', PATHOGENICITY_LABELS[s.plant_pathogenicity]],
             ['Isolation source', s.isolation_source || 'Unknown'],
@@ -158,6 +188,12 @@ export function StrainOverview({ labId, strain: s, canManage, canConfirm, canCon
       )}
       {settling?.step === 'withdraw' && (
         <WithdrawDeaccessionDialog labId={labId} strain={s} proposal={settling.proposal} open={settling.open} onClose={closeSettling} onExited={exited} />
+      )}
+      {settlingRisk?.step === 'confirm' && (
+        <ConfirmRiskGroupDialog labId={labId} strain={s} proposal={settlingRisk.proposal} open={settlingRisk.open} onClose={closeSettlingRisk} onExited={exited} />
+      )}
+      {settlingRisk?.step === 'withdraw' && (
+        <WithdrawRiskGroupDialog labId={labId} strain={s} proposal={settlingRisk.proposal} open={settlingRisk.open} onClose={closeSettlingRisk} onExited={exited} />
       )}
     </>
   )
@@ -290,6 +326,44 @@ function ProposedDeaccession({ proposal, canManage, canConfirm, onSettle }: Prop
       {(canManage || canConfirm) && (
         <Stack direction="row" spacing={1}>
           {canConfirm && !own && <Button onClick={onSettle('confirm', proposal)}>Confirm deaccession</Button>}
+          {canManage && <Button onClick={onSettle('withdraw', proposal)}>Withdraw the proposal</Button>}
+        </Stack>
+      )}
+    </Section>
+  )
+}
+
+type RiskProposedProps = {
+  proposal: RiskGroupProposal
+  canManage: boolean
+  canConfirm: boolean
+  onSettle: (step: 'confirm' | 'withdraw', proposal: RiskGroupProposal) => (event: MouseEvent<HTMLButtonElement>) => void
+}
+
+/** A proposal to lower the strain's risk group, waiting for a second person (#174). */
+function ProposedRiskGroup({ proposal, canManage, canConfirm, onSettle }: RiskProposedProps) {
+  const own = proposal.confirm_refusal === 'confirm_own_risk_group'
+  return (
+    <Section title="Proposed risk group">
+      <Facts
+        rows={[
+          ['Proposed', day(proposal.proposed_at)],
+          ['New risk group', `${proposal.risk_group}, down from ${proposal.from_risk_group}`],
+          ['Basis', proposal.basis],
+          ['Reason', proposal.reason],
+        ]}
+      />
+      <Typography color="text.secondary">
+        {own
+          ? 'You proposed it: a different manager confirms.'
+          : canConfirm
+            ? 'Waiting for your confirmation.'
+            : 'Waiting for a manager to confirm.'}
+      </Typography>
+      <Typography>Until then every rule reads the risk group the strain has now.</Typography>
+      {(canManage || canConfirm) && (
+        <Stack direction="row" spacing={1}>
+          {canConfirm && !own && <Button onClick={onSettle('confirm', proposal)}>Confirm the lower risk group</Button>}
           {canManage && <Button onClick={onSettle('withdraw', proposal)}>Withdraw the proposal</Button>}
         </Stack>
       )}

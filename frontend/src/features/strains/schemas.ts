@@ -20,6 +20,7 @@ export type HistoryLine = Schemas['HistoryLine']
 export type DeaccessionCause = Schemas['CauseEnum']
 export type FinalUse = Schemas['FinalUseEnum']
 export type DeaccessionProposal = NonNullable<Strain['deaccession_proposal']>
+export type RiskGroupProposal = NonNullable<Strain['risk_group_proposal']>
 export type StrainShipment = Schemas['StrainShipmentOutput']
 
 /** Curators and managers write strains (strains.manage). The server decides; this only hides. */
@@ -35,6 +36,12 @@ export const canConfirmRestrictionEnd = (role: Role | undefined): boolean => rol
  * (strains.confirm_deaccession).
  */
 export const canConfirmDeaccession = (role: Role | undefined): boolean => role === 'manager'
+/**
+ * A risk group drops by two people (#174, ADR 0009): a curator or a manager proposes the lower
+ * group with its basis, a manager other than the proposer confirms it
+ * (strains.confirm_risk_group). A raise stays one person's.
+ */
+export const canConfirmRiskGroup = (role: Role | undefined): boolean => role === 'manager'
 
 export const CAUSES = ['non_viable', 'contaminated', 'misidentified', 'duplicate', 'depositor_request', 'legal', 'lost'] as const satisfies readonly DeaccessionCause[]
 export const CAUSE_LABELS: Record<DeaccessionCause, string> = {
@@ -195,7 +202,12 @@ export const reclassifySchema = z.object({
 })
 export type ReclassifyForm = z.input<typeof reclassifySchema>
 
-export const riskGroupSchema = z.object({ risk_group: riskGroup, reason: reasonSchema })
+/**
+ * A risk group change (#174): the group, the basis it rests on and the reason. The same shape
+ * serves the raise in one step and the proposal of a lower group; the dialog decides which.
+ */
+export const basisSchema = required('Say what the group rests on').max(2000, 'Use at most 2000 characters')
+export const riskGroupSchema = z.object({ risk_group: riskGroup, basis: basisSchema, reason: reasonSchema })
 export type RiskGroupForm = z.input<typeof riskGroupSchema>
 export type RiskGroupValues = z.output<typeof riskGroupSchema>
 

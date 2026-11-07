@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db.models import F
 from django.test import override_settings
 
 from cultures.audit.context import audit_context
@@ -54,6 +55,7 @@ from cultures.strains.management.commands.seed_dev import (
     load,
 )
 from cultures.strains.models import (
+    RiskGroupProposal,
     Strain,
     StrainCounter,
     StrainIdentification,
@@ -417,6 +419,12 @@ def test_every_strain_row_comes_from_a_strain_service() -> None:
     assert events["strain_risk_group_changed"] == sum(
         1 for row in STRAINS for s in row.get("history", []) if "risk_group" in s
     )
+    # #174: the seeded risk group step is a lowering, so it went through two people and left a
+    # confirmed proposal; none is open and nobody confirmed their own.
+    lowered = RiskGroupProposal.objects.all()
+    assert lowered.count() == events["strain_risk_group_lower_proposed"] >= 1
+    assert lowered.filter(confirmed_at__isnull=True).count() == 0
+    assert not lowered.filter(confirmed_by=F("proposed_by")).exists()
     assert LabAuthorisation.objects.count() == events["lab_authorisation_added"]
     for counter in StrainCounter.objects.all():
         assert counter.last_seq == Strain.objects.filter(lab_id=counter.lab_id).count()

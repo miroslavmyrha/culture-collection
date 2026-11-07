@@ -37,7 +37,10 @@ from .serializers import (
     EndWithdrawInputSerializer,
     ReclassifyInputSerializer,
     RestrictionAddInputSerializer,
+    RiskGroupConfirmInputSerializer,
     RiskGroupInputSerializer,
+    RiskGroupProposeInputSerializer,
+    RiskGroupWithdrawInputSerializer,
     StrainDetailOutputSerializer,
     StrainListOutputSerializer,
     StrainShipmentOutputSerializer,
@@ -46,13 +49,36 @@ from .serializers import (
 # 401, 403, 404 and 429 with the Problem body are added to every operation by core.schema.
 INVALID = OpenApiResponse(
     ProblemSerializer,
-    "Invalid input, an unknown taxon, a risk group 4 agent, or a group above the cap of a box"
-    " holding the strain's vials (risk_group_above_box_cap), on risk_group",
+    "Invalid input, an unknown taxon, a risk group 4 agent, a group above the cap of a box"
+    " holding the strain's vials (risk_group_above_box_cap), or a raise of more than one step"
+    " (risk_group_step_too_big), on risk_group",
 )
 RULE = OpenApiResponse(
     ProblemSerializer,
     "lab_authorisation_required: the lab holds no valid permit for a restriction's kind;"
     " reason_required",
+)
+# #174: a risk group change names its basis; a lower group takes two people.
+RISK_GROUP_RULE = OpenApiResponse(
+    ProblemSerializer,
+    "reason_required; basis_required: the change names what the group rests on;"
+    " risk_group_second_person_required: a lower group is proposed, not set;"
+    " risk_group_not_lower: this is not a lower group, change it in one step",
+)
+RISK_GROUP_PROPOSED = OpenApiResponse(
+    ProblemSerializer,
+    "strain_deaccessioned; risk_group_proposed: a proposal waits",
+)
+RISK_GROUP_SETTLED = OpenApiResponse(
+    ProblemSerializer,
+    "strain_deaccessioned; risk_group_not_proposed: no proposal is open;"
+    " risk_group_proposal_changed: another proposal is open than the one named;"
+    " risk_group_proposal_outdated: the strain's group changed since the proposal",
+)
+RISK_GROUP_OWN = OpenApiResponse(
+    ProblemSerializer,
+    "permission_denied: confirming is a manager's; confirm_own_risk_group: the caller proposed"
+    " it, a different manager confirms",
 )
 PROPOSED = OpenApiResponse(
     ProblemSerializer,
@@ -130,6 +156,10 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         "retrieve": Perm.VIEW_STRAINS,
         "reclassify": Perm.MANAGE_STRAINS,
         "risk_group": Perm.MANAGE_STRAINS,
+        # #174: a lower risk group takes two people (ADR 0009).
+        "propose_risk_group": Perm.MANAGE_STRAINS,
+        "confirm_risk_group": Perm.CONFIRM_RISK_GROUP,
+        "withdraw_risk_group": Perm.MANAGE_STRAINS,
         "growth": Perm.MANAGE_STRAINS,
         "add_restriction": Perm.MANAGE_STRAINS,
         # #105: a restriction ends in two steps, by two people (ADR 0009).
@@ -219,11 +249,13 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         responses={
             200: StrainDetailOutputSerializer,
             (400, PROBLEM): INVALID,
-            (422, PROBLEM): RULE,
+            (422, PROBLEM): RISK_GROUP_RULE,
         },
     )
     @action(detail=True, methods=["post"], url_path="risk-group")
     def risk_group(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Raises the risk group, or records the same one again, with the basis and the reason
+        (#174). A lower group is proposed instead (risk-group-proposal)."""
         strain: Strain = self.get_object()
         data = RiskGroupInputSerializer(data=request.data)
         data.is_valid(raise_exception=True)
@@ -231,6 +263,77 @@ class StrainViewSet(ScopedReadOnlyViewSet):
             access=access_of(request),
             strain=strain,
             risk_group=data.validated_data["risk_group"],
+            basis=data.validated_data["basis"],
+            reason=data.validated_data["reason"],
+        )
+        return self._detail(strain)
+
+    @extend_schema(
+        request=RiskGroupProposeInputSerializer,
+        responses={
+            200: StrainDetailOutputSerializer,
+            (400, PROBLEM): INVALID,
+            (409, PROBLEM): RISK_GROUP_PROPOSED,
+            (422, PROBLEM): RISK_GROUP_RULE,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="risk-group-proposal")
+    def propose_risk_group(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Proposes a lower risk group, with the basis it rests on (#174, ADR 0009). Nothing
+        changes for the strain until a manager other than the proposer confirms the proposal, so
+        every rule still reads the higher group."""
+        strain: Strain = self.get_object()
+        data = RiskGroupProposeInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        values = data.validated_data
+        services.strain_risk_group_lower_propose(
+            access=access_of(request),
+            strain=strain,
+            risk_group=values["risk_group"],
+            basis=values["basis"],
+            reason=values["reason"],
+        )
+        return self._detail(strain)
+
+    @extend_schema(
+        request=RiskGroupConfirmInputSerializer,
+        responses={
+            200: StrainDetailOutputSerializer,
+            (400, PROBLEM): INVALID,
+            (403, PROBLEM): RISK_GROUP_OWN,
+            (409, PROBLEM): RISK_GROUP_SETTLED,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="risk-group-proposal/confirm")
+    def confirm_risk_group(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """A manager other than the proposer confirms the proposal they read: the risk group
+        drops now, with the proposal's basis."""
+        strain: Strain = self.get_object()
+        data = RiskGroupConfirmInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.strain_risk_group_lower_confirm(
+            access=access_of(request), strain=strain, proposal=data.validated_data["proposal"]
+        )
+        return self._detail(strain)
+
+    @extend_schema(
+        request=RiskGroupWithdrawInputSerializer,
+        responses={
+            200: StrainDetailOutputSerializer,
+            (409, PROBLEM): RISK_GROUP_SETTLED,
+            (422, PROBLEM): RULE,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="risk-group-proposal/withdraw")
+    def withdraw_risk_group(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Withdraws the open proposal the caller read, with a reason. The group stays."""
+        strain: Strain = self.get_object()
+        data = RiskGroupWithdrawInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.strain_risk_group_lower_withdraw(
+            access=access_of(request),
+            strain=strain,
+            proposal=data.validated_data["proposal"],
             reason=data.validated_data["reason"],
         )
         return self._detail(strain)

@@ -1,5 +1,5 @@
 import { type Page, expect, test } from '@playwright/test'
-import { RUN, Walk, api, batchOf, field, labId, openLab, openWaiting, passAll, release, requestFor, rows, setupAs, supplyStrain } from './walk.js'
+import { RUN, Walk, acceptedStrain, api, batchOf, field, labId, openLab, openWaiting, passAll, release, requestFor, rows, searchStrain, setupAs, supplyStrain } from './walk.js'
 
 // A manager of Bacteriology and of Regulated agents (seed_dev): people, rights, the VRAT access
 // list and the lab's legal texts. dev-no-lab is a user in no lab, reg-technician works in Regulated agents.
@@ -241,5 +241,39 @@ test('M11 approve a request for a regulated strain', async ({ browser }, info) =
   w.look()
   await w.shot('approved')
   w.note('The finding says that the strain is regulated, not which permits were checked: the reason repeats what the manager looked up elsewhere')
+  await w.done()
+})
+
+test('M13 confirm a lower risk group a curator proposed', async ({ browser }, info) => {
+  // The second person of #174: the curator raised the strain to group 2 and proposed group 1.
+  const name = `Bacillus subtilis lower ${RUN}`
+  const setup = await setupAs(browser, 'bac-curator')
+  const lab = await labId(setup.page, BAC)
+  const made = await acceptedStrain(setup.page, lab, name, 'Bacillus subtilis')
+  await api(setup.page, lab, `strains/${made.id}/risk-group/`, {
+    risk_group: 2,
+    basis: 'NV 361/2007 Sb., Příloha 7, část A, tabulka č. 1 (invented example).',
+    reason: 'Reassessed at intake (invented example).',
+  })
+  await api(setup.page, lab, `strains/${made.id}/risk-group-proposal/`, {
+    risk_group: 1,
+    basis: 'NV 361/2007 Sb., Příloha 7: the agent is in none of the groups 2 to 4.',
+    reason: 'Reassessed against the annex in force.',
+  })
+  await setup.close()
+
+  const w = await Walk.as(browser, info, 'bac-manager', manager('M13', 'Confirm a lower risk group a curator proposed'))
+  await w.start()
+  await searchStrain(w, name, new RegExp(`^BAC \\d+, BAC, Active\\. .*${name}`))
+  const proposed = w.page.getByRole('region', { name: 'Proposed risk group' })
+  await expect(proposed).toContainText('Waiting for your confirmation.')
+  await w.read(proposed)
+  await w.click(proposed.getByRole('button', { name: 'Confirm the lower risk group' }))
+  const dialog = w.page.getByRole('alertdialog', { name: 'Lower the risk group to 1?' })
+  await w.read(dialog)
+  await w.click(dialog.getByRole('button', { name: 'Lower the risk group' }))
+  await expect(w.page.getByRole('list', { name: 'Biosafety and status' }).getByText('Risk group 1')).toBeVisible()
+  await expect(w.page.getByRole('region', { name: 'Proposed risk group' })).toHaveCount(0)
+  w.note('The confirmation names what the lower group changes (box cap, containment, shipment class) and the basis the proposer gave', '#174')
   await w.done()
 })

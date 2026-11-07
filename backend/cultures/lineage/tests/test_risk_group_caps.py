@@ -18,6 +18,7 @@ from cultures.labs.tests.test_lock_invariant import first, locks
 from cultures.lineage import services as lineage
 from cultures.lineage.models import Passage, VialPlacement, VialStatus
 from cultures.storage.models import StorageUnit, UnitKind
+from cultures.storage.policy import may_store
 from cultures.storage.tests.conftest import MakeUnit, Tree
 from cultures.strains import services as strains
 from cultures.strains.models import Strain
@@ -37,7 +38,11 @@ def boxes(tree: Tree, make_unit: MakeUnit) -> tuple[StorageUnit, StorageUnit]:
 
 def set_group(curator: User, strain: Strain, group: int) -> Strain:
     return strains.strain_set_risk_group(
-        access=access_for(curator), strain=strain, risk_group=group, reason="reassessed"
+        access=access_for(curator),
+        strain=strain,
+        risk_group=group,
+        basis="NV 361/2007 Sb., Příloha 7",
+        reason="reassessed",
     )
 
 
@@ -106,15 +111,71 @@ def test_lowering_always_fits(
     *,
     as_curator: AuditContext,
     curator: User,
+    manager: User,
     strain: Strain,
     passage0: Passage,
     make_batch: MakeBatch,
     boxes: tuple[StorageUnit, StorageUnit],
 ) -> None:
+    """A lower group fits every box by construction, so no cap is consulted. It still takes two
+    people (#174): the curator proposes it, the manager confirms it."""
     set_group(curator, strain, 2)
     make_batch(passage0, vial_count=1, box=boxes[0])
     StorageUnit.objects.filter(pk=boxes[0].pk).update(max_risk_group=1)  # past the service
-    assert set_group(curator, strain, 1).risk_group == 1
+    proposal = strains.strain_risk_group_lower_propose(
+        access=access_for(curator),
+        strain=strain,
+        risk_group=1,
+        basis="NV 361/2007 Sb., Příloha 7",
+        reason="reassessed",
+    )
+    lowered = strains.strain_risk_group_lower_confirm(
+        access=access_for(manager), strain=strain, proposal=proposal.public_id
+    )
+    assert lowered.risk_group == 1
+
+
+@pytest.mark.rule("R-RISK-06")
+def test_a_lower_group_reaches_the_box_cap_only_at_the_confirmation(
+    *,
+    as_curator: AuditContext,
+    curator: User,
+    manager: User,
+    technician: User,
+    strain: Strain,
+    passage0: Passage,
+    make_batch: MakeBatch,
+    boxes: tuple[StorageUnit, StorageUnit],
+) -> None:
+    """The cap of a box is one of the rules a lower risk group relaxes (#174): while the
+    proposal waits, the box for group 1 refuses the strain's vial; after the confirmation it
+    takes it. The gate the placement service reads, not only the policy function."""
+    set_group(curator, strain, 2)
+    vial = vials_of(make_batch(passage0, vial_count=1))[0]
+    low = boxes[1]
+    proposal = strains.strain_risk_group_lower_propose(
+        access=access_for(curator),
+        strain=strain,
+        risk_group=1,
+        basis="NV 361/2007 Sb., Příloha 7",
+        reason="reassessed",
+    )
+    assert may_store(unit=low, risk_group=Strain.objects.get(pk=strain.pk).risk_group).code == (
+        "risk_group_above_cap"
+    )
+    with (
+        audit_context(channel=Channel.API, actor=technician, request_id="req-place"),
+        pytest.raises(lineage.InvalidVial) as raised,
+    ):
+        lineage.vial_place(access=access_for(technician), vial=vial, box=low, row=1, col=1)
+    assert raised.value.code == "risk_group_above_cap"
+    strains.strain_risk_group_lower_confirm(
+        access=access_for(manager), strain=strain, proposal=proposal.public_id
+    )
+    assert may_store(unit=low, risk_group=Strain.objects.get(pk=strain.pk).risk_group).allowed
+    with audit_context(channel=Channel.API, actor=technician, request_id="req-place-2"):
+        lineage.vial_place(access=access_for(technician), vial=vial, box=low, row=1, col=1)
+    assert VialPlacement.objects.filter(vial=vial, box=low, removed_at__isnull=True).exists()
 
 
 def test_a_placement_written_just_before_the_box_read_is_seen(
@@ -211,7 +272,7 @@ def test_the_api_refusal_names_no_box(
     events = AuditEvent.objects.count()
     response = logged_in(curator).post(
         f"{STRAINS_URL}{regulated.public_id}/risk-group/",
-        {"risk_group": 2, "reason": "reassessed"},
+        {"risk_group": 2, "basis": "NV 361/2007 Sb., Příloha 7", "reason": "reassessed"},
         content_type="application/json",
     )
     assert_problem(response, 400, "risk_group_above_box_cap", "risk_group")
@@ -233,7 +294,9 @@ def test_a_raise_locks_the_lab_then_the_strain_then_the_boxes(
     make_batch(passage0, vial_count=1, box=boxes[0])
     access = access_for(curator)
     with CaptureQueriesContext(connection) as captured:
-        strains.strain_set_risk_group(access=access, strain=strain, risk_group=2, reason="r")
+        strains.strain_set_risk_group(
+            access=access, strain=strain, risk_group=2, basis="b", reason="r"
+        )
     sql = [q["sql"] for q in captured.captured_queries]
     order = [first(sql, locks(t)) for t in ("labs_lab", "strains_strain", "storage_storageunit")]
     assert None not in order, sql

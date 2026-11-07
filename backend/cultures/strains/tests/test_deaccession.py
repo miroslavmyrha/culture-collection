@@ -192,7 +192,7 @@ def test_deaccessioned_is_terminal(curator: User, manager: User, make_strain: Ma
     refused(services.StrainDeaccessioned, "strain_deaccessioned", lambda: leave(manager, strain))
     for change in (
         lambda: services.strain_set_risk_group(
-            access=access_for(curator), strain=strain, risk_group=2, reason="r"
+            access=access_for(curator), strain=strain, risk_group=2, basis="b", reason="r"
         ),
         lambda: services.strain_restriction_add(
             access=access_for(curator), strain=strain, restriction=DUAL_USE, reason="r"

@@ -363,7 +363,11 @@ def test_a_risk_group_raised_after_the_preparation_makes_the_exemption_refused_a
     strain = request.lines.get().strain
     with as_actor(approver):
         strains.strain_set_risk_group(
-            access=access_for(approver), strain=strain, risk_group=2, reason="Reassessed."
+            access=access_for(approver),
+            strain=strain,
+            risk_group=2,
+            basis="NV 361/2007 Sb., Příloha 7",
+            reason="Reassessed.",
         )
     refused(
         services.InvalidDistribution,

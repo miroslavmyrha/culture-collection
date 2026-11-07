@@ -30,7 +30,12 @@ class TestStrainContract(ViewsetContract):
     url = STRAINS_URL
     audit_model = AuditEvent
     writes = (
-        Write("risk-group/", {"risk_group": 2, "reason": "reassessed"}, changes=Strain, status=200),
+        Write(
+            "risk-group/",
+            {"risk_group": 2, "basis": "NV 361/2007 Sb., Příloha 7", "reason": "reassessed"},
+            changes=Strain,
+            status=200,
+        ),
         Write(
             "growth/",
             {"temperature_low_c": 30, "atmosphere": "aerobic", "reason": "from the sheet"},

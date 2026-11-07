@@ -94,6 +94,8 @@ describe('StrainShell with the Overview tab', () => {
       'Name as received': 'T. exempli T1',
       Status: 'Active',
       'Risk group': '2',
+      // #174: the group is the one the accession recorded, so it has no basis of its own.
+      'Basis of the risk group': 'From the accession',
       'Animal pathogenicity': 'No pathogenicity known',
       'Plant pathogenicity': 'Unknown',
       'Isolation source': 'Unknown',
@@ -320,6 +322,7 @@ describe('StrainShell with the Overview tab', () => {
     const group = within(dialog).getByRole('combobox', { name: 'Risk group' })
     expect(group).toHaveValue('2')
     await user.selectOptions(group, '4')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Basis' }), 'NV 361/2007 Sb., Příloha 7')
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'reassessed')
     await user.click(within(dialog).getByRole('button', { name: 'Save risk group' }))
     await waitFor(() => expect(group).toHaveAccessibleDescription('The collection does not hold risk group 4 agents.'))
@@ -340,6 +343,7 @@ describe('StrainShell with the Overview tab', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Change the risk group of MYC 42' })
     const group = within(dialog).getByRole('combobox', { name: 'Risk group' })
     await user.selectOptions(group, '3')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Basis' }), 'NV 361/2007 Sb., Příloha 7')
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'reassessed')
     await user.click(within(dialog).getByRole('button', { name: 'Save risk group' }))
     await waitFor(() => expect(group).toHaveAccessibleDescription("A box holding this strain's vials does not allow this risk group. Move the vials first."))
@@ -347,7 +351,7 @@ describe('StrainShell with the Overview tab', () => {
     expect(dialog).not.toHaveTextContent(/server words|Box/)
   })
 
-  it('asks for a reason before changing the risk group, without a request', async () => {
+  it('asks for a basis and a reason before changing the risk group, without a request', async () => {
     mockApi('get', DETAIL, strain)
     terms()
     const held = holdApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group/')
@@ -356,6 +360,8 @@ describe('StrainShell with the Overview tab', () => {
     await action(user, 'Change risk group')
     const dialog = await screen.findByRole('dialog')
     await user.click(within(dialog).getByRole('button', { name: 'Save risk group' }))
+    // #174: every change states what the new group rests on.
+    expect(within(dialog).getByRole('textbox', { name: 'Basis' })).toHaveAccessibleDescription(/Say what the group rests on$/)
     expect(within(dialog).getByRole('textbox', { name: 'Reason' })).toHaveAccessibleDescription('Stored for good with the change. Name no person. Say why')
     expect(held.calls).toHaveLength(0)
   })

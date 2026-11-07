@@ -578,7 +578,9 @@ def step(row: dict[str, Any]) -> seed_strains.Step:
             reason=change["reason"],
         )
     if "risk_group" in row:
-        return seed_strains.SetRiskGroup(risk_group=row["risk_group"], reason=row["reason"])
+        return seed_strains.SetRiskGroup(
+            risk_group=row["risk_group"], basis=row["basis"], reason=row["reason"]
+        )
     if "restriction_add" in row:
         return seed_strains.AddRestriction(
             restriction=restriction(row["restriction_add"]), reason=row["reason"]

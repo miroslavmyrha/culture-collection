@@ -24,6 +24,7 @@ from cultures.taxonomy.selectors import taxon_and_below
 
 from .models import (
     RestrictionEndProposal,
+    RiskGroupProposal,
     Strain,
     StrainDeaccessionProposal,
     StrainIdentification,
@@ -95,9 +96,9 @@ def strain_list(*, access: Access, lab: Lab) -> QuerySet[Strain]:
 
 def strain_detail(*, access: Access, lab: Lab) -> QuerySet[Strain]:
     """The same rows with their whole history: every identification and every restriction,
-    whether the strain is regulated, the open proposal to deaccession it (#20) and the deposit
-    it came from (#154), in the same query as the strain: the serializer shows that one only
-    to a reader who may open deposits."""
+    whether the strain is regulated, the open proposals to deaccession it (#20) and to lower its
+    risk group (#174), and the deposit it came from (#154), in the same query as the strain: the
+    serializer shows that one only to a reader who may open deposits."""
     history = (
         strain_list(access=access, lab=lab)
         .select_related("growth_medium", "deposit")
@@ -111,33 +112,46 @@ def strain_detail(*, access: Access, lab: Lab) -> QuerySet[Strain]:
             )
         )
     )
-    return history.prefetch_related(
-        # At most one is open (a unique index).
-        Prefetch(
-            "deaccession_proposals",
-            queryset=StrainDeaccessionProposal.objects.filter(
-                confirmed_at__isnull=True, withdrawn_at__isnull=True
-            ),
-            to_attr="open_deaccession_proposals",
+    return (
+        history.prefetch_related(
+            # At most one is open (a unique index).
+            Prefetch(
+                "deaccession_proposals",
+                queryset=StrainDeaccessionProposal.objects.filter(
+                    confirmed_at__isnull=True, withdrawn_at__isnull=True
+                ),
+                to_attr="open_deaccession_proposals",
+            )
         )
-    ).prefetch_related(
-        Prefetch(
-            "restrictions",
-            # Active first, then the ended ones in the order they ended.
-            queryset=StrainRestriction.objects.order_by(
-                F("ended_at").asc(nulls_first=True), "kind", "reference", "pk"
-            ).prefetch_related(
-                # The open proposal to end it, if any (#105): at most one (a unique index).
-                Prefetch(
-                    "end_proposals",
-                    queryset=RestrictionEndProposal.objects.filter(
-                        confirmed_at__isnull=True, withdrawn_at__isnull=True
-                    ),
-                    to_attr="open_end_proposals",
-                )
+        .prefetch_related(
+            # The open proposal to lower the risk group (#174): at most one (a unique index).
+            Prefetch(
+                "risk_group_proposals",
+                queryset=RiskGroupProposal.objects.filter(
+                    confirmed_at__isnull=True, withdrawn_at__isnull=True
+                ),
+                to_attr="open_risk_group_proposals",
+            )
+        )
+        .prefetch_related(
+            Prefetch(
+                "restrictions",
+                # Active first, then the ended ones in the order they ended.
+                queryset=StrainRestriction.objects.order_by(
+                    F("ended_at").asc(nulls_first=True), "kind", "reference", "pk"
+                ).prefetch_related(
+                    # The open proposal to end it, if any (#105): at most one (a unique index).
+                    Prefetch(
+                        "end_proposals",
+                        queryset=RestrictionEndProposal.objects.filter(
+                            confirmed_at__isnull=True, withdrawn_at__isnull=True
+                        ),
+                        to_attr="open_end_proposals",
+                    )
+                ),
+                to_attr="all_restrictions",
             ),
-            to_attr="all_restrictions",
-        ),
+        )
     )
 
 
