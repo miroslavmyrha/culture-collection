@@ -164,9 +164,8 @@ Not decided. Each needs an answer before the feature that depends on it:
 - Standard alignment: align with ISO 35001 (biorisk management, clauses
   7.5.3, 7.5.4, 8.5 and 7.2.2) and do not certify yet. That is the
   recommendation, because edition 2 is in preparation.
-- Hosting: where the system runs and who can reach the data. Making
-  controlled technology available to a person outside the EU is an export
-  (2021/821, Art. 2(2)(d)).
+- Hosting: decided by the 2026-11-08 amendment as requirements rather than
+  a provider. Which host is bought is not a question for this document.
 - Read logging: how far it goes beyond the location reveals decided above.
 - Retention: a period and a disposal rule per record class. The longest
   known periods: ABS records 20 years after the end of use, closed VRAT and
@@ -177,8 +176,9 @@ Not decided. Each needs an answer before the feature that depends on it:
 - Cybersecurity act scope: whether the host registers a service under
   264/2025 Sb. and puts this system in its scope. That is the host's
   decision. If it does, its measures become legal duties with deadlines.
-- Backups: where they are kept, encrypted, who can delete them, and how a
-  restore is proven.
+  The 2026-11-08 amendment states what we hold ready for that case.
+- Backups: the requirements are in the 2026-11-08 amendment. What is still
+  open is the schedule and the proof of a restore, which #177 answers.
 
 ## Sources
 
@@ -1053,3 +1053,36 @@ it rests on:
 Each rule, its quoted sentence, its code and its tests are in `docs/compliance.md`; the four
 contradictions C-01 to C-04 of that document are closed by this issue but for C-03 (the register
 stock per strain, #171).
+
+## Amendment 2026-11-08: hosting requirements, not a vendor (#198)
+
+Hosting was an open question, which left part of the runbook of #177 to #180 unwritable. This
+amendment states the requirements a host must meet and names no provider.
+
+- **One host in the EU.** The system runs on a single Linux host inside the European Union with
+  Docker Compose as its process manager, which is what the compose files in this repository
+  already describe. One host carries a collection of this size, and a restore of one host is
+  something a person can prove in an afternoon.
+- **Who can reach the data.** Administrative access belongs to named people inside the EU.
+  Making controlled technology available to a person outside the EU is an export (Regulation
+  (EU) 2021/821, Art. 2(2)(d)), so an account or a support session for a person outside the EU
+  is a licence question before it is an operational one.
+- **Data at rest in the EU, encrypted.** The database volume, the uploaded documents and the
+  backups all live on encrypted storage in the EU. The decryption key is not kept on the host
+  that holds the backups.
+- **Backups off the host.** Kept off the host, in the EU, encrypted, with a restore proven on a
+  schedule and the proof recorded (#177). Who may delete a backup is named in the runbook
+  (#180), and a backup is never deletable by the account the application runs as.
+- **Cybersecurity act scope stays the host's decision.** Whether the host registers a regulated
+  service under 264/2025 Sb. and puts this system in its scope is the host's call, not this
+  project's. If it does, the host's measures become duties with deadlines. The requirements
+  above are written so that nothing in them has to be undone in that case: one documented host,
+  named administrators, encryption at rest, off-host backups with a proven restore, and the
+  audit trail of ADR 0005.
+- **No provider is chosen.** Any host that meets the points above qualifies. The runbook holds
+  the chosen host's facts in one file, so a move is a change to that file and the restore
+  procedure, not to the code.
+
+What this does not decide: where the qualified timestamp provider for the audit anchors sits
+(the 2026-11-04 amendment), and whether the SÚJB register may be electronic, which waits for
+SÚJB in writing.
