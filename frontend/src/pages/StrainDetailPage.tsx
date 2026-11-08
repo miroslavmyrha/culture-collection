@@ -8,7 +8,7 @@ import { StrainOverview } from '@/features/strains/components/StrainOverview'
 import { StrainShell } from '@/features/strains/components/StrainShell'
 import { StrainTabs } from '@/features/strains/components/StrainTabs'
 import { StrainTerms } from '@/features/strains/components/StrainTerms'
-import { canConfirmDeaccession, canConfirmRestrictionEnd, canManageStrains } from '@/features/strains/schemas'
+import { canConfirmDeaccession, canConfirmRestrictionEnd, canConfirmRiskGroup, canManageStrains } from '@/features/strains/schemas'
 import { StrainMaterial } from '@/features/vials/components/StrainMaterial'
 import { canConfirmDestruction, canHandleVials, canRecordLossReport, canReleaseBatches, lossMustBeReported, strainMaterialDestroyed } from '@/features/vials/schemas'
 
@@ -67,6 +67,7 @@ export function StrainOverviewPage() {
         canManage={canManageStrains(role)}
         canConfirm={canConfirmRestrictionEnd(role)}
         canConfirmLeave={canConfirmDeaccession(role)}
+        canConfirmRisk={canConfirmRiskGroup(role)}
       />
     </>
   )

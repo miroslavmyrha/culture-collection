@@ -8,6 +8,8 @@ export const PERMIT_REFUSED_BY_KIND: Record<string, string> = {
     'This lab holds no valid ÚKZÚZ permit for quarantine pests. Staff record the permit; until then the strain cannot be added with this restriction.',
 }
 export const RISK_GROUP_4_REFUSED = 'The collection does not hold risk group 4 agents.'
+/** #174: a raise states the basis of each step, so it goes one group at a time. */
+export const RISK_GROUP_STEP_TOO_BIG = 'A risk group rises one step at a time: raise it by one, with its basis, then again.'
 /** Names no box: where a regulated strain is stays masked (ADR 0009). */
 export const RISK_GROUP_ABOVE_BOX_CAP = "A box holding this strain's vials does not allow this risk group. Move the vials first."
 
@@ -34,6 +36,17 @@ export function strainError(error: unknown): string {
   if (isApiError(error, 409) && error.code === 'request_awaits_confirmation')
     return 'A shipment of this strain waits for its second person. Withdraw the prepared shipment on its request first, then deaccession the strain.'
   if (isApiError(error, 403) && error.code === 'confirm_own_deaccession') return 'You proposed to deaccession this strain: a different manager confirms it.'
+  if (isApiError(error) && error.code === 'risk_group_step_too_big') return RISK_GROUP_STEP_TOO_BIG
+  if (isApiError(error, 422) && error.code === 'risk_group_second_person_required')
+    return 'A lower risk group is not set in one step: close this and propose it, a manager other than you confirms it.'
+  if (isApiError(error, 422) && error.code === 'risk_group_not_lower') return 'This is not a lower risk group: close this and change it in one step.'
+  if (isApiError(error, 409) && error.code === 'risk_group_proposed')
+    return "Someone has proposed to lower this strain's risk group already. Close this and look at it again."
+  if (isApiError(error, 409) && (error.code === 'risk_group_not_proposed' || error.code === 'risk_group_proposal_changed'))
+    return 'The proposal changed meanwhile. Close this and read it again before you decide.'
+  if (isApiError(error, 409) && error.code === 'risk_group_proposal_outdated')
+    return "The strain's risk group changed since the proposal. Withdraw it and propose again."
+  if (isApiError(error, 403) && error.code === 'confirm_own_risk_group') return 'You proposed this risk group: a different manager confirms it.'
   return errorMessage(error)
 }
 

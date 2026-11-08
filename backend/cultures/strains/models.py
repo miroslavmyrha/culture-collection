@@ -16,6 +16,11 @@ plants as separate fields, and any number of restrictions. A restriction ends on
 proposal a second person confirms (#105): one person lifting it alone would take the strain out
 of every rule that reads "regulated" from the active restrictions.
 
+A risk group changes only with a stated basis, kept on the strain as `risk_group_basis` with the
+time of the change (#174). A lower group relaxes the rules the higher one brings, so it takes
+two people as well: a RiskGroupProposal a manager other than the proposer confirms. A raise
+goes one step at a time, by one person.
+
 Deaccession (#20, ADR 0008, D8): a strain leaves the collection with a cause, a reason, who and
 when, set if and only if its status is deaccessioned, which is terminal. The row stays, and so
 does its number. A regulated strain leaves only through a proposal a second person confirms
@@ -42,6 +47,7 @@ ONE_CURRENT_IDENTIFICATION = "strains_identification_one_current"
 ACTIVE_RESTRICTION_UNIQUE = "strains_restriction_active_uniq"
 ONE_OPEN_END_PROPOSAL = "strains_endproposal_one_open"
 ONE_OPEN_DEACCESSION_PROPOSAL = "strains_deaccessionproposal_one_open"
+ONE_OPEN_RISK_GROUP_PROPOSAL = "strains_riskgroupproposal_one_open"
 
 # ISO 8601 calendar dates of reduced precision: a year, a year and a month, or a full date
 # (the precision Darwin Core's eventDate allows). An isolation date is often known to the
@@ -135,6 +141,12 @@ class Strain(PublicModel, GrowthConditions):
     # The taxon of the current identification, cached for filters (strains.services keeps it).
     taxon = models.ForeignKey(Taxon, on_delete=models.PROTECT, related_name="+")
     risk_group = models.PositiveSmallIntegerField()
+    # #174: what the group rests on, in the person's words (a list entry, a catalogue, a
+    # publication), and when it was last changed. Both are written by every change of the group
+    # and by nothing else (the strain guard); blank and null for a group that still is the one
+    # the accession recorded. A group read from an official list is #169.
+    risk_group_basis = models.TextField(blank=True, default="", db_default="")
+    risk_group_set_at = models.DateTimeField(null=True, blank=True)
     animal_pathogenicity = models.CharField(max_length=20, choices=Pathogenicity.choices)
     plant_pathogenicity = models.CharField(max_length=20, choices=Pathogenicity.choices)
     # Origin (OECD BRC guidelines, General 10.2: source or host, date of isolation, at least
@@ -205,6 +217,12 @@ class Strain(PublicModel, GrowthConditions):
             models.CheckConstraint(
                 condition=Q(risk_group__gte=1, risk_group__lte=4),
                 name="strains_strain_risk_group_1_to_4",
+            ),
+            # #174: a changed group has both its basis and its time, an untouched one neither.
+            models.CheckConstraint(
+                condition=Q(risk_group_basis="", risk_group_set_at__isnull=True)
+                | Q(risk_group_basis__regex=r"\S", risk_group_set_at__isnull=False),
+                name="strains_strain_risk_group_basis_with_time",
             ),
             models.CheckConstraint(
                 condition=Q(animal_pathogenicity__in=Pathogenicity.values)
@@ -435,6 +453,100 @@ class RestrictionEndProposal(PublicModel):
 
     def __str__(self) -> str:
         return f"end proposal {self.public_id}"
+
+
+class RiskGroupProposal(PublicModel):
+    """A proposal to lower a strain's risk group, with the group it lowers from, the basis and
+    the reason (#174, ADR 0009). A manager other than the proposer confirms it, which sets the
+    group with that basis at the confirmation's time; or someone withdraws it with a reason of
+    their own. Inserted open; the one later change is the confirmation or the withdrawal, written
+    once (the trigger). Never deleted. At most one per strain is open (a partial unique index):
+    a strain's group may be lowered again later, so confirmed ones pile up, open ones do not."""
+
+    lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="+")
+    strain = models.ForeignKey(
+        Strain, on_delete=models.PROTECT, related_name="risk_group_proposals"
+    )
+    # The group proposed, and the strain's group when the proposal was made: the confirmation is
+    # refused when the strain no longer has that group (the basis was read against it).
+    risk_group = models.PositiveSmallIntegerField()
+    from_risk_group = models.PositiveSmallIntegerField()
+    # What the lower group rests on, in the proposer's words. It becomes the strain's
+    # risk_group_basis. Names nobody.
+    basis = models.TextField()
+    # Why it should be lowered now. Names nobody.
+    reason = models.TextField()
+    proposed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    proposed_at = models.DateTimeField()
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    withdrawn_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    withdrawn_at = models.DateTimeField(null=True, blank=True)
+    # Why it was withdrawn. Names nobody.
+    withdraw_reason = models.TextField(blank=True)
+
+    objects = LabScopedQuerySet["RiskGroupProposal"].as_manager()
+
+    class Meta(PublicModel.Meta):
+        constraints = [
+            *PublicModel.Meta.constraints,
+            models.UniqueConstraint(
+                fields=["strain"],
+                condition=Q(confirmed_at__isnull=True, withdrawn_at__isnull=True),
+                name=ONE_OPEN_RISK_GROUP_PROPOSAL,
+            ),
+            # A proposal only lowers, and never to or from a group outside 1 to 4.
+            models.CheckConstraint(
+                condition=Q(risk_group__gte=1, from_risk_group__lte=4)
+                & Q(risk_group__lt=F("from_risk_group")),
+                name="strains_riskgroupproposal_lowers",
+            ),
+            models.CheckConstraint(
+                condition=Q(basis__regex=r"\S"), name="strains_riskgroupproposal_basis_given"
+            ),
+            models.CheckConstraint(
+                condition=Q(reason__regex=r"\S"), name="strains_riskgroupproposal_reason_given"
+            ),
+            models.CheckConstraint(
+                condition=Q(confirmed_at__isnull=True, confirmed_by__isnull=True)
+                | Q(confirmed_at__isnull=False, confirmed_by__isnull=False),
+                name="strains_riskgroupproposal_confirmation_complete",
+            ),
+            models.CheckConstraint(
+                condition=Q(
+                    withdrawn_at__isnull=True, withdrawn_by__isnull=True, withdraw_reason=""
+                )
+                | Q(
+                    withdrawn_at__isnull=False,
+                    withdrawn_by__isnull=False,
+                    withdraw_reason__regex=r"\S",
+                ),
+                name="strains_riskgroupproposal_withdrawal_complete",
+            ),
+            models.CheckConstraint(
+                condition=Q(confirmed_at__isnull=True) | Q(withdrawn_at__isnull=True),
+                name="strains_riskgroupproposal_confirmed_or_withdrawn",
+            ),
+            models.CheckConstraint(
+                # Spelled with isnull: a CHECK passes when its condition is NULL.
+                condition=Q(confirmed_by__isnull=True) | ~Q(confirmed_by=F("proposed_by")),
+                name="strains_riskgroupproposal_second_person",
+            ),
+            models.CheckConstraint(
+                condition=(Q(confirmed_at__isnull=True) | Q(confirmed_at__gte=F("proposed_at")))
+                & (Q(withdrawn_at__isnull=True) | Q(withdrawn_at__gte=F("proposed_at"))),
+                name="strains_riskgroupproposal_outcome_after_proposal",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"risk group proposal {self.public_id}"
 
 
 class StrainDeaccessionProposal(PublicModel):

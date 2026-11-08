@@ -100,6 +100,10 @@ export function makeStrain(overrides: Partial<Strain> = {}): Strain {
     regulated: (overrides.restriction_history ?? []).some((r) => r.ended_at === null),
     deaccession: null,
     deaccession_proposal: null,
+    // #174: the group is the one the accession recorded, with no basis of its own and no
+    // proposal to lower it.
+    risk_group_basis: '',
+    risk_group_proposal: null,
     // The server sends it only to those who may open deposits (#154).
     deposit: null,
     ...overrides,

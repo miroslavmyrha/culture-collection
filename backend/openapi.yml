@@ -6725,9 +6725,9 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-          description: Invalid input, an unknown taxon, a risk group 4 agent, or a
-            group above the cap of a box holding the strain's vials (risk_group_above_box_cap),
-            on risk_group
+          description: Invalid input, an unknown taxon, a risk group 4 agent, a group
+            above the cap of a box holding the strain's vials (risk_group_above_box_cap),
+            or a raise of more than one step (risk_group_step_too_big), on risk_group
         '422':
           content:
             application/problem+json:
@@ -6865,9 +6865,9 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-          description: Invalid input, an unknown taxon, a risk group 4 agent, or a
-            group above the cap of a box holding the strain's vials (risk_group_above_box_cap),
-            on risk_group
+          description: Invalid input, an unknown taxon, a risk group 4 agent, a group
+            above the cap of a box holding the strain's vials (risk_group_above_box_cap),
+            or a raise of more than one step (risk_group_step_too_big), on risk_group
         '422':
           content:
             application/problem+json:
@@ -6940,9 +6940,9 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-          description: Invalid input, an unknown taxon, a risk group 4 agent, or a
-            group above the cap of a box holding the strain's vials (risk_group_above_box_cap),
-            on risk_group
+          description: Invalid input, an unknown taxon, a risk group 4 agent, a group
+            above the cap of a box holding the strain's vials (risk_group_above_box_cap),
+            or a raise of more than one step (risk_group_step_too_big), on risk_group
         '422':
           content:
             application/problem+json:
@@ -7237,6 +7237,9 @@ paths:
   /api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group/:
     post:
       operationId: labs_strains_risk_group_create
+      description: |-
+        Raises the risk group, or records the same one again, with the basis and the reason
+        (#174). A lower group is proposed instead (risk-group-proposal).
       parameters:
       - in: path
         name: lab_public_id
@@ -7275,9 +7278,257 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-          description: Invalid input, an unknown taxon, a risk group 4 agent, or a
-            group above the cap of a box holding the strain's vials (risk_group_above_box_cap),
-            on risk_group
+          description: Invalid input, an unknown taxon, a risk group 4 agent, a group
+            above the cap of a box holding the strain's vials (risk_group_above_box_cap),
+            or a raise of more than one step (risk_group_step_too_big), on risk_group
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'reason_required; basis_required: the change names what the
+            group rests on; risk_group_second_person_required: a lower group is proposed,
+            not set; risk_group_not_lower: this is not a lower group, change it in
+            one step'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group-proposal/:
+    post:
+      operationId: labs_strains_risk_group_proposal_create
+      description: |-
+        Proposes a lower risk group, with the basis it rests on (#174, ADR 0009). Nothing
+        changes for the strain until a manager other than the proposer confirms the proposal, so
+        every rule still reads the higher group.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiskGroupProposeInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RiskGroupProposeInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, an unknown taxon, a risk group 4 agent, a group
+            above the cap of a box holding the strain's vials (risk_group_above_box_cap),
+            or a raise of more than one step (risk_group_step_too_big), on risk_group
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'strain_deaccessioned; risk_group_proposed: a proposal waits'
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'reason_required; basis_required: the change names what the
+            group rests on; risk_group_second_person_required: a lower group is proposed,
+            not set; risk_group_not_lower: this is not a lower group, change it in
+            one step'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group-proposal/confirm/:
+    post:
+      operationId: labs_strains_risk_group_proposal_confirm_create
+      description: |-
+        A manager other than the proposer confirms the proposal they read: the risk group
+        drops now, with the proposal's basis.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiskGroupConfirmInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RiskGroupConfirmInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainDetailOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, an unknown taxon, a risk group 4 agent, a group
+            above the cap of a box holding the strain's vials (risk_group_above_box_cap),
+            or a raise of more than one step (risk_group_step_too_big), on risk_group
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'permission_denied: confirming is a manager''s; confirm_own_risk_group:
+            the caller proposed it, a different manager confirms'
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'strain_deaccessioned; risk_group_not_proposed: no proposal
+            is open; risk_group_proposal_changed: another proposal is open than the
+            one named; risk_group_proposal_outdated: the strain''s group changed since
+            the proposal'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group-proposal/withdraw/:
+    post:
+      operationId: labs_strains_risk_group_proposal_withdraw_create
+      description: Withdraws the open proposal the caller read, with a reason. The
+        group stays.
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiskGroupWithdrawInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RiskGroupWithdrawInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrainDetailOutput'
+          description: ''
+        '409':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'strain_deaccessioned; risk_group_not_proposed: no proposal
+            is open; risk_group_proposal_changed: another proposal is open than the
+            one named; risk_group_proposal_outdated: the strain''s group changed since
+            the proposal'
         '422':
           content:
             application/problem+json:
@@ -7285,6 +7536,12 @@ paths:
                 $ref: '#/components/schemas/Problem'
           description: 'lab_authorisation_required: the lab holds no valid permit
             for a restriction''s kind; reason_required'
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
         '401':
           content:
             application/problem+json:
@@ -13776,18 +14033,118 @@ components:
         * `2` - 2
         * `3` - 3
         * `4` - 4
+    RiskGroupConfirmInputRequest:
+      type: object
+      properties:
+        proposal:
+          type: string
+          format: uuid
+          description: The public id of the proposal the manager read.
+      required:
+      - proposal
     RiskGroupInputRequest:
       type: object
+      description: 'A raise, or the same group again: one person''s (#174).'
       properties:
         risk_group:
           $ref: '#/components/schemas/RiskGroup'
+        basis:
+          type: string
+          minLength: 1
+          description: 'What the group rests on: the list entry, the catalogue or
+            the publication. Stored for good: name no person.'
+          maxLength: 2000
         reason:
           type: string
           minLength: 1
           description: 'Why, in a sentence. Stored for good: name no person.'
       required:
+      - basis
       - reason
       - risk_group
+    RiskGroupProposalOutput:
+      type: object
+      description: |-
+        The open proposal to lower a strain's risk group (#174). It names nobody:
+        `confirm_refusal` says the caller proposed it and so may not confirm it (ADR 0009); null when
+        they may, as far as identity goes (confirming is a manager's, strains.confirm_risk_group).
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        risk_group:
+          allOf:
+          - $ref: '#/components/schemas/RiskGroup'
+          readOnly: true
+        from_risk_group:
+          allOf:
+          - $ref: '#/components/schemas/RiskGroup'
+          readOnly: true
+        basis:
+          type: string
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        proposed_at:
+          type: string
+          format: date-time
+          readOnly: true
+        confirm_refusal:
+          nullable: true
+          readOnly: true
+          oneOf:
+          - $ref: '#/components/schemas/RiskGroupProposalOutputConfirmRefusalEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - basis
+      - confirm_refusal
+      - from_risk_group
+      - proposed_at
+      - public_id
+      - reason
+      - risk_group
+    RiskGroupProposalOutputConfirmRefusalEnum:
+      enum:
+      - confirm_own_risk_group
+      type: string
+      description: '* `confirm_own_risk_group` - confirm_own_risk_group'
+    RiskGroupProposeInputRequest:
+      type: object
+      description: 'A lower group: the first of two steps (#174).'
+      properties:
+        risk_group:
+          $ref: '#/components/schemas/RiskGroup'
+        basis:
+          type: string
+          minLength: 1
+          description: 'What the group rests on: the list entry, the catalogue or
+            the publication. Stored for good: name no person.'
+          maxLength: 2000
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+      required:
+      - basis
+      - reason
+      - risk_group
+    RiskGroupWithdrawInputRequest:
+      type: object
+      properties:
+        proposal:
+          type: string
+          format: uuid
+          description: The public id of the proposal the manager read.
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+      required:
+      - proposal
+      - reason
     Role:
       enum:
       - viewer
@@ -14274,6 +14631,14 @@ components:
         regulated:
           type: boolean
           readOnly: true
+        risk_group_basis:
+          type: string
+          readOnly: true
+        risk_group_proposal:
+          allOf:
+          - $ref: '#/components/schemas/RiskGroupProposalOutput'
+          nullable: true
+          readOnly: true
         deaccession:
           allOf:
           - $ref: '#/components/schemas/DeaccessionOutput'
@@ -14308,6 +14673,8 @@ components:
       - restriction_history
       - restrictions
       - risk_group
+      - risk_group_basis
+      - risk_group_proposal
       - status
       - taxon
     StrainFactsInputRequest:

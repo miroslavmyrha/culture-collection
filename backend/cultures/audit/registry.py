@@ -126,6 +126,23 @@ STRAIN_RISK_GROUP_CHANGED = register(
         reason_required=True,
     )
 )
+# #174: a lower risk group takes two people. The proposal carries the basis and the reason; the
+# confirmation is strain_risk_group_changed, by a manager other than the proposer, with both
+# people and both times.
+STRAIN_RISK_GROUP_LOWER_PROPOSED = register(
+    EventType(
+        "strain_risk_group_lower_proposed",
+        "{actor} proposed to lower the risk group",
+        reason_required=True,
+    )
+)
+STRAIN_RISK_GROUP_LOWER_WITHDRAWN = register(
+    EventType(
+        "strain_risk_group_lower_withdrawn",
+        "{actor} withdrew a proposal to lower the risk group",
+        reason_required=True,
+    )
+)
 STRAIN_RESTRICTION_ADDED = register(
     EventType("strain_restriction_added", "{actor} added a restriction", reason_required=True)
 )
@@ -491,6 +508,10 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "isolation_source",
             "country_of_origin",
             "isolation_date",
+            # #174: what the current risk group rests on, free text naming nobody, and when it
+            # was set.
+            "risk_group_basis",
+            "risk_group_set_at",
             "growth_medium_id",
             "growth_temperature_low_c",
             "growth_temperature_high_c",
@@ -566,6 +587,29 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "updated_at",
             "lab_id",
             "restriction_id",
+            "reason",
+            "proposed_by_id",
+            "proposed_at",
+            "confirmed_by_id",
+            "confirmed_at",
+            "withdrawn_by_id",
+            "withdrawn_at",
+            "withdraw_reason",
+        ),
+    ),
+    # #174. The basis and the reasons are free text that names nobody; the people are user ids.
+    "strains_riskgroupproposal": RowAudit(
+        label="strains.riskgroupproposal",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "lab_id",
+            "strain_id",
+            "risk_group",
+            "from_risk_group",
+            "basis",
             "reason",
             "proposed_by_id",
             "proposed_at",

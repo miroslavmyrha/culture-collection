@@ -316,7 +316,13 @@ def test_a_pending_strain_gets_its_number_once(lab: Lab, exempli: Taxon) -> None
 
 def test_other_strain_fields_may_change(make_strain: MakeStrain) -> None:
     strain = make_strain()
-    Strain.objects.filter(pk=strain.pk).update(risk_group=2, isolation_source="soil")
+    # A risk group comes with its basis and the time of the change (#174, migration 0012).
+    Strain.objects.filter(pk=strain.pk).update(
+        risk_group=2,
+        risk_group_basis="NV 361/2007 Sb., Příloha 7",
+        risk_group_set_at=timezone.now(),
+        isolation_source="soil",
+    )
     strain.refresh_from_db()
     assert (strain.risk_group, strain.isolation_source) == (2, "soil")
 

@@ -936,3 +936,69 @@ verifier installed it prints that the token was not verified here.
   at, and the runtime role may record a true anchor.
 - One chain per table serialises every audited write. If that ever hurts, a chain per lab, or per
   day, with its own anchors, is the next shape; it was not needed to measure a lab register.
+
+## Amendment 2026-11-04: a lower risk group takes two people, and every change its basis (#174)
+
+A strain's risk group gates rules of this ADR beyond the strain itself: a box may hold a vial
+only up to its cap (`storage.policy.may_store`), the requester's declared containment must reach
+the group, a group of 3 asks a manager about Category A, and a group of 2 or higher is never
+shipped as exempt, non-pathogenic. Changing the group was one person's action in either
+direction, so a curator alone could lower a group 3 strain to 1 and with it every rule around it,
+with nothing but a reason in free text. Lowering is now a gated action of the two-person rule, in
+the pattern of the end of a restriction (#105) and the deaccession of a regulated strain (#20):
+
+- **Propose.** Someone with `strains.manage` (curator or manager) proposes the lower group, with
+  the basis it rests on and the reason (`strain_risk_group_lower_proposed`, both required). The
+  proposal records the group the strain has now, because the basis was read against it. Nothing
+  changes for the strain: every rule still reads the higher group. One proposal per strain is
+  open at a time (`risk_group_proposed`, 409); a raise or the same group is not proposed
+  (`risk_group_not_lower`, 422).
+- **Confirm.** A manager (`strains.confirm_risk_group`, its own code beside
+  `strains.confirm_restriction_end` and `strains.confirm_deaccession`, because the three
+  confirmations are different acts and a refusal says which one) other than the proposer confirms
+  the proposal they read: the request names its public id (`risk_group_proposal_changed`, 409,
+  when another is open). The proposer is refused (`confirm_own_risk_group`, 403), a manager too.
+  A strain whose group changed since the proposal is refused (`risk_group_proposal_outdated`,
+  409). The group drops at the confirmation's time with the proposal's basis;
+  `strain_risk_group_changed` holds both people (public ids) and both times.
+- **Withdraw.** Anyone with `strains.manage` withdraws the open proposal with a reason
+  (`strain_risk_group_lower_withdrawn`); it stays with who, when and why, and a new one may
+  follow. A strain's group may be lowered again later, so confirmed proposals pile up on a
+  strain, open ones do not.
+- **A raise stays one person's** (`strains.manage`), because it only tightens the rules, and it
+  goes one step at a time (`risk_group_step_too_big`, 400 on the field): a jump from 1 to 3
+  states one basis for two steps. Group 4 is still refused outright (2026-10-19, #54).
+- **Every change names its basis.** Government order 361/2007 Sb., Annex 7, Part A, before
+  table 1: „Biologické činitele, které nebyly zařazeny do skupin 2 až 4 seznamu, nejsou
+  automaticky zařazeny do skupiny 1.“ (An agent not classified into groups 2 to 4 of the list is
+  not thereby in group 1.) A group never follows from a missing entry, so a change states what
+  the new group rests on. The strain keeps the basis of its current group with the time of the
+  change (`risk_group_basis`, `risk_group_set_at`); both are blank for the group the accession
+  recorded. The basis is text the person writes (a list entry, a catalogue, a publication);
+  pointing it at an entry of the official data files under `cultures/biosafety/data` is #169,
+  which will add the entry's identity beside the text, not replace the field.
+- **The database holds it.** `strains_riskgroupproposal` is inserted open, to lower the group a
+  strain of its lab in the collection has now, settled once, never deleted; a check constraint
+  refuses a confirmer who is the proposer and a proposal that does not lower. The strain's guard
+  asks every change of `risk_group` for its basis and a time later than the change before it,
+  refuses a raise of more than one step, and lets a lower group be set only when a confirmed
+  proposal for that strain names exactly that change with that basis at that time, so
+  `QuerySet.update()` and psql cannot skip the second person, and a confirmed proposal cannot be
+  applied twice. A deferred constraint trigger holds the other direction at commit, as #151 does
+  for the other two proposals, with one difference: a group changes again and again, so the check
+  passes when the strain was changed after the confirmation.
+- **What people see.** The strain's detail carries `risk_group_basis` and the open proposal (the
+  group, the group it comes from, the basis, the reason, when, `confirm_refusal` for the caller),
+  naming nobody, so every reader of the strain may see it. The strain page proposes from the risk
+  group dialog, which says that a lower group waits for a manager, and offers the confirmation to
+  the managers who may give it.
+
+Migration impact: additive, in four steps that lock nothing on an existing table. `strains`
+0011 adds the strain's two columns with their check, 0012 creates the proposal table, 0013 builds
+its one open proposal per strain as a partial unique index with CREATE UNIQUE INDEX CONCURRENTLY
+(`atomic = False`, the index kept in the model state, as 0007 does for the growth medium), and
+0014 attaches the row audit and the triggers and replaces the strain guard of 0009; `audit` 0036
+adds the two event types to `audit_auditevent_reason_required` NOT VALID and 0037 validates it in
+a transaction of its own. The one-step lowering is gone from `POST .../risk-group/`
+(`risk_group_second_person_required`, 422). Reversible while no proposal exists:
+`migrate strains 0010` and `migrate audit 0035`.

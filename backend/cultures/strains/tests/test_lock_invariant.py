@@ -62,7 +62,46 @@ def strain_set_risk_group(f: Fixtures) -> Callable[[], object]:
     _, access, _, make = f
     strain = make()
     return lambda: strains.strain_set_risk_group(
-        access=access, strain=strain, risk_group=2, reason="r"
+        access=access, strain=strain, risk_group=2, basis="b", reason="r"
+    )
+
+
+def _raised(f: Fixtures) -> Strain:
+    """A strain at risk group 2, so there is a group to lower (#174)."""
+    _, access, _, make = f
+    strain = make()
+    return strains.strain_set_risk_group(
+        access=access, strain=strain, risk_group=2, basis="b", reason="r"
+    )
+
+
+def strain_risk_group_lower_propose(f: Fixtures) -> Callable[[], object]:
+    strain = _raised(f)
+    return lambda: strains.strain_risk_group_lower_propose(
+        access=f[1], strain=strain, risk_group=1, basis="b", reason="r"
+    )
+
+
+def _risk_group_proposed(f: Fixtures) -> tuple[Strain, UUID]:
+    strain = _raised(f)
+    proposal = strains.strain_risk_group_lower_propose(
+        access=f[1], strain=strain, risk_group=1, basis="b", reason="r"
+    )
+    return strain, proposal.public_id
+
+
+def strain_risk_group_lower_confirm(f: Fixtures) -> Callable[[], object]:
+    strain, proposal = _risk_group_proposed(f)
+    confirmer = access_for(member_of(f[0], Role.MANAGER, "risk-confirmer"))
+    return lambda: strains.strain_risk_group_lower_confirm(
+        access=confirmer, strain=strain, proposal=proposal
+    )
+
+
+def strain_risk_group_lower_withdraw(f: Fixtures) -> Callable[[], object]:
+    strain, proposal = _risk_group_proposed(f)
+    return lambda: strains.strain_risk_group_lower_withdraw(
+        access=f[1], strain=strain, proposal=proposal, reason="r"
     )
 
 
@@ -175,6 +214,9 @@ SCENARIOS: dict[str, Scenario] = {
         strain_create,
         strain_reclassify,
         strain_set_risk_group,
+        strain_risk_group_lower_propose,
+        strain_risk_group_lower_confirm,
+        strain_risk_group_lower_withdraw,
         strain_set_growth,
         strain_restriction_add,
         strain_restriction_end_propose,

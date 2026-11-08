@@ -9,7 +9,8 @@ and manage them (#11), view and manage depositors and deposits, publish MTA
 versions (#10, #12), view and manage storage (#14), handle vials (#16), release
 and hold batches (#17), read, enter and decide requests (#18), read the lab's permits (#82),
 deaccession strains (#20), read who revealed regulated locations (#83), read the lab's vials
-by state (#81), confirm the destruction of a regulated strain's vials (#160).
+by state (#81), confirm the destruction of a regulated strain's vials (#160), confirm a lower
+risk group (#174).
 The others are named now so later features plug into the same map instead of inventing their
 own checks.
 """
@@ -60,6 +61,12 @@ class Perm(StrEnum):
     # p. 31): a manager's, like confirming the end of a restriction. A strain that is not
     # regulated is deaccessioned by one person who manages strains (curator and up).
     CONFIRM_DEACCESSION = "strains.confirm_deaccession"
+    # #174: confirming a lower risk group, which another person proposed. A lower group relaxes
+    # the shipment class, the containment the requester must declare and the box a vial may sit
+    # in (ADR 0009), so it is a manager's, like the end of a restriction. It has its own code and
+    # does not come with strains.confirm_restriction_end: the two confirmations are different
+    # acts, and the refusal says which one.
+    CONFIRM_RISK_GROUP = "strains.confirm_risk_group"
     # #160: confirming the destruction record of a regulated strain, which another person
     # recorded: its vials are destroyed only then (ADR 0009, decision Q2 of the destruction study:
     # "a manager other than the one who recorded it, as the deaccession"). Recording a
@@ -133,6 +140,7 @@ GRANTS: dict[Role, frozenset[Perm]] = {
             Perm.APPROVE_REGULATED,
             Perm.CONFIRM_RESTRICTION_END,
             Perm.CONFIRM_DEACCESSION,
+            Perm.CONFIRM_RISK_GROUP,
             Perm.CONFIRM_DESTRUCTION,
             Perm.VIEW_LAB_PERMITS,
             Perm.VIEW_REVEALS,

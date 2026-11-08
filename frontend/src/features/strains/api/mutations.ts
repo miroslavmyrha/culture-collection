@@ -59,6 +59,48 @@ export function useSetRiskGroup(labId: string, strainId: string) {
   })
 }
 
+/** The first of two steps for a lower group (#174): nothing changes until a manager confirms. */
+export function useProposeRiskGroup(labId: string, strainId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: Schemas['RiskGroupProposeInputRequest']) => {
+      await ensureCsrf()
+      return unwrap(api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group-proposal/', { params: path(labId, strainId), body }))
+    },
+    meta: { handlesError: true },
+    onSuccess: (strain) => settle(qc, labId, strain),
+  })
+}
+
+/** The proposal the manager read, by its id: another one open meanwhile is a 409. */
+export function useConfirmRiskGroup(labId: string, strainId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (proposal: string) => {
+      await ensureCsrf()
+      return unwrap(
+        api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group-proposal/confirm/', { params: path(labId, strainId), body: { proposal } }),
+      )
+    },
+    meta: { handlesError: true },
+    onSuccess: (strain) => settle(qc, labId, strain),
+  })
+}
+
+export function useWithdrawRiskGroup(labId: string, strainId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: Schemas['RiskGroupWithdrawInputRequest']) => {
+      await ensureCsrf()
+      return unwrap(
+        api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group-proposal/withdraw/', { params: path(labId, strainId), body }),
+      )
+    },
+    meta: { handlesError: true },
+    onSuccess: (strain) => settle(qc, labId, strain),
+  })
+}
+
 export function useAddRestriction(labId: string, strainId: string) {
   const qc = useQueryClient()
   return useMutation({

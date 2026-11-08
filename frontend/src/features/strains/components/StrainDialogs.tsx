@@ -11,14 +11,17 @@ import {
   useAddRestriction,
   useConfirmDeaccession,
   useConfirmEnd,
+  useConfirmRiskGroup,
   useDeaccession,
   useProposeDeaccession,
   useProposeEnd,
+  useProposeRiskGroup,
   useReclassify,
   useSetGrowth,
   useSetRiskGroup,
   useWithdrawDeaccession,
   useWithdrawEnd,
+  useWithdrawRiskGroup,
 } from '../api/mutations'
 import {
   type AddRestrictionForm,
@@ -45,13 +48,14 @@ import {
   reclassifySchema,
   restrictionBody,
   type RiskGroupForm,
+  type RiskGroupProposal,
   type StrainGrowthForm,
   strainGrowthSchema,
   riskGroupSchema,
   type RiskGroupValues,
   type Strain,
 } from '../schemas'
-import { PERMIT_REFUSED_BY_KIND, RISK_GROUP_4_REFUSED, RISK_GROUP_ABOVE_BOX_CAP, strainError } from '../strainErrors'
+import { PERMIT_REFUSED_BY_KIND, RISK_GROUP_4_REFUSED, RISK_GROUP_ABOVE_BOX_CAP, RISK_GROUP_STEP_TOO_BIG, strainError } from '../strainErrors'
 import { TaxonField } from './TaxonField'
 
 type Common = { labId: string; strain: Strain; open: boolean; onClose: () => void; onExited: () => void }
@@ -124,39 +128,52 @@ export function ReclassifyDialog({ labId, strain, open, onClose, onExited }: Com
   )
 }
 
+const BASIS_HINT = 'The list entry, the catalogue or the publication the group comes from. An agent missing from a list is not thereby group 1 (NV 361/2007 Sb., Příloha 7).'
+const LOWER_WAITS = 'A lower risk group waits for a manager other than you to confirm it. Until then every rule reads the group the strain has now.'
+
+/**
+ * One dialog for both directions (#174): a raise, or the same group again, goes through at once;
+ * a lower group becomes a proposal a manager other than the proposer confirms. Every change
+ * states the basis of the new group.
+ */
 export function RiskGroupDialog({ labId, strain, open, onClose, onExited }: Common) {
   const change = useSetRiskGroup(labId, strain.public_id)
+  const propose = useProposeRiskGroup(labId, strain.public_id)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
-  const { register, handleSubmit, formState, setError } = useForm<RiskGroupForm, unknown, RiskGroupValues>({
+  const { control, register, handleSubmit, formState, setError } = useForm<RiskGroupForm, unknown, RiskGroupValues>({
     resolver: zodResolver(riskGroupSchema),
-    defaultValues: { risk_group: String(strain.risk_group), reason: '' },
+    defaultValues: { risk_group: String(strain.risk_group), basis: '', reason: '' },
   })
+  const chosen = useWatch({ control, name: 'risk_group' })
+  const lowering = Number(chosen) < strain.risk_group
+  const onError = (error: unknown) => {
+    for (const [code, message] of [
+      ['risk_group_4_refused', RISK_GROUP_4_REFUSED],
+      ['risk_group_above_box_cap', RISK_GROUP_ABOVE_BOX_CAP],
+      ['risk_group_step_too_big', RISK_GROUP_STEP_TOO_BIG],
+    ] as const) {
+      if (isApiError(error) && error.code === code) {
+        setError('risk_group', { type: 'server', message }, { shouldFocus: true })
+        return
+      }
+    }
+    setFailure(placeError(error, ['risk_group', 'basis', 'reason'], setError, () => setError('reason', missing, { shouldFocus: true })))
+  }
   const onSubmit = handleSubmit((values) => {
     setFailure(undefined)
-    change.mutate(values, {
-      onSuccess: onClose,
-      onError: (error) => {
-        if (isApiError(error) && error.code === 'risk_group_4_refused') {
-          setError('risk_group', { type: 'server', message: RISK_GROUP_4_REFUSED }, { shouldFocus: true })
-          return
-        }
-        if (isApiError(error) && error.code === 'risk_group_above_box_cap') {
-          setError('risk_group', { type: 'server', message: RISK_GROUP_ABOVE_BOX_CAP }, { shouldFocus: true })
-          return
-        }
-        setFailure(placeError(error, ['risk_group', 'reason'], setError, () => setError('reason', missing, { shouldFocus: true })))
-      },
-    })
+    const body = { ...values, basis: values.basis.trim(), reason: values.reason.trim() }
+    const mutation = lowering ? propose : change
+    mutation.mutate(body, { onSuccess: onClose, onError })
   })
   return (
     <ConfirmDialog
       open={open}
       title={`Change the risk group of ${strain.accession_number ?? 'the strain'}`}
-      description="Only with a reason. The change and the reason go into the strain's history."
-      confirmLabel="Save risk group"
+      description={`Only with a basis and a reason. The change and both go into the strain's history. ${lowering ? LOWER_WAITS : 'A higher group takes effect at once and rises one step at a time.'}`}
+      confirmLabel={lowering ? 'Propose the lower group' : 'Save risk group'}
       form={formId}
-      pending={change.isPending}
+      pending={change.isPending || propose.isPending}
       error={failure}
       onClose={onClose}
       onExited={onExited}
@@ -164,7 +181,74 @@ export function RiskGroupDialog({ labId, strain, open, onClose, onExited }: Comm
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Risk group" spacing={2} sx={{ mt: 2 }}>
         {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
         <SelectField label="Risk group" options={RISK_OPTIONS} autoFocus error={formState.errors.risk_group?.message} {...register('risk_group')} />
+        <TextField label="Basis" hint={BASIS_HINT} multiline minRows={2} error={formState.errors.basis?.message} {...register('basis')} />
         <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} error={formState.errors.reason?.message} {...register('reason')} />
+      </Stack>
+    </ConfirmDialog>
+  )
+}
+
+type RiskGroupProposalProps = Common & { proposal: RiskGroupProposal }
+
+/** A manager other than the proposer confirms the proposal they read: the group drops now. */
+export function ConfirmRiskGroupDialog({ labId, strain, proposal, open, onClose, onExited }: RiskGroupProposalProps) {
+  const confirm = useConfirmRiskGroup(labId, strain.public_id)
+  const [failure, setFailure] = useState<string>()
+  const onConfirm = () => {
+    setFailure(undefined)
+    confirm.mutate(proposal.public_id, { onSuccess: onClose, onError: (error) => setFailure(strainError(error)) })
+  }
+  return (
+    <ConfirmDialog
+      open={open}
+      title={`Lower the risk group to ${proposal.risk_group}?`}
+      description={`The strain leaves the rules of risk group ${proposal.from_risk_group}: a box capped at the lower group may hold its vials, a requester needs less containment, and its shipment may be classed lower.`}
+      confirmLabel="Lower the risk group"
+      destructive
+      pending={confirm.isPending}
+      error={failure}
+      onConfirm={onConfirm}
+      onClose={onClose}
+      onExited={onExited}
+    >
+      <Stack spacing={1} sx={{ mt: 2 }}>
+        <Typography>Basis given: {proposal.basis}</Typography>
+        <Typography>Reason given: {proposal.reason}</Typography>
+      </Stack>
+    </ConfirmDialog>
+  )
+}
+
+export function WithdrawRiskGroupDialog({ labId, strain, proposal, open, onClose, onExited }: RiskGroupProposalProps) {
+  const withdraw = useWithdrawRiskGroup(labId, strain.public_id)
+  const formId = useId()
+  const [failure, setFailure] = useState<string>()
+  const { register, handleSubmit, formState, setError } = useForm<EndReasonForm>({
+    resolver: zodResolver(endReasonSchema),
+    defaultValues: { reason: '' },
+  })
+  const onSubmit = handleSubmit((values) => {
+    setFailure(undefined)
+    withdraw.mutate(
+      { proposal: proposal.public_id, reason: values.reason.trim() },
+      { onSuccess: onClose, onError: (error) => setFailure(placeError(error, ['reason'], setError, () => setError('reason', missing, { shouldFocus: true }))) },
+    )
+  })
+  return (
+    <ConfirmDialog
+      open={open}
+      title={`Withdraw the proposal to lower the risk group of ${strain.accession_number ?? 'the strain'}`}
+      description="The strain keeps its risk group. The proposal stays in the history with your reason."
+      confirmLabel="Withdraw"
+      form={formId}
+      pending={withdraw.isPending}
+      error={failure}
+      onClose={onClose}
+      onExited={onExited}
+    >
+      <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Withdraw the proposal" spacing={2} sx={{ mt: 2 }}>
+        {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
+        <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} autoFocus error={formState.errors.reason?.message} {...register('reason')} />
       </Stack>
     </ConfirmDialog>
   )

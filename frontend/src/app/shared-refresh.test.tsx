@@ -169,7 +169,9 @@ const STRAIN_WRITES: [string, (user: UserEvent) => Promise<void>][] = [
         'Change risk group',
         'Change the risk group of MYC 42',
         async (dialog) => {
-          await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Risk group' }), '1')
+          await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Risk group' }), '2')
+          // #174: every risk group change states what the new group rests on.
+          await user.type(within(dialog).getByRole('textbox', { name: 'Basis' }), 'NV 361/2007 Sb., Příloha 7')
           await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'reassessed')
         },
         'Save risk group',

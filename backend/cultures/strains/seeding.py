@@ -1,6 +1,7 @@
 """What seed_dev makes of strains, through the strain services: strains entered with the
-curator's role, each followed by its history (reclassified, risk group changed, a restriction
-added, or ended by two people: the curator proposes, the lab's manager confirms, #105).
+curator's role, each followed by its history (reclassified, a restriction added, or a risk group
+lowered or a restriction ended by two people: the curator proposes, the lab's manager confirms,
+#105 and #174).
 
 Strains are never deleted, so a strain is found again by its lab and name as received, and one
 found is never changed: a second run changes nothing. The facts of a strain are also what a
@@ -46,7 +47,10 @@ class Reclassify:
 
 @dataclass(frozen=True)
 class SetRiskGroup:
+    """A raise goes through in one step; a lowering is proposed and confirmed (#174)."""
+
     risk_group: int
+    basis: str
     reason: str
 
 
@@ -85,7 +89,7 @@ class SeedStrain:
 
 def strain(curator: Access, manager: Access, lab: Lab, data: SeedStrain) -> bool:
     """The strain with its history, entered by `curator`; `manager` confirms the end of a
-    restriction. True when created."""
+    restriction and a lower risk group. True when created."""
     if Strain.objects.filter(lab=lab, name_as_received=data.name_as_received).exists():
         return False
     facts = data.facts
@@ -136,8 +140,23 @@ def _step(curator: Access, manager: Access, strain: Strain, step: Step) -> Strai
                 reason=step.reason,
             )
         case SetRiskGroup():
+            if step.risk_group < strain.risk_group:
+                lowering = services.strain_risk_group_lower_propose(
+                    access=curator,
+                    strain=strain,
+                    risk_group=step.risk_group,
+                    basis=step.basis,
+                    reason=step.reason,
+                )
+                return services.strain_risk_group_lower_confirm(
+                    access=manager, strain=strain, proposal=lowering.public_id
+                )
             return services.strain_set_risk_group(
-                access=curator, strain=strain, risk_group=step.risk_group, reason=step.reason
+                access=curator,
+                strain=strain,
+                risk_group=step.risk_group,
+                basis=step.basis,
+                reason=step.reason,
             )
         case AddRestriction():
             services.strain_restriction_add(

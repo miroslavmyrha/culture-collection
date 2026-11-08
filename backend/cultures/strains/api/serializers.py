@@ -21,6 +21,7 @@ from cultures.strains.models import (
     FinalUse,
     Pathogenicity,
     RestrictionEndProposal,
+    RiskGroupProposal,
     Strain,
     StrainDeaccessionProposal,
     StrainIdentification,
@@ -181,6 +182,37 @@ class DeaccessionProposalOutputSerializer(serializers.ModelSerializer[StrainDeac
         return "confirm_own_deaccession" if proposal.proposed_by_id == user_id else None
 
 
+class RiskGroupProposalOutputSerializer(serializers.ModelSerializer[RiskGroupProposal]):
+    """The open proposal to lower a strain's risk group (#174). It names nobody:
+    `confirm_refusal` says the caller proposed it and so may not confirm it (ADR 0009); null when
+    they may, as far as identity goes (confirming is a manager's, strains.confirm_risk_group)."""
+
+    risk_group = serializers.ChoiceField(choices=RISK_GROUPS, read_only=True)
+    from_risk_group = serializers.ChoiceField(choices=RISK_GROUPS, read_only=True)
+    confirm_refusal = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RiskGroupProposal
+        fields = (
+            "public_id",
+            "risk_group",
+            "from_risk_group",
+            "basis",
+            "reason",
+            "proposed_at",
+            "confirm_refusal",
+        )
+        read_only_fields = fields
+
+    @extend_schema_field(
+        serializers.ChoiceField(choices=["confirm_own_risk_group"], allow_null=True)
+    )
+    def get_confirm_refusal(self, proposal: RiskGroupProposal) -> str | None:
+        request: Request | None = self.context.get("request")
+        user_id = getattr(getattr(request, "user", None), "pk", None)
+        return "confirm_own_risk_group" if proposal.proposed_by_id == user_id else None
+
+
 class StrainDepositSerializer(serializers.Serializer[object]):
     """The deposit a strain came from (#154), as its own page names it: by the name as
     received. Nothing of the depositor."""
@@ -202,6 +234,9 @@ class StrainDetailOutputSerializer(StrainListOutputSerializer):
     # #20: an active restriction of any kind (strains.selectors.regulating_restrictions): the
     # deaccession then takes two people.
     regulated = serializers.BooleanField(read_only=True)
+    # #174: what the current group rests on (blank while it is the one the accession recorded)
+    # and the open proposal to lower it.
+    risk_group_proposal = serializers.SerializerMethodField()
     deaccession = serializers.SerializerMethodField()
     deaccession_proposal = serializers.SerializerMethodField()
     deposit = serializers.SerializerMethodField()
@@ -222,6 +257,8 @@ class StrainDetailOutputSerializer(StrainListOutputSerializer):
             "identifications",
             "restriction_history",
             "regulated",
+            "risk_group_basis",
+            "risk_group_proposal",
             "deaccession",
             "deaccession_proposal",
             "deposit",
@@ -239,6 +276,14 @@ class StrainDetailOutputSerializer(StrainListOutputSerializer):
         if deposit is None:
             return None
         return dict(StrainDepositSerializer(deposit).data)
+
+    @extend_schema_field(RiskGroupProposalOutputSerializer(allow_null=True))
+    def get_risk_group_proposal(self, strain: Strain) -> dict[str, object] | None:
+        # strains.selectors.strain_detail prefetches the open one: at most one (a unique index).
+        open_ones: list[RiskGroupProposal] = vars(strain).get("open_risk_group_proposals", [])
+        if not open_ones:
+            return None
+        return RiskGroupProposalOutputSerializer(open_ones[0], context=self.context).data
 
     @extend_schema_field(DeaccessionOutputSerializer(allow_null=True))
     def get_deaccession(self, strain: Strain) -> dict[str, object] | None:
@@ -302,9 +347,30 @@ class ReclassifyInputSerializer(serializers.Serializer[None]):
     reason = serializers.CharField(help_text=REASON_HELP)
 
 
+BASIS_HELP = (
+    "What the group rests on: the list entry, the catalogue or the publication. Stored for good:"
+    " name no person."
+)
+
+
 class RiskGroupInputSerializer(serializers.Serializer[None]):
+    """A raise, or the same group again: one person's (#174)."""
+
     risk_group = serializers.ChoiceField(choices=RISK_GROUPS)
+    basis = serializers.CharField(max_length=2000, help_text=BASIS_HELP)
     reason = serializers.CharField(help_text=REASON_HELP)
+
+
+class RiskGroupProposeInputSerializer(RiskGroupInputSerializer):
+    """A lower group: the first of two steps (#174)."""
+
+
+class RiskGroupConfirmInputSerializer(serializers.Serializer[None]):
+    proposal = serializers.UUIDField(help_text="The public id of the proposal the manager read.")
+
+
+class RiskGroupWithdrawInputSerializer(RiskGroupConfirmInputSerializer):
+    reason = serializers.CharField(max_length=2000, help_text=REASON_HELP)
 
 
 class RestrictionAddInputSerializer(RestrictionInputSerializer):

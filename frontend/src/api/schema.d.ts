@@ -1426,7 +1426,69 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * @description Raises the risk group, or records the same one again, with the basis and the reason
+         *     (#174). A lower group is proposed instead (risk-group-proposal).
+         */
         post: operations["labs_strains_risk_group_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group-proposal/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Proposes a lower risk group, with the basis it rests on (#174, ADR 0009). Nothing
+         *     changes for the strain until a manager other than the proposer confirms the proposal, so
+         *     every rule still reads the higher group.
+         */
+        post: operations["labs_strains_risk_group_proposal_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group-proposal/confirm/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A manager other than the proposer confirms the proposal they read: the risk group
+         *     drops now, with the proposal's basis.
+         */
+        post: operations["labs_strains_risk_group_proposal_confirm_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group-proposal/withdraw/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Withdraws the open proposal the caller read, with a reason. The group stays. */
+        post: operations["labs_strains_risk_group_proposal_withdraw_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3804,8 +3866,56 @@ export interface components {
          * @enum {integer}
          */
         RiskGroup: 1 | 2 | 3 | 4;
+        RiskGroupConfirmInputRequest: {
+            /**
+             * Format: uuid
+             * @description The public id of the proposal the manager read.
+             */
+            proposal: string;
+        };
+        /** @description A raise, or the same group again: one person's (#174). */
         RiskGroupInputRequest: {
             risk_group: components["schemas"]["RiskGroup"];
+            /** @description What the group rests on: the list entry, the catalogue or the publication. Stored for good: name no person. */
+            basis: string;
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
+        /**
+         * @description The open proposal to lower a strain's risk group (#174). It names nobody:
+         *     `confirm_refusal` says the caller proposed it and so may not confirm it (ADR 0009); null when
+         *     they may, as far as identity goes (confirming is a manager's, strains.confirm_risk_group).
+         */
+        RiskGroupProposalOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly risk_group: components["schemas"]["RiskGroup"];
+            readonly from_risk_group: components["schemas"]["RiskGroup"];
+            readonly basis: string;
+            readonly reason: string;
+            /** Format: date-time */
+            readonly proposed_at: string;
+            readonly confirm_refusal: (components["schemas"]["RiskGroupProposalOutputConfirmRefusalEnum"] | components["schemas"]["NullEnum"]) | null;
+        };
+        /**
+         * @description * `confirm_own_risk_group` - confirm_own_risk_group
+         * @enum {string}
+         */
+        RiskGroupProposalOutputConfirmRefusalEnum: "confirm_own_risk_group";
+        /** @description A lower group: the first of two steps (#174). */
+        RiskGroupProposeInputRequest: {
+            risk_group: components["schemas"]["RiskGroup"];
+            /** @description What the group rests on: the list entry, the catalogue or the publication. Stored for good: name no person. */
+            basis: string;
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
+        RiskGroupWithdrawInputRequest: {
+            /**
+             * Format: uuid
+             * @description The public id of the proposal the manager read.
+             */
+            proposal: string;
             /** @description Why, in a sentence. Stored for good: name no person. */
             reason: string;
         };
@@ -4008,6 +4118,8 @@ export interface components {
             readonly identifications: components["schemas"]["IdentificationOutput"][];
             readonly restriction_history: components["schemas"]["RestrictionOutput"][];
             readonly regulated: boolean;
+            readonly risk_group_basis: string;
+            readonly risk_group_proposal: components["schemas"]["RiskGroupProposalOutput"] | null;
             readonly deaccession: components["schemas"]["DeaccessionOutput"] | null;
             readonly deaccession_proposal: components["schemas"]["DeaccessionProposalOutput"] | null;
             readonly deposit: components["schemas"]["StrainDeposit"] | null;
@@ -11095,7 +11207,7 @@ export interface operations {
                     "application/json": components["schemas"]["StrainDetailOutput"];
                 };
             };
-            /** @description Invalid input, an unknown taxon, a risk group 4 agent, or a group above the cap of a box holding the strain's vials (risk_group_above_box_cap), on risk_group */
+            /** @description Invalid input, an unknown taxon, a risk group 4 agent, a group above the cap of a box holding the strain's vials (risk_group_above_box_cap), or a raise of more than one step (risk_group_step_too_big), on risk_group */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -11230,7 +11342,7 @@ export interface operations {
                     "application/json": components["schemas"]["StrainDetailOutput"];
                 };
             };
-            /** @description Invalid input, an unknown taxon, a risk group 4 agent, or a group above the cap of a box holding the strain's vials (risk_group_above_box_cap), on risk_group */
+            /** @description Invalid input, an unknown taxon, a risk group 4 agent, a group above the cap of a box holding the strain's vials (risk_group_above_box_cap), or a raise of more than one step (risk_group_step_too_big), on risk_group */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -11307,7 +11419,7 @@ export interface operations {
                     "application/json": components["schemas"]["StrainDetailOutput"];
                 };
             };
-            /** @description Invalid input, an unknown taxon, a risk group 4 agent, or a group above the cap of a box holding the strain's vials (risk_group_above_box_cap), on risk_group */
+            /** @description Invalid input, an unknown taxon, a risk group 4 agent, a group above the cap of a box holding the strain's vials (risk_group_above_box_cap), or a raise of more than one step (risk_group_step_too_big), on risk_group */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -11634,7 +11746,7 @@ export interface operations {
                     "application/json": components["schemas"]["StrainDetailOutput"];
                 };
             };
-            /** @description Invalid input, an unknown taxon, a risk group 4 agent, or a group above the cap of a box holding the strain's vials (risk_group_above_box_cap), on risk_group */
+            /** @description Invalid input, an unknown taxon, a risk group 4 agent, a group above the cap of a box holding the strain's vials (risk_group_above_box_cap), or a raise of more than one step (risk_group_step_too_big), on risk_group */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -11660,6 +11772,255 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required; basis_required: the change names what the group rests on; risk_group_second_person_required: a lower group is proposed, not set; risk_group_not_lower: this is not a lower group, change it in one step */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_risk_group_proposal_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiskGroupProposeInputRequest"];
+                "multipart/form-data": components["schemas"]["RiskGroupProposeInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainDetailOutput"];
+                };
+            };
+            /** @description Invalid input, an unknown taxon, a risk group 4 agent, a group above the cap of a box holding the strain's vials (risk_group_above_box_cap), or a raise of more than one step (risk_group_step_too_big), on risk_group */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description strain_deaccessioned; risk_group_proposed: a proposal waits */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required; basis_required: the change names what the group rests on; risk_group_second_person_required: a lower group is proposed, not set; risk_group_not_lower: this is not a lower group, change it in one step */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_risk_group_proposal_confirm_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiskGroupConfirmInputRequest"];
+                "multipart/form-data": components["schemas"]["RiskGroupConfirmInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainDetailOutput"];
+                };
+            };
+            /** @description Invalid input, an unknown taxon, a risk group 4 agent, a group above the cap of a box holding the strain's vials (risk_group_above_box_cap), or a raise of more than one step (risk_group_step_too_big), on risk_group */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description permission_denied: confirming is a manager's; confirm_own_risk_group: the caller proposed it, a different manager confirms */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description strain_deaccessioned; risk_group_not_proposed: no proposal is open; risk_group_proposal_changed: another proposal is open than the one named; risk_group_proposal_outdated: the strain's group changed since the proposal */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_risk_group_proposal_withdraw_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiskGroupWithdrawInputRequest"];
+                "multipart/form-data": components["schemas"]["RiskGroupWithdrawInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrainDetailOutput"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description strain_deaccessioned; risk_group_not_proposed: no proposal is open; risk_group_proposal_changed: another proposal is open than the one named; risk_group_proposal_outdated: the strain's group changed since the proposal */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

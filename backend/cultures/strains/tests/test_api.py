@@ -132,6 +132,9 @@ def test_the_detail_of_a_strain(
             },
         ],
         "regulated": True,
+        # #174: the group is the one the accession recorded, so it has no basis of its own yet.
+        "risk_group_basis": "",
+        "risk_group_proposal": None,
         "deaccession": None,
         "deaccession_proposal": None,
         "deposit": None,
@@ -172,9 +175,11 @@ def test_reclassify_risk_group_and_restrictions_through_the_actions(
         ("Testella exempli", False),
     ]
     assert (
-        post(curator, {"risk_group": 2, "reason": "reassessed"}, f"{base}risk-group/").json()[
-            "risk_group"
-        ]
+        post(
+            curator,
+            {"risk_group": 2, "basis": "NV 361/2007 Sb., Příloha 7", "reason": "reassessed"},
+            f"{base}risk-group/",
+        ).json()["risk_group"]
         == 2
     )
     body = post(
@@ -229,8 +234,14 @@ def test_reclassify_risk_group_and_restrictions_through_the_actions(
             "blank",
             "reason",
         ),
-        ("risk-group/", {"risk_group": 4, "reason": "r"}, "risk_group_4_refused", "risk_group"),
-        ("risk-group/", {"risk_group": 2}, "required", "reason"),
+        (
+            "risk-group/",
+            {"risk_group": 4, "basis": "b", "reason": "r"},
+            "risk_group_4_refused",
+            "risk_group",
+        ),
+        ("risk-group/", {"risk_group": 2, "basis": "b"}, "required", "reason"),
+        ("risk-group/", {"risk_group": 2, "reason": "r"}, "required", "basis"),
         (
             "restrictions/",
             {"kind": "dual_use", "reference": "1C351.c", "reason": "r"},

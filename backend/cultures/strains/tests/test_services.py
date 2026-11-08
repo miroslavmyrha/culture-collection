@@ -25,6 +25,7 @@ from cultures.strains.models import (
     DeaccessionCause,
     Pathogenicity,
     RestrictionEndProposal,
+    RiskGroupProposal,
     Strain,
     StrainCounter,
     StrainDeaccessionProposal,
@@ -528,13 +529,23 @@ def test_a_risk_group_change_records_old_new_and_the_reason(
 ) -> None:
     strain = make_strain()
     services.strain_set_risk_group(
-        access=curator_access, strain=strain, risk_group=2, reason="reassessed under 361/2007"
+        access=curator_access,
+        strain=strain,
+        risk_group=2,
+        basis="NV 361/2007 Sb., Příloha 7, part A, table 1",
+        reason="reassessed under 361/2007",
     )
     strain.refresh_from_db()
     assert strain.risk_group == 2
+    # #174: the basis of the group now stands on the strain, with the time of the change.
+    assert strain.risk_group_basis == "NV 361/2007 Sb., Příloha 7, part A, table 1"
+    assert strain.risk_group_set_at is not None
     event = AuditEvent.objects.filter(event_type="strain_risk_group_changed").get()
     assert (event.changes, event.reason, event.strain_id) == (
-        {"risk_group": [1, 2]},
+        {
+            "risk_group": [1, 2],
+            "basis": [None, "NV 361/2007 Sb., Příloha 7, part A, table 1"],
+        },
         "reassessed under 361/2007",
         strain.public_id,
     )
@@ -547,7 +558,7 @@ def test_the_same_risk_group_again_records_nothing(
     strain = make_strain()
     before = snapshot()
     services.strain_set_risk_group(
-        access=curator_access, strain=strain, risk_group=1, reason="checked"
+        access=curator_access, strain=strain, risk_group=1, basis="The same entry", reason="checked"
     )
     assert snapshot() == before
 
@@ -561,7 +572,7 @@ def test_a_change_to_risk_group_4_is_refused(
         services.RiskGroupRefused,
         "risk_group_4_refused",
         lambda: services.strain_set_risk_group(
-            access=curator_access, strain=strain, risk_group=4, reason="x"
+            access=curator_access, strain=strain, risk_group=4, basis="b", reason="x"
         ),
         attr="risk_group",
     )
@@ -576,9 +587,26 @@ def test_a_risk_group_change_needs_a_reason(
         RuleViolation,
         "reason_required",
         lambda: services.strain_set_risk_group(
-            access=curator_access, strain=strain, risk_group=2, reason=" "
+            access=curator_access, strain=strain, risk_group=2, basis="b", reason=" "
         ),
         attr="reason",
+    )
+
+
+@pytest.mark.rule("R-RISK-07")
+def test_a_risk_group_change_needs_a_basis(
+    make_strain: MakeStrain, as_curator: AuditContext, curator_access: Access
+) -> None:
+    """Government order 361/2007 Sb., Annex 7, Part A: an agent that is in none of the groups 2
+    to 4 of the list is not thereby in group 1, so no group follows from a list alone (#174)."""
+    strain = make_strain()
+    refused(
+        RuleViolation,
+        "basis_required",
+        lambda: services.strain_set_risk_group(
+            access=curator_access, strain=strain, risk_group=2, basis="  ", reason="reassessed"
+        ),
+        attr="basis",
     )
 
 
@@ -683,7 +711,28 @@ SCENARIOS: dict[str, Scenario] = {
         reason=REASON,
     ),
     "strain_set_risk_group": lambda strain, access, taxon: services.strain_set_risk_group(
-        access=access, strain=strain, risk_group=3, reason="reassessed"
+        access=access, strain=strain, risk_group=2, basis="b", reason="reassessed"
+    ),
+    # #174: the fixture's strain is risk group 1, so a lowering follows a raise to 2.
+    "strain_risk_group_lower_propose": lambda strain, access, taxon: (
+        services.strain_risk_group_lower_propose(
+            access=access, strain=raised(strain, access), risk_group=1, basis="b", reason="r"
+        )
+    ),
+    "strain_risk_group_lower_confirm": lambda strain, access, taxon: (
+        services.strain_risk_group_lower_confirm(
+            access=access_for(member_of(strain.lab, Role.MANAGER, "risk-confirmer")),
+            strain=strain,
+            proposal=lowering(strain, access).public_id,
+        )
+    ),
+    "strain_risk_group_lower_withdraw": lambda strain, access, taxon: (
+        services.strain_risk_group_lower_withdraw(
+            access=access,
+            strain=strain,
+            proposal=lowering(strain, access).public_id,
+            reason="still group 2",
+        )
     ),
     "strain_set_growth": lambda strain, access, taxon: services.strain_set_growth(
         access=access, strain=strain, growth=Growth(temperature_low_c=30), reason="refined"
@@ -746,6 +795,10 @@ SCENARIOS: dict[str, Scenario] = {
 # The scenarios that propose first: the proposal's event names the strain too.
 EVENTS_OF = {
     "strain_create": 1,
+    # #174: the raise to 2, then the proposal, then the service's own event.
+    "strain_risk_group_lower_propose": 3,
+    "strain_risk_group_lower_confirm": 4,
+    "strain_risk_group_lower_withdraw": 4,
     "strain_restriction_end_confirm": 3,
     "strain_restriction_end_withdraw": 3,
     "strain_deaccession": 4,
@@ -757,6 +810,19 @@ EVENTS_OF = {
 def proposed(strain: Strain, access: Access) -> RestrictionEndProposal:
     return services.strain_restriction_end_propose(
         access=access, restriction=StrainRestriction.objects.get(strain=strain), reason="gone"
+    )
+
+
+def raised(strain: Strain, access: Access) -> Strain:
+    """The strain at risk group 2 (#174): a lowering needs a group above 1."""
+    return services.strain_set_risk_group(
+        access=access, strain=strain, risk_group=2, basis="b", reason="reassessed"
+    )
+
+
+def lowering(strain: Strain, access: Access) -> RiskGroupProposal:
+    return services.strain_risk_group_lower_propose(
+        access=access, strain=raised(strain, access), risk_group=1, basis="b", reason="r"
     )
 
 
@@ -791,6 +857,6 @@ def test_a_viewer_access_object_is_not_enough(
         Forbidden,
         "permission_denied",
         lambda: services.strain_set_risk_group(
-            access=access_for(viewer), strain=strain, risk_group=2, reason="x"
+            access=access_for(viewer), strain=strain, risk_group=2, basis="b", reason="x"
         ),
     )

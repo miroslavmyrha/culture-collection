@@ -202,7 +202,11 @@ def test_preserving_into_a_box_asks_may_store(
     code: str,
 ) -> None:
     strains.strain_set_risk_group(
-        access=access_for(curator), strain=regulated, risk_group=2, reason="reassessed"
+        access=access_for(curator),
+        strain=regulated,
+        risk_group=2,
+        basis="NV 361/2007 Sb., Příloha 7",
+        reason="reassessed",
     )
     targets = {
         "rack": tree.rack,
@@ -486,7 +490,11 @@ def test_placing_asks_may_store_under_the_lab_lock(
     )
     strain = vial.batch.strain
     # Raised past the cap of the freezer: the next placement of its vials is refused.
-    Strain.objects.filter(pk=strain.pk).update(risk_group=2)
+    Strain.objects.filter(pk=strain.pk).update(
+        risk_group=2,
+        risk_group_basis="NV 361/2007 Sb., Příloha 7",
+        risk_group_set_at=timezone.now(),
+    )
     refused(
         services.InvalidVial,
         "risk_group_above_cap",
@@ -643,7 +651,11 @@ def test_a_cap_does_not_go_below_what_a_unit_holds(
     as_technician: AuditContext, technician: User, curator: User, vial: Vial, tree: Tree
 ) -> None:
     access = access_for(curator)
-    Strain.objects.filter(pk=vial.batch.strain_id).update(risk_group=2)
+    Strain.objects.filter(pk=vial.batch.strain_id).update(
+        risk_group=2,
+        risk_group_basis="NV 361/2007 Sb., Příloha 7",
+        risk_group_set_at=timezone.now(),
+    )
     place(technician, vial, tree.box, 1, 1)
 
     def lower(unit: StorageUnit, name: str) -> object:
@@ -670,7 +682,11 @@ def test_a_unit_is_not_moved_under_a_lower_cap_than_it_holds(
     tree: Tree,
     make_unit: MakeUnit,
 ) -> None:
-    Strain.objects.filter(pk=vial.batch.strain_id).update(risk_group=2)
+    Strain.objects.filter(pk=vial.batch.strain_id).update(
+        risk_group=2,
+        risk_group_basis="NV 361/2007 Sb., Příloha 7",
+        risk_group_set_at=timezone.now(),
+    )
     place(technician, vial, tree.box, 1, 1)
     low = make_unit(UnitKind.FREEZER, "Freezer RG1", max_risk_group=1)
     refused(

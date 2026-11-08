@@ -164,16 +164,17 @@ and the rules and duties it decides are changed in the same commit.
   change of a strain's risk group to 4". No law read forbids holding one under containment
   level 4.
 - Code: `backend/cultures/strains/services.py::_check_risk_group`, `backend/cultures/strains/services.py::RiskGroupRefused`
-- Tests: `backend/cultures/strains/tests/test_services.py::test_a_risk_group_4_agent_is_refused_on_its_field`, `backend/cultures/strains/tests/test_services.py::test_a_change_to_risk_group_4_is_refused`, `backend/cultures/deposits/tests/test_services.py::test_a_risk_group_4_agent_is_refused_at_acceptance`
+- Tests: `backend/cultures/strains/tests/test_services.py::test_a_risk_group_4_agent_is_refused_on_its_field`, `backend/cultures/strains/tests/test_services.py::test_a_change_to_risk_group_4_is_refused`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_proposal_to_group_4_is_refused_before_anything_is_written`, `backend/cultures/deposits/tests/test_services.py::test_a_risk_group_4_agent_is_refused_at_acceptance`
 
-#### R-RISK-03 A risk group changes by one person who manages strains, with a reason
+#### R-RISK-03 A risk group rises by one person who manages strains, with a reason
 
 - Kind: own control
-- Source: our own.
+- Source: our own. A raise only tightens the rules the group brings, so one person suffices,
+  while lowering it takes two (R-RISK-06).
 - Code: `backend/cultures/strains/services.py::strain_set_risk_group`
 - Tests: `backend/cultures/strains/tests/test_services.py::test_a_risk_group_change_records_old_new_and_the_reason`, `backend/cultures/strains/tests/test_services.py::test_a_risk_group_change_needs_a_reason`, `backend/cultures/strains/tests/test_services.py::test_the_same_risk_group_again_records_nothing`
-- Limits: one person also lowers a group, which relaxes R-SHIP-03, R-DIST-10 and R-DIST-12.
-  Lowering by two people is #174.
+- Limits: the same group again changes nothing and records nothing, so a new basis for an
+  unchanged group is not recorded (#169).
 
 #### R-RISK-04 A higher risk group must fit the cap of every box holding the strain
 
@@ -189,6 +190,48 @@ and the rules and duties it decides are changed in the same commit.
 - Code: `backend/cultures/strains/models.py::Pathogenicity`, `backend/cultures/strains/models.py::"strains_strain_pathogenicity_valid"`
 - Tests: `backend/cultures/strains/tests/test_models.py::test_a_strain_row_that_cannot_be_true_is_refused`
 - Limits: no gate reads it. See C-01 below (#173).
+
+#### R-RISK-06 A risk group drops only by two people: a proposal and a confirmation by another manager
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-04 (#174). No law read asks it. A lower group relaxes
+  R-RISK-04, R-DIST-10, R-DIST-12 and R-SHIP-03, so it is a gated action of the project's
+  two-person rule, like the end of a restriction (R-KIND-07) and the departure of a regulated
+  strain (R-END-01).
+- Code: `backend/cultures/strains/services.py::strain_risk_group_lower_propose`, `backend/cultures/strains/services.py::strain_risk_group_lower_confirm`, `backend/cultures/strains/services.py::RiskGroupNeedsSecondPerson`, `backend/cultures/strains/services.py::ConfirmOwnRiskGroup`, `backend/cultures/strains/models.py::"strains_riskgroupproposal_second_person"`, `backend/cultures/strains/migrations/0014_risk_group_audit_and_guards.py::"a second person confirms a proposal to lower it"`
+- Tests: `backend/cultures/strains/tests/test_risk_group_proposals.py::test_one_person_no_longer_lowers_a_risk_group`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_proposal_changes_nothing_for_the_strain`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_another_manager_confirms_and_the_group_drops_with_both_people`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_events_of_a_lowering_hold_no_personal_value`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_nobody_confirms_their_own_proposal`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_only_a_manager_confirms`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_manager_demoted_after_reading_does_not_confirm`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_proposal_is_withdrawn_with_a_reason_and_another_may_follow`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_shipment_rule_and_the_detail_read_the_higher_group_while_it_waits`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_lower_group_is_set_only_at_a_confirmed_proposal`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_confirmed_proposal_is_not_applied_twice`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_runtime_role_cannot_confirm_a_lowering_that_did_not_happen`, `backend/cultures/lineage/tests/test_risk_group_caps.py::test_a_lower_group_reaches_the_box_cap_only_at_the_confirmation`
+- Limits: the confirmer is not written on the strain, so the trigger pins a lowering by the
+  strain, both groups, the basis and the confirmation's time, not by the person; the proposal
+  holds both people. The check that a confirmed proposal was applied passes when the strain
+  changed again afterwards (a group changes again and again, unlike a deaccession). Issue: none
+
+#### R-RISK-07 Every risk group change names the basis of the new group
+
+- Kind: law in part
+- Source: government order 361/2007 Sb., Annex 7, Part A, the sentence before table 1 (the
+  consolidated text in force from 2026-09-01, e-Sbírka, SHA-256
+  6dd28ebb7fede464528d766d7dd58d066281a6a7fac6ccca99a76c7eb251d64c, the version
+  `backend/cultures/biosafety/data/manifest.json` records). The law says a group never follows
+  from a missing list entry; that the basis is recorded as a field of the change, in the
+  person's words, is our own (ADR 0009, amendment 2026-11-04, #174).
+- Quote: „Biologické činitele, které nebyly zařazeny do skupin 2 až 4 seznamu, nejsou automaticky zařazeny do skupiny 1.“
+- English: Biological agents that have not been classified into groups 2 to 4 of the list are
+  not automatically classified into group 1.
+- Code: `backend/cultures/strains/services.py::_check_basis`, `backend/cultures/strains/models.py::"strains_strain_risk_group_basis_with_time"`, `backend/cultures/strains/migrations/0014_risk_group_audit_and_guards.py::"a risk group change states its basis and the time it was made"`
+- Tests: `backend/cultures/strains/tests/test_services.py::test_a_risk_group_change_needs_a_basis`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_proposal_without_a_basis_or_a_reason_is_refused`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_database_asks_every_change_for_its_basis_and_its_time`
+- Limits: the basis is text a person types, not an entry of an official list, and the group the
+  accession recorded has none at all (#169). The data files of the lists are in the repository
+  and nothing reads them yet.
+
+#### R-RISK-08 A risk group rises one step at a time
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-04 (#174). No law read asks it: it is ours, so that each
+  step states its own basis instead of one jump from 1 to 3.
+- Code: `backend/cultures/strains/services.py::RiskGroupStepTooBig`, `backend/cultures/strains/migrations/0014_risk_group_audit_and_guards.py::"a risk group rises one step at a time"`
+- Tests: `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_raise_stays_one_step_and_needs_no_second_person`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_database_lets_a_group_rise_one_step_at_a_time`
+- Limits: a strain may still be accessioned straight into group 3 (R-RISK-02 refuses only group
+  4): the rule is about changing a classification, not about the first one. Issue: none
 
 ### The lab's own permits
 
@@ -978,8 +1021,6 @@ Not legal duties, listed so that a reader sees what the ADRs promise and the cod
 yet.
 
 - Every classification from an official list, with its source and version: #169.
-- Lowering a risk group by two people (the project's own rule for anything that relaxes a gate,
-  R-RISK-03): #174.
 - The audit hash chain with a daily qualified timestamp (ADR 0009, Tamper evidence): #175.
 - A second factor on every account (ADR 0009, Second factor): #176.
 
