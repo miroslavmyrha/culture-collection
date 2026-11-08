@@ -578,6 +578,8 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "strain_id",
             "kind",
             "reference",
+            # #169: the entry of the official list the reference names, where a list has it.
+            "list_entry_id",
             "act",
             "gmo_category",
             "ended_at",

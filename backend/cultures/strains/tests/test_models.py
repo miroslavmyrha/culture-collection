@@ -10,6 +10,7 @@ from django.db.models.functions import Now
 from django.utils import timezone
 
 from cultures.biosafety.models import RestrictionKind
+from cultures.biosafety.selectors import list_entry
 from cultures.labs.models import Lab
 from cultures.strains.models import (
     RestrictionEndProposal,
@@ -194,6 +195,10 @@ def restriction(strain: Strain, **fields: Any) -> StrainRestriction:
         "reference": "Příloha 2, bod 1",
         **fields,
     }
+    # #169: a dual-use row names an entry of the current reading of Annex I. These tests write
+    # rows straight to the table, so they resolve it the way the service does.
+    if values["kind"] == RestrictionKind.DUAL_USE and "list_entry" not in values:
+        values["list_entry"] = list_entry(RestrictionKind.DUAL_USE, values["reference"])
     return StrainRestriction.objects.create(lab=strain.lab, strain=strain, **values)
 
 
@@ -202,13 +207,15 @@ def restriction(strain: Strain, **fields: Any) -> StrainRestriction:
     [
         ({"kind": "toxin"}, "strains_restriction_kind_valid"),
         ({"reference": ""}, "strains_restriction_reference_trimmed"),
+        # Since #169 the entry is the arbiter and the trigger refuses first: no reference the
+        # annex does not hold can reach the pattern, because every entry code matches it.
         (
             {"kind": "dual_use", "reference": "1C350", "act": "(EU) 2025/2003"},
-            "strains_restriction_dual_use_entry",
+            "names an entry Annex I",
         ),
         (
             {"kind": "dual_use", "reference": "1C351.f", "act": "(EU) 2025/2003"},
-            "strains_restriction_dual_use_entry",
+            "names an entry Annex I",
         ),
         (
             {"kind": "dual_use", "reference": "1C351.c", "act": ""},

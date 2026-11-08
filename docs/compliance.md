@@ -137,8 +137,9 @@ and the rules and duties it decides are changed in the same commit.
   II, act 78/2004 Sb.). Which lists the app models is a scope choice.
 - Code: `backend/cultures/biosafety/models.py::RestrictionKind`, `backend/cultures/strains/models.py::"strains_restriction_kind_valid"`
 - Tests: `backend/cultures/strains/tests/test_models.py::test_a_restriction_has_the_fields_of_its_kind`, `backend/cultures/strains/tests/test_models.py::test_restrictions_of_the_right_shape_are_stored`
-- Limits: every restriction is typed by a person, and the taxon is not consulted. The official
-  lists are held now (R-LIST-01), and nothing reads them yet (#169).
+- Limits: every restriction is typed by a person, and the taxon is not consulted (#169, the
+  boxes after the second). A dual-use restriction now points at the Annex I entry it names
+  (R-KIND-10), the others at an entry where the reference is one.
 
 #### R-KIND-02 A dual-use restriction names an entry of 1C351, 1C353 or 1C354
 
@@ -149,8 +150,9 @@ and the rules and duties it decides are changed in the same commit.
 - Code: `backend/cultures/strains/models.py::DUAL_USE_ENTRY`, `backend/cultures/strains/services.py::check_restriction`, `backend/cultures/strains/models.py::"strains_restriction_dual_use_entry"`
 - Tests: `backend/cultures/strains/tests/test_models.py::test_a_restriction_has_the_fields_of_its_kind`
 - Limits: the pattern accepts entries the annex does not have: 1C351.b reads "b. Not used;" in
-  Annex I as replaced by Delegated Regulation (EU) 2025/2003. The entry is not checked against
-  the annex (#169).
+  Annex I as replaced by Delegated Regulation (EU) 2025/2003. Since #169 the entry itself is the
+  arbiter (R-KIND-10), which refuses such a reference before the pattern is reached, so the
+  pattern is the first line and no longer the only one. Issue: none
 
 #### R-KIND-03 A dual-use restriction names the delegated act its annex was read in
 
@@ -199,6 +201,41 @@ and the rules and duties it decides are changed in the same commit.
   its end takes two (R-KIND-07).
 - Code: `backend/cultures/strains/services.py::strain_restriction_add`
 - Tests: `backend/cultures/strains/tests/test_services.py::test_a_curator_adds_a_restriction_and_it_ends_by_two_people`
+
+#### R-KIND-10 A restriction points at the entry of its official list, and a dual-use reference is one Annex I holds
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-08 (#169). The Annex I entry codes of Regulation (EU)
+  2021/821 are the annex's own, so a dual-use reference is checked against the list the app
+  holds (R-LIST-01) and is nothing else. A VRAT, a RAT and a quarantine pest are referred to by
+  the words of their annex, which this app does not own, so an entry is attached where the
+  reference is an entry code of the list and not demanded where it is not. A GMO is on no list.
+- Code: `backend/cultures/biosafety/selectors.py::list_entry`, `backend/cultures/biosafety/selectors.py::ENTRY_REQUIRED`, `backend/cultures/strains/services.py::_entry_of`, `backend/cultures/strains/services.py::DualUseEntryUnknown`, `backend/cultures/strains/migrations/0016_restriction_list_entry_guards.py::"a dual-use restriction names an entry Annex I of Regulation (EU) 2021/821 holds"`, `backend/cultures/strains/migrations/0016_restriction_list_entry_guards.py::"a restriction points at an entry of the current reading of its own list"`
+- Tests: `backend/cultures/strains/tests/test_list_entries.py::test_a_dual_use_restriction_points_at_the_annex_entry_it_names`, `backend/cultures/strains/tests/test_list_entries.py::test_a_dual_use_reference_annex_i_does_not_hold_is_refused`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_refuses_a_dual_use_row_with_no_entry`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_refuses_an_entry_that_is_not_the_reference`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_refuses_an_entry_of_another_list`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_refuses_an_entry_on_a_gmo`, `backend/cultures/strains/tests/test_list_entries.py::test_a_gmo_and_a_restriction_of_words_the_list_does_not_hold_keep_no_entry`, `backend/cultures/strains/tests/test_list_entries.py::test_a_vrat_reference_that_is_an_entry_code_of_the_decree_gets_its_entry`
+- Limits: the rule binds every restriction written from now on. A restriction recorded before
+  this keeps no entry, and none is filled in after the fact, because a restriction changes by
+  nothing but ending (R-KIND-06). A reference the current reading of Annex I does not hold stops
+  being writable, so a strain whose entry a later annex drops keeps the restriction it has and
+  the end of it is R-KIND-07. Issue: none
+
+#### R-KIND-11 A dual-use entry of 1C351.a, 1C351.c, 1C351.e or 1C354 that decree 474/2002 Sb. also lists needs that restriction
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-08 (#169). The two lists name the same organisms under
+  two acts: Annex I of Regulation (EU) 2021/821 for export control, annexes 1 and 2 of decree
+  474/2002 Sb. for the duties of act 281/2002 Sb. No text read says one follows from the other,
+  so the rule is the collection's own: a strain recorded as the dual-use item and not as the
+  highly risky or risky agent would be out of the permit gate (R-PERMIT-01), the distribution
+  gates (R-DIST-04, R-DIST-05) and the register entry (R-SHIP-07).
+- Code: `backend/cultures/biosafety/selectors.py::also_a_cz_agent`, `backend/cultures/biosafety/selectors.py::DUAL_USE_ORGANISM`, `backend/cultures/strains/services.py::_require_cz_agent`, `backend/cultures/strains/services.py::RestrictionRequiredByEntry`, `backend/cultures/strains/services.py::_check_end_allowed`, `backend/cultures/strains/services.py::RestrictionHeldByDualUse`, `backend/cultures/strains/migrations/0016_restriction_list_entry_guards.py::"a dual-use entry decree 474/2002 Sb. also lists needs its own restriction"`
+- Tests: `backend/cultures/strains/tests/test_list_entries.py::test_a_dual_use_entry_the_decree_also_lists_needs_that_restriction`, `backend/cultures/strains/tests/test_list_entries.py::test_the_dual_use_restriction_is_taken_once_the_decrees_restriction_is_there`, `backend/cultures/strains/tests/test_list_entries.py::test_one_accession_may_record_both_restrictions_at_once`, `backend/cultures/strains/tests/test_list_entries.py::test_an_accession_of_the_dual_use_entry_alone_is_refused`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_asks_for_the_decrees_restriction_at_the_commit`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_takes_both_restrictions_in_one_transaction`, `backend/cultures/strains/tests/test_list_entries.py::test_a_dual_use_entry_the_decree_does_not_list_asks_for_nothing`, `backend/cultures/strains/tests/test_list_entries.py::test_the_decrees_restriction_does_not_end_while_the_dual_use_entry_asks_for_it`
+- Limits: the two entries are paired when they derive the same scientific name at the same scope
+  (R-LIST-03), which pairs 46 of the entries of this version's lists: 32 as a VRAT and 14 as a
+  RAT. An entry with no derived name pairs with nothing, and a genus-wide entry of the decree
+  does not pair with a species entry of Annex I (no such pair exists in this version, so the
+  case is not built and not tested). Only a dual-use restriction asks for its counterpart: a
+  VRAT or RAT restriction does not ask for the dual-use one, because the export duty falls on
+  the exporter and not on holding the strain. Issue: none
 
 #### R-KIND-09 A strain is regulated while it has any active restriction, one definition in Python and SQL
 

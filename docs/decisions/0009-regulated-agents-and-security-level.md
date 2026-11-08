@@ -1130,3 +1130,35 @@ nothing in the app ever edits one.
 
 Each rule, its source, its code and its tests are in `docs/compliance.md` (R-LIST-01 to
 R-LIST-04).
+
+## Amendment 2026-11-08: a restriction points at its list entry (#169)
+
+The lists are in the app (amendment of the same day), so a restriction can name an entry of one
+instead of free text.
+
+- **A dual-use reference is an entry Annex I holds.** The entry codes of Annex I of Regulation
+  (EU) 2021/821 are the annex's own ("1C351.a.4"), so `StrainRestriction.list_entry` points at
+  the entry of the current reading whose code is the reference, and a reference the annex does
+  not hold is refused by the service and by the insert trigger of `strains/0016`. The pattern of
+  R-KIND-02 stays as the first line.
+- **The other kinds attach an entry where the reference is one.** A VRAT, a RAT and a quarantine
+  pest are referred to by the words of their annex ("Příloha 1, bod 2"), which this app does not
+  own, so the entry is attached when the reference is an entry code of the list and is not
+  demanded when it is not. A GMO is on no list and points at no entry. Where an entry is
+  attached, its list must give that restriction and be the current reading.
+- **A dual-use entry that decree 474/2002 Sb. also lists needs that restriction.** An Annex I
+  entry of 1C351.a, 1C351.c, 1C351.e or 1C354 names an organism, and 46 of them are also in
+  annexes 1 and 2 of decree 474/2002 Sb. (32 as a VRAT, 14 as a RAT) in this version's lists. A
+  strain that carries such a dual-use restriction carries the decree's restriction too, or the
+  permit gate, the distribution gates and the register entry would never see it. The rule is
+  ours: no text read says one classification follows from the other. It is checked at commit by
+  a deferred constraint trigger, because a strain gets both restrictions in one transaction, and
+  the same rule refuses the end of the decree's restriction while the dual-use one is active.
+  Only that direction: the export duty falls on the exporter, so a VRAT does not ask for a
+  dual-use restriction of its own.
+- **Nothing is filled in afterwards.** A restriction changes by nothing but ending (migration
+  `strains/0003`), so restrictions recorded before this keep no entry and the rules bind what is
+  written from now on.
+
+Each rule, its source, its code and its tests are in `docs/compliance.md` (R-KIND-10 and
+R-KIND-11).

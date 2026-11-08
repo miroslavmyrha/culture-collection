@@ -29,7 +29,7 @@ person's and goes one step at a time.
 import re
 import unicodedata
 import uuid
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any, Literal
@@ -55,7 +55,8 @@ from cultures.audit.registry import (
     STRAIN_RISK_GROUP_LOWER_PROPOSED,
     STRAIN_RISK_GROUP_LOWER_WITHDRAWN,
 )
-from cultures.biosafety.models import RestrictionKind
+from cultures.biosafety import selectors as biosafety_lists
+from cultures.biosafety.models import RegulatoryListEntry, RestrictionKind
 from cultures.biosafety.policy import permit_today, require_authorisation
 from cultures.core.exceptions import Conflict, DomainError, Forbidden, NotFound, RuleViolation
 from cultures.distribution import services as distribution
@@ -98,6 +99,11 @@ STRAIN = "strain"
 RISK_GROUP_REFUSED = 4
 ACCESSION_REASON = "Identification at accession"
 MAX_RESTRICTIONS = 10
+# How a refusal names the restriction decree 474/2002 Sb. asks for (#169).
+_WHAT: dict[str, str] = {
+    RestrictionKind.CZ_VRAT: "highly risky agent (VRAT)",
+    RestrictionKind.CZ_RAT: "risky agent (RAT)",
+}
 
 
 class InvalidStrain(DomainError):
@@ -188,6 +194,43 @@ class ConfirmOwnRiskGroup(Forbidden):
 class AccessionTaken(Conflict):
     default_code = "accession_taken"
     default_detail = "This accession number is taken: try again."
+
+
+class DualUseEntryUnknown(DomainError):
+    """#169: the reference of a dual-use item is an entry the current reading of Annex I of
+    Regulation (EU) 2021/821 holds, and nothing else."""
+
+    default_code = "dual_use_entry_unknown"
+    default_detail = "Annex I of Regulation (EU) 2021/821 has no entry with this code."
+
+
+class RestrictionRequiredByEntry(RuleViolation):
+    """#169: an Annex I entry of 1C351.a, 1C351.c, 1C351.e or 1C354 that decree 474/2002 Sb.
+    also lists is a VRAT or a RAT, so the strain carries that restriction too."""
+
+    default_code = "restriction_required_by_entry"
+    default_detail = "Decree 474/2002 Sb. also lists this agent: record its restriction too."
+
+    def __init__(self, kind: RestrictionKind | None = None, *, attr: str | None = None) -> None:
+        self.kind = kind
+        detail = (
+            None
+            if kind is None
+            else f"Decree 474/2002 Sb. lists this agent as a {_WHAT[kind]}:"
+            " record that restriction too."
+        )
+        super().__init__(detail, attr=attr)
+
+
+class RestrictionHeldByDualUse(RuleViolation):
+    """#169: a VRAT or RAT restriction does not end while a dual-use entry of the same strain
+    names an agent decree 474/2002 Sb. lists as that agent."""
+
+    default_code = "restriction_held_by_dual_use"
+    default_detail = (
+        "A dual-use entry of this strain names an agent decree 474/2002 Sb. lists: end that"
+        " restriction first."
+    )
 
 
 class RestrictionEnded(Conflict):
@@ -482,6 +525,47 @@ def _restriction_values(r: StrainRestriction | RestrictionInput) -> dict[str, An
     return {"kind": r.kind, "reference": r.reference, "act": r.act, "gmo_category": r.gmo_category}
 
 
+def _entry_of(restriction: RestrictionInput, prefix: str = "") -> RegulatoryListEntry | None:
+    """The official list entry the reference names (#169), or None when no list holds it.
+
+    A dual-use item must have one: its reference is an Annex I entry code of Regulation (EU)
+    2021/821 and nothing else, and the database refuses a reference the current reading of the
+    annex does not hold (migration 0016).
+    """
+    entry = biosafety_lists.list_entry(restriction.kind, restriction.reference)
+    if entry is None and restriction.kind in biosafety_lists.ENTRY_REQUIRED:
+        raise DualUseEntryUnknown(attr=f"{prefix}reference")
+    return entry
+
+
+def _require_cz_agent(
+    entries: Sequence[RegulatoryListEntry | None], held: Collection[str], prefix: str = ""
+) -> None:
+    """#169, the last box: a dual-use entry of 1C351.a, 1C351.c, 1C351.e or 1C354 that decree
+    474/2002 Sb. also lists needs that restriction on the same strain. `held` is the kinds the
+    strain has active, the ones being written included. The deferred trigger of migration 0016
+    asks the same at commit, for every writer."""
+    for index, entry in enumerate(entries):
+        if entry is None:
+            continue
+        counterpart = biosafety_lists.also_a_cz_agent(entry)
+        if counterpart is None or counterpart.restriction_kind in held:
+            continue
+        raise RestrictionRequiredByEntry(
+            RestrictionKind(counterpart.restriction_kind),
+            attr=f"{prefix}{index}.reference" if prefix else "reference",
+        )
+
+
+def _active_kinds(strain: Strain) -> set[str]:
+    """The restriction kinds the strain has active now. Caller holds the strain's row."""
+    return set(
+        StrainRestriction.objects.filter(strain=strain, ended_at__isnull=True).values_list(
+            "kind", flat=True
+        )
+    )
+
+
 def _locked_strain(strain: Strain) -> Strain:
     """The strain locked, in the collection: a deaccessioned one changes no more (#20)."""
     locked = Strain.objects.select_for_update().filter(pk=strain.pk).select_related("lab").first()
@@ -531,9 +615,11 @@ def strain_create(*, access: Access, lab: Lab, data: NewStrain) -> Strain:
             reason=ACCESSION_REASON,
             is_current=True,
         )
-        for r in data.restrictions:
+        entries = [_entry_of(r, f"restrictions.{i}.") for i, r in enumerate(data.restrictions)]
+        _require_cz_agent(entries, {r.kind for r in data.restrictions}, prefix="restrictions.")
+        for r, entry in zip(data.restrictions, entries, strict=True):
             StrainRestriction.objects.create(
-                lab=locked_lab, strain=strain, **_restriction_values(r)
+                lab=locked_lab, strain=strain, list_entry=entry, **_restriction_values(r)
             )
         values: dict[str, Any] = {
             "accession_number": strain.accession_number,
@@ -879,8 +965,13 @@ def strain_restriction_add(
         _require_role(access, strain.lab_id)
         require_authorisation(lab_id=strain.lab_id, kinds=[(restriction.kind, "kind")])
         locked = _locked_strain(strain)
+        entry = _entry_of(restriction)
+        _require_cz_agent([entry], _active_kinds(locked) | {restriction.kind})
         added = StrainRestriction(
-            lab_id=locked.lab_id, strain=locked, **_restriction_values(restriction)
+            lab_id=locked.lab_id,
+            strain=locked,
+            list_entry=entry,
+            **_restriction_values(restriction),
         )
         _save(
             added,
@@ -924,6 +1015,32 @@ def _locked_restriction(restriction: StrainRestriction) -> StrainRestriction:
     return locked
 
 
+def _check_end_allowed(locked: StrainRestriction) -> None:
+    """#169, the last box, the other way round: a VRAT or RAT restriction does not end while an
+    active dual-use restriction of the same strain names an entry of 1C351.a, 1C351.c, 1C351.e
+    or 1C354 that decree 474/2002 Sb. lists as that agent. The deferred trigger of migration
+    0016 asks the same at commit. Caller holds the lab lock and the restriction's row."""
+    if locked.kind not in (RestrictionKind.CZ_VRAT, RestrictionKind.CZ_RAT):
+        return
+    dual_use = (
+        StrainRestriction.objects.filter(
+            strain_id=locked.strain_id,
+            ended_at__isnull=True,
+            kind=RestrictionKind.DUAL_USE,
+            list_entry__isnull=False,
+        )
+        .select_related("list_entry")
+        .order_by("pk")
+    )
+    for other in dual_use:
+        entry = other.list_entry
+        if entry is None:
+            continue
+        counterpart = biosafety_lists.also_a_cz_agent(entry)
+        if counterpart is not None and counterpart.restriction_kind == locked.kind:
+            raise RestrictionHeldByDualUse
+
+
 def _open_proposal(restriction: StrainRestriction, named: uuid.UUID) -> RestrictionEndProposal:
     """The restriction's open proposal, locked, if it is the one the caller read."""
     proposal = (
@@ -950,6 +1067,7 @@ def strain_restriction_end_propose(
         lock_lab(restriction.lab_id)
         _require_role(access, restriction.lab_id)
         locked = _locked_restriction(restriction)
+        _check_end_allowed(locked)
         if locked.end_proposals.filter(confirmed_at__isnull=True, withdrawn_at__isnull=True):
             raise EndProposed
         proposal = RestrictionEndProposal.objects.create(
@@ -1005,6 +1123,7 @@ def strain_restriction_end_confirm(
         lock_lab(restriction.lab_id)
         _require_role(access, restriction.lab_id, Perm.CONFIRM_RESTRICTION_END)
         locked = _locked_restriction(restriction)
+        _check_end_allowed(locked)
         proposed = _open_proposal(locked, proposal)
         if proposed.proposed_by_id == access.user.pk:
             raise ConfirmOwnEndProposal

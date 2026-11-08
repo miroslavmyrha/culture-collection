@@ -1,6 +1,10 @@
-"""Reads of the lab's permits. Every one takes the access object, so the lab scope is part of
-the signature."""
+"""Reads of the lab's permits, and of the official lists (#169).
 
+Every read of a lab's rows takes the access object, so the lab scope is part of the signature.
+The lists have no lab: every signed-in user reads them, like the taxonomy (ADR 0008, D4).
+"""
+
+import re
 from datetime import date, timedelta
 from enum import StrEnum
 
@@ -21,7 +25,7 @@ from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
 
-from .models import LabAuthorisation
+from .models import LabAuthorisation, ListCode, RegulatoryListEntry, RestrictionKind
 from .policy import EXPIRES_SOON_DAYS
 
 
@@ -91,3 +95,65 @@ def permit_list(*, access: Access, lab: Lab, today: date) -> QuerySet[LabAuthori
             "pk",
         )
     )
+
+
+# Which official list holds the entries a restriction of each kind names (#169). A GMO is on no
+# list: its reference is the notification or permit of act 78/2004 Sb.
+LIST_OF_KIND: dict[str, str] = {
+    RestrictionKind.CZ_VRAT: ListCode.CZ_474_2002,
+    RestrictionKind.CZ_RAT: ListCode.CZ_474_2002,
+    RestrictionKind.DUAL_USE: ListCode.EU_2021_821_ANNEX_I,
+    RestrictionKind.QUARANTINE_PEST: ListCode.EU_2019_2072_ANNEX_II,
+}
+# The kinds whose reference must be an entry of the list: the dual-use entry codes are the
+# annex's own ("1C351.c"), so a reference that is not one of them is a mistake. A VRAT, a RAT
+# and a quarantine pest are referred to by the words of their annex, which the app does not
+# own, so an entry is attached when the reference matches one and not demanded.
+ENTRY_REQUIRED: frozenset[str] = frozenset({RestrictionKind.DUAL_USE})
+# The Annex I entries of Regulation (EU) 2021/821 that name an organism: 1C351.a (human and
+# zoonotic pathogens), 1C351.c (bacteria), 1C351.e (fungi) and 1C354 (plant pathogens). The
+# other entries of 1C351 are toxins and 1C353 genetic elements, which decree 474/2002 Sb.
+# lists in its own parts and not by the same name.
+DUAL_USE_ORGANISM = re.compile(r"^(1C351\.(a|c|e)(\.|$)|1C354(\.|$))")
+
+
+def list_entry(kind: str, reference: str) -> RegulatoryListEntry | None:
+    """The entry of the current reading of the kind's list whose code is `reference`, or None.
+
+    One query, and no lock: a list is never edited, and a new reading is loaded by a command
+    (biosafety.lists), so the entry a caller resolves stays the entry it wrote.
+    """
+    code = LIST_OF_KIND.get(kind)
+    if code is None:
+        return None
+    found: RegulatoryListEntry | None = (
+        RegulatoryListEntry.objects.filter(list__code=code, list__is_current=True, code=reference)
+        .select_related("list")
+        .first()
+    )
+    return found
+
+
+def also_a_cz_agent(entry: RegulatoryListEntry) -> RegulatoryListEntry | None:
+    """The entry of decree 474/2002 Sb. that names the same organism as this dual-use entry.
+
+    #169, the last box: an Annex I entry of 1C351.a, 1C351.c, 1C351.e or 1C354 that decree
+    474/2002 Sb. also lists is a highly risky agent (VRAT, annex 1) or a risky one (annex 2),
+    and the strain must carry that restriction as well. The two entries are the same organism
+    when they derive the same scientific name at the same scope (biosafety.lists.match_of);
+    nothing matches by substring, and an entry with no derived name pairs with nothing.
+    """
+    if not entry.match_name or not DUAL_USE_ORGANISM.match(entry.code):
+        return None
+    found: RegulatoryListEntry | None = (
+        RegulatoryListEntry.objects.filter(
+            list__code=ListCode.CZ_474_2002,
+            list__is_current=True,
+            match_name=entry.match_name,
+            match_scope=entry.match_scope,
+        )
+        .exclude(restriction_kind="")
+        .order_by("restriction_kind", "pk")
+        .first()
+    )
+    return found

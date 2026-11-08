@@ -308,7 +308,11 @@ class StrainIdentification(PublicModel):
 
 
 class StrainRestriction(PublicModel):
-    """A strain on a regulatory list (ADR 0009, Restriction kinds). Ended, never deleted."""
+    """A strain on a regulatory list (ADR 0009, Restriction kinds). Ended, never deleted.
+
+    `list_entry` points at the entry of the official list the reference names (#169). A
+    dual-use restriction must have one, so its reference is an entry Annex I really holds.
+    """
 
     lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="+")
     strain = models.ForeignKey(Strain, on_delete=models.PROTECT, related_name="restrictions")
@@ -317,6 +321,23 @@ class StrainRestriction(PublicModel):
     # of 2021/821 (DUAL_USE_ENTRY), the Annex II entry of 2019/2072, or for a GMO the
     # notification or permit reference under act 78/2004 Sb.
     reference = models.CharField(max_length=100)
+    # The entry of the official list the reference names (#169), resolved by the service when
+    # the list has it. Required for a dual-use item, whose reference is an Annex I entry code
+    # and nothing else: the database refuses a reference the current reading of Annex I does not
+    # hold (migration 0016). Empty for a GMO, which is on no list, and for a restriction
+    # recorded before #169. A restriction never changes but by ending, so this is written once.
+    # No index: every read goes from the strain to its restrictions, the triggers join on the
+    # entry's own primary key, and no list entry is ever deleted (the guards of biosafety 0005),
+    # so nothing looks a restriction up by it. An index here would also lock this table while
+    # it is built (django-migration-linter).
+    list_entry = models.ForeignKey(
+        "biosafety.RegulatoryListEntry",
+        on_delete=models.PROTECT,
+        related_name="+",
+        null=True,
+        blank=True,
+        db_index=False,
+    )
     # dual_use only: the delegated act whose Annex I was read, because the annex is replaced
     # every year.
     act = models.CharField(max_length=30, blank=True)
