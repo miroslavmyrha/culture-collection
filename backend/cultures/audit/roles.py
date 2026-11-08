@@ -61,6 +61,11 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     "taxonomy_taxon": ("SELECT", "INSERT", "UPDATE"),
     # Permits are ended with a date and a reason, never deleted (ADR 0009).
     "biosafety_labauthorisation": ("SELECT", "INSERT", "UPDATE"),
+    # #169: the official lists. The loader inserts a new reading and takes is_current off the
+    # one before it, so UPDATE stays; no path deletes a list or an entry, and the guards of
+    # biosafety 0005 refuse both anyway.
+    "biosafety_regulatorylist": ("SELECT", "INSERT", "UPDATE"),
+    "biosafety_regulatorylistentry": ("SELECT", "INSERT"),
     # Strains and their history are never deleted: numbers are never reused (ADR 0008, D2),
     # identifications and restrictions are history. A trigger refuses deletes too.
     "strains_strain": ("SELECT", "INSERT", "UPDATE"),

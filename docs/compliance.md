@@ -65,6 +65,68 @@ and the rules and duties it decides are changed in the same commit.
 
 ## Rules enforced
 
+### The official lists
+
+#### R-LIST-01 Each official list is held as a reading of its source, with its version, its dates and its checksums
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-08 (#169). The four lists are legal texts (decree
+  474/2002 Sb. Annexes 1 and 2, government order 361/2007 Sb. Annex 7, Regulation (EU) 2021/821
+  Annex I, Implementing Regulation (EU) 2019/2072 Annex II); that the app holds each reading of
+  one with its source URL, version, version date, fetch date and two checksums, and that a
+  changed data file is a new reading with the one before it kept, is our own control.
+- Code: `backend/cultures/biosafety/models.py::RegulatoryList`, `backend/cultures/biosafety/lists.py::load`, `backend/cultures/biosafety/lists.py::load_one`, `backend/cultures/biosafety/management/commands/load_regulatory_lists.py::Command`, `backend/cultures/biosafety/migrations/0006_official_lists.py::load`, `backend/cultures/biosafety/models.py::"biosafety_regulatorylist_one_current"`
+- Tests: `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_migration_loaded_every_list_with_its_source_and_its_checksums`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_lists_are_there_for_a_test_that_works_in_a_real_transaction`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_loading_the_same_files_again_changes_nothing`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_command_loads_the_lists_and_says_what_it_did`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_a_changed_data_file_is_a_new_version_and_the_one_before_it_steps_down`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_a_newer_list_loaded_by_the_command_is_one_event_with_the_version_and_the_checksums`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_one_reading_of_a_list_is_current_and_one_row_per_file`
+- Limits: the lists are held, and nothing reads them yet: a strain's restrictions and its risk
+  group are still typed by hand (#169, the boxes after the first). The reading a version ships
+  is loaded by migration 0006 and records no audit event: its own row is the record, with the
+  source, the version, the load time and both checksums, and nothing can change it. A newer
+  list loaded by the command records one.
+
+#### R-LIST-02 A data file is loaded only with the SHA-256 its manifest records
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-08 (#169). `tools/fetch_regulatory_lists.py` writes the
+  data files and `manifest.json` with the SHA-256 of each file; the loader computes it again and
+  refuses a file the manifest does not confirm, so an edited list cannot enter the app as if it
+  came from the source.
+- Code: `backend/cultures/biosafety/lists.py::read_list`, `backend/cultures/biosafety/lists.py::read_manifest`, `backend/cultures/biosafety/lists.py::ListDataError`
+- Tests: `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_a_data_file_whose_checksum_the_manifest_does_not_confirm_is_not_loaded`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_command_reports_a_data_file_it_cannot_read`
+- Limits: the manifest sits in the same repository as the files, so the pair proves that the
+  file is the one the fetch wrote, not that the source said it. What the source said is the
+  SHA-256 of the fetched text on the reading's row, which only a new fetch can check (#187).
+
+#### R-LIST-03 An entry carries what its own list says: its restriction, a risk group only from annex 7, and a name only where its name yields one
+
+- Kind: law in part
+- Source: government order 361/2007 Sb., Annex 7, Part A, the sentence before table 1 (the
+  consolidated text in force from 2026-09-01, e-Sbírka, SHA-256
+  6dd28ebb7fede464528d766d7dd58d066281a6a7fac6ccca99a76c7eb251d64c, the version
+  `backend/cultures/biosafety/data/manifest.json` records). The law is why an entry whose group
+  the annex does not state carries none: no group follows from a row that gives none. Which
+  restriction each list gives, and the narrow rule that derives a scientific name to match a
+  taxon against, are our own (ADR 0009, amendment 2026-11-08, #169).
+- Quote: „Biologické činitele, které nebyly zařazeny do skupin 2 až 4 seznamu, nejsou automaticky zařazeny do skupiny 1.“
+- English: Biological agents that have not been classified into groups 2 to 4 of the list are
+  not automatically classified into group 1.
+- Code: `backend/cultures/biosafety/models.py::LIST_RESTRICTIONS`, `backend/cultures/biosafety/lists.py::match_of`, `backend/cultures/biosafety/lists.py::_entry_values`, `backend/cultures/biosafety/models.py::"biosafety_regulatorylistentry_match_name_with_scope"`, `backend/cultures/biosafety/migrations/0005_regulatory_list_guards.py::"an entry gives the restriction its own list gives"`, `backend/cultures/biosafety/migrations/0005_regulatory_list_guards.py::"only annex 7 of government order 361/2007 Sb. states a risk group"`
+- Tests: `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_each_entry_carries_what_its_own_list_says_and_nothing_else`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_every_match_name_is_a_lower_case_scientific_name_with_its_scope`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_a_name_yields_its_scientific_name_or_none_at_all`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_a_match_name_never_comes_from_a_part_of_a_word`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_database_refuses_an_entry_that_does_not_fit_its_own_list`
+- Limits: 781 of the 1061 entries yield a name to match, and 57 of the 125 entries of decree
+  474/2002 Sb., because the data file's `scientific_name` field holds the item number rather
+  than a name (the `<var>` element of the e-Sbírka text marks the number) and the Czech item
+  text is prose. An entry with no match name suggests nothing. A corrected parser is a new fetch
+  and a new data file (#187).
+
+#### R-LIST-04 No screen, no API, no admin page and no app write edits an official list
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-08 (#169): a reading of a list says what a legal text
+  said on a day. An editable copy would be a classification of our own wearing the law's name.
+- Code: `backend/cultures/biosafety/migrations/0005_regulatory_list_guards.py::"an entry of an official list is never edited"`, `backend/cultures/biosafety/migrations/0005_regulatory_list_guards.py::"a reading of an official list is never edited"`, `backend/cultures/biosafety/migrations/0005_regulatory_list_guards.py::"a reading that was replaced does not become current again"`, `backend/cultures/biosafety/migrations/0005_regulatory_list_guards.py::"an entry is added to the current reading of its list"`, `backend/cultures/audit/roles.py::APP_ROLE_GRANTS`
+- Tests: `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_no_api_and_no_admin_page_writes_a_list`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_database_refuses_to_edit_an_entry_of_a_list`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_database_refuses_to_delete_an_entry_or_a_list`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_database_refuses_every_change_of_a_list_but_stepping_down`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_database_refuses_an_entry_of_a_list_that_was_replaced`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_runtime_role_cannot_edit_or_delete_a_list`
+- Limits: the migration role, which runs `migrate`, owns the tables and is not held by the
+  guards, as everywhere else (ADR 0005).
+
 ### Classification of a strain
 
 #### R-KIND-01 A strain carries any number of restrictions of five kinds
@@ -75,8 +137,8 @@ and the rules and duties it decides are changed in the same commit.
   II, act 78/2004 Sb.). Which lists the app models is a scope choice.
 - Code: `backend/cultures/biosafety/models.py::RestrictionKind`, `backend/cultures/strains/models.py::"strains_restriction_kind_valid"`
 - Tests: `backend/cultures/strains/tests/test_models.py::test_a_restriction_has_the_fields_of_its_kind`, `backend/cultures/strains/tests/test_models.py::test_restrictions_of_the_right_shape_are_stored`
-- Limits: every restriction is typed by a person. No official list is held and the taxon is not
-  consulted (#169).
+- Limits: every restriction is typed by a person, and the taxon is not consulted. The official
+  lists are held now (R-LIST-01), and nothing reads them yet (#169).
 
 #### R-KIND-02 A dual-use restriction names an entry of 1C351, 1C353 or 1C354
 
@@ -155,7 +217,7 @@ and the rules and duties it decides are changed in the same commit.
 - Code: `backend/cultures/strains/models.py::"strains_strain_risk_group_1_to_4"`
 - Tests: `backend/cultures/strains/tests/test_models.py::test_risk_groups_one_to_four_are_stored`, `backend/cultures/strains/tests/test_models.py::test_a_strain_row_that_cannot_be_true_is_refused`
 - Limits: the group is typed by a person, not read from the annex of the directive or of the
-  government order (#169).
+  government order. The annex is held now (R-LIST-01), and nothing reads it yet (#169).
 
 #### R-RISK-02 A risk group 4 agent is refused at accession and on change
 
@@ -221,8 +283,8 @@ and the rules and duties it decides are changed in the same commit.
 - Code: `backend/cultures/strains/services.py::_check_basis`, `backend/cultures/strains/models.py::"strains_strain_risk_group_basis_with_time"`, `backend/cultures/strains/migrations/0014_risk_group_audit_and_guards.py::"a risk group change states its basis and the time it was made"`
 - Tests: `backend/cultures/strains/tests/test_services.py::test_a_risk_group_change_needs_a_basis`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_proposal_without_a_basis_or_a_reason_is_refused`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_database_asks_every_change_for_its_basis_and_its_time`
 - Limits: the basis is text a person types, not an entry of an official list, and the group the
-  accession recorded has none at all (#169). The data files of the lists are in the repository
-  and nothing reads them yet.
+  accession recorded has none at all (#169). The lists are rows of the app now (R-LIST-01) and
+  nothing reads them yet.
 
 #### R-RISK-08 A risk group rises one step at a time
 

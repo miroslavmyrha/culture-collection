@@ -1086,3 +1086,47 @@ amendment states the requirements a host must meet and names no provider.
 What this does not decide: where the qualified timestamp provider for the audit anchors sits
 (the 2026-11-04 amendment), and whether the SÚJB register may be electronic, which waits for
 SÚJB in writing.
+
+## Amendment 2026-11-08: the official lists are in the app (#169)
+
+Until now a strain's VRAT, RAT, dual-use, quarantine pest and risk group were typed by hand and
+nothing could check them. The four official lists are now rows of the app, loaded from the data
+files that `tools/fetch_regulatory_lists.py` writes straight from the sources (#187), and
+nothing in the app ever edits one.
+
+- **A list is a reading, not a table to maintain.** One `biosafety.RegulatoryList` per reading
+  of a list, with the source URL, the version, the version date, the fetch date, the SHA-256 of
+  the fetched text and the SHA-256 of the data file, and one `RegulatoryListEntry` per entry.
+  Loading is idempotent, a changed data file is a new reading, the new reading is the current
+  one and the one before it keeps its rows. So "what did the app hold on that day" stays a query,
+  as it does for a lab's permits.
+- **Nothing in the app edits a list.** No screen, no API and no admin page writes one; the
+  runtime role may read the lists and insert a reading and nothing else; and the guards of
+  migration `biosafety/0005` refuse every update of an entry, every delete of either row and
+  every change of a reading but losing `is_current`. The one way the content changes is a new
+  data file loaded by `manage.py load_regulatory_lists`, or by migration `0006` for the files a
+  version ships, which records no audit event: the reading's own row says where it came from,
+  which version it is, when it was loaded and the SHA-256 of the fetched text and of the data
+  file, and nothing can change it, so a deploy needs no event and no database starts its trail
+  with four. A newer list loaded by the command is a choice somebody made, and records one.
+- **An entry carries only what its own list says.** The restriction the list gives (annex 1 of
+  decree 474/2002 Sb. the VRAT, annex 2 the RAT, Annex I of Regulation (EU) 2021/821 the
+  dual-use item, Annex II of Implementing Regulation (EU) 2019/2072 the quarantine pest), and a
+  risk group only from annex 7 of government order 361/2007 Sb., which leaves the column empty
+  where it states none. Both halves are held in Python and in the entry guard.
+- **A name to match is derived, narrowly, and often not at all.** The lists print their names in
+  their own way: Czech prose in decree 474/2002 Sb., a scientific name with its authority in the
+  EU annexes and in annex 7. `biosafety.lists.match_of` reads a leading
+  `Genus [species] [subsp. epithet]`, or the first such name in brackets, and nothing that is
+  followed by a lower-case word, so prose that merely begins like a name is dropped instead of
+  guessed at. 781 of the 1061 entries get a name; the rest suggest nothing, which is where the
+  collection stood before this issue. A suggestion is a read either way: a person confirms it
+  with a reason, and no classification follows from a list alone.
+- **Open: the names of decree 474/2002 Sb.** The data file's `scientific_name` field holds the
+  item number, not a name: the `<var>` element of the e-Sbírka text marks the number. So the
+  VRAT and RAT names come from the Czech item text, and only 57 of its 125 entries yield a
+  scientific name. Fixing the parser means a new fetch and a new data file (#187), not a change
+  here.
+
+Each rule, its source, its code and its tests are in `docs/compliance.md` (R-LIST-01 to
+R-LIST-04).
