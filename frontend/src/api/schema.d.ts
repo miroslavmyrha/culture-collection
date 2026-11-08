@@ -2198,9 +2198,10 @@ export interface components {
          *     * `exempt_inactivated` - Exempt: neutralised or inactivated
          *     * `indicative_list` - Not on the indicative list of Category A
          *     * `professional_judgement` - Professional judgement
+         *     * `gmo_not_infectious` - A genetically modified micro-organism that is not an infectious substance
          * @enum {string}
          */
-        ClassificationBasis: "exempt_non_pathogenic" | "exempt_inactivated" | "indicative_list" | "professional_judgement";
+        ClassificationBasis: "exempt_non_pathogenic" | "exempt_inactivated" | "indicative_list" | "professional_judgement" | "gmo_not_infectious";
         /**
          * @description * `intact` - Intact
          *     * `damaged` - Container or packaging damaged
@@ -3973,8 +3974,9 @@ export interface components {
          */
         SeverityEnum: "block" | "manager";
         /**
-         * @description What the shipper decided and who answers for the package. Only the two classes this
-         *     collection ships are accepted (ADR 0009): Category A and UN 3245 are not choices.
+         * @description What the shipper decided and who answers for the package. Only the classes this
+         *     collection ships are accepted (ADR 0009): Category A is no choice, and UN 3245 only for a
+         *     request with a GMO line (#173, the service decides against the strains).
          */
         ShipInputRequest: {
             transport_class: components["schemas"]["TransportClass"];
@@ -4300,9 +4302,10 @@ export interface components {
         /**
          * @description * `not_subject` - Not subject to the dangerous goods rules (exempt)
          *     * `un3373` - UN 3373, Biological substance, Category B
+         *     * `un3245` - UN 3245, Genetically modified micro-organisms
          * @enum {string}
          */
-        TransportClass: "not_subject" | "un3373";
+        TransportClass: "not_subject" | "un3373" | "un3245";
         UnitBrief: {
             /** Format: uuid */
             readonly public_id: string;

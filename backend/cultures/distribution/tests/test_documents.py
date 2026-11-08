@@ -17,12 +17,14 @@ from cultures.biosafety.policy import PERMIT_TIME_ZONE
 from cultures.deposits.models import AbsScope, Use
 from cultures.distribution import documents, services
 from cultures.distribution.models import (
+    ClassificationBasis,
     DistributionRequest,
     PermitKind,
     Requester,
     Shipment,
     ShipmentDocument,
     ShipmentDocumentKind,
+    TransportClass,
 )
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab
@@ -30,7 +32,7 @@ from cultures.lineage.models import Vial
 from cultures.strains import services as strains
 from cultures.strains.models import Strain, StrainRestriction
 from cultures.strains.services import RestrictionInput
-from cultures.strains.tests.conftest import DUAL_USE, QUARANTINE, VRAT, end_restriction
+from cultures.strains.tests.conftest import DUAL_USE, GMO, QUARANTINE, VRAT, end_restriction
 from cultures.taxonomy.models import Rank, Taxon
 from cultures.taxonomy.tests.conftest import make_taxon
 from cultures.users.models import User
@@ -93,11 +95,11 @@ def in_scope(**changes: Any) -> dict[str, Any]:
 def one_step(as_curator: AuditContext, curator: User, lab: Lab, requester: Requester) -> Any:
     """A request for the strains, approved and shipped in one step by the curator."""
 
-    def make(*strains: Strain, quantity: int = 2) -> DistributionRequest:
+    def make(*strains: Strain, quantity: int = 2, **package: Any) -> DistributionRequest:
         request = submit(curator, lab, requester, [(s, quantity) for s in strains])
         accept_mtas(curator, request)
         approve(curator, request)
-        return ship(curator, request)
+        return ship(curator, request, **package)
 
     return make
 
@@ -115,11 +117,11 @@ def two_step(
     """A regulated request: approved by the approver with a reason, prepared by the manager,
     confirmed by the curator."""
 
-    def make(*strains: Strain, quantity: int = 1) -> DistributionRequest:
+    def make(*strains: Strain, quantity: int = 1, **package: Any) -> DistributionRequest:
         request = submit(curator, lab, requester, [(s, quantity) for s in strains])
         accept_mtas(curator, request)
         approve(approver, request, "The recipient holds what the lists ask for.")
-        prepare(manager, request)
+        prepare(manager, request, **package)
         return confirm(curator, request)
 
     return make
@@ -243,6 +245,68 @@ def test_a_quarantine_pest_line_says_its_letter_of_authority_travels_with_it(
         " travels with the package (Regulation (EU) 2019/829, Art. 6(1))."
     ) in note(request).splitlines()
     assert documents.DUAL_USE_NOTICE not in note(request)
+
+
+@pytest.mark.rule("R-SHIP-09")
+def test_only_a_gmo_line_carries_the_words_of_section_11_1(
+    *,
+    supply: Supply,
+    two_step: Any,
+    mockia: Taxon,
+    exempli: Taxon,
+    curator: User,
+    requester: Requester,
+) -> None:
+    plain = supply(exempli, vials=6)
+    gmo = supply(mockia, restrictions=[GMO], vials=6)
+    add_permit(curator, requester, PermitKind.GMO_CONTAINED_USE)
+    request = two_step(
+        plain,
+        gmo,
+        transport_class=TransportClass.UN3245,
+        classification_basis=ClassificationBasis.GMO_NOT_INFECTIOUS,
+    )
+    text = note(request)
+    assert text.count(documents.GMO_NOTICE) == 1
+    blocks = text.split("\n\n")
+    [gmo_block] = [b for b in blocks if f"Strain {gmo.accession_number}," in b]
+    [plain_block] = [b for b in blocks if f"Strain {plain.accession_number}," in b]
+    assert (
+        f"   {documents.GMO_NOTICE} Category 1 of contained use, MŽP notification 2026/12."
+    ) in gmo_block.splitlines()
+    assert documents.GMO_NOTICE not in plain_block
+
+
+@pytest.mark.rule("R-SHIP-09")
+def test_the_gmo_notice_holds_the_words_of_the_act() -> None:
+    """Act 78/2004 Sb., § 11(1) asks for the words „Geneticky modifikovaný organismus“ on the
+    label or in the accompanying document, so the note opens with them."""
+    assert documents.GMO_NOTICE.startswith("Geneticky modifikovaný organismus")
+    assert documents.GMO_NOTICE == (
+        "Geneticky modifikovaný organismus (genetically modified organism; act 78/2004 Sb.,"
+        " § 11(1))."
+    )
+
+
+@pytest.mark.rule("R-SHIP-09")
+def test_an_ended_gmo_restriction_prints_no_notice(
+    *,
+    supply: Supply,
+    one_step: Any,
+    curator: User,
+    manager: User,
+    mockia: Taxon,
+    requester: Requester,
+) -> None:
+    """Only an active restriction regulates (strains.selectors.regulating_restrictions)."""
+    strain = supply(mockia, restrictions=[GMO], vials=6)
+    add_permit(curator, requester, PermitKind.GMO_CONTAINED_USE)
+    restriction = StrainRestriction.objects.get(strain=strain)
+    end_restriction(
+        restriction, proposer=curator, confirmer=manager, reason="The notification was withdrawn."
+    )
+    request = one_step(strain)
+    assert documents.GMO_NOTICE not in note(request)
 
 
 def test_an_abs_sheet_only_for_a_line_whose_pinned_terms_are_in_scope(

@@ -189,7 +189,8 @@ and the rules and duties it decides are changed in the same commit.
 - Source: ADR 0009, Decision: the risk group rates harm to humans only.
 - Code: `backend/cultures/strains/models.py::Pathogenicity`, `backend/cultures/strains/models.py::"strains_strain_pathogenicity_valid"`
 - Tests: `backend/cultures/strains/tests/test_models.py::test_a_strain_row_that_cannot_be_true_is_refused`
-- Limits: no gate reads it. See C-01 below (#173).
+- Limits: one gate reads it, the exemption at shipment (R-SHIP-03). No other gate does, and the
+  value is typed by a person, never read from a list.
 
 #### R-RISK-06 A risk group drops only by two people: a proposal and a confirmation by another manager
 
@@ -419,19 +420,24 @@ and the rules and duties it decides are changed in the same commit.
 - Limits: the permit names the agent in free text, matched on the taxon's name as whole words
   (#169).
 
-#### R-DIST-05 A RAT goes only to a requester who notified SÚJB under § 17a
+#### R-DIST-05 A RAT goes only to a requester whose § 17a notice to SÚJB names that agent
 
 - Kind: own control
 - Source: the act puts the notice on the recipient (act 281/2002 Sb., § 17a(1)) and no duty on
   the sender. SÚJB asks senders to supply only notifiers, page "Přesun a předání" (guidance of
   the authority): „RAT si mohou navzájem poskytovat pouze osoby, které SÚJB ohlásily nakládání s
   RAT podle § 17a“ (RAT may be supplied only between persons who notified SÚJB of their handling
-  of RAT under § 17a).
-- Code: `backend/cultures/distribution/policy.py::_LineCheck.restriction`
-- Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_rat_goes_only_to_a_requester_who_notified_sujb`, `backend/cultures/distribution/tests/test_policy.py::test_only_a_section_17a_notice_lets_a_rat_go_out`, `backend/cultures/distribution/tests/test_policy.py::test_a_rat_notice_that_names_a_highly_risky_agent_does_not_let_it_go_out`
+  of RAT under § 17a). What the notice reaches is the act's: § 17a(3) a) „Ohlášení podle odstavce
+  1 musí obsahovat a) druh rizikového biologického agens nebo toxinu“ (the notice must state the
+  kind of risky biological agent or toxin), so a notice for another agent is no notice for this
+  one. The notice names its agents on the permit row, as the document writes them, and the gate
+  reads the strain's taxon there (`policy.names`), as it does for a VRAT permit.
+- Code: `backend/cultures/distribution/policy.py::_LineCheck.restriction`, `backend/cultures/distribution/models.py::NAMES_AGENTS`, `backend/cultures/distribution/models.py::"distribution_permit_names_what_it_covers"`
+- Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_rat_goes_only_to_a_requester_who_notified_sujb`, `backend/cultures/distribution/tests/test_policy.py::test_a_rat_notice_for_another_agent_does_not_let_this_one_go_out`, `backend/cultures/distribution/tests/test_policy.py::test_only_a_section_17a_notice_lets_a_rat_go_out`, `backend/cultures/distribution/tests/test_policy.py::test_a_rat_notice_that_names_a_highly_risky_agent_does_not_let_it_go_out`, `backend/cultures/distribution/tests/test_models.py::test_permit_constraints`, `backend/cultures/distribution/tests/test_services.py::test_permit_errors_name_their_field_and_change_nothing`
 - Gate codes: `rat_notice_missing`
-- Limits: any notice of the requester passes, though a notice names its kind of agent (§ 17a(3)
-  a)). See C-04 (#173).
+- Limits: the agents are read from the words a person copied from the notice, never from an
+  official list, and a notice that names an older name of the taxon blocks (`policy.names`, the
+  safe side). The quantity a notice covers is not part of it: § 17a(3) asks for the kind only.
 
 #### R-DIST-06 Inside the EU only ricin and saxitoxin need a transfer licence, which this collection does not hold
 
@@ -451,9 +457,8 @@ and the rules and duties it decides are changed in the same commit.
 - Code: `backend/cultures/distribution/policy.py::_LineCheck.letter_of_authority`, `backend/cultures/distribution/policy.py::COUNTING`
 - Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_quarantine_pest_needs_a_letter_with_quantity_and_sendings_left`, `backend/cultures/distribution/tests/test_policy.py::test_a_letter_runs_out_of_sendings`, `backend/cultures/distribution/tests/test_policy.py::test_two_lines_of_one_request_draw_on_one_letter_together`, `backend/cultures/distribution/tests/test_policy.py::test_a_cancelled_request_gives_its_quantity_back_to_the_letter`
 - Gate codes: `loa_missing`, `loa_exhausted`
-- Limits: the endorsement by the member state of origin (Art. 6(2)) is stored and not checked,
-  D-13 (#173). The quantity is counted in vials, and the letter may state another unit (not
-  verified).
+- Limits: the quantity is counted in vials, and the letter may state another unit (not
+  verified). The endorsement of Art. 6(2) is its own rule, R-DIST-15.
 
 #### R-DIST-08 A GMO goes only to a holder of an authorisation for contained use of its category or higher
 
@@ -521,6 +526,22 @@ and the rules and duties it decides are changed in the same commit.
 - Code: `backend/cultures/distribution/services/shipment.py::_gates_today`, `backend/cultures/distribution/services/two_person.py::request_confirm_shipment`
 - Tests: `backend/cultures/distribution/tests/test_shipment.py::test_a_permit_that_expired_since_the_approval_blocks_the_shipment`, `backend/cultures/distribution/tests/test_shipment.py::test_the_ship_day_is_a_czech_day`, `backend/cultures/distribution/tests/test_two_person.py::test_a_permit_that_expires_between_preparation_and_confirmation_blocks_it`
 
+#### R-DIST-15 A quarantine pest goes out only on a Letter of Authority the state of origin endorsed
+
+- Kind: law
+- Source: Implementing Regulation (EU) 2019/829, Art. 6(2). Art. 6(3) asks the same of material
+  from a third country, endorsed by that country; this collection sends its own material inside
+  the EU, so the gate reads the endorsement without asking which state gave it.
+- Quote: "It shall be officially endorsed by the Member State of origin, for movement of the respective specified material under quarantine or confinement conditions."
+- Code: `backend/cultures/distribution/policy.py::_LineCheck.letter_of_authority`, `backend/cultures/distribution/models.py::"distribution_permit_endorsement_of_loa"`
+- Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_letter_of_authority_without_its_endorsement_lets_nothing_out`, `backend/cultures/distribution/tests/test_policy.py::test_the_pest_goes_out_on_the_endorsed_letter_beside_an_unendorsed_one`, `backend/cultures/distribution/tests/test_models.py::test_permit_constraints`
+- Gate codes: `loa_not_endorsed`
+- Limits: the endorsement is the reference and the day a person copied from the letter. Which
+  state endorsed it is not recorded, so a letter endorsed by another state than the material's
+  origin passes, and the endorsement itself is not verified against the authority. The gate runs
+  at the approval and again on the ship day (R-DIST-14); a letter endorsed later is recorded as
+  a new permit, because a permit row never changes (R-PERMIT-06).
+
 ### Gates that are not about regulated material
 
 These gate codes of `distribution.policy.gate_codes()` hold for every strain, regulated or not.
@@ -540,23 +561,42 @@ listed here so that the test can tell them from a regulated gate without a rule.
 - Code: `backend/cultures/distribution/services/two_person.py::request_prepare_shipment`, `backend/cultures/distribution/services/two_person.py::request_confirm_shipment`, `backend/cultures/distribution/services/errors.py::ConfirmOwnApproval`, `backend/cultures/distribution/services/errors.py::ConfirmOwnPreparation`, `backend/cultures/distribution/migrations/0008_preparation_audit_and_guards.py::"distribution_shipment_guard"`
 - Tests: `backend/cultures/distribution/tests/test_two_person.py::test_the_approver_does_not_confirm`, `backend/cultures/distribution/tests/test_two_person.py::test_the_preparer_does_not_confirm`, `backend/cultures/distribution/tests/test_two_person.py::test_a_regulated_request_is_not_shipped_in_one_step`, `backend/cultures/distribution/tests/test_two_person.py::test_the_table_refuses_a_confirmation_by_the_preparer_or_the_approver`, `backend/cultures/distribution/tests/test_two_person.py::test_the_table_refuses_a_regulated_shipment_without_a_preparation`
 
-#### R-SHIP-02 A shipment is exempt or UN 3373, never Category A or UN 3245
+#### R-SHIP-02 A shipment is exempt, UN 3373 or, for a GMO line, UN 3245, never Category A
 
-- Kind: own control
-- Source: a scope choice, ADR 0009, amendment 2026-10-22.
-- Code: `backend/cultures/distribution/models.py::TransportClass`
-- Tests: `backend/cultures/distribution/tests/test_shipment.py::test_the_table_refuses_a_shipment_the_rules_refuse`
-- Limits: a GMO line is not refused, so it ships under a class the transport rules may not allow
-  for it. See C-02 (#173).
+- Kind: not verified
+- Source: that Category A (UN 2814, UN 2900) is not shipped is a scope choice, ADR 0009,
+  amendment 2026-10-22. That a GMO travels under UN 3245 when it is not an infectious substance
+  is study s10, section 1, reading the WHO transport guidance 4.5 and IATA 3.6.2.4: "GMOs that
+  are not infectious go to UN 3245 (WHO 4.5 note)". Neither text was read in the original (RID
+  and ADR 2.2.9 are not among the sources), so the class rests on the study. An infectious GMO
+  is an infectious substance and stays Category B, which this collection ships as UN 3373.
+- Code: `backend/cultures/distribution/models.py::TransportClass`, `backend/cultures/distribution/models.py::BASES`, `backend/cultures/distribution/services/shipment.py::_check_gmo`, `backend/cultures/distribution/migrations/0015_un3245_for_a_gmo.py::"distribution_shipment_class_and_basis"`
+- Tests: `backend/cultures/distribution/tests/test_shipment.py::test_the_table_refuses_a_shipment_the_rules_refuse`, `backend/cultures/distribution/tests/test_shipment.py::test_a_gmo_line_is_not_shipped_as_exempt_and_goes_as_un_3245`, `backend/cultures/distribution/tests/test_shipment.py::test_un_3245_is_refused_for_a_request_with_no_gmo_line`, `backend/cultures/distribution/tests/test_two_person.py::test_a_gmo_restriction_added_after_the_preparation_refuses_the_exemption_at_confirmation`, `backend/cultures/distribution/tests/test_two_person.py::test_the_table_refuses_a_prepared_package_whose_class_and_basis_do_not_belong_together`
+- Limits: which of UN 3245 and UN 3373 a GMO is, the shipper states with the basis: the app
+  refuses the exemption for a GMO line and UN 3245 for a line that is no GMO, and it never
+  decides whether a culture is an infectious substance (WHO 2.1 leaves that to the shipper, and
+  an unknown animal pathogenicity is no proof that a GMO is not infectious). The packing
+  instruction of UN 3245 is not modelled: such a package takes either packing the app holds, and
+  no source read here says which one it must be.
 
-#### R-SHIP-03 A strain of risk group 2 or higher is not shipped as exempt, non-pathogenic
+#### R-SHIP-03 A strain pathogenic to humans, animals or plants is not shipped as exempt, non-pathogenic
 
 - Kind: not verified
 - Source: IATA DGR 3.6.2.2.3.2 ("non-pathogenic to humans or animals"), read only through study
-  s10. The IATA text is not among the sources read.
-- Code: `backend/cultures/distribution/services/shipment.py::_check_exempt`
-- Tests: `backend/cultures/distribution/tests/test_shipment.py::test_a_manager_finding_is_not_asked_again_at_shipment`, `backend/cultures/distribution/tests/test_two_person.py::test_a_risk_group_raised_after_the_preparation_makes_the_exemption_refused_at_confirmation`
-- Limits: animal and plant pathogenicity are not read. See C-01 (#173).
+  s10. The IATA text is not among the sources read. That the risk group alone does not answer the
+  question is read in the original: government order 361/2007 Sb., § 36(2) a) and Directive
+  2000/54/EC, Art. 2 rate human disease only, so an organism pathogenic to animals or to plants
+  holds group 1 and its recorded pathogenicity is read beside the group (R-RISK-05).
+- Quote: „Biologické činitele se člení podle míry rizika infekce na biologické činitele a) skupiny 1, u nichž není pravděpodobné, že by mohly způsobit onemocnění člověka“; Directive 2000/54/EC, Art. 2: "group 1 biological agent means one that is unlikely to cause human disease"
+- English: biological agents are divided by their level of risk of infection into a) group 1,
+  which are unlikely to cause human disease.
+- Code: `backend/cultures/distribution/services/shipment.py::_check_exempt`, `backend/cultures/distribution/services/shipment.py::_pathogenic`
+- Tests: `backend/cultures/distribution/tests/test_shipment.py::test_a_manager_finding_is_not_asked_again_at_shipment`, `backend/cultures/distribution/tests/test_shipment.py::test_a_pathogen_of_risk_group_1_is_not_shipped_as_exempt`, `backend/cultures/distribution/tests/test_shipment.py::test_a_strain_with_no_pathogenicity_known_ships_as_exempt`, `backend/cultures/distribution/tests/test_two_person.py::test_a_risk_group_raised_after_the_preparation_makes_the_exemption_refused_at_confirmation`
+- Limits: an unknown pathogenicity does not refuse the exemption, and unknown is what most
+  deposits state (R-RISK-05): the shipper answers for the basis. The plant half goes further than
+  the source, which names humans and animals; study s10 reads a culture of a plant-only pathogen
+  as outside Division 6.2, so refusing the exemption for a plant pathogen is this collection's
+  own choice, the safe side, until the IATA text is read.
 
 #### R-SHIP-04 UN 3373 is packed to P650, and dry ice is shipped with its quantity
 
@@ -606,6 +646,22 @@ listed here so that the test can tell them from a regulated gate without a rule.
   cannot be removed or changed).
 - Code: `backend/cultures/distribution/migrations/0010_shipment_document_audit_and_guards.py::"distribution_shipmentdocument_guard"`
 - Tests: `backend/cultures/distribution/tests/test_documents.py::test_a_document_is_never_changed_or_deleted`, `backend/cultures/distribution/tests/test_documents.py::test_a_document_whose_sha256_is_not_of_its_text_is_refused`, `backend/cultures/distribution/tests/test_documents.py::test_the_stored_text_stays_after_the_strain_is_renamed_and_its_restriction_ends`
+
+#### R-SHIP-09 The delivery note of a GMO line carries the words "Geneticky modifikovaný organismus"
+
+- Kind: law
+- Source: act 78/2004 Sb., § 11(1). The collection supplies a GMO only to a holder of an
+  authorisation for contained use (R-DIST-08), which is the handover this section is about, and
+  the delivery note is the accompanying document (s10, section 6).
+- Quote: „Osoba poskytující geneticky modifikovaný organismus výlučně pro účely uzavřeného nakládání nebo uvádění do životního prostředí je povinna zajistit, aby na štítku nebo v průvodním dokumentu geneticky modifikovaného organismu byla zřetelně uvedena slova „Geneticky modifikovaný organismus“…“
+- English: whoever supplies a GMO solely for contained use or release ensures that its label or
+  accompanying document clearly carries the words "Geneticky modifikovaný organismus".
+- Code: `backend/cultures/distribution/documents.py::GMO_NOTICE`, `backend/cultures/distribution/documents.py::delivery_note`
+- Tests: `backend/cultures/distribution/tests/test_documents.py::test_only_a_gmo_line_carries_the_words_of_section_11_1`, `backend/cultures/distribution/tests/test_documents.py::test_the_gmo_notice_holds_the_words_of_the_act`, `backend/cultures/distribution/tests/test_documents.py::test_an_ended_gmo_restriction_prints_no_notice`
+- Limits: the words go on the delivery note, the accompanying document; the app prints no vial
+  label, so „na štítku“ is the lab's to do. The same sentence also asks for whatever else the
+  permit for contained use requires on the labelling, and no contained-use authorisation of this
+  lab is recorded (D-04), so nothing else is printed.
 
 ### Deaccession, destruction and loss
 
@@ -903,15 +959,6 @@ Each duty is the law's. Until its issue is built it is the lab's to keep outside
 - Today: not recorded.
 - Issue: #172
 
-### D-10 A GMO's label or accompanying document says "Geneticky modifikovaný organismus"
-
-- Source: act 78/2004 Sb., § 11(1)
-- Quote: „Osoba poskytující geneticky modifikovaný organismus výlučně pro účely uzavřeného nakládání nebo uvádění do životního prostředí je povinna zajistit, aby na štítku nebo v průvodním dokumentu geneticky modifikovaného organismu byla zřetelně uvedena slova „Geneticky modifikovaný organismus“…“
-- English: whoever supplies a GMO solely for contained use or release ensures that its label or
-  accompanying document clearly carries the words "Geneticky modifikovaný organismus".
-- Today: the delivery note says nothing of a GMO.
-- Issue: #173
-
 ### D-11 The ministry is told 5 days before a GMO is imported or exported
 
 - Source: act 78/2004 Sb., § 25(5)
@@ -930,13 +977,6 @@ Each duty is the law's. Until its issue is built it is the lab's to keep outside
 - Today: no export. A GMO's destruction records the day, the description and the verification of
   the inactivation that § 8(8) h) asks for (R-END-05, R-END-10).
 - Issue: #160 (part 2, the yearly export only). The operating diary has no issue.
-
-### D-13 A Letter of Authority is endorsed by the member state of origin
-
-- Source: Implementing Regulation (EU) 2019/829, Art. 6(2)
-- Quote: "It shall be officially endorsed by the Member State of origin, for movement of the respective specified material under quarantine or confinement conditions."
-- Today: the endorsement is stored, no gate reads it.
-- Issue: #173
 
 ### D-14 A confinement facility keeps records of quarantine material in and out for three years, and notifies the end of its activity a month before
 
@@ -989,31 +1029,11 @@ Each duty is the law's. Until its issue is built it is the lab's to keep outside
 
 ## Rules that break a source
 
-### C-01 Exempt, non-pathogenic is refused only for risk group 2 or higher
-
-- Source: IATA DGR 3.6.2.2.3.2, "non-pathogenic to humans or animals", read only through study
-  s10 (not verified). The risk group rates harm to humans only (ADR 0009).
-- Today: an animal or plant pathogen of group 1 ships as exempt (R-SHIP-03).
-- Issue: #173
-
-### C-02 A GMO line is not refused and UN 3245 is never recorded
-
-- Source: study s10: "GMOs that are not infectious go to UN 3245 (WHO 4.5 note)". Not verified
-  against RID and ADR 2.2.9.
-- Today: a GMO can only be recorded under a class the source says is wrong (R-SHIP-02).
-- Issue: #173
-
 ### C-03 The stock left on a register entry is counted per strain
 
 - Source: decree 474/2002 Sb., § 5(3) c): a sheet per agent (quoted in D-05).
 - Today: two strains of one agent give a wrong stock (R-SHIP-07).
 - Issue: #171
-
-### C-04 Any RAT notice of the requester lets any RAT go
-
-- Source: act 281/2002 Sb., § 17a(3) a): the notice names „druh rizikového biologického agens nebo toxinu“ (the kind of risky agent or toxin).
-- Today: a notice for one agent lets another go (R-DIST-05).
-- Issue: #173
 
 ## Own controls decided and not built
 

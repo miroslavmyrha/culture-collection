@@ -19,6 +19,7 @@ from cultures.deposits.models import Contact, Decision, Use
 from cultures.deposits.tests.support import ALL_PERMITTED
 from cultures.distribution import services
 from cultures.distribution.models import (
+    NAMES_AGENTS,
     ClassificationBasis,
     DepositorAnswer,
     DistributionRequest,
@@ -99,12 +100,15 @@ def permit_input(
         "document": services.DocumentInput(PDF),
         **changes,
     }
-    if kind in (PermitKind.SUJB_VRAT, PermitKind.SUJB_EXCEPTION, PermitKind.PLANT_HEALTH_LOA):
+    if kind in NAMES_AGENTS:
         values.setdefault("covers", "Mockia vulgaris")
     if kind == PermitKind.PLANT_HEALTH_LOA:
         values.setdefault("quantity_allowed", 10)
         values.setdefault("sendings_allowed", 2)
         values.setdefault("issuer", "ÚKZÚZ")
+        # Endorsed by the state of origin (Art. 6(2)): without it nothing goes out (#173).
+        values.setdefault("endorsement_reference", "ÚKZÚZ/DEV/E/1 (invented example)")
+        values.setdefault("endorsed_on", date(2026, 1, 2))
     if kind == PermitKind.GMO_CONTAINED_USE:
         values.setdefault("gmo_category", 2)
     if kind == PermitKind.PATHOGEN_WORK_PERMIT:

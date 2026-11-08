@@ -268,6 +268,7 @@ def test_a_permit_does_not_end_before_it_started(
     ("kind", "changes", "attr"),
     [
         (PermitKind.SUJB_VRAT, {"covers": " "}, "covers"),
+        (PermitKind.SUJB_RAT_NOTICE, {"covers": " "}, "covers"),
         (PermitKind.PLANT_HEALTH_LOA, {"quantity_allowed": None}, "quantity_allowed"),
         (PermitKind.PLANT_HEALTH_LOA, {"sendings_allowed": 0}, "sendings_allowed"),
         (PermitKind.SUJB_RAT_NOTICE, {"quantity_allowed": 3}, "quantity_allowed"),
@@ -281,8 +282,16 @@ def test_a_permit_does_not_end_before_it_started(
             {"endorsement_reference": "E/1", "endorsed_on": date(2026, 1, 2)},
             "endorsement_reference",
         ),
-        (PermitKind.PLANT_HEALTH_LOA, {"endorsement_reference": "E/1"}, "endorsed_on"),
-        (PermitKind.PLANT_HEALTH_LOA, {"endorsed_on": date(2026, 1, 2)}, "endorsement_reference"),
+        (
+            PermitKind.PLANT_HEALTH_LOA,
+            {"endorsement_reference": "E/1", "endorsed_on": None},
+            "endorsed_on",
+        ),
+        (
+            PermitKind.PLANT_HEALTH_LOA,
+            {"endorsement_reference": "", "endorsed_on": date(2026, 1, 2)},
+            "endorsement_reference",
+        ),
         (PermitKind.SUJB_RAT_NOTICE, {"issuer": " "}, "issuer"),
         (PermitKind.SUJB_RAT_NOTICE, {"issuer_country": "XX"}, "issuer_country"),
         (PermitKind.SUJB_RAT_NOTICE, {"reference": ""}, "reference"),
@@ -296,6 +305,7 @@ def test_a_permit_does_not_end_before_it_started(
         ),
     ],
 )
+@pytest.mark.rule("R-DIST-05")
 def test_permit_errors_name_their_field_and_change_nothing(
     *,
     as_curator: AuditContext,

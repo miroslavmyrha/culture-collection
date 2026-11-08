@@ -248,6 +248,7 @@ def body(call: Call, w: World) -> dict[str, Any]:
             "issuer_country": "CZ",
             "reference": "DEV/2 (invented example)",
             "valid_from": "2026-01-01",
+            "covers": "Mockia vulgaris",
             "file": SimpleUploadedFile("notice.pdf", PDF, "application/pdf"),
         },
         "permit_end": {"ended_on": "2026-06-01", "reason": "revoked"},

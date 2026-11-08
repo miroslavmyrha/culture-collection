@@ -111,7 +111,7 @@ test('a request blocked by a legal gate is not approved, on screen or through th
   const link = curator.page.getByRole('table', { name: 'Requests' }).getByRole('link').first()
   await link.click()
   const blocks = curator.page.getByRole('list', { name: 'Blocks the approval' })
-  await expect(blocks).toContainText('the requester shows no reference of its notice to SÚJB (§ 17a)')
+  await expect(blocks).toContainText('the requester shows no reference of a notice to SÚJB (§ 17a) that names')
   await expect(curator.page.getByRole('button', { name: 'Approve and reserve the vials' })).toHaveCount(0)
   const answer = await post(curator.page, `/api/v1${curator.page.url().replace(/^https?:\/\/[^/]+/, '').replace(/\/$/, '')}/approve/`, { reason: 'try anyway' })
   expect(answer.status).toBe(422)

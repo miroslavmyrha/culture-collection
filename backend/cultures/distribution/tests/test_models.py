@@ -165,6 +165,8 @@ def raw_permit(requester: Requester, document: Document, **fields: Any) -> dict[
         "issuer_country": "CZ",
         "reference": "R/1",
         "valid_from": date(2026, 1, 1),
+        # Every kind of NAMES_AGENTS needs it, the notice to SÚJB too (§ 17a(3) a), #173).
+        "covers": "Mockia vulgaris",
         "document": document,
         **fields,
     }
@@ -184,7 +186,11 @@ LOA = {"kind": PermitKind.PLANT_HEALTH_LOA, "covers": "Mockia vulgaris"}
         ({"ended_on": date(2025, 1, 1), "end_reason": "r"}, "distribution_permit_ends_after_start"),
         ({"ended_on": date(2026, 2, 1)}, "distribution_permit_end_has_reason"),
         ({"end_reason": "r"}, "distribution_permit_end_has_reason"),
-        ({"kind": PermitKind.SUJB_VRAT}, "distribution_permit_names_what_it_covers"),
+        (
+            {"kind": PermitKind.SUJB_VRAT, "covers": ""},
+            "distribution_permit_names_what_it_covers",
+        ),
+        ({"covers": ""}, "distribution_permit_names_what_it_covers"),
         ({**LOA, "sendings_allowed": 1}, "distribution_permit_quantity_iff_loa"),
         (
             {**LOA, "quantity_allowed": 0, "sendings_allowed": 1},
@@ -212,6 +218,7 @@ LOA = {"kind": PermitKind.PLANT_HEALTH_LOA, "covers": "Mockia vulgaris"}
         ({"risk_group": 2}, "distribution_permit_risk_group_iff_work_permit"),
     ],
 )
+@pytest.mark.rule("R-DIST-05", "R-DIST-15")
 def test_permit_constraints(
     as_curator: AuditContext,
     curator: User,

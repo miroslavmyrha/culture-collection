@@ -31,6 +31,55 @@ describe('the requesters page', () => {
     expect(within(permits).getByRole('link', { name: 'Download' })).toHaveAttribute('href', `${window.location.origin}/api/v1/labs/${LAB_ID}/documents/${loa.document.public_id}/`)
   })
 
+  it('says of a Letter of Authority whether the state of origin endorsed it', async () => {
+    signedIn()
+    const endorsed = makePermit({
+      kind: 'plant_health_loa',
+      reference: 'LoA DEV/2',
+      covers: 'Mockia vulgaris',
+      quantity_allowed: 4,
+      sendings_allowed: 2,
+      endorsement_reference: 'ÚKZÚZ/E/1',
+      endorsed_on: '2026-01-02',
+    })
+    mockApi('get', LIST, page([makeRequester({ institution: 'Example Institute', permits: [loa, endorsed] })]))
+    renderApp({ path: `/labs/${LAB_ID}/requesters` })
+    const card = await screen.findByRole('article', { name: 'Example Institute' })
+    const rows = within(within(card).getByRole('table', { name: 'Permits of Example Institute' })).getAllByRole('row')
+    expect(rows[1]).toHaveTextContent('Not endorsed by the state of origin: nothing goes out on it')
+    expect(rows[2]).toHaveTextContent('Endorsed on 2026-01-02: ÚKZÚZ/E/1')
+  })
+
+  it('sends the endorsement of a Letter of Authority with its day', async () => {
+    signedIn()
+    mockApi('get', LIST, page([institute]))
+    renderApp({ path: `/labs/${LAB_ID}/requesters` })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Add a permit of Example Institute' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Add a permit of Example Institute' })
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Kind' }), 'plant_health_loa')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Issued by' }), 'ÚKZÚZ')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reference' }), 'LoA/DEV/3')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Valid from' }), '2026-01-01')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Agents or pests it names' }), 'Mockia vulgaris')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Quantity allowed' }), '4')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Sendings allowed' }), '2')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Endorsement by the state of origin' }), 'ÚKZÚZ/E/1')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Endorsed on' }), '2026-01-02')
+    await user.upload(within(dialog).getByLabelText('File of the document'), new File(['%PDF-1.4'], 'letter.pdf', { type: 'application/pdf' }))
+    const post = vi.spyOn(api, 'POST').mockResolvedValue({ data: makePermit(), response: new Response('{}', { status: 201 }) })
+    await user.click(within(dialog).getByRole('button', { name: 'Add the permit' }))
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
+    const [, init]: unknown[] = post.mock.calls[0] ?? []
+    const serializer: unknown = typeof init === 'object' && init !== null ? Reflect.get(init, 'bodySerializer') : undefined
+    if (typeof serializer !== 'function') throw new Error('the permit is sent without its form data')
+    const sent: unknown = Reflect.apply(serializer, undefined, [])
+    if (!(sent instanceof FormData)) throw new Error('not form data')
+    expect(sent.get('endorsement_reference')).toBe('ÚKZÚZ/E/1')
+    expect(sent.get('endorsed_on')).toBe('2026-01-02')
+    post.mockRestore()
+  })
+
   it('tells a viewer that requesters are for curators, without loading them', async () => {
     signedIn('viewer')
     const calls = recordRequests('get', LIST)

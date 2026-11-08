@@ -16,13 +16,14 @@ from cultures.audit.registry import (
     REQUEST_SHIPPED,
     SHIPMENT_DOCUMENT_GENERATED,
 )
+from cultures.biosafety.models import RestrictionKind
 from cultures.biosafety.policy import permit_today
 from cultures.deposits.models import Contact
 from cultures.labs.access import Access
 from cultures.labs.permissions import Perm
 from cultures.lineage import services as lineage
 from cultures.lineage.models import Batch, Vial
-from cultures.strains.models import Strain
+from cultures.strains.models import Pathogenicity, Strain
 from cultures.strains.selectors import regulating_restrictions
 
 from .. import documents, policy
@@ -147,20 +148,77 @@ def _regulated(strains: list[Strain]) -> bool:
     return regulating_restrictions().filter(strain__in=strains).exists()
 
 
+def _pathogenic(strain: Strain) -> str | None:
+    """Why this strain is a pathogen, or None. The risk group rates harm to humans only
+    (government order 361/2007 Sb., § 36(2) a), Directive 2000/54/EC, Art. 2), so an organism
+    pathogenic to animals or plants holds group 1 and the strain's own pathogenicity is read
+    beside the group (R-RISK-05, #173). An unknown pathogenicity is no finding: it is what most
+    deposits state, and the shipper states the basis."""
+    if strain.risk_group >= 2:  # noqa: PLR2004
+        return "risk group 2 or higher is pathogenic to humans"
+    if strain.animal_pathogenicity == Pathogenicity.PATHOGENIC:
+        return "it is recorded as pathogenic to animals"
+    if strain.plant_pathogenicity == Pathogenicity.PATHOGENIC:
+        return "it is recorded as pathogenic to plants"
+    return None
+
+
 def _check_exempt(basis: str, strains: list[Strain]) -> None:
     """The one thing about the class the app can know: a pathogen is not exempt as
     non-pathogenic. Checked when the shipment is prepared and again when it is confirmed, as a
-    risk group may rise in between."""
+    strain's risk group or pathogenicity may change in between."""
     if basis != ClassificationBasis.EXEMPT_NON_PATHOGENIC:
         return
-    pathogens = [s.accession_number for s in strains if s.risk_group >= 2]  # noqa: PLR2004
-    if pathogens:
+    found = [(s.accession_number, why) for s in strains if (why := _pathogenic(s)) is not None]
+    if found:
         raise InvalidDistribution(
-            f"{', '.join(map(str, pathogens))}: risk group 2 or higher is pathogenic,"
-            " so the culture is not exempt as non-pathogenic.",
+            "; ".join(f"{name}: {why}" for name, why in found)
+            + ". The culture is not exempt as non-pathogenic.",
             code="not_exempt",
             attr="classification_basis",
         )
+
+
+def _gmo_strains(strains: list[Strain]) -> list[Strain]:
+    """The strains of these with an active GMO restriction, in the order given."""
+    ids = set(
+        regulating_restrictions()
+        .filter(strain__in=strains, kind=RestrictionKind.GMO)
+        .values_list("strain_id", flat=True)
+    )
+    return [s for s in strains if s.pk in ids]
+
+
+def _check_gmo(transport_class: str, strains: list[Strain]) -> None:
+    """A GMO travels under a number of its own, never exempt: study s10 (section 1, reading the
+    WHO transport guidance 4.5 and IATA 3.6.2.4) sends a genetically modified micro-organism
+    that is not an infectious substance to UN 3245, and an infectious one stays Category B
+    (UN 3373). Which of the two it is the shipper states (WHO 2.1): nothing here decides whether
+    a culture is infectious, and an unknown pathogenicity is no proof that it is not. UN 3245 is
+    for a GMO line only (#173)."""
+    gmo = _gmo_strains(strains)
+    if gmo and transport_class == TransportClass.NOT_SUBJECT:
+        names = ", ".join(str(s.accession_number) for s in gmo)
+        raise InvalidDistribution(
+            f"{names}: a genetically modified organism is not exempt from the transport rules."
+            " It travels as UN 3245 when it is not an infectious substance, else as UN 3373.",
+            code="gmo_not_exempt",
+            attr="transport_class",
+        )
+    if not gmo and transport_class == TransportClass.UN3245:
+        raise InvalidDistribution(
+            "UN 3245 is for a genetically modified micro-organism, and no strain of this request"
+            " is one.",
+            code="un3245_without_a_gmo",
+            attr="transport_class",
+        )
+
+
+def _check_class(transport_class: str, basis: str, strains: list[Strain]) -> None:
+    """What the app knows about the class from the strains themselves, at the preparation and
+    again at the confirmation: a pathogen is not exempt, a GMO travels under its number."""
+    _check_exempt(basis, strains)
+    _check_gmo(transport_class, strains)
 
 
 def _package(data: ShipmentInput, lab_id: int) -> dict[str, Any]:
@@ -216,7 +274,7 @@ def request_ship(
         today = _gates_today(locked)
         if _regulated(strains):
             raise SecondPersonRequired
-        _check_exempt(data.classification_basis, strains)
+        _check_class(data.transport_class, data.classification_basis, strains)
         now = timezone.now()
         _defer_reservation_checks(shipment=True)
         shipment = Shipment.objects.create(

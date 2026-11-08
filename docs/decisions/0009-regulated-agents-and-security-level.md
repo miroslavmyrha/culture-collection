@@ -1002,3 +1002,54 @@ adds the two event types to `audit_auditevent_reason_required` NOT VALID and 003
 a transaction of its own. The one-step lowering is gone from `POST .../risk-group/`
 (`risk_group_second_person_required`, 422). Reversible while no proposal exists:
 `migrate strains 0010` and `migrate audit 0035`.
+## Amendment 2026-11-04: shipments that break a source (#173)
+
+The audit of 2026-11-03 (law and exact data) found five rules about a shipment that contradict
+their source, go wider than it, or do not reach it at all. What was decided for each, with what
+it rests on:
+
+- **A § 17a notice covers the agent it names.** A RAT goes out only against a notice of the
+  requester that names the strain's taxon, as a VRAT permit does: act 281/2002 Sb., § 17a(3) a)
+  asks the notice for „druh rizikového biologického agens nebo toxinu“, so a notice for another
+  agent is no notice for this one. The notice joins the permit kinds that record what they cover
+  (`distribution.models.NAMES_AGENTS`), and one recorded without its agents is refused. The
+  agents are the words a person copied from the document: no official list is consulted, and a
+  notice that names an older name of the taxon blocks, the safe side.
+- **A Letter of Authority is read with its endorsement.** Implementing Regulation (EU) 2019/829,
+  Art. 6(2): the letter "shall be officially endorsed by the Member State of origin". The
+  endorsement and its day were stored and no gate read them; now a letter without them blocks
+  the request (`loa_not_endorsed`), at the approval and again on the ship day. Which state
+  endorsed it is not recorded, so a letter endorsed by another state than the material's origin
+  passes: the open part of the rule.
+- **Exempt, non-pathogenic reads the pathogenicity, not the risk group alone.** The risk group
+  rates human disease only (government order 361/2007 Sb., § 36(2) a), Directive 2000/54/EC,
+  Art. 2), so an organism pathogenic to animals or plants holds group 1 and shipped as exempt.
+  The exemption is now refused for a strain recorded as pathogenic to animals or to plants as
+  well. An unknown pathogenicity does not refuse it: unknown is what most deposits state, and
+  the shipper answers for the basis. The animal half follows IATA 3.6.2.2.3.2 as study s10 reads
+  it ("non-pathogenic to humans or animals"); the plant half is this collection's own choice,
+  wider than that source, because s10 reads a culture of a plant-only pathogen as outside
+  Division 6.2. It holds until the IATA text is read in the original.
+- **A GMO travels under a number, and UN 3245 is recorded for it.** Study s10 (section 1,
+  reading the WHO transport guidance 4.5 and IATA 3.6.2.4) sends a genetically modified
+  micro-organism that is not an infectious substance to UN 3245, which the app refused to
+  record: a GMO could only go out as exempt or as UN 3373. The shipment now records a third
+  class, UN 3245, with the one basis that states why (`gmo_not_infectious`); a request with a
+  GMO line is never exempt (`gmo_not_exempt`), and UN 3245 is refused for a request with no GMO
+  line (`un3245_without_a_gmo`). Which of UN 3245 and UN 3373 a GMO is, the shipper states
+  (WHO 2.1): nothing in the app decides whether a culture is an infectious substance, and an
+  unknown animal pathogenicity is no proof that it is not. Category A (UN 2814, UN 2900) stays
+  no choice. RID and ADR 2.2.9 are still not read, so the class rests on the study, and the
+  packing instruction of UN 3245 is not modelled: such a package takes either packing the app
+  holds.
+- **The delivery note names a GMO in Czech.** Act 78/2004 Sb., § 11(1): whoever supplies a GMO
+  solely for contained use must ensure that „na štítku nebo v průvodním dokumentu geneticky
+  modifikovaného organismu byla zřetelně uvedena slova „Geneticky modifikovaný organismus““. The
+  delivery note is that accompanying document, and a GMO line now carries those words with the
+  category and the reference of its contained use. The app prints no vial label, and the further
+  requirements the same sentence takes from the permit for contained use are not held, because no
+  contained-use authorisation of this lab is recorded (duty D-04).
+
+Each rule, its quoted sentence, its code and its tests are in `docs/compliance.md`; the four
+contradictions C-01 to C-04 of that document are closed by this issue but for C-03 (the register
+stock per strain, #171).

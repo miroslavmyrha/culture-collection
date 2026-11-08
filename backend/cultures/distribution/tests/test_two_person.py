@@ -377,6 +377,36 @@ def test_a_risk_group_raised_after_the_preparation_makes_the_exemption_refused_a
     )
 
 
+@pytest.mark.rule("R-SHIP-02")
+def test_a_gmo_restriction_added_after_the_preparation_refuses_the_exemption_at_confirmation(
+    *,
+    curator: User,
+    manager: User,
+    approver: User,
+    requester: Requester,
+    regulated: Regulated,
+) -> None:
+    request = regulated(prepared_by=curator)
+    add_permit(curator, requester, PermitKind.GMO_CONTAINED_USE)
+    strain = request.lines.get().strain
+    with as_actor(approver):
+        strains.strain_restriction_add(
+            access=access_for(approver),
+            strain=strain,
+            restriction=RestrictionInput(
+                RestrictionKind.GMO, "MŽP/DEV/9 (invented example)", gmo_category=1
+            ),
+            reason="Recorded from the notification of contained use.",
+        )
+    error = refused(
+        services.InvalidDistribution,
+        "gmo_not_exempt",
+        lambda: confirm(manager, request),
+        attr="transport_class",
+    )
+    assert "a genetically modified organism is not exempt" in error.detail
+
+
 # Withdrawal.
 
 
@@ -624,6 +654,30 @@ def test_a_shipment_is_prepared_only_for_an_approved_request(
             lab=request.lab,
             request=request,
             prepared_by=curator,
+            prepared_at=timezone.now(),
+        )
+
+
+@pytest.mark.rule("R-SHIP-02")
+def test_the_table_refuses_a_prepared_package_whose_class_and_basis_do_not_belong_together(
+    *, curator: User, manager: User, regulated: Regulated
+) -> None:
+    """UN 3245 rests on the one basis that states why, for a preparation as for a shipment."""
+    request = regulated()
+    contact = Contact.objects.create(lab=request.lab, name="Jan Odpovědný", phone="+420 555 000")
+    with (
+        pytest.raises(IntegrityError, match="distribution_shipmentpreparation_class_and_basis"),
+        transaction.atomic(),
+    ):
+        ShipmentPreparation.objects.create(
+            lab=request.lab,
+            request=request,
+            transport_class=TransportClass.UN3245,
+            classification_basis=ClassificationBasis.EXEMPT_NON_PATHOGENIC,
+            packing_instruction=PackingInstruction.TRIPLE,
+            responsible=contact,
+            carrier="Example Courier",
+            prepared_by=manager,
             prepared_at=timezone.now(),
         )
 

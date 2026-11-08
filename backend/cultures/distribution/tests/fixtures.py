@@ -20,7 +20,7 @@ from cultures.labs.tests.conftest import member_of
 from cultures.lineage import services as lineage
 from cultures.lineage.models import Passage, Purpose
 from cultures.lineage.tests.support import pass_all, preserve
-from cultures.strains.models import Strain
+from cultures.strains.models import Pathogenicity, Strain
 from cultures.strains.services import RestrictionInput
 from cultures.strains.tests.conftest import make_permit
 from cultures.taxonomy.models import Taxon
@@ -59,6 +59,8 @@ def supply(
         *,
         restrictions: Sequence[RestrictionInput] = (),
         risk_group: int = 1,
+        animal_pathogenicity: Pathogenicity = Pathogenicity.UNKNOWN,
+        plant_pathogenicity: Pathogenicity = Pathogenicity.UNKNOWN,
         vials: int = 5,
         purpose: Purpose = Purpose.DISTRIBUTION,
         release: bool = True,
@@ -85,7 +87,13 @@ def supply(
             deposit = deposits.deposit_accept(
                 access=access,
                 deposit=deposit,
-                facts=facts(taxon, restrictions=list(restrictions), risk_group=risk_group),
+                facts=facts(
+                    taxon,
+                    restrictions=list(restrictions),
+                    risk_group=risk_group,
+                    animal_pathogenicity=animal_pathogenicity,
+                    plant_pathogenicity=plant_pathogenicity,
+                ),
             )
             assert deposit.strain is not None
             passage0 = Passage.objects.get(strain=deposit.strain, number=0)

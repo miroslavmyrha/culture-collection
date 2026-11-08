@@ -263,8 +263,22 @@ def test_a_rat_goes_only_to_a_requester_who_notified_sujb(
         "regulated": Severity.MANAGER,
         "rat_notice_missing": Severity.BLOCK,
     }
-    add_permit(curator, requester, PermitKind.SUJB_RAT_NOTICE)
+    add_permit(curator, requester, PermitKind.SUJB_RAT_NOTICE, covers="Mockia vulgaris")
     assert codes(ask(strain)) == {"regulated": Severity.MANAGER}
+
+
+@pytest.mark.rule("R-DIST-05")
+def test_a_rat_notice_for_another_agent_does_not_let_this_one_go_out(
+    ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User
+) -> None:
+    """The notice states the kind of agent (§ 17a(3) a)): one for another agent is none here."""
+    strain = supply(mockia, restrictions=[RAT])
+    add_permit(curator, requester, PermitKind.SUJB_RAT_NOTICE, covers="Testella exempli")
+    found = evaluate(ask(strain), permit_today()).findings
+    sentences = {f.code: f.sentence for f in found}
+    assert sentences.keys() == {"regulated", "rat_notice_missing"}
+    said = sentences["rat_notice_missing"]
+    assert "no reference of a notice to SÚJB (§ 17a) that names Mockia vulgaris" in said
 
 
 @pytest.mark.parametrize(
@@ -294,6 +308,43 @@ def test_a_quarantine_pest_needs_a_letter_with_quantity_and_sendings_left(
     approve(manager, first, reason="letter in hand")
     assert codes(ask(strain, 2)) == {"regulated": Severity.MANAGER, "loa_exhausted": Severity.BLOCK}
     assert codes(ask(strain, 1)) == {"regulated": Severity.MANAGER}
+
+
+@pytest.mark.rule("R-DIST-15")
+def test_a_letter_of_authority_without_its_endorsement_lets_nothing_out(
+    *, ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User
+) -> None:
+    """Art. 6(2): the state of origin endorses the letter. It is stored, so it is read."""
+    strain = supply(mockia, restrictions=[QUARANTINE], vials=10)
+    add_permit(
+        curator,
+        requester,
+        PermitKind.PLANT_HEALTH_LOA,
+        endorsement_reference="",
+        endorsed_on=None,
+    )
+    found = {f.code: f.sentence for f in evaluate(ask(strain), permit_today()).findings}
+    assert found.keys() == {"regulated", "loa_not_endorsed"}
+    assert "endorsement of the member state of origin" in found["loa_not_endorsed"]
+
+
+@pytest.mark.rule("R-DIST-15")
+def test_the_pest_goes_out_on_the_endorsed_letter_beside_an_unendorsed_one(
+    *, ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User
+) -> None:
+    strain = supply(mockia, restrictions=[QUARANTINE], vials=10)
+    add_permit(
+        curator,
+        requester,
+        PermitKind.PLANT_HEALTH_LOA,
+        reference="LoA/DEV/not-endorsed (invented example)",
+        endorsement_reference="",
+        endorsed_on=None,
+    )
+    endorsed = add_permit(curator, requester, PermitKind.PLANT_HEALTH_LOA)
+    evaluation = evaluate(ask(strain), permit_today())
+    assert {f.code for f in evaluation.findings} == {"regulated"}
+    assert {permit.pk for _, permit in evaluation.used} == {endorsed.pk}
 
 
 @pytest.mark.rule("R-DIST-07")

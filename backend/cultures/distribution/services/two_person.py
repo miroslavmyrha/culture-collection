@@ -41,7 +41,7 @@ from .inputs import (
     ShipmentInput,
 )
 from .shipment import (
-    _check_exempt,
+    _check_class,
     _checked_shipment,
     _exhaust_emptied,
     _gates_today,
@@ -78,7 +78,7 @@ def request_prepare_shipment(
         _gates_today(locked)
         if not _regulated(strains):
             raise ShipInOneStep
-        _check_exempt(data.classification_basis, strains)
+        _check_class(data.transport_class, data.classification_basis, strains)
         preparation = ShipmentPreparation(
             **_package(data, locked.lab_id),
             request=locked,
@@ -123,7 +123,7 @@ def request_confirm_shipment(
             raise ConfirmOwnPreparation
         lines, strains = _locked_strains(locked)
         today = _gates_today(locked)
-        _check_exempt(prepared.classification_basis, strains)
+        _check_class(prepared.transport_class, prepared.classification_basis, strains)
         now = timezone.now()
         _defer_reservation_checks(shipment=True)
         shipment = Shipment.objects.create(

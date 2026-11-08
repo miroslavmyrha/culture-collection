@@ -270,6 +270,7 @@ def test_a_file_that_is_not_a_pdf_png_or_jpeg_is_refused_on_its_field(
             "issuer_country": "CZ",
             "reference": "R/1",
             "valid_from": "2026-01-01",
+            "covers": "Mockia vulgaris",
             "file": SimpleUploadedFile(name, content, "application/pdf"),
         },
     )

@@ -112,7 +112,7 @@ export const PERMIT_KIND_LABELS: Record<PermitKind, string> = {
   pathogen_work_permit: 'Permit to work with pathogens',
 }
 /** The kinds that name the agents or pests they cover: the server reads the strain's name there. */
-export const NAMES_AGENTS: readonly PermitKind[] = ['sujb_vrat', 'sujb_exception', 'plant_health_loa']
+export const NAMES_AGENTS: readonly PermitKind[] = ['sujb_vrat', 'sujb_rat_notice', 'sujb_exception', 'plant_health_loa']
 export const SIGNER_ROLES = ['responsible_scientist', 'head_of_institution', 'authorised_representative'] as const satisfies readonly SignerRole[]
 export const SIGNER_ROLE_LABELS: Record<SignerRole, string> = {
   responsible_scientist: 'Responsible scientist',
@@ -120,23 +120,26 @@ export const SIGNER_ROLE_LABELS: Record<SignerRole, string> = {
   authorised_representative: 'Authorised representative',
 }
 
-/** The two classes this collection ships (ADR 0009): Category A and UN 3245 are refused. */
-export const TRANSPORT_CLASSES = ['not_subject', 'un3373'] as const satisfies readonly TransportClass[]
+/** The classes this collection ships (ADR 0009): Category A is refused, UN 3245 is for a GMO. */
+export const TRANSPORT_CLASSES = ['not_subject', 'un3373', 'un3245'] as const satisfies readonly TransportClass[]
 export const TRANSPORT_CLASS_LABELS: Record<TransportClass, string> = {
   not_subject: 'Not subject to the dangerous goods rules (exempt)',
   un3373: 'UN 3373, Biological substance, Category B',
+  un3245: 'UN 3245, Genetically modified micro-organisms',
 }
-export const CLASSIFICATION_BASES = ['exempt_non_pathogenic', 'exempt_inactivated', 'indicative_list', 'professional_judgement'] as const satisfies readonly ClassificationBasis[]
+export const CLASSIFICATION_BASES = ['exempt_non_pathogenic', 'exempt_inactivated', 'indicative_list', 'professional_judgement', 'gmo_not_infectious'] as const satisfies readonly ClassificationBasis[]
 export const BASIS_LABELS: Record<ClassificationBasis, string> = {
   exempt_non_pathogenic: 'Exempt: not pathogenic to humans or animals',
   exempt_inactivated: 'Exempt: neutralised or inactivated',
   indicative_list: 'Not on the indicative list of Category A',
   professional_judgement: 'Professional judgement',
+  gmo_not_infectious: 'A genetically modified micro-organism that is not an infectious substance',
 }
 /** The bases each class may rest on, as the server holds them (distribution.models.BASES). */
 export const BASES: Record<TransportClass, readonly ClassificationBasis[]> = {
   not_subject: ['exempt_non_pathogenic', 'exempt_inactivated'],
   un3373: ['indicative_list', 'professional_judgement'],
+  un3245: ['gmo_not_infectious'],
 }
 export const PACKING_INSTRUCTIONS = ['p650', 'triple_packaging'] as const satisfies readonly PackingInstruction[]
 export const PACKING_LABELS: Record<PackingInstruction, string> = { p650: 'P650', triple_packaging: 'Basic triple packaging' }
@@ -235,6 +238,8 @@ export const permitSchema = z
     valid_from: isoDay,
     expires_on: optionalDay,
     covers: optionalText(2000),
+    endorsement_reference: optionalText(200),
+    endorsed_on: optionalDay,
     quantity_allowed: optionalNumber(1, 100000, 'Enter a whole number of 1 or more'),
     sendings_allowed: optionalNumber(1, 1000, 'Enter a whole number of 1 or more'),
     gmo_category: optionalNumber(1, 4, 'Enter a category from 1 to 4'),
@@ -245,6 +250,10 @@ export const permitSchema = z
     if (NAMES_AGENTS.some((k) => k === v.kind) && !v.covers) ctx.addIssue({ code: 'custom', path: ['covers'], message: 'Write the agents or pests it names, as on the document' })
     if (v.kind === 'plant_health_loa' && !v.quantity_allowed) ctx.addIssue({ code: 'custom', path: ['quantity_allowed'], message: 'Enter the quantity the letter allows' })
     if (v.kind === 'plant_health_loa' && !v.sendings_allowed) ctx.addIssue({ code: 'custom', path: ['sendings_allowed'], message: 'Enter the number of sendings' })
+    // Regulation (EU) 2019/829, Art. 6(2): the endorsement and its day travel together, and the
+    // server refuses one without the other. A letter with none is recorded and lets nothing out.
+    if (Boolean(v.endorsement_reference) !== Boolean(v.endorsed_on))
+      ctx.addIssue({ code: 'custom', path: [v.endorsement_reference ? 'endorsed_on' : 'endorsement_reference'], message: 'Give the endorsement with its day' })
     if (v.kind === 'gmo_contained_use' && !v.gmo_category) ctx.addIssue({ code: 'custom', path: ['gmo_category'], message: 'Enter the category' })
     if (v.kind === 'pathogen_work_permit' && !v.risk_group) ctx.addIssue({ code: 'custom', path: ['risk_group'], message: 'Enter the risk group it covers' })
   })

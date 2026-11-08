@@ -181,9 +181,11 @@ class PermitKind(models.TextChoices):
 
 K = PermitKind
 # These name the agents or pests they cover, as written on them: the policy reads the strain's
-# taxon there (act 281/2002 Sb., § 11(3) fixes the kinds in a VRAT permit; 2019/829 Annex II
-# Part A names the pest).
-NAMES_AGENTS: frozenset[PermitKind] = frozenset({K.SUJB_VRAT, K.SUJB_EXCEPTION, K.PLANT_HEALTH_LOA})
+# taxon there (act 281/2002 Sb., § 11(3) fixes the kinds in a VRAT permit; § 17a(3) a) the kind
+# of agent in a RAT notice; 2019/829 Annex II Part A names the pest).
+NAMES_AGENTS: frozenset[PermitKind] = frozenset(
+    {K.SUJB_VRAT, K.SUJB_RAT_NOTICE, K.SUJB_EXCEPTION, K.PLANT_HEALTH_LOA}
+)
 
 
 class RecipientPermit(PublicModel):
@@ -647,11 +649,14 @@ class VialReservation(PublicModel):
 
 class TransportClass(models.TextChoices):
     """What the shipper decided the package is (WHO transport guidance 2025-2026, 4 and 5; RID
-    and ADR 2.2.62). This collection ships only these two (ADR 0009 amendment of 2026-10-20):
-    Category A (UN 2814, UN 2900) and GMOs as UN 3245 are refused, never recorded."""
+    and ADR 2.2.62). Category A (UN 2814, UN 2900) is refused, never recorded (ADR 0009
+    amendment of 2026-10-20). UN 3245 is recorded for a request with a GMO line only (#173):
+    study s10 reads a genetically modified micro-organism that is not an infectious substance
+    into UN 3245, and services.shipment._check_gmo holds the pair together."""
 
     NOT_SUBJECT = "not_subject", "Not subject to the dangerous goods rules (exempt)"
     UN3373 = "un3373", "UN 3373, Biological substance, Category B"
+    UN3245 = "un3245", "UN 3245, Genetically modified micro-organisms"
 
 
 class ClassificationBasis(models.TextChoices):
@@ -661,10 +666,15 @@ class ClassificationBasis(models.TextChoices):
     EXEMPT_INACTIVATED = "exempt_inactivated", "Exempt: neutralised or inactivated"
     INDICATIVE_LIST = "indicative_list", "Not on the indicative list of Category A"
     PROFESSIONAL_JUDGEMENT = "professional_judgement", "Professional judgement"
+    GMO_NOT_INFECTIOUS = (
+        "gmo_not_infectious",
+        "A genetically modified micro-organism that is not an infectious substance",
+    )
 
 
-# The bases each class may rest on: an exemption is never Category B, and the reasons for
-# Category B never make a package exempt. The check constraint and the service read this.
+# The bases each class may rest on: an exemption is never Category B, the reasons for Category B
+# never make a package exempt, and UN 3245 rests on the one statement that sends a GMO there.
+# The check constraint and the service read this.
 BASES: dict[TransportClass, frozenset[ClassificationBasis]] = {
     TransportClass.NOT_SUBJECT: frozenset(
         {ClassificationBasis.EXEMPT_NON_PATHOGENIC, ClassificationBasis.EXEMPT_INACTIVATED}
@@ -672,6 +682,7 @@ BASES: dict[TransportClass, frozenset[ClassificationBasis]] = {
     TransportClass.UN3373: frozenset(
         {ClassificationBasis.INDICATIVE_LIST, ClassificationBasis.PROFESSIONAL_JUDGEMENT}
     ),
+    TransportClass.UN3245: frozenset({ClassificationBasis.GMO_NOT_INFECTIOUS}),
 }
 
 
@@ -701,6 +712,10 @@ def package_constraints() -> list[models.BaseConstraint]:
             | Q(
                 transport_class=TransportClass.UN3373,
                 classification_basis__in=BASES[TransportClass.UN3373],
+            )
+            | Q(
+                transport_class=TransportClass.UN3245,
+                classification_basis__in=BASES[TransportClass.UN3245],
             ),
             name="%(app_label)s_%(class)s_class_and_basis",
         ),

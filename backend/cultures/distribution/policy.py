@@ -407,12 +407,13 @@ class _LineCheck:
                 f" or exception that names {taxon.name}.",
             )
         elif kind == RestrictionKind.CZ_RAT:
-            # § 17a(1): the recipient notified SÚJB; SÚJB asks senders to supply only them.
+            # § 17a(1): the recipient notified SÚJB; SÚJB asks senders to supply only them. The
+            # notice states the kind of agent (§ 17a(3) a)), so one for another agent is none.
             self.need(
-                [p for p in self.facts.permits if p.kind == PermitKind.SUJB_RAT_NOTICE],
+                _naming(self.facts.permits, {PermitKind.SUJB_RAT_NOTICE}, taxon),
                 "rat_notice_missing",
-                f"{self.name} is a risky agent: the requester shows no reference of its notice"
-                " to SÚJB (§ 17a).",
+                f"{self.name} is a risky agent: the requester shows no reference of a notice"
+                f" to SÚJB (§ 17a) that names {taxon.name}.",
             )
         elif kind == RestrictionKind.DUAL_USE:
             if restriction.reference.startswith(TRANSFER_LICENCE_ENTRIES):
@@ -446,7 +447,8 @@ class _LineCheck:
             self.block(code, sentence)
 
     def letter_of_authority(self) -> None:
-        """2019/829 Art. 6: a letter naming the pest, in date, with quantity and sendings left."""
+        """2019/829 Art. 6: a letter naming the pest, endorsed by the state of origin, in date,
+        with quantity and sendings left."""
         taxon = self.strain.taxon
         letters = _naming(self.facts.permits, {PermitKind.PLANT_HEALTH_LOA}, taxon)
         if not letters:
@@ -456,7 +458,19 @@ class _LineCheck:
                 f" Authority that names {taxon.name}.",
             )
             return
-        for letter in letters:
+        # Art. 6(2): the letter is officially endorsed by the member state of origin before the
+        # material moves under quarantine or confinement conditions. The permit row holds the
+        # endorsement with its day, or neither (a check constraint), so the day is the test.
+        endorsed = [letter for letter in letters if letter.endorsed_on is not None]
+        if not endorsed:
+            self.block(
+                "loa_not_endorsed",
+                f"{self.name}: no Letter of Authority of the requester that names {taxon.name}"
+                " carries the endorsement of the member state of origin (Regulation (EU)"
+                " 2019/829, Art. 6(2)).",
+            )
+            return
+        for letter in endorsed:
             quantity, sendings = self.facts.loa_used.get(letter.pk, (0, 0))
             allowed_quantity = letter.quantity_allowed or 0
             allowed_sendings = letter.sendings_allowed or 0
@@ -501,6 +515,7 @@ GATES: tuple[tuple[str, Severity], ...] = (
     ("rat_notice_missing", Severity.BLOCK),
     ("transfer_licence_required", Severity.BLOCK),
     ("loa_missing", Severity.BLOCK),
+    ("loa_not_endorsed", Severity.BLOCK),
     ("loa_exhausted", Severity.BLOCK),
     ("gmo_authorisation_missing", Severity.BLOCK),
 )
