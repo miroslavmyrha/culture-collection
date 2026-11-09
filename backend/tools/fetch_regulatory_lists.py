@@ -43,7 +43,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -336,45 +336,79 @@ def parse_cz_474(fetched: Fetched) -> list[dict[str, Any]]:
     return records
 
 
-def _parse_cz_474_annex(fragments: Sequence[dict[str, Any]], annex: int) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
+@dataclass
+class CzAnnexReader:
+    """Where in an annex of decree 474/2002 the reading is, and what it has read.
+
+    One method per kind of fragment the annex prints, so each step can be read and tested on
+    its own. The notes at the end of an annex are headings at the depth of a part that carry no
+    roman number: everything after the first of them explains the annex instead of listing
+    something, and nothing listed may follow.
+    """
+
+    annex: int
     part: CzPart | None = None
     group: tuple[str, str] | None = None
-    counters: dict[str, int] = {}
-    with_entries: set[str] = set()
-    parts_seen: list[str] = []
-    after_parts = False
+    after_parts: bool = False
+    counters: dict[str, int] = field(default_factory=dict)
+    with_entries: set[str] = field(default_factory=set)
+    parts_seen: list[str] = field(default_factory=list)
+    records: list[dict[str, Any]] = field(default_factory=list)
+
+    def read_part_heading(self, text: str) -> None:
+        """A heading at the depth of a part: a numbered part, or the start of the notes."""
+        match = ROMAN_PART.match(text)
+        if not match:
+            self.after_parts = True
+            return
+        if self.after_parts:
+            raise ShapeError(f"annex {self.annex}: a part heading follows the notes")
+        self.part = CzPart(match.group(1), text, part_kind(match.group(1), text))
+        self.parts_seen.append(self.part.code)
+        self.group = None
+
+    def read_group_heading(self, text: str) -> None:
+        """A heading inside a part: a numbered group, or something that groups nothing.
+
+        Outside a part, and in the notes, such a heading says nothing about the groups.
+        """
+        if self.part is None or self.after_parts:
+            return
+        match = ROMAN_GROUP.match(text)
+        self.group = (match.group(1), text) if match else None
+
+    def read_item(self, fragment: dict[str, Any], depth: int) -> None:
+        """A numbered item: one record, under the group it is printed in, or under the part."""
+        if self.after_parts:
+            raise ShapeError(f"annex {self.annex}: a numbered item follows the notes")
+        if self.part is None:
+            raise ShapeError(f"annex {self.annex}: a numbered item before the first part")
+        self.records.append(
+            _cz_474_record(
+                fragment,
+                self.annex,
+                part=self.part,
+                group=self.group,
+                counters=self.counters,
+                depth=depth,
+            )
+        )
+        self.with_entries.add(self.part.code)
+
+
+def _parse_cz_474_annex(fragments: Sequence[dict[str, Any]], annex: int) -> list[dict[str, Any]]:
+    reader = CzAnnexReader(annex)
     for fragment in annex_slice(fragments, annex)[1:]:
         kind = fragment["kodTypuFragmentu"]
         depth = int(fragment["hloubka"])
         if kind == HEADING and depth == PART_DEPTH:
-            text = fragment_text(fragment)
-            match = ROMAN_PART.match(text)
-            if not match:
-                after_parts = True
-                continue
-            if after_parts:
-                raise ShapeError(f"annex {annex}: a part heading follows the notes")
-            part = CzPart(match.group(1), text, part_kind(match.group(1), text))
-            parts_seen.append(part.code)
-            group = None
-        elif kind == HEADING and depth == GROUP_DEPTH and part is not None and not after_parts:
-            text = fragment_text(fragment)
-            match = ROMAN_GROUP.match(text)
-            group = (match.group(1), text) if match else None
+            reader.read_part_heading(fragment_text(fragment))
+        elif kind == HEADING and depth == GROUP_DEPTH:
+            reader.read_group_heading(fragment_text(fragment))
         elif kind == ITEM:
-            if after_parts:
-                raise ShapeError(f"annex {annex}: a numbered item follows the notes")
-            if part is None:
-                raise ShapeError(f"annex {annex}: a numbered item before the first part")
-            records.append(
-                _cz_474_record(
-                    fragment, annex, part=part, group=group, counters=counters, depth=depth
-                )
-            )
-            with_entries.add(part.code)
-    _check_cz_474_annex(annex, parts_seen, with_entries, records)
-    return records
+            reader.read_item(fragment, depth)
+    _check_cz_474_annex(annex, reader.parts_seen, reader.with_entries, reader.records)
+    return reader.records
 
 
 def _cz_474_record(
@@ -407,14 +441,7 @@ def _cz_474_record(
             "expected one"
         )
     group_code = group[0] if group else part.code
-    number = int(match.group(1))
-    expected = counters.get(group_code, 0) + 1
-    if number != expected:
-        raise ShapeError(
-            f"annex {annex}, group {group_code}: the items are numbered "
-            f"{expected - 1} then {number}"
-        )
-    counters[group_code] = number
+    number = _cz_474_number(match.group(1), annex, group_code, counters)
     return {
         "list": f"annex-{annex}",
         "part": part.code,
@@ -427,6 +454,19 @@ def _cz_474_record(
         "scientific_name": names[0],
         "kind": part.kind,
     }
+
+
+def _cz_474_number(printed: str, annex: int, group_code: str, counters: dict[str, int]) -> int:
+    """The number an item prints, which must be the next one in its group."""
+    number = int(printed)
+    expected = counters.get(group_code, 0) + 1
+    if number != expected:
+        raise ShapeError(
+            f"annex {annex}, group {group_code}: the items are numbered "
+            f"{expected - 1} then {number}"
+        )
+    counters[group_code] = number
+    return number
 
 
 def _check_cz_474_annex(
@@ -524,22 +564,41 @@ def _parse_cz_361_table(
     ]
 
 
+def _cz_361_agent(cell: ET.Element, where: str) -> tuple[str, list[str]]:
+    """The agent column: what it names, and the notes its markers send the reader to."""
+    name, refs = cell_text(cell)
+    if not name:
+        raise ShapeError(f"{where}: the agent column is empty")
+    return name, refs
+
+
+def _cz_361_group(cell: ET.Element, where: str) -> tuple[int | None, list[str]]:
+    """The group column: the risk group, and the markers printed with it."""
+    text, marks = cell_text(cell)
+    match = RISK_GROUP.match(text)
+    if not match:
+        raise ShapeError(f"{where}: the group column reads {text!r}")
+    group = int(match.group(1)) if match.group(1) else None
+    return group, [m for m in [*marks, match.group(2), match.group(3)] if m]
+
+
+def _cz_361_note(cell: ET.Element, where: str) -> tuple[str | None, list[str], list[str]]:
+    """The note column: its text, the flags of the annex it carries, and the notes it names."""
+    text, marks = cell_text(cell)
+    match = NOTE_CELL.match(text)
+    if not match:
+        raise ShapeError(f"{where}: the note column reads {text!r}")
+    flags = [f.strip() for f in (match.group(1) or "").split(",") if f.strip()]
+    return text or None, flags, [r for r in [match.group(2), *marks] if r]
+
+
 def _cz_361_record(
     row: Sequence[ET.Element], number: int, heading: str, index: int
 ) -> dict[str, Any]:
     where = f"annex 7, table {number}, row {index}"
-    name, name_refs = cell_text(row[0])
-    if not name:
-        raise ShapeError(f"{where}: the agent column is empty")
-    group_text, group_marks = cell_text(row[1])
-    match = RISK_GROUP.match(group_text)
-    if not match:
-        raise ShapeError(f"{where}: the group column reads {group_text!r}")
-    note_text, note_marks = cell_text(row[2])
-    note = NOTE_CELL.match(note_text)
-    if not note:
-        raise ShapeError(f"{where}: the note column reads {note_text!r}")
-    markers = [m for m in [*group_marks, match.group(2), match.group(3)] if m]
+    name, name_refs = _cz_361_agent(row[0], where)
+    risk_group, risk_group_markers = _cz_361_group(row[1], where)
+    note, note_flags, note_refs = _cz_361_note(row[2], where)
     return {
         "table": number,
         "table_name": heading,
@@ -547,11 +606,11 @@ def _cz_361_record(
         "number": index,
         "name": name,
         "name_refs": name_refs,
-        "risk_group": int(match.group(1)) if match.group(1) else None,
-        "risk_group_markers": markers,
-        "note": note_text or None,
-        "note_flags": [f.strip() for f in (note.group(1) or "").split(",") if f.strip()],
-        "note_refs": [r for r in [note.group(2), *note_marks] if r],
+        "risk_group": risk_group,
+        "risk_group_markers": risk_group_markers,
+        "note": note,
+        "note_flags": note_flags,
+        "note_refs": note_refs,
         "kind": "organism",
     }
 
@@ -777,10 +836,18 @@ def parse_eu_2019_2072_annex_ii(fetched: Fetched) -> list[dict[str, Any]]:
     return records
 
 
+def _mark_index(sequence: Sequence[tuple[str, Any]], mark: str, after: int = -1) -> int | None:
+    """Where a paragraph printed after ``after`` reads exactly ``mark``, or None."""
+    for index in range(after + 1, len(sequence)):
+        kind, value = sequence[index]
+        if kind == "p" and value == mark:
+            return index
+    return None
+
+
 def _annex_ii_window(sequence: Sequence[tuple[str, Any]]) -> list[tuple[str, Any]]:
-    marks = [index for index, (kind, value) in enumerate(sequence) if kind == "p"]
-    start = next((i for i in marks if sequence[i][1] == ANNEX_II_MARK), None)
-    end = next((i for i in marks if i > (start or 0) and sequence[i][1] == ANNEX_II_END), None)
+    start = _mark_index(sequence, ANNEX_II_MARK)
+    end = None if start is None else _mark_index(sequence, ANNEX_II_END, after=start)
     if start is None or end is None:
         raise ShapeError(f"the text has no {ANNEX_II_MARK} followed by {ANNEX_II_END}")
     return list(sequence[start:end])
@@ -1008,10 +1075,10 @@ def check_records(source: Source, records: Sequence[dict[str, Any]]) -> None:
     """A record has a code, a name and a kind, and no two records share a key."""
     keys: set[tuple[str, ...]] = set()
     for record in records:
-        for field in ("code", "name", "kind"):
-            if not record.get(field):
-                raise ShapeError(f"{source.id}: a record has no {field}")
-        key = tuple(str(record[field]) for field in source.identity)
+        for wanted in ("code", "name", "kind"):
+            if not record.get(wanted):
+                raise ShapeError(f"{source.id}: a record has no {wanted}")
+        key = tuple(str(record[wanted]) for wanted in source.identity)
         if key in keys:
             raise ShapeError(f"{source.id}: two records share the key {key}")
         keys.add(key)
