@@ -20,6 +20,8 @@ Example: `feat(#10) - add sample intake form`.
 - Target `develop` (releases and hotfixes target `main`).
 - Title like a commit message, body: one sentence and `Closes #<issue>`.
 - `./check.sh` passes before pushing; run `./check.sh e2e` for critical paths.
+- A pull request that changes code adds its line to `CHANGELOG.md`, and an entry that changes a
+  regulated rule names that rule's id from `docs/compliance.md`.
 
 ## Releases
 1. `release/<x.y.z>` from `develop`; only version bumps and release fixes.

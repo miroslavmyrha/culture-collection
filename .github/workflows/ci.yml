@@ -82,6 +82,34 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  # A pull request that changes code states what changed in CHANGELOG.md (#206). On pull requests
+  # only: per commit, four parallel branches would fight over the same section at every rebase.
+  changelog:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the diff is against the base of the pull request, not a fixed branch
+      - name: Code changed, CHANGELOG.md not
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # From where the branch left its base, so commits the base gained meanwhile are not
+          # read as changes of this branch.
+          changed=$(git diff --name-only "$(git merge-base "$BASE" HEAD)" HEAD)
+          if ! printf '%s\n' "$changed" | grep -qE '^(backend|frontend)/'; then
+            echo "Nothing changed under backend/ or frontend/, so no changelog line is needed."
+            exit 0
+          fi
+          if printf '%s\n' "$changed" | grep -qxF 'CHANGELOG.md'; then
+            echo "CHANGELOG.md is among the changed files."
+            exit 0
+          fi
+          echo "::error file=CHANGELOG.md::This pull request changes code under backend/ or frontend/ and leaves CHANGELOG.md untouched. Add a line to the Unreleased section naming your issue, and the rule id of docs/compliance.md when the entry changes a regulated rule."
+          exit 1
+
   # A pull request that changes a lock file is audited before it reaches develop (#132).
   locks:
     if: github.event_name == 'pull_request'
