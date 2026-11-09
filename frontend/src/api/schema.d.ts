@@ -3951,11 +3951,20 @@ export interface components {
              */
             proposal: string;
         };
-        /** @description A raise, or the same group again: one person's (#174). */
+        /**
+         * @description A raise, or the same group again: one person's (#174), with the basis of the new group
+         *     and, where the basis was read in annex 7 of government order 361/2007 Sb., its entry
+         *     (#169).
+         */
         RiskGroupInputRequest: {
             risk_group: components["schemas"]["RiskGroup"];
             /** @description What the group rests on: the list entry, the catalogue or the publication. Stored for good: name no person. */
             basis: string;
+            /**
+             * Format: uuid
+             * @description The entry of annex 7 of government order 361/2007 Sb. the basis was read in, by public id, where it was read in one. It must state the very group being recorded. The words of the basis are required either way: an agent the annex does not list is not thereby group 1.
+             */
+            basis_entry?: string | null;
             /** @description Why, in a sentence. Stored for good: name no person. */
             reason: string;
         };
@@ -3970,6 +3979,7 @@ export interface components {
             readonly risk_group: components["schemas"]["RiskGroup"];
             readonly from_risk_group: components["schemas"]["RiskGroup"];
             readonly basis: string;
+            readonly basis_entry: string | null;
             readonly reason: string;
             /** Format: date-time */
             readonly proposed_at: string;
@@ -3985,6 +3995,11 @@ export interface components {
             risk_group: components["schemas"]["RiskGroup"];
             /** @description What the group rests on: the list entry, the catalogue or the publication. Stored for good: name no person. */
             basis: string;
+            /**
+             * Format: uuid
+             * @description The entry of annex 7 of government order 361/2007 Sb. the basis was read in, by public id, where it was read in one. It must state the very group being recorded. The words of the basis are required either way: an agent the annex does not list is not thereby group 1.
+             */
+            basis_entry?: string | null;
             /** @description Why, in a sentence. Stored for good: name no person. */
             reason: string;
         };
@@ -4198,6 +4213,7 @@ export interface components {
             readonly restriction_history: components["schemas"]["RestrictionOutput"][];
             readonly regulated: boolean;
             readonly risk_group_basis: string;
+            readonly risk_group_entry: string | null;
             readonly risk_group_proposal: components["schemas"]["RiskGroupProposalOutput"] | null;
             readonly deaccession: components["schemas"]["DeaccessionOutput"] | null;
             readonly deaccession_proposal: components["schemas"]["DeaccessionProposalOutput"] | null;
@@ -4214,6 +4230,13 @@ export interface components {
             identified_on: string;
             identification_method: string;
             risk_group: components["schemas"]["RiskGroup"];
+            /** @description What the group rests on: the list entry, the catalogue or the publication. Stored for good: name no person. */
+            risk_group_basis: string;
+            /**
+             * Format: uuid
+             * @description The entry of annex 7 of government order 361/2007 Sb. the basis was read in, by public id, where it was read in one. It must state the very group being recorded. The words of the basis are required either way: an agent the annex does not list is not thereby group 1.
+             */
+            risk_group_basis_entry?: string | null;
             /** @default unknown */
             animal_pathogenicity: components["schemas"]["Pathogenicity"];
             /** @default unknown */

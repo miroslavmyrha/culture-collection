@@ -28,6 +28,7 @@ from cultures.taxonomy.models import Taxon
 
 from . import lists
 from .models import (
+    RISK_GROUP_LIST,
     LabAuthorisation,
     ListCode,
     MatchScope,
@@ -206,4 +207,31 @@ def list_matches(taxon: Taxon) -> QuerySet[RegulatoryListEntry]:
         )
         .select_related("list")
         .order_by("list__code", "code", "pk")
+    )
+
+
+def risk_group_entries() -> QuerySet[RegulatoryListEntry]:
+    """The entries a risk group may rest on (#169): the entries of the current reading of annex
+    7 of government order 361/2007 Sb. that state a group.
+
+    No lab and no access object: the lists are law, and every signed-in user reads them. The
+    entries of the other three lists state no risk group, and a reading that was replaced states
+    nothing any more, so neither is here.
+    """
+    return RegulatoryListEntry.objects.filter(
+        list__code=RISK_GROUP_LIST, list__is_current=True, risk_group__isnull=False
+    ).select_related("list")
+
+
+def states_risk_group(entry: RegulatoryListEntry, risk_group: int) -> bool:
+    """Whether the entry is one of the above and states that very group (#169).
+
+    The one definition the service and the trigger of migration `strains/0018` both ask: a basis
+    that points at a list entry points at an entry of the current annex 7 stating the group
+    being recorded, and at nothing else.
+    """
+    return (
+        entry.list.code == RISK_GROUP_LIST
+        and entry.list.is_current
+        and entry.risk_group == risk_group
     )

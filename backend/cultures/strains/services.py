@@ -233,6 +233,16 @@ class RestrictionHeldByDualUse(RuleViolation):
     )
 
 
+class RiskGroupEntryMismatch(RuleViolation):
+    """#169: a risk group that rests on a list entry rests on an entry of the current reading of
+    annex 7 of government order 361/2007 Sb. that states that very group."""
+
+    default_code = "risk_group_entry_mismatch"
+    default_detail = (
+        "This entry of annex 7 of government order 361/2007 Sb. does not state that risk group."
+    )
+
+
 class RestrictionEnded(Conflict):
     default_code = "restriction_ended"
     default_detail = "This restriction has ended already."
@@ -351,6 +361,12 @@ class NewStrain:
     identified_on: date
     identification_method: str
     risk_group: int
+    # #169: what the risk group rests on, in words, and the list entry it was read in where it
+    # was read in one. The words are always required: annex 7 of government order 361/2007 Sb.
+    # says an agent it does not list is not thereby group 1, so no group follows from a list
+    # alone (R-RISK-07).
+    risk_group_basis: str
+    risk_group_entry: RegulatoryListEntry | None = None
     animal_pathogenicity: Pathogenicity = Pathogenicity.UNKNOWN
     plant_pathogenicity: Pathogenicity = Pathogenicity.UNKNOWN
     isolation_source: str = ""
@@ -452,6 +468,10 @@ def _checked(data: NewStrain) -> NewStrain:
         identified_on=data.identified_on,
         identification_method=method,
         risk_group=data.risk_group,
+        risk_group_basis=_check_basis(data.risk_group_basis, attr="risk_group_basis"),
+        risk_group_entry=_check_basis_entry(
+            data.risk_group_entry, data.risk_group, attr="risk_group_basis_entry"
+        ),
         animal_pathogenicity=data.animal_pathogenicity,
         plant_pathogenicity=data.plant_pathogenicity,
         isolation_source=normalised(data.isolation_source),
@@ -468,19 +488,35 @@ def _check_reason(reason: str) -> str:
     return reason.strip()
 
 
-def _check_basis(basis: str) -> str:
-    """Before any write: every risk group change states what the group rests on (#174). Today
-    that is text the person gives (a list entry, a catalogue, a publication); reading it from an
-    official list is #169. Government order 361/2007 Sb., Annex 7, Part A: an agent that is not
-    in groups 2 to 4 of the list is not thereby in group 1, so no group follows from a list
-    alone."""
+def _check_basis(basis: str, attr: str = "basis") -> str:
+    """Before any write: every risk group states what it rests on, in words (#174, #169).
+
+    The words are the person's (a list entry, a catalogue, a publication) and are required even
+    where the group was read from an official list. Government order 361/2007 Sb., Annex 7,
+    Part A: an agent that is not in groups 2 to 4 of the list is not thereby in group 1, so no
+    group follows from a list alone.
+    """
     if not basis.strip():
         raise RuleViolation(
             "A basis is required: name the list entry or the source.",
             code="basis_required",
-            attr="basis",
+            attr=attr,
         )
     return basis.strip()
+
+
+def _check_basis_entry(
+    entry: RegulatoryListEntry | None, risk_group: int, attr: str = "basis_entry"
+) -> RegulatoryListEntry | None:
+    """#169: where a basis points at a list entry, the entry is one of the current reading of
+    annex 7 of government order 361/2007 Sb. that states the very group being recorded.
+
+    No query: the entry was read with its list. `biosafety.selectors.states_risk_group` is the
+    one definition, and the guard of migration 0018 asks the same of every writer.
+    """
+    if entry is not None and not biosafety_lists.states_risk_group(entry, risk_group):
+        raise RiskGroupEntryMismatch(attr=attr)
+    return entry
 
 
 # Under the lab lock.
@@ -598,6 +634,10 @@ def strain_create(*, access: Access, lab: Lab, data: NewStrain) -> Strain:
             name_as_received=data.name_as_received,
             taxon=data.taxon,
             risk_group=data.risk_group,
+            # #169: the accession states what the group rests on, like every change after it.
+            risk_group_basis=data.risk_group_basis,
+            risk_group_set_at=timezone.now(),
+            risk_group_entry=data.risk_group_entry,
             animal_pathogenicity=data.animal_pathogenicity,
             plant_pathogenicity=data.plant_pathogenicity,
             isolation_source=data.isolation_source,
@@ -627,6 +667,8 @@ def strain_create(*, access: Access, lab: Lab, data: NewStrain) -> Strain:
             "name_as_received": strain.name_as_received,
             "taxon": str(data.taxon.public_id),
             "risk_group": strain.risk_group,
+            "risk_group_basis": strain.risk_group_basis,
+            "risk_group_entry": _entry_code(data.risk_group_entry),
             "animal_pathogenicity": strain.animal_pathogenicity,
             "plant_pathogenicity": strain.plant_pathogenicity,
             "isolation_source": strain.isolation_source,
@@ -724,31 +766,68 @@ def _check_boxes_hold(strain: Strain, risk_group: int) -> None:
         raise RiskGroupAboveBoxCap
 
 
+def _entry_code(entry: RegulatoryListEntry | None) -> str | None:
+    """How an event names a list entry (#169): its code in its list, never its row id."""
+    return None if entry is None else entry.code
+
+
 def _risk_group_fields(
-    locked: Strain, risk_group: int, basis: str, now: datetime
+    locked: Strain,
+    risk_group: int,
+    basis: str,
+    now: datetime,
+    entry: RegulatoryListEntry | None = None,
 ) -> dict[str, Any]:
-    """The strain's new group with its basis and the time of the change, and the changes the
-    event records. The time moves forward with every change, which is what ties a lowering to
-    one confirmed proposal (migration 0014)."""
+    """The strain's new group with its basis, the list entry the basis rests on and the time of
+    the change, and the changes the event records. The time moves forward with every change,
+    which is what ties a lowering to one confirmed proposal (migration 0014)."""
     old, old_basis = locked.risk_group, locked.risk_group_basis
+    # One query, and only for a strain whose group already rested on an entry: the locked row
+    # holds the id, and an event names an entry by its code in its list, never by a row id.
+    old_entry = (
+        RegulatoryListEntry.objects.filter(pk=locked.risk_group_entry_id)
+        .values_list("code", flat=True)
+        .first()
+        if locked.risk_group_entry_id is not None
+        else None
+    )
     locked.risk_group = risk_group
     locked.risk_group_basis = basis
     locked.risk_group_set_at = now
-    return {"risk_group": [old, risk_group], "basis": [old_basis or None, basis]}
+    locked.risk_group_entry = entry
+    return {
+        "risk_group": [old, risk_group],
+        "basis": [old_basis or None, basis],
+        "basis_entry": [old_entry, _entry_code(entry)],
+    }
 
 
-RISK_GROUP_FIELDS = ["risk_group", "risk_group_basis", "risk_group_set_at", "updated_at"]
+RISK_GROUP_FIELDS = [
+    "risk_group",
+    "risk_group_basis",
+    "risk_group_set_at",
+    "risk_group_entry",
+    "updated_at",
+]
 
 
 def strain_set_risk_group(
-    *, access: Access, strain: Strain, risk_group: int, basis: str, reason: str
+    *,
+    access: Access,
+    strain: Strain,
+    risk_group: int,
+    basis: str,
+    reason: str,
+    basis_entry: RegulatoryListEntry | None = None,
 ) -> Strain:
     """A raise, or the same group again, by one person who manages strains, with the basis and
-    the reason (#174). The same group changes nothing and records nothing. A raise goes one step
-    at a time and is refused while a box holding the strain's vials does not allow it. A lower
-    group is proposed instead (strain_risk_group_lower_propose)."""
+    the reason (#174). The basis may point at the entry of annex 7 of government order 361/2007
+    Sb. it was read in (#169). The same group changes nothing and records nothing. A raise goes
+    one step at a time and is refused while a box holding the strain's vials does not allow it.
+    A lower group is proposed instead (strain_risk_group_lower_propose)."""
     _check_risk_group(risk_group)
     basis = _check_basis(basis)
+    _check_basis_entry(basis_entry, risk_group)
     reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(strain.lab_id)
@@ -761,7 +840,7 @@ def strain_set_risk_group(
         if risk_group > locked.risk_group + 1:
             raise RiskGroupStepTooBig
         _check_boxes_hold(locked, risk_group)
-        changes = _risk_group_fields(locked, risk_group, basis, timezone.now())
+        changes = _risk_group_fields(locked, risk_group, basis, timezone.now(), basis_entry)
         record_event(
             STRAIN_RISK_GROUP_CHANGED,
             Change(
@@ -782,7 +861,9 @@ def _open_risk_group(strain: Strain, named: uuid.UUID) -> RiskGroupProposal:
     proposal = (
         RiskGroupProposal.objects.select_for_update(of=("self",))
         .filter(strain=strain, confirmed_at__isnull=True, withdrawn_at__isnull=True)
-        .select_related("proposed_by")
+        # basis_entry is nullable, hence of=("self",) above: the row of the proposal is locked
+        # and the entry, which nothing ever changes, is not.
+        .select_related("proposed_by", "basis_entry")
         .first()
     )
     if proposal is None:
@@ -793,14 +874,22 @@ def _open_risk_group(strain: Strain, named: uuid.UUID) -> RiskGroupProposal:
 
 
 def strain_risk_group_lower_propose(
-    *, access: Access, strain: Strain, risk_group: int, basis: str, reason: str
+    *,
+    access: Access,
+    strain: Strain,
+    risk_group: int,
+    basis: str,
+    reason: str,
+    basis_entry: RegulatoryListEntry | None = None,
 ) -> RiskGroupProposal:
     """The first of two steps to lower a risk group (#174, ADR 0009): someone who manages
-    strains proposes it, with the basis the lower group rests on and the reason. Nothing changes
-    for the strain until a manager other than the proposer confirms it, so every rule that reads
-    the risk group still reads the higher one."""
+    strains proposes it, with the basis the lower group rests on, the list entry that basis was
+    read in where there is one (#169), and the reason. Nothing changes for the strain until a
+    manager other than the proposer confirms it, so every rule that reads the risk group still
+    reads the higher one."""
     _check_risk_group(risk_group)
     basis = _check_basis(basis)
+    _check_basis_entry(basis_entry, risk_group)
     reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(strain.lab_id)
@@ -818,6 +907,7 @@ def strain_risk_group_lower_propose(
             risk_group=risk_group,
             from_risk_group=locked.risk_group,
             basis=basis,
+            basis_entry=basis_entry,
             reason=reason,
             proposed_by=access.user,
             proposed_at=timezone.now(),
@@ -836,6 +926,7 @@ def strain_risk_group_lower_propose(
                             "risk_group": risk_group,
                             "from_risk_group": locked.risk_group,
                             "basis": basis,
+                            "basis_entry": _entry_code(basis_entry),
                         },
                     ]
                 },
@@ -867,7 +958,9 @@ def strain_risk_group_lower_confirm(
         _defer_outcome_check("strains_riskgroupproposal_confirmed")
         proposed.confirmed_by, proposed.confirmed_at = access.user, now
         proposed.save(update_fields=["confirmed_by", "confirmed_at", "updated_at"])
-        changes = _risk_group_fields(locked, proposed.risk_group, proposed.basis, now)
+        changes = _risk_group_fields(
+            locked, proposed.risk_group, proposed.basis, now, proposed.basis_entry
+        )
         record_event(
             STRAIN_RISK_GROUP_CHANGED,
             Change(

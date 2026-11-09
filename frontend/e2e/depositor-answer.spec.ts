@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
-import { axe, signedInAs, username, watchCsp } from './support.js'
+import { axe, riskGroupBasis, signedInAs, username, watchCsp } from './support.js'
 
 // The depositor's answer (#144, walkthrough C9) against the real API: commercial research that
 // the depositor's terms leave on request. Each test makes a strain of its own through the API
@@ -60,6 +60,7 @@ async function commercialRequest(page: Page, name: string): Promise<string> {
         identified_on: today,
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,
+        risk_group_basis: riskGroupBasis,
         country_of_origin: 'CZ',
         restrictions: [],
       })

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { signedInAs, username } from './support.js'
+import { riskGroupBasis, signedInAs, username } from './support.js'
 
 // A risk group drops by two people (#174, ADR 0009): e2e-curator raises a strain of this run to
 // group 2 in one step, proposes group 1 with the basis it rests on, and the e2e user, a manager,
@@ -51,6 +51,7 @@ test('a curator proposes a lower risk group and a manager confirms it', async ({
         identified_on: today,
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,
+        risk_group_basis: riskGroupBasis,
         animal_pathogenicity: 'unknown',
         plant_pathogenicity: 'unknown',
         isolation_source: '',

@@ -50,6 +50,7 @@ const FIELDS = [
   'identified_on',
   'identification_method',
   'risk_group',
+  'risk_group_basis',
   'animal_pathogenicity',
   'plant_pathogenicity',
   'isolation_source',
@@ -86,6 +87,7 @@ export function StrainFactsForm({ label, submitLabel, nameAsReceived, submit, on
       identified_on: today(),
       identification_method: '',
       risk_group: '',
+      risk_group_basis: '',
       animal_pathogenicity: 'unknown',
       plant_pathogenicity: 'unknown',
       isolation_source: '',
@@ -112,6 +114,7 @@ export function StrainFactsForm({ label, submitLabel, nameAsReceived, submit, on
         identified_on: values.identified_on,
         identification_method: values.identification_method.trim(),
         risk_group: values.risk_group,
+        risk_group_basis: values.risk_group_basis.trim(),
         animal_pathogenicity: values.animal_pathogenicity,
         plant_pathogenicity: values.plant_pathogenicity,
         isolation_source: values.isolation_source.trim(),
@@ -179,6 +182,14 @@ export function StrainFactsForm({ label, submitLabel, nameAsReceived, submit, on
           options={RISK_GROUP_OPTIONS}
           error={errors.risk_group?.message}
           {...register('risk_group')}
+        />
+        <TextField
+          label="Risk group basis"
+          hint="What the group rests on: the entry of annex 7 of 361/2007 Sb., a catalogue or a publication. An agent the annex does not list is not thereby group 1. Name no person."
+          multiline
+          minRows={2}
+          error={errors.risk_group_basis?.message}
+          {...register('risk_group_basis')}
         />
         <SelectField label="Animal pathogenicity" options={PATHOGENICITY} error={errors.animal_pathogenicity?.message} {...register('animal_pathogenicity')} />
         <SelectField label="Plant pathogenicity" options={PATHOGENICITY} error={errors.plant_pathogenicity?.message} {...register('plant_pathogenicity')} />

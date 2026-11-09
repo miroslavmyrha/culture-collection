@@ -273,8 +273,9 @@ and the rules and duties it decides are changed in the same commit.
 - Quote: "'Biological agents' shall be classified into four risk groups, according to their level of risk of infection"
 - Code: `backend/cultures/strains/models.py::"strains_strain_risk_group_1_to_4"`
 - Tests: `backend/cultures/strains/tests/test_models.py::test_risk_groups_one_to_four_are_stored`, `backend/cultures/strains/tests/test_models.py::test_a_strain_row_that_cannot_be_true_is_refused`
-- Limits: the group is typed by a person, not read from the annex of the directive or of the
-  government order. The annex is held now (R-LIST-01), and nothing reads it yet (#169).
+- Limits: the group is still chosen by a person. Since #169 the choice may rest on the entry of
+  annex 7 the person read it in, which the app checks (R-RISK-09), and the strain page offers the
+  entries that match its taxon (R-MATCH-01); nothing picks a group by itself.
 
 #### R-RISK-02 A risk group 4 agent is refused at accession and on change
 
@@ -293,7 +294,8 @@ and the rules and duties it decides are changed in the same commit.
 - Code: `backend/cultures/strains/services.py::strain_set_risk_group`
 - Tests: `backend/cultures/strains/tests/test_services.py::test_a_risk_group_change_records_old_new_and_the_reason`, `backend/cultures/strains/tests/test_services.py::test_a_risk_group_change_needs_a_reason`, `backend/cultures/strains/tests/test_services.py::test_the_same_risk_group_again_records_nothing`
 - Limits: the same group again changes nothing and records nothing, so a new basis for an
-  unchanged group is not recorded (#169).
+  unchanged group is not recorded. To restate the basis of a group a strain already has, raise it
+  and lower it again, each step with its own basis. Issue: none
 
 #### R-RISK-04 A higher risk group must fit the cap of every box holding the strain
 
@@ -325,7 +327,7 @@ and the rules and duties it decides are changed in the same commit.
   holds both people. The check that a confirmed proposal was applied passes when the strain
   changed again afterwards (a group changes again and again, unlike a deaccession). Issue: none
 
-#### R-RISK-07 Every risk group change names the basis of the new group
+#### R-RISK-07 Every risk group names what it rests on, from the accession on
 
 - Kind: law in part
 - Source: government order 361/2007 Sb., Annex 7, Part A, the sentence before table 1 (the
@@ -337,11 +339,13 @@ and the rules and duties it decides are changed in the same commit.
 - Quote: „Biologické činitele, které nebyly zařazeny do skupin 2 až 4 seznamu, nejsou automaticky zařazeny do skupiny 1.“
 - English: Biological agents that have not been classified into groups 2 to 4 of the list are
   not automatically classified into group 1.
-- Code: `backend/cultures/strains/services.py::_check_basis`, `backend/cultures/strains/models.py::"strains_strain_risk_group_basis_with_time"`, `backend/cultures/strains/migrations/0014_risk_group_audit_and_guards.py::"a risk group change states its basis and the time it was made"`
-- Tests: `backend/cultures/strains/tests/test_services.py::test_a_risk_group_change_needs_a_basis`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_proposal_without_a_basis_or_a_reason_is_refused`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_database_asks_every_change_for_its_basis_and_its_time`
-- Limits: the basis is text a person types, not an entry of an official list, and the group the
-  accession recorded has none at all (#169). The lists are rows of the app now (R-LIST-01) and
-  nothing reads them yet.
+- Code: `backend/cultures/strains/services.py::_check_basis`, `backend/cultures/strains/services.py::strain_create`, `backend/cultures/strains/models.py::"strains_strain_risk_group_basis_with_time"`, `backend/cultures/strains/migrations/0014_risk_group_audit_and_guards.py::"a risk group change states its basis and the time it was made"`, `backend/cultures/strains/migrations/0018_risk_group_basis_guards.py::"a strain states what its risk group rests on and when"`
+- Tests: `backend/cultures/strains/tests/test_services.py::test_a_risk_group_change_needs_a_basis`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_proposal_without_a_basis_or_a_reason_is_refused`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_database_asks_every_change_for_its_basis_and_its_time`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_accession_states_what_its_risk_group_rests_on`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_accession_without_a_basis_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_group_1_states_a_reason_too_and_never_follows_from_a_missing_entry`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_asks_every_new_strain_what_its_group_rests_on`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_strain_page_shows_the_basis_and_the_entry_of_its_group`
+- Limits: since #169 the accession states the basis too, so every group recorded from then on
+  says what it rests on, in words, whether or not it also names a list entry (R-RISK-09). A
+  strain accessioned before #169 keeps an empty basis: nothing writes one after the fact, and its
+  next change of group states one. The words themselves are not checked against the entry they
+  cite. Issue: none
 
 #### R-RISK-08 A risk group rises one step at a time
 
@@ -352,6 +356,30 @@ and the rules and duties it decides are changed in the same commit.
 - Tests: `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_raise_stays_one_step_and_needs_no_second_person`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_database_lets_a_group_rise_one_step_at_a_time`
 - Limits: a strain may still be accessioned straight into group 3 (R-RISK-02 refuses only group
   4): the rule is about changing a classification, not about the first one. Issue: none
+
+#### R-RISK-09 A risk group that rests on a list entry rests on an entry of the current annex 7 that states it
+
+- Kind: law in part
+- Source: government order 361/2007 Sb., Annex 7 (the consolidated text in force from
+  2026-09-01, e-Sbírka, SHA-256
+  6dd28ebb7fede464528d766d7dd58d066281a6a7fac6ccca99a76c7eb251d64c, the version
+  `backend/cultures/biosafety/data/manifest.json` records). The annex is the only list the app
+  holds that states a risk group, so a basis that cites one cites it. That the citation is a
+  foreign key to the entry rather than free text, and that it must state the very group being
+  recorded, is ours (ADR 0009, amendment 2026-11-09, #169).
+- Quote: „Biologické činitele, které nebyly zařazeny do skupin 2 až 4 seznamu, nejsou automaticky zařazeny do skupiny 1.“
+- English: Biological agents that have not been classified into groups 2 to 4 of the list are
+  not automatically classified into group 1.
+- Code: `backend/cultures/biosafety/selectors.py::risk_group_entries`, `backend/cultures/biosafety/selectors.py::states_risk_group`, `backend/cultures/strains/services.py::_check_basis_entry`, `backend/cultures/strains/services.py::RiskGroupEntryMismatch`, `backend/cultures/strains/migrations/0018_risk_group_basis_guards.py::"a risk group rests on an entry of the current annex 7 of government order 361/2007 Sb. that states it"`, `backend/cultures/strains/migrations/0018_risk_group_basis_guards.py::"a proposed risk group rests on an entry of the current annex 7 of government order 361/2007 Sb. that states it"`
+- Tests: `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_accession_may_rest_on_an_entry_of_the_annex`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_entry_that_states_another_group_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_entry_of_another_list_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_entry_of_a_reading_that_was_replaced_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_a_raise_may_name_an_entry_and_the_event_holds_its_code`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_a_raise_on_an_entry_of_another_group_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_a_lowering_carries_the_entry_of_the_proposal_it_confirms`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_a_proposal_on_an_entry_of_another_group_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_refuses_a_new_strain_on_an_entry_that_does_not_state_its_group`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_refuses_a_change_onto_an_entry_that_does_not_state_the_group`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_lets_the_entry_change_only_with_the_group`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_refuses_a_lowering_that_drops_the_entry_of_its_proposal`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_refuses_a_proposal_on_an_entry_that_does_not_state_its_group`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_python_check_and_the_trigger_agree_on_which_entry_states_a_group`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_api_takes_the_entry_by_public_id_and_refuses_one_of_another_list`
+- Limits: the entry is optional, because the annex states a group for a minority of the taxa a
+  collection holds and because an agent it does not list is not thereby group 1 (the sentence
+  above): the words of the basis carry that case and are always required (R-RISK-07). An entry
+  may be named only where the app can offer it, which is where the loader derived a name for it
+  (R-LIST-03, R-MATCH-01). Nothing checks that the entry's organism is the strain's taxon: the
+  person reads the suggestion and decides, as the taxon itself may be wrong. A strain keeps the
+  entry it was given even after a newer reading of the annex replaces it: the row is history, and
+  the next change of the group names an entry of the reading in force then. Issue: none
 
 ### The lab's own permits
 

@@ -66,7 +66,8 @@ type Common = { labId: string; strain: Strain; open: boolean; onClose: () => voi
  * person still chooses, and still gives the reason: nothing here is sent without the form.
  */
 export type RestrictionSuggestion = { kind: RestrictionKind; reference: string; act: string }
-export type RiskGroupSuggestion = { risk_group: string; basis: string }
+/** `entry` is the public id of the annex 7 entry the group would rest on (#169). */
+export type RiskGroupSuggestion = { risk_group: string; basis: string; entry: string }
 
 const REASON_HINT = 'Stored for good with the change. Name no person.'
 const KIND_OPTIONS = options(RESTRICTION_LABELS, RESTRICTION_KINDS)
@@ -171,7 +172,14 @@ export function RiskGroupDialog({ labId, strain, open, onClose, onExited, sugges
   }
   const onSubmit = handleSubmit((values) => {
     setFailure(undefined)
-    const body = { ...values, basis: values.basis.trim(), reason: values.reason.trim() }
+    // #169: the entry comes from the suggestion the person took, not from a field of its own.
+    // Without one the group rests on the words alone, which the annex itself asks for.
+    const body = {
+      ...values,
+      basis: values.basis.trim(),
+      basis_entry: suggestion?.entry ?? null,
+      reason: values.reason.trim(),
+    }
     const mutation = lowering ? propose : change
     mutation.mutate(body, { onSuccess: onClose, onError })
   })

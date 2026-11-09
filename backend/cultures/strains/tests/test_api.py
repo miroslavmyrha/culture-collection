@@ -14,7 +14,7 @@ from cultures.strains.services import RestrictionInput
 from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
 
-from .conftest import DUAL_USE, GMO, STRAINS_URL, MakeStrain, end_restriction
+from .conftest import ACCESSION_BASIS, DUAL_USE, GMO, STRAINS_URL, MakeStrain, end_restriction
 
 pytestmark = pytest.mark.django_db
 # Raised by the services with their own code on top; a serializer's field error is "invalid".
@@ -132,8 +132,10 @@ def test_the_detail_of_a_strain(
             },
         ],
         "regulated": True,
-        # #174: the group is the one the accession recorded, so it has no basis of its own yet.
-        "risk_group_basis": "",
+        # #174 and #169: the accession states what the group rests on, and here it rests on no
+        # list entry (the taxa of these tests are invented).
+        "risk_group_basis": ACCESSION_BASIS,
+        "risk_group_entry": None,
         "risk_group_proposal": None,
         "deaccession": None,
         "deaccession_proposal": None,

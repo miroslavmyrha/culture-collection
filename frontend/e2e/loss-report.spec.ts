@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { signedInAs, username, watchCsp } from './support.js'
+import { riskGroupBasis, signedInAs, username, watchCsp } from './support.js'
 
 // #159, act 281/2002 Sb., § 5(5): a manager marks a vial of a RAT strain lost, is told of the duty
 // to report the loss to the police, finds the loss on Home and records the report there. The
@@ -51,6 +51,7 @@ test('a manager is told to report a lost RAT vial to the police, and records the
         identified_on: today,
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,
+        risk_group_basis: riskGroupBasis,
         animal_pathogenicity: 'unknown',
         plant_pathogenicity: 'unknown',
         isolation_source: '',

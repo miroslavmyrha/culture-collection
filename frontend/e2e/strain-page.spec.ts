@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
-import { axe, signedInAs, username, watchCsp } from './support.js'
+import { axe, riskGroupBasis, signedInAs, username, watchCsp } from './support.js'
 
 // The strain page by task (#19, #72) against the real API: a strain of this run with 230 vials
 // (two batches, 200 and 30) made through the API with the session auth.setup.ts signed in.
@@ -42,6 +42,7 @@ async function strainWithManyVials(page: Page, name: string) {
       identified_on: new Date().toLocaleDateString('sv'),
       identification_method: 'MALDI-TOF MS',
       risk_group: 1,
+      risk_group_basis: riskGroupBasis,
       animal_pathogenicity: 'unknown',
       plant_pathogenicity: 'unknown',
       isolation_source: '',

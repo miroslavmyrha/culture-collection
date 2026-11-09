@@ -1399,6 +1399,7 @@
    "country_of_origin": "CZ",
    "isolation_date": "2021-12",
    "risk_group": 2,
+   "risk_group_basis": "The lab's own assessment of the isolate, filed with the accession papers (invented example).",
    "animal_pathogenicity": "unknown",
    "plant_pathogenicity": "none_known",
    "history": [
@@ -1442,6 +1443,7 @@
    "country_of_origin": "PT",
    "isolation_date": "2018-03",
    "risk_group": 2,
+   "risk_group_basis": "The lab's own assessment of the isolate, filed with the accession papers (invented example).",
    "animal_pathogenicity": "unknown",
    "plant_pathogenicity": "unknown",
    "history": [
@@ -1604,6 +1606,7 @@
    "country_of_origin": "CZ",
    "isolation_date": "2025-02",
    "risk_group": 1,
+   "risk_group_basis": "The lab's own assessment of the isolate, filed with the accession papers (invented example).",
    "animal_pathogenicity": "none_known",
    "plant_pathogenicity": "pathogenic",
    "restrictions": [
@@ -1634,6 +1637,7 @@
    "country_of_origin": "CZ",
    "isolation_date": "2024-04",
    "risk_group": 3,
+   "risk_group_basis": "The lab's own assessment of the isolate, filed with the accession papers (invented example).",
    "animal_pathogenicity": "pathogenic",
    "plant_pathogenicity": "unknown",
    "restrictions": [
@@ -1669,6 +1673,7 @@
    "country_of_origin": "SK",
    "isolation_date": "2024-12",
    "risk_group": 3,
+   "risk_group_basis": "The lab's own assessment of the isolate, filed with the accession papers (invented example).",
    "animal_pathogenicity": "pathogenic",
    "plant_pathogenicity": "unknown",
    "restrictions": [
@@ -1688,6 +1693,7 @@
    "country_of_origin": "CZ",
    "isolation_date": "2024",
    "risk_group": 2,
+   "risk_group_basis": "The lab's own assessment of the isolate, filed with the accession papers (invented example).",
    "animal_pathogenicity": "unknown",
    "plant_pathogenicity": "unknown",
    "restrictions": [
@@ -1707,6 +1713,7 @@
    "country_of_origin": "AT",
    "isolation_date": "2024-09",
    "risk_group": 2,
+   "risk_group_basis": "The lab's own assessment of the isolate, filed with the accession papers (invented example).",
    "animal_pathogenicity": "unknown",
    "plant_pathogenicity": "unknown",
    "restrictions": [
@@ -1727,6 +1734,7 @@
    "country_of_origin": "DE",
    "isolation_date": "2025",
    "risk_group": 2,
+   "risk_group_basis": "The lab's own assessment of the isolate, filed with the accession papers (invented example).",
    "animal_pathogenicity": "unknown",
    "plant_pathogenicity": "unknown"
   },
@@ -1858,6 +1866,7 @@
    "country_of_origin": "CZ",
    "isolation_date": "2023-03",
    "risk_group": 1,
+   "risk_group_basis": "The lab's own assessment of the isolate, filed with the accession papers (invented example).",
    "animal_pathogenicity": "unknown",
    "plant_pathogenicity": "unknown",
    "restrictions": [
@@ -2066,6 +2075,7 @@
     "country_of_origin": "PE",
     "isolation_date": "2025",
     "risk_group": 2,
+    "risk_group_basis": "The lab's own assessment of the isolate, filed with the accession papers (invented example).",
     "animal_pathogenicity": "unknown",
     "plant_pathogenicity": "none_known"
    },
@@ -2129,6 +2139,7 @@
     "country_of_origin": "",
     "isolation_date": "",
     "risk_group": 2,
+    "risk_group_basis": "The lab's own assessment of the isolate, filed with the accession papers (invented example).",
     "animal_pathogenicity": "unknown",
     "plant_pathogenicity": "unknown",
     "restrictions": [
@@ -2171,6 +2182,7 @@
     "country_of_origin": "",
     "isolation_date": "",
     "risk_group": 1,
+    "risk_group_basis": "The lab's own assessment of the isolate, filed with the accession papers (invented example).",
     "animal_pathogenicity": "unknown",
     "plant_pathogenicity": "unknown",
     "restrictions": [

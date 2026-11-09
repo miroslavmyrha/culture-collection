@@ -88,11 +88,18 @@ describe('the deposit page', () => {
     await user.keyboard('{ArrowDown}{Enter}')
     await user.type(within(form).getByRole('textbox', { name: 'Identification method' }), '16S rRNA gene sequence')
     await user.selectOptions(within(form).getByRole('combobox', { name: 'Risk group' }), '2')
+    // #169: the accession says what the group rests on.
+    await user.type(within(form).getByRole('textbox', { name: 'Risk group basis' }), 'NV 361/2007 Sb., Příloha 7.')
     await user.click(within(form).getByRole('button', { name: 'Accept and add the strain' }))
     const link = await screen.findByRole('link', { name: 'MYC 9' })
     expect(link).toHaveAttribute('href', `/labs/${LAB_ID}/strains/00000000-0000-4000-8000-0000000000f1`)
     expect(screen.getByRole('heading', { level: 2, name: 'Check and decision' })).toHaveFocus()
-    expect(calls[0]?.body).toMatchObject({ taxon: exempli.public_id, risk_group: 2, country_of_origin: 'CZ' })
+    expect(calls[0]?.body).toMatchObject({
+      taxon: exempli.public_id,
+      risk_group: 2,
+      risk_group_basis: 'NV 361/2007 Sb., Příloha 7.',
+      country_of_origin: 'CZ',
+    })
     expect(calls[0]?.body).not.toHaveProperty('name_as_received')
   })
 

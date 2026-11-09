@@ -516,9 +516,11 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "country_of_origin",
             "isolation_date",
             # #174: what the current risk group rests on, free text naming nobody, and when it
-            # was set.
+            # was set. #169: the entry of annex 7 of government order 361/2007 Sb. the basis was
+            # read in, where it was read in one.
             "risk_group_basis",
             "risk_group_set_at",
+            "risk_group_entry_id",
             "growth_medium_id",
             "growth_temperature_low_c",
             "growth_temperature_high_c",
@@ -619,6 +621,8 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "risk_group",
             "from_risk_group",
             "basis",
+            # #169: the entry of annex 7 the basis was read in, where it was read in one.
+            "basis_entry_id",
             "reason",
             "proposed_by_id",
             "proposed_at",

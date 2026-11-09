@@ -50,6 +50,9 @@ def facts(taxon: Taxon, **changes: Any) -> StrainFacts:
         "identified_on": date(2026, 1, 10),
         "identification_method": "16S rRNA gene sequence",
         "risk_group": 1,
+        # #169: the accession states what the group rests on. Invented taxa, so the basis makes
+        # no claim about any list.
+        "risk_group_basis": "The lab's own assessment of this invented isolate.",
         **changes,
     }
     return StrainFacts(**values)
@@ -61,6 +64,7 @@ def facts_body(taxon: Taxon, **changes: Any) -> dict[str, Any]:
         "identified_on": "2026-01-10",
         "identification_method": "16S rRNA gene sequence",
         "risk_group": 1,
+        "risk_group_basis": "The lab's own assessment of this invented isolate.",
         **changes,
     }
 

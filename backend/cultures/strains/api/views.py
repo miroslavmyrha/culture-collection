@@ -277,13 +277,14 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         """Raises the risk group, or records the same one again, with the basis and the reason
         (#174). A lower group is proposed instead (risk-group-proposal)."""
         strain: Strain = self.get_object()
-        data = RiskGroupInputSerializer(data=request.data)
+        data = RiskGroupInputSerializer(data=request.data, context=self.get_serializer_context())
         data.is_valid(raise_exception=True)
         services.strain_set_risk_group(
             access=access_of(request),
             strain=strain,
             risk_group=data.validated_data["risk_group"],
             basis=data.validated_data["basis"],
+            basis_entry=data.validated_data["basis_entry"],
             reason=data.validated_data["reason"],
         )
         return self._detail(strain)
@@ -303,7 +304,9 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         changes for the strain until a manager other than the proposer confirms the proposal, so
         every rule still reads the higher group."""
         strain: Strain = self.get_object()
-        data = RiskGroupProposeInputSerializer(data=request.data)
+        data = RiskGroupProposeInputSerializer(
+            data=request.data, context=self.get_serializer_context()
+        )
         data.is_valid(raise_exception=True)
         values = data.validated_data
         services.strain_risk_group_lower_propose(
@@ -311,6 +314,7 @@ class StrainViewSet(ScopedReadOnlyViewSet):
             strain=strain,
             risk_group=values["risk_group"],
             basis=values["basis"],
+            basis_entry=values["basis_entry"],
             reason=values["reason"],
         )
         return self._detail(strain)

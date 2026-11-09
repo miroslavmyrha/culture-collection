@@ -19,6 +19,7 @@ const DETAIL = '/api/v1/labs/{lab_public_id}/strains/{public_id}/'
 const TERMS = '/api/v1/labs/{lab_public_id}/strains/{public_id}/terms/'
 const MATCHES = '/api/v1/labs/{lab_public_id}/strains/{public_id}/list-matches/'
 const ADD = '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/'
+const RISK_GROUP = '/api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group/'
 
 const strain = makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42', risk_group: 1 })
 
@@ -90,6 +91,24 @@ describe('the official lists on the strain page', () => {
     expect(dialog.getByRole('combobox', { name: 'Risk group' })).toHaveValue('3')
     expect(dialog.getByLabelText('Basis')).toHaveValue('Mockia fictiva (361/2007 Sb., entry 1.99, /sb/2007/361/2026-09-01)')
     expect(dialog.getByLabelText('Reason')).toHaveValue('')
+  })
+
+  it('records the suggested group with the entry of the annex it rests on', async () => {
+    const user = userEvent.setup()
+    mockApi('get', MATCHES, page([riskGroup]))
+    const raised = mockApi('post', RISK_GROUP, strain)
+    await render()
+    await user.click(await screen.findByRole('button', { name: 'Use as the risk group basis' }))
+    const dialog = within(await screen.findByRole('dialog', { name: 'Change the risk group of MYC 42' }))
+    await user.type(dialog.getByLabelText('Reason'), 'Read in annex 7.')
+    await user.click(dialog.getByRole('button', { name: 'Save risk group' }))
+    // #169: the group, the basis and the entry come from the line, the reason from the person.
+    expect(raised[0]?.body).toEqual({
+      risk_group: 3,
+      basis: 'Mockia fictiva (361/2007 Sb., entry 1.99, /sb/2007/361/2026-09-01)',
+      basis_entry: riskGroup.public_id,
+      reason: 'Read in annex 7.',
+    })
   })
 
   it('offers nothing to record to somebody who does not manage strains', async () => {

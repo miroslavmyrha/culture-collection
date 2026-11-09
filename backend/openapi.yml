@@ -14807,7 +14807,10 @@ components:
       - proposal
     RiskGroupInputRequest:
       type: object
-      description: 'A raise, or the same group again: one person''s (#174).'
+      description: |-
+        A raise, or the same group again: one person's (#174), with the basis of the new group
+        and, where the basis was read in annex 7 of government order 361/2007 Sb., its entry
+        (#169).
       properties:
         risk_group:
           $ref: '#/components/schemas/RiskGroup'
@@ -14817,6 +14820,14 @@ components:
           description: 'What the group rests on: the list entry, the catalogue or
             the publication. Stored for good: name no person.'
           maxLength: 2000
+        basis_entry:
+          type: string
+          format: uuid
+          nullable: true
+          description: 'The entry of annex 7 of government order 361/2007 Sb. the
+            basis was read in, by public id, where it was read in one. It must state
+            the very group being recorded. The words of the basis are required either
+            way: an agent the annex does not list is not thereby group 1.'
         reason:
           type: string
           minLength: 1
@@ -14847,6 +14858,10 @@ components:
         basis:
           type: string
           readOnly: true
+        basis_entry:
+          type: string
+          readOnly: true
+          nullable: true
         reason:
           type: string
           readOnly: true
@@ -14862,6 +14877,7 @@ components:
           - $ref: '#/components/schemas/NullEnum'
       required:
       - basis
+      - basis_entry
       - confirm_refusal
       - from_risk_group
       - proposed_at
@@ -14885,6 +14901,14 @@ components:
           description: 'What the group rests on: the list entry, the catalogue or
             the publication. Stored for good: name no person.'
           maxLength: 2000
+        basis_entry:
+          type: string
+          format: uuid
+          nullable: true
+          description: 'The entry of annex 7 of government order 361/2007 Sb. the
+            basis was read in, by public id, where it was read in one. It must state
+            the very group being recorded. The words of the basis are required either
+            way: an agent the annex does not list is not thereby group 1.'
         reason:
           type: string
           minLength: 1
@@ -15398,6 +15422,10 @@ components:
         risk_group_basis:
           type: string
           readOnly: true
+        risk_group_entry:
+          type: string
+          readOnly: true
+          nullable: true
         risk_group_proposal:
           allOf:
           - $ref: '#/components/schemas/RiskGroupProposalOutput'
@@ -15438,6 +15466,7 @@ components:
       - restrictions
       - risk_group
       - risk_group_basis
+      - risk_group_entry
       - risk_group_proposal
       - status
       - taxon
@@ -15459,6 +15488,20 @@ components:
           maxLength: 200
         risk_group:
           $ref: '#/components/schemas/RiskGroup'
+        risk_group_basis:
+          type: string
+          minLength: 1
+          description: 'What the group rests on: the list entry, the catalogue or
+            the publication. Stored for good: name no person.'
+          maxLength: 2000
+        risk_group_basis_entry:
+          type: string
+          format: uuid
+          nullable: true
+          description: 'The entry of annex 7 of government order 361/2007 Sb. the
+            basis was read in, by public id, where it was read in one. It must state
+            the very group being recorded. The words of the basis are required either
+            way: an agent the annex does not list is not thereby group 1.'
         animal_pathogenicity:
           allOf:
           - $ref: '#/components/schemas/Pathogenicity'
@@ -15488,6 +15531,7 @@ components:
       - identification_method
       - identified_on
       - risk_group
+      - risk_group_basis
       - taxon
     StrainGrowthInputRequest:
       type: object

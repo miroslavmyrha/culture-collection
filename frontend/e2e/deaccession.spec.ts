@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { signedInAs } from './support.js'
+import { riskGroupBasis, signedInAs } from './support.js'
 
 // Walkthrough C10 (#20): a curator deaccessions a strain that no longer grows, against the real
 // API. The strain, its storage and its two vials are this run's own, made through the API with
@@ -49,6 +49,7 @@ test('C10: a curator deaccessions a strain that no longer grows; its vials are t
         identified_on: today,
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,
+        risk_group_basis: riskGroupBasis,
         animal_pathogenicity: 'unknown',
         plant_pathogenicity: 'unknown',
         isolation_source: '',

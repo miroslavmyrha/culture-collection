@@ -17,8 +17,11 @@ proposal a second person confirms (#105): one person lifting it alone would take
 of every rule that reads "regulated" from the active restrictions.
 
 A risk group changes only with a stated basis, kept on the strain as `risk_group_basis` with the
-time of the change (#174). A lower group relaxes the rules the higher one brings, so it takes
-two people as well: a RiskGroupProposal a manager other than the proposer confirms. A raise
+time of the change (#174), and since #169 the accession states one too, so every group recorded
+from then on says what it rests on. The basis may point at the entry of the official list it was
+read in (`risk_group_entry`), which is then an entry of the current annex 7 of government order
+361/2007 Sb. stating that very group. A lower group relaxes the rules the higher one brings, so
+it takes two people as well: a RiskGroupProposal a manager other than the proposer confirms. A raise
 goes one step at a time, by one person.
 
 Deaccession (#20, ADR 0008, D8): a strain leaves the collection with a cause, a reason, who and
@@ -143,10 +146,25 @@ class Strain(PublicModel, GrowthConditions):
     risk_group = models.PositiveSmallIntegerField()
     # #174: what the group rests on, in the person's words (a list entry, a catalogue, a
     # publication), and when it was last changed. Both are written by every change of the group
-    # and by nothing else (the strain guard); blank and null for a group that still is the one
-    # the accession recorded. A group read from an official list is #169.
+    # and by nothing else (the strain guard). Since #169 the accession states them too, so only
+    # a strain accessioned before that has neither.
     risk_group_basis = models.TextField(blank=True, default="", db_default="")
     risk_group_set_at = models.DateTimeField(null=True, blank=True)
+    # #169: the entry of the official list the basis rests on, where it rests on one. It is an
+    # entry of the current reading of annex 7 of government order 361/2007 Sb. stating this very
+    # group, and nothing else: the service and the guard of migration 0018 both ask that. Empty
+    # where the group rests on something the lists do not say, which annex 7 itself requires
+    # (R-RISK-07: an agent it does not list is not thereby group 1), and for every strain
+    # accessioned before this. Written with the group and with nothing else. No index: the entry
+    # is read from the strain, never the strain from the entry, and no entry is ever deleted.
+    risk_group_entry = models.ForeignKey(
+        "biosafety.RegulatoryListEntry",
+        on_delete=models.PROTECT,
+        related_name="+",
+        null=True,
+        blank=True,
+        db_index=False,
+    )
     animal_pathogenicity = models.CharField(max_length=20, choices=Pathogenicity.choices)
     plant_pathogenicity = models.CharField(max_length=20, choices=Pathogenicity.choices)
     # Origin (OECD BRC guidelines, General 10.2: source or host, date of isolation, at least
@@ -217,6 +235,13 @@ class Strain(PublicModel, GrowthConditions):
             models.CheckConstraint(
                 condition=Q(risk_group__gte=1, risk_group__lte=4),
                 name="strains_strain_risk_group_1_to_4",
+            ),
+            # #169: an entry only where words say what the group rests on. Which entry may be
+            # named is the guard of migration 0018: a CHECK reads no other table.
+            models.CheckConstraint(
+                condition=Q(risk_group_entry__isnull=True)
+                | Q(risk_group_basis__regex=r"\S", risk_group_entry__isnull=False),
+                name="strains_strain_risk_group_entry_with_basis",
             ),
             # #174: a changed group has both its basis and its time, an untouched one neither.
             models.CheckConstraint(
@@ -495,6 +520,17 @@ class RiskGroupProposal(PublicModel):
     # What the lower group rests on, in the proposer's words. It becomes the strain's
     # risk_group_basis. Names nobody.
     basis = models.TextField()
+    # #169: the list entry the basis rests on, where it rests on one. It becomes the strain's
+    # risk_group_entry at the confirmation, so it must state the proposed group (the guard of
+    # migration 0018 asks it here and there). No index, as on the strain.
+    basis_entry = models.ForeignKey(
+        "biosafety.RegulatoryListEntry",
+        on_delete=models.PROTECT,
+        related_name="+",
+        null=True,
+        blank=True,
+        db_index=False,
+    )
     # Why it should be lowered now. Names nobody.
     reason = models.TextField()
     proposed_by = models.ForeignKey(

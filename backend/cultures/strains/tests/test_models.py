@@ -59,6 +59,9 @@ def raw_strain(lab: Lab, taxon: Taxon, **fields: Any) -> Strain:
         "name_as_received": "raw",
         "taxon": taxon,
         "risk_group": 1,
+        # #169: the strain guard asks every new row what its group rests on and when.
+        "risk_group_basis": "raw",
+        "risk_group_set_at": timezone.now(),
         "animal_pathogenicity": "unknown",
         "plant_pathogenicity": "unknown",
         **fields,

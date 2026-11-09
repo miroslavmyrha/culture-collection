@@ -13,6 +13,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.request import Request
 
+from cultures.biosafety import selectors as biosafety_selectors
 from cultures.biosafety.models import (
     EntryKind,
     MatchScope,
@@ -42,11 +43,28 @@ from cultures.taxonomy.models import Taxon
 RISK_GROUPS = [(1, "1"), (2, "2"), (3, "3"), (4, "4")]
 COUNTRY_CHOICES = sorted(COUNTRY_CODES)
 REASON_HELP = "Why, in a sentence. Stored for good: name no person."
+BASIS_HELP = (
+    "What the group rests on: the list entry, the catalogue or the publication. Stored for good:"
+    " name no person."
+)
+BASIS_ENTRY_HELP = (
+    "The entry of annex 7 of government order 361/2007 Sb. the basis was read in, by public id,"
+    " where it was read in one. It must state the very group being recorded. The words of the"
+    " basis are required either way: an agent the annex does not list is not thereby group 1."
+)
 
 
 def all_taxa(request: Request) -> QuerySet[Taxon]:
     """Taxa are global (ADR 0008, D4): any of them may be referenced."""
     return Taxon.objects.all()
+
+
+def risk_group_entries(request: Request) -> QuerySet[RegulatoryListEntry]:
+    """The list entries a risk group may rest on (#169): the entries of the current reading of
+    annex 7 of government order 361/2007 Sb. that state a group. The lists are law and have no
+    lab, so every signed-in user may reference one; an entry of another list, of a reading that
+    was replaced, or of none gives the same error as an unknown id."""
+    return biosafety_selectors.risk_group_entries()
 
 
 class RestrictionBriefSerializer(serializers.ModelSerializer[StrainRestriction]):
@@ -196,6 +214,9 @@ class RiskGroupProposalOutputSerializer(serializers.ModelSerializer[RiskGroupPro
 
     risk_group = serializers.ChoiceField(choices=RISK_GROUPS, read_only=True)
     from_risk_group = serializers.ChoiceField(choices=RISK_GROUPS, read_only=True)
+    # #169: the entry of annex 7 the basis was read in, by its code in the list. Null where the
+    # basis rests on something the lists do not say.
+    basis_entry = serializers.CharField(source="basis_entry.code", read_only=True, allow_null=True)
     confirm_refusal = serializers.SerializerMethodField()
 
     class Meta:
@@ -205,6 +226,7 @@ class RiskGroupProposalOutputSerializer(serializers.ModelSerializer[RiskGroupPro
             "risk_group",
             "from_risk_group",
             "basis",
+            "basis_entry",
             "reason",
             "proposed_at",
             "confirm_refusal",
@@ -241,6 +263,12 @@ class StrainDetailOutputSerializer(StrainListOutputSerializer):
     # #20: an active restriction of any kind (strains.selectors.regulating_restrictions): the
     # deaccession then takes two people.
     regulated = serializers.BooleanField(read_only=True)
+    # #169: the entry of annex 7 of government order 361/2007 Sb. the risk group rests on, by
+    # its code in the list. Null where the group rests on something the lists do not say, and
+    # for a strain accessioned before the basis was asked for.
+    risk_group_entry = serializers.CharField(
+        source="risk_group_entry.code", read_only=True, allow_null=True
+    )
     # #174: what the current group rests on (blank while it is the one the accession recorded)
     # and the open proposal to lower it.
     risk_group_proposal = serializers.SerializerMethodField()
@@ -265,6 +293,7 @@ class StrainDetailOutputSerializer(StrainListOutputSerializer):
             "restriction_history",
             "regulated",
             "risk_group_basis",
+            "risk_group_entry",
             "risk_group_proposal",
             "deaccession",
             "deaccession_proposal",
@@ -382,6 +411,16 @@ class StrainFactsInputSerializer(serializers.Serializer[None]):
     identified_on = serializers.DateField()
     identification_method = serializers.CharField(max_length=200)
     risk_group = serializers.ChoiceField(choices=RISK_GROUPS)
+    # #169: the accession states what the group rests on, as every change of it does.
+    risk_group_basis = serializers.CharField(max_length=2000, help_text=BASIS_HELP)
+    risk_group_basis_entry = ScopedRelatedField(
+        model=RegulatoryListEntry,
+        scope=risk_group_entries,
+        required=False,
+        allow_null=True,
+        default=None,
+        help_text=BASIS_ENTRY_HELP,
+    )
     animal_pathogenicity = serializers.ChoiceField(
         choices=Pathogenicity.choices, default=Pathogenicity.UNKNOWN
     )
@@ -410,17 +449,21 @@ class ReclassifyInputSerializer(serializers.Serializer[None]):
     reason = serializers.CharField(help_text=REASON_HELP)
 
 
-BASIS_HELP = (
-    "What the group rests on: the list entry, the catalogue or the publication. Stored for good:"
-    " name no person."
-)
-
-
 class RiskGroupInputSerializer(serializers.Serializer[None]):
-    """A raise, or the same group again: one person's (#174)."""
+    """A raise, or the same group again: one person's (#174), with the basis of the new group
+    and, where the basis was read in annex 7 of government order 361/2007 Sb., its entry
+    (#169)."""
 
     risk_group = serializers.ChoiceField(choices=RISK_GROUPS)
     basis = serializers.CharField(max_length=2000, help_text=BASIS_HELP)
+    basis_entry = ScopedRelatedField(
+        model=RegulatoryListEntry,
+        scope=risk_group_entries,
+        required=False,
+        allow_null=True,
+        default=None,
+        help_text=BASIS_ENTRY_HELP,
+    )
     reason = serializers.CharField(help_text=REASON_HELP)
 
 

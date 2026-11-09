@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { signedInAs, username } from './support.js'
+import { riskGroupBasis, signedInAs, username } from './support.js'
 
 // A regulated strain leaves the collection by two people (#20, ADR 0009): e2e-curator proposes
 // it on the strain page, and the e2e user, a manager, confirms it there. The strain, its storage
@@ -49,6 +49,7 @@ test('a curator proposes the deaccession of a regulated strain and a manager con
         identified_on: today,
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,
+        risk_group_basis: riskGroupBasis,
         animal_pathogenicity: 'unknown',
         plant_pathogenicity: 'unknown',
         isolation_source: '',

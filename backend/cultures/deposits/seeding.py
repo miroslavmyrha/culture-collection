@@ -117,6 +117,7 @@ def deposit(access: Access, lab: Lab, data: SeedDeposit) -> tuple[Deposit, bool]
             identified_on=facts.identified_on,
             identification_method=facts.identification_method,
             risk_group=facts.risk_group,
+            risk_group_basis=facts.risk_group_basis,
             animal_pathogenicity=facts.animal_pathogenicity,
             plant_pathogenicity=facts.plant_pathogenicity,
             isolation_source=facts.isolation_source,

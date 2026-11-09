@@ -168,6 +168,8 @@ ALL_PERMITTED = seed_deposits.SeedTerms(
     AbsScope.NOT_IN_SCOPE, tuple((Use(use), Decision.PERMIT) for use in Use.values)
 )
 SEQUENCED = "16S rRNA gene sequence"
+# #169: what a seeded strain's risk group rests on. The e2e seed is development data.
+E2E_BASIS = "Seeded for the end-to-end tests (invented example)."
 GLYCEROL = "10 % glycerol"
 ALL_PASSED = "All three checks passed."
 # (name, rows, cols), the names seed_dev uses too.
@@ -266,7 +268,13 @@ class Command(BaseCommand):
                 Condition.INTACT,
                 ALL_PERMITTED,
                 "accepted",
-                strain=SeedFacts("Bacillus subtilis", date(2026, 10, 2), SEQUENCED, risk_group=1),
+                strain=SeedFacts(
+                    "Bacillus subtilis",
+                    date(2026, 10, 2),
+                    SEQUENCED,
+                    risk_group=1,
+                    risk_group_basis=E2E_BASIS,
+                ),
             ),
         )
 
@@ -292,6 +300,7 @@ class Command(BaseCommand):
                     date(2026, 10, 4),
                     SEQUENCED,
                     risk_group=1,
+                    risk_group_basis=E2E_BASIS,
                     restrictions=(
                         strains.RestrictionInput(
                             RestrictionKind.CZ_RAT, "Příloha 2 (invented example)"
@@ -475,7 +484,12 @@ class Command(BaseCommand):
                 replace(ALL_PERMITTED, mta=("STD", 1)),
                 "accepted",
                 strain=SeedFacts(
-                    taxon, date(2026, 10, 4), SEQUENCED, risk_group=1, restrictions=restrictions
+                    taxon,
+                    date(2026, 10, 4),
+                    SEQUENCED,
+                    risk_group=1,
+                    risk_group_basis=E2E_BASIS,
+                    restrictions=restrictions,
                 ),
             ),
         )

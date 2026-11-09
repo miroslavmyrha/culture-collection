@@ -1185,3 +1185,37 @@ The strain page shows what the official lists say about the strain's taxon, and 
   genus-wide entry does not reach a species the tree places under that genus under another name.
 
 Each rule, its source, its code and its tests are in `docs/compliance.md` (R-MATCH-01).
+
+
+## Amendment 2026-11-09: every risk group says what it rests on (#169)
+
+A risk group was an integer with, since #174, a basis in words on every change of it but none on
+the group the accession recorded. Annex 7 of government order 361/2007 Sb. is now a list the app
+holds (R-LIST-01), so the basis can point at the entry it was read in.
+
+- **Every group states its basis, from the accession on.** `strains.services.strain_create` takes
+  the words with the group, writes them with the time, and the strain guard asks for both on
+  every insert as it already did on every change. A strain accessioned before this keeps its
+  empty basis: nothing is written after the fact, and its next change of group states one.
+- **Why the words stay required.** Annex 7, Part A: „Biologické činitele, které nebyly zařazeny
+  do skupin 2 až 4 seznamu, nejsou automaticky zařazeny do skupiny 1.“ An agent the list does not
+  place in groups 2 to 4 is not thereby in group 1, so the most common case in a collection is
+  the one no list entry can carry. The words carry it, and they are required whether an entry is
+  named or not.
+- **The entry, where there is one.** `Strain.risk_group_entry` and
+  `RiskGroupProposal.basis_entry` are foreign keys to `biosafety.RegulatoryListEntry`. An entry
+  may be named only if it belongs to the current reading of annex 7 and states the very group
+  being recorded: `biosafety.selectors.states_risk_group` in Python, the same question in SQL in
+  the guards of migration `strains/0018`, with a test comparing the two. A lowering lands on the
+  entry its confirmed proposal named, which the strain guard and the deferred check of the
+  proposal both hold.
+- **What is not checked.** That the entry's organism is the strain's taxon. The app offers the
+  entries that match the taxon (the amendment above) and a person decides, because a strain's
+  taxon may itself be wrong and because the annex names genera where a collection holds species.
+- **What the API takes.** `basis_entry` on the risk group actions and `risk_group_basis` with
+  `risk_group_basis_entry` on the acceptance of a deposit, the entry by public id through the
+  same scoped field every other reference uses, so an entry of another list, of a replaced
+  reading or of none gives one error.
+
+Each rule, its source, its code and its tests are in `docs/compliance.md` (R-RISK-07 and
+R-RISK-09).

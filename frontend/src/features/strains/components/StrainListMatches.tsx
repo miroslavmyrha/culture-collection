@@ -78,7 +78,9 @@ export function StrainListMatches({ labId, strain, canManage }: Props) {
                   )}
                   {canManage && match.risk_group !== null && match.risk_group !== strain.risk_group && (
                     <Box>
-                      <Button onClick={show({ group: { risk_group: String(match.risk_group), basis: basisOf(match) }, open: true })}>Use as the risk group basis</Button>
+                      <Button onClick={show({ group: { risk_group: String(match.risk_group), basis: basisOf(match), entry: match.public_id }, open: true })}>
+                        Use as the risk group basis
+                      </Button>
                     </Box>
                   )}
                 </Stack>

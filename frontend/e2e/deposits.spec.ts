@@ -8,6 +8,8 @@ import { axe, signedInAs, watchCsp } from './support.js'
 // invented Testella exempli. It works as the sessions auth.setup.ts signed in.
 
 const RUN = Date.now().toString(36)
+// #169: what the risk group of a strain accepted here rests on. The seeded lab is test data.
+const BASIS = 'Seeded for the end-to-end tests (invented example).'
 
 async function as(browser: Browser, username: string, width = 1280) {
   const context = await browser.newContext({ storageState: signedInAs(username), viewport: { width, height: width === 320 ? 640 : 900 } })
@@ -107,6 +109,10 @@ test('a curator receives, checks and accepts a deposit by keyboard, and finds th
   await page.keyboard.press('Tab')
   await page.keyboard.type('1')
   await expect(accept.getByRole('combobox', { name: 'Risk group' })).toHaveValue('1')
+  // #169: the basis of the group follows it in the form and on Tab, and the accession needs it.
+  await page.keyboard.press('Tab')
+  await expect(accept.getByRole('textbox', { name: 'Risk group basis' })).toBeFocused()
+  await page.keyboard.type(BASIS)
   await accept.getByRole('combobox', { name: 'Country of origin' }).focus()
   await expect(accept.getByRole('combobox', { name: 'Country of origin' })).toHaveValue('CZ') // from the terms
   await accept.getByRole('button', { name: 'Accept and add the strain' }).focus()
@@ -191,6 +197,7 @@ test('a VRAT strain is refused at acceptance while the lab holds no SÚJB permit
   await page.getByRole('option', { name: /Testella exempli/ }).click()
   await form.getByRole('textbox', { name: 'Identification method' }).fill('MALDI-TOF MS')
   await form.getByRole('combobox', { name: 'Risk group' }).selectOption('2')
+  await form.getByRole('textbox', { name: 'Risk group basis' }).fill(BASIS)
   await form.getByRole('button', { name: 'Add a restriction' }).click()
   const kind = form.getByRole('group', { name: 'Restriction 1' }).getByRole('combobox', { name: 'Kind' })
   await kind.selectOption('cz_vrat')

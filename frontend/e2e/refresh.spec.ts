@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { signedInAs, username } from './support.js'
+import { riskGroupBasis, signedInAs, username } from './support.js'
 
 // A write in one part of the app refreshes what another part shows (#64), against the real API.
 // The strain, its restriction, storage and vial are this run's own, made through the API with
@@ -49,6 +49,7 @@ test("ending a restriction shows the vial's place on the strain page without a r
       identified_on: new Date().toLocaleDateString('sv'),
       identification_method: 'MALDI-TOF MS',
       risk_group: 1,
+      risk_group_basis: riskGroupBasis,
       animal_pathogenicity: 'unknown',
       plant_pathogenicity: 'unknown',
       isolation_source: '',

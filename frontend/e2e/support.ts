@@ -10,6 +10,12 @@ export const username = process.env.E2E_USERNAME ?? 'e2e-user'
 export const password = process.env.E2E_PASSWORD ?? 'e2e correct horse battery'
 
 /**
+ * What the risk group of a strain accepted by a spec rests on (#169). Every accession states it,
+ * and these strains are test data, so the words say that and claim nothing about any list.
+ */
+export const riskGroupBasis = 'Accepted by an end-to-end test (invented example).'
+
+/**
  * The users every spec works as. auth.setup.ts signs each in once per run and writes its session
  * to the file below, so the whole run stays under the login throttle (10 sign-ins a minute per
  * client). Only login.spec.ts signs in on its own, because sign-in is what it tests.

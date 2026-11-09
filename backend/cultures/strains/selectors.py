@@ -101,7 +101,9 @@ def strain_detail(*, access: Access, lab: Lab) -> QuerySet[Strain]:
     serializer shows that one only to a reader who may open deposits."""
     history = (
         strain_list(access=access, lab=lab)
-        .select_related("growth_medium", "deposit")
+        # risk_group_entry: the entry of annex 7 the group rests on (#169), joined so the
+        # detail stays one query and the exact count holds.
+        .select_related("growth_medium", "deposit", "risk_group_entry")
         .annotate(regulated=Exists(regulating_restrictions().filter(strain=OuterRef("pk"))))
         .prefetch_related(
             Prefetch(
@@ -129,7 +131,7 @@ def strain_detail(*, access: Access, lab: Lab) -> QuerySet[Strain]:
                 "risk_group_proposals",
                 queryset=RiskGroupProposal.objects.filter(
                     confirmed_at__isnull=True, withdrawn_at__isnull=True
-                ),
+                ).select_related("basis_entry"),
                 to_attr="open_risk_group_proposals",
             )
         )
