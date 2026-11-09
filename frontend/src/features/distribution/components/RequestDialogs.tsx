@@ -46,33 +46,13 @@ import {
   TRANSPORT_CLASSES,
   USE_LABELS,
 } from '../schemas'
+import { stateError } from '../requestErrors'
 
 type Common = { labId: string; request: Request; open: boolean; onClose: () => void; onExited: () => void }
 
 const REASON_HINT = 'Stored for good with the decision. Name no person.'
 const missing = { type: 'server', message: 'Say why' } as const
 const today = () => new Date().toLocaleDateString('sv')
-
-/** A request that failed because someone else acted first, or the policy stopped it. */
-function stateError(error: unknown): string | undefined {
-  if (isApiError(error, 409) && error.code === 'request_state') return 'The request changed meanwhile. Close this and look at it again.'
-  if (isApiError(error, 409) && error.code === 'not_enough_vials') return 'Fewer vials are free than the request asks for. Close this and look at it again.'
-  if (isApiError(error, 409) && error.code === 'vial_reserved_meanwhile') return 'A vial was reserved at the same moment. Try again.'
-  if (isApiError(error, 422) && error.code === 'request_blocked') return 'Something blocks the approval now. Close this and read what stands in the way.'
-  if (isApiError(error, 403) && error.code === 'manager_approval_required') return 'A manager approves this request.'
-  if (isApiError(error, 422) && error.code === 'second_person_required') return SECOND_PERSON
-  if (isApiError(error, 422) && error.code === 'ship_in_one_step') return 'No strain of this request is regulated: close this and ship it in one step.'
-  if (isApiError(error, 422) && error.code === 'shipment_blocked') return `Nothing is shipped. ${readProblem(error.body)?.detail ?? ''}`.trim()
-  if (isApiError(error, 403) && error.code === 'confirm_own_approval') return 'You approved this request, so a different person confirms its shipment.'
-  if (isApiError(error, 403) && error.code === 'confirm_own_preparation') return 'You prepared this shipment, so a different person confirms it.'
-  if (isApiError(error, 409) && error.code === 'preparation_changed') return 'The prepared shipment changed meanwhile. Close this and read it again.'
-  if (isApiError(error, 409) && error.code === 'preparation_exists') return 'Someone prepared this shipment at the same moment. Close this and look at it again.'
-  return undefined
-}
-
-/** How a regulated request leaves (ADR 0009, the two-person rule). */
-export const SECOND_PERSON = 'A regulated strain leaves in two steps: one person prepares the shipment, and a second person, neither the approver nor the preparer, confirms it.'
-
 
 export function ApproveDialog({ labId, request, open, onClose, onExited }: Common) {
   const approve = useApproveRequest(labId, request.public_id)

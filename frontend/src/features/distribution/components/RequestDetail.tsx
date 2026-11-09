@@ -29,7 +29,8 @@ import {
   TRANSPORT_CLASS_LABELS,
   USE_LABELS,
 } from '../schemas'
-import { AcceptanceDialog, ApproveDialog, CancelDialog, ConfirmShipmentDialog, DepositorAnswerDialog, RejectDialog, SECOND_PERSON, ShipDialog, WithdrawShipmentDialog } from './RequestDialogs'
+import { AcceptanceDialog, ApproveDialog, CancelDialog, ConfirmShipmentDialog, DepositorAnswerDialog, RejectDialog, ShipDialog, WithdrawShipmentDialog } from './RequestDialogs'
+import { SECOND_PERSON } from '../requestErrors'
 import { scrollable } from './scroll'
 import { ShipmentDocuments } from './ShipmentDocuments'
 
