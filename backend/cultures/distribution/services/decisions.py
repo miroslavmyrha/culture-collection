@@ -1,5 +1,7 @@
 """The decisions on a request: approval with its reservations, rejection, cancellation."""
 
+from datetime import datetime
+
 from django.utils import timezone
 
 from cultures.audit.context import audited_atomic
@@ -49,6 +51,95 @@ from .errors import (
 )
 
 
+def _check_approval_allowed(
+    access: Access, locked: DistributionRequest, evaluation: policy.Evaluation, reason: str
+) -> None:
+    """The gates decide the approval: a blocker refuses it outright, and a finding that asks for
+    a manager needs APPROVE_REGULATED and a reason (ADR 0009). Caller holds the lab lock."""
+    blockers = evaluation.blockers
+    if blockers:
+        raise RequestBlocked(" ".join(f.sentence for f in blockers))
+    if evaluation.needs_manager:
+        try:
+            _require(access, locked.lab_id, Perm.APPROVE_REGULATED)
+        except Forbidden:
+            raise ManagerRequired from None
+        if not reason:
+            raise RuleViolation(
+                "Say why the findings allow it.", code="reason_required", attr="reason"
+            )
+
+
+def _chosen_vials(locked: DistributionRequest, lines: list[RequestLine]) -> dict[int, list[Vial]]:
+    """Per line, the vials the approval reserves: the available vials of distributable batches of
+    its strain, locked in pk order and skipping those another approval holds. All lines are
+    chosen before anything is written, so a short line refuses with nothing reserved."""
+    chosen: dict[int, list[Vial]] = {}
+    for line in lines:
+        vials = list(
+            Vial.objects.select_for_update(skip_locked=True, of=("self",))
+            .filter(
+                distributable("batch__"),
+                lab_id=locked.lab_id,
+                status=VialStatus.AVAILABLE,
+                batch__strain_id=line.strain_id,
+            )
+            .select_related("batch__strain")
+            .order_by("pk")[: line.quantity]
+        )
+        if len(vials) < line.quantity:
+            raise NotEnoughVials(
+                f"{line.strain.accession_number}: {len(vials)} vials are free now, the line"
+                f" asks for {line.quantity}."
+            )
+        chosen[line.pk] = vials
+    return chosen
+
+
+def _reserve_lines(
+    access: Access,
+    locked: DistributionRequest,
+    lines: list[RequestLine],
+    chosen: dict[int, list[Vial]],
+    *,
+    evaluation: policy.Evaluation,
+    now: datetime,
+) -> None:
+    """Writes the reservations of every line with the permits the gates used, one event per
+    line. Runs in the caller's audit context and under its locks."""
+    label = f"Reserved for request {locked.label}."
+    _defer_reservation_checks()
+    for line in lines:
+        for vial in chosen[line.pk]:
+            lineage.vial_reserve_locked(access=access, vial=vial, reason=label)
+            _save(
+                VialReservation(
+                    lab_id=locked.lab_id,
+                    line=line,
+                    vial=vial,
+                    reserved_at=now,
+                    reserved_by=access.user,
+                ),
+                {ONE_OPEN_RESERVATION: ReservedMeanwhile()},
+            )
+        permits = {p.pk: p for ln, p in evaluation.used if ln.pk == line.pk}
+        for permit in permits.values():
+            LinePermit.objects.create(line=line, permit=permit)
+        record_event(
+            REQUEST_LINE_RESERVED,
+            Change(
+                LINE,
+                line.public_id,
+                {
+                    "vials": [None, [str(v.public_id) for v in chosen[line.pk]]],
+                    "permits": [None, sorted(str(p.public_id) for p in permits.values())],
+                },
+                lab_id=locked.lab_id,
+                strain_id=line.strain.public_id,
+            ),
+        )
+
+
 def request_approve(
     *, access: Access, request: DistributionRequest, reason: str = ""
 ) -> DistributionRequest:
@@ -69,69 +160,10 @@ def request_approve(
             .order_by("pk")
         )
         evaluation = policy.evaluate(locked, permit_today())
-        blockers = evaluation.blockers
-        if blockers:
-            raise RequestBlocked(" ".join(f.sentence for f in blockers))
-        if evaluation.needs_manager:
-            try:
-                _require(access, locked.lab_id, Perm.APPROVE_REGULATED)
-            except Forbidden:
-                raise ManagerRequired from None
-            if not reason:
-                raise RuleViolation(
-                    "Say why the findings allow it.", code="reason_required", attr="reason"
-                )
-        chosen: dict[int, list[Vial]] = {}
-        for line in lines:
-            vials = list(
-                Vial.objects.select_for_update(skip_locked=True, of=("self",))
-                .filter(
-                    distributable("batch__"),
-                    lab_id=locked.lab_id,
-                    status=VialStatus.AVAILABLE,
-                    batch__strain_id=line.strain_id,
-                )
-                .select_related("batch__strain")
-                .order_by("pk")[: line.quantity]
-            )
-            if len(vials) < line.quantity:
-                raise NotEnoughVials(
-                    f"{line.strain.accession_number}: {len(vials)} vials are free now, the line"
-                    f" asks for {line.quantity}."
-                )
-            chosen[line.pk] = vials
+        _check_approval_allowed(access, locked, evaluation, reason)
+        chosen = _chosen_vials(locked, lines)
         now = timezone.now()
-        label = f"Reserved for request {locked.label}."
-        _defer_reservation_checks()
-        for line in lines:
-            for vial in chosen[line.pk]:
-                lineage.vial_reserve_locked(access=access, vial=vial, reason=label)
-                _save(
-                    VialReservation(
-                        lab_id=locked.lab_id,
-                        line=line,
-                        vial=vial,
-                        reserved_at=now,
-                        reserved_by=access.user,
-                    ),
-                    {ONE_OPEN_RESERVATION: ReservedMeanwhile()},
-                )
-            permits = {p.pk: p for ln, p in evaluation.used if ln.pk == line.pk}
-            for permit in permits.values():
-                LinePermit.objects.create(line=line, permit=permit)
-            record_event(
-                REQUEST_LINE_RESERVED,
-                Change(
-                    LINE,
-                    line.public_id,
-                    {
-                        "vials": [None, [str(v.public_id) for v in chosen[line.pk]]],
-                        "permits": [None, sorted(str(p.public_id) for p in permits.values())],
-                    },
-                    lab_id=locked.lab_id,
-                    strain_id=line.strain.public_id,
-                ),
-            )
+        _reserve_lines(access, locked, lines, chosen, evaluation=evaluation, now=now)
         locked.status, locked.decided_by, locked.decided_at = (
             RequestStatus.APPROVED,
             access.user,
@@ -249,6 +281,51 @@ def requests_cancel_for_deaccession_locked(
     return open_ones
 
 
+def _open_reservations(
+    locked: DistributionRequest,
+) -> tuple[list[VialReservation], dict[int, Vial]]:
+    """The request's open reservations and the vials they hold, locked (lock order lab, request,
+    strain, vial): the reservations by vial, the vials by pk."""
+    open_rows = list(
+        # of=self: a join locks every table it reads, and lines take no UPDATE (frozen).
+        VialReservation.objects.select_for_update(of=("self",))
+        .filter(line__request=locked, ended_at__isnull=True)
+        .order_by("vial_id")
+    )
+    vials = {
+        v.pk: v
+        for v in Vial.objects.select_for_update(of=("self",))
+        .select_related("batch__strain")
+        .filter(pk__in=[r.vial_id for r in open_rows])
+        .order_by("pk")
+    }
+    return open_rows, vials
+
+
+def _end_reservations(
+    access: Access,
+    locked: DistributionRequest,
+    reservations: list[VialReservation],
+    vials: dict[int, Vial],
+    now: datetime,
+    *,
+    stays: bool,
+) -> None:
+    """Ends one line's open reservations. A vial of the strain `stays`ing behind as deaccessioned
+    keeps its state for the caller to move on; every other vial becomes available again. Runs in
+    the caller's audit context and under its locks."""
+    for reservation in reservations:
+        reservation.ended_at, reservation.ended_by = now, access.user
+        reservation.end_reason = ReservationEnd.DEACCESSIONED if stays else ReservationEnd.CANCELLED
+        reservation.save(update_fields=["ended_at", "ended_by", "end_reason", "updated_at"])
+        if not stays:
+            lineage.vial_release_locked(
+                access=access,
+                vial=vials[reservation.vial_id],
+                reason=f"Request {locked.label} was cancelled.",
+            )
+
+
 def _cancel(
     access: Access, locked: DistributionRequest, reason: str, *, leaving: int | None = None
 ) -> None:
@@ -264,36 +341,12 @@ def _cancel(
     )
     now = timezone.now()
     _defer_reservation_checks()
-    open_rows = list(
-        # of=self: a join locks every table it reads, and lines take no UPDATE (frozen).
-        VialReservation.objects.select_for_update(of=("self",))
-        .filter(line__request=locked, ended_at__isnull=True)
-        .order_by("vial_id")
-    )
-    vials = {
-        v.pk: v
-        for v in Vial.objects.select_for_update(of=("self",))
-        .select_related("batch__strain")
-        .filter(pk__in=[r.vial_id for r in open_rows])
-        .order_by("pk")
-    }
+    open_rows, vials = _open_reservations(locked)
     for line in lines:
         reservations = [r for r in open_rows if r.line_id == line.pk]
         if not reservations:
             continue
-        stays = line.strain_id == leaving
-        for reservation in reservations:
-            reservation.ended_at, reservation.ended_by = now, access.user
-            reservation.end_reason = (
-                ReservationEnd.DEACCESSIONED if stays else ReservationEnd.CANCELLED
-            )
-            reservation.save(update_fields=["ended_at", "ended_by", "end_reason", "updated_at"])
-            if not stays:
-                lineage.vial_release_locked(
-                    access=access,
-                    vial=vials[reservation.vial_id],
-                    reason=f"Request {locked.label} was cancelled.",
-                )
+        _end_reservations(access, locked, reservations, vials, now, stays=line.strain_id == leaving)
         record_event(
             REQUEST_LINE_RELEASED,
             Change(

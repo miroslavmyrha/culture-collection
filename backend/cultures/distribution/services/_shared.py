@@ -60,19 +60,34 @@ def _check_reason(reason: str) -> str:
     return text
 
 
+def _checked_email(email: str, attr: str) -> str:
+    """An address with one @ and no space, or none at all. Returns it as it is stored."""
+    text = email.strip()
+    if text and (text.count("@") != 1 or any(c.isspace() for c in text)):
+        raise InvalidDistribution("Enter an e-mail address.", attr=attr)
+    return text
+
+
+def _checked_postal_address(text: str, attr: str, *, required: bool) -> str:
+    """The address as it is stored: one space between words, no empty line, NFC. Required where
+    the package is delivered."""
+    lines = [" ".join(line.split()) for line in text.splitlines()]
+    postal = unicodedata.normalize("NFC", "\n".join(line for line in lines if line))
+    if required and not postal:
+        raise InvalidDistribution("Enter the delivery address of the laboratory.", attr=attr)
+    return postal
+
+
 def _checked_contact(contact: ContactInput, prefix: str, *, address: bool) -> ContactInput:
+    """The person a requester or a signature names, as stored: the name, the e-mail address and
+    the postal address, in that order."""
     name = normalised(contact.name)
     if not name:
         raise InvalidDistribution("Enter the name.", attr=f"{prefix}name")
-    email = contact.email.strip()
-    if email and (email.count("@") != 1 or any(c.isspace() for c in email)):
-        raise InvalidDistribution("Enter an e-mail address.", attr=f"{prefix}email")
-    lines = [" ".join(line.split()) for line in contact.postal_address.splitlines()]
-    postal = unicodedata.normalize("NFC", "\n".join(line for line in lines if line))
-    if address and not postal:
-        raise InvalidDistribution(
-            "Enter the delivery address of the laboratory.", attr=f"{prefix}postal_address"
-        )
+    email = _checked_email(contact.email, f"{prefix}email")
+    postal = _checked_postal_address(
+        contact.postal_address, f"{prefix}postal_address", required=address
+    )
     return ContactInput(name, email, postal)
 
 

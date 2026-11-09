@@ -86,9 +86,9 @@ def kinds_text(kinds: list[CheckKind]) -> str:
     return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
 
 
-def _check_input(data: NewCheck) -> NewCheck:
-    detail = normalised(data.method_detail)
-    note = data.note.strip()
+def _check_method(data: NewCheck, detail: str) -> None:
+    """The method belongs to the kind of check (METHODS_BY_KIND), and any other method is
+    described."""
     if data.method not in METHODS_BY_KIND[data.kind]:
         raise InvalidCheck(
             f"{data.method.label} is not a method of a {data.kind.label.lower()} check.",
@@ -96,6 +96,11 @@ def _check_input(data: NewCheck) -> NewCheck:
         )
     if data.method == CheckMethod.OTHER and not detail:
         raise InvalidCheck("Describe the method.", code="required", attr="method_detail")
+
+
+def _check_measurement(data: NewCheck) -> None:
+    """What the check measured: a value with its unit, or neither, and a number the unit
+    allows."""
     if (data.value is None) != (data.unit is None):
         missing = "unit" if data.unit is None else "value"
         raise InvalidCheck(
@@ -105,6 +110,15 @@ def _check_input(data: NewCheck) -> NewCheck:
         raise InvalidCheck("A value is 0 or more.", attr="value")
     if data.unit == CheckUnit.PERCENT and data.value is not None and data.value > MAX_PERCENT:
         raise InvalidCheck("A percentage is at most 100.", attr="value")
+
+
+def _check_input(data: NewCheck) -> NewCheck:
+    """The check as it is recorded: the method, then the measurement, then the result with its
+    note and the day it was made, in that order."""
+    detail = normalised(data.method_detail)
+    note = data.note.strip()
+    _check_method(data, detail)
+    _check_measurement(data)
     if data.result == CheckResult.REDUCED and not note:
         raise InvalidCheck("Say what was reduced.", code="required", attr="note")
     if data.checked_on > permit_today():
@@ -214,6 +228,46 @@ def _enter_in_error(check: BatchCheck, reason: str, batch: Batch) -> None:
     )
 
 
+def _superseded_check(
+    supersedes: BatchCheck | None, locked: Batch, data: NewCheck
+) -> BatchCheck | None:
+    """The check a correction supersedes, locked: one of the same batch and kind, still valid.
+    None when the check corrects nothing. Caller holds the lab lock and the batch's row."""
+    if supersedes is None:
+        return None
+    old = BatchCheck.objects.select_for_update().filter(pk=supersedes.pk).first()
+    if old is None or old.batch_id != locked.pk or old.kind != data.kind:
+        raise InvalidCheck(
+            "Invalid check: a check corrects one of the same batch and kind.",
+            code="does_not_exist",
+            attr="supersedes",
+        )
+    if old.status != CheckStatus.VALID:
+        raise CheckEnteredInError
+    return old
+
+
+def _consumed_vial(access: Access, data: NewCheck, locked: Batch) -> Vial | None:
+    """The vial the check was made on, locked: of this batch, and available, which the check
+    consumes. A vial another check of the batch consumed may serve again (one plate shows
+    growth and purity). None when the check names no vial."""
+    if data.vial is None:
+        return None
+    vial = _locked_vial(data.vial)
+    if vial.batch_id != locked.pk:
+        raise InvalidCheck("Invalid vial.", code="does_not_exist", attr="vial")
+    if vial.status == VialStatus.AVAILABLE:
+        _transition(
+            vial,
+            VialStatus.CONSUMED,
+            f"Used for a {data.kind.label.lower()} check of batch {locked.number}.",
+            access,
+        )
+    elif not (vial.status == VialStatus.CONSUMED and BatchCheck.objects.filter(vial=vial).exists()):
+        raise VialNotAvailable
+    return vial
+
+
 def check_record(
     *,
     access: Access,
@@ -241,33 +295,8 @@ def check_record(
                 " dated before.",
                 attr="checked_on",
             )
-        old = None
-        if supersedes is not None:
-            old = BatchCheck.objects.select_for_update().filter(pk=supersedes.pk).first()
-            if old is None or old.batch_id != locked.pk or old.kind != data.kind:
-                raise InvalidCheck(
-                    "Invalid check: a check corrects one of the same batch and kind.",
-                    code="does_not_exist",
-                    attr="supersedes",
-                )
-            if old.status != CheckStatus.VALID:
-                raise CheckEnteredInError
-        vial = None
-        if data.vial is not None:
-            vial = _locked_vial(data.vial)
-            if vial.batch_id != locked.pk:
-                raise InvalidCheck("Invalid vial.", code="does_not_exist", attr="vial")
-            if vial.status == VialStatus.AVAILABLE:
-                _transition(
-                    vial,
-                    VialStatus.CONSUMED,
-                    f"Used for a {data.kind.label.lower()} check of batch {locked.number}.",
-                    access,
-                )
-            elif not (
-                vial.status == VialStatus.CONSUMED and BatchCheck.objects.filter(vial=vial).exists()
-            ):
-                raise VialNotAvailable
+        old = _superseded_check(supersedes, locked, data)
+        vial = _consumed_vial(access, data, locked)
         check = BatchCheck.objects.create(
             lab_id=locked.lab_id,
             batch=locked,

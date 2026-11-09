@@ -20,15 +20,9 @@ from .inputs import DepositorAnswerInput
 ANSWER_UNIQUE = "distribution_depositoranswer_line_id_key"
 
 
-def depositor_answer_record(
-    *, access: Access, request: DistributionRequest, data: DepositorAnswerInput
-) -> DepositorAnswer:
-    """What the depositor answered for one line whose pinned terms leave the request's use on
-    request (s3, section 6: such a use passes only with a recorded approval of the depositor).
-    The evidence is the depositor's letter or e-mail as a file, a note, or both. Once per line.
-    A yes lets the line pass that gate (policy.evaluate); a no rejects the whole request in the
-    same transaction with the answer as the reason: lines are not rejected one by one (ADR 0008,
-    amendment of 2026-10-27)."""
+def _checked_evidence(data: DepositorAnswerInput) -> str:
+    """The evidence of the answer: the depositor's letter or e-mail as a file, a note, or both,
+    and a day that is not in the future. Returns the note as it is stored."""
     note = data.note.strip()
     if data.document is not None:
         _checked_document(data.document)
@@ -38,32 +32,53 @@ def depositor_answer_record(
         )
     if data.answered_on > permit_today():
         raise InvalidDistribution("This date is in the future.", attr="answered_on")
+    return note
+
+
+def _answerable_line(
+    locked: DistributionRequest, data: DepositorAnswerInput, use: Use
+) -> RequestLine:
+    """The line the answer belongs to: of this request, which still waits for a decision, and
+    whose pinned terms leave the request's use on request to the depositor. Caller holds the
+    request's row."""
+    if locked.status != RequestStatus.SUBMITTED:
+        raise WrongState("An answer is recorded while the request waits for a decision.")
+    line = (
+        RequestLine.objects.select_related("strain").filter(request=locked, pk=data.line_id).first()
+    )
+    if line is None:
+        raise InvalidDistribution("Choose a strain of this request.", attr="line")
+    # The twin of the trigger's rule (migration 0013); tests/test_depositor_answer.py
+    # asserts both agree for every decision.
+    decision = (
+        TermsUse.objects.filter(terms_id=line.terms_id, use=use)
+        .values_list("decision", flat=True)
+        .first()
+    )
+    if decision != Decision.ON_REQUEST:
+        raise InvalidDistribution(
+            f"The terms of {line.strain.accession_number} do not leave"
+            f" {use.label.lower()} to the depositor.",
+            code="not_on_request",
+            attr="line",
+        )
+    return line
+
+
+def depositor_answer_record(
+    *, access: Access, request: DistributionRequest, data: DepositorAnswerInput
+) -> DepositorAnswer:
+    """What the depositor answered for one line whose pinned terms leave the request's use on
+    request (s3, section 6: such a use passes only with a recorded approval of the depositor).
+    The evidence is the depositor's letter or e-mail as a file, a note, or both. Once per line.
+    A yes lets the line pass that gate (policy.evaluate); a no rejects the whole request in the
+    same transaction with the answer as the reason: lines are not rejected one by one (ADR 0008,
+    amendment of 2026-10-27)."""
+    note = _checked_evidence(data)
     with audited_atomic():
         locked = _locked_request(access, request, Perm.MANAGE_DISTRIBUTION)
-        if locked.status != RequestStatus.SUBMITTED:
-            raise WrongState("An answer is recorded while the request waits for a decision.")
-        line = (
-            RequestLine.objects.select_related("strain")
-            .filter(request=locked, pk=data.line_id)
-            .first()
-        )
-        if line is None:
-            raise InvalidDistribution("Choose a strain of this request.", attr="line")
         use = Use(locked.use)
-        # The twin of the trigger's rule (migration 0013); tests/test_depositor_answer.py
-        # asserts both agree for every decision.
-        decision = (
-            TermsUse.objects.filter(terms_id=line.terms_id, use=use)
-            .values_list("decision", flat=True)
-            .first()
-        )
-        if decision != Decision.ON_REQUEST:
-            raise InvalidDistribution(
-                f"The terms of {line.strain.accession_number} do not leave"
-                f" {use.label.lower()} to the depositor.",
-                code="not_on_request",
-                attr="line",
-            )
+        line = _answerable_line(locked, data, use)
         document = None if data.document is None else _store(locked.lab_id, data.document)
         answer = DepositorAnswer(
             lab_id=locked.lab_id,

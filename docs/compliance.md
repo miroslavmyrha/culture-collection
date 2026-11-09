@@ -414,7 +414,7 @@ and the rules and duties it decides are changed in the same commit.
 - English: The permit holder must supply a highly risky agent or toxin only to a holder of a
   permit under § 6(1), unless the Office decides otherwise for a limited time in an exceptional,
   justified case and the purpose of this act is not endangered.
-- Code: `backend/cultures/distribution/policy.py::_LineCheck.restriction`, `backend/cultures/distribution/policy.py::names`, `backend/cultures/distribution/models.py::NAMES_AGENTS`
+- Code: `backend/cultures/distribution/policy.py::_LineCheck.vrat_permit`, `backend/cultures/distribution/policy.py::names`, `backend/cultures/distribution/models.py::NAMES_AGENTS`
 - Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_vrat_goes_only_to_a_holder_of_a_permit_that_names_it`, `backend/cultures/distribution/tests/test_policy.py::test_an_sujb_exception_lets_a_vrat_go_to_a_non_holder`, `backend/cultures/distribution/tests/test_policy.py::test_a_permit_counts_only_on_the_days_it_holds`, `backend/cultures/distribution/tests/test_policy.py::test_a_permit_names_a_synonym_through_its_accepted_name`
 - Gate codes: `vrat_permit_missing`
 - Limits: the permit names the agent in free text, matched on the taxon's name as whole words
@@ -432,7 +432,7 @@ and the rules and duties it decides are changed in the same commit.
   kind of risky biological agent or toxin), so a notice for another agent is no notice for this
   one. The notice names its agents on the permit row, as the document writes them, and the gate
   reads the strain's taxon there (`policy.names`), as it does for a VRAT permit.
-- Code: `backend/cultures/distribution/policy.py::_LineCheck.restriction`, `backend/cultures/distribution/models.py::NAMES_AGENTS`, `backend/cultures/distribution/models.py::"distribution_permit_names_what_it_covers"`
+- Code: `backend/cultures/distribution/policy.py::_LineCheck.rat_notice`, `backend/cultures/distribution/models.py::NAMES_AGENTS`, `backend/cultures/distribution/models.py::"distribution_permit_names_what_it_covers"`
 - Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_rat_goes_only_to_a_requester_who_notified_sujb`, `backend/cultures/distribution/tests/test_policy.py::test_a_rat_notice_for_another_agent_does_not_let_this_one_go_out`, `backend/cultures/distribution/tests/test_policy.py::test_only_a_section_17a_notice_lets_a_rat_go_out`, `backend/cultures/distribution/tests/test_policy.py::test_a_rat_notice_that_names_a_highly_risky_agent_does_not_let_it_go_out`, `backend/cultures/distribution/tests/test_models.py::test_permit_constraints`, `backend/cultures/distribution/tests/test_services.py::test_permit_errors_name_their_field_and_change_nothing`
 - Gate codes: `rat_notice_missing`
 - Limits: the agents are read from the words a person copied from the notice, never from an
@@ -445,7 +445,7 @@ and the rules and duties it decides are changed in the same commit.
 - Source: Regulation (EU) 2021/821, Art. 11(1) and Annex IV, Part II. Ricin and saxitoxin are
   still 1C351.d.4 and 1C351.d.5 in Annex I as replaced by Delegated Regulation (EU) 2025/2003.
 - Quote: "An authorisation shall be required for intra-Union transfers of dual-use items listed in Annex IV." Annex IV, Part II: "Items of the CWC (Chemical Weapons Convention) 1C351.d.4. Ricin 1C351.d.5. Saxitoxin"
-- Code: `backend/cultures/distribution/policy.py::TRANSFER_LICENCE_ENTRIES`, `backend/cultures/distribution/policy.py::_LineCheck.restriction`
+- Code: `backend/cultures/distribution/policy.py::TRANSFER_LICENCE_ENTRIES`, `backend/cultures/distribution/policy.py::_LineCheck.transfer_licence`
 - Tests: `backend/cultures/distribution/tests/test_policy.py::test_only_ricin_and_saxitoxin_need_a_transfer_licence_inside_the_eu`
 - Gate codes: `transfer_licence_required`
 
@@ -471,7 +471,7 @@ and the rules and duties it decides are changed in the same commit.
 - English: placing GMOs or genetic products on the market is any handover to another person, paid
   or free, unless it is a handover solely for contained use or release to a person authorised for
   that use.
-- Code: `backend/cultures/distribution/policy.py::_LineCheck.restriction`
+- Code: `backend/cultures/distribution/policy.py::_LineCheck.gmo_authorisation`
 - Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_gmo_needs_a_contained_use_authorisation_of_its_category_or_higher`
 - Gate codes: `gmo_authorisation_missing`
 
@@ -603,7 +603,7 @@ listed here so that the test can tell them from a regulated gate without a rule.
 - Kind: not verified
 - Source: RID and ADR 4.1.4.1 P650 and IATA PI 650, read only through study s10. The texts are
   not among the sources read.
-- Code: `backend/cultures/distribution/services/shipment.py::_checked_shipment`
+- Code: `backend/cultures/distribution/services/shipment.py::_checked_class`, `backend/cultures/distribution/services/shipment.py::_checked_coolant`
 - Tests: `backend/cultures/distribution/tests/test_shipment.py::test_shipment_errors_name_their_field_and_change_nothing`, `backend/cultures/distribution/tests/test_shipment.py::test_the_table_refuses_a_shipment_the_rules_refuse`
 
 #### R-SHIP-05 The delivery note of a dual-use line says the item is subject to controls if exported
@@ -611,7 +611,7 @@ listed here so that the test can tell them from a regulated gate without a rule.
 - Kind: law
 - Source: Regulation (EU) 2021/821, Art. 11(9)
 - Quote: "The relevant commercial documents relating to intra-Union transfers of dual-use items listed in Annex I shall indicate clearly that those items are subject to controls if exported from the customs territory of the Union."
-- Code: `backend/cultures/distribution/documents.py::DUAL_USE_NOTICE`, `backend/cultures/distribution/documents.py::delivery_note`
+- Code: `backend/cultures/distribution/documents.py::DUAL_USE_NOTICE`, `backend/cultures/distribution/documents.py::_notices`
 - Tests: `backend/cultures/distribution/tests/test_documents.py::test_only_a_dual_use_line_carries_the_notice_of_art_11_9`, `backend/cultures/distribution/tests/test_documents.py::test_the_dual_use_notice_is_the_sentence_of_the_regulation`, `backend/cultures/distribution/tests/test_documents.py::test_an_ended_dual_use_restriction_prints_no_notice`
 
 #### R-SHIP-06 The delivery note of a quarantine pest says its Letter of Authority travels with the package
@@ -619,7 +619,7 @@ listed here so that the test can tell them from a regulated gate without a rule.
 - Kind: law
 - Source: Implementing Regulation (EU) 2019/829, Art. 6(1)
 - Quote: "This letter of authority shall always accompany the specified material concerned."
-- Code: `backend/cultures/distribution/documents.py::delivery_note`
+- Code: `backend/cultures/distribution/documents.py::_notices`
 - Tests: `backend/cultures/distribution/tests/test_documents.py::test_a_quarantine_pest_line_says_its_letter_of_authority_travels_with_it`
 
 #### R-SHIP-07 A VRAT or RAT line gets a register entry and a handover protocol, written in the transaction of the shipment
@@ -656,7 +656,7 @@ listed here so that the test can tell them from a regulated gate without a rule.
 - Quote: „Osoba poskytující geneticky modifikovaný organismus výlučně pro účely uzavřeného nakládání nebo uvádění do životního prostředí je povinna zajistit, aby na štítku nebo v průvodním dokumentu geneticky modifikovaného organismu byla zřetelně uvedena slova „Geneticky modifikovaný organismus“…“
 - English: whoever supplies a GMO solely for contained use or release ensures that its label or
   accompanying document clearly carries the words "Geneticky modifikovaný organismus".
-- Code: `backend/cultures/distribution/documents.py::GMO_NOTICE`, `backend/cultures/distribution/documents.py::delivery_note`
+- Code: `backend/cultures/distribution/documents.py::GMO_NOTICE`, `backend/cultures/distribution/documents.py::_notices`
 - Tests: `backend/cultures/distribution/tests/test_documents.py::test_only_a_gmo_line_carries_the_words_of_section_11_1`, `backend/cultures/distribution/tests/test_documents.py::test_the_gmo_notice_holds_the_words_of_the_act`, `backend/cultures/distribution/tests/test_documents.py::test_an_ended_gmo_restriction_prints_no_notice`
 - Limits: the words go on the delivery note, the accompanying document; the app prints no vial
   label, so „na štítku“ is the lab's to do. The same sentence also asks for whatever else the
@@ -738,7 +738,7 @@ listed here so that the test can tell them from a regulated gate without a rule.
 - Quote: „Držitel povolení je povinen vytvořit a aktualizovat seznam osob, které mají přístup k vysoce rizikovému biologickému agens nebo toxinu.“
 - English: the permit holder makes and keeps up to date a list of the people who have access to a
   highly risky agent or toxin.
-- Code: `backend/cultures/lineage/services/destructions.py::Required.witness`, `backend/cultures/lineage/services/destructions.py::Required.witness_with_access`, `backend/cultures/lineage/services/destructions.py::_check_rules`, `backend/cultures/lineage/services/destructions.py::_end_of_czech_day`, `backend/cultures/lineage/models.py::"lineage_destructionrecord_witness_not_recorder"`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
+- Code: `backend/cultures/lineage/services/destructions.py::Required.witness`, `backend/cultures/lineage/services/destructions.py::Required.witness_with_access`, `backend/cultures/lineage/services/destructions.py::_check_witness_rules`, `backend/cultures/lineage/services/destructions.py::_end_of_czech_day`, `backend/cultures/lineage/models.py::"lineage_destructionrecord_witness_not_recorder"`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
 - Tests: `backend/cultures/lineage/tests/test_destructions.py::test_each_kind_asks_exactly_its_rules`, `backend/cultures/lineage/tests/test_destructions.py::test_a_vrat_names_a_witness_other_than_the_recorder`, `backend/cultures/lineage/tests/test_destructions.py::test_a_vrat_witness_was_on_the_vrat_access_list_on_the_day`, `backend/cultures/lineage/tests/test_destructions.py::test_the_witness_access_is_read_at_the_end_of_the_day_of_the_destruction`, `backend/cultures/lineage/tests/test_destructions.py::test_a_record_of_a_past_day_asks_the_access_list_of_that_day_not_of_today`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_reads_the_witness_access_of_the_records_own_lab_and_day`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_reads_the_access_list_of_the_day_of_the_destruction_not_of_today`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_holds_each_kinds_rule_exactly_when_python_does`
 - Limits: the record holds the day of the destruction, not its time, so the list is read at the
   end of that Czech day, never as the list stands when the record is entered (a destruction of a
@@ -760,7 +760,7 @@ listed here so that the test can tell them from a regulated gate without a rule.
 - English: The permit holder must supply a highly risky agent or toxin only to a holder of a
   permit under § 6(1), unless the Office decides otherwise for a limited time in an exceptional,
   justified case and the purpose of this act is not endangered.
-- Code: `backend/cultures/lineage/services/destructions.py::Required.inactivated_before_handover`, `backend/cultures/lineage/services/destructions.py::_check_rules`, `backend/cultures/lineage/models.py::DestructionRecord.inactivated_in_lab`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
+- Code: `backend/cultures/lineage/services/destructions.py::Required.inactivated_before_handover`, `backend/cultures/lineage/services/destructions.py::_check_handover_rules`, `backend/cultures/lineage/models.py::DestructionRecord.inactivated_in_lab`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
 - Tests: `backend/cultures/lineage/tests/test_destructions.py::test_each_kind_asks_exactly_its_rules`, `backend/cultures/lineage/tests/test_destructions.py::test_a_vrat_goes_to_a_firm_only_inactivated`, `backend/cultures/lineage/tests/test_destructions.py::test_a_rat_goes_to_a_firm_only_inactivated`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_holds_each_kinds_rule_exactly_when_python_does`
 - Limits: an SÚJB exception under § 13 h) for live material is not recorded: every VRAT or RAT
   handed to a firm is inactivated first.
@@ -791,7 +791,7 @@ listed here so that the test can tell them from a regulated gate without a rule.
   used, as well as the verification of its effect, including the name (or business name) of the
   person who carried out the destruction or verified its effect for the authorised person, where
   the authorised person did not do it itself.
-- Code: `backend/cultures/lineage/services/destructions.py::Required.verification`, `backend/cultures/lineage/services/destructions.py::_check_rules`, `backend/cultures/lineage/models.py::DestructionRecord.verification`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
+- Code: `backend/cultures/lineage/services/destructions.py::Required.verification`, `backend/cultures/lineage/services/destructions.py::_check_verification`, `backend/cultures/lineage/models.py::DestructionRecord.verification`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
 - Tests: `backend/cultures/lineage/tests/test_destructions.py::test_each_kind_asks_exactly_its_rules`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_holds_each_kinds_rule_exactly_when_python_does`
 - Limits: the verification is free text, not an indicator type with its result. The outside firm
   is a name and the number of its handover document, and the person who carried out the

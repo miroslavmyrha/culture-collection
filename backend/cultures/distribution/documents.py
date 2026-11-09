@@ -207,27 +207,46 @@ def _recipient(facts: Facts) -> list[str]:
     ]
 
 
-def delivery_note(facts: Facts) -> str:
-    s = facts.shipment
-    coolant = Coolant(s.coolant).label if s.coolant else "none"
-    if s.coolant_kg is not None:
-        coolant += f", {s.coolant_kg} kg"
-    lines = [
-        *_header(facts, "DELIVERY NOTE"),
-        "",
-        "RECIPIENT",
-        *_recipient(facts),
-        "",
-        "PACKAGE",
-        f"Transport class: {TransportClass(s.transport_class).label}",
-        f"Packing instruction: {PackingInstruction(s.packing_instruction).label}",
-        f"Coolant: {coolant}",
-        f"Carrier: {s.carrier}",
-        f"Tracking number: {s.tracking_number or 'none'}",
-        f"Responsible person: {s.responsible.name}, {s.responsible.phone}",
-        "",
-        "CONTENTS",
-    ]
+def _coolant(shipment: Shipment) -> str:
+    """The coolant with its quantity, as the note states it."""
+    text = Coolant(shipment.coolant).label if shipment.coolant else "none"
+    if shipment.coolant_kg is not None:
+        text += f", {shipment.coolant_kg} kg"
+    return text
+
+
+def _notices(facts: Facts, line: RequestLine) -> list[str]:
+    """The notices a line's restrictions put on the delivery note: the dual-use statement, the
+    GMO statement and the Letter of Authority that travels with a quarantine pest."""
+    lines: list[str] = []
+    for restriction in facts.restrictions.get(line.strain_id, []):
+        if restriction.kind == RestrictionKind.DUAL_USE:
+            lines += [
+                f"   Dual-use item, Annex I entry {restriction.reference} (read in"
+                f" {restriction.act}). {DUAL_USE_NOTICE}"
+            ]
+        if restriction.kind == RestrictionKind.GMO:
+            lines += [
+                f"   {GMO_NOTICE} Category {restriction.gmo_category} of contained use,"
+                f" {restriction.reference}."
+            ]
+    kinds = {r.kind for r in facts.restrictions.get(line.strain_id, [])}
+    if RestrictionKind.QUARANTINE_PEST in kinds:
+        letters = [
+            f"{p.permit.reference} ({p.permit.issuer})"
+            for p in line.approved_permits  # type: ignore[attr-defined]
+            if p.permit.kind == PermitKind.PLANT_HEALTH_LOA
+        ]
+        lines += [
+            f"   Union quarantine pest: the Letter of Authority {'; '.join(letters)} travels"
+            " with the package (Regulation (EU) 2019/829, Art. 6(1))."
+        ]
+    return lines
+
+
+def _contents(facts: Facts) -> list[str]:
+    """What is in the package: one numbered entry per line with its vials and its notices."""
+    lines: list[str] = []
     for n, line in enumerate(facts.lines, start=1):
         labels = facts.vials.get(line.pk, [])
         lines += [
@@ -237,29 +256,30 @@ def delivery_note(facts: Facts) -> str:
             f"   Pinned to: {_terms(line)}",
             f"   Vials ({len(labels)}):",
             *(f"     {label}" for label in labels),
+            *_notices(facts, line),
         ]
-        for restriction in facts.restrictions.get(line.strain_id, []):
-            if restriction.kind == RestrictionKind.DUAL_USE:
-                lines += [
-                    f"   Dual-use item, Annex I entry {restriction.reference} (read in"
-                    f" {restriction.act}). {DUAL_USE_NOTICE}"
-                ]
-            if restriction.kind == RestrictionKind.GMO:
-                lines += [
-                    f"   {GMO_NOTICE} Category {restriction.gmo_category} of contained use,"
-                    f" {restriction.reference}."
-                ]
-        kinds = {r.kind for r in facts.restrictions.get(line.strain_id, [])}
-        if RestrictionKind.QUARANTINE_PEST in kinds:
-            letters = [
-                f"{p.permit.reference} ({p.permit.issuer})"
-                for p in line.approved_permits  # type: ignore[attr-defined]
-                if p.permit.kind == PermitKind.PLANT_HEALTH_LOA
-            ]
-            lines += [
-                f"   Union quarantine pest: the Letter of Authority {'; '.join(letters)} travels"
-                " with the package (Regulation (EU) 2019/829, Art. 6(1))."
-            ]
+    return lines
+
+
+def delivery_note(facts: Facts) -> str:
+    s = facts.shipment
+    lines = [
+        *_header(facts, "DELIVERY NOTE"),
+        "",
+        "RECIPIENT",
+        *_recipient(facts),
+        "",
+        "PACKAGE",
+        f"Transport class: {TransportClass(s.transport_class).label}",
+        f"Packing instruction: {PackingInstruction(s.packing_instruction).label}",
+        f"Coolant: {_coolant(s)}",
+        f"Carrier: {s.carrier}",
+        f"Tracking number: {s.tracking_number or 'none'}",
+        f"Responsible person: {s.responsible.name}, {s.responsible.phone}",
+        "",
+        "CONTENTS",
+        *_contents(facts),
+    ]
     return "\n".join(lines) + "\n"
 
 
