@@ -34,6 +34,7 @@ import {
   makeMyLab,
   makeOverview,
   makeLabPermit,
+  makeListMatch,
   makeReveal,
   makeWaitingGroup,
   makeWaitingItem,
@@ -71,6 +72,7 @@ const TERMS = '/api/v1/labs/{lab_public_id}/strains/{public_id}/terms/'
 const HISTORY = '/api/v1/labs/{lab_public_id}/strains/{public_id}/history/'
 const MATERIAL = `/labs/${LAB_ID}/strains/${STRAIN_ID}/material`
 const SHIPMENTS = '/api/v1/labs/{lab_public_id}/strains/{public_id}/shipments/'
+const MATCHES = '/api/v1/labs/{lab_public_id}/strains/{public_id}/list-matches/'
 
 type Role = 'technician' | 'curator' | 'manager'
 type Get = PathFor<'get'>
@@ -473,6 +475,17 @@ describe('a failed background refresh keeps the screen (#63)', () => {
         mockApi('get', '/api/v1/labs/{lab_public_id}/destructions/', page([makeDestruction({ number: '2026/1' })]))
       },
       () => screen.findByRole('cell', { name: '2026/1' }),
+    ],
+    [
+      'StrainListMatches on the Overview tab',
+      `/labs/${LAB_ID}/strains/${STRAIN_ID}`,
+      MATCHES,
+      'the official lists',
+      () => {
+        strainPage()
+        mockApi('get', MATCHES, page([makeListMatch({ code: '1C351.c.99' })]))
+      },
+      () => screen.findByText('1C351.c.99'),
     ],
     ['RevealLog', `/labs/${LAB_ID}/reveals`, REVEALS, 'the reveals', () => mockApi('get', REVEALS, page([makeReveal({ vial_label: 'MYC 42 / 1 / 1' })])), () => screen.findByRole('link', { name: 'MYC 42 / 1 / 1' })],
     ['LabList', '/labs', '/api/v1/labs/', 'your labs', () => mockApi('get', '/api/v1/labs/', page([makeLab({ public_id: LAB_ID, name: 'Mycology' })])), () => screen.findByRole('link', { name: 'Mycology' })],

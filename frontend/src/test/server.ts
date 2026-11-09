@@ -15,6 +15,9 @@ export const handlers = [
   // Home and the lab tabs read what waits: nothing, unless a test says.
   http.get('*/api/v1/me/overview/', () => HttpResponse.json({ waiting: [], labs: [] })),
   http.get('*/api/v1/me/activity/', () => HttpResponse.json({ results: [] })),
+  // #169: the strain page asks what the official lists say about its taxon. No entry matches
+  // unless a test says one does, so a test about anything else needs no handler of its own.
+  http.get('*/api/v1/labs/:lab_public_id/strains/:public_id/list-matches/', () => HttpResponse.json({ count: 0, next: null, previous: null, results: [] })),
 ]
 
 export const server = setupServer(...handlers)

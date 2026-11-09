@@ -8,6 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from cultures.biosafety import selectors as biosafety
 from cultures.biosafety.models import RestrictionKind
 from cultures.core.api import ScopedReadOnlyViewSet
 from cultures.core.errors import PROBLEM_CONTENT_TYPE as PROBLEM
@@ -35,6 +36,7 @@ from .serializers import (
     EndConfirmInputSerializer,
     EndProposeInputSerializer,
     EndWithdrawInputSerializer,
+    ListMatchOutputSerializer,
     ReclassifyInputSerializer,
     RestrictionAddInputSerializer,
     RiskGroupConfirmInputSerializer,
@@ -174,6 +176,9 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         "shipments": Perm.VIEW_DISTRIBUTION,
         "history": Perm.VIEW_STRAINS,
         "terms": Perm.VIEW_TERMS,
+        # #169: what the official lists say about the strain's taxon. A read, for everyone who
+        # sees the strain: recording any of it is a write with a reason of its own.
+        "list_matches": Perm.VIEW_STRAINS,
     }
     filterset_class = StrainFilter
 
@@ -219,6 +224,21 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         if restriction is None:
             raise NotFound
         return restriction
+
+    @extend_schema(responses={200: ListMatchOutputSerializer(many=True)})
+    @action(detail=True, methods=["get"], url_path="list-matches")  # paged, like the history
+    def list_matches(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """What the official lists say about this strain's taxon (#169): the entries that match
+        its name, the name of its accepted taxon, the name of any synonym of that taxon, or the
+        genus of one of those, never a part of a name. Each entry says which reading of which
+        list it comes from, the restriction it would give and the risk group it states.
+
+        A suggestion only. Recording a restriction is `restrictions`, a risk group is
+        `risk-group` or `risk-group-proposal`, each with a reason that goes into the trail.
+        """
+        strain: Strain = self.get_object()
+        page = self.paginate_queryset(biosafety.list_matches(strain.taxon))
+        return self.get_paginated_response(ListMatchOutputSerializer(page or [], many=True).data)
 
     @extend_schema(
         request=ReclassifyInputSerializer,

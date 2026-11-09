@@ -244,6 +244,26 @@ and the rules and duties it decides are changed in the same commit.
 - Code: `backend/cultures/strains/selectors.py::regulating_restrictions`, `backend/cultures/strains/migrations/0009_deaccession_audit_and_guards.py::"strains_strain_guard"`, `backend/cultures/lineage/services/destructions.py::required_for`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
 - Tests: `backend/cultures/strains/tests/test_deaccession.py::test_the_trigger_and_the_python_predicate_agree_on_regulated`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_asks_a_second_person_exactly_when_python_does`
 
+### What the lists suggest
+
+#### R-MATCH-01 The lists only suggest: whole names, the accepted name, its synonyms and genus-wide entries, and a person confirms with a reason
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-08 (#169). No text read lets a classification follow from
+  a name alone: one organism carries different names under its accepted name and its synonyms
+  (ADR 0008, D4), an annex names a genus where the collection holds a species, and a strain's
+  taxon may be wrong. So the match is a read, and recording what it suggests is a write of its
+  own with a reason, through the same services as a classification typed by hand (R-KIND-08,
+  R-RISK-03, R-RISK-07).
+- Code: `backend/cultures/biosafety/selectors.py::match_names`, `backend/cultures/biosafety/selectors.py::list_matches`, `backend/cultures/strains/api/views.py::StrainViewSet.list_matches`, `backend/cultures/strains/api/serializers.py::ListMatchOutputSerializer`
+- Tests: `backend/cultures/strains/tests/test_list_matches.py::test_an_exact_entry_matches_the_taxons_own_name`, `backend/cultures/strains/tests/test_list_matches.py::test_an_entry_of_a_genus_matches_a_species_of_it`, `backend/cultures/strains/tests/test_list_matches.py::test_a_synonym_and_its_accepted_name_match_the_same_entries`, `backend/cultures/strains/tests/test_list_matches.py::test_a_part_of_a_name_matches_nothing`, `backend/cultures/strains/tests/test_list_matches.py::test_an_invented_taxon_matches_nothing`, `backend/cultures/strains/tests/test_list_matches.py::test_a_reading_that_was_replaced_suggests_nothing`, `backend/cultures/strains/tests/test_list_matches.py::test_the_api_lists_what_the_lists_say_about_the_taxon`, `backend/cultures/strains/tests/test_list_matches.py::test_nobody_outside_the_lab_reads_the_suggestions`
+- Limits: a suggestion reaches only an entry the loader derived a name for (R-LIST-03), so 781
+  of the 1061 entries of this version's lists can suggest anything, and 57 of the 125 entries of
+  decree 474/2002 Sb. A genus of a name is its first word, not the taxon's ancestor at rank
+  genus, so a genus-wide entry reaches a species whose name begins with that genus and not a
+  species the tree places under it under another name. Nothing compares a part of a name.
+  Issue: none
+
 ### Risk groups
 
 #### R-RISK-01 A risk group is one of the four groups

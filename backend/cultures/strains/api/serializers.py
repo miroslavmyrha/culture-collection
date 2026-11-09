@@ -6,12 +6,19 @@ through ScopedRelatedField: an unknown id and a malformed one give the same
 error.
 """
 
+import re
+
 from django.db.models import QuerySet
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.request import Request
 
-from cultures.biosafety.models import RestrictionKind
+from cultures.biosafety.models import (
+    EntryKind,
+    MatchScope,
+    RegulatoryListEntry,
+    RestrictionKind,
+)
 from cultures.core.api import ScopedRelatedField
 from cultures.distribution.models import RequestLine
 from cultures.growth.api.serializers import GrowthOutputSerializer
@@ -300,6 +307,62 @@ class StrainDetailOutputSerializer(StrainListOutputSerializer):
         if not open_ones:
             return None
         return DeaccessionProposalOutputSerializer(open_ones[0], context=self.context).data
+
+
+class ListMatchOutputSerializer(serializers.ModelSerializer[RegulatoryListEntry]):
+    """One entry of an official list that matches a strain's taxon (#169).
+
+    A suggestion and nothing else: what the list says, which reading of it said so, and what it
+    would mean for the strain. Recording it is a write of its own, with a reason.
+    """
+
+    list = serializers.CharField(source="list.code", read_only=True)
+    list_title = serializers.CharField(source="list.title", read_only=True)
+    act = serializers.CharField(source="list.act", read_only=True)
+    version = serializers.CharField(source="list.version", read_only=True)
+    version_date = serializers.DateField(source="list.version_date", read_only=True)
+    kind = serializers.ChoiceField(choices=EntryKind.choices, read_only=True)
+    restriction_kind = serializers.ChoiceField(
+        choices=RestrictionKind.choices, allow_blank=True, read_only=True
+    )
+    match_scope = serializers.ChoiceField(
+        choices=MatchScope.choices, allow_blank=True, read_only=True
+    )
+    risk_group = serializers.IntegerField(allow_null=True, read_only=True)
+    suggests_act = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RegulatoryListEntry
+        fields = (
+            "public_id",
+            "list",
+            "list_title",
+            "act",
+            "version",
+            "version_date",
+            "code",
+            "name",
+            "kind",
+            "restriction_kind",
+            "suggests_act",
+            "risk_group",
+            "match_name",
+            "match_scope",
+        )
+        read_only_fields = fields
+
+    @extend_schema_field(serializers.CharField(allow_blank=True))
+    def get_suggests_act(self, entry: RegulatoryListEntry) -> str:
+        """The act a dual-use restriction would name (R-KIND-03): the delegated regulation whose
+        Annex I this reading was read in, as the Official Journal cites it. The reading's version
+        is that act's CELEX number, so "32025R2003" is "(EU) 2025/2003". Empty for every other
+        list, whose restrictions name no act."""
+        if entry.restriction_kind != RestrictionKind.DUAL_USE:
+            return ""
+        found = re.fullmatch(r"3(?P<year>[0-9]{4})R(?P<number>[0-9]{4})", entry.list.version)
+        if found is None:
+            return ""
+        return f"(EU) {found['year']}/{int(found['number'])}"
 
 
 class RestrictionInputSerializer(serializers.Serializer[None]):

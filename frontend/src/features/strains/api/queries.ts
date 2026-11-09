@@ -31,6 +31,19 @@ export const strainTermsOptions = (labId: string, strainId: string) =>
       unwrap(api.GET('/api/v1/labs/{lab_public_id}/strains/{public_id}/terms/', { signal, params: { path: { lab_public_id: labId, public_id: strainId } } })),
   })
 
+/**
+ * What the official lists say about the strain's taxon (#169): a suggestion, never a
+ * classification. Recording one is a write of its own, with a reason.
+ */
+export const strainListMatchesOptions = (labId: string, strainId: string) =>
+  queryOptions({
+    queryKey: strainKeys.matches(labId, strainId),
+    queryFn: ({ signal }) =>
+      unwrap(
+        api.GET('/api/v1/labs/{lab_public_id}/strains/{public_id}/list-matches/', { signal, params: { path: { lab_public_id: labId, public_id: strainId } } }),
+      ),
+  })
+
 /** A page of what happened to the strain, newest first (#19). */
 export const strainHistoryOptions = (labId: string, strainId: string, page: PageParams) =>
   queryOptions({
@@ -88,6 +101,10 @@ export function useStrain(labId: string, strainId: string) {
 
 export function useStrainTerms(labId: string, strainId: string) {
   return useQuery(strainTermsOptions(labId, strainId))
+}
+
+export function useStrainListMatches(labId: string, strainId: string) {
+  return useQuery(strainListMatchesOptions(labId, strainId))
 }
 
 export function useStrainHistory(labId: string, strainId: string, page: PageParams) {

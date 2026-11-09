@@ -25,6 +25,7 @@ import {
   WithdrawEndDialog,
   WithdrawRiskGroupDialog,
 } from './StrainDialogs'
+import { StrainListMatches } from './StrainListMatches'
 import { StrainShipments } from './StrainShipments'
 import { ActiveTerms } from './StrainTerms'
 
@@ -180,6 +181,8 @@ export function StrainOverview({ labId, strain: s, canManage, canConfirm, canCon
           </Table>
         </TableContainer>
       </Section>
+
+      <StrainListMatches labId={labId} strain={s} canManage={canManage} />
 
       {/* Mounted until it has faded out, so onExited can place the focus. */}
       {open && <EndDialog labId={labId} strain={s} at={open} onClose={close} onExited={exited} />}

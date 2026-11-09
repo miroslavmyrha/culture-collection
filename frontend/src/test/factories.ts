@@ -740,6 +740,33 @@ export function makeReveal(overrides: Partial<Reveal> = {}): Reveal {
   }
 }
 
+export type ListMatch = Schemas['ListMatchOutput']
+
+/**
+ * An entry of an official list that matches a strain's taxon (#169). The organism, the entry
+ * code and the act are invented, so no test states a legal fact about a real organism.
+ */
+export function makeListMatch(overrides: Partial<ListMatch> = {}): ListMatch {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    list: 'eu-2021-821-annex-i',
+    list_title: 'Regulation (EU) 2021/821, Annex I',
+    act: '2021/821',
+    version: '32025R2003',
+    version_date: '2025-09-08',
+    code: '1C351.c.99',
+    name: 'Mockia fictiva',
+    kind: 'organism',
+    restriction_kind: 'dual_use',
+    suggests_act: '(EU) 2025/2003',
+    risk_group: null,
+    match_name: 'mockia fictiva',
+    match_scope: 'exact',
+    ...overrides,
+  }
+}
+
 export type LabPermit = Schemas['LabPermitOutput']
 
 /** A valid SÚJB permit of the lab with an invented reference, no expiry stated. */

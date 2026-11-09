@@ -24,8 +24,16 @@ from django.db.models.functions import Cast, Least
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
+from cultures.taxonomy.models import Taxon
 
-from .models import LabAuthorisation, ListCode, RegulatoryListEntry, RestrictionKind
+from . import lists
+from .models import (
+    LabAuthorisation,
+    ListCode,
+    MatchScope,
+    RegulatoryListEntry,
+    RestrictionKind,
+)
 from .policy import EXPIRES_SOON_DAYS
 
 
@@ -157,3 +165,45 @@ def also_a_cz_agent(entry: RegulatoryListEntry) -> RegulatoryListEntry | None:
         .first()
     )
     return found
+
+
+def match_names(taxon: Taxon) -> tuple[set[str], set[str]]:
+    """The names a taxon is matched against, and the genus names of each (#169).
+
+    The taxon's own name, the name of its accepted taxon when it is a synonym, and the names of
+    every synonym of that accepted taxon: one organism carries the same classification under its
+    accepted name and under a synonym (ADR 0008, D4). The genus names are the first word of
+    each, so a genus-wide entry of a list reaches a species of that genus.
+
+    Two queries at most, whatever the number of synonyms.
+    """
+    accepted = taxon.accepted_id or taxon.pk
+    names = set(
+        Taxon.objects.filter(Q(pk__in=(taxon.pk, accepted)) | Q(accepted_id=accepted)).values_list(
+            "name", flat=True
+        )
+    )
+    exact = {lists.normalised(name) for name in names}
+    return exact, {name.split(" ")[0] for name in exact}
+
+
+def list_matches(taxon: Taxon) -> QuerySet[RegulatoryListEntry]:
+    """The entries of the current readings of the official lists that match a taxon (#169).
+
+    A suggestion, never a classification: a person confirms one with a reason, through the
+    services. Matching is by whole names only, never by a part of one: an entry whose scope is
+    `exact` matches one of the taxon's names, an entry whose scope is `genus` matches the genus
+    of one of them. An entry with no name to match reaches nothing.
+
+    One query, with each entry's list for its source and version.
+    """
+    exact, genera = match_names(taxon)
+    return (
+        RegulatoryListEntry.objects.filter(
+            Q(match_scope=MatchScope.EXACT, match_name__in=sorted(exact))
+            | Q(match_scope=MatchScope.GENUS, match_name__in=sorted(genera)),
+            list__is_current=True,
+        )
+        .select_related("list")
+        .order_by("list__code", "code", "pk")
+    )

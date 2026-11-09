@@ -1162,3 +1162,26 @@ instead of free text.
 
 Each rule, its source, its code and its tests are in `docs/compliance.md` (R-KIND-10 and
 R-KIND-11).
+
+## Amendment 2026-11-08: the lists suggest, a person records (#169)
+
+The strain page shows what the official lists say about the strain's taxon, and nothing more.
+
+- **Matching is a read.** `biosafety.selectors.list_matches` takes the taxon's own name, the name
+  of its accepted taxon, the names of every synonym of that taxon, and the genus of each, and
+  returns the entries of the current readings whose derived name is one of them at the matching
+  scope. Never a part of a name. One organism carries different classifications under its
+  accepted name and a synonym, which is why the synonyms are in the set.
+- **A person confirms, with a reason.** The suggestion fills the kind, the entry and the act of
+  the dialog that records a restriction, or the group and the basis of the dialog that changes a
+  risk group. The reason stays the person's to write, and the write is the same service as a
+  classification typed by hand, with the same refusals and the same audit event. Nothing is
+  recorded by reading a list.
+- **Everyone who sees the strain sees the suggestions.** `strains.view`: the lists are public
+  law and the lines name no place and no person. Only somebody who manages strains is offered
+  the buttons that record one, and the server refuses the rest.
+- **What it cannot do.** An entry with no derived name suggests nothing (R-LIST-03), and the
+  genus of a name is its first word rather than the taxon's ancestor at rank genus, so a
+  genus-wide entry does not reach a species the tree places under that genus under another name.
+
+Each rule, its source, its code and its tests are in `docs/compliance.md` (R-MATCH-01).
