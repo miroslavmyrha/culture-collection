@@ -252,6 +252,62 @@ def setup(cursor: CursorWrapper, roles: Roles) -> None:
     apply_grants(cursor, roles, complete=False)
 
 
+def _own_audit_tables(cursor: CursorWrapper, roles: Roles) -> None:
+    """Every audit table that exists is owned by the audit owner, so the app cannot change it."""
+    tables = _tables(cursor)
+    for table in audit_tables():
+        if table in tables and tables[table] != roles.audit_owner:
+            cursor.execute(f"ALTER TABLE public.{_quoted(table)} OWNER TO {roles.audit_owner}")
+
+
+def _own_audit_functions(cursor: CursorWrapper, roles: Roles, *, complete: bool) -> dict[str, str]:
+    """Every audit function that exists is owned by the audit owner, so it runs with its rights.
+    With `complete`, each name of APP_ROLE_FUNCTIONS must exist. Returns the functions found."""
+    functions = _audit_functions(cursor)
+    for function, owner in sorted(functions.items()):
+        if owner != roles.audit_owner:
+            cursor.execute(f"ALTER FUNCTION public.{function} OWNER TO {roles.audit_owner}")
+    missing = sorted(set(APP_ROLE_FUNCTIONS) - set(functions))
+    if complete and missing:
+        raise ImproperlyConfigured(
+            f"APP_ROLE_FUNCTIONS names audit functions that do not exist after migrate:"
+            f" {missing}. The schema is older than the code: migrate to the latest"
+            " migrations, or take the name out of cultures/audit/roles.py."
+        )
+    return functions
+
+
+def _refuse_foreign_tables(cursor: CursorWrapper, roles: Roles) -> dict[str, str]:
+    """Every table belongs to the migration role or the audit owner. Returns the tables with
+    their owners, read after the audit objects changed hands."""
+    tables = _tables(cursor)
+    owners = (roles.migration, roles.audit_owner)
+    foreign = sorted(table for table, owner in tables.items() if owner not in owners)
+    if foreign:
+        raise ImproperlyConfigured(
+            f"tables not owned by {roles.migration} or {roles.audit_owner}: {foreign}."
+            " Run manage.py db_roles as an admin."
+        )
+    return tables
+
+
+def _grant_runtime(
+    cursor: CursorWrapper, roles: Roles, tables: dict[str, str], functions: dict[str, str]
+) -> None:
+    """The runtime role holds exactly APP_ROLE_GRANTS: everything is revoked first, then each
+    table takes its privileges and each audit function EXECUTE only where the file names it."""
+    cursor.execute(f"REVOKE ALL ON ALL TABLES IN SCHEMA public FROM {roles.runtime}")
+    cursor.execute(f"REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM {roles.runtime}")
+    for table in sorted(tables):
+        privileges = ", ".join(runtime_privileges(table))
+        cursor.execute(f"GRANT {privileges} ON public.{_quoted(table)} TO {roles.runtime}")
+    for function in sorted(functions):
+        if function in APP_ROLE_FUNCTIONS:
+            cursor.execute(f"GRANT EXECUTE ON FUNCTION public.{function} TO {roles.runtime}")
+        else:
+            cursor.execute(f"REVOKE ALL ON FUNCTION public.{function} FROM {roles.runtime}")
+
+
 def apply_grants(cursor: CursorWrapper, roles: Roles, *, complete: bool) -> None:
     """Audit objects to the audit owner, runtime privileges exactly APP_ROLE_GRANTS.
 
@@ -268,36 +324,7 @@ def apply_grants(cursor: CursorWrapper, roles: Roles, *, complete: bool) -> None
     deploy order is db_roles first, migrate third (tools/up-with-runtime-role.sh), and a
     check that demanded the functions in the first step ended it on every fresh database.
     """
-    tables = _tables(cursor)
-    for table in audit_tables():
-        if table in tables and tables[table] != roles.audit_owner:
-            cursor.execute(f"ALTER TABLE public.{_quoted(table)} OWNER TO {roles.audit_owner}")
-    functions = _audit_functions(cursor)
-    for function, owner in sorted(functions.items()):
-        if owner != roles.audit_owner:
-            cursor.execute(f"ALTER FUNCTION public.{function} OWNER TO {roles.audit_owner}")
-    missing = sorted(set(APP_ROLE_FUNCTIONS) - set(functions))
-    if complete and missing:
-        raise ImproperlyConfigured(
-            f"APP_ROLE_FUNCTIONS names audit functions that do not exist after migrate:"
-            f" {missing}. The schema is older than the code: migrate to the latest"
-            " migrations, or take the name out of cultures/audit/roles.py."
-        )
-    tables = _tables(cursor)
-    owners = (roles.migration, roles.audit_owner)
-    foreign = sorted(table for table, owner in tables.items() if owner not in owners)
-    if foreign:
-        raise ImproperlyConfigured(
-            f"tables not owned by {roles.migration} or {roles.audit_owner}: {foreign}."
-            " Run manage.py db_roles as an admin."
-        )
-    cursor.execute(f"REVOKE ALL ON ALL TABLES IN SCHEMA public FROM {roles.runtime}")
-    cursor.execute(f"REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM {roles.runtime}")
-    for table in sorted(tables):
-        privileges = ", ".join(runtime_privileges(table))
-        cursor.execute(f"GRANT {privileges} ON public.{_quoted(table)} TO {roles.runtime}")
-    for function in sorted(functions):
-        if function in APP_ROLE_FUNCTIONS:
-            cursor.execute(f"GRANT EXECUTE ON FUNCTION public.{function} TO {roles.runtime}")
-        else:
-            cursor.execute(f"REVOKE ALL ON FUNCTION public.{function} FROM {roles.runtime}")
+    _own_audit_tables(cursor, roles)
+    functions = _own_audit_functions(cursor, roles, complete=complete)
+    tables = _refuse_foreign_tables(cursor, roles)
+    _grant_runtime(cursor, roles, tables, functions)

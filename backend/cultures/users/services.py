@@ -313,6 +313,39 @@ def superuser_create(
         return user_set_superuser(user=user, is_superuser=True, reason=reason)
 
 
+def _check_last_superuser(target: User, locked: dict[int, User]) -> None:
+    """The collection keeps an active superuser: the last one is not erased. Caller holds the
+    target's row together with every active superuser's."""
+    if (target.is_superuser and target.is_active) and not any(
+        row.is_superuser and row.is_active for pk, row in locked.items() if pk != target.pk
+    ):
+        raise LastSuperuser
+
+
+def _remove_memberships(target: User) -> int:
+    """Every membership of the user, through membership_delete, one member_removed event each.
+    Returns how many were removed. Caller holds the labs' rows."""
+    memberships = list(Membership.objects.filter(user=target).order_by("lab_id", "pk"))
+    for membership in memberships:
+        membership_delete(membership=membership)
+    return len(memberships)
+
+
+def _make_tombstone(target: User) -> tuple[dict[str, bool], bool]:
+    """The row's own values as a tombstone: the reserved username, no names, no e-mail, an
+    unusable password, no privileges, erased_at set. Returns the privileges as they were and
+    whether the password was usable, for the event."""
+    before = {f: getattr(target, f) for f in ("is_active", "is_staff", "is_superuser")}
+    had_password = target.has_usable_password()
+    target.username = f"{ERASED_PREFIX}{target.public_id}"
+    target.first_name = target.last_name = target.email = ""
+    target.set_unusable_password()
+    target.is_active = target.is_staff = target.is_superuser = False
+    target.erased_at = timezone.now()
+    _save(target)
+    return before, had_password
+
+
 def user_erase(*, user: User, reason: str | None = None) -> User:
     """Erase a person: the user row becomes a tombstone in place. Needs a reason.
 
@@ -345,25 +378,13 @@ def user_erase(*, user: User, reason: str | None = None) -> User:
             raise NotFound
         if target.is_erased:
             return target
-        if (target.is_superuser and target.is_active) and not any(
-            row.is_superuser and row.is_active for pk, row in locked.items() if pk != target.pk
-        ):
-            raise LastSuperuser
+        _check_last_superuser(target, locked)
         users_deactivation_check(users=[target])
         vrat_access_end_for_users(users=[target], reason=ERASED)
-        memberships = list(Membership.objects.filter(user=target).order_by("lab_id", "pk"))
-        for membership in memberships:
-            membership_delete(membership=membership)
+        memberships = _remove_memberships(target)
         sessions = _end_sessions(target)
         counters = login_limits.clear_account(target.username)
-        before = {f: getattr(target, f) for f in ("is_active", "is_staff", "is_superuser")}
-        had_password = target.has_usable_password()
-        target.username = f"{ERASED_PREFIX}{target.public_id}"
-        target.first_name = target.last_name = target.email = ""
-        target.set_unusable_password()
-        target.is_active = target.is_staff = target.is_superuser = False
-        target.erased_at = timezone.now()
-        _save(target)
+        before, had_password = _make_tombstone(target)
         _rename_in_admin_log(target)
         record_event(
             USER_ERASED,
@@ -374,7 +395,7 @@ def user_erase(*, user: User, reason: str | None = None) -> User:
                     **dict.fromkeys(PROFILE_FIELDS, PERSONAL_CHANGED),
                     **{f: [old, False] for f, old in before.items()},
                     "has_usable_password": [had_password, False],
-                    "memberships": [len(memberships), 0],
+                    "memberships": [memberships, 0],
                     "sessions": [sessions, 0],
                     "login_failure_counters": [counters, 0],
                 },

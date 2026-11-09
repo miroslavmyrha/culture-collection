@@ -137,6 +137,52 @@ def requester(access: Access, lab: Lab, data: SeedRequester) -> Requester:
     return found
 
 
+def _seeded_request(lab: Lab, data: SeedRequest) -> DistributionRequest | None:
+    """The request this seed entry already made, found by its end use. A renewing entry looks
+    only for an approved one, so a cancelled run is made again."""
+    same = DistributionRequest.objects.filter(lab=lab, end_use=data.end_use)
+    if data.renew:
+        same = same.filter(status=RequestStatus.APPROVED)
+    return same.order_by("-pk").first()
+
+
+def _accept_mtas(access: Access, made: DistributionRequest) -> None:
+    """One acceptance per MTA version the request's lines are pinned to."""
+    for mta_id in sorted({line.mta_id for line in made.lines.all() if line.mta_id}):
+        services.acceptance_record(
+            access=access,
+            request=made,
+            data=services.AcceptanceInput(
+                mta_id=mta_id,
+                signer=services.ContactInput("Invented Signatory", "signatory@example.org"),
+                signer_role=SignerRole.HEAD_OF_INSTITUTION,
+                authorised_signatory=True,
+                accepted_on=date(2026, 10, 2),
+                document=services.DocumentInput(INVENTED_PDF),
+            ),
+        )
+
+
+def _ship(
+    access: Access,
+    made: DistributionRequest,
+    *,
+    shipper: Access | None,
+    confirmer: Access | None,
+) -> DistributionRequest:
+    """Ships the request: in one step, or prepared by the shipper and confirmed by the second
+    person when the entry names a confirmer."""
+    if confirmer is None:
+        return services.request_ship(access=shipper or access, request=made, data=SEED_SHIPMENT)
+    made = services.request_prepare_shipment(
+        access=shipper or access, request=made, data=SEED_SHIPMENT
+    )
+    prepared = made.preparations.get(withdrawn_at__isnull=True)
+    return services.request_confirm_shipment(
+        access=confirmer, request=made, preparation=prepared.public_id
+    )
+
+
 def request(
     access: Access,
     lab: Lab,
@@ -146,10 +192,7 @@ def request(
     shipper: Access | None = None,
     confirmer: Access | None = None,
 ) -> DistributionRequest:
-    same = DistributionRequest.objects.filter(lab=lab, end_use=data.end_use)
-    if data.renew:
-        same = same.filter(status=RequestStatus.APPROVED)
-    found = same.order_by("-pk").first()
+    found = _seeded_request(lab, data)
     if found is not None:
         return found
     made = services.request_submit(
@@ -164,29 +207,9 @@ def request(
         ),
     )
     if data.accept:
-        for mta_id in sorted({line.mta_id for line in made.lines.all() if line.mta_id}):
-            services.acceptance_record(
-                access=access,
-                request=made,
-                data=services.AcceptanceInput(
-                    mta_id=mta_id,
-                    signer=services.ContactInput("Invented Signatory", "signatory@example.org"),
-                    signer_role=SignerRole.HEAD_OF_INSTITUTION,
-                    authorised_signatory=True,
-                    accepted_on=date(2026, 10, 2),
-                    document=services.DocumentInput(INVENTED_PDF),
-                ),
-            )
+        _accept_mtas(access, made)
     if data.approve:
         made = services.request_approve(access=approver or access, request=made, reason=data.reason)
-    if data.ship and confirmer is None:
-        made = services.request_ship(access=shipper or access, request=made, data=SEED_SHIPMENT)
-    elif data.ship and confirmer is not None:
-        made = services.request_prepare_shipment(
-            access=shipper or access, request=made, data=SEED_SHIPMENT
-        )
-        prepared = made.preparations.get(withdrawn_at__isnull=True)
-        made = services.request_confirm_shipment(
-            access=confirmer, request=made, preparation=prepared.public_id
-        )
+    if data.ship:
+        made = _ship(access, made, shipper=shipper, confirmer=confirmer)
     return made

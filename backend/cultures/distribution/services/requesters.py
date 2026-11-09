@@ -160,11 +160,8 @@ def requester_update(*, access: Access, requester: Requester, data: RequesterInp
 # Recipient permits.
 
 
-def _checked_permit(data: PermitInput) -> PermitInput:
-    issuer = normalised(data.issuer)
-    reference = normalised(data.reference)
-    covers = data.covers.strip()
-    endorsement = normalised(data.endorsement_reference)
+def _check_permit_document_facts(data: PermitInput, issuer: str, reference: str) -> None:
+    """What every permit states: who issued it, where, under which reference, and until when."""
     if not issuer:
         raise InvalidDistribution("Enter the issuing authority.", attr="issuer")
     if data.issuer_country not in COUNTRY_CODES:
@@ -173,17 +170,30 @@ def _checked_permit(data: PermitInput) -> PermitInput:
         raise InvalidDistribution("Enter the reference.", attr="reference")
     if data.expires_on is not None and data.expires_on < data.valid_from:
         raise InvalidDistribution("A permit expires after it starts.", attr="expires_on")
+
+
+def _check_permit_covers(data: PermitInput, covers: str) -> None:
+    """A kind that must name its agents or pests (NAMES_AGENTS) names them: the gates read the
+    strain's taxon there."""
     if data.kind in NAMES_AGENTS and not covers:
         raise InvalidDistribution(
             "Write the agents or pests it names, as on the document.", attr="covers"
         )
-    loa = data.kind == PermitKind.PLANT_HEALTH_LOA
+
+
+def _check_permit_allowances(data: PermitInput, *, loa: bool) -> None:
+    """Only a Letter of Authority states a quantity and a number of sendings, and it states
+    both (Regulation (EU) 2019/829, Art. 6)."""
     for name in ("quantity_allowed", "sendings_allowed"):
         value = getattr(data, name)
         if loa and (value is None or value < 1):
             raise InvalidDistribution("Enter a number of 1 or more.", attr=name)
         if not loa and value is not None:
             raise InvalidDistribution("Only a Letter of Authority states this.", attr=name)
+
+
+def _check_permit_endorsement(data: PermitInput, endorsement: str, *, loa: bool) -> None:
+    """Only a Letter of Authority carries an endorsement, and it carries it with its day."""
     if (endorsement or data.endorsed_on) and not loa:
         raise InvalidDistribution(
             "Only a Letter of Authority is endorsed.", attr="endorsement_reference"
@@ -191,6 +201,11 @@ def _checked_permit(data: PermitInput) -> PermitInput:
     if bool(endorsement) != (data.endorsed_on is not None):
         attr = "endorsed_on" if endorsement else "endorsement_reference"
         raise InvalidDistribution("Give the endorsement with its day.", attr=attr)
+
+
+def _check_permit_classification(data: PermitInput) -> None:
+    """The classification a kind carries and no other kind does: the GMO category of a
+    contained-use authorisation, the risk group of a permit to work with pathogens."""
     gmo = data.kind == PermitKind.GMO_CONTAINED_USE
     if gmo != (data.gmo_category is not None) or (gmo and not 1 <= (data.gmo_category or 0) <= 4):  # noqa: PLR2004
         raise InvalidDistribution(
@@ -203,6 +218,22 @@ def _checked_permit(data: PermitInput) -> PermitInput:
             "A permit to work with pathogens has a risk group 1 to 4, other permits none.",
             attr="risk_group",
         )
+
+
+def _checked_permit(data: PermitInput) -> PermitInput:
+    """The permit as recorded: the document's own facts, what it covers, the allowances and
+    endorsement of a Letter of Authority, and the classification its kind carries. The steps
+    run in that order, so the first refusal a caller sees does not move."""
+    issuer = normalised(data.issuer)
+    reference = normalised(data.reference)
+    covers = data.covers.strip()
+    endorsement = normalised(data.endorsement_reference)
+    loa = data.kind == PermitKind.PLANT_HEALTH_LOA
+    _check_permit_document_facts(data, issuer, reference)
+    _check_permit_covers(data, covers)
+    _check_permit_allowances(data, loa=loa)
+    _check_permit_endorsement(data, endorsement, loa=loa)
+    _check_permit_classification(data)
     _checked_document(data.document)
     return PermitInput(
         kind=data.kind,
