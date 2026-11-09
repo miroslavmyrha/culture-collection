@@ -44,6 +44,9 @@ echo "== CI"
 # The e2e job must run the API as the runtime role (ADR 0005), as production does.
 grep -Eq '^ +tools/up-with-runtime-role\.sh *$' .github/workflows/ci.yml \
   || fail "ci.yml must start the API with tools/up-with-runtime-role.sh before the e2e tests"
+# A gate nothing guards is a gate anyone can drop: the changelog job must stay (#206).
+grep -Eq '^  changelog:$' .github/workflows/ci.yml \
+  || fail "ci.yml must keep the changelog job: a pull request that changes code adds its CHANGELOG.md line"
 
 echo "== backend"
 # The dev container writes caches into the ./backend bind mount: build it with the caller's uid.
