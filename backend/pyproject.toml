@@ -16,6 +16,8 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest",
+    "coverage",
+    "radon",
     "django-migration-linter",
     "pip-audit",
     "pytest-django",
