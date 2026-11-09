@@ -73,6 +73,19 @@ export const strainShipmentsOptions = (labId: string, strainId: string, page: Pa
     placeholderData: keepPreviousData,
   })
 
+/**
+ * Every strain of the lab whose classification disagrees with the official lists (#169). The
+ * server computes it at the read, so a new reading of a list needs nothing invalidated.
+ * Managers only: the server refuses everyone else (403).
+ */
+export const strainDisagreementsOptions = (labId: string, page: PageParams) =>
+  queryOptions({
+    queryKey: strainKeys.disagreements(labId, page),
+    queryFn: ({ signal }) =>
+      unwrap(api.GET('/api/v1/labs/{lab_public_id}/strains/list-disagreements/', { signal, params: { path: { lab_public_id: labId }, query: page } })),
+    placeholderData: keepPreviousData,
+  })
+
 export const TAXON_PAGE = 20
 
 export const taxonSearchOptions = (text: string) =>
@@ -113,6 +126,10 @@ export function useStrainHistory(labId: string, strainId: string, page: PagePara
 
 export function useStrainShipments(labId: string, strainId: string, page: PageParams) {
   return useQuery(strainShipmentsOptions(labId, strainId, page))
+}
+
+export function useStrainDisagreements(labId: string, page: PageParams) {
+  return useQuery(strainDisagreementsOptions(labId, page))
 }
 
 export function useTaxonSearch(text: string, enabled: boolean) {

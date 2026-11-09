@@ -43,6 +43,7 @@ MATRIX = [
     (Perm.VIEW_LAB_PERMITS, {M}),
     (Perm.VIEW_REVEALS, {M}),
     (Perm.VIEW_LAB_FIGURES, {M}),
+    (Perm.VIEW_LIST_DISAGREEMENTS, {M}),
 ]
 
 

@@ -92,6 +92,15 @@ export const REFERENCE_HINTS: Record<RestrictionKind, string> = {
   quarantine_pest: 'The entry in Annex II of Implementing Regulation (EU) 2019/2072',
   gmo: 'The notification or permit reference under act 78/2004 Sb.',
 }
+export type StrainDisagreement = Schemas['ListDisagreementOutput']
+export type Disagreement = StrainDisagreement['findings'][number]['disagreement']
+/** What each disagreement with the official lists means, in a few words (#169). */
+export const DISAGREEMENT_LABELS: Record<Disagreement, string> = {
+  restriction_missing: 'The list names a restriction the strain does not carry',
+  restriction_unlisted: 'The strain carries a restriction no entry names',
+  risk_group_differs: 'Annex 7 states another risk group',
+}
+
 export const GMO_CATEGORIES = [1, 2, 3, 4] as const
 export const GMO_CATEGORY_LABELS: Record<number, string> = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV' }
 

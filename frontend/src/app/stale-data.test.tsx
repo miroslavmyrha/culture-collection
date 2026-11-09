@@ -20,6 +20,7 @@ import {
   makeMtaTemplate,
   makePassage,
   makeStrain,
+  makeStrainDisagreement,
   makeStrainRow,
   makeTaxon,
   makeUnit,
@@ -73,6 +74,7 @@ const HISTORY = '/api/v1/labs/{lab_public_id}/strains/{public_id}/history/'
 const MATERIAL = `/labs/${LAB_ID}/strains/${STRAIN_ID}/material`
 const SHIPMENTS = '/api/v1/labs/{lab_public_id}/strains/{public_id}/shipments/'
 const MATCHES = '/api/v1/labs/{lab_public_id}/strains/{public_id}/list-matches/'
+const DISAGREEMENTS = '/api/v1/labs/{lab_public_id}/strains/list-disagreements/'
 
 type Role = 'technician' | 'curator' | 'manager'
 type Get = PathFor<'get'>
@@ -488,6 +490,14 @@ describe('a failed background refresh keeps the screen (#63)', () => {
       () => screen.findByText('1C351.c.99'),
     ],
     ['RevealLog', `/labs/${LAB_ID}/reveals`, REVEALS, 'the reveals', () => mockApi('get', REVEALS, page([makeReveal({ vial_label: 'MYC 42 / 1 / 1' })])), () => screen.findByRole('link', { name: 'MYC 42 / 1 / 1' })],
+    [
+      'ListDisagreements',
+      `/labs/${LAB_ID}/classification`,
+      DISAGREEMENTS,
+      'the classification check',
+      () => mockApi('get', DISAGREEMENTS, page([makeStrainDisagreement({ strain: makeStrainRow({ accession_number: 'MYC 42' }) })])),
+      () => screen.findByRole('link', { name: 'MYC 42' }),
+    ],
     ['LabList', '/labs', '/api/v1/labs/', 'your labs', () => mockApi('get', '/api/v1/labs/', page([makeLab({ public_id: LAB_ID, name: 'Mycology' })])), () => screen.findByRole('link', { name: 'Mycology' })],
     [
       'VialsToPull',

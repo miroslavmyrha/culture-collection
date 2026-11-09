@@ -226,14 +226,15 @@ describe('the lab tabs', () => {
     await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests', 'Deposits', 'Depositors', 'MTA templates', 'Media']))
   })
 
-  it('adds Permits and Reveals for a manager, after the curator sections (#82, #83)', async () => {
+  it('adds Classification, Permits and Reveals for a manager, after the curator sections (#82, #83, #169)', async () => {
     signedIn()
     labs()
     lab('manager')
     mockApi('get', STRAINS, page([]))
     renderApp({ path: `/labs/${LAB_ID}/strains` })
     const nav = await screen.findByRole('navigation', { name: 'Lab sections' })
-    await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests', 'Deposits', 'Depositors', 'MTA templates', 'Media', 'Permits', 'Reveals']))
+    await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests', 'Deposits', 'Depositors', 'MTA templates', 'Media', 'Classification', 'Permits', 'Reveals']))
+    expect(within(nav).getByRole('link', { name: 'Classification' })).toHaveAttribute('href', `/labs/${LAB_ID}/classification`)
     expect(within(nav).getByRole('link', { name: 'Permits' })).toHaveAttribute('href', `/labs/${LAB_ID}/permits`)
     expect(within(nav).getByRole('link', { name: 'Reveals' })).toHaveAttribute('href', `/labs/${LAB_ID}/reveals`)
   })

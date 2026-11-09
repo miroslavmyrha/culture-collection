@@ -110,7 +110,7 @@ test.describe('reflow at 320 px', () => {
     const tabs = page.getByRole('navigation', { name: 'Lab sections' })
     const row = await tabs.locator('a').first().locator('xpath=..').evaluate((e) => ({ scroll: e.scrollWidth, client: e.clientWidth, overflow: getComputedStyle(e).overflowX }))
     expect(row.overflow).toBe('auto')
-    expect(row.scroll).toBeGreaterThan(row.client) // six tabs do not fit in 320 px
+    expect(row.scroll).toBeGreaterThan(row.client) // seven tabs do not fit in 320 px
     for (const name of ['Strains', 'MTA templates']) {
       const tab = tabs.getByRole('link', { name })
       await tab.scrollIntoViewIfNeeded()

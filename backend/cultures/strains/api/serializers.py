@@ -36,6 +36,7 @@ from cultures.strains.models import (
     StrainRestriction,
     StrainStatus,
 )
+from cultures.strains.selectors import DISAGREEMENTS, Finding, StrainFindings
 from cultures.taxonomy.api.serializers import TaxonBriefSerializer
 from cultures.taxonomy.models import Taxon
 
@@ -527,3 +528,24 @@ class StrainShipmentOutputSerializer(serializers.Serializer[RequestLine]):
     country = serializers.CharField(source="request.destination_country", read_only=True)
     shipped_at = serializers.DateTimeField(source="request.shipment.shipped_at", read_only=True)
     vials = serializers.IntegerField(source="vial_count", read_only=True)
+
+
+class DisagreementFindingSerializer(serializers.Serializer[Finding]):
+    """One way a strain's classification disagrees with the official lists (#169).
+
+    `entry` is the entry that was read, and is null where the finding is that no entry names a
+    restriction the strain carries.
+    """
+
+    disagreement = serializers.ChoiceField(choices=DISAGREEMENTS)
+    restriction_kind = serializers.ChoiceField(choices=RestrictionKind.choices, allow_blank=True)
+    entry = ListMatchOutputSerializer(allow_null=True)
+
+
+class ListDisagreementOutputSerializer(serializers.Serializer[StrainFindings]):
+    """One strain whose classification disagrees with the official lists (#169), with the strain
+    as the list shows it and every disagreement found. Nothing is stored: the answer is computed
+    at every read."""
+
+    strain = StrainListOutputSerializer()
+    findings = DisagreementFindingSerializer(many=True)

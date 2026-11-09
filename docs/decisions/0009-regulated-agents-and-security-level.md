@@ -1219,3 +1219,31 @@ holds (R-LIST-01), so the basis can point at the entry it was read in.
 
 Each rule, its source, its code and its tests are in `docs/compliance.md` (R-RISK-07 and
 R-RISK-09).
+
+
+## Amendment 2026-11-09: the managers see where the record and the lists disagree (#169)
+
+The lists only suggest (the amendment above), and the app corrects nothing by itself. What it
+owes the managers is the list of the places where its own record and the official lists differ,
+because every duty the classification carries is theirs to answer for.
+
+- **One read, no row.** `strains.selectors.list_disagreements` computes it from the strains of
+  the lab in the collection and the entries of the current readings that match their taxa. There
+  is nothing to refresh after a reclassification and nothing to recompute after a new reading of
+  a list: the next read gives the new answer. Four queries whatever the number of strains.
+- **Three disagreements**, in `strains.selectors.list_findings`, the one definition:
+  an entry names a restriction the strain does not carry, the strain carries one of a kind whose
+  list names no matching entry, and an entry of annex 7 of government order 361/2007 Sb. states
+  another risk group, either way round.
+- **One matcher.** `biosafety.selectors.matching` asks the question in SQL for one taxon
+  (`list_matches`, the strain page) and `matches` asks it in Python for many at once
+  (`entries_for`, this read). A test compares the two on every entry of every list, so the
+  manager's list and the strain page can never suggest different things.
+- **A manager's read.** `strains.view_list_disagreements`, granted to the manager role alone:
+  they answer to SÚJB and ÚKZÚZ for the lab's classification, as they do for its permits.
+- **Not a fault.** A line is a question. A strain's taxon may be wrong, an annex names genera
+  where a collection holds species, and an agent annex 7 does not list is not thereby group 1,
+  so the record may be right and the list beside the point. Settling a line is a write of its
+  own on the strain's page, with a reason.
+
+Each rule, its source, its code and its tests are in `docs/compliance.md` (R-MATCH-02).

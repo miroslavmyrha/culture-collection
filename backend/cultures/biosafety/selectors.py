@@ -5,6 +5,9 @@ The lists have no lab: every signed-in user reads them, like the taxonomy (ADR 0
 """
 
 import re
+from collections import defaultdict
+from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import StrEnum
 
@@ -168,46 +171,105 @@ def also_a_cz_agent(entry: RegulatoryListEntry) -> RegulatoryListEntry | None:
     return found
 
 
-def match_names(taxon: Taxon) -> tuple[set[str], set[str]]:
-    """The names a taxon is matched against, and the genus names of each (#169).
+@dataclass(frozen=True)
+class MatchNames:
+    """The names a taxon is matched against (#169): whole names, and the genus of each."""
 
-    The taxon's own name, the name of its accepted taxon when it is a synonym, and the names of
-    every synonym of that accepted taxon: one organism carries the same classification under its
-    accepted name and under a synonym (ADR 0008, D4). The genus names are the first word of
-    each, so a genus-wide entry of a list reaches a species of that genus.
+    exact: frozenset[str]
+    genera: frozenset[str]
 
-    Two queries at most, whatever the number of synonyms.
+
+def match_names_for(taxa: Iterable[Taxon]) -> dict[int, MatchNames]:
+    """The names each of these taxa is matched against, by taxon id, in one query (#169).
+
+    The one rule, for one taxon and for a thousand: the taxon's own name, the name of its
+    accepted taxon when it is a synonym, and the names of every synonym of that accepted taxon,
+    because one organism carries the same classification under each (ADR 0008, D4). The genus
+    names are the first word of each, so a genus-wide entry of a list reaches a species of that
+    genus.
     """
-    accepted = taxon.accepted_id or taxon.pk
-    names = set(
-        Taxon.objects.filter(Q(pk__in=(taxon.pk, accepted)) | Q(accepted_id=accepted)).values_list(
-            "name", flat=True
-        )
+    wanted = {taxon.pk: taxon.accepted_id or taxon.pk for taxon in taxa}
+    if not wanted:
+        return {}
+    roots = set(wanted.values())
+    own: dict[int, str] = {}
+    of_root: dict[int, set[str]] = defaultdict(set)
+    rows = Taxon.objects.filter(
+        Q(pk__in=roots | set(wanted)) | Q(accepted_id__in=roots)
+    ).values_list("pk", "accepted_id", "name")
+    for pk, accepted_id, name in rows:
+        own[pk] = name
+        of_root[accepted_id or pk].add(name)
+    found: dict[int, MatchNames] = {}
+    for pk, root in wanted.items():
+        whole = of_root[root] | {own[pk]}
+        exact = {lists.normalised(name) for name in whole}
+        found[pk] = MatchNames(frozenset(exact), frozenset(name.split(" ")[0] for name in exact))
+    return found
+
+
+def match_names(taxon: Taxon) -> tuple[set[str], set[str]]:
+    """The names one taxon is matched against, and the genus names of each (#169)."""
+    found = match_names_for([taxon])[taxon.pk]
+    return set(found.exact), set(found.genera)
+
+
+def matching(names: MatchNames) -> Q:
+    """Which entries match these names, in SQL (#169): an entry of scope `exact` on one of the
+    whole names, an entry of scope `genus` on the genus of one of them. Never a part of a name,
+    and an entry with no name to match reaches nothing, because it has no scope either."""
+    return Q(match_scope=MatchScope.EXACT, match_name__in=sorted(names.exact)) | Q(
+        match_scope=MatchScope.GENUS, match_name__in=sorted(names.genera)
     )
-    exact = {lists.normalised(name) for name in names}
-    return exact, {name.split(" ")[0] for name in exact}
+
+
+def matches(entry: RegulatoryListEntry, names: MatchNames) -> bool:
+    """The same question in Python, for a read that fetched the entries of many taxa at once
+    (`entries_for`). A test compares it with `matching` on every entry of every list."""
+    if entry.match_scope == MatchScope.EXACT:
+        return entry.match_name in names.exact
+    if entry.match_scope == MatchScope.GENUS:
+        return entry.match_name in names.genera
+    return False
 
 
 def list_matches(taxon: Taxon) -> QuerySet[RegulatoryListEntry]:
     """The entries of the current readings of the official lists that match a taxon (#169).
 
     A suggestion, never a classification: a person confirms one with a reason, through the
-    services. Matching is by whole names only, never by a part of one: an entry whose scope is
-    `exact` matches one of the taxon's names, an entry whose scope is `genus` matches the genus
-    of one of them. An entry with no name to match reaches nothing.
+    services. Matching is `matching` above: whole names only, never a part of one.
 
-    One query, with each entry's list for its source and version.
+    Two queries, with each entry's list for its source and version.
     """
-    exact, genera = match_names(taxon)
     return (
         RegulatoryListEntry.objects.filter(
-            Q(match_scope=MatchScope.EXACT, match_name__in=sorted(exact))
-            | Q(match_scope=MatchScope.GENUS, match_name__in=sorted(genera)),
-            list__is_current=True,
+            matching(match_names_for([taxon])[taxon.pk]), list__is_current=True
         )
         .select_related("list")
         .order_by("list__code", "code", "pk")
     )
+
+
+def entries_for(taxa: Iterable[Taxon]) -> dict[int, list[RegulatoryListEntry]]:
+    """What the current readings of the lists say about each of these taxa, by taxon id (#169).
+
+    `list_matches` for one taxon, for many at once: two queries whatever the number of taxa, one
+    for the names and one for the entries of the union of them, then each entry placed under
+    every taxon it matches, in the order `list_matches` gives.
+    """
+    names = match_names_for(taxa)
+    if not names:
+        return {}
+    exact = {name for found in names.values() for name in found.exact}
+    genera = {name for found in names.values() for name in found.genera}
+    entries = list(
+        RegulatoryListEntry.objects.filter(
+            matching(MatchNames(frozenset(exact), frozenset(genera))), list__is_current=True
+        )
+        .select_related("list")
+        .order_by("list__code", "code", "pk")
+    )
+    return {pk: [e for e in entries if matches(e, found)] for pk, found in names.items()}
 
 
 def risk_group_entries() -> QuerySet[RegulatoryListEntry]:

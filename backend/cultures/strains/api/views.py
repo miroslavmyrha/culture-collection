@@ -36,6 +36,7 @@ from .serializers import (
     EndConfirmInputSerializer,
     EndProposeInputSerializer,
     EndWithdrawInputSerializer,
+    ListDisagreementOutputSerializer,
     ListMatchOutputSerializer,
     ReclassifyInputSerializer,
     RestrictionAddInputSerializer,
@@ -179,6 +180,8 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         # #169: what the official lists say about the strain's taxon. A read, for everyone who
         # sees the strain: recording any of it is a write with a reason of its own.
         "list_matches": Perm.VIEW_STRAINS,
+        # #169: where the lab's record and the official lists disagree. A manager's read.
+        "list_disagreements": Perm.VIEW_LIST_DISAGREEMENTS,
     }
     filterset_class = StrainFilter
 
@@ -193,7 +196,7 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         access = access_of(self.request)
         if self.action == "list":
             return selectors.strain_list(access=access, lab=self.lab)
-        if self.action in ("history", "terms", "shipments"):
+        if self.action in ("history", "terms", "shipments", "list_disagreements"):
             return selectors.strain_rows(access=access, lab=self.lab)
         return selectors.strain_detail(access=access, lab=self.lab)
 
@@ -239,6 +242,26 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         strain: Strain = self.get_object()
         page = self.paginate_queryset(biosafety.list_matches(strain.taxon))
         return self.get_paginated_response(ListMatchOutputSerializer(page or [], many=True).data)
+
+    @extend_schema(responses={200: ListDisagreementOutputSerializer(many=True)})
+    @action(detail=False, methods=["get"], url_path="list-disagreements")
+    def list_disagreements(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Every strain of the lab whose classification disagrees with the official lists (#169).
+
+        A manager's read: the lists say one thing and the record another, and only a person can
+        settle which is right. Three disagreements: an entry names a restriction the strain does
+        not carry, the strain carries one of a kind no matching entry names, or an entry of annex
+        7 of government order 361/2007 Sb. states another risk group.
+
+        Computed at every read, so it follows every reclassification and every new reading of a
+        list by itself. Settling one is a write of its own, with a reason (`restrictions`,
+        `risk-group`, `risk-group-proposal`, `reclassify`).
+        """
+        rows = selectors.list_disagreements(access=access_of(request), lab=self.lab)
+        page = self.paginate_queryset(rows)
+        return self.get_paginated_response(
+            [ListDisagreementOutputSerializer(row).data for row in page or []]
+        )
 
     @extend_schema(
         request=ReclassifyInputSerializer,

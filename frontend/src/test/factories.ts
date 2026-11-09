@@ -768,6 +768,17 @@ export function makeListMatch(overrides: Partial<ListMatch> = {}): ListMatch {
   }
 }
 
+export type StrainDisagreement = Schemas['ListDisagreementOutput']
+
+/** A strain the lists name a restriction for that it does not carry (#169). */
+export function makeStrainDisagreement(overrides: Partial<StrainDisagreement> = {}): StrainDisagreement {
+  return {
+    strain: makeStrainRow(),
+    findings: [{ disagreement: 'restriction_missing', restriction_kind: 'dual_use', entry: makeListMatch() }],
+    ...overrides,
+  }
+}
+
 export type LabPermit = Schemas['LabPermitOutput']
 
 /** A valid SÚJB permit of the lab with an invented reference, no expiry stated. */

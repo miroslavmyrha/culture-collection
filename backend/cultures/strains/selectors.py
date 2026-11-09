@@ -1,5 +1,8 @@
 """Reads of strains. Every one takes the access object, so the lab scope is in the signature."""
 
+from dataclasses import dataclass
+from enum import StrEnum
+
 from django.db.models import (
     Count,
     Exists,
@@ -13,7 +16,8 @@ from django.db.models import (
 )
 from django.db.models.functions import Coalesce
 
-from cultures.biosafety.models import RestrictionKind
+from cultures.biosafety import selectors as biosafety_lists
+from cultures.biosafety.models import RegulatoryListEntry, RestrictionKind
 from cultures.deposits.models import Depositor
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
@@ -202,3 +206,92 @@ def with_distributable_vials(strains: QuerySet[Strain], distributable: bool) -> 
     """Strains with at least one vial that may go out, or with none (distributable=false)."""
     has = Exists(distributable_vials().filter(batch__strain=OuterRef("pk")))
     return strains.filter(has) if distributable else strains.exclude(has)
+
+
+class Disagreement(StrEnum):
+    """How a strain's classification can disagree with the official lists (#169)."""
+
+    # An entry that matches the strain's taxon names a restriction the strain does not carry.
+    RESTRICTION_MISSING = "restriction_missing"
+    # The strain carries a restriction of a kind whose list names no matching entry.
+    RESTRICTION_UNLISTED = "restriction_unlisted"
+    # An entry of annex 7 states another risk group than the strain's.
+    RISK_GROUP_DIFFERS = "risk_group_differs"
+
+
+# The values the API answers with, for its ChoiceField: an enum class is not choices.
+DISAGREEMENTS = [found.value for found in Disagreement]
+
+
+@dataclass(frozen=True)
+class Finding:
+    """One disagreement of one strain, with the entry it was read in where there is one."""
+
+    disagreement: str
+    restriction_kind: str
+    entry: RegulatoryListEntry | None
+
+
+@dataclass(frozen=True)
+class StrainFindings:
+    strain: Strain
+    findings: list[Finding]
+
+
+def list_findings(strain: Strain, entries: list[RegulatoryListEntry]) -> list[Finding]:
+    """Where one strain's classification disagrees with the official lists (#169).
+
+    The one definition. `entries` are the entries of the current readings that match the
+    strain's taxon (biosafety.selectors.entries_for), and `strain.active_restrictions` the
+    restrictions it carries now. Three ways to disagree, in this order:
+
+    - an entry names a restriction of a kind the strain does not carry,
+    - the strain carries a restriction of a kind whose list names no matching entry,
+    - an entry of annex 7 of government order 361/2007 Sb. states another group than the
+      strain's, either way round.
+
+    A GMO is on no list (biosafety.selectors.LIST_OF_KIND), so a GMO restriction is never
+    unlisted. Nothing here decides anything: a disagreement is a question for a person, because
+    the taxon may be wrong, an annex names genera where a collection holds species, and an agent
+    annex 7 does not list is not thereby group 1.
+    """
+    # The prefetch of strain_list, by its to_attr: the restrictions in force, no query.
+    active: list[StrainRestriction] = vars(strain)["active_restrictions"]
+    held = {restriction.kind for restriction in active}
+    named = {entry.restriction_kind for entry in entries if entry.restriction_kind}
+    findings = [
+        Finding(Disagreement.RESTRICTION_MISSING, entry.restriction_kind, entry)
+        for entry in entries
+        if entry.restriction_kind and entry.restriction_kind not in held
+    ]
+    findings += [
+        Finding(Disagreement.RESTRICTION_UNLISTED, kind, None)
+        for kind in sorted((held & biosafety_lists.LIST_OF_KIND.keys()) - named)
+    ]
+    findings += [
+        Finding(Disagreement.RISK_GROUP_DIFFERS, "", entry)
+        for entry in entries
+        if entry.risk_group is not None and entry.risk_group != strain.risk_group
+    ]
+    return findings
+
+
+def list_disagreements(*, access: Access, lab: Lab) -> list[StrainFindings]:
+    """Every strain of the lab in the collection whose classification disagrees with the
+    official lists, in the order of the strain list (#169).
+
+    Computed, never stored, so it follows a reclassification, a restriction added or ended, a
+    risk group changed and a new reading of a list with nothing to refresh and nothing to
+    recompute. Four queries whatever the number of strains: the strains, the restrictions they
+    carry, the names of their taxa and the entries that match any of those names.
+
+    A deaccessioned strain is left out: its classification is the history of a strain that is no
+    longer held (#20).
+    """
+    strains = list(in_collection(strain_list(access=access, lab=lab)))
+    entries = biosafety_lists.entries_for(strain.taxon for strain in strains)
+    found = (
+        StrainFindings(strain, list_findings(strain, entries.get(strain.taxon_id, [])))
+        for strain in strains
+    )
+    return [row for row in found if row.findings]
