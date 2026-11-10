@@ -20,7 +20,7 @@ comes from a mixin placed before the base: the check resolves each name
 through the MRO.
 """
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, ClassVar, cast
 
 from django.core.exceptions import ImproperlyConfigured, ObjectDoesNotExist
@@ -58,6 +58,45 @@ def _defining_class(cls: type, name: str) -> type:
     return next(klass for klass in cls.__mro__ if name in vars(klass))
 
 
+def _refuse_overrides(cls: "type[ScopedViewSetMixin]") -> None:
+    """Nothing of PROTECTED is overridden: an override there can replace the object scope or the
+    permission check, so it fails at import with the hint of what to use instead."""
+    for name, hint in PROTECTED.items():
+        expected = PROTECTED_ATTRIBUTES.get(name, ScopedViewSetMixin)
+        if _defining_class(cls, name) is not expected:
+            raise TypeError(f"{cls.__name__} must not override {name}: {hint}")
+
+
+def _refuse_unmapped_actions(cls: "type[ScopedViewSetMixin]") -> Sequence[Any]:
+    """action_perms maps every action of the viewset, the @action extras included, and names no
+    action the viewset does not have. Returns the @action extras, for the next step."""
+    declared = getattr(cls, "action_perms", None)
+    if not isinstance(declared, Mapping):
+        raise TypeError(f"{cls.__name__} must declare action_perms for every action")
+    extra = cls.get_extra_actions()
+    actions = {name for name in STANDARD_ACTIONS if hasattr(cls, name)}
+    actions |= {action.__name__ for action in extra}
+    missing = sorted(actions - declared.keys())
+    if missing:
+        raise TypeError(f"{cls.__name__}.action_perms has no permission for {missing}")
+    unknown = sorted(declared.keys() - actions)
+    if unknown:
+        raise TypeError(f"{cls.__name__}.action_perms names unknown actions {unknown}")
+    return extra
+
+
+def _refuse_action_permission_classes(
+    cls: "type[ScopedViewSetMixin]", extra: Sequence[Any]
+) -> None:
+    """get_permissions is fixed here, so @action(permission_classes=...) would be ignored."""
+    for action in extra:
+        if "permission_classes" in getattr(action, "kwargs", {}):
+            raise TypeError(
+                f"{cls.__name__}.{action.__name__}: @action(permission_classes=...) is "
+                "ignored here, declare it in action_perms"
+            )
+
+
 class ActionPermission(permissions.BasePermission):
     """Applies view.action_perms through view.has_perm."""
 
@@ -84,30 +123,11 @@ class ScopedViewSetMixin(viewsets.GenericViewSet):  # type: ignore[type-arg]
 
     def __init_subclass__(cls, abstract: bool = False, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
-        for name, hint in PROTECTED.items():
-            expected = PROTECTED_ATTRIBUTES.get(name, ScopedViewSetMixin)
-            if _defining_class(cls, name) is not expected:
-                raise TypeError(f"{cls.__name__} must not override {name}: {hint}")
+        _refuse_overrides(cls)
         if abstract:
             return
-        declared = getattr(cls, "action_perms", None)
-        if not isinstance(declared, Mapping):
-            raise TypeError(f"{cls.__name__} must declare action_perms for every action")
-        extra = cls.get_extra_actions()
-        actions = {name for name in STANDARD_ACTIONS if hasattr(cls, name)}
-        actions |= {action.__name__ for action in extra}
-        missing = sorted(actions - declared.keys())
-        if missing:
-            raise TypeError(f"{cls.__name__}.action_perms has no permission for {missing}")
-        unknown = sorted(declared.keys() - actions)
-        if unknown:
-            raise TypeError(f"{cls.__name__}.action_perms names unknown actions {unknown}")
-        for action in extra:
-            if "permission_classes" in getattr(action, "kwargs", {}):
-                raise TypeError(
-                    f"{cls.__name__}.{action.__name__}: @action(permission_classes=...) is "
-                    "ignored here, declare it in action_perms"
-                )
+        extra = _refuse_unmapped_actions(cls)
+        _refuse_action_permission_classes(cls, extra)
 
     # The project's hooks.
 

@@ -146,20 +146,34 @@ class _Facts:
     answers: dict[int, tuple[bool, date]]
 
 
-def _facts(request: DistributionRequest, lines: list[RequestLine], day: date) -> _Facts:
-    strain_ids = [line.strain_id for line in lines]
-    terms_ids = [line.terms_id for line in lines]
-    restrictions: dict[int, list[StrainRestriction]] = defaultdict(list)
+def _restrictions_of(strain_ids: list[int]) -> dict[int, list[StrainRestriction]]:
+    """Per strain, the active restrictions that make it regulated, by kind."""
+    found: dict[int, list[StrainRestriction]] = defaultdict(list)
     for row in regulating_restrictions().filter(strain_id__in=strain_ids).order_by("kind", "pk"):
-        restrictions[row.strain_id].append(row)
-    terms = DepositTerms.objects.filter(pk__in=terms_ids).values_list(
-        "pk", "is_active", "abs_scope", "mat_uses"
-    )
-    permits = list(
-        RecipientPermit.objects.filter(valid_on(day), requester_id=request.requester_id).order_by(
-            "valid_from", "pk"
+        found[row.strain_id].append(row)
+    return found
+
+
+def _terms_facts(terms_ids: list[int]) -> tuple[set[int], dict[int, list[str]], dict[int, str]]:
+    """Per pinned terms: whether they are still in force, the uses the mutually agreed terms
+    cover, and whether the ABS regulation applies."""
+    terms = list(
+        DepositTerms.objects.filter(pk__in=terms_ids).values_list(
+            "pk", "is_active", "abs_scope", "mat_uses"
         )
     )
+    return (
+        {pk for pk, active, _, _ in terms if active},
+        {pk: uses for pk, _, _, uses in terms},
+        {pk: scope for pk, _, scope, _ in terms},
+    )
+
+
+def _loa_used(
+    request: DistributionRequest, permits: list[RecipientPermit]
+) -> dict[int, tuple[int, int]]:
+    """Per Letter of Authority of the requester, the quantity and the sendings other requests
+    already count against it (COUNTING), this request left out."""
     loa = [p.pk for p in permits if p.kind == PermitKind.PLANT_HEALTH_LOA]
     usage = (
         LinePermit.objects.filter(permit_id__in=loa, line__request__status__in=COUNTING)
@@ -167,7 +181,13 @@ def _facts(request: DistributionRequest, lines: list[RequestLine], day: date) ->
         .values("permit_id")
         .annotate(quantity=Sum("line__quantity"), sendings=Count("line__request", distinct=True))
     )
-    available = (
+    return {row["permit_id"]: (row["quantity"], row["sendings"]) for row in usage}
+
+
+def _available(request: DistributionRequest, strain_ids: list[int]) -> dict[int, int]:
+    """Per strain, how many of its vials may go out now: available and in a distributable
+    batch."""
+    rows = (
         Vial.objects.filter(
             distributable("batch__"),
             lab_id=request.lab_id,
@@ -177,31 +197,49 @@ def _facts(request: DistributionRequest, lines: list[RequestLine], day: date) ->
         .values("batch__strain_id")
         .annotate(n=Count("pk"))
     )
+    return {row["batch__strain_id"]: row["n"] for row in rows}
+
+
+def _answers(lines: list[RequestLine]) -> dict[int, tuple[bool, date]]:
+    """Per line, what the depositor answered for a use on request (#144): agreed, and the day."""
+    return {
+        line_id: (agreed, answered_on)
+        for line_id, agreed, answered_on in DepositorAnswer.objects.filter(
+            line_id__in=[line.pk for line in lines]
+        ).values_list("line_id", "agreed", "answered_on")
+    }
+
+
+def _facts(request: DistributionRequest, lines: list[RequestLine], day: date) -> _Facts:
+    """What the gates read, one step per source, in a fixed number of queries."""
+    strain_ids = [line.strain_id for line in lines]
+    terms_ids = [line.terms_id for line in lines]
+    active_terms, mat_uses, abs_scope = _terms_facts(terms_ids)
+    permits = list(
+        RecipientPermit.objects.filter(valid_on(day), requester_id=request.requester_id).order_by(
+            "valid_from", "pk"
+        )
+    )
     return _Facts(
-        restrictions=restrictions,
+        restrictions=_restrictions_of(strain_ids),
         decisions=dict(
             TermsUse.objects.filter(terms_id__in=terms_ids, use=request.use).values_list(
                 "terms_id", "decision"
             )
         ),
-        active_terms={pk for pk, active, _, _ in terms if active},
-        mat_uses={pk: uses for pk, _, _, uses in terms},
-        abs_scope={pk: scope for pk, _, scope, _ in terms},
+        active_terms=active_terms,
+        mat_uses=mat_uses,
+        abs_scope=abs_scope,
         accepted_mtas=set(
             MtaAcceptance.objects.filter(request=request, authorised_signatory=True).values_list(
                 "mta_id", flat=True
             )
         ),
         permits=permits,
-        loa_used={row["permit_id"]: (row["quantity"], row["sendings"]) for row in usage},
-        available={row["batch__strain_id"]: row["n"] for row in available},
+        loa_used=_loa_used(request, permits),
+        available=_available(request, strain_ids),
         reserved=_reserved(request) if request.status in HOLDING else {},
-        answers={
-            line_id: (agreed, day)
-            for line_id, agreed, day in DepositorAnswer.objects.filter(
-                line_id__in=[line.pk for line in lines]
-            ).values_list("line_id", "agreed", "answered_on")
-        },
+        answers=_answers(lines),
     )
 
 
@@ -394,51 +432,67 @@ class _LineCheck:
             )
 
     def restriction(self, restriction: StrainRestriction) -> None:
-        taxon = self.strain.taxon
+        """The gate of one restriction: one step per kind, each named for what it asks for."""
         kind = restriction.kind
         if kind == RestrictionKind.CZ_VRAT:
-            # 281/2002 Sb., § 13 h): only to a permit holder, unless SÚJB decided otherwise.
-            self.need(
-                _naming(
-                    self.facts.permits, {PermitKind.SUJB_VRAT, PermitKind.SUJB_EXCEPTION}, taxon
-                ),
-                "vrat_permit_missing",
-                f"{self.name} is a highly risky agent: the requester shows no valid SÚJB permit"
-                f" or exception that names {taxon.name}.",
-            )
+            self.vrat_permit()
         elif kind == RestrictionKind.CZ_RAT:
-            # § 17a(1): the recipient notified SÚJB; SÚJB asks senders to supply only them. The
-            # notice states the kind of agent (§ 17a(3) a)), so one for another agent is none.
-            self.need(
-                _naming(self.facts.permits, {PermitKind.SUJB_RAT_NOTICE}, taxon),
-                "rat_notice_missing",
-                f"{self.name} is a risky agent: the requester shows no reference of a notice"
-                f" to SÚJB (§ 17a) that names {taxon.name}.",
-            )
+            self.rat_notice()
         elif kind == RestrictionKind.DUAL_USE:
-            if restriction.reference.startswith(TRANSFER_LICENCE_ENTRIES):
-                self.block(
-                    "transfer_licence_required",
-                    f"{self.name} ({restriction.reference}) needs a licence for a transfer"
-                    " within the EU, which this collection does not hold.",
-                )
+            self.transfer_licence(restriction)
         elif kind == RestrictionKind.QUARANTINE_PEST:
             self.letter_of_authority()
         elif kind == RestrictionKind.GMO:
-            category = restriction.gmo_category or 0
-            self.need(
-                [
-                    p
-                    for p in self.facts.permits
-                    if p.kind == PermitKind.GMO_CONTAINED_USE
-                    and p.gmo_category is not None
-                    and p.gmo_category >= category
-                ],
-                "gmo_authorisation_missing",
-                f"{self.name} is a GMO of category {category}: the requester shows no"
-                f" authorisation for contained use of category {category} or higher"
-                " (act 78/2004 Sb.).",
+            self.gmo_authorisation(restriction)
+
+    def vrat_permit(self) -> None:
+        """281/2002 Sb., § 13 h): only to a permit holder, unless SÚJB decided otherwise."""
+        taxon = self.strain.taxon
+        self.need(
+            _naming(self.facts.permits, {PermitKind.SUJB_VRAT, PermitKind.SUJB_EXCEPTION}, taxon),
+            "vrat_permit_missing",
+            f"{self.name} is a highly risky agent: the requester shows no valid SÚJB permit"
+            f" or exception that names {taxon.name}.",
+        )
+
+    def rat_notice(self) -> None:
+        """§ 17a(1): the recipient notified SÚJB; SÚJB asks senders to supply only them. The
+        notice states the kind of agent (§ 17a(3) a)), so one for another agent is none."""
+        taxon = self.strain.taxon
+        self.need(
+            _naming(self.facts.permits, {PermitKind.SUJB_RAT_NOTICE}, taxon),
+            "rat_notice_missing",
+            f"{self.name} is a risky agent: the requester shows no reference of a notice"
+            f" to SÚJB (§ 17a) that names {taxon.name}.",
+        )
+
+    def transfer_licence(self, restriction: StrainRestriction) -> None:
+        """2021/821, Art. 11(1) and Annex IV: inside the EU only the entries of
+        TRANSFER_LICENCE_ENTRIES need a licence, and this collection holds none."""
+        if restriction.reference.startswith(TRANSFER_LICENCE_ENTRIES):
+            self.block(
+                "transfer_licence_required",
+                f"{self.name} ({restriction.reference}) needs a licence for a transfer"
+                " within the EU, which this collection does not hold.",
             )
+
+    def gmo_authorisation(self, restriction: StrainRestriction) -> None:
+        """78/2004 Sb., § 3(1) c) with § 15(2): a handover for contained use goes to a person
+        authorised for the strain's category of risk or a higher one."""
+        category = restriction.gmo_category or 0
+        self.need(
+            [
+                p
+                for p in self.facts.permits
+                if p.kind == PermitKind.GMO_CONTAINED_USE
+                and p.gmo_category is not None
+                and p.gmo_category >= category
+            ],
+            "gmo_authorisation_missing",
+            f"{self.name} is a GMO of category {category}: the requester shows no"
+            f" authorisation for contained use of category {category} or higher"
+            " (act 78/2004 Sb.).",
+        )
 
     def need(self, permits: list[RecipientPermit], code: str, sentence: str) -> None:
         if permits:

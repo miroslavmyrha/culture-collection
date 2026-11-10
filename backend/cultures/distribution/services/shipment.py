@@ -69,8 +69,9 @@ PHONE = re.compile(r"^[+0-9][0-9 ()-]{4,38}[0-9]$")
 MAX_COOLANT_KG = Decimal("9999.99")
 
 
-def _checked_shipment(data: ShipmentInput) -> ShipmentInput:
-    """The fields alone; what depends on the strains is checked under the locks."""
+def _checked_class(data: ShipmentInput) -> str:
+    """The transport class with a basis BASES allows for it, the packing the class asks for, and
+    the note a professional judgement rests on. Returns the note as it is stored."""
     if data.classification_basis not in BASES[data.transport_class]:
         raise InvalidDistribution(
             f"{ClassificationBasis(data.classification_basis).label} is not a basis for"
@@ -87,6 +88,12 @@ def _checked_shipment(data: ShipmentInput) -> ShipmentInput:
         and data.packing_instruction != PackingInstruction.P650
     ):
         raise InvalidDistribution("UN 3373 is packed to P650.", attr="packing_instruction")
+    return note
+
+
+def _checked_coolant(data: ShipmentInput) -> Decimal | None:
+    """The coolant with its quantity: dry ice is marked on the package, so its quantity is
+    stated, and no quantity is stated without a coolant. Returns the quantity as it is stored."""
     if data.coolant == Coolant.NONE and data.coolant_kg is not None:
         raise InvalidDistribution("Choose the coolant of this quantity.", attr="coolant")
     if data.coolant == Coolant.DRY_ICE and data.coolant_kg is None:
@@ -99,6 +106,11 @@ def _checked_shipment(data: ShipmentInput) -> ShipmentInput:
         raise InvalidDistribution(
             f"Give more than 0 and at most {MAX_COOLANT_KG} kg.", attr="coolant_kg"
         )
+    return None if data.coolant_kg is None else data.coolant_kg.quantize(Decimal("0.01"))
+
+
+def _checked_handover(data: ShipmentInput) -> tuple[ContactInput, str]:
+    """Who answers for the package on the way, and who carries it. Returns both as stored."""
     name = normalised(data.responsible.name)
     if not name:
         raise InvalidDistribution("Enter the responsible person.", attr="responsible_name")
@@ -110,15 +122,24 @@ def _checked_shipment(data: ShipmentInput) -> ShipmentInput:
     carrier = normalised(data.carrier)
     if not carrier:
         raise InvalidDistribution("Enter the carrier.", attr="carrier")
+    return ContactInput(name, phone=phone), carrier
+
+
+def _checked_shipment(data: ShipmentInput) -> ShipmentInput:
+    """The fields alone; what depends on the strains is checked under the locks. Three steps in
+    the order the refusals come: the class and its basis, the coolant, the handover."""
+    note = _checked_class(data)
+    coolant_kg = _checked_coolant(data)
+    responsible, carrier = _checked_handover(data)
     return ShipmentInput(
         transport_class=data.transport_class,
         classification_basis=data.classification_basis,
         packing_instruction=data.packing_instruction,
-        responsible=ContactInput(name, phone=phone),
+        responsible=responsible,
         carrier=carrier,
         basis_note=note,
         coolant=data.coolant,
-        coolant_kg=None if data.coolant_kg is None else data.coolant_kg.quantize(Decimal("0.01")),
+        coolant_kg=coolant_kg,
         tracking_number=normalised(data.tracking_number),
     )
 

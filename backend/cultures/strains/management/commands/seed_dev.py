@@ -225,58 +225,81 @@ class Command(BaseCommand):
                     "Use a development database, or pass --force to add the data next to them."
                 )
             with audited_atomic():
-                self.taxa = Counts()
-                self.strains = Counts()
-                self.units = Counts()
-                for row in data["box_types"]:
-                    seed_storage.box_type(row["name"], row["rows"], row["cols"])
-                for row in data["taxa"]:
-                    self.taxa.add(seed_taxa.taxon(taxon(row)))
+                self._reference(data)
                 seed_users.superuser(ADMIN, password)
                 lab_by_code = {row["code"]: self._lab(row, password) for row in data["labs"]}
                 self._extra_users(lab_by_code, password)
                 self._media(data, lab_by_code)
-                for row in data["strains"]:
-                    # Entered with the curator's role, never changed afterwards.
-                    created = seed_strains.strain(
-                        staff(row["lab"], Role.CURATOR),
-                        staff(row["lab"], Role.MANAGER),
-                        lab_by_code[row["lab"]],
-                        seed_strain(row, data["taxa"]),
-                    )
-                    self.strains.add(created)
+                self._strains(data, lab_by_code)
                 self.deposits = Counts()
                 self._intake(data, lab_by_code)
                 self._deposit_growth(data, lab_by_code)
-                for row in data["labs"]:
-                    # Added with the curator's role, never changed afterwards.
-                    units = [unit(u) for u in row["storage"]]
-                    curator = staff(row["code"], Role.CURATOR)
-                    self.units.add_counts(
-                        seed_storage.tree(curator, lab_by_code[row["code"]], units)
-                    )
-                self.batches = Counts()
-                for (code, deposit_name), rows in _by_deposit(data["batches"]).items():
-                    # The bench work, by the lab's technician.
-                    strain = seed_deposits.accepted_strain(lab_by_code[code], deposit_name)
-                    bench = staff(code, Role.TECHNICIAN)
-                    made = seed_lineage.batches(bench, strain, [batch(row) for row in rows])
-                    self.batches.add_counts(made)
-                self.checks = Counts()
-                for (code, deposit_name, number), rows in _by_batch(data["checks"]).items():
-                    checked = seed_lineage.batch_of(lab_by_code[code], deposit_name, number)
-                    bench = staff(code, Role.TECHNICIAN)
-                    made = seed_lineage.checks(bench, checked, [check(row) for row in rows])
-                    self.checks.add_counts(made)
-                for row in data["releases"]:
-                    released = seed_lineage.batch_of(
-                        lab_by_code[row["lab"]], row["deposit"], row["batch"]
-                    )
-                    seed_lineage.release(staff(row["lab"], Role.CURATOR), released, row["reason"])
-                for row in data["location_grants"]:
-                    self._location_grant(lab_by_code[row["lab"]], row)
+                self._storage(data, lab_by_code)
+                self._batches(data, lab_by_code)
+                self._checks(data, lab_by_code)
+                self._releases(data, lab_by_code)
+                self._location_grants(data, lab_by_code)
                 self._distribution(data, lab_by_code)
         self._report(data)
+
+    # Reference data, strains and the bench work on them.
+
+    def _reference(self, data: dict[str, Any]) -> None:
+        """Box types and taxa: shared data with no lab."""
+        self.taxa = Counts()
+        for row in data["box_types"]:
+            seed_storage.box_type(row["name"], row["rows"], row["cols"])
+        for row in data["taxa"]:
+            self.taxa.add(seed_taxa.taxon(taxon(row)))
+
+    def _strains(self, data: dict[str, Any], lab_by_code: dict[str, Lab]) -> None:
+        """The strains of each lab, entered with the curator's role, never changed afterwards."""
+        self.strains = Counts()
+        for row in data["strains"]:
+            created = seed_strains.strain(
+                staff(row["lab"], Role.CURATOR),
+                staff(row["lab"], Role.MANAGER),
+                lab_by_code[row["lab"]],
+                seed_strain(row, data["taxa"]),
+            )
+            self.strains.add(created)
+
+    def _storage(self, data: dict[str, Any], lab_by_code: dict[str, Lab]) -> None:
+        """Each lab's storage tree, added with the curator's role, never changed afterwards."""
+        self.units = Counts()
+        for row in data["labs"]:
+            units = [unit(u) for u in row["storage"]]
+            curator = staff(row["code"], Role.CURATOR)
+            self.units.add_counts(seed_storage.tree(curator, lab_by_code[row["code"]], units))
+
+    def _batches(self, data: dict[str, Any], lab_by_code: dict[str, Lab]) -> None:
+        """The batches of each accepted deposit's strain, by the lab's technician."""
+        self.batches = Counts()
+        for (code, deposit_name), rows in _by_deposit(data["batches"]).items():
+            strain = seed_deposits.accepted_strain(lab_by_code[code], deposit_name)
+            bench = staff(code, Role.TECHNICIAN)
+            made = seed_lineage.batches(bench, strain, [batch(row) for row in rows])
+            self.batches.add_counts(made)
+
+    def _checks(self, data: dict[str, Any], lab_by_code: dict[str, Lab]) -> None:
+        """The checks of each batch, by the lab's technician."""
+        self.checks = Counts()
+        for (code, deposit_name, number), rows in _by_batch(data["checks"]).items():
+            checked = seed_lineage.batch_of(lab_by_code[code], deposit_name, number)
+            bench = staff(code, Role.TECHNICIAN)
+            made = seed_lineage.checks(bench, checked, [check(row) for row in rows])
+            self.checks.add_counts(made)
+
+    def _releases(self, data: dict[str, Any], lab_by_code: dict[str, Lab]) -> None:
+        """The releases a curator decided, each with its reason."""
+        for row in data["releases"]:
+            released = seed_lineage.batch_of(lab_by_code[row["lab"]], row["deposit"], row["batch"])
+            seed_lineage.release(staff(row["lab"], Role.CURATOR), released, row["reason"])
+
+    def _location_grants(self, data: dict[str, Any], lab_by_code: dict[str, Lab]) -> None:
+        """The grants to see where a regulated strain is stored (ADR 0009), per person."""
+        for row in data["location_grants"]:
+            self._location_grant(lab_by_code[row["lab"]], row)
 
     # Growth media and the conditions a deposit's strain is grown under.
 

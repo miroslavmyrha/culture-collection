@@ -263,21 +263,24 @@ def _batches(access: Access) -> list[tuple[Item, int]]:
     for b in capped:
         facts = vars(b)
         subject = f"{_number(b.strain)} batch {b.number}"
-        if facts["kind"] == Kind.BATCH_ON_HOLD:
-            reason = _one_line(b.status_reason) or "On hold"
-            since: datetime | date = b.status_changed_at or b.created_at
-        elif facts["kind"] == Kind.BATCH_TO_RELEASE:
-            reason = "Identity, purity and viability passed: release it or hold it"
-            since = b.status_changed_at or b.created_at
-        else:
-            missing = [k.label.lower() for k in CheckKind if facts[f"latest_{k}"] not in PASSING]
-            reason = f"No passed {_and(missing)} check yet"
-            since = b.status_changed_at or b.created_at
+        reason, since = _batch_waits_for(b, facts)
         item = Item(
             Kind(facts["kind"]), b.lab_id, subject, reason, since, Target.STRAIN, b.strain.public_id
         )
         items.append((item, facts["total"]))
     return items
+
+
+def _batch_waits_for(batch: Batch, facts: dict[str, Any]) -> tuple[str, datetime | date]:
+    """Why this batch is on the list and since when: its hold reason, that its checks passed and
+    it waits for a release, or which passed check it still misses."""
+    since: datetime | date = batch.status_changed_at or batch.created_at
+    if facts["kind"] == Kind.BATCH_ON_HOLD:
+        return _one_line(batch.status_reason) or "On hold", since
+    if facts["kind"] == Kind.BATCH_TO_RELEASE:
+        return "Identity, purity and viability passed: release it or hold it", since
+    missing = [k.label.lower() for k in CheckKind if facts[f"latest_{k}"] not in PASSING]
+    return f"No passed {_and(missing)} check yet", since
 
 
 REQUEST_KINDS = (Kind.REQUEST_TO_DECIDE, Kind.SHIPMENT_TO_CONFIRM, Kind.REQUEST_TO_SHIP)
@@ -585,27 +588,34 @@ def _vials_by_state(access: Access) -> dict[int, dict[str, int]]:
     return by_state
 
 
-def my_labs(*, access: Access) -> list[LabFigures]:
-    """One entry per lab the person is in, by name, with the lab's figures as the person may see
-    them. One grouped query per figure for all labs together."""
-    labs = list(Lab.objects.for_access(access, Perm.VIEW_LAB).order_by("name", "pk"))
-    if not labs:
-        return []
-    figures = {lab.pk: LabFigures(lab, access.roles[lab.pk]) for lab in labs}
-    by_lab = ("lab_id",)
-    strains = Strain.objects.for_access(access, Perm.VIEW_STRAINS).values(*by_lab)
+BY_LAB = ("lab_id",)
+
+
+def _count_material(access: Access, figures: dict[int, LabFigures]) -> None:
+    """The strains, the batches by status and the available vials of each lab, one grouped query
+    each, as the person may see them."""
+    strains = Strain.objects.for_access(access, Perm.VIEW_STRAINS).values(*BY_LAB)
     for lab_id, n in _counts(strains.annotate(n=Count("pk")).order_by()).items():
         figures[lab_id].strains = n
     batches = Batch.objects.for_access(access, Perm.VIEW_STRAINS).values("lab_id", "status")
     for row in batches.annotate(n=Count("pk")).order_by():
         figures[row["lab_id"]].batches[row["status"]] = row["n"]
     vials = Vial.objects.for_access(access, Perm.VIEW_STRAINS).filter(status=VialStatus.AVAILABLE)
-    for lab_id, n in _counts(vials.values(*by_lab).annotate(n=Count("pk")).order_by()).items():
+    for lab_id, n in _counts(vials.values(*BY_LAB).annotate(n=Count("pk")).order_by()).items():
         figures[lab_id].vials_available = n
+
+
+def _count_storage(access: Access, figures: dict[int, LabFigures]) -> None:
+    """The vials by state, where the person holds VIEW_LAB_FIGURES, and the free positions."""
     for lab_id, states in _vials_by_state(access).items():
         figures[lab_id].vials = states
     for lab_id, n in free_positions(access=access).items():
         figures[lab_id].free_positions = n
+
+
+def _count_requests(access: Access, figures: dict[int, LabFigures]) -> None:
+    """The open requests of each lab, and the ones waiting for a decision where the person
+    decides on them (else the figure stays None and the lab's tabs leave it out)."""
     requests = DistributionRequest.objects.for_access(access, Perm.VIEW_DISTRIBUTION)
     deciders = access.labs_with(KIND_PERM[Kind.REQUEST_TO_DECIDE])
     for row in (
@@ -620,16 +630,39 @@ def my_labs(*, access: Access) -> list[LabFigures]:
             entry.requests_to_decide = row["n"]
     for lab_id in deciders:
         figures[lab_id].requests_to_decide = figures[lab_id].requests_to_decide or 0
+
+
+def _count_deposits(access: Access, figures: dict[int, LabFigures]) -> None:
+    """The deposits still to check, where the person checks them (else the figure stays None)."""
     checkers = access.labs_with(KIND_PERM[Kind.DEPOSIT_RECEIVED])
-    if checkers:
-        deposits = Deposit.objects.for_access(access, KIND_PERM[Kind.DEPOSIT_RECEIVED]).filter(
-            status__in=TO_CHECK
-        )
-        counted = _counts(deposits.values(*by_lab).annotate(n=Count("pk")).order_by())
-        for lab_id in checkers:
-            figures[lab_id].deposits_to_check = counted.get(lab_id, 0)
+    if not checkers:
+        return
+    deposits = Deposit.objects.for_access(access, KIND_PERM[Kind.DEPOSIT_RECEIVED]).filter(
+        status__in=TO_CHECK
+    )
+    counted = _counts(deposits.values(*BY_LAB).annotate(n=Count("pk")).order_by())
+    for lab_id in checkers:
+        figures[lab_id].deposits_to_check = counted.get(lab_id, 0)
+
+
+def _set_actions(access: Access, figures: dict[int, LabFigures]) -> None:
+    """The actions the person may start in each lab: the screens show no other."""
     for entry in figures.values():
         entry.actions = [a for a in Action if access.can(ACTION_PERM[a], entry.lab.pk)]
+
+
+def my_labs(*, access: Access) -> list[LabFigures]:
+    """One entry per lab the person is in, by name, with the lab's figures as the person may see
+    them. One step per group of figures, one grouped query per figure for all labs together."""
+    labs = list(Lab.objects.for_access(access, Perm.VIEW_LAB).order_by("name", "pk"))
+    if not labs:
+        return []
+    figures = {lab.pk: LabFigures(lab, access.roles[lab.pk]) for lab in labs}
+    _count_material(access, figures)
+    _count_storage(access, figures)
+    _count_requests(access, figures)
+    _count_deposits(access, figures)
+    _set_actions(access, figures)
     return list(figures.values())
 
 

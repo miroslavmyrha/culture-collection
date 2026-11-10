@@ -68,13 +68,27 @@ from .errors import (
 # Vials.
 
 
-def vial_place(*, access: Access, vial: Vial, box: StorageUnit, row: int, col: int) -> Vial:
-    """Into a position of a box, or from one position to another (a move closes the old row
-    and opens the new one). The same position again changes nothing."""
+def _check_counted_from_one(row: int, col: int) -> None:
+    """Rows and columns are counted from 1, whatever box they are meant for."""
     if row < 1:
         raise InvalidVial("Rows are counted from 1.", code="outside_box", attr="row")
     if col < 1:
         raise InvalidVial("Columns are counted from 1.", code="outside_box", attr="col")
+
+
+def _check_inside_box(target: StorageUnit, row: int, col: int) -> None:
+    """The position is inside the box's grid. Caller holds the box's row."""
+    assert target.rows is not None and target.cols is not None  # noqa: S101 (may_store: a box)
+    if row > target.rows:
+        raise InvalidVial(f"This box has {target.rows} rows.", code="outside_box", attr="row")
+    if col > target.cols:
+        raise InvalidVial(f"This box has {target.cols} columns.", code="outside_box", attr="col")
+
+
+def vial_place(*, access: Access, vial: Vial, box: StorageUnit, row: int, col: int) -> Vial:
+    """Into a position of a box, or from one position to another (a move closes the old row
+    and opens the new one). The same position again changes nothing."""
+    _check_counted_from_one(row, col)
     with audited_atomic():
         lock_lab(vial.lab_id)
         _require(access, vial.lab_id)
@@ -84,13 +98,7 @@ def vial_place(*, access: Access, vial: Vial, box: StorageUnit, row: int, col: i
             raise VialNotInCollection
         target = _locked_box(box, locked.lab_id)
         _check_may_store(target, strain)
-        assert target.rows is not None and target.cols is not None  # noqa: S101 (may_store: a box)
-        if row > target.rows:
-            raise InvalidVial(f"This box has {target.rows} rows.", code="outside_box", attr="row")
-        if col > target.cols:
-            raise InvalidVial(
-                f"This box has {target.cols} columns.", code="outside_box", attr="col"
-            )
+        _check_inside_box(target, row, col)
         current = _open_placement(locked)
         if current is not None and (current.box_id, current.row, current.col) == (
             target.pk,

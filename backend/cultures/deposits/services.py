@@ -177,29 +177,34 @@ def _checked_contact(contact: ContactInput) -> ContactInput:
     return ContactInput(name, email, unicodedata.normalize("NFC", address))
 
 
-def _checked_terms(terms: TermsInput, prefix: str = "terms.") -> TermsInput:
-    values = {
-        name: normalised(getattr(terms, name))
-        for name in ("pic_reference", "mat_reference", "ircc", "permit_reference")
-    }
+def _check_terms_access(terms: TermsInput, prefix: str) -> None:
+    """Where and when the material was accessed: a country of the vocabulary, and a date the
+    strains app accepts as a partial date."""
     if terms.country_of_origin and terms.country_of_origin not in COUNTRY_CODES:
         raise InvalidDeposit("Choose a country.", attr=f"{prefix}country_of_origin")
     try:
         strains.check_partial_date(terms.collection_date, f"{prefix}collection_date")
     except strains.InvalidStrain as error:
         raise InvalidDeposit(error.detail, attr=error.attr) from None
-    # 511/2014, Art. 4(3)(a): in scope means the certificate of compliance, or the permit.
+
+
+def _check_terms_abs(terms: TermsInput, values: dict[str, str], prefix: str) -> None:
+    """511/2014, Art. 4(3)(a): material in scope of the ABS regulation holds the certificate of
+    compliance or the permit, and only such material has mutually agreed terms covering uses."""
     if terms.abs_scope == AbsScope.IN_SCOPE and not (values["ircc"] or values["permit_reference"]):
         raise InvalidDeposit(
             "Material in scope of the ABS regulation needs an IRCC or a permit reference.",
             attr=f"{prefix}ircc",
         )
-    mat = set(terms.mat_uses)
-    if mat and terms.abs_scope != AbsScope.IN_SCOPE:
+    if terms.mat_uses and terms.abs_scope != AbsScope.IN_SCOPE:
         raise InvalidDeposit(
             "Only material in scope of the ABS regulation has mutually agreed terms to cover uses.",
             attr=f"{prefix}mat_uses",
         )
+
+
+def _check_terms_uses(terms: TermsInput, prefix: str) -> None:
+    """Every use of the vocabulary is decided, and each is listed once."""
     seen: set[str] = set()
     for i, (use, _) in enumerate(terms.uses):
         if use in seen:
@@ -210,6 +215,19 @@ def _checked_terms(terms: TermsInput, prefix: str = "terms.") -> TermsInput:
         raise InvalidDeposit(
             f"Decide every use. Missing: {', '.join(missing)}.", attr=f"{prefix}uses"
         )
+
+
+def _checked_terms(terms: TermsInput, prefix: str = "terms.") -> TermsInput:
+    """The terms of a deposit as they are stored, in the order their refusals come: the access
+    facts, the ABS scope with its references, the decided uses."""
+    values = {
+        name: normalised(getattr(terms, name))
+        for name in ("pic_reference", "mat_reference", "ircc", "permit_reference")
+    }
+    _check_terms_access(terms, prefix)
+    _check_terms_abs(terms, values, prefix)
+    _check_terms_uses(terms, prefix)
+    mat = set(terms.mat_uses)
     return TermsInput(
         abs_scope=terms.abs_scope,
         uses=tuple(terms.uses),

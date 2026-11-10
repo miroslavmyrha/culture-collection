@@ -100,6 +100,39 @@ def _next_number(lab: Lab, year: int) -> int:
     return counter.last_number
 
 
+def _locked_requester(locked_lab: Lab, data: NewRequest) -> Requester:
+    """The requester as committed now, locked: of this lab, with a contact that was not erased
+    (there would be no responsible scientist and no delivery address)."""
+    requester = _locked(Requester, data.requester.pk)
+    if requester.lab_id != locked_lab.pk:
+        raise InvalidDistribution("Invalid requester.", attr="requester")
+    if Contact.objects.filter(pk=requester.contact_id, erased_at__isnull=False).exists():
+        raise InvalidDistribution("This requester's contact was erased.", attr="requester")
+    return requester
+
+
+def _check_lines(
+    data: NewRequest, strains: dict[int, Strain], terms: dict[int | None, DepositTerms]
+) -> None:
+    """Every line names a strain of this lab that is still distributed and came from a deposit
+    whose terms are in force. Refusals name the entry by its index in `lines`."""
+    for i, line in enumerate(data.lines):
+        if line.strain.pk not in strains:
+            raise InvalidDistribution("Invalid strain.", attr=f"lines.{i}.strain")
+        if strains[line.strain.pk].status == StrainStatus.DEACCESSIONED:
+            raise InvalidDistribution(
+                "This strain was deaccessioned: it is no longer distributed.",
+                code="strain_deaccessioned",
+                attr=f"lines.{i}.strain",
+            )
+        if line.strain.pk not in terms:
+            raise InvalidDistribution(
+                "This strain has no terms: it came from no deposit.",
+                code="no_terms",
+                attr=f"lines.{i}.strain",
+            )
+
+
 def request_submit(*, access: Access, lab: Lab, data: NewRequest) -> DistributionRequest:
     """A request as the requester sent it, with its lines. Each line keeps the terms of the
     strain's deposit in force now and their MTA version. Refused outright when the requester's
@@ -108,11 +141,7 @@ def request_submit(*, access: Access, lab: Lab, data: NewRequest) -> Distributio
     with audited_atomic():
         locked_lab = lock_lab(lab.pk)
         _require(access, locked_lab.pk, Perm.MANAGE_DISTRIBUTION)
-        requester = _locked(Requester, data.requester.pk)
-        if requester.lab_id != locked_lab.pk:
-            raise InvalidDistribution("Invalid requester.", attr="requester")
-        if Contact.objects.filter(pk=requester.contact_id, erased_at__isnull=False).exists():
-            raise InvalidDistribution("This requester's contact was erased.", attr="requester")
+        requester = _locked_requester(locked_lab, data)
         strains = {
             s.pk: s
             for s in Strain.objects.select_for_update()
@@ -129,21 +158,7 @@ def request_submit(*, access: Access, lab: Lab, data: NewRequest) -> Distributio
                 deposit__strain_id__in=strains, is_active=True
             )
         }
-        for i, line in enumerate(data.lines):
-            if line.strain.pk not in strains:
-                raise InvalidDistribution("Invalid strain.", attr=f"lines.{i}.strain")
-            if strains[line.strain.pk].status == StrainStatus.DEACCESSIONED:
-                raise InvalidDistribution(
-                    "This strain was deaccessioned: it is no longer distributed.",
-                    code="strain_deaccessioned",
-                    attr=f"lines.{i}.strain",
-                )
-            if line.strain.pk not in terms:
-                raise InvalidDistribution(
-                    "This strain has no terms: it came from no deposit.",
-                    code="no_terms",
-                    attr=f"lines.{i}.strain",
-                )
+        _check_lines(data, strains, terms)
         year = permit_today().year
         request = DistributionRequest(
             lab=locked_lab,
@@ -174,44 +189,56 @@ def request_submit(*, access: Access, lab: Lab, data: NewRequest) -> Distributio
                 lab_id=locked_lab.pk,
             ),
         )
-        for line in data.lines:
-            strain, pinned = strains[line.strain.pk], terms[line.strain.pk]
-            row = RequestLine.objects.create(
-                lab=locked_lab,
-                request=request,
-                strain=strain,
-                quantity=line.quantity,
-                terms=pinned,
-                mta=pinned.mta,
-            )
-            mta = (
-                None
-                if pinned.mta is None
-                else {
-                    "public_id": str(pinned.mta.public_id),
-                    "code": pinned.mta.code,
-                    "version": pinned.mta.version,
-                }
-            )
-            record_event(
-                REQUEST_LINE_ADDED,
-                Change(
-                    LINE,
-                    row.public_id,
-                    {
-                        "request": [None, str(request.public_id)],
-                        "quantity": [None, row.quantity],
-                        "terms": [
-                            None,
-                            {"version": pinned.version, "public_id": str(pinned.public_id)},
-                        ],
-                        "mta": [None, mta],
-                    },
-                    lab_id=locked_lab.pk,
-                    strain_id=strain.public_id,
-                ),
-            )
+        _add_lines(locked_lab, request, data, strains, terms)
     return request
+
+
+def _add_lines(
+    locked_lab: Lab,
+    request: DistributionRequest,
+    data: NewRequest,
+    strains: dict[int, Strain],
+    terms: dict[int | None, DepositTerms],
+) -> None:
+    """One frozen line per strain, pinned to the terms in force and their MTA version, with one
+    event each. Runs in the caller's audit context and under its locks."""
+    for line in data.lines:
+        strain, pinned = strains[line.strain.pk], terms[line.strain.pk]
+        row = RequestLine.objects.create(
+            lab=locked_lab,
+            request=request,
+            strain=strain,
+            quantity=line.quantity,
+            terms=pinned,
+            mta=pinned.mta,
+        )
+        mta = (
+            None
+            if pinned.mta is None
+            else {
+                "public_id": str(pinned.mta.public_id),
+                "code": pinned.mta.code,
+                "version": pinned.mta.version,
+            }
+        )
+        record_event(
+            REQUEST_LINE_ADDED,
+            Change(
+                LINE,
+                row.public_id,
+                {
+                    "request": [None, str(request.public_id)],
+                    "quantity": [None, row.quantity],
+                    "terms": [
+                        None,
+                        {"version": pinned.version, "public_id": str(pinned.public_id)},
+                    ],
+                    "mta": [None, mta],
+                },
+                lab_id=locked_lab.pk,
+                strain_id=strain.public_id,
+            ),
+        )
 
 
 def acceptance_record(

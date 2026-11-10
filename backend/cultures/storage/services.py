@@ -161,32 +161,54 @@ def _check_cap_holds(held: int | None, cap: int | None, attr: str) -> None:
 # Checks on the input alone: no query, so they run before any lock.
 
 
-def _check_fields(kind: UnitKind, fields: UnitFields, *, is_root: bool) -> UnitFields:
+def _checked_label(fields: UnitFields) -> tuple[str, str]:
+    """What the unit is called: a name, and a barcode without spaces. Returns both as stored."""
     name = normalised(fields.name)
     if not name:
         raise InvalidUnit("Enter a name.", attr="name")
     barcode = fields.barcode.strip()
     if any(c.isspace() for c in barcode):
         raise InvalidUnit("A barcode has no spaces.", attr="barcode")
-    temperature = fields.temperature_c
+    return name, barcode
+
+
+def _check_temperature(temperature: int | None) -> None:
+    """A temperature a freezer or tank can hold, or none at all."""
     if temperature is not None and not MIN_TEMPERATURE_C <= temperature <= MAX_TEMPERATURE_C:
         raise InvalidUnit(
             f"Enter a temperature from {MIN_TEMPERATURE_C} to {MAX_TEMPERATURE_C} °C.",
             attr="temperature_c",
         )
-    cap = fields.max_risk_group
+
+
+def _check_cap(cap: int | None, *, is_root: bool) -> None:
+    """The highest risk group the unit may hold (ADR 0009): a freezer or tank states it, and a
+    stated one is a risk group."""
     if cap is None and is_root:
         raise InvalidUnit(
             "A freezer or tank states the highest risk group it may hold.", attr="max_risk_group"
         )
     if cap is not None and cap not in (1, 2, 3, 4):
         raise InvalidUnit("A risk group is 1, 2, 3 or 4.", attr="max_risk_group")
+
+
+def _check_box_type(kind: UnitKind, fields: UnitFields) -> None:
+    """Only a kind with a grid (KIND_SPEC) has a box type, and it has one."""
     grid = KIND_SPEC[kind].grid
     if grid and fields.box_type is None:
         raise InvalidUnit("Choose the box type.", attr="box_type")
     if not grid and fields.box_type is not None:
         raise InvalidUnit("Only a box has a box type.", attr="box_type")
-    return UnitFields(name, barcode, temperature, cap, fields.box_type)
+
+
+def _check_fields(kind: UnitKind, fields: UnitFields, *, is_root: bool) -> UnitFields:
+    """The fields alone, in the order their refusals come: the label, the temperature, the risk
+    group cap, the box type."""
+    name, barcode = _checked_label(fields)
+    _check_temperature(fields.temperature_c)
+    _check_cap(fields.max_risk_group, is_root=is_root)
+    _check_box_type(kind, fields)
+    return UnitFields(name, barcode, fields.temperature_c, fields.max_risk_group, fields.box_type)
 
 
 def _check_slot(slot: int | None) -> None:
@@ -352,6 +374,25 @@ def unit_create(*, access: Access, lab: Lab, data: NewUnit) -> StorageUnit:
     return unit
 
 
+def _check_new_cap(locked: StorageUnit, cap: int | None, before: dict[str, Any]) -> None:
+    """A cap that changed still covers the risk group the unit holds, and what stands above it
+    (ADR 0009). Caller holds the lab lock and the unit's row."""
+    if cap == before["max_risk_group"]:
+        return
+    caps = [c for c in (cap, _cap_above(locked)) if c is not None]
+    _check_cap_holds(held_risk_group(locked), min(caps, default=None), "max_risk_group")
+
+
+def _apply_box_type(locked: StorageUnit, new_type: BoxType | None) -> None:
+    """A box takes its size from its type again, only while no position is occupied (#16 counts
+    the placements). Caller holds the lab lock and the unit's row."""
+    if new_type is None or new_type.pk == locked.box_type_id:
+        return
+    if box_occupied(locked):
+        raise BoxOccupied
+    locked.box_type, locked.rows, locked.cols = new_type, new_type.rows, new_type.cols
+
+
 def unit_update(*, access: Access, unit: StorageUnit, fields: UnitFields) -> StorageUnit:
     """Name, barcode, temperature, risk group cap, and for a box its type, which sets its size
     again while no position is occupied. Nothing changed records nothing."""
@@ -366,14 +407,8 @@ def unit_update(*, access: Access, unit: StorageUnit, fields: UnitFields) -> Sto
         locked.barcode = checked.barcode or None
         locked.temperature_c = checked.temperature_c
         locked.max_risk_group = checked.max_risk_group
-        if checked.max_risk_group != before["max_risk_group"]:
-            caps = [c for c in (checked.max_risk_group, _cap_above(locked)) if c is not None]
-            _check_cap_holds(held_risk_group(locked), min(caps, default=None), "max_risk_group")
-        new_type = checked.box_type
-        if new_type is not None and new_type.pk != locked.box_type_id:
-            if box_occupied(locked):
-                raise BoxOccupied
-            locked.box_type, locked.rows, locked.cols = new_type, new_type.rows, new_type.cols
+        _check_new_cap(locked, checked.max_risk_group, before)
+        _apply_box_type(locked, checked.box_type)
         after = _values(locked)
         changes = {k: [before[k], v] for k, v in after.items() if before[k] != v}
         if not changes:

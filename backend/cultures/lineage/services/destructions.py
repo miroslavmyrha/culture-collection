@@ -162,16 +162,20 @@ def _text(value: str, limit: int, attr: str) -> str:
     return text
 
 
-def _checked_input(data: NewDestruction) -> NewDestruction:
-    """The input alone, before any lock."""
-    reason = _check_reason(data.reason)
+def _checked_method(data: NewDestruction) -> str:
+    """How the material was destroyed: a method of the vocabulary, and any other method is
+    described. Returns the detail as it is stored."""
     if data.method not in DestructionMethod.values:
         raise InvalidDestruction("Choose how the material was destroyed.", attr="method")
     detail = _text(data.method_detail, DETAIL_LENGTH, "method_detail")
     if data.method == DestructionMethod.OTHER and not detail:
         raise InvalidDestruction("Describe the method.", code="required", attr="method_detail")
-    if data.destroyed_on > permit_today():
-        raise InvalidDestruction("This date is in the future.", attr="destroyed_on")
+    return detail
+
+
+def _checked_handover(data: NewDestruction) -> tuple[str, str]:
+    """Who destroyed the material: the lab itself, or an outside firm, which signs a document
+    for it. Returns the firm and the document as they are stored."""
     contractor = _text(data.contractor, CONTRACTOR_LENGTH, "contractor")
     document = _text(data.handover_document, DOCUMENT_LENGTH, "handover_document")
     if contractor and not document:
@@ -189,6 +193,11 @@ def _checked_input(data: NewDestruction) -> NewDestruction:
             "Without an outside firm the lab destroyed the material itself.",
             attr="inactivated_in_lab",
         )
+    return contractor, document
+
+
+def _check_listed_vials(data: NewDestruction) -> None:
+    """At least one vial, each listed once. Refusals name the entry by its index in `vials`."""
     if not data.vials:
         raise InvalidDestruction("Choose at least one vial.", code="required", attr="vials")
     seen: set[int] = set()
@@ -198,6 +207,17 @@ def _checked_input(data: NewDestruction) -> NewDestruction:
                 "This vial is in the list twice.", code="duplicate", attr=f"vials.{i}"
             )
         seen.add(vial.pk)
+
+
+def _checked_input(data: NewDestruction) -> NewDestruction:
+    """The input alone, before any lock: the reason, the method, the day, the handover and the
+    vials, in that order."""
+    reason = _check_reason(data.reason)
+    detail = _checked_method(data)
+    if data.destroyed_on > permit_today():
+        raise InvalidDestruction("This date is in the future.", attr="destroyed_on")
+    contractor, document = _checked_handover(data)
+    _check_listed_vials(data)
     return replace(
         data,
         reason=reason,
@@ -251,17 +271,22 @@ def _declaring_authorisation(lab_id: int, day: date, method: str) -> LabAuthoris
     )
 
 
-def _check_rules(
-    required: Required, data: NewDestruction, recorder: User, lab: Lab
-) -> LabAuthorisation | None:
-    """The kinds' rules. Caller holds the lab lock. Returns the declaring permit of a quarantine
-    pest."""
+def _check_verification(required: Required, data: NewDestruction) -> None:
+    """A regulated strain says how the inactivation was verified (Required.verification)."""
     if required.verification and not data.verification:
         raise InvalidDestruction(
             "Say how the inactivation was verified: the strain is regulated.",
             code="required",
             attr="verification",
         )
+
+
+def _check_witness_rules(
+    required: Required, data: NewDestruction, recorder: User, lab: Lab
+) -> None:
+    """The witness of a destruction: named where a kind asks for one, never the recorder, and for
+    a highly risky agent a person who had access to it on the day (act 281/2002 Sb., § 14a(4)).
+    Caller holds the lab lock."""
     if required.witness and data.witness is None:
         raise InvalidDestruction(
             "Name the member who witnessed the destruction: the strain is a highly risky agent"
@@ -285,6 +310,11 @@ def _check_rules(
             code="witness_without_vrat_access",
             attr="witness",
         )
+
+
+def _check_handover_rules(required: Required, data: NewDestruction) -> None:
+    """A highly risky or risky agent is inactivated in the lab before a firm takes it
+    (Required.inactivated_before_handover)."""
     if required.inactivated_before_handover and data.contractor and not data.inactivated_in_lab:
         raise InvalidDestruction(
             "A highly risky or risky agent (VRAT, RAT) is inactivated in the lab before a firm"
@@ -293,6 +323,17 @@ def _check_rules(
             code="inactivate_before_handover",
             attr="inactivated_in_lab",
         )
+
+
+def _check_rules(
+    required: Required, data: NewDestruction, recorder: User, lab: Lab
+) -> LabAuthorisation | None:
+    """The kinds' rules, in the order their refusals come: the verification, the witness, the
+    handover, and the lab's declared method. Caller holds the lab lock. Returns the declaring
+    permit of a quarantine pest."""
+    _check_verification(required, data)
+    _check_witness_rules(required, data, recorder, lab)
+    _check_handover_rules(required, data)
     if required.authorised_method:
         return _declaring_authorisation(lab.pk, data.destroyed_on, data.method)
     return None
