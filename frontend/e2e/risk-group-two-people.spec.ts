@@ -19,7 +19,7 @@ test('a curator proposes a lower risk group and a manager confirms it', async ({
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
 
   const made = await page.evaluate(
-    async ({ name, basis }) => {
+    async ({ name, basis, acceptBasis }) => {
       await fetch('/api/v1/auth/csrf/')
       const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
       const lab = location.pathname.split('/')[2] ?? ''
@@ -51,7 +51,7 @@ test('a curator proposes a lower risk group and a manager confirms it', async ({
         identified_on: today,
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,
-        risk_group_basis: riskGroupBasis,
+        risk_group_basis: acceptBasis,
         animal_pathogenicity: 'unknown',
         plant_pathogenicity: 'unknown',
         isolation_source: '',
@@ -64,7 +64,7 @@ test('a curator proposes a lower risk group and a manager confirms it', async ({
       await send(`strains/${strain}/risk-group/`, { risk_group: 2, basis: basis, reason: 'Reassessed at intake.' })
       return { lab, strain, number: accepted.strain?.accession_number ?? '' }
     },
-    { name: NAME, basis: BASIS },
+    { name: NAME, basis: BASIS, acceptBasis: riskGroupBasis },
   )
 
   // The curator: a lower group becomes a proposal, and nothing of the strain changes yet.

@@ -23,7 +23,7 @@ async function commercialRequest(page: Page, name: string): Promise<string> {
   await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
   return page.evaluate(
-    async ({ strainName, pdf }) => {
+    async ({ strainName, pdf, basis }) => {
       await fetch('/api/v1/auth/csrf/')
       const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
       const lab = location.pathname.split('/')[2] ?? ''
@@ -60,7 +60,7 @@ async function commercialRequest(page: Page, name: string): Promise<string> {
         identified_on: today,
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,
-        risk_group_basis: riskGroupBasis,
+        risk_group_basis: basis,
         country_of_origin: 'CZ',
         restrictions: [],
       })
@@ -81,7 +81,7 @@ async function commercialRequest(page: Page, name: string): Promise<string> {
       if (!acceptance.ok) throw new Error(`acceptance: ${acceptance.status} ${await acceptance.text()}`)
       return `/labs/${lab}/requests/${request.public_id}`
     },
-    { strainName: name, pdf: PDF.toString('latin1') },
+    { strainName: name, pdf: PDF.toString('latin1'), basis: riskGroupBasis },
   )
 }
 

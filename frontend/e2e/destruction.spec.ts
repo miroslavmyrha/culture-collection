@@ -20,7 +20,7 @@ test('a curator records the destruction of a RAT vial and a manager confirms it'
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
 
   const made = await page.evaluate(
-    async ({ run, name }) => {
+    async ({ run, name, basis }) => {
       await fetch('/api/v1/auth/csrf/')
       const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
       const lab = location.pathname.split('/')[2] ?? ''
@@ -52,7 +52,7 @@ test('a curator records the destruction of a RAT vial and a manager confirms it'
         identified_on: today,
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,
-        risk_group_basis: riskGroupBasis,
+        risk_group_basis: basis,
         animal_pathogenicity: 'unknown',
         plant_pathogenicity: 'unknown',
         isolation_source: '',
@@ -77,7 +77,7 @@ test('a curator records the destruction of a RAT vial and a manager confirms it'
       })
       return { lab, strain, number: accepted.strain?.accession_number ?? '' }
     },
-    { run: RUN, name: NAME },
+    { run: RUN, name: NAME, basis: riskGroupBasis },
   )
 
   const label = `${made.number} / 1 / 1`

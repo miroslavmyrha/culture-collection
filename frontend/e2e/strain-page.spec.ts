@@ -11,7 +11,7 @@ const NAME = `Testella exempli tabs ${RUN}`
 
 /** The run's strain with 230 unplaced vials, made as the lab's manager would through the API. */
 async function strainWithManyVials(page: Page, name: string) {
-  return page.evaluate(async (received) => {
+  return page.evaluate(async ([received, basis]) => {
     await fetch('/api/v1/auth/csrf/')
     const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
     const lab = location.pathname.split('/')[2] ?? ''
@@ -42,7 +42,7 @@ async function strainWithManyVials(page: Page, name: string) {
       identified_on: new Date().toLocaleDateString('sv'),
       identification_method: 'MALDI-TOF MS',
       risk_group: 1,
-      risk_group_basis: riskGroupBasis,
+      risk_group_basis: basis,
       animal_pathogenicity: 'unknown',
       plant_pathogenicity: 'unknown',
       isolation_source: '',
@@ -64,7 +64,7 @@ async function strainWithManyVials(page: Page, name: string) {
         box: null,
       })
     return { lab, id: strain.public_id, number: strain.accession_number }
-  }, name)
+  }, [name, riskGroupBasis] as const)
 }
 
 test('a strain opens on its overview, its tabs switch by keyboard, every one of 230 vials is a page away, and its history reads', async ({ browser }) => {
