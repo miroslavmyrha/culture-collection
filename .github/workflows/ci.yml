@@ -84,6 +84,62 @@ jobs:
 
   # A pull request that changes code states what changed in CHANGELOG.md (#206). On pull requests
   # only: per commit, four parallel branches would fight over the same section at every rebase.
+  # Every commit of a pull request passes check.sh alone, which is what keeps the history
+  # bisectable (#213). One runner per commit, in parallel, instead of a queue on one machine.
+  commits:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      list: ${{ steps.read.outputs.list }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: read
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # From where the branch left its base, so the base's own commits are not checked again.
+          commits=$(git log --format=%H --reverse "$(git merge-base "$BASE" HEAD)..HEAD")
+          count=$(printf '%s\n' "$commits" | grep -c . || true)
+          if [ "$count" -gt 20 ]; then
+            echo "::error::This pull request carries $count commits and the matrix holds 20." \
+              "Split it, or say in the pull request why it has to be one branch."
+            exit 1
+          fi
+          # python3 rather than jq, so the same line runs in a local proof of this job.
+          list=$(printf '%s\n' "$commits" | grep . | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().split()))')
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+          echo "$count commits to check on their own"
+
+  per-commit:
+    needs: commits
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false # every commit reports, so one red commit does not hide the next
+      matrix:
+        commit: ${{ fromJSON(needs.commits.outputs.list) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.commit }}
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: ./check.sh on ${{ matrix.commit }}
+        run: |
+          APP_UID=$(id -u)
+          export APP_UID
+          ./check.sh
+
   changelog:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
