@@ -99,9 +99,11 @@ jobs:
       - id: read
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          # From where the branch left its base, so the base's own commits are not checked again.
-          commits=$(git log --format=%H --reverse "$(git merge-base "$BASE" HEAD)..HEAD")
+          # The branch's own commits, from where it left its base, so neither the base's commits
+          # nor the merge commit a pull request checkout puts at HEAD are checked as the branch's.
+          commits=$(git log --format=%H --reverse "$(git merge-base "$BASE" "$HEAD_SHA")..$HEAD_SHA")
           count=$(printf '%s\n' "$commits" | grep -c . || true)
           if [ "$count" -gt 20 ]; then
             echo "::error::This pull request carries $count commits and the matrix holds 20." \
