@@ -12,13 +12,20 @@ export const STANDING_LABELS: Record<Standing, string> = {
   ended: 'Ended',
 }
 
-/** The line under the status: when it stops, or stopped, being valid. Dates are Czech days. */
-export function standingDetail(p: Permit): string {
-  if (p.standing === 'not_yet_valid') return `Valid from ${p.valid_from}`
-  if (p.standing === 'expired') return `Last valid day ${p.expires_on ?? ''}`
-  if (p.standing === 'ended') return `Ended on ${p.ended_on ?? ''}: ${p.end_reason}`
-  // Valid or expiring soon: in force today.
+const text = (value: string | null | undefined) => value ?? ''
+
+/** The line for a permit that is in force today: valid, or expiring soon. */
+function inForceDetail(p: Permit): string {
   if (p.days_left === null) return 'No expiry stated'
-  if (p.days_left === 0) return `Last valid day today, ${p.last_valid_day ?? ''}`
-  return `Last valid day ${p.last_valid_day ?? ''}, in ${p.days_left} ${p.days_left === 1 ? 'day' : 'days'}`
+  if (p.days_left === 0) return `Last valid day today, ${text(p.last_valid_day)}`
+  return `Last valid day ${text(p.last_valid_day)}, in ${p.days_left} ${p.days_left === 1 ? 'day' : 'days'}`
 }
+
+const DETAILS: Partial<Record<Standing, (p: Permit) => string>> = {
+  not_yet_valid: (p) => `Valid from ${p.valid_from}`,
+  expired: (p) => `Last valid day ${text(p.expires_on)}`,
+  ended: (p) => `Ended on ${text(p.ended_on)}: ${p.end_reason}`,
+}
+
+/** The line under the status: when it stops, or stopped, being valid. Dates are Czech days. */
+export const standingDetail = (p: Permit): string => (DETAILS[p.standing] ?? inForceDetail)(p)
