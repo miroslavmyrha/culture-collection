@@ -21,6 +21,40 @@ const source = (match: Match) => `${match.act}, ${match.version} of ${match.vers
 /** The basis a confirmed risk group suggestion carries: the entry, its list and its version. */
 const basisOf = (match: Match) => `${match.name} (${match.act}, entry ${match.code}, ${match.version})`
 
+type ItemProps = { match: Match; strain: Strain; held: ReadonlySet<string>; canManage: boolean; show: (next: NonNullable<Open>) => (event: React.MouseEvent<HTMLButtonElement>) => void }
+
+/** What a line suggests: the restriction kind it names and the risk group it states, each with whether the strain has it already. */
+function suggestion(match: Match, strain: Strain, held: ReadonlySet<string>): string {
+  const kind = match.restriction_kind !== '' ? `Suggests: ${RESTRICTION_LABELS[match.restriction_kind]}${held.has(match.restriction_kind) ? ' (the strain has one)' : ''}. ` : ''
+  const group = match.risk_group !== null ? `States risk group ${match.risk_group}${match.risk_group === strain.risk_group ? ' (the strain has it)' : ''}.` : ''
+  return kind + group
+}
+
+/** One entry of an official list: its code and name, its source, what it suggests, and the buttons that take it into a dialog. */
+function MatchItem({ match, strain, held, canManage, show }: ItemProps) {
+  const recordKind = canManage && match.restriction_kind !== '' && !held.has(match.restriction_kind)
+  const recordGroup = canManage && match.risk_group !== null && match.risk_group !== strain.risk_group
+  return (
+    <Stack component="li" spacing={0.5}>
+      <Typography sx={{ overflowWrap: 'anywhere' }}>
+        <Mono>{match.code}</Mono> {match.name}
+      </Typography>
+      <Typography variant="body2">{source(match)}</Typography>
+      <Typography variant="body2">{suggestion(match, strain, held)}</Typography>
+      {recordKind && (
+        <Box>
+          <Button onClick={show({ restriction: { kind: match.restriction_kind, reference: match.code, act: match.suggests_act }, open: true })}>Record {RESTRICTION_LABELS[match.restriction_kind]}</Button>
+        </Box>
+      )}
+      {recordGroup && (
+        <Box>
+          <Button onClick={show({ group: { risk_group: String(match.risk_group), basis: basisOf(match), entry: match.public_id }, open: true })}>Use as the risk group basis</Button>
+        </Box>
+      )}
+    </Stack>
+  )
+}
+
 /**
  * The entries of the official lists that match a strain's taxon (#169). A read: every line says
  * which list and which reading of it says so. Someone who manages strains can take a line into
@@ -60,30 +94,7 @@ export function StrainListMatches({ labId, strain, canManage }: Props) {
           ) : (
             <Stack component="ul" spacing={2} sx={{ listStyle: 'none', p: 0, m: 0 }}>
               {matches.data.results.map((match: Match) => (
-                <Stack key={match.public_id} component="li" spacing={0.5}>
-                  <Typography sx={{ overflowWrap: 'anywhere' }}>
-                    <Mono>{match.code}</Mono> {match.name}
-                  </Typography>
-                  <Typography variant="body2">{source(match)}</Typography>
-                  <Typography variant="body2">
-                    {match.restriction_kind !== '' && `Suggests: ${RESTRICTION_LABELS[match.restriction_kind]}${held.has(match.restriction_kind) ? ' (the strain has one)' : ''}. `}
-                    {match.risk_group !== null && `States risk group ${match.risk_group}${match.risk_group === strain.risk_group ? ' (the strain has it)' : ''}.`}
-                  </Typography>
-                  {canManage && match.restriction_kind !== '' && !held.has(match.restriction_kind) && (
-                    <Box>
-                      <Button onClick={show({ restriction: { kind: match.restriction_kind, reference: match.code, act: match.suggests_act }, open: true })}>
-                        Record {RESTRICTION_LABELS[match.restriction_kind]}
-                      </Button>
-                    </Box>
-                  )}
-                  {canManage && match.risk_group !== null && match.risk_group !== strain.risk_group && (
-                    <Box>
-                      <Button onClick={show({ group: { risk_group: String(match.risk_group), basis: basisOf(match), entry: match.public_id }, open: true })}>
-                        Use as the risk group basis
-                      </Button>
-                    </Box>
-                  )}
-                </Stack>
+                <MatchItem key={match.public_id} match={match} strain={strain} held={held} canManage={canManage} show={show} />
               ))}
             </Stack>
           )}

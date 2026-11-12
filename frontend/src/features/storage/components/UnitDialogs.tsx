@@ -1,11 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useId, useState } from 'react'
-import { type FieldValues, type Path, type UseFormRegisterReturn, type UseFormSetError, useForm, useWatch } from 'react-hook-form'
+import { type FieldValues, type Path, type UseFormSetError, useForm, useWatch } from 'react-hook-form'
 import { ConfirmDialog, SelectField, Stack, TextField } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
 import { useCreateUnit, useEditUnit, useMoveUnit, useSetUnitStatus } from '../api/mutations'
-import { useBoxTypes, useUnitTree } from '../api/queries'
+import { useUnitTree } from '../api/queries'
 import {
   createBody,
   type CreateUnitForm,
@@ -15,13 +15,10 @@ import {
   emptyFields,
   fieldsBody,
   HOLDS,
-  isRoot,
-  KIND_LABELS,
   KIND_WORDS,
   moveBody,
   type MoveUnitForm,
   moveUnitSchema,
-  RISK_GROUP_CHOICES,
   type StatusForm,
   statusSchema,
   type Unit,
@@ -29,6 +26,7 @@ import {
   type UnitRow,
 } from '../schemas'
 import { storageError } from '../storageErrors'
+import { KindField, SlotField, UnitFields } from './UnitFields'
 
 type Visibility = { open: boolean; onClose: () => void; onExited: () => void }
 
@@ -53,23 +51,6 @@ function placeError<T extends FieldValues>(
   return applyServerErrors(error, fields, setError) ? undefined : storageError(error)
 }
 
-function capOptions(root: boolean) {
-  const groups = RISK_GROUP_CHOICES.map((value) => ({ value, label: `Risk group ${value}` }))
-  return [{ value: '', label: root ? 'Choose' : 'As the unit holding it' }, ...groups]
-}
-
-/** The box types staff keep, as a select; spread register('box_type') on it. */
-function BoxTypeField({ error, ...registered }: UseFormRegisterReturn & { error: string | undefined }) {
-  const types = useBoxTypes()
-  const options = [
-    { value: '', label: types.isPending ? 'Loading the box types…' : 'Choose' },
-    ...(types.data?.results ?? []).map((t) => ({ value: t.public_id, label: t.name })),
-  ]
-  // A failed refresh keeps the types already loaded: only a failed first load is an error.
-  const failed = types.data === undefined && types.isError ? 'The box types could not be loaded. Close and try again.' : undefined
-  return <SelectField label="Box type" hint="Its rows and columns become the box's size." options={options} error={error ?? failed} {...registered} />
-}
-
 type CreateProps = Visibility & {
   labId: string
   /** The unit it goes into; null for a freezer or tank. */
@@ -77,16 +58,26 @@ type CreateProps = Visibility & {
   onCreated: (unit: Unit) => void
 }
 
-/** A freezer or tank on its own, or what the parent may hold, as the server's kind spec says. */
+/** The kinds a new unit may be: a freezer or tank on its own, or what the parent may hold, as the server's kind spec says. */
+function kindsFor(parent: CreateProps['parent']): readonly UnitKind[] {
+  return parent ? HOLDS[parent.kind] : ['freezer', 'ln2_tank']
+}
+
+/** What the add dialog calls itself and says, for a unit on its own or one going into a parent. */
+function createTexts(parent: CreateProps['parent'], kinds: readonly UnitKind[]) {
+  if (!parent) return { title: 'Add a freezer or tank', description: 'A freezer or tank stands on its own and states the highest risk group it may hold.' }
+  const what = kinds.map((k) => KIND_WORDS[k]).join(' or ')
+  return { title: `Add a ${what} to ${parent.name}`, description: `It goes into ${parent.name}.` }
+}
+
 export function CreateUnitDialog({ labId, parent, open, onClose, onExited, onCreated }: CreateProps) {
   const create = useCreateUnit(labId)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
-  const kinds: readonly UnitKind[] = parent ? HOLDS[parent.kind] : ['freezer', 'ln2_tank']
-  const first = kinds[0] ?? 'freezer'
+  const kinds = kindsFor(parent)
   const { control, register, handleSubmit, formState, setError } = useForm<CreateUnitForm>({
     resolver: zodResolver(createUnitSchema),
-    defaultValues: { kind: first, slot: '', ...emptyFields() },
+    defaultValues: { kind: kinds[0] ?? 'freezer', slot: '', ...emptyFields() },
   })
   const kind = useWatch({ control, name: 'kind' })
   const errors = formState.errors
@@ -98,13 +89,12 @@ export function CreateUnitDialog({ labId, parent, open, onClose, onExited, onCre
       onError: (error) => setFailure(placeError(error, ['kind', 'slot', ...FIELDS], setError)),
     })
   })
-  const what = kinds.map((k) => KIND_WORDS[k]).join(' or ')
-  const title = parent ? `Add a ${what} to ${parent.name}` : 'Add a freezer or tank'
+  const { title, description } = createTexts(parent, kinds)
   return (
     <ConfirmDialog
       open={open}
       title={title}
-      description={parent ? `It goes into ${parent.name}.` : 'A freezer or tank stands on its own and states the highest risk group it may hold.'}
+      description={description}
       confirmLabel="Add"
       form={formId}
       pending={create.isPending}
@@ -113,23 +103,14 @@ export function CreateUnitDialog({ labId, parent, open, onClose, onExited, onCre
       onExited={onExited}
     >
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label={title} spacing={2} sx={{ mt: 2 }}>
-        {kinds.length > 1 && (
-          <SelectField
-            label="Kind"
-            options={kinds.map((k) => ({ value: k, label: KIND_LABELS[k] }))}
-            // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
-            autoFocus
-            error={errors.kind?.message}
-            {...register('kind')}
-          />
-        )}
-        {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
-        <TextField label="Name" autoFocus={kinds.length === 1} autoComplete="off" error={errors.name?.message} {...register('name')} />
-        {kind === 'box' && <BoxTypeField error={errors.box_type?.message} {...register('box_type')} />}
-        {parent && <TextField label="Slot" hint={`Its numbered place in ${parent.name}, if it has one.`} inputMode="numeric" autoComplete="off" error={errors.slot?.message} {...register('slot')} />}
-        {isRoot(kind) && <TextField label="Temperature (°C)" hint="Optional, whole degrees." inputMode="numeric" autoComplete="off" error={errors.temperature_c?.message} {...register('temperature_c')} />}
-        <SelectField label="Highest risk group" hint="What it and everything in it may hold." options={capOptions(isRoot(kind))} error={errors.max_risk_group?.message} {...register('max_risk_group')} />
-        <TextField label="Barcode" hint="Optional, the label on the unit." autoComplete="off" error={errors.barcode?.message} {...register('barcode')} />
+        <KindField kinds={kinds} register={register} error={errors.kind?.message} />
+        <UnitFields
+          kind={kind}
+          focusName={kinds.length === 1}
+          register={register}
+          errors={errors}
+          slot={<SlotField parent={parent} register={register('slot')} error={errors.slot?.message} />}
+        />
       </Stack>
     </ConfirmDialog>
   )
@@ -166,12 +147,7 @@ export function EditUnitDialog({ labId, unit, open, onClose, onExited }: UnitPro
       onExited={onExited}
     >
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label={`Change ${unit.name}`} spacing={2} sx={{ mt: 2 }}>
-        {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
-        <TextField label="Name" autoFocus autoComplete="off" error={errors.name?.message} {...register('name')} />
-        {unit.kind === 'box' && <BoxTypeField error={errors.box_type?.message} {...register('box_type')} />}
-        {isRoot(unit.kind) && <TextField label="Temperature (°C)" hint="Optional, whole degrees." inputMode="numeric" autoComplete="off" error={errors.temperature_c?.message} {...register('temperature_c')} />}
-        <SelectField label="Highest risk group" hint="What it and everything in it may hold." options={capOptions(isRoot(unit.kind))} error={errors.max_risk_group?.message} {...register('max_risk_group')} />
-        <TextField label="Barcode" hint="Optional, the label on the unit." autoComplete="off" error={errors.barcode?.message} {...register('barcode')} />
+        <UnitFields kind={unit.kind} focusName register={register} errors={errors} />
       </Stack>
     </ConfirmDialog>
   )
@@ -197,6 +173,17 @@ export function moveTargets(unit: Pick<Unit, 'kind'>, rows: readonly UnitRow[]) 
     .toSorted((a, b) => a.label.localeCompare(b.label))
 }
 
+/** What the empty choice of the move select says while the places load and when none can take the unit. */
+function movePlaceholder(loading: boolean, targets: number): string {
+  if (loading) return 'Loading the storage…'
+  return targets === 0 ? 'No unit can take it' : 'Choose'
+}
+
+/** The failed first load of the places; a failed refresh keeps the ones already loaded. */
+function treeFailure(tree: ReturnType<typeof useUnitTree>): string | undefined {
+  return tree.data === undefined && tree.isError ? storageError(tree.error) : undefined
+}
+
 export function MoveUnitDialog({ labId, unit, open, onClose, onExited }: UnitProps) {
   const move = useMoveUnit(labId, unit.public_id)
   const tree = useUnitTree(labId)
@@ -208,7 +195,7 @@ export function MoveUnitDialog({ labId, unit, open, onClose, onExited }: UnitPro
   })
   const errors = formState.errors
   const targets = moveTargets(unit, tree.data ?? []).filter((target) => target.value !== unit.parent)
-  const placeholder = tree.isPending ? 'Loading the storage…' : targets.length === 0 ? 'No unit can take it' : 'Choose'
+  const placeholder = movePlaceholder(tree.isPending, targets.length)
   const onSubmit = handleSubmit((values) => {
     setFailure(undefined)
     move.mutate(moveBody(values), {
@@ -224,7 +211,7 @@ export function MoveUnitDialog({ labId, unit, open, onClose, onExited }: UnitPro
       confirmLabel="Move"
       form={formId}
       pending={move.isPending}
-      error={failure ?? errors.root?.server?.message ?? (tree.data === undefined && tree.isError ? storageError(tree.error) : undefined)}
+      error={failure ?? errors.root?.server?.message ?? treeFailure(tree)}
       onClose={onClose}
       onExited={onExited}
     >

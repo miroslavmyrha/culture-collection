@@ -177,19 +177,8 @@ function AddToListForm({ labId }: { labId: string }) {
           setAdded(entry.username)
         },
         onError: (error) => {
-          // An unknown, inactive or foreign username: one message, whichever the server found.
-          if (isApiError(error) && (error.code === 'invalid_user' || unknownUser(error.body))) {
-            setError('username', { type: 'server', message: 'No active member of this lab has this username' }, { shouldFocus: true })
-            return
-          }
-          if (isApiError(error) && error.code === 'already_on_list') {
-            setError('username', { type: 'server', message: 'This member is on the list already' }, { shouldFocus: true })
-            return
-          }
-          if (isApiError(error) && error.code === 'reason_required') {
-            setError('reason', { type: 'server', message: 'Say why' }, { shouldFocus: true })
-            return
-          }
+          const known = knownFailure(error)
+          if (known) return setError(known.field, { type: 'server', message: known.message }, { shouldFocus: true })
           if (!applyServerErrors(error, ['username', 'reason'], setError)) setFailure(errorMessage(error))
         },
       },
@@ -216,6 +205,17 @@ function AddToListForm({ labId }: { labId: string }) {
       {added && <output>Put {added} on the VRAT access list.</output>}
     </Box>
   )
+}
+
+type KnownFailure = { field: 'username' | 'reason'; message: string }
+
+/** The answers of the server that name one field: an unknown, inactive or foreign username is one message. */
+function knownFailure(error: unknown): KnownFailure | undefined {
+  if (!isApiError(error)) return undefined
+  if (error.code === 'invalid_user' || unknownUser(error.body)) return { field: 'username', message: 'No active member of this lab has this username' }
+  if (error.code === 'already_on_list') return { field: 'username', message: 'This member is on the list already' }
+  if (error.code === 'reason_required') return { field: 'reason', message: 'Say why' }
+  return undefined
 }
 
 const unknownUser = (body: unknown) => readProblem(body)?.errors?.some((e) => e.attr === 'username' && e.code === 'does_not_exist') === true

@@ -1,4 +1,4 @@
-import { errorMessage, isApiError } from '@/lib/api'
+import { errorMessage } from '@/lib/api'
 import { type ErrorTable, lookupError } from '@/lib/errorTable'
 
 /** A taken position says only that it is taken, never by what (ADR 0009). */
@@ -36,15 +36,30 @@ export function vialError(error: unknown): string {
   return lookupError(VIAL_ERRORS, error) ?? errorMessage(error)
 }
 
+/** What the box grid says for a refused place or move, by problem code at any status. */
+const GRID_ERRORS: ErrorTable = {
+  '*:unit_not_active': 'This box or a unit holding it is out of service or retired.',
+  '*:not_a_box': 'This box or a unit holding it is out of service or retired.',
+  '*:risk_group_above_cap': "This box may not hold this strain's risk group.",
+  '*:outside_box': 'This position is not in the box. Reload the page.',
+}
+
 /**
  * The message the box grid announces for a refused place or move, by the problem code. A taken
  * position says only that it is taken, never by what (ADR 0009).
  */
 export function gridError(error: unknown): string {
-  if (isApiError(error) && (error.code === 'unit_not_active' || error.code === 'not_a_box')) return 'This box or a unit holding it is out of service or retired.'
-  if (isApiError(error) && error.code === 'risk_group_above_cap') return "This box may not hold this strain's risk group."
-  if (isApiError(error) && error.code === 'outside_box') return 'This position is not in the box. Reload the page.'
-  return vialError(error)
+  return lookupError(GRID_ERRORS, error) ?? vialError(error)
+}
+
+/** What a refusal of one vial among several says, by its code. */
+const ENTRY_ERRORS: Readonly<Record<string, string>> = {
+  position_taken: POSITION_TAKEN,
+  position_twice: 'Another vial of the list goes to this position. Choose another one.',
+  vial_already_placed: 'This vial is in a box already. Move it from its own row.',
+  vial_not_in_collection: 'This vial has left the collection or is lost. Reload to see it.',
+  risk_group_above_cap: "This box may not hold this strain's risk group.",
+  outside_box: 'This position is not in the box. Reload the page.',
 }
 
 /**
@@ -52,20 +67,6 @@ export function gridError(error: unknown): string {
  * names no position or box beyond what the person chose (ADR 0009).
  */
 export function entryError(code: string): string {
-  switch (code) {
-    case 'position_taken':
-      return POSITION_TAKEN
-    case 'position_twice':
-      return 'Another vial of the list goes to this position. Choose another one.'
-    case 'vial_already_placed':
-      return 'This vial is in a box already. Move it from its own row.'
-    case 'vial_not_in_collection':
-      return 'This vial has left the collection or is lost. Reload to see it.'
-    case 'risk_group_above_cap':
-      return "This box may not hold this strain's risk group."
-    case 'outside_box':
-      return 'This position is not in the box. Reload the page.'
-    default:
-      return 'This vial could not be placed. Reload the page and try again.'
-  }
+  const message = Object.hasOwn(ENTRY_ERRORS, code) ? ENTRY_ERRORS[code] : undefined
+  return message ?? 'This vial could not be placed. Reload the page and try again.'
 }

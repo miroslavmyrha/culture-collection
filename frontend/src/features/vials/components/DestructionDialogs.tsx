@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useId, useState } from 'react'
 import { type FieldValues, type Path, type UseFormSetError, useForm, useWatch } from 'react-hook-form'
-import { Box, CheckboxField, ConfirmDialog, SelectField, Stack, TextField, Typography } from '@/components/ui'
+import { CheckboxField, ConfirmDialog, Stack, TextField, Typography } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
 import { useConfirmDestruction, useDestructionInError, useRecordDestruction } from '../api/mutations'
@@ -18,6 +18,7 @@ import {
   emptyDestruction,
 } from '../schemas'
 import { vialError } from '../vialErrors'
+import { MethodFields, OutsideFields, VialsFieldset, WitnessField } from './DestructionFormGroups'
 
 type Common = { labId: string; strainId: string; open: boolean; onClose: () => void; onExited: () => void }
 
@@ -52,6 +53,18 @@ type RecordProps = Common & {
   waiting: ReadonlySet<string>
 }
 
+/** The vials the form is built from, with whether more wait than the list holds. Undefined while there is nothing to record. */
+function readyVials<V>(data: { count: number; results: readonly unknown[] } | undefined, free: V[] | undefined) {
+  if (data === undefined || free === undefined || free.length === 0) return undefined
+  return { free, more: data.count > data.results.length }
+}
+
+/** Why there is no form: the vials are loading, failed to load, or none is left to record. */
+function noticeOf(vials: { data: unknown; isError: boolean }): string {
+  if (vials.data !== undefined) return 'No vial of this strain is marked to destroy outside a record that waits for its confirmation.'
+  return vials.isError ? 'The vials to destroy could not be loaded. Close this and try again.' : 'Loading the vials to destroy…'
+}
+
 /**
  * Records the destruction of the strain's vials marked to destroy (#160). Its fields follow the
  * strain's restriction kinds (destructionRules): a regulated strain says how the inactivation was
@@ -65,7 +78,8 @@ export function RecordDestructionDialog({ labId, strainId, rules, waiting, open,
   const record = useRecordDestruction(labId, strainId)
   const [failure, setFailure] = useState<string>()
   // Nothing to record: the button only closes the dialog.
-  const action = free && free.length > 0 ? { form: formId } : { onConfirm: onClose }
+  const ready = readyVials(vials.data, free)
+  const action = ready ? { form: formId } : { onConfirm: onClose }
   return (
     <ConfirmDialog
       open={open}
@@ -82,21 +96,15 @@ export function RecordDestructionDialog({ labId, strainId, rules, waiting, open,
       onClose={onClose}
       onExited={onExited}
     >
-      {vials.data === undefined ? (
-        vials.isError ? (
-          <Typography sx={{ mt: 2 }}>The vials to destroy could not be loaded. Close this and try again.</Typography>
-        ) : (
-          <Typography sx={{ mt: 2 }}>Loading the vials to destroy…</Typography>
-        )
-      ) : free === undefined || free.length === 0 ? (
-        <Typography sx={{ mt: 2 }}>No vial of this strain is marked to destroy outside a record that waits for its confirmation.</Typography>
+      {ready === undefined ? (
+        <Typography sx={{ mt: 2 }}>{noticeOf(vials)}</Typography>
       ) : (
         <DestructionFields
           formId={formId}
           labId={labId}
           rules={rules}
-          vials={free}
-          more={vials.data.count > vials.data.results.length}
+          vials={ready.free}
+          more={ready.more}
           onSubmit={(values, setError) => {
             setFailure(undefined)
             record.mutate(
@@ -141,70 +149,15 @@ function DestructionFields({ formId, labId, rules, vials, more, onSubmit }: Fiel
   })
   const errors = formState.errors
   const outside = useWatch({ control, name: 'outside' })
-  const vialsHint = useId()
+  const group = { register, errors }
   return (
     <Stack component="form" id={formId} onSubmit={handleSubmit((values) => onSubmit(values, setError))} noValidate aria-label="Destruction" spacing={2} sx={{ mt: 2 }}>
-      <Box component="fieldset" aria-describedby={vialsHint} sx={{ border: 0, m: 0, p: 0 }}>
-        <Typography component="legend" sx={{ fontWeight: 600 }}>
-          Vials destroyed
-        </Typography>
-        {vials.map((v, i) => (
-          <CheckboxField
-            key={v.public_id}
-            label={v.label}
-            value={v.public_id}
-            // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
-            autoFocus={i === 0}
-            {...register('vials')}
-          />
-        ))}
-        <Typography id={vialsHint} variant="body2" color={errors.vials ? 'error' : 'text.secondary'}>
-          {errors.vials?.message ?? (more ? 'Only the first vials marked to destroy are listed: record the rest in another record.' : 'The vials marked to destroy, all chosen.')}
-        </Typography>
-      </Box>
+      <VialsFieldset vials={vials} more={more} {...group} />
       <TextField label="Destroyed on" hint="YYYY-MM-DD" autoComplete="off" error={errors.destroyed_on?.message} {...register('destroyed_on')} />
-      <SelectField
-        label="Method"
-        hint={rules.declaredMethod ? "A quarantine pest: the method the lab's ÚKZÚZ permit declares." : undefined}
-        options={Object.entries(DESTRUCTION_METHOD_LABELS).map(([value, label]) => ({ value, label }))}
-        error={errors.method?.message}
-        {...register('method')}
-      />
-      <TextField label="Method details" hint="The cycle or procedure, for example 121 °C, 20 min. Required for Other." autoComplete="off" error={errors.method_detail?.message} {...register('method_detail')} />
-      <TextField
-        label="Verification of the inactivation"
-        hint={`${rules.verification ? 'Required: the strain is regulated.' : 'Optional.'} The indicator and its result, or the cycle printout. Name no person.`}
-        autoComplete="off"
-        error={errors.verification?.message}
-        {...register('verification')}
-      />
-      {rules.witness &&
-        (witnesses.data === undefined ? (
-          <Typography>{witnesses.isError ? 'The members could not be loaded. Close this and try again.' : 'Loading the members…'}</Typography>
-        ) : (
-          <SelectField
-            label="Witness"
-            hint="A highly risky agent (VRAT): the member present at the destruction, not you, and on the lab's VRAT access list on that day."
-            options={[{ value: '', label: 'Choose a member' }, ...witnesses.data.map(({ value, label }) => ({ value, label }))]}
-            error={errors.witness?.message}
-            {...register('witness')}
-          />
-        ))}
+      <MethodFields rules={rules} {...group} />
+      {rules.witness && <WitnessField witnesses={witnesses} {...group} />}
       <CheckboxField label="Handed to an outside firm" {...register('outside')} />
-      {outside && (
-        <>
-          <TextField label="Firm" hint="Its name and company number." autoComplete="off" error={errors.contractor?.message} {...register('contractor')} />
-          <TextField label="Handover document" hint="The number of the document the firm signed." autoComplete="off" error={errors.handover_document?.message} {...register('handover_document')} />
-          <Box>
-            <CheckboxField label="Inactivated in the lab before the handover" {...register('inactivated_in_lab')} />
-            {errors.inactivated_in_lab?.message && (
-              <Typography variant="body2" color="error">
-                {errors.inactivated_in_lab.message}
-              </Typography>
-            )}
-          </Box>
-        </>
-      )}
+      {outside && <OutsideFields {...group} />}
       <TextField label="Run" hint="Optional. The autoclave cycle or run, as the lab names it." autoComplete="off" error={errors.run?.message} {...register('run')} />
       <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} error={errors.reason?.message} {...register('reason')} />
     </Stack>

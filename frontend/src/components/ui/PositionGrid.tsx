@@ -83,18 +83,19 @@ export function PositionGrid({ label, rows, cols, cell, onActivate, onEscape, on
     },
   }))
 
+  /** What Escape and Enter or Space do, when the grid has a handler for them. */
+  function actionOf(key: string): (() => void) | undefined {
+    if (key === 'Escape') return onEscape
+    if (key === 'Enter' || key === ' ') return onActivate && (() => onActivate(active))
+    return undefined
+  }
+
   function onKeyDown(event: KeyboardEvent<HTMLTableElement>) {
     if (!(event.target instanceof HTMLElement) || event.target.getAttribute('role') !== 'gridcell') return
-    if (event.key === 'Escape') {
-      if (!onEscape) return
+    const action = actionOf(event.key)
+    if (action) {
       event.preventDefault()
-      onEscape()
-      return
-    }
-    if (event.key === 'Enter' || event.key === ' ') {
-      if (!onActivate) return
-      event.preventDefault()
-      onActivate(active)
+      action()
       return
     }
     const next = moveFocus(active, event.key, { rows, cols }, event.ctrlKey || event.metaKey)

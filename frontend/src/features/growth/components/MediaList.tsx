@@ -45,54 +45,84 @@ export function MediaList({ labId, canManage }: { labId: string; canManage: bool
           Showing the first {media.length} of {list.data.count} media.
         </Typography>
       )}
-      {media.length === 0 ? (
-        <Typography>The lab has no medium yet.</Typography>
-      ) : (
-        <TableContainer component={Paper} variant="outlined">
-          <Table aria-label="Media">
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Composition reference</TableCell>
-                <TableCell>Status</TableCell>
-                {canManage && <TableCell>Action</TableCell>}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {media.map((m) => (
-                <TableRow key={m.public_id}>
-                  <TableCell sx={{ overflowWrap: 'anywhere' }}>{m.name}</TableCell>
-                  <TableCell sx={{ overflowWrap: 'anywhere' }}>{m.composition_reference || 'None'}</TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                    {m.retired_at ? (
-                      <StatusChip tone="neutral">{`Retired ${new Date(m.retired_at).toLocaleDateString('sv')}`}</StatusChip>
-                    ) : (
-                      <StatusChip>Active</StatusChip>
-                    )}
-                  </TableCell>
-                  {canManage && (
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      {m.retired_at === null && (
-                        <>
-                          <Button onClick={show('edit', m)} aria-label={`Edit medium ${m.name}`}>
-                            Edit
-                          </Button>
-                          <Button onClick={show('retire', m)} aria-label={`Retire medium ${m.name}`}>
-                            Retire
-                          </Button>
-                        </>
-                      )}
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-      {open?.kind === 'new' && <MediumDialog labId={labId} open={open.open} onClose={close} onExited={exited} />}
-      {open?.kind === 'edit' && open.medium && <MediumDialog labId={labId} medium={open.medium} open={open.open} onClose={close} onExited={exited} />}
-      {open?.kind === 'retire' && open.medium && <RetireMediumDialog labId={labId} medium={open.medium} open={open.open} onClose={close} onExited={exited} />}
+      <MediaTable media={media} canManage={canManage} show={show} />
+      <MediaDialogs labId={labId} open={open} onClose={close} onExited={exited} />
     </>
   )
+}
+
+type Show = (kind: 'new' | 'edit' | 'retire', medium?: Medium) => (event: MouseEvent<HTMLButtonElement>) => void
+
+/** Retired since when, or active. */
+function MediumStatus({ medium }: { medium: Medium }) {
+  if (medium.retired_at) return <StatusChip tone="neutral">{`Retired ${new Date(medium.retired_at).toLocaleDateString('sv')}`}</StatusChip>
+  return <StatusChip>Active</StatusChip>
+}
+
+/** Edit and Retire: a retired medium keeps neither. */
+function MediumActions({ medium, show }: { medium: Medium; show: Show }) {
+  if (medium.retired_at !== null) return null
+  return (
+    <>
+      <Button onClick={show('edit', medium)} aria-label={`Edit medium ${medium.name}`}>
+        Edit
+      </Button>
+      <Button onClick={show('retire', medium)} aria-label={`Retire medium ${medium.name}`}>
+        Retire
+      </Button>
+    </>
+  )
+}
+
+/** One medium: its name, where its recipe is, its status, and the actions for those who manage. */
+function MediumRow({ medium, canManage, show }: { medium: Medium; canManage: boolean; show: Show }) {
+  return (
+    <TableRow>
+      <TableCell sx={{ overflowWrap: 'anywhere' }}>{medium.name}</TableCell>
+      <TableCell sx={{ overflowWrap: 'anywhere' }}>{medium.composition_reference || 'None'}</TableCell>
+      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+        <MediumStatus medium={medium} />
+      </TableCell>
+      {canManage && (
+        <TableCell sx={{ whiteSpace: 'nowrap' }}>
+          <MediumActions medium={medium} show={show} />
+        </TableCell>
+      )}
+    </TableRow>
+  )
+}
+
+/** The media in a table, or the words that there is none. */
+function MediaTable({ media, canManage, show }: { media: readonly Medium[]; canManage: boolean; show: Show }) {
+  if (media.length === 0) return <Typography>The lab has no medium yet.</Typography>
+  return (
+    <TableContainer component={Paper} variant="outlined">
+      <Table aria-label="Media">
+        <TableHead>
+          <TableRow>
+            <TableCell>Name</TableCell>
+            <TableCell>Composition reference</TableCell>
+            <TableCell>Status</TableCell>
+            {canManage && <TableCell>Action</TableCell>}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {media.map((m) => (
+            <MediumRow key={m.public_id} medium={m} canManage={canManage} show={show} />
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  )
+}
+
+type DialogsProps = { labId: string; open: Open; onClose: () => void; onExited: () => void }
+
+/** The dialog the person opened: add, edit or retire. */
+function MediaDialogs({ labId, open, onClose, onExited }: DialogsProps) {
+  if (open === null) return null
+  if (open.kind === 'new') return <MediumDialog labId={labId} open={open.open} onClose={onClose} onExited={onExited} />
+  if (open.medium === undefined) return null
+  if (open.kind === 'edit') return <MediumDialog labId={labId} medium={open.medium} open={open.open} onClose={onClose} onExited={onExited} />
+  return <RetireMediumDialog labId={labId} medium={open.medium} open={open.open} onClose={onClose} onExited={onExited} />
 }

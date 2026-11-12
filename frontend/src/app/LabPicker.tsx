@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useState, useId } from 'react'
+import { type KeyboardEvent, useState, useId } from 'react'
 import { Box, Button } from '@/components/ui'
 import Divider from '@mui/material/Divider'
 import Menu from '@mui/material/Menu'
@@ -18,6 +18,92 @@ type Props = {
   section: string | undefined
 }
 
+type Navigate = ReturnType<typeof useNavigate>
+
+/** Where picking a lab goes: the section the user is in, else the lab's own page. */
+const OPEN_LAB: Record<KeptSection | 'lab', (navigate: Navigate, labId: string) => Promise<void>> = {
+  strains: (navigate, labId) => navigate({ to: '/labs/$labId/strains', params: { labId } }),
+  storage: (navigate, labId) => navigate({ to: '/labs/$labId/storage', params: { labId } }),
+  requests: (navigate, labId) => navigate({ to: '/labs/$labId/requests', params: { labId } }),
+  lab: (navigate, labId) => navigate({ to: '/labs/$labId', params: { labId } }),
+}
+
+/** The button's name: the visible words stay in it (WCAG 2.5.3). */
+const buttonName = (labId: string | undefined, name: string | undefined) => (labId === undefined ? 'Select a lab' : `Lab ${name ?? 'loading'}`)
+
+/** What the button shows. Two spans: the name algorithm joins them without a space. */
+function ButtonText({ labId, name }: { labId: string | undefined; name: string | undefined }) {
+  if (labId === undefined) {
+    return (
+      <Box component="span" sx={{ fontWeight: 600 }}>
+        Select a lab
+      </Box>
+    )
+  }
+  return (
+    <>
+      <Box component="span" sx={{ color: 'text.secondary' }}>
+        Lab
+      </Box>
+      <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>
+        {name ?? '…'}
+      </Box>
+    </>
+  )
+}
+
+/** The disabled lines the menu may need: no lab, labs that did not load. */
+function LabsNote({ count, failed }: { count: number | undefined; failed: boolean }) {
+  return (
+    <>
+      {count === 0 && (
+        <MenuItem disabled aria-disabled>
+          You are in no lab
+        </MenuItem>
+      )}
+      {failed && (
+        <MenuItem disabled aria-disabled>
+          Could not load your labs
+        </MenuItem>
+      )}
+    </>
+  )
+}
+
+/** ArrowDown on the button opens the menu (WAI-ARIA menu button). */
+function openOnArrowDown(event: KeyboardEvent<HTMLElement>, open: (anchor: HTMLElement) => void) {
+  if (event.key !== 'ArrowDown') return
+  event.preventDefault()
+  open(event.currentTarget)
+}
+
+type LabMenuProps = {
+  anchor: HTMLElement | null
+  ids: { menu: string; button: string }
+  labs: { public_id: string; name: string }[] | undefined
+  failed: boolean
+  labId: string | undefined
+  onPick: (labId: string) => void
+  onAll: () => void
+  onClose: () => void
+}
+
+/** The menu: one radio item per lab, the notes, "All labs". */
+function LabMenu({ anchor, ids, labs, failed, labId, onPick, onAll, onClose }: LabMenuProps) {
+  return (
+    <Menu anchorEl={anchor} open={anchor !== null} onClose={onClose} slotProps={{ list: { id: ids.menu, 'aria-labelledby': ids.button, dense: true } }}>
+      {labs?.map((lab) => (
+        <MenuItem key={lab.public_id} role="menuitemradio" aria-checked={lab.public_id === labId} selected={lab.public_id === labId} onClick={() => onPick(lab.public_id)}>
+          {lab.name}
+        </MenuItem>
+      ))}
+      <LabsNote count={labs?.length} failed={failed} />
+      <Divider component="li" />
+      <MenuItem onClick={onAll}>All labs</MenuItem>
+    </Menu>
+  )
+}
+
 /**
  * The lab picker of the top bar: a menu button with the user's labs (WAI-ARIA menu button, radio
  * items, the current lab checked) and "All labs". Picking a lab opens the same section of it
@@ -32,81 +118,44 @@ export function LabPicker({ labId, section }: Props) {
   const labs = useLabList({ limit: 200, offset: 0 })
   const current = useLab(labId ?? '', labId !== undefined)
   const open = anchor !== null
-  const name = current.data?.name ?? labs.data?.results.find((lab) => lab.public_id === labId)?.name
+  const results = labs.data?.results
+  const name = current.data?.name ?? results?.find((lab) => lab.public_id === labId)?.name
   const close = () => setAnchor(null)
-
-  const go = (id: string) => {
-    close()
-    const kept = keptSection(section)
-    if (kept === 'strains') void navigate({ to: '/labs/$labId/strains', params: { labId: id } })
-    else if (kept === 'storage') void navigate({ to: '/labs/$labId/storage', params: { labId: id } })
-    else if (kept === 'requests') void navigate({ to: '/labs/$labId/requests', params: { labId: id } })
-    else void navigate({ to: '/labs/$labId', params: { labId: id } })
-  }
 
   return (
     <>
       <Button
         id={buttonId}
         variant="outlined"
-        // Two spans: the name algorithm joins them without a space. The visible words stay in the name (WCAG 2.5.3).
-        aria-label={labId === undefined ? 'Select a lab' : `Lab ${name ?? 'loading'}`}
+        aria-label={buttonName(labId, name)}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         onClick={(event) => setAnchor(event.currentTarget)}
-        onKeyDown={(event) => {
-          if (event.key === 'ArrowDown') {
-            event.preventDefault()
-            setAnchor(event.currentTarget)
-          }
-        }}
+        onKeyDown={(event) => openOnArrowDown(event, setAnchor)}
         sx={{ minWidth: 0, maxWidth: '100%', justifyContent: 'flex-start', gap: 0.75 }}
       >
-        {labId === undefined ? (
-          <Box component="span" sx={{ fontWeight: 600 }}>
-            Select a lab
-          </Box>
-        ) : (
-          <>
-            <Box component="span" sx={{ color: 'text.secondary' }}>
-              Lab
-            </Box>
-            <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>
-              {name ?? '…'}
-            </Box>
-          </>
-        )}
+        <ButtonText labId={labId} name={name} />
         <Box component="span" aria-hidden sx={{ fontSize: '0.7em' }}>
           ▾
         </Box>
       </Button>
-      <Menu anchorEl={anchor} open={open} onClose={close} slotProps={{ list: { id: menuId, 'aria-labelledby': buttonId, dense: true } }}>
-        {labs.data?.results.map((lab) => (
-          <MenuItem key={lab.public_id} role="menuitemradio" aria-checked={lab.public_id === labId} selected={lab.public_id === labId} onClick={() => go(lab.public_id)}>
-            {lab.name}
-          </MenuItem>
-        ))}
-        {labs.data?.results.length === 0 && (
-          <MenuItem disabled aria-disabled>
-            You are in no lab
-          </MenuItem>
-        )}
-        {labs.isError && (
-          <MenuItem disabled aria-disabled>
-            Could not load your labs
-          </MenuItem>
-        )}
-        <Divider component="li" />
-        <MenuItem
-          onClick={() => {
-            close()
-            void navigate({ to: '/labs' })
-          }}
-        >
-          All labs
-        </MenuItem>
-      </Menu>
+      <LabMenu
+        anchor={anchor}
+        ids={{ menu: menuId, button: buttonId }}
+        labs={results}
+        failed={labs.isError}
+        labId={labId}
+        onPick={(id) => {
+          close()
+          void OPEN_LAB[keptSection(section) ?? 'lab'](navigate, id)
+        }}
+        onAll={() => {
+          close()
+          void navigate({ to: '/labs' })
+        }}
+        onClose={close}
+      />
     </>
   )
 }

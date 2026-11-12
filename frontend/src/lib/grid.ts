@@ -11,28 +11,19 @@ const clamp = (n: number, max: number) => Math.min(Math.max(n, 0), max)
  * last row: a box is short enough to show whole.
  */
 export function moveFocus(pos: GridPos, key: string, size: GridSize, ctrl = false): GridPos | null {
-  const lastRow = size.rows - 1
-  const lastCol = size.cols - 1
-  switch (key) {
-    case 'ArrowUp':
-      return { ...pos, row: clamp(pos.row - 1, lastRow) }
-    case 'ArrowDown':
-      return { ...pos, row: clamp(pos.row + 1, lastRow) }
-    case 'ArrowLeft':
-      return { ...pos, col: clamp(pos.col - 1, lastCol) }
-    case 'ArrowRight':
-      return { ...pos, col: clamp(pos.col + 1, lastCol) }
-    case 'Home':
-      return ctrl ? { row: 0, col: 0 } : { ...pos, col: 0 }
-    case 'End':
-      return ctrl ? { row: lastRow, col: lastCol } : { ...pos, col: lastCol }
-    case 'PageUp':
-      return { ...pos, row: 0 }
-    case 'PageDown':
-      return { ...pos, row: lastRow }
-    default:
-      return null
-  }
+  return MOVES[key]?.(pos, { row: size.rows - 1, col: size.cols - 1 }, ctrl) ?? null
+}
+
+/** What each key does: the position, the last row and column (as a position), and whether Ctrl is held. */
+const MOVES: Record<string, (pos: GridPos, last: GridPos, ctrl: boolean) => GridPos> = {
+  ArrowUp: (pos, last) => ({ ...pos, row: clamp(pos.row - 1, last.row) }),
+  ArrowDown: (pos, last) => ({ ...pos, row: clamp(pos.row + 1, last.row) }),
+  ArrowLeft: (pos, last) => ({ ...pos, col: clamp(pos.col - 1, last.col) }),
+  ArrowRight: (pos, last) => ({ ...pos, col: clamp(pos.col + 1, last.col) }),
+  Home: (pos, _last, ctrl) => (ctrl ? { row: 0, col: 0 } : { ...pos, col: 0 }),
+  End: (pos, last, ctrl) => (ctrl ? last : { ...pos, col: last.col }),
+  PageUp: (pos) => ({ ...pos, row: 0 }),
+  PageDown: (pos, last) => ({ ...pos, row: last.row }),
 }
 
 /** A position inside the size: the same one, or the nearest that still exists. */

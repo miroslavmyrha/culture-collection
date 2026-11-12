@@ -98,6 +98,32 @@ describe('the VRAT access list on the lab page (act 281/2002 Sb., § 14a(4))', (
     expect(username).toHaveFocus()
   })
 
+  it('puts "Say why" on the reason, focused, when the server wants one', async () => {
+    allowConsole(/API error 400/)
+    mockApi('get', LIST, [])
+    mockApiError('post', LIST, 400, problem(400, { code: 'reason_required' }))
+    const { user } = await render()
+    const form = await screen.findByRole('form', { name: 'Put a member on the VRAT access list' })
+    const reason = within(form).getByRole('textbox', { name: 'Reason' })
+    await user.type(within(form).getByRole('textbox', { name: 'Username' }), 'frank')
+    await user.type(reason, 'r')
+    await user.click(within(form).getByRole('button', { name: 'Put on the list' }))
+    await waitFor(() => expect(reason).toHaveAccessibleDescription('Stored for good. Name no person. Say why'))
+    expect(reason).toHaveFocus()
+  })
+
+  it('shows any other failure of putting a member on the list as an alert on the form', async () => {
+    allowConsole(/API error 500/)
+    mockApi('get', LIST, [])
+    mockApiError('post', LIST, 500, problem(500, { code: 'error' }))
+    const { user } = await render()
+    const form = await screen.findByRole('form', { name: 'Put a member on the VRAT access list' })
+    await user.type(within(form).getByRole('textbox', { name: 'Username' }), 'frank')
+    await user.type(within(form).getByRole('textbox', { name: 'Reason' }), 'r')
+    await user.click(within(form).getByRole('button', { name: 'Put on the list' }))
+    expect(await within(form).findByRole('alert')).toBeInTheDocument()
+  })
+
   it('keeps the button focusable while the request runs and sends once', async () => {
     mockApi('get', LIST, [])
     const held = holdApi('post', LIST)

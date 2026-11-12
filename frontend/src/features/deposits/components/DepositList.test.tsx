@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { makeDepositRow, makeLab, makeMe, page } from '@/test/factories'
-import { mockApi } from '@/test/mockApi'
+import { mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
@@ -73,6 +73,24 @@ describe('the deposits page', () => {
     renderApp({ path: `/labs/${LAB_ID}/deposits`, search: { status: 'lost' } })
     expect(await screen.findByText('The lab has received no deposits yet.')).toBeInTheDocument()
     expect(calls[0]?.url.searchParams.get('status')).toBeNull()
+  })
+
+  it('says a load failed and loads again on Try again', async () => {
+    signedIn()
+    mockApiError('get', LIST, 500)
+    renderApp({ path: `/labs/${LAB_ID}/deposits` })
+    expect(await screen.findByText(/Could not load the deposits/)).toBeInTheDocument()
+    mockApi('get', LIST, page([makeDepositRow({ name_as_received: 'Back again' })]))
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('link', { name: 'Back again' })).toBeInTheDocument()
+  })
+
+  it('offers the first page past the end', async () => {
+    signedIn()
+    mockApi('get', LIST, page([], { count: 3 }))
+    const { router } = renderApp({ path: `/labs/${LAB_ID}/deposits`, search: { offset: 50 } })
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Go to the first page' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({}))
   })
 
   it('leads a curator from the strains to the intake, and a viewer nowhere', async () => {

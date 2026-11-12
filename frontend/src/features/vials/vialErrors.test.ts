@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError, errorMessage } from '@/lib/api'
-import { POSITION_TAKEN, VIAL_ERRORS, vialError } from './vialErrors'
+import { entryError, gridError, POSITION_TAKEN, VIAL_ERRORS, vialError } from './vialErrors'
 
 /** Every message as it was written before the lookup table, by status ('*' for any) and code. */
 const EXPECTED: [string, string, string][] = [
@@ -58,5 +58,44 @@ describe('vialError', () => {
 
   it('does not read an inherited property as a code', () => {
     expect(vialError(answer(409, 'constructor'))).toBe('Someone else changed it. Reload and try again.')
+  })
+})
+
+describe('gridError', () => {
+  const OUT_OF_SERVICE = 'This box or a unit holding it is out of service or retired.'
+
+  it.each([
+    ['unit_not_active', OUT_OF_SERVICE],
+    ['not_a_box', OUT_OF_SERVICE],
+    ['risk_group_above_cap', "This box may not hold this strain's risk group."],
+    ['outside_box', 'This position is not in the box. Reload the page.'],
+  ])('answers %s at any status', (code, message) => {
+    for (const status of [400, 409, 422]) expect(gridError(answer(status, code))).toBe(message)
+  })
+
+  it('leaves every other answer to the form messages', () => {
+    expect(gridError(answer(409, 'position_taken'))).toBe(POSITION_TAKEN)
+    expect(gridError(answer(409, 'no_such_code'))).toBe('Someone else changed it. Reload and try again.')
+    expect(gridError(new Error('boom'))).toBe('Something went wrong. Try again.')
+  })
+})
+
+describe('entryError', () => {
+  it.each([
+    ['position_taken', POSITION_TAKEN],
+    ['position_twice', 'Another vial of the list goes to this position. Choose another one.'],
+    ['vial_already_placed', 'This vial is in a box already. Move it from its own row.'],
+    ['vial_not_in_collection', 'This vial has left the collection or is lost. Reload to see it.'],
+    ['risk_group_above_cap', "This box may not hold this strain's risk group."],
+    ['outside_box', 'This position is not in the box. Reload the page.'],
+  ])('answers %s', (code, message) => {
+    expect(entryError(code)).toBe(message)
+  })
+
+  it('says the vial could not be placed for an unknown or inherited code', () => {
+    const fallback = 'This vial could not be placed. Reload the page and try again.'
+    expect(entryError('no_such_code')).toBe(fallback)
+    expect(entryError('')).toBe(fallback)
+    expect(entryError('constructor')).toBe(fallback)
   })
 })

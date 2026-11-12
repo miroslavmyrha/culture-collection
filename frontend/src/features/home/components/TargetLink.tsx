@@ -4,6 +4,64 @@ import type { ActivityLine, WaitingItem } from '../schemas'
 
 type Target = WaitingItem['target'] | NonNullable<ActivityLine['target']>
 
+type LabTarget = 'lab' | 'permits' | 'requesters'
+type ItemTarget = Exclude<Target, LabTarget>
+
+/** The pages of a lab as a whole: no id needed. */
+const LAB_LINKS: Record<LabTarget, (labId: string, children: ReactNode) => ReactNode> = {
+  lab: (labId, children) => (
+    <Link to="/labs/$labId" params={{ labId }}>
+      {children}
+    </Link>
+  ),
+  permits: (labId, children) => (
+    <Link to="/labs/$labId/permits" params={{ labId }}>
+      {children}
+    </Link>
+  ),
+  requesters: (labId, children) => (
+    <Link to="/labs/$labId/requesters" params={{ labId }}>
+      {children}
+    </Link>
+  ),
+}
+
+/** The page of one thing in a lab. A strain with a vial opens its Material tab narrowed to that vial. */
+const ITEM_LINKS: Record<ItemTarget, (labId: string, id: string, vial: string | null, children: ReactNode) => ReactNode> = {
+  deposit: (labId, id, _vial, children) => (
+    <Link to="/labs/$labId/deposits/$depositId" params={{ labId, depositId: id }}>
+      {children}
+    </Link>
+  ),
+  strain: (labId, id, vial, children) =>
+    vial === null ? (
+      <Link to="/labs/$labId/strains/$strainId" params={{ labId, strainId: id }}>
+        {children}
+      </Link>
+    ) : (
+      <Link to="/labs/$labId/strains/$strainId/material" params={{ labId, strainId: id }} search={{ vial }}>
+        {children}
+      </Link>
+    ),
+  request: (labId, id, _vial, children) => (
+    <Link to="/labs/$labId/requests/$requestId" params={{ labId, requestId: id }}>
+      {children}
+    </Link>
+  ),
+  storage_unit: (labId, id, _vial, children) => (
+    <Link to="/labs/$labId/storage/$unitId" params={{ labId, unitId: id }}>
+      {children}
+    </Link>
+  ),
+  mta_template: (labId, id, _vial, children) => (
+    <Link to="/labs/$labId/mta-templates/$templateId" params={{ labId, templateId: id }}>
+      {children}
+    </Link>
+  ),
+}
+
+const isLabTarget = (target: Target): target is LabTarget => target in LAB_LINKS
+
 /**
  * The page where an item of Home is handled or a line's subject lives, from the server's target
  * and ids; a strain with a vial opens its Material tab narrowed to that vial. A target that needs an id and has none, or no target, renders the words alone.
@@ -22,68 +80,7 @@ export function TargetLink({
   vial?: string | null
   children: ReactNode
 }) {
-  if (target === 'lab') {
-    return (
-      <Link to="/labs/$labId" params={{ labId }}>
-        {children}
-      </Link>
-    )
-  }
-  if (target === 'permits') {
-    return (
-      <Link to="/labs/$labId/permits" params={{ labId }}>
-        {children}
-      </Link>
-    )
-  }
-  if (target === 'requesters') {
-    return (
-      <Link to="/labs/$labId/requesters" params={{ labId }}>
-        {children}
-      </Link>
-    )
-  }
+  if (target !== null && isLabTarget(target)) return LAB_LINKS[target](labId, children)
   if (target === null || id === null) return <>{children}</>
-  if (target === 'deposit') {
-    return (
-      <Link to="/labs/$labId/deposits/$depositId" params={{ labId, depositId: id }}>
-        {children}
-      </Link>
-    )
-  }
-  if (target === 'strain' && vial !== null) {
-    return (
-      <Link to="/labs/$labId/strains/$strainId/material" params={{ labId, strainId: id }} search={{ vial }}>
-        {children}
-      </Link>
-    )
-  }
-  if (target === 'strain') {
-    return (
-      <Link to="/labs/$labId/strains/$strainId" params={{ labId, strainId: id }}>
-        {children}
-      </Link>
-    )
-  }
-  if (target === 'request') {
-    return (
-      <Link to="/labs/$labId/requests/$requestId" params={{ labId, requestId: id }}>
-        {children}
-      </Link>
-    )
-  }
-  if (target === 'storage_unit') {
-    return (
-      <Link to="/labs/$labId/storage/$unitId" params={{ labId, unitId: id }}>
-        {children}
-      </Link>
-    )
-  }
-  // The last target left: a new one fails to compile here.
-  void (target satisfies 'mta_template')
-  return (
-    <Link to="/labs/$labId/mta-templates/$templateId" params={{ labId, templateId: id }}>
-      {children}
-    </Link>
-  )
+  return ITEM_LINKS[target](labId, id, vial, children)
 }

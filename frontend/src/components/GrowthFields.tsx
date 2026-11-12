@@ -18,6 +18,42 @@ type Props = {
   autoFocus?: boolean
 }
 
+const ATMOSPHERE_OPTIONS = [{ value: '', label: 'Not recorded' }, ...ATMOSPHERES.map((value) => ({ value, label: ATMOSPHERE_LABELS[value] }))]
+
+/** The media to choose from, with "No medium" first and a retired one marked. */
+function mediumOptions(media: readonly Medium[] | undefined, current: MediumBrief | null) {
+  const choices = mediumChoices(media ?? [], current).map((m) => ({ value: m.public_id, label: m.retired_at ? `${m.name} (retired)` : m.name }))
+  return [{ value: '', label: 'No medium' }, ...choices]
+}
+
+type FieldProps = Pick<Props, 'register' | 'errors'>
+
+/** The medium of the lab, or the words that the media did not load. */
+function MediumField({ register, errors, media, mediaFailed, current, focusFirst }: FieldProps & Pick<Props, 'media' | 'current'> & { mediaFailed: boolean; focusFirst: boolean }) {
+  if (mediaFailed) return <Typography role="alert">Could not load the media. Close this dialog and try again.</Typography>
+  return (
+    <SelectField
+      label="Medium"
+      hint="From the lab's list of media."
+      options={mediumOptions(media, current)}
+      // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
+      autoFocus={focusFirst}
+      error={errors.medium?.message}
+      {...register('medium')}
+    />
+  )
+}
+
+/** One whole-degree temperature, or a range with the high end. */
+function TemperatureFields({ register, errors }: FieldProps) {
+  return (
+    <Stack direction="row" spacing={2}>
+      <TextField label="Temperature °C" hint="Whole degrees, 0 to 125." inputMode="numeric" autoComplete="off" error={errors.temperature_low_c?.message} {...register('temperature_low_c')} />
+      <TextField label="Up to °C" hint="Only for a range." inputMode="numeric" autoComplete="off" error={errors.temperature_high_c?.message} {...register('temperature_high_c')} />
+    </Stack>
+  )
+}
+
 /**
  * The growth conditions of a strain or a passage as form fields (#79): a medium of the lab, a
  * whole-degree temperature (one value, or a range with the high end), an atmosphere. Each may
@@ -26,35 +62,11 @@ type Props = {
  */
 export function GrowthFields({ register, errors, media, mediaFailed = false, current, autoFocus = false }: Props) {
   if (media === undefined && !mediaFailed) return <Typography>Loading the media…</Typography>
-  const choices = [
-    { value: '', label: 'No medium' },
-    ...mediumChoices(media ?? [], current).map((m) => ({ value: m.public_id, label: m.retired_at ? `${m.name} (retired)` : m.name })),
-  ]
   return (
     <>
-      {mediaFailed ? (
-        <Typography role="alert">Could not load the media. Close this dialog and try again.</Typography>
-      ) : (
-        <SelectField
-          label="Medium"
-          hint="From the lab's list of media."
-          options={choices}
-          // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
-          autoFocus={autoFocus}
-          error={errors.medium?.message}
-          {...register('medium')}
-        />
-      )}
-      <Stack direction="row" spacing={2}>
-        <TextField label="Temperature °C" hint="Whole degrees, 0 to 125." inputMode="numeric" autoComplete="off" error={errors.temperature_low_c?.message} {...register('temperature_low_c')} />
-        <TextField label="Up to °C" hint="Only for a range." inputMode="numeric" autoComplete="off" error={errors.temperature_high_c?.message} {...register('temperature_high_c')} />
-      </Stack>
-      <SelectField
-        label="Atmosphere"
-        options={[{ value: '', label: 'Not recorded' }, ...ATMOSPHERES.map((value) => ({ value, label: ATMOSPHERE_LABELS[value] }))]}
-        error={errors.atmosphere?.message}
-        {...register('atmosphere')}
-      />
+      <MediumField register={register} errors={errors} media={media} mediaFailed={mediaFailed} current={current} focusFirst={autoFocus} />
+      <TemperatureFields register={register} errors={errors} />
+      <SelectField label="Atmosphere" options={ATMOSPHERE_OPTIONS} error={errors.atmosphere?.message} {...register('atmosphere')} />
     </>
   )
 }

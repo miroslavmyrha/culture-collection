@@ -44,20 +44,22 @@ function isRefusedPath(pathname: string): boolean {
  * So the returned path must not start with // or /\, and must resolve to our origin once more.
  */
 export function safeRedirect(raw: unknown, fallback = '/'): string {
-  if (typeof raw !== 'string' || !raw.startsWith('/')) return fallback
+  return (typeof raw === 'string' && raw.startsWith('/') ? ownPath(raw) : null) ?? fallback
+}
+
+/** The path, search and hash of a URL that stays on our origin and is no refused path, else null. */
+function ownPath(raw: string): string | null {
   const origin = window.location.origin
   try {
     const url = new URL(raw, origin)
-    if (url.origin !== origin) return fallback
-    if (isRefusedPath(url.pathname)) return fallback
+    if (url.origin !== origin || isRefusedPath(url.pathname)) return null
     const path = url.pathname + url.search + url.hash
     // The output again: a path that starts with // or /\ is protocol-relative, and it must
     // still resolve to our origin when the router or the browser reads it as a URL.
-    if (path.startsWith('//') || path.startsWith('/\\')) return fallback
-    if (new URL(path, origin).origin !== origin) return fallback
-    return path
+    if (path.startsWith('//') || path.startsWith('/\\')) return null
+    return new URL(path, origin).origin === origin ? path : null
   } catch {
-    return fallback
+    return null
   }
 }
 

@@ -2,6 +2,7 @@ import { keepPreviousData, queryOptions } from '@tanstack/react-query'
 import { z } from 'zod'
 import type { components } from '@/api/schema'
 import { api, unwrap } from './api'
+import { addIssues, type Rule } from './rules'
 import { sharedKeys } from './shared-keys'
 
 type Schemas = components['schemas']
@@ -78,17 +79,22 @@ export const growthShape = {
 export const growthSchema = z.object(growthShape).superRefine(checkTemperatures)
 export type GrowthForm = z.input<typeof growthSchema>
 
+type Temperatures = { temperature_low_c: string; temperature_high_c: string }
+
+const RANGE = `Use whole degrees from ${MIN_TEMPERATURE_C} to ${MAX_TEMPERATURE_C} °C`
+const outOfRange = (value: string) => !WHOLE.test(value) || Number(value) < MIN_TEMPERATURE_C || Number(value) > MAX_TEMPERATURE_C
+const given = (value: string) => value !== '' && !outOfRange(value)
+
+const TEMPERATURE_RULES: readonly Rule<Temperatures>[] = [
+  [(f) => f.temperature_low_c === '' && f.temperature_high_c !== '', 'temperature_low_c', 'Enter the low end too'],
+  [(f) => f.temperature_low_c !== '' && outOfRange(f.temperature_low_c), 'temperature_low_c', RANGE],
+  [(f) => f.temperature_high_c !== '' && outOfRange(f.temperature_high_c), 'temperature_high_c', RANGE],
+  [(f) => given(f.temperature_low_c) && given(f.temperature_high_c) && Number(f.temperature_high_c) < Number(f.temperature_low_c), 'temperature_high_c', 'The high end is below the low end'],
+]
+
 /** The two temperature boxes together, for a schema that holds them next to other fields. */
-export function checkTemperatures(form: { temperature_low_c: string; temperature_high_c: string }, ctx: z.RefinementCtx) {
-  const { temperature_low_c: low, temperature_high_c: high } = form
-  const range = `Use whole degrees from ${MIN_TEMPERATURE_C} to ${MAX_TEMPERATURE_C} °C`
-  const bad = (value: string) => !WHOLE.test(value) || Number(value) < MIN_TEMPERATURE_C || Number(value) > MAX_TEMPERATURE_C
-  if (low === '' && high !== '') ctx.addIssue({ code: 'custom', path: ['temperature_low_c'], message: 'Enter the low end too' })
-  if (low !== '' && bad(low)) ctx.addIssue({ code: 'custom', path: ['temperature_low_c'], message: range })
-  if (high !== '' && bad(high)) ctx.addIssue({ code: 'custom', path: ['temperature_high_c'], message: range })
-  if (low !== '' && high !== '' && !bad(low) && !bad(high) && Number(high) < Number(low)) {
-    ctx.addIssue({ code: 'custom', path: ['temperature_high_c'], message: 'The high end is below the low end' })
-  }
+export function checkTemperatures(form: Temperatures, ctx: z.RefinementCtx) {
+  addIssues(TEMPERATURE_RULES, form, ctx)
 }
 
 export const growthDefaults = (growth: Growth): GrowthForm => ({
