@@ -141,10 +141,15 @@ const choiceOf = (group: number): RiskGroupChoice | '' => {
   return isChoice(text) ? text : ''
 }
 
-export const emptyFields = (unit?: Pick<UnitRow, 'name' | 'barcode' | 'temperature_c' | 'max_risk_group' | 'box_type'>): EditUnitForm => ({
-  name: unit?.name ?? '',
-  barcode: unit?.barcode ?? '',
-  temperature_c: unit?.temperature_c === null || unit?.temperature_c === undefined ? '' : String(unit.temperature_c),
-  max_risk_group: unit?.max_risk_group ? choiceOf(unit.max_risk_group) : '',
-  box_type: unit?.box_type?.public_id ?? '',
-})
+const NO_FIELDS: EditUnitForm = { name: '', barcode: '', temperature_c: '', max_risk_group: '', box_type: '' }
+
+export const emptyFields = (unit?: Pick<UnitRow, 'name' | 'barcode' | 'temperature_c' | 'max_risk_group' | 'box_type'>): EditUnitForm => {
+  if (!unit) return NO_FIELDS
+  return {
+    name: unit.name,
+    barcode: unit.barcode ?? '',
+    temperature_c: unit.temperature_c === null ? '' : String(unit.temperature_c),
+    max_risk_group: unit.max_risk_group ? choiceOf(unit.max_risk_group) : '',
+    box_type: unit.box_type?.public_id ?? '',
+  }
+}

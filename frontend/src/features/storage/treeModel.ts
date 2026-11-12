@@ -53,6 +53,14 @@ export type TreeAction = {
 
 const isPrintable = (key: string) => key.length === 1 && key !== ' ' && key !== '*'
 
+/** The keys that only move the focus: the row they land on, from the rows and the focused index. */
+const JUMPS: Readonly<Record<string, <T>(rows: readonly VisibleRow<T>[], index: number) => VisibleRow<T> | undefined>> = {
+  ArrowDown: (rows, index) => rows[index + 1],
+  ArrowUp: (rows, index) => rows[index - 1],
+  Home: (rows) => rows[0],
+  End: (rows) => rows.at(-1),
+}
+
 /**
  * What a key does, from the visible rows, the focused node and the expanded set. Null for a
  * key the tree does not handle (Tab, a modifier chord): the browser keeps it.
@@ -73,38 +81,48 @@ export function treeKey<T>(
   const index = rows.findIndex((row) => row.node.id === focused)
   const current = rows[index]
   if (current === undefined) return null
-  const node = current.node
   const to = (row: VisibleRow<T> | undefined): TreeAction => ({ focus: row?.node.id ?? focused, expanded })
-  const open = (ids: readonly string[]): ReadonlySet<string> => new Set([...expanded, ...ids])
-  const isOpen = expanded.has(node.id)
-  const hasChildren = node.children.length > 0
+  const jump = JUMPS[key]
+  if (jump) return to(jump(rows, index))
   switch (key) {
-    case 'ArrowDown':
-      return to(rows[index + 1])
-    case 'ArrowUp':
-      return to(rows[index - 1])
-    case 'Home':
-      return to(rows[0])
-    case 'End':
-      return to(rows.at(-1))
     case 'ArrowRight':
-      if (!hasChildren) return to(current)
-      return isOpen ? to(rows[index + 1]) : { focus: focused, expanded: open([node.id]) }
-    case 'ArrowLeft': {
-      if (hasChildren && isOpen) return { focus: focused, expanded: new Set([...expanded].filter((id) => id !== node.id)) }
-      return to(rows.find((row) => row.node.id === current.parentId))
-    }
+      return openOrEnter(current, rows[index + 1], expanded)
+    case 'ArrowLeft':
+      return closeOrLeave(rows, current, expanded)
     case 'Enter':
       return { focus: focused, expanded, activate: true }
-    case '*': {
-      const siblings = rows.filter((row) => row.parentId === current.parentId && row.node.children.length > 0)
-      return { focus: focused, expanded: open(siblings.map((row) => row.node.id)) }
-    }
-    default: {
-      if (!isPrintable(key)) return null
-      const wanted = key.toLocaleLowerCase()
-      const after = [...rows.slice(index + 1), ...rows.slice(0, index + 1)]
-      return to(after.find((row) => row.node.label.toLocaleLowerCase().startsWith(wanted)))
-    }
+    case '*':
+      return openSiblings(rows, current, expanded)
+    default:
+      return isPrintable(key) ? to(nextStartingWith(rows, index, key)) : null
   }
+}
+
+/** Right: opens a closed node, moves into an open one; nothing on a leaf. */
+function openOrEnter<T>(current: VisibleRow<T>, next: VisibleRow<T> | undefined, expanded: ReadonlySet<string>): TreeAction {
+  const id = current.node.id
+  if (current.node.children.length === 0) return { focus: id, expanded }
+  if (expanded.has(id)) return { focus: next?.node.id ?? id, expanded }
+  return { focus: id, expanded: new Set([...expanded, id]) }
+}
+
+/** Left: closes an open node, else moves to the parent; nothing on a closed root. */
+function closeOrLeave<T>(rows: readonly VisibleRow<T>[], current: VisibleRow<T>, expanded: ReadonlySet<string>): TreeAction {
+  const id = current.node.id
+  if (current.node.children.length > 0 && expanded.has(id)) return { focus: id, expanded: new Set([...expanded].filter((open) => open !== id)) }
+  const parent = rows.find((row) => row.node.id === current.parentId)
+  return { focus: parent?.node.id ?? id, expanded }
+}
+
+/** `*`: opens every sibling of the node. */
+function openSiblings<T>(rows: readonly VisibleRow<T>[], current: VisibleRow<T>, expanded: ReadonlySet<string>): TreeAction {
+  const siblings = rows.filter((row) => row.parentId === current.parentId && row.node.children.length > 0)
+  return { focus: current.node.id, expanded: new Set([...expanded, ...siblings.map((row) => row.node.id)]) }
+}
+
+/** The next visible node whose label starts with the typed character, wrapping round. */
+function nextStartingWith<T>(rows: readonly VisibleRow<T>[], index: number, key: string): VisibleRow<T> | undefined {
+  const wanted = key.toLocaleLowerCase()
+  const after = [...rows.slice(index + 1), ...rows.slice(0, index + 1)]
+  return after.find((row) => row.node.label.toLocaleLowerCase().startsWith(wanted))
 }
