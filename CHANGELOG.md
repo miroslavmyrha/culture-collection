@@ -8,6 +8,7 @@ also names that rule's id in [docs/compliance.md](docs/compliance.md), so the pa
 to the law the rule rests on is one hop.
 
 ## Unreleased
+- Every commit of a pull request is checked on its own runner, in parallel, instead of one at a time on one machine (#213).
 
 Everything below is the first development of the app. Nothing is released and no version is
 tagged yet.
