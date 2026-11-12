@@ -1247,3 +1247,45 @@ because every duty the classification carries is theirs to answer for.
   own on the strain's page, with a reason.
 
 Each rule, its source, its code and its tests are in `docs/compliance.md` (R-MATCH-02).
+
+## Amendment 2026-11-12: the UN number of a GMO shipment follows the record (#197)
+
+The amendment of 2026-11-04 left the class of a GMO shipment to the shipper alone: "Which of
+UN 3245 and UN 3373 a GMO is, the shipper states (WHO 2.1): nothing in the app decides whether a
+culture is an infectious substance, and an unknown animal pathogenicity is no proof that it is
+not." **That sentence is replaced by this amendment.** The app does decide, where its own record
+says something, and it decides by the strain's own infectiousness, never by the GMO flag: a
+genetically modified organism is not an infectious substance because it is modified.
+
+Three cases, and the record decides in two of them:
+
+- **Recorded as pathogenic to humans or to animals: UN 3373 is forced and UN 3245 refused.** The
+  package holds an infectious substance, which is Category B in this collection's scope. The
+  record is the risk group for humans, which rates human disease only (government order
+  361/2007 Sb., § 36(2) a), Directive 2000/54/EC, Art. 2), so group 2 or higher is that record,
+  and the strain's own `animal_pathogenicity` for animals (R-RISK-05).
+- **Recorded as pathogenic to neither: UN 3245 is forced and UN 3373 refused.** Risk group 1 and
+  no pathogenicity known for animals. This is a record, not a proof, and it is the record the
+  shipper would otherwise have to repeat by hand.
+- **Unknown on either side: the shipper states the class with its basis, as before.** Unknown is
+  what most deposits record, so this is the common case. It is read as nothing: not as a
+  statement that the culture is not infectious, and not as one that it is.
+
+A plant pathogen is read by none of the three. The transport rules ask about humans and animals,
+and the wider plant half of R-SHIP-03 is about the exemption alone.
+
+Everything the amendment of 2026-11-04 decided besides that one sentence stands: a request with
+a GMO line is never exempt, UN 3245 is refused for a request with no GMO line, UN 3245 rests on
+the one basis that states why, and Category A is no choice. RID, ADR 2.2.9 and the IATA DGR are
+still not read in the original, so R-SHIP-02 to R-SHIP-04 and this rule stay "not verified", and
+the rule records what it rests on instead of claiming a source nobody read.
+
+The rule lives twice: in `distribution.policy.recorded_transport_class` and in the SQL function
+`distribution_recorded_transport_class`, which the preparation guard and the shipment guard both
+ask, so no writer past the service records a package the service would refuse. A parity test
+compares the two readings case by case. Which of the three cases applied to a shipment is read
+back from the shipment itself, its class beside the strains it carried, and the basis travels
+with the package: the delivery note now prints the classification basis and, where the shipper
+stated one, the words it rests on.
+
+Each rule, its source, its code and its tests are in `docs/compliance.md` (R-SHIP-10, R-SHIP-02).

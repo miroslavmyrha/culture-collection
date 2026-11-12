@@ -739,14 +739,14 @@ listed here so that the test can tell them from a regulated gate without a rule.
   are not infectious go to UN 3245 (WHO 4.5 note)". Neither text was read in the original (RID
   and ADR 2.2.9 are not among the sources), so the class rests on the study. An infectious GMO
   is an infectious substance and stays Category B, which this collection ships as UN 3373.
-- Code: `backend/cultures/distribution/models.py::TransportClass`, `backend/cultures/distribution/models.py::BASES`, `backend/cultures/distribution/services/shipment.py::_check_gmo`, `backend/cultures/distribution/migrations/0015_un3245_for_a_gmo.py::"distribution_shipment_class_and_basis"`
-- Tests: `backend/cultures/distribution/tests/test_shipment.py::test_the_table_refuses_a_shipment_the_rules_refuse`, `backend/cultures/distribution/tests/test_shipment.py::test_a_gmo_line_is_not_shipped_as_exempt_and_goes_as_un_3245`, `backend/cultures/distribution/tests/test_shipment.py::test_un_3245_is_refused_for_a_request_with_no_gmo_line`, `backend/cultures/distribution/tests/test_two_person.py::test_a_gmo_restriction_added_after_the_preparation_refuses_the_exemption_at_confirmation`, `backend/cultures/distribution/tests/test_two_person.py::test_the_table_refuses_a_prepared_package_whose_class_and_basis_do_not_belong_together`
-- Limits: which of UN 3245 and UN 3373 a GMO is, the shipper states with the basis: the app
-  refuses the exemption for a GMO line and UN 3245 for a line that is no GMO, and it never
-  decides whether a culture is an infectious substance (WHO 2.1 leaves that to the shipper, and
-  an unknown animal pathogenicity is no proof that a GMO is not infectious). The packing
-  instruction of UN 3245 is not modelled: such a package takes either packing the app holds, and
-  no source read here says which one it must be.
+- Code: `backend/cultures/distribution/models.py::TransportClass`, `backend/cultures/distribution/models.py::BASES`, `backend/cultures/distribution/services/shipment.py::_check_gmo`, `backend/cultures/distribution/migrations/0015_un3245_for_a_gmo.py::"distribution_shipment_class_and_basis"`, `backend/cultures/distribution/migrations/0016_gmo_transport_class.py::"distribution_check_gmo_class"`
+- Tests: `backend/cultures/distribution/tests/test_shipment.py::test_the_table_refuses_a_shipment_the_rules_refuse`, `backend/cultures/distribution/tests/test_shipment.py::test_a_gmo_line_is_not_shipped_as_exempt_and_goes_as_un_3245`, `backend/cultures/distribution/tests/test_shipment.py::test_un_3245_is_refused_for_a_request_with_no_gmo_line`, `backend/cultures/distribution/tests/test_shipment.py::test_the_table_refuses_a_gmo_package_the_records_do_not_allow`, `backend/cultures/distribution/tests/test_two_person.py::test_a_gmo_restriction_added_after_the_preparation_refuses_the_exemption_at_confirmation`, `backend/cultures/distribution/tests/test_two_person.py::test_the_table_refuses_a_prepared_package_whose_class_and_basis_do_not_belong_together`
+- Limits: that a GMO line is never exempt and that UN 3245 is for a GMO line only is held in the
+  service and in the two shipment guards. Which of UN 3245 and UN 3373 a GMO is was the
+  shipper's alone until #197: since then the record decides it where the record says something,
+  and the shipper states it where the record does not (R-SHIP-10). The packing instruction of
+  UN 3245 is not modelled: such a package takes either packing the app holds, and no source read
+  here says which one it must be.
 
 #### R-SHIP-03 A strain pathogenic to humans, animals or plants is not shipped as exempt, non-pathogenic
 
@@ -831,6 +831,34 @@ listed here so that the test can tell them from a regulated gate without a rule.
   label, so „na štítku“ is the lab's to do. The same sentence also asks for whatever else the
   permit for contained use requires on the labelling, and no contained-use authorisation of this
   lab is recorded (D-04), so nothing else is printed.
+
+#### R-SHIP-10 The number a GMO shipment travels under follows the strains' own records, and an unknown pathogenicity leaves the class to the shipper
+
+- Kind: not verified
+- Source: ADR 0009, amendment 2026-11-12 (#197). The two numbers themselves are R-SHIP-02: study
+  s10, section 1, reading the WHO transport guidance 4.5 and IATA 3.6.2.4, and neither RID and
+  ADR 2.2.9 nor the IATA DGR is among the sources read, so what the class rests on is the study
+  and this rule stays not verified with them. What is read in the original is the reading of the
+  record: the risk group rates human disease only (government order 361/2007 Sb., § 36(2) a),
+  Directive 2000/54/EC, Art. 2), so group 2 or higher is the record "pathogenic to humans",
+  group 1 is the record that it is not, and animals are the strain's own recorded pathogenicity
+  beside the group (R-RISK-05). Three cases: a strain recorded as pathogenic to humans or to
+  animals forces UN 3373 and refuses UN 3245; every strain recorded as pathogenic to neither
+  forces UN 3245 and refuses UN 3373; an unknown pathogenicity on either side forces nothing and
+  the shipper states the class with its basis, which the delivery note carries.
+- Quote: „Biologické činitele se člení podle míry rizika infekce na biologické činitele a) skupiny 1, u nichž není pravděpodobné, že by mohly způsobit onemocnění člověka“; Directive 2000/54/EC, Art. 2: "group 1 biological agent means one that is unlikely to cause human disease"
+- English: biological agents are divided by their level of risk of infection into a) group 1,
+  which are unlikely to cause human disease.
+- Code: `backend/cultures/distribution/policy.py::Infectiousness`, `backend/cultures/distribution/policy.py::pathogenic_for_transport`, `backend/cultures/distribution/policy.py::recorded_transport_class`, `backend/cultures/distribution/services/shipment.py::_check_gmo_number`, `backend/cultures/distribution/documents.py::delivery_note`, `backend/cultures/distribution/migrations/0016_gmo_transport_class.py::"distribution_recorded_transport_class"`, `backend/cultures/distribution/migrations/0016_gmo_transport_class.py::"distribution_check_gmo_class"`
+- Tests: `backend/cultures/distribution/tests/test_shipment.py::test_a_gmo_recorded_as_a_pathogen_travels_as_un_3373_and_never_as_un_3245`, `backend/cultures/distribution/tests/test_shipment.py::test_a_gmo_recorded_as_pathogenic_to_neither_travels_as_un_3245_and_never_as_un_3373`, `backend/cultures/distribution/tests/test_shipment.py::test_a_gmo_of_unknown_pathogenicity_is_classified_by_the_shipper`, `backend/cultures/distribution/tests/test_shipment.py::test_the_service_and_the_trigger_read_the_same_class_from_the_records`, `backend/cultures/distribution/tests/test_shipment.py::test_the_table_refuses_a_gmo_package_the_records_do_not_allow`
+- Limits: unknown is what most deposits record (R-RISK-05), so the third case is the common one
+  and nothing is forced there. A plant pathogen is read by neither case: the transport rules ask
+  about humans and animals, and the wider plant half of R-SHIP-03 is about the exemption only. A
+  strain recorded as group 1 with no pathogenicity known for animals is read as a record that
+  the culture is not an infectious substance, which is the record, not a proof: the rule holds
+  until RID, ADR 2.2.9 or the IATA DGR is read in the original and says otherwise. Whether a
+  culture is an infectious substance in the sense of the transport rules is still the shipper's
+  statement wherever the record is silent (WHO 2.1).
 
 ### Deaccession, destruction and loss
 

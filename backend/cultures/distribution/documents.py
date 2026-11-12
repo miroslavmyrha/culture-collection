@@ -31,6 +31,7 @@ from cultures.strains.models import StrainRestriction
 from cultures.strains.selectors import regulating_restrictions
 
 from .models import (
+    ClassificationBasis,
     Coolant,
     DistributionRequest,
     LinePermit,
@@ -271,6 +272,10 @@ def delivery_note(facts: Facts) -> str:
         "",
         "PACKAGE",
         f"Transport class: {TransportClass(s.transport_class).label}",
+        # What the class rests on travels with the package: who reads the note reads the basis
+        # the shipper stated, or the record that forced the class (#197, R-SHIP-10).
+        f"Classification basis: {ClassificationBasis(s.classification_basis).label}",
+        *([f"Basis stated: {s.basis_note}"] if s.basis_note else []),
         f"Packing instruction: {PackingInstruction(s.packing_instruction).label}",
         f"Coolant: {_coolant(s)}",
         f"Carrier: {s.carrier}",

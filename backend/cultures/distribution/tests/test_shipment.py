@@ -34,11 +34,12 @@ from cultures.distribution.models import (
     ReservationEnd,
     Shipment,
     ShipmentDocument,
+    ShipmentPreparation,
     ShipmentVial,
     TransportClass,
     VialReservation,
 )
-from cultures.distribution.policy import evaluate
+from cultures.distribution.policy import evaluate, recorded_transport_class
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab
 from cultures.lineage import services as lineage
@@ -70,6 +71,7 @@ from .support import (
     as_actor,
     confirm,
     next_permit_day,
+    open_preparation,
     prepare,
     reserved,
     ship,
@@ -417,6 +419,175 @@ def test_un_3245_is_refused_for_a_request_with_no_gmo_line(
     assert "no strain of this request is one" in error.detail
 
 
+# The number a GMO travels under, which the records force where they say anything (#197).
+
+
+@pytest.fixture
+def gmo_approved(
+    *,
+    as_curator: AuditContext,
+    curator: User,
+    approver: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+    mockia: Taxon,
+) -> Any:
+    """An approved request for one vial of a GMO strain whose records are `facts`, ready for a
+    curator to prepare and a manager to confirm. The recipient's contained-use authorisation is
+    recorded, so no gate blocks the line."""
+    add_permit(curator, requester, PermitKind.GMO_CONTAINED_USE)
+
+    def make(**facts: Any) -> DistributionRequest:
+        strain = supply(mockia, restrictions=[GMO], vials=6, **facts)
+        request = submit(curator, lab, requester, [(strain, 1)])
+        accept_mtas(curator, request)
+        return approve(approver, request, "The recipient holds a contained-use authorisation.")
+
+    return make
+
+
+UN3373_PACKAGE: dict[str, Any] = {
+    "transport_class": TransportClass.UN3373,
+    "classification_basis": ClassificationBasis.PROFESSIONAL_JUDGEMENT,
+    "basis_note": "Not on the indicative list of Category A.",
+    "packing_instruction": PackingInstruction.P650,
+}
+UN3245_PACKAGE: dict[str, Any] = {
+    "transport_class": TransportClass.UN3245,
+    "classification_basis": ClassificationBasis.GMO_NOT_INFECTIOUS,
+}
+
+
+@pytest.mark.parametrize(
+    ("facts", "said"),
+    [
+        (
+            {"animal_pathogenicity": Pathogenicity.PATHOGENIC},
+            "it is recorded as pathogenic to animals",
+        ),
+        ({"risk_group": 2}, "risk group 2 or higher is pathogenic to humans"),
+    ],
+)
+@pytest.mark.rule("R-SHIP-10")
+def test_a_gmo_recorded_as_a_pathogen_travels_as_un_3373_and_never_as_un_3245(
+    *,
+    facts: dict[str, Any],
+    said: str,
+    curator: User,
+    manager: User,
+    gmo_approved: Any,
+) -> None:
+    """Case one of three: the record says the culture is pathogenic to humans or to animals, so
+    the package is an infectious substance and UN 3245 is refused."""
+    request = gmo_approved(**facts)
+    strain = request.lines.select_related("strain").get().strain
+    error = refused(
+        services.InvalidDistribution,
+        "un3245_for_a_pathogen",
+        lambda: prepare(curator, request, **UN3245_PACKAGE),
+        attr="transport_class",
+    )
+    assert f"{strain.accession_number}: {said}" in error.detail
+    assert "travels as UN 3373, Category B." in error.detail
+    prepare(curator, request, **UN3373_PACKAGE)
+    confirm(manager, request)
+    assert Shipment.objects.get(request=request).transport_class == TransportClass.UN3373
+
+
+@pytest.mark.rule("R-SHIP-10")
+def test_a_gmo_recorded_as_pathogenic_to_neither_travels_as_un_3245_and_never_as_un_3373(
+    *, curator: User, manager: User, gmo_approved: Any
+) -> None:
+    """Case two of three: risk group 1 and no pathogenicity known for animals, so the package is
+    no infectious substance and UN 3373 is refused."""
+    request = gmo_approved(animal_pathogenicity=Pathogenicity.NONE_KNOWN)
+    error = refused(
+        services.InvalidDistribution,
+        "un3373_for_a_non_pathogen",
+        lambda: prepare(curator, request, **UN3373_PACKAGE),
+        attr="transport_class",
+    )
+    assert "travels as UN 3245." in error.detail
+    prepare(curator, request, **UN3245_PACKAGE)
+    confirm(manager, request)
+    assert Shipment.objects.get(request=request).transport_class == TransportClass.UN3245
+
+
+@pytest.mark.parametrize("package", [UN3245_PACKAGE, UN3373_PACKAGE], ids=["un3245", "un3373"])
+@pytest.mark.rule("R-SHIP-10")
+def test_a_gmo_of_unknown_pathogenicity_is_classified_by_the_shipper(
+    *, package: dict[str, Any], curator: User, manager: User, gmo_approved: Any
+) -> None:
+    """Case three of three, and the common one: unknown is what most deposits record
+    (R-RISK-05), so it is no statement that the culture is not infectious. The app forces
+    neither number and refuses neither, and the shipper states the class with its basis. The
+    exemption stays refused for a GMO line (R-SHIP-02)."""
+    request = gmo_approved()
+    refused(
+        services.InvalidDistribution,
+        "gmo_not_exempt",
+        lambda: prepare(curator, request),
+        attr="transport_class",
+    )
+    prepare(curator, request, **package)
+    confirm(manager, request)
+    shipment = Shipment.objects.get(request=request)
+    assert shipment.transport_class == package["transport_class"]
+    # The basis the shipper stated travels with the package, on the delivery note.
+    note = ShipmentDocument.objects.get(shipment=shipment, kind="delivery_note")
+    assert (
+        f"Classification basis: {ClassificationBasis(shipment.classification_basis).label}"
+        in note.text.splitlines()
+    )
+
+
+@pytest.mark.rule("R-SHIP-10")
+def test_the_service_and_the_trigger_read_the_same_class_from_the_records(
+    *,
+    gmo_approved: Any,
+    curator: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+    mockia: Taxon,
+) -> None:
+    """The one rule, both ways: `policy.recorded_transport_class` in Python and the SQL function
+    the two shipment guards call. Remove either and the cases below disagree."""
+    facts: list[dict[str, Any]] = [
+        {},  # unknown on both sides: the shipper states the class
+        {"animal_pathogenicity": Pathogenicity.NONE_KNOWN},
+        {"animal_pathogenicity": Pathogenicity.PATHOGENIC},
+        {"risk_group": 2},
+        {"risk_group": 2, "animal_pathogenicity": Pathogenicity.NONE_KNOWN},
+        # A plant pathogen is read by neither: the transport question asks about humans and
+        # animals, and the wider plant half is the exemption's (R-SHIP-03).
+        {
+            "animal_pathogenicity": Pathogenicity.NONE_KNOWN,
+            "plant_pathogenicity": Pathogenicity.PATHOGENIC,
+        },
+    ]
+    requests = [gmo_approved(**one) for one in facts]
+    # Two lines: one record that says nothing leaves the whole package to the shipper.
+    pair = submit(
+        curator,
+        lab,
+        requester,
+        [
+            (supply(mockia, restrictions=[GMO], vials=6, **facts[1]), 1),
+            (supply(mockia, restrictions=[GMO], vials=6), 1),
+        ],
+    )
+    for request in [*requests, pair]:
+        strains = [line.strain for line in request.lines.select_related("strain").order_by("pk")]
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT distribution_recorded_transport_class(%s, %s)", ["public", request.pk]
+            )
+            (in_sql,) = cursor.fetchone()
+        assert in_sql == recorded_transport_class(strains), request.label
+
+
 # The form's rules, before anything is locked.
 
 
@@ -648,6 +819,38 @@ def test_the_table_refuses_a_shipment_the_rules_refuse(
     request = approved(supply(vials=6))
     with pytest.raises(IntegrityError, match=constraint), transaction.atomic():
         shipment_row(request, **changes)
+
+
+@pytest.mark.rule("R-SHIP-02", "R-SHIP-10")
+def test_the_table_refuses_a_gmo_package_the_records_do_not_allow(
+    *, curator: User, manager: User, gmo_approved: Any
+) -> None:
+    """Past the service, with QuerySet, raw SQL or psql: the shipment guard and the preparation
+    guard ask the same rule of the same SQL function."""
+    request = gmo_approved(animal_pathogenicity=Pathogenicity.PATHOGENIC)
+    forced = "travels under the number the records of its request force"
+    with pytest.raises(IntegrityError, match=forced), transaction.atomic():
+        shipment_row(request, **UN3245_PACKAGE)
+    with (
+        pytest.raises(IntegrityError, match="not exempt from the transport rules"),
+        transaction.atomic(),
+    ):
+        shipment_row(request)
+    contact = Contact.objects.create(lab=request.lab, name="Jan Odpovědný", phone="+420 555 000")
+    with pytest.raises(IntegrityError, match=forced), transaction.atomic():
+        ShipmentPreparation.objects.create(
+            lab=request.lab,
+            request=request,
+            **UN3245_PACKAGE,
+            packing_instruction=PackingInstruction.TRIPLE,
+            responsible=contact,
+            carrier="Example Courier",
+            prepared_by=manager,
+            prepared_at=timezone.now(),
+        )
+    # What the records allow goes through the same guards.
+    prepare(curator, request, **UN3373_PACKAGE)
+    assert open_preparation(request).transport_class == TransportClass.UN3373
 
 
 def test_a_shipment_and_its_vials_never_change_or_go(

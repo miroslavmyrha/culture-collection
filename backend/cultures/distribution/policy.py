@@ -30,7 +30,7 @@ from cultures.biosafety.policy import valid_on
 from cultures.deposits.models import AbsScope, Decision, DepositTerms, TermsUse, Use
 from cultures.lineage.models import Vial, VialStatus
 from cultures.lineage.selectors import distributable
-from cultures.strains.models import Strain, StrainRestriction
+from cultures.strains.models import Pathogenicity, Strain, StrainRestriction
 from cultures.strains.selectors import regulating_restrictions
 from cultures.taxonomy.models import Taxon
 
@@ -43,6 +43,7 @@ from .models import (
     RecipientPermit,
     RequestLine,
     RequestStatus,
+    TransportClass,
     VialReservation,
 )
 
@@ -540,6 +541,76 @@ class _LineCheck:
             f"{self.name}: no Letter of Authority of the requester has the quantity or a sending"
             " left for this line.",
         )
+
+
+# The transport class a shipment's own records force (#197, ADR 0009 amendment of 2026-11-12).
+
+# Directive 2000/54/EC, Art. 2 and government order 361/2007 Sb., § 36(2) a): group 1 is
+# unlikely to cause human disease, so group 2 is the first group recorded as pathogenic to
+# humans.
+HUMAN_PATHOGEN_GROUP = 2
+
+
+class Infectiousness(StrEnum):
+    """What a record says about a culture for the transport class. Three cases, and the third
+    is the common one: most deposits record an unknown pathogenicity (R-RISK-05), which is no
+    statement that the culture is not infectious."""
+
+    PATHOGENIC = "pathogenic"  # recorded as pathogenic to humans or to animals
+    NOT_PATHOGENIC = "not_pathogenic"  # recorded as pathogenic to neither
+    UNKNOWN = "unknown"  # unknown on one side or both: the shipper states the class
+
+
+def pathogenic_for_transport(strain: Strain) -> str | None:
+    """Why this strain's record makes it a pathogen for the transport class, or None.
+
+    Humans and animals only, which is what the transport rules ask: the risk group rates human
+    disease alone, so an organism pathogenic to animals holds group 1 and its recorded animal
+    pathogenicity is read beside the group (R-RISK-05). A plant pathogen is no finding here,
+    unlike the exemption of R-SHIP-03, which this collection reads wider than its source.
+    """
+    if strain.risk_group >= HUMAN_PATHOGEN_GROUP:
+        return "risk group 2 or higher is pathogenic to humans"
+    if strain.animal_pathogenicity == Pathogenicity.PATHOGENIC:
+        return "it is recorded as pathogenic to animals"
+    return None
+
+
+def strain_infectiousness(strain: Strain) -> Infectiousness:
+    """Which of the three cases this strain's record puts it in."""
+    if pathogenic_for_transport(strain) is not None:
+        return Infectiousness.PATHOGENIC
+    if strain.animal_pathogenicity == Pathogenicity.NONE_KNOWN:
+        return Infectiousness.NOT_PATHOGENIC
+    return Infectiousness.UNKNOWN
+
+
+def recorded_infectiousness(strains: Iterable[Strain]) -> Infectiousness:
+    """What the records of a package's strains say together: one pathogen makes the package
+    one, one unknown leaves the package unknown, and no strain at all is unknown."""
+    found = {strain_infectiousness(strain) for strain in strains}
+    if Infectiousness.PATHOGENIC in found:
+        return Infectiousness.PATHOGENIC
+    if Infectiousness.UNKNOWN in found or not found:
+        return Infectiousness.UNKNOWN
+    return Infectiousness.NOT_PATHOGENIC
+
+
+FORCED_CLASS: dict[Infectiousness, TransportClass | None] = {
+    Infectiousness.PATHOGENIC: TransportClass.UN3373,
+    Infectiousness.NOT_PATHOGENIC: TransportClass.UN3245,
+    Infectiousness.UNKNOWN: None,
+}
+
+
+def recorded_transport_class(strains: Iterable[Strain]) -> TransportClass | None:
+    """The class the records force on a shipment of a genetically modified organism, or None
+    where the record says nothing and the shipper states the class with its basis (#197).
+
+    The one definition in Python. `distribution_recorded_transport_class` in SQL answers the
+    same question for the shipment guards, and a parity test compares the two.
+    """
+    return FORCED_CLASS[recorded_infectiousness(strains)]
 
 
 def gate_codes() -> dict[str, Severity]:
