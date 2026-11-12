@@ -8,6 +8,12 @@ also names that rule's id in [docs/compliance.md](docs/compliance.md), so the pa
 to the law the rule rests on is one hop.
 
 ## Unreleased
+- The four official lists of regulated agents live in the app, loaded from the data files by a command with their source, version date, fetch date and checksums, and no write of the app edits a list row (#169, R-LIST-01, R-LIST-02, R-LIST-03, R-LIST-04).
+- A restriction points at the list entry it rests on, and a dual-use reference must be an entry code the current reading holds (#169, R-KIND-10).
+- An entry of 1C351.a, .c, .e or 1C354 that is also a VRAT or a RAT requires that restriction, and the decree's restriction cannot end while the dual-use entry asks for it (#169, R-KIND-11).
+- The lists suggest a classification for a strain, by taxon, accepted taxon, synonyms and genus-wide entries, never by a part of a name, and a person records a suggestion with a reason (#169, R-MATCH-01).
+- Managers read, per lab, every strain whose classification differs from the current readings of the lists, computed on every read rather than stored (#169, R-MATCH-02).
+- Every risk group says what it rests on, from the accession on, and may name the annex 7 entry it was read in. The words stay required even when an entry is named, because an agent the annex does not list is not thereby group 1 (#169, R-RISK-07, R-RISK-09).
 - Every commit of a pull request is checked on its own runner, in parallel, instead of one at a time on one machine (#213).
 
 Everything below is the first development of the app. Nothing is released and no version is
