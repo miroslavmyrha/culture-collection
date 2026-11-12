@@ -122,6 +122,37 @@ describe('the request page', () => {
     expect(await screen.findByText('Rejected by curator on 2026-10-20: No laboratory.')).toBeInTheDocument()
   })
 
+  it('shows the request state error in the rejection dialog and keeps the reason it was given', async () => {
+    allowConsole(/API error 409/)
+    signedIn()
+    mockApi('get', DETAIL, request())
+    open()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Reject the request' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Reject request 2026/7?' })
+    mockApiError('post', ACTION('reject'), 409, problem(409, { code: 'request_state' }))
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'No laboratory.')
+    await user.click(within(dialog).getByRole('button', { name: 'Reject the request' }))
+    expect(await within(dialog).findByText('The request changed meanwhile. Close this and look at it again.')).toBeInTheDocument()
+    expect(within(dialog).getByRole('textbox', { name: 'Reason' })).toHaveValue('No laboratory.')
+  })
+
+  it('puts a reason the server says is missing on the reason field, not in a banner', async () => {
+    allowConsole(/API error 400/)
+    signedIn()
+    mockApi('get', DETAIL, request())
+    open()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Reject the request' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Reject request 2026/7?' })
+    mockApiError('post', ACTION('reject'), 400, problem(400, { code: 'reason_required' }))
+    const reason = within(dialog).getByRole('textbox', { name: 'Reason' })
+    await user.type(reason, 'No laboratory.')
+    await user.click(within(dialog).getByRole('button', { name: 'Reject the request' }))
+    await waitFor(() => expect(reason).toHaveAccessibleDescription(expect.stringContaining('Say why')))
+    expect(reason).toHaveFocus()
+  })
+
   it('lists the reserved vials by label and lets a curator cancel, which frees them', async () => {
     signedIn()
     const reserved = makeRequestLine({ ...line, reserved: [{ public_id: '00000000-0000-4000-8000-0000000000e1', label: 'MYC 3 / 1 / 1' }] })
@@ -228,6 +259,22 @@ describe('the request page', () => {
     })
   })
 
+
+  it('says so when an acceptance of the MTA version was recorded meanwhile', async () => {
+    allowConsole(/API error 409/)
+    signedIn('curator')
+    mockApi('get', DETAIL, request())
+    open()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Record an acceptance' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Record an acceptance of the MTA' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Signed by' }), 'Karel Podpisový')
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: "Signer's role" }), 'responsible_scientist')
+    await user.upload(within(dialog).getByLabelText('Signed copy'), new File(['%PDF-1.4'], 'signed.pdf', { type: 'application/pdf' }))
+    vi.spyOn(api, 'POST').mockResolvedValue({ data: undefined, error: problem(409, { code: 'acceptance_exists' }), response: new Response('{}', { status: 409 }) })
+    await user.click(within(dialog).getByRole('button', { name: 'Record the acceptance' }))
+    expect(await within(dialog).findByText('An acceptance of this MTA version is recorded already.')).toBeInTheDocument()
+  })
 
   it('records no acceptance on the last valid date while the field shows an invalid one (#111)', async () => {
     signedIn('curator')

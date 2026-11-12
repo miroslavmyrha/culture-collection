@@ -2,7 +2,8 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { api } from '@/lib/api'
-import { makeLab, makeMe, makePermit, makeRequester, page, validationProblem } from '@/test/factories'
+import { allowConsole } from '@/test/console'
+import { makeLab, makeMe, makePermit, makeRequester, page, problem, validationProblem } from '@/test/factories'
 import { mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
@@ -243,6 +244,34 @@ describe('the requesters page', () => {
       expect(day).toHaveValue(typed)
       expect(calls).toHaveLength(0)
     }
+  })
+
+  it('says so when the permit was ended meanwhile, and ends nothing twice', async () => {
+    allowConsole(/API error 409/)
+    signedIn()
+    mockApi('get', LIST, page([institute]))
+    mockApiError('post', `${PERMITS}{public_id}/end/` as '/api/v1/labs/{lab_public_id}/recipient-permits/{public_id}/end/', 409, problem(409, { code: 'permit_ended' }))
+    renderApp({ path: `/labs/${LAB_ID}/requesters` })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'End LoA DEV/1' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'End LoA DEV/1?' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'withdrawn')
+    await user.click(within(dialog).getByRole('button', { name: 'End the permit' }))
+    expect(await within(dialog).findByText('This permit was ended already.')).toBeInTheDocument()
+  })
+
+  it('says so when the contact of a requester was erased meanwhile', async () => {
+    allowConsole(/API error 409/)
+    signedIn()
+    const seated = makeRequester({ institution: 'Seated Institute' })
+    mockApi('get', LIST, page([seated]))
+    mockApiError('put', `${LIST}{public_id}/`, 409, problem(409, { code: 'contact_erased' }))
+    renderApp({ path: `/labs/${LAB_ID}/requesters` })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Change Seated Institute' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Change Seated Institute' })
+    await user.click(within(dialog).getByRole('button', { name: 'Save the requester' }))
+    expect(await within(dialog).findByText('This contact was erased. The requester can no longer be changed.')).toBeInTheDocument()
   })
 
   it('adds a requester with its registered office, the address in the business register', async () => {

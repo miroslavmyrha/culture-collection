@@ -20,6 +20,7 @@ to the law the rule rests on is one hop.
 - Every risk group says what it rests on, from the accession on, and may name the annex 7 entry it was read in. The words stay required even when an entry is named, because an agent the annex does not list is not thereby group 1 (#169, R-RISK-07, R-RISK-09).
 - Every commit of a pull request is checked on its own runner, in parallel, instead of one at a time on one machine (#213).
 - Frontend screens over the code risk limit come apart into named pieces and lookup tables, with the same accessible names and texts, and the conflict answers of the mutations that no test reached are tested (#203).
+- The distribution screens come under the code risk limit: the dialogs share one error dispatch, the cross-field rules of a permit and a shipment are lists of small rules in the same order, and the conflict answers of the dialogs are tested (#203).
 
 Everything below is the first development of the app. Nothing is released and no version is
 tagged yet.

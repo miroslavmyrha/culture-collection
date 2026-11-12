@@ -1,9 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useId, useState } from 'react'
-import { type UseFormRegisterReturn, useForm, useWatch } from 'react-hook-form'
+import { type FieldErrors, type UseFormRegister, type UseFormRegisterReturn, useForm, useWatch } from 'react-hook-form'
 import { CheckboxField, ConfirmDialog, SelectField, Stack, TextField, Typography } from '@/components/ui'
 import { errorMessage, isApiError, readProblem } from '@/lib/api'
-import { applyServerErrors } from '@/lib/forms'
 import {
   useApproveRequest,
   useCancelRequest,
@@ -30,6 +29,7 @@ import {
   type DepositorAnswerForm,
   depositorAnswerSchema,
   type DepositorAnswerValues,
+  type ClassificationBasis,
   type Line,
   type Preparation,
   isTransportClass,
@@ -46,12 +46,12 @@ import {
   TRANSPORT_CLASSES,
   USE_LABELS,
 } from '../schemas'
-import { stateError } from '../requestErrors'
+import { STATE_ERRORS, stateError } from '../requestErrors'
+import { ACCEPTANCE_ERRORS, ANSWER_ERRORS, reasonFailure, submitFailure } from '../submitErrors'
 
-type Common = { labId: string; request: Request; open: boolean; onClose: () => void; onExited: () => void }
+export type Common = { labId: string; request: Request; open: boolean; onClose: () => void; onExited: () => void }
 
 const REASON_HINT = 'Stored for good with the decision. Name no person.'
-const missing = { type: 'server', message: 'Say why' } as const
 const today = () => new Date().toLocaleDateString('sv')
 
 export function ApproveDialog({ labId, request, open, onClose, onExited }: Common) {
@@ -70,10 +70,7 @@ export function ApproveDialog({ labId, request, open, onClose, onExited }: Commo
       { reason: values.reason.trim() },
       {
         onSuccess: onClose,
-        onError: (error) => {
-          if (isApiError(error) && error.code === 'reason_required') setError('reason', missing, { shouldFocus: true })
-          else setFailure(stateError(error) ?? (applyServerErrors(error, ['reason'], setError) ? undefined : errorMessage(error)))
-        },
+        onError: (error) => setFailure(reasonFailure(error, setError)),
       },
     )
   })
@@ -126,10 +123,7 @@ function ReasonDialog({
     setFailure(undefined)
     mutate(values.reason.trim(), {
       onSuccess: onClose,
-      onError: (error) => {
-        if (isApiError(error) && error.code === 'reason_required') setError('reason', missing, { shouldFocus: true })
-        else setFailure(stateError(error) ?? (applyServerErrors(error, ['reason'], setError) ? undefined : errorMessage(error)))
-      },
+      onError: (error) => setFailure(reasonFailure(error, setError)),
     })
   })
   return (
@@ -182,16 +176,44 @@ export function CancelDialog({ labId, request, open, onClose, onExited }: Common
 
 const FIELDS = ['mta', 'signer_name', 'signer_email', 'signer_role', 'authorised_signatory', 'accepted_on', 'file'] as const
 
+/** The MTA versions the request's lines are pinned to, each once. */
+const mtasOf = (request: Request) => [...new Map(request.lines.flatMap((l) => (l.mta ? [[l.mta.public_id, l.mta] as const] : []))).values()]
+type PinnedMta = ReturnType<typeof mtasOf>[number]
+/** The only choice is already made. */
+const onlyOne = (items: readonly { public_id: string }[]) => (items.length === 1 ? (items[0]?.public_id ?? '') : '')
+
+// The fields get their registration from the dialog on every render: a child that took the whole form could be skipped by the compiler after a reset().
+type AcceptanceFieldsProps = { register: UseFormRegister<AcceptanceForm>; errors: FieldErrors<AcceptanceForm>; mtas: readonly PinnedMta[] }
+
+function AcceptanceFields({ register, errors, mtas }: AcceptanceFieldsProps) {
+  return (
+    <>
+      <SelectField
+        label="MTA version"
+        options={[{ value: '', label: 'Choose' }, ...mtas.map((m) => ({ value: m.public_id, label: `${m.code} version ${m.version}: ${m.title}` }))]}
+        error={errors.mta?.message}
+        {...register('mta')}
+      />
+      <TextField label="Signed by" autoComplete="off" error={errors.signer_name?.message} {...register('signer_name')} />
+      <TextField label="Signer's e-mail" type="email" autoComplete="off" error={errors.signer_email?.message} {...register('signer_email')} />
+      <SelectField label="Signer's role" options={[{ value: '', label: 'Choose' }, ...options(SIGNER_ROLE_LABELS, SIGNER_ROLES)]} error={errors.signer_role?.message} {...register('signer_role')} />
+      <CheckboxField label="The signer may bind the institution" {...register('authorised_signatory')} />
+      <TextField label="Accepted on" hint="YYYY-MM-DD" autoComplete="off" error={errors.accepted_on?.message} {...register('accepted_on')} />
+      <FileField label="Signed copy" error={errors.file?.message} {...register('file')} />
+    </>
+  )
+}
+
 /** The requester's acceptance of an MTA version a line is pinned to, from the signed copy. */
 export function AcceptanceDialog({ labId, request, open, onClose, onExited }: Common) {
   const record = useRecordAcceptance(labId, request.public_id)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
-  const mtas = [...new Map(request.lines.flatMap((l) => (l.mta ? [[l.mta.public_id, l.mta] as const] : []))).values()]
+  const mtas = mtasOf(request)
   const { register, handleSubmit, formState, setError } = useForm<AcceptanceForm, unknown, AcceptanceValues>({
     resolver: zodResolver(acceptanceSchema),
     defaultValues: {
-      mta: mtas.length === 1 ? (mtas[0]?.public_id ?? '') : '',
+      mta: onlyOne(mtas),
       signer_name: '',
       signer_email: '',
       signer_role: '',
@@ -216,13 +238,7 @@ export function AcceptanceDialog({ labId, request, open, onClose, onExited }: Co
         },
         file: values.file,
       },
-      {
-        onSuccess: onClose,
-        onError: (error) => {
-          if (isApiError(error, 409) && error.code === 'acceptance_exists') setFailure('An acceptance of this MTA version is recorded already.')
-          else setFailure(stateError(error) ?? (applyServerErrors(error, FIELDS, setError) ? undefined : errorMessage(error)))
-        },
-      },
+      { onSuccess: onClose, onError: (error) => setFailure(submitFailure(error, FIELDS, setError, ACCEPTANCE_ERRORS)) },
     )
   })
   return (
@@ -238,24 +254,47 @@ export function AcceptanceDialog({ labId, request, open, onClose, onExited }: Co
       onExited={onExited}
     >
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Acceptance" spacing={2} sx={{ mt: 2 }}>
-        <SelectField
-          label="MTA version"
-          options={[{ value: '', label: 'Choose' }, ...mtas.map((m) => ({ value: m.public_id, label: `${m.code} version ${m.version}: ${m.title}` }))]}
-          error={errors.mta?.message}
-          {...register('mta')}
-        />
-        <TextField label="Signed by" autoComplete="off" error={errors.signer_name?.message} {...register('signer_name')} />
-        <TextField label="Signer's e-mail" type="email" autoComplete="off" error={errors.signer_email?.message} {...register('signer_email')} />
-        <SelectField label="Signer's role" options={[{ value: '', label: 'Choose' }, ...options(SIGNER_ROLE_LABELS, SIGNER_ROLES)]} error={errors.signer_role?.message} {...register('signer_role')} />
-        <CheckboxField label="The signer may bind the institution" {...register('authorised_signatory')} />
-        <TextField label="Accepted on" hint="YYYY-MM-DD" autoComplete="off" error={errors.accepted_on?.message} {...register('accepted_on')} />
-        <FileField label="Signed copy" error={errors.file?.message} {...register('file')} />
+        <AcceptanceFields register={register} errors={errors} mtas={mtas} />
       </Stack>
     </ConfirmDialog>
   )
 }
 
 const ANSWER_FIELDS = ['line', 'answered_on', 'note', 'file'] as const
+
+type AnswerFieldsProps = { register: UseFormRegister<DepositorAnswerForm>; errors: FieldErrors<DepositorAnswerForm>; lines: readonly Line[] }
+
+function AnswerFields({ register, errors, lines }: AnswerFieldsProps) {
+  return (
+    <>
+      <SelectField
+        label="Strain"
+        options={[{ value: '', label: 'Choose' }, ...lines.map((l) => ({ value: l.public_id, label: `${l.strain.accession_number ?? ''}, ${l.strain.taxon}` }))]}
+        error={errors.line?.message}
+        {...register('line')}
+      />
+      <TextField label="Answered on" hint="YYYY-MM-DD, the day the depositor gave the answer" autoComplete="off" error={errors.answered_on?.message} {...register('answered_on')} />
+      <TextField label="Note" hint="What the depositor said, and how. Stored for good: name no person." multiline minRows={2} error={errors.note?.message} {...register('note')} />
+      <FileField label="Depositor’s letter or e-mail" error={errors.file?.message} {...register('file')} />
+    </>
+  )
+}
+
+type AnswerText = { title: (number: string) => string; description: (use: string, number: string) => string; confirmLabel: string }
+/** What the dialog says for a yes and for a no. A no rejects the whole request, so it is the destructive one. */
+const ANSWER_TEXT: Record<'yes' | 'no', AnswerText> = {
+  yes: {
+    title: () => 'Record the depositor’s yes',
+    description: (use: string) => `The depositor agreed to ${use}: the strain may go out for it once nothing else stands in the way. The answer is kept for good and cannot be changed.`,
+    confirmLabel: 'Record the yes',
+  },
+  no: {
+    title: (number: string) => `Record the depositor’s no and reject request ${number}?`,
+    description: (use: string, number: string) =>
+      `The depositor declined ${use}: request ${number} is rejected with the answer as the reason. It cannot be undone; a new request for other strains starts again.`,
+    confirmLabel: 'Record the no and reject',
+  },
+}
 
 /**
  * What the depositor answered for strains whose terms leave the request's use on request (#144),
@@ -268,36 +307,26 @@ export function DepositorAnswerDialog({ labId, request, lines, agreed, open, onC
   const formId = useId()
   const [failure, setFailure] = useState<string>()
   const use = USE_LABELS[request.use].toLowerCase()
+  const text = agreed ? ANSWER_TEXT.yes : ANSWER_TEXT.no
   const { register, handleSubmit, formState, setError } = useForm<DepositorAnswerForm, unknown, DepositorAnswerValues>({
     resolver: zodResolver(depositorAnswerSchema),
-    defaultValues: { line: lines.length === 1 ? (lines[0]?.public_id ?? '') : '', answered_on: today(), note: '', file: null },
+    defaultValues: { line: onlyOne(lines), answered_on: today(), note: '', file: null },
   })
-  const errors = formState.errors
   const onSubmit = handleSubmit((values) => {
     if (record.isPending) return
     setFailure(undefined)
     record.mutate(
       { body: { line: values.line, agreed, answered_on: values.answered_on, note: values.note.trim() }, file: values.file },
-      {
-        onSuccess: onClose,
-        onError: (error) => {
-          if (isApiError(error, 409) && error.code === 'depositor_answer_exists') setFailure('The depositor’s answer for this strain is recorded already. Close this and look at it again.')
-          else setFailure(stateError(error) ?? (applyServerErrors(error, ANSWER_FIELDS, setError) ? undefined : errorMessage(error)))
-        },
-      },
+      { onSuccess: onClose, onError: (error) => setFailure(submitFailure(error, ANSWER_FIELDS, setError, ANSWER_ERRORS)) },
     )
   })
   return (
     <ConfirmDialog
       open={open}
       destructive={!agreed}
-      title={agreed ? 'Record the depositor’s yes' : `Record the depositor’s no and reject request ${request.number}?`}
-      description={
-        agreed
-          ? `The depositor agreed to ${use}: the strain may go out for it once nothing else stands in the way. The answer is kept for good and cannot be changed.`
-          : `The depositor declined ${use}: request ${request.number} is rejected with the answer as the reason. It cannot be undone; a new request for other strains starts again.`
-      }
-      confirmLabel={agreed ? 'Record the yes' : 'Record the no and reject'}
+      title={text.title(request.number)}
+      description={text.description(use, request.number)}
+      confirmLabel={text.confirmLabel}
       form={formId}
       pending={record.isPending}
       error={failure}
@@ -305,15 +334,7 @@ export function DepositorAnswerDialog({ labId, request, lines, agreed, open, onC
       onExited={onExited}
     >
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Depositor’s answer" spacing={2} sx={{ mt: 2 }}>
-        <SelectField
-          label="Strain"
-          options={[{ value: '', label: 'Choose' }, ...lines.map((l) => ({ value: l.public_id, label: `${l.strain.accession_number ?? ''}, ${l.strain.taxon}` }))]}
-          error={errors.line?.message}
-          {...register('line')}
-        />
-        <TextField label="Answered on" hint="YYYY-MM-DD, the day the depositor gave the answer" autoComplete="off" error={errors.answered_on?.message} {...register('answered_on')} />
-        <TextField label="Note" hint="What the depositor said, and how. Stored for good: name no person." multiline minRows={2} error={errors.note?.message} {...register('note')} />
-        <FileField label="Depositor’s letter or e-mail" error={errors.file?.message} {...register('file')} />
+        <AnswerFields register={register} errors={formState.errors} lines={lines} />
       </Stack>
     </ConfirmDialog>
   )
@@ -350,6 +371,90 @@ const SHIP_FIELDS = [
   'tracking_number',
 ] as const
 
+const SHIP_DEFAULTS: ShipForm = {
+  transport_class: 'not_subject',
+  classification_basis: '',
+  basis_note: '',
+  packing_instruction: 'triple_packaging',
+  coolant: '',
+  coolant_kg: '',
+  responsible_name: '',
+  responsible_phone: '',
+  carrier: '',
+  tracking_number: '',
+}
+
+/** The words of the one-step shipment and of step 1 of a regulated one (#89). */
+type ShipText = { title: (number: string) => string; description: (vials: number) => string; confirmLabel: string; label: string }
+const SHIP_TEXT: Record<'ship' | 'prepare', ShipText> = {
+  ship: {
+    title: (number) => `Ship request ${number}?`,
+    description: (vials) =>
+      `${vials === 1 ? 'Its reserved vial leaves' : `All ${vials} reserved vials leave`} the collection today: recorded as distributed and out of their boxes. A shipment cannot be undone. The gates are checked again on today’s date.`,
+    confirmLabel: 'Ship',
+    label: 'Shipment',
+  },
+  prepare: {
+    title: (number) => `Prepare the shipment of request ${number}?`,
+    description: (vials) =>
+      `Nothing leaves yet: ${vials === 1 ? 'its reserved vial stays' : `its ${vials} reserved vials stay`} reserved until a second person, neither the approver nor you, confirms the shipment. The gates are checked today and again on the day it is confirmed.`,
+    confirmLabel: 'Prepare',
+    label: 'Prepared shipment',
+  },
+}
+
+/** What goes to the server: the values as the shipper recorded them, the coolant weight with a decimal point. */
+const shipBody = (values: ShipValues) => ({
+  transport_class: values.transport_class,
+  classification_basis: values.classification_basis,
+  basis_note: values.basis_note,
+  packing_instruction: values.packing_instruction,
+  coolant: values.coolant,
+  coolant_kg: values.coolant_kg ? values.coolant_kg.replace(',', '.') : null,
+  responsible_name: values.responsible_name,
+  responsible_phone: values.responsible_phone.trim(),
+  carrier: values.carrier,
+  tracking_number: values.tracking_number,
+})
+
+type ShipFieldsProps = {
+  register: UseFormRegister<ShipForm>
+  /** The class's registration, which clears the basis and fills the packing when the class changes. */
+  transportClass: UseFormRegisterReturn<'transport_class'>
+  errors: FieldErrors<ShipForm>
+  bases: readonly ClassificationBasis[]
+}
+
+function ShipFields({ register, transportClass, errors, bases }: ShipFieldsProps) {
+  return (
+    <>
+      <SelectField
+        label="Transport class"
+        // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
+        autoFocus
+        hint="UN 3245 is for a genetically modified micro-organism, and a GMO is never exempt."
+        options={options(TRANSPORT_CLASS_LABELS, TRANSPORT_CLASSES)}
+        error={errors.transport_class?.message}
+        {...transportClass}
+      />
+      <SelectField
+        label="Basis of the classification"
+        options={[{ value: '', label: 'Choose' }, ...options(BASIS_LABELS, bases)]}
+        error={errors.classification_basis?.message}
+        {...register('classification_basis')}
+      />
+      <TextField label="What the classification rests on" hint={`${REASON_HINT} Required for a professional judgement.`} multiline minRows={2} error={errors.basis_note?.message} {...register('basis_note')} />
+      <SelectField label="Packing" options={options(PACKING_LABELS, PACKING_INSTRUCTIONS)} error={errors.packing_instruction?.message} {...register('packing_instruction')} />
+      <SelectField label="Coolant" options={[{ value: '', label: 'None' }, ...options(COOLANT_LABELS, COOLANTS)]} error={errors.coolant?.message} {...register('coolant')} />
+      <TextField label="Coolant in kg" hint="Required for dry ice: it is marked on the package." autoComplete="off" inputMode="decimal" error={errors.coolant_kg?.message} {...register('coolant_kg')} />
+      <TextField label="Responsible person" hint="Answers the phone about the package at all times." autoComplete="off" error={errors.responsible_name?.message} {...register('responsible_name')} />
+      <TextField label="Phone of the responsible person" type="tel" autoComplete="off" error={errors.responsible_phone?.message} {...register('responsible_phone')} />
+      <TextField label="Carrier" autoComplete="off" error={errors.carrier?.message} {...register('carrier')} />
+      <TextField label="Tracking number" autoComplete="off" error={errors.tracking_number?.message} {...register('tracking_number')} />
+    </>
+  )
+}
+
 /**
  * The shipper's record of the package (WHO transport guidance, 2.1: the shipper classifies):
  * the class with its basis, the packing (P650 for UN 3373, filled when it is chosen), the
@@ -361,24 +466,10 @@ export function ShipDialog({ labId, request, open, onClose, onExited, prepare = 
   const shipNow = useShipRequest(labId, request.public_id)
   const prepared = usePrepareShipment(labId, request.public_id)
   const ship = prepare ? prepared : shipNow
+  const text = SHIP_TEXT[prepare ? 'prepare' : 'ship']
   const formId = useId()
   const [failure, setFailure] = useState<string>()
-  const { register, handleSubmit, formState, setError, setValue, control } = useForm<ShipForm, unknown, ShipValues>({
-    resolver: zodResolver(shipSchema),
-    defaultValues: {
-      transport_class: 'not_subject',
-      classification_basis: '',
-      basis_note: '',
-      packing_instruction: 'triple_packaging',
-      coolant: '',
-      coolant_kg: '',
-      responsible_name: '',
-      responsible_phone: '',
-      carrier: '',
-      tracking_number: '',
-    },
-  })
-  const errors = formState.errors
+  const { register, handleSubmit, formState, setError, setValue, control } = useForm<ShipForm, unknown, ShipValues>({ resolver: zodResolver(shipSchema), defaultValues: SHIP_DEFAULTS })
   const chosen = useWatch({ control, name: 'transport_class' })
   const bases = isTransportClass(chosen) ? BASES[chosen] : []
   const transportClass = register('transport_class', {
@@ -390,66 +481,23 @@ export function ShipDialog({ labId, request, open, onClose, onExited, prepare = 
   const onSubmit = handleSubmit((values) => {
     if (ship.isPending) return
     setFailure(undefined)
-    ship.mutate(
-      {
-        transport_class: values.transport_class,
-        classification_basis: values.classification_basis,
-        basis_note: values.basis_note,
-        packing_instruction: values.packing_instruction,
-        coolant: values.coolant,
-        coolant_kg: values.coolant_kg ? values.coolant_kg.replace(',', '.') : null,
-        responsible_name: values.responsible_name,
-        responsible_phone: values.responsible_phone.trim(),
-        carrier: values.carrier,
-        tracking_number: values.tracking_number,
-      },
-      {
-        onSuccess: onClose,
-        onError: (error) => setFailure(stateError(error) ?? (applyServerErrors(error, SHIP_FIELDS, setError) ? undefined : errorMessage(error))),
-      },
-    )
+    ship.mutate(shipBody(values), { onSuccess: onClose, onError: (error) => setFailure(submitFailure(error, SHIP_FIELDS, setError, STATE_ERRORS)) })
   })
   const vials = request.lines.reduce((sum, line) => sum + line.reserved.length, 0)
   return (
     <ConfirmDialog
       open={open}
-      title={prepare ? `Prepare the shipment of request ${request.number}?` : `Ship request ${request.number}?`}
-      description={
-        prepare
-          ? `Nothing leaves yet: ${vials === 1 ? 'its reserved vial stays' : `its ${vials} reserved vials stay`} reserved until a second person, neither the approver nor you, confirms the shipment. The gates are checked today and again on the day it is confirmed.`
-          : `${vials === 1 ? 'Its reserved vial leaves' : `All ${vials} reserved vials leave`} the collection today: recorded as distributed and out of their boxes. A shipment cannot be undone. The gates are checked again on today’s date.`
-      }
-      confirmLabel={prepare ? 'Prepare' : 'Ship'}
+      title={text.title(request.number)}
+      description={text.description(vials)}
+      confirmLabel={text.confirmLabel}
       form={formId}
       pending={ship.isPending}
       error={failure}
       onClose={onClose}
       onExited={onExited}
     >
-      <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label={prepare ? 'Prepared shipment' : 'Shipment'} spacing={2} sx={{ mt: 2 }}>
-        <SelectField
-          label="Transport class"
-          // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
-          autoFocus
-          hint="UN 3245 is for a genetically modified micro-organism, and a GMO is never exempt."
-          options={options(TRANSPORT_CLASS_LABELS, TRANSPORT_CLASSES)}
-          error={errors.transport_class?.message}
-          {...transportClass}
-        />
-        <SelectField
-          label="Basis of the classification"
-          options={[{ value: '', label: 'Choose' }, ...options(BASIS_LABELS, bases)]}
-          error={errors.classification_basis?.message}
-          {...register('classification_basis')}
-        />
-        <TextField label="What the classification rests on" hint={`${REASON_HINT} Required for a professional judgement.`} multiline minRows={2} error={errors.basis_note?.message} {...register('basis_note')} />
-        <SelectField label="Packing" options={options(PACKING_LABELS, PACKING_INSTRUCTIONS)} error={errors.packing_instruction?.message} {...register('packing_instruction')} />
-        <SelectField label="Coolant" options={[{ value: '', label: 'None' }, ...options(COOLANT_LABELS, COOLANTS)]} error={errors.coolant?.message} {...register('coolant')} />
-        <TextField label="Coolant in kg" hint="Required for dry ice: it is marked on the package." autoComplete="off" inputMode="decimal" error={errors.coolant_kg?.message} {...register('coolant_kg')} />
-        <TextField label="Responsible person" hint="Answers the phone about the package at all times." autoComplete="off" error={errors.responsible_name?.message} {...register('responsible_name')} />
-        <TextField label="Phone of the responsible person" type="tel" autoComplete="off" error={errors.responsible_phone?.message} {...register('responsible_phone')} />
-        <TextField label="Carrier" autoComplete="off" error={errors.carrier?.message} {...register('carrier')} />
-        <TextField label="Tracking number" autoComplete="off" error={errors.tracking_number?.message} {...register('tracking_number')} />
+      <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label={text.label} spacing={2} sx={{ mt: 2 }}>
+        <ShipFields register={register} transportClass={transportClass} errors={formState.errors} bases={bases} />
       </Stack>
     </ConfirmDialog>
   )
