@@ -3,21 +3,19 @@ import { useQuery } from '@tanstack/react-query'
 import { useId, useState } from 'react'
 import { type FieldValues, type Path, type UseFormSetError, useForm, useWatch } from 'react-hook-form'
 import { GrowthFields } from '@/components/GrowthFields'
-import { ConfirmDialog, SelectField, Stack, TextField, Typography } from '@/components/ui'
+import { ConfirmDialog, SelectField, Stack, TextField } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
 import { type Growth, type GrowthBody, type GrowthForm, GROWTH_FIELDS, growthBody, growthDefaults, growthSchema, mediaListOptions } from '@/lib/growth'
 import { usePlace, usePreserve, useReportLoss, useRevive, useSetVialStatus, useSubculture } from '../api/mutations'
 import {
   type BoxChoice,
-  boxOption,
   emptyLossReport,
   emptyPreserve,
   DESTROYED_BY_RECORD,
   LOSS_DUTY,
   type LossReportForm,
   lossReportSchema,
-  METHOD_LABELS,
   nextStates,
   type Passage,
   type PlaceForm,
@@ -26,14 +24,13 @@ import {
   type PreserveForm,
   type PreserveValues,
   preserveSchema,
-  PURPOSE_LABELS,
-  rowLabel,
   type StatusForm,
   statusSchema,
   type Vial,
   VIAL_STATUS_LABELS,
 } from '../schemas'
 import { vialError } from '../vialErrors'
+import { BoxesWait, PlaceFields, PreserveFields } from './VialDialogFields'
 
 type Common = { labId: string; strainId: string; open: boolean; onClose: () => void; onExited: () => void }
 
@@ -41,7 +38,6 @@ const REASON_HINT = 'Stored for good with the change. Name no person.'
 // A failed box load is no empty list: "no boxes" would read as a lab without storage.
 const BOXES_FAILED = 'Could not load the boxes. Close this dialog and try again.'
 const BOXES_FAILED_PRESERVE = 'Could not load the boxes, so the vials cannot be placed now. Close this dialog and try again, or preserve them and place them later.'
-const choose = (label: string) => ({ value: '', label })
 
 /**
  * The failure of a dialog's request: field errors on their fields (focused), everything else
@@ -62,36 +58,29 @@ function placeError<T extends FieldValues>(
 
 type PreserveProps = Common & { accession: string; passages: readonly Passage[]; boxes: readonly BoxChoice[] | undefined; boxesFailed?: boolean }
 
-const passageLabel = (p: Passage) => (p.number === 0 ? 'Passage 0, as received' : `Passage ${p.number}`)
+const PRESERVE_FIELDS = ['passage', 'method', 'purpose', 'cryoprotectant', 'preserved_on', 'vial_count', 'box'] as const
+
+const preserveBody = (values: PreserveValues) => ({
+  passage: values.passage,
+  method: values.method,
+  purpose: values.purpose,
+  cryoprotectant: values.cryoprotectant.trim(),
+  preserved_on: values.preserved_on,
+  vial_count: values.vial_count,
+  box: values.box || null,
+})
 
 export function PreserveBatchDialog({ labId, strainId, accession, passages, boxes, boxesFailed, open, onClose, onExited }: PreserveProps) {
   const preserve = usePreserve(labId, strainId)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
-  const latest = passages.at(-1)
   const { register, handleSubmit, formState, setError } = useForm<PreserveForm, unknown, PreserveValues>({
     resolver: zodResolver(preserveSchema),
-    defaultValues: emptyPreserve(latest?.public_id),
+    defaultValues: emptyPreserve(passages.at(-1)?.public_id),
   })
-  const errors = formState.errors
   const onSubmit = handleSubmit((values) => {
     setFailure(undefined)
-    preserve.mutate(
-      {
-        passage: values.passage,
-        method: values.method,
-        purpose: values.purpose,
-        cryoprotectant: values.cryoprotectant.trim(),
-        preserved_on: values.preserved_on,
-        vial_count: values.vial_count,
-        box: values.box || null,
-      },
-      {
-        onSuccess: onClose,
-        onError: (error) =>
-          setFailure(placeError(error, ['passage', 'method', 'purpose', 'cryoprotectant', 'preserved_on', 'vial_count', 'box'], setError)),
-      },
-    )
+    preserve.mutate(preserveBody(values), { onSuccess: onClose, onError: (error) => setFailure(placeError(error, PRESERVE_FIELDS, setError)) })
   })
   return (
     <ConfirmDialog
@@ -106,41 +95,7 @@ export function PreserveBatchDialog({ labId, strainId, accession, passages, boxe
       onExited={onExited}
     >
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="New batch" spacing={2} sx={{ mt: 2 }}>
-        <SelectField
-          label="Passage"
-          options={[choose('Choose'), ...passages.toReversed().map((p) => ({ value: p.public_id, label: passageLabel(p) }))]}
-          // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
-          autoFocus
-          error={errors.passage?.message}
-          {...register('passage')}
-        />
-        <SelectField
-          label="Method"
-          options={Object.entries(METHOD_LABELS).map(([value, label]) => ({ value, label }))}
-          error={errors.method?.message}
-          {...register('method')}
-        />
-        <SelectField
-          label="Purpose"
-          hint="Seed stock is never distributed."
-          options={Object.entries(PURPOSE_LABELS).map(([value, label]) => ({ value, label }))}
-          error={errors.purpose?.message}
-          {...register('purpose')}
-        />
-        <TextField label="Protectant" hint="For example 10 % glycerol, or skim milk. Optional." autoComplete="off" error={errors.cryoprotectant?.message} {...register('cryoprotectant')} />
-        <TextField label="Preserved on" hint="YYYY-MM-DD" autoComplete="off" error={errors.preserved_on?.message} {...register('preserved_on')} />
-        <TextField label="Number of vials" hint="1 to 200" inputMode="numeric" autoComplete="off" error={errors.vial_count?.message} {...register('vial_count')} />
-        {boxes ? (
-          <SelectField
-            label="Box"
-            hint="Optional. Placed later otherwise."
-            options={[choose('Do not place them yet'), ...boxes.map(boxOption)]}
-            error={errors.box?.message}
-            {...register('box')}
-          />
-        ) : (
-          !boxesFailed && <Typography>Loading the boxes…</Typography>
-        )}
+        <PreserveFields register={register} errors={formState.errors} passages={passages} boxes={boxes} boxesFailed={boxesFailed} />
       </Stack>
     </ConfirmDialog>
   )
@@ -155,20 +110,24 @@ type PlaceProps = VialProps & {
   onPlaced?: () => void
 }
 
+/** The words of the dialog: a vial in no box is placed, one in a box is moved. */
+const PLACE_TEXTS = {
+  place: { verb: 'Place', confirm: 'Place vial' },
+  move: { verb: 'Move', confirm: 'Move vial' },
+}
+
+const placeDefaults = (location: Vial['location']): PlaceForm => ({ box: location?.box ?? '', row: location ? String(location.row) : '', col: location ? String(location.col) : '' })
+
 export function PlaceVialDialog({ labId, strainId, vial, boxes, boxesFailed, open, onClose, onExited, onPlaced }: PlaceProps) {
   const place = usePlace(labId, strainId)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
-  const current = vial.location
   const { control, register, handleSubmit, formState, setError, setValue } = useForm<PlaceForm, unknown, PlaceValues>({
     resolver: zodResolver(placeSchema),
-    defaultValues: { box: current?.box ?? '', row: current ? String(current.row) : '', col: current ? String(current.col) : '' },
+    defaultValues: placeDefaults(vial.location),
   })
   const boxId = useWatch({ control, name: 'box' })
   const box = boxes?.find((b) => b.public_id === boxId)
-  const errors = formState.errors
-  const rows = Array.from({ length: box?.rows ?? 0 }, (_, i) => ({ value: String(i + 1), label: rowLabel(i + 1) }))
-  const cols = Array.from({ length: box?.cols ?? 0 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }))
   const onSubmit = handleSubmit((values) => {
     setFailure(undefined)
     place.mutate(
@@ -182,12 +141,13 @@ export function PlaceVialDialog({ labId, strainId, vial, boxes, boxesFailed, ope
       },
     )
   })
+  const words = PLACE_TEXTS[vial.placed ? 'move' : 'place']
   return (
     <ConfirmDialog
       open={open}
-      title={`${vial.placed ? 'Move' : 'Place'} vial ${vial.label}`}
+      title={`${words.verb} vial ${vial.label}`}
       description="Choose the box and the position. A move keeps the old position in the vial's history."
-      confirmLabel={vial.placed ? 'Move vial' : 'Place vial'}
+      confirmLabel={words.confirm}
       form={formId}
       pending={place.isPending}
       error={failure ?? (boxesFailed ? BOXES_FAILED : undefined)}
@@ -195,30 +155,7 @@ export function PlaceVialDialog({ labId, strainId, vial, boxes, boxesFailed, ope
       onExited={onExited}
     >
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Position" spacing={2} sx={{ mt: 2 }}>
-        {boxes ? (
-          <>
-            <SelectField
-              label="Box"
-              options={[choose('Choose'), ...boxes.map(boxOption)]}
-              // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
-              autoFocus
-              error={errors.box?.message}
-              {...register('box', {
-                // Another box has other rows and columns: the position is chosen again.
-                onChange: () => {
-                  setValue('row', '')
-                  setValue('col', '')
-                },
-              })}
-            />
-            <Stack direction="row" spacing={2}>
-              <SelectField label="Row" options={[choose(box ? 'Choose' : 'Box first'), ...rows]} error={errors.row?.message} {...register('row')} />
-              <SelectField label="Column" options={[choose(box ? 'Choose' : 'Box first'), ...cols]} error={errors.col?.message} {...register('col')} />
-            </Stack>
-          </>
-        ) : (
-          !boxesFailed && <Typography>Loading the boxes…</Typography>
-        )}
+        {boxes ? <PlaceFields register={register} errors={formState.errors} setValue={setValue} boxes={boxes} box={box} /> : <BoxesWait failed={boxesFailed} />}
       </Stack>
     </ConfirmDialog>
   )

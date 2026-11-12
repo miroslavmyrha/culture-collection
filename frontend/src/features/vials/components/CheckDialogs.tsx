@@ -1,15 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useId, useState } from 'react'
 import { type FieldValues, type Path, type UseFormSetError, useForm, useWatch } from 'react-hook-form'
-import { ConfirmDialog, SelectField, Stack, TextField, Typography } from '@/components/ui'
+import { ConfirmDialog, Stack, TextField } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
 import { useDecideBatch, useEnterCheckInError, useRecordCheck } from '../api/mutations'
 import {
   type Batch,
   type BatchCheck,
-  CHECK_KINDS,
-  CHECK_METHOD_LABELS,
   type CheckForm,
   type CheckValues,
   checkSchema,
@@ -18,14 +16,11 @@ import {
   emptyCheck,
   KIND_LABELS,
   kindsText,
-  METHODS_BY_KIND,
   notPassed,
-  RESULT_LABELS,
-  STAGE_LABELS,
-  UNIT_LABELS,
   type Vial,
 } from '../schemas'
 import { vialError } from '../vialErrors'
+import { CheckFields } from './CheckFields'
 
 type Common = { labId: string; strainId: string; open: boolean; onClose: () => void; onExited: () => void }
 
@@ -42,12 +37,6 @@ function failureOf<T extends FieldValues>(error: unknown, fields: readonly Path<
 
 const CHECK_FIELDS = ['kind', 'stage', 'checked_on', 'method', 'method_detail', 'result', 'value', 'unit', 'vial', 'note'] as const
 
-/** Says so when the list holds only the first vials of the batch: the others cannot be named here. */
-const vialHint = (shown: number, total: number | undefined) =>
-  total !== undefined && total > shown
-    ? `Optional. Used up by the check. Only the first ${shown} of the ${total} vials of the batch are listed.`
-    : 'Optional. Used up by the check.'
-
 type RecordProps = Common & {
   batch: Batch
   /** The batch's vials, undefined while they load: its available ones may be checked. */
@@ -56,6 +45,30 @@ type RecordProps = Common & {
   vialsTotal?: number | undefined
   /** The batch's checks when loaded: a vial an earlier check used may serve again. */
   checks: readonly BatchCheck[] | undefined
+}
+
+/** An empty answer is no value: the API takes null. */
+const orNull = <T extends string>(value: T | ''): T | null => (value === '' ? null : value)
+
+const checkBody = (batch: Batch, values: CheckValues) => ({
+  batch: batch.public_id,
+  kind: values.kind,
+  stage: values.stage,
+  checked_on: values.checked_on,
+  method: values.method,
+  method_detail: values.method_detail,
+  result: values.result,
+  value: orNull(values.value),
+  unit: orNull(values.unit),
+  vial: orNull(values.vial),
+  note: values.note,
+  reason: '',
+})
+
+/** What the dialog says of the batch: what it waits for, or that its latest checks passed. */
+function checkDescription(batch: Batch): string {
+  const missing = notPassed(batch)
+  return missing.length > 0 ? `It waits for a passed ${kindsText(missing)} check. A vial named here is used up by the check.` : 'Its latest checks passed. A vial named here is used up by the check.'
 }
 
 /** Records one check of a batch (technicians and up). The vial named is used up by the check. */
@@ -68,44 +81,15 @@ export function RecordCheckDialog({ labId, strainId, batch, vials, vialsTotal, c
     defaultValues: emptyCheck(batch),
   })
   const kind = useWatch({ control, name: 'kind' })
-  const errors = formState.errors
-  const available = (vials ?? []).filter((v) => v.batch === batch.public_id && v.status === 'available')
-  const used = new Map((checks ?? []).flatMap((c) => (c.vial && c.vial_label ? [[c.vial, c.vial_label] as const] : [])))
-  const vialOptions = [
-    { value: '', label: 'None named' },
-    ...available.map((v) => ({ value: v.public_id, label: v.label })),
-    ...[...used].map(([id, label]) => ({ value: id, label: `${label}, used by an earlier check` })),
-  ]
-  const missing = notPassed(batch)
   const onSubmit = handleSubmit((values) => {
     setFailure(undefined)
-    record.mutate(
-      {
-        batch: batch.public_id,
-        kind: values.kind,
-        stage: values.stage,
-        checked_on: values.checked_on,
-        method: values.method,
-        method_detail: values.method_detail,
-        result: values.result,
-        value: values.value === '' ? null : values.value,
-        unit: values.unit === '' ? null : values.unit,
-        vial: values.vial === '' ? null : values.vial,
-        note: values.note,
-        reason: '',
-      },
-      { onSuccess: onClose, onError: (error) => setFailure(failureOf(error, CHECK_FIELDS, setError)) },
-    )
+    record.mutate(checkBody(batch, values), { onSuccess: onClose, onError: (error) => setFailure(failureOf(error, CHECK_FIELDS, setError)) })
   })
   return (
     <ConfirmDialog
       open={open}
       title={`Record a check of batch ${batch.number}`}
-      description={
-        missing.length > 0
-          ? `It waits for a passed ${kindsText(missing)} check. A vial named here is used up by the check.`
-          : 'Its latest checks passed. A vial named here is used up by the check.'
-      }
+      description={checkDescription(batch)}
       confirmLabel="Record check"
       form={formId}
       pending={record.isPending}
@@ -114,65 +98,7 @@ export function RecordCheckDialog({ labId, strainId, batch, vials, vialsTotal, c
       onExited={onExited}
     >
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="New check" spacing={2} sx={{ mt: 2 }}>
-        <SelectField
-          label="Kind"
-          options={CHECK_KINDS.map((value) => ({ value, label: KIND_LABELS[value] }))}
-          // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
-          autoFocus
-          error={errors.kind?.message}
-          {...register('kind', {
-            // Each kind has its own methods: the first one of the new kind is chosen.
-            onChange: (event: { target: { value: string } }) => {
-              const next = CHECK_KINDS.find((k) => k === event.target.value)
-              if (next) setValue('method', METHODS_BY_KIND[next][0] ?? 'other')
-            },
-          })}
-        />
-        <SelectField
-          label="Stage"
-          options={Object.entries(STAGE_LABELS).map(([value, label]) => ({ value, label }))}
-          error={errors.stage?.message}
-          {...register('stage')}
-        />
-        <TextField label="Checked on" hint="YYYY-MM-DD" autoComplete="off" error={errors.checked_on?.message} {...register('checked_on')} />
-        <SelectField
-          // A new kind brings other options: mounted again, it shows the method the kind set.
-          key={kind}
-          label="Method"
-          options={METHODS_BY_KIND[kind].map((value) => ({ value, label: CHECK_METHOD_LABELS[value] }))}
-          error={errors.method?.message}
-          {...register('method')}
-        />
-        <TextField
-          label="Method details"
-          hint="Medium, temperature, gene. Required for Other."
-          autoComplete="off"
-          error={errors.method_detail?.message}
-          {...register('method_detail')}
-        />
-        <SelectField
-          label="Result"
-          hint="Reduced counts as passed for a release. Say in the note what was seen."
-          options={Object.entries(RESULT_LABELS).map(([value, label]) => ({ value, label }))}
-          error={errors.result?.message}
-          {...register('result')}
-        />
-        <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap' }}>
-          <TextField label="Value" hint="Optional, as 2.1e8" inputMode="decimal" autoComplete="off" error={errors.value?.message} {...register('value')} />
-          <SelectField
-            label="Unit"
-            options={[{ value: '', label: 'None' }, ...Object.entries(UNIT_LABELS).map(([value, label]) => ({ value, label }))]}
-            error={errors.unit?.message}
-            {...register('unit')}
-          />
-        </Stack>
-        {/* Mounted once its options are there, so a chosen vial is never lost to a late list. */}
-        {vials === undefined ? (
-          <Typography>Loading the vials of the batch…</Typography>
-        ) : (
-          <SelectField label="Vial checked" hint={vialHint(vials.length, vialsTotal)} options={vialOptions} error={errors.vial?.message} {...register('vial')} />
-        )}
-        <TextField label="Note" hint="What was seen. Required for a reduced result. Name no person." multiline minRows={2} error={errors.note?.message} {...register('note')} />
+        <CheckFields register={register} errors={formState.errors} setValue={setValue} kind={kind} batch={batch} vials={vials} vialsTotal={vialsTotal} checks={checks} />
       </Stack>
     </ConfirmDialog>
   )

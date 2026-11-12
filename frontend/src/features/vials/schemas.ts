@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { addIssues, type Rule } from '@/lib/rules'
 import type { components } from '@/api/schema'
 
 type Schemas = components['schemas']
@@ -324,27 +325,29 @@ export const formatValue = (value: string) => (value.includes('.') ? value.repla
 
 const NUMBER = /^\d+(\.\d{1,4})?([eE]\d{1,2})?$/
 
-export const checkSchema = z
-  .object({
-    kind: z.enum(['identity', 'purity', 'viability'], 'Choose the kind'),
-    stage: z.enum(['after_preservation', 'periodic', 'before_dispatch'], 'Choose the stage'),
-    checked_on: z.iso.date('Enter a date as YYYY-MM-DD').refine((d) => d <= today(), 'This date is in the future'),
-    method: z.enum(['morphology', 'biochemical', 'maldi_tof', 'sequencing', 'streak_plate', 'microscopy', 'growth', 'plate_count', 'live_dead_stain', 'other'], 'Choose the method'),
-    method_detail: z.string().trim().max(200, 'Use at most 200 characters'),
-    result: z.enum(['pass', 'reduced', 'fail'], 'Choose the result'),
-    value: z.string().trim().refine((v) => v === '' || NUMBER.test(v), 'Enter a number, as 12.5 or 2.1e8'),
-    unit: z.enum(['', 'cfu_per_ml', 'percent']),
-    vial: z.string(),
-    note: z.string().trim().max(2000, 'Use at most 2000 characters'),
-  })
-  .superRefine((form, ctx) => {
-    if (!METHODS_BY_KIND[form.kind].includes(form.method)) ctx.addIssue({ code: 'custom', path: ['method'], message: 'Choose a method of this kind' })
-    if (form.method === 'other' && form.method_detail === '') ctx.addIssue({ code: 'custom', path: ['method_detail'], message: 'Describe the method' })
-    if (form.value !== '' && form.unit === '') ctx.addIssue({ code: 'custom', path: ['unit'], message: 'Choose the unit of the value' })
-    if (form.value === '' && form.unit !== '') ctx.addIssue({ code: 'custom', path: ['value'], message: 'Enter the value, or no unit' })
-    if (form.unit === 'percent' && NUMBER.test(form.value) && Number(form.value) > 100) ctx.addIssue({ code: 'custom', path: ['value'], message: 'A percentage is at most 100' })
-    if (form.result === 'reduced' && form.note === '') ctx.addIssue({ code: 'custom', path: ['note'], message: 'Say what was reduced' })
-  })
+const checkFields = z.object({
+  kind: z.enum(['identity', 'purity', 'viability'], 'Choose the kind'),
+  stage: z.enum(['after_preservation', 'periodic', 'before_dispatch'], 'Choose the stage'),
+  checked_on: z.iso.date('Enter a date as YYYY-MM-DD').refine((d) => d <= today(), 'This date is in the future'),
+  method: z.enum(['morphology', 'biochemical', 'maldi_tof', 'sequencing', 'streak_plate', 'microscopy', 'growth', 'plate_count', 'live_dead_stain', 'other'], 'Choose the method'),
+  method_detail: z.string().trim().max(200, 'Use at most 200 characters'),
+  result: z.enum(['pass', 'reduced', 'fail'], 'Choose the result'),
+  value: z.string().trim().refine((v) => v === '' || NUMBER.test(v), 'Enter a number, as 12.5 or 2.1e8'),
+  unit: z.enum(['', 'cfu_per_ml', 'percent']),
+  vial: z.string(),
+  note: z.string().trim().max(2000, 'Use at most 2000 characters'),
+})
+
+const CHECK_RULES: readonly Rule<z.output<typeof checkFields>>[] = [
+  [(f) => !METHODS_BY_KIND[f.kind].includes(f.method), 'method', 'Choose a method of this kind'],
+  [(f) => f.method === 'other' && f.method_detail === '', 'method_detail', 'Describe the method'],
+  [(f) => f.value !== '' && f.unit === '', 'unit', 'Choose the unit of the value'],
+  [(f) => f.value === '' && f.unit !== '', 'value', 'Enter the value, or no unit'],
+  [(f) => f.unit === 'percent' && NUMBER.test(f.value) && Number(f.value) > 100, 'value', 'A percentage is at most 100'],
+  [(f) => f.result === 'reduced' && f.note === '', 'note', 'Say what was reduced'],
+]
+
+export const checkSchema = checkFields.superRefine((form, ctx) => addIssues(CHECK_RULES, form, ctx))
 export type CheckForm = z.input<typeof checkSchema>
 export type CheckValues = z.output<typeof checkSchema>
 
@@ -410,31 +413,31 @@ export const canConfirmDestruction = (role: Role | undefined): boolean => role =
 
 const optionalText = (max: number) => z.string().trim().max(max, `Use at most ${max} characters`)
 
-export const destructionSchema = (rules: DestructionRules) =>
-  z
-    .object({
-      vials: z.array(z.string()).min(1, 'Choose at least one vial'),
-      destroyed_on: z.iso.date('Enter a date as YYYY-MM-DD').refine((d) => d <= today(), 'This date is in the future'),
-      method: z.enum(['autoclave', 'chemical', 'incineration', 'other'], 'Choose how it was destroyed'),
-      method_detail: optionalText(200),
-      verification: optionalText(500),
-      outside: z.boolean(),
-      contractor: optionalText(200),
-      handover_document: optionalText(100),
-      inactivated_in_lab: z.boolean(),
-      run: optionalText(100),
-      witness: z.string(),
-      reason: reasonSchema,
-    })
-    .superRefine((v, ctx) => {
-      if (v.method === 'other' && v.method_detail === '') ctx.addIssue({ code: 'custom', path: ['method_detail'], message: 'Describe the method' })
-      if (rules.verification && v.verification === '') ctx.addIssue({ code: 'custom', path: ['verification'], message: 'Say how the inactivation was verified' })
-      if (rules.witness && v.witness === '') ctx.addIssue({ code: 'custom', path: ['witness'], message: 'Choose the member who witnessed it' })
-      if (v.outside && v.contractor === '') ctx.addIssue({ code: 'custom', path: ['contractor'], message: 'Name the firm' })
-      if (v.outside && v.handover_document === '') ctx.addIssue({ code: 'custom', path: ['handover_document'], message: 'Give the number of the handover document' })
-      if (v.outside && rules.inactivatedBeforeHandover && !v.inactivated_in_lab)
-        ctx.addIssue({ code: 'custom', path: ['inactivated_in_lab'], message: 'A highly risky or risky agent (VRAT, RAT) is inactivated in the lab before a firm takes it' })
-    })
+const destructionFields = z.object({
+  vials: z.array(z.string()).min(1, 'Choose at least one vial'),
+  destroyed_on: z.iso.date('Enter a date as YYYY-MM-DD').refine((d) => d <= today(), 'This date is in the future'),
+  method: z.enum(['autoclave', 'chemical', 'incineration', 'other'], 'Choose how it was destroyed'),
+  method_detail: optionalText(200),
+  verification: optionalText(500),
+  outside: z.boolean(),
+  contractor: optionalText(200),
+  handover_document: optionalText(100),
+  inactivated_in_lab: z.boolean(),
+  run: optionalText(100),
+  witness: z.string(),
+  reason: reasonSchema,
+})
+
+const destructionIssues = (rules: DestructionRules): readonly Rule<z.output<typeof destructionFields>>[] => [
+  [(v) => v.method === 'other' && v.method_detail === '', 'method_detail', 'Describe the method'],
+  [(v) => rules.verification && v.verification === '', 'verification', 'Say how the inactivation was verified'],
+  [(v) => rules.witness && v.witness === '', 'witness', 'Choose the member who witnessed it'],
+  [(v) => v.outside && v.contractor === '', 'contractor', 'Name the firm'],
+  [(v) => v.outside && v.handover_document === '', 'handover_document', 'Give the number of the handover document'],
+  [(v) => v.outside && rules.inactivatedBeforeHandover && !v.inactivated_in_lab, 'inactivated_in_lab', 'A highly risky or risky agent (VRAT, RAT) is inactivated in the lab before a firm takes it'],
+]
+
+export const destructionSchema = (rules: DestructionRules) => destructionFields.superRefine((v, ctx) => addIssues(destructionIssues(rules), v, ctx))
 export type DestructionForm = z.input<ReturnType<typeof destructionSchema>>
 export type DestructionValues = z.output<ReturnType<typeof destructionSchema>>
 

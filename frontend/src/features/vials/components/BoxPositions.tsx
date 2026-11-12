@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { type ReactNode, useRef, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { type FormEvent, type ReactNode, useRef, useState } from 'react'
+import { useForm, type UseFormRegisterReturn } from 'react-hook-form'
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
 import { Box, Button, type GridCell, gridLabel, Link, PositionGrid, type PositionGridHandle, Stack, TextField, Typography } from '@/components/ui'
@@ -52,15 +52,12 @@ export function BoxPositions({ labId, boxId, boxName, canHandle }: Props) {
   const [active, setActive] = useState<GridPos>({ row: 0, col: 0 })
   const form = useForm<FindForm>({ resolver: zodResolver(findSchema), defaultValues: { code: '' } })
 
-  const positions = grid.data?.positions ?? []
+  const { positions, rows, cols } = shapeOf(grid.data)
   const taken = new Map(positions.map((p) => [keyOf(p.row, p.col), p]))
   const at = (pos: GridPos) => taken.get(keyOf(pos.row + 1, pos.col + 1))
   // One element per vial, kept while the positions are the same: a cell whose content is a new
   // element on every render could not be skipped when a key moves the focus (#128).
-  const lines = new Map<BoxPosition, ReactNode>()
-  for (const p of positions) if (p.vial) lines.set(p, <VialLines vial={p.vial} />)
-  const rows = grid.data?.rows ?? 0
-  const cols = grid.data?.cols ?? 0
+  const lines = vialLines(positions)
 
   function cancel() {
     if (moving === null) return
@@ -162,62 +159,88 @@ export function BoxPositions({ labId, boxId, boxName, canHandle }: Props) {
         Positions
       </Typography>
       <Stack spacing={2}>
-        {canHandle && (
-          <Stack component="form" onSubmit={(event) => void form.handleSubmit(findVial)(event)} noValidate aria-label="Place a vial" direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            <TextField
-              label="Vial label or barcode"
-              hint="Scan the tube, or type its label."
-              autoComplete="off"
-              size="small"
-              error={form.formState.errors.code?.message}
-              {...form.register('code')}
-            />
-            <Button type="submit" variant="outlined" aria-disabled={find.isPending} sx={{ '&[aria-disabled="true"]': { color: 'text.disabled', cursor: 'progress' } }}>
-              Find
-            </Button>
-          </Stack>
-        )}
-        <Typography>
-          {canHandle
-            ? 'Arrow keys move between positions. Enter, Space or a click picks a vial, then the same on an empty position puts it there. Escape cancels.'
-            : 'Arrow keys move between positions.'}
-        </Typography>
-        {canHandle && (
-          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', minHeight: '2rem' }}>
-            {/* The one live region of the grid (output is role status, polite): selection, results, refusals. */}
-            <Typography component="output" sx={{ display: 'block', overflowWrap: 'anywhere' }}>
-              {message}
-            </Typography>
-            {moving && (
-              <Button size="small" variant="outlined" onClick={cancel}>
-                Cancel move
-              </Button>
-            )}
-          </Stack>
-        )}
+        {canHandle && <FindVialForm code={form.register('code')} error={form.formState.errors.code?.message} onSubmit={(event) => void form.handleSubmit(findVial)(event)} finding={find.isPending} />}
+        <Typography>{HELP[canHandle ? 'handle' : 'read']}</Typography>
+        {canHandle && <MoveBar message={message} moving={moving !== null} onCancel={cancel} />}
         <StaleNotice what="the positions" query={grid} />
-        {grid.isPending ? (
-          <Typography>Loading the positions…</Typography>
-        ) : grid.data === undefined ? (
-          <LoadError what="the positions" error={grid.error} onRetry={() => void grid.refetch()} />
-        ) : (
-          <>
-            <PositionGrid
-              ref={gridRef}
-              label={`Positions of ${boxName}`}
-              rows={rows}
-              cols={cols}
-              cell={cell}
-              onActivate={canHandle ? activate : undefined}
-              onEscape={canHandle ? cancel : undefined}
-              onActiveChange={setActive}
-            />
-            <Details labId={labId} here={gridLabel(active)} position={at(active)} />
-          </>
-        )}
+        <PositionsBody grid={grid}>
+          <PositionGrid
+            ref={gridRef}
+            label={`Positions of ${boxName}`}
+            rows={rows}
+            cols={cols}
+            cell={cell}
+            onActivate={canHandle ? activate : undefined}
+            onEscape={canHandle ? cancel : undefined}
+            onActiveChange={setActive}
+          />
+          <Details labId={labId} here={gridLabel(active)} position={at(active)} />
+        </PositionsBody>
       </Stack>
     </Box>
   )
+}
+
+/** What the grid is made of: its positions and its size, none of either until the box loaded. */
+function shapeOf(data: { positions: BoxPosition[]; rows: number; cols: number } | undefined) {
+  return { positions: data?.positions ?? [], rows: data?.rows ?? 0, cols: data?.cols ?? 0 }
+}
+
+/** The lines of every taken position that shows its vial. */
+function vialLines(positions: readonly BoxPosition[]): Map<BoxPosition, ReactNode> {
+  const lines = new Map<BoxPosition, ReactNode>()
+  for (const p of positions) if (p.vial) lines.set(p, <VialLines vial={p.vial} />)
+  return lines
+}
+
+const HELP = {
+  handle: 'Arrow keys move between positions. Enter, Space or a click picks a vial, then the same on an empty position puts it there. Escape cancels.',
+  read: 'Arrow keys move between positions.',
+}
+
+// The field's registration comes from the parent on every render: reset() forgets the field, and a child the compiler skips would not register it again.
+type FindProps = { code: UseFormRegisterReturn<'code'>; error: string | undefined; onSubmit: (event: FormEvent<HTMLFormElement>) => void; finding: boolean }
+
+/** The scanner's field: a tube scanned or typed is placed the same way a picked one is. */
+function FindVialForm({ code, error, onSubmit, finding }: FindProps) {
+  return (
+    <Stack component="form" onSubmit={onSubmit} noValidate aria-label="Place a vial" direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <TextField
+        label="Vial label or barcode"
+        hint="Scan the tube, or type its label."
+        autoComplete="off"
+        size="small"
+        error={error}
+        {...code}
+      />
+      <Button type="submit" variant="outlined" aria-disabled={finding} sx={{ '&[aria-disabled="true"]': { color: 'text.disabled', cursor: 'progress' } }}>
+        Find
+      </Button>
+    </Stack>
+  )
+}
+
+/** The one live region of the grid (output is role status, polite): selection, results, refusals. */
+function MoveBar({ message, moving, onCancel }: { message: string; moving: boolean; onCancel: () => void }) {
+  return (
+    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', minHeight: '2rem' }}>
+      <Typography component="output" sx={{ display: 'block', overflowWrap: 'anywhere' }}>
+        {message}
+      </Typography>
+      {moving && (
+        <Button size="small" variant="outlined" onClick={onCancel}>
+          Cancel move
+        </Button>
+      )}
+    </Stack>
+  )
+}
+
+/** The grid and its details once the box loaded, else the wait or the load error. */
+function PositionsBody({ grid, children }: { grid: ReturnType<typeof useBoxGrid>; children: ReactNode }) {
+  if (grid.isPending) return <Typography>Loading the positions…</Typography>
+  if (grid.data === undefined) return <LoadError what="the positions" error={grid.error} onRetry={() => void grid.refetch()} />
+  return <>{children}</>
 }
 
 /** The first empty position in fill order, row by row (A1, A2, ..., B1), or null when full. */
