@@ -140,6 +140,38 @@ export function ReclassifyDialog({ labId, strain, open, onClose, onExited }: Com
 const BASIS_HINT = 'The list entry, the catalogue or the publication the group comes from. An agent missing from a list is not thereby group 1 (NV 361/2007 Sb., Příloha 7).'
 const LOWER_WAITS = 'A lower risk group waits for a manager other than you to confirm it. Until then every rule reads the group the strain has now.'
 
+const WORDS = {
+  lower: { effect: LOWER_WAITS, confirm: 'Propose the lower group' },
+  raise: { effect: 'A higher group takes effect at once and rises one step at a time.', confirm: 'Save risk group' },
+} as const
+
+const riskGroupDefaults = (strain: Strain, suggestion: RiskGroupSuggestion | undefined) => ({
+  // #169: a suggestion from a list fills the group and the basis; the reason is the person's.
+  risk_group: suggestion?.risk_group ?? String(strain.risk_group),
+  basis: suggestion?.basis ?? '',
+  reason: '',
+})
+
+/** The request body: the basis and reason trimmed, and the entry of the suggestion the person took (#169), if any. Without one the group rests on the words alone, which the annex itself asks for. */
+const riskGroupBody = (values: RiskGroupValues, suggestion: RiskGroupSuggestion | undefined) => ({
+  ...values,
+  basis: values.basis.trim(),
+  basis_entry: suggestion?.entry ?? null,
+  reason: values.reason.trim(),
+})
+
+const RISK_GROUP_REFUSALS: Readonly<Record<string, string>> = {
+  risk_group_4_refused: RISK_GROUP_4_REFUSED,
+  risk_group_above_box_cap: RISK_GROUP_ABOVE_BOX_CAP,
+  risk_group_step_too_big: RISK_GROUP_STEP_TOO_BIG,
+}
+
+/** The message of a refusal that names the risk group field, if the error is one. */
+function riskGroupRefusal(error: unknown): string | undefined {
+  if (!isApiError(error) || error.code === undefined || !Object.hasOwn(RISK_GROUP_REFUSALS, error.code)) return undefined
+  return RISK_GROUP_REFUSALS[error.code]
+}
+
 /**
  * One dialog for both directions (#174): a raise, or the same group again, goes through at once;
  * a lower group becomes a proposal a manager other than the proposer confirms. Every change
@@ -153,33 +185,21 @@ export function RiskGroupDialog({ labId, strain, open, onClose, onExited, sugges
   const { control, register, handleSubmit, formState, setError } = useForm<RiskGroupForm, unknown, RiskGroupValues>({
     resolver: zodResolver(riskGroupSchema),
     // #169: a suggestion from a list fills the group and the basis; the reason is the person's.
-    defaultValues: { risk_group: suggestion?.risk_group ?? String(strain.risk_group), basis: suggestion?.basis ?? '', reason: '' },
+    defaultValues: riskGroupDefaults(strain, suggestion),
   })
   const chosen = useWatch({ control, name: 'risk_group' })
   const lowering = Number(chosen) < strain.risk_group
+  const direction = lowering ? 'lower' : 'raise'
   const onError = (error: unknown) => {
-    for (const [code, message] of [
-      ['risk_group_4_refused', RISK_GROUP_4_REFUSED],
-      ['risk_group_above_box_cap', RISK_GROUP_ABOVE_BOX_CAP],
-      ['risk_group_step_too_big', RISK_GROUP_STEP_TOO_BIG],
-    ] as const) {
-      if (isApiError(error) && error.code === code) {
-        setError('risk_group', { type: 'server', message }, { shouldFocus: true })
-        return
-      }
-    }
+    const refusal = riskGroupRefusal(error)
+    if (refusal !== undefined) return setError('risk_group', { type: 'server', message: refusal }, { shouldFocus: true })
     setFailure(placeError(error, ['risk_group', 'basis', 'reason'], setError, () => setError('reason', missing, { shouldFocus: true })))
   }
   const onSubmit = handleSubmit((values) => {
     setFailure(undefined)
     // #169: the entry comes from the suggestion the person took, not from a field of its own.
     // Without one the group rests on the words alone, which the annex itself asks for.
-    const body = {
-      ...values,
-      basis: values.basis.trim(),
-      basis_entry: suggestion?.entry ?? null,
-      reason: values.reason.trim(),
-    }
+    const body = riskGroupBody(values, suggestion)
     const mutation = lowering ? propose : change
     mutation.mutate(body, { onSuccess: onClose, onError })
   })
@@ -187,8 +207,8 @@ export function RiskGroupDialog({ labId, strain, open, onClose, onExited, sugges
     <ConfirmDialog
       open={open}
       title={`Change the risk group of ${strain.accession_number ?? 'the strain'}`}
-      description={`Only with a basis and a reason. The change and both go into the strain's history. ${lowering ? LOWER_WAITS : 'A higher group takes effect at once and rises one step at a time.'}`}
-      confirmLabel={lowering ? 'Propose the lower group' : 'Save risk group'}
+      description={`Only with a basis and a reason. The change and both go into the strain's history. ${WORDS[direction].effect}`}
+      confirmLabel={WORDS[direction].confirm}
       form={formId}
       pending={change.isPending || propose.isPending}
       error={failure}
