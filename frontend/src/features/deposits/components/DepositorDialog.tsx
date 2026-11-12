@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useId, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { type FieldErrors, useForm, type UseFormRegister, type UseFormSetError } from 'react-hook-form'
 import { ConfirmDialog, Stack, TextField } from '@/components/ui'
 import { errorMessage, isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
@@ -20,6 +20,32 @@ type Props = {
 
 const FIELDS = ['name', 'email', 'postal_address', 'institution'] as const
 
+/** The words of the dialog: a new depositor is added, a known one changed. */
+const TEXTS = {
+  add: { title: 'Add a depositor', confirm: 'Add the depositor' },
+  change: { title: 'Change the depositor', confirm: 'Save the depositor' },
+}
+
+const defaultsOf = (depositor: Depositor | undefined): DepositorForm => ({
+  name: depositor?.name ?? '',
+  email: depositor?.email ?? '',
+  postal_address: depositor?.postal_address ?? '',
+  institution: depositor?.institution ?? '',
+})
+
+const trimmed = (values: DepositorForm): DepositorForm => ({
+  name: values.name.trim(),
+  email: values.email.trim(),
+  postal_address: values.postal_address.trim(),
+  institution: values.institution.trim(),
+})
+
+/** The line under the form for a refused save: an erased contact has its own; a field error shows at its field instead. */
+function failureOf(error: unknown, setError: UseFormSetError<DepositorForm>): string | undefined {
+  if (isApiError(error, 409) && error.code === 'contact_erased') return 'This contact was erased. It can no longer be changed.'
+  return applyServerErrors(error, FIELDS, setError) ? undefined : errorMessage(error)
+}
+
 /**
  * Add a depositor or change one. The contact (name, e-mail, address) is personal data: the
  * server keeps it out of the audit trail and records only that a field changed.
@@ -30,38 +56,25 @@ export function DepositorDialog({ labId, depositor, open, onClose, onExited, onS
   const save = depositor ? update : create
   const formId = useId()
   const [failure, setFailure] = useState<string>()
-  const { register, handleSubmit, formState, setError } = useForm<DepositorForm>({
-    resolver: zodResolver(depositorSchema),
-    defaultValues: {
-      name: depositor?.name ?? '',
-      email: depositor?.email ?? '',
-      postal_address: depositor?.postal_address ?? '',
-      institution: depositor?.institution ?? '',
-    },
-  })
+  const { register, handleSubmit, formState, setError } = useForm<DepositorForm>({ resolver: zodResolver(depositorSchema), defaultValues: defaultsOf(depositor) })
   const errors = formState.errors
+  const words = TEXTS[depositor ? 'change' : 'add']
   const onSubmit = handleSubmit((values) => {
     setFailure(undefined)
-    save.mutate(
-      { name: values.name.trim(), email: values.email.trim(), postal_address: values.postal_address.trim(), institution: values.institution.trim() },
-      {
-        onSuccess: (saved) => {
-          onSaved?.(saved)
-          onClose()
-        },
-        onError: (error) => {
-          if (isApiError(error, 409) && error.code === 'contact_erased') setFailure('This contact was erased. It can no longer be changed.')
-          else if (!applyServerErrors(error, FIELDS, setError)) setFailure(errorMessage(error))
-        },
+    save.mutate(trimmed(values), {
+      onSuccess: (saved) => {
+        onSaved?.(saved)
+        onClose()
       },
-    )
+      onError: (error) => setFailure(failureOf(error, setError)),
+    })
   })
   return (
     <ConfirmDialog
       open={open}
-      title={depositor ? 'Change the depositor' : 'Add a depositor'}
+      title={words.title}
       description="The contact is personal data: the audit trail records only that it changed, never its values."
-      confirmLabel={depositor ? 'Save the depositor' : 'Add the depositor'}
+      confirmLabel={words.confirm}
       form={formId}
       pending={save.isPending}
       error={failure ?? errors.root?.server?.message}
@@ -69,12 +82,23 @@ export function DepositorDialog({ labId, depositor, open, onClose, onExited, onS
       onExited={onExited}
     >
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Depositor" spacing={2} sx={{ mt: 2 }}>
-        {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
-        <TextField label="Name" autoFocus autoComplete="off" error={errors.name?.message} {...register('name')} />
-        <TextField label="E-mail" type="email" autoComplete="off" error={errors.email?.message} {...register('email')} />
-        <TextField label="Postal address" multiline minRows={2} autoComplete="off" error={errors.postal_address?.message} {...register('postal_address')} />
-        <TextField label="Institution" hint="The organisation the depositor deposits for. Empty for a private person." autoComplete="off" error={errors.institution?.message} {...register('institution')} />
+        <DepositorFields register={register} errors={errors} />
       </Stack>
     </ConfirmDialog>
+  )
+}
+
+type FieldsProps = { register: UseFormRegister<DepositorForm>; errors: FieldErrors<DepositorForm> }
+
+/** The four fields of a depositor's contact. */
+function DepositorFields({ register, errors }: FieldsProps) {
+  return (
+    <>
+      {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
+      <TextField label="Name" autoFocus autoComplete="off" error={errors.name?.message} {...register('name')} />
+      <TextField label="E-mail" type="email" autoComplete="off" error={errors.email?.message} {...register('email')} />
+      <TextField label="Postal address" multiline minRows={2} autoComplete="off" error={errors.postal_address?.message} {...register('postal_address')} />
+      <TextField label="Institution" hint="The organisation the depositor deposits for. Empty for a private person." autoComplete="off" error={errors.institution?.message} {...register('institution')} />
+    </>
   )
 }

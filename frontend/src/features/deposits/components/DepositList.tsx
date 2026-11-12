@@ -6,7 +6,7 @@ import { Box, Button, Link, Mono, Paper, SelectField, Stack, StatusChip, Table, 
 import { DEPOSIT_TONES } from '@/lib/tones'
 import { useFocusReturnOnUnmount } from '@/lib/focus'
 import { useDepositList } from '../api/queries'
-import { type DepositFilters as Filters, type DepositListParams, depositorLabel, options, STATUS_LABELS, STATUSES } from '../schemas'
+import { type DepositFilters as Filters, type DepositListParams, type DepositRow, depositorLabel, options, STATUS_LABELS, STATUSES } from '../schemas'
 
 type Props = {
   labId: string
@@ -16,63 +16,94 @@ type Props = {
   onClearFilters: () => void
 }
 
+type RowProps = { labId: string; deposit: DepositRow }
+
+/** The strain a deposit became, linked, or None while it has not. */
+function StrainCell({ labId, strain }: { labId: string; strain: DepositRow['strain'] }) {
+  if (!strain) return <>None</>
+  return (
+    <Link to="/labs/$labId/strains/$strainId" params={{ labId, strainId: strain.public_id }}>
+      <Mono>{strain.accession_number ?? 'pending'}</Mono>
+    </Link>
+  )
+}
+
+function DepositTableRow({ labId, deposit: d }: RowProps) {
+  return (
+    <TableRow>
+      <TableCell sx={{ whiteSpace: 'nowrap' }}>{d.received_on}</TableCell>
+      <TableCell sx={{ overflowWrap: 'anywhere' }}>
+        <Link to="/labs/$labId/deposits/$depositId" params={{ labId, depositId: d.public_id }}>
+          {d.name_as_received}
+        </Link>
+      </TableCell>
+      <TableCell sx={{ overflowWrap: 'anywhere' }}>{depositorLabel(d.depositor)}</TableCell>
+      <TableCell>
+        <StatusChip tone={DEPOSIT_TONES[d.status]}>{STATUS_LABELS[d.status]}</StatusChip>
+      </TableCell>
+      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+        <StrainCell labId={labId} strain={d.strain} />
+      </TableCell>
+    </TableRow>
+  )
+}
+
+function DepositTable({ labId, rows }: { labId: string; rows: DepositRow[] }) {
+  return (
+    <TableContainer component={Paper} variant="outlined">
+      <Table aria-label="Deposits">
+        <TableHead>
+          <TableRow>
+            <TableCell>Received</TableCell>
+            <TableCell>Name as received</TableCell>
+            <TableCell>Depositor</TableCell>
+            <TableCell>Status</TableCell>
+            <TableCell>Strain</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.map((d) => (
+            <DepositTableRow key={d.public_id} labId={labId} deposit={d} />
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  )
+}
+
+/** What the list says in place of a table: no deposits at all, none that match the filters, or a page past the end. */
+function EmptyList({ count, filtered, onOffsetChange, onClearFilters }: { count: number; filtered: boolean } & Pick<Props, 'onOffsetChange' | 'onClearFilters'>) {
+  if (count > 0) return <PastTheEnd onFirstPage={() => onOffsetChange(0)} />
+  if (filtered) return <NoMatch onClearFilters={onClearFilters} />
+  return <Typography>The lab has received no deposits yet.</Typography>
+}
+
 /** The lab's deposits, newest receipt first, filtered by the URL, a page at a time. */
 export function DepositList({ labId, params, onOffsetChange, onClearFilters }: Props) {
   const list = useDepositList(labId, params)
-  if (list.data === undefined) {
-    if (list.isPending) return <Typography>Loading the deposits…</Typography>
-    return <LoadError what="the deposits" error={list.error} onRetry={() => void list.refetch()} />
-  }
+  if (list.data === undefined) return <ListUnavailable list={list} />
   const stale = <StaleNotice what="the deposits" query={list} />
   const { count, results } = list.data
-  const filtered = params.status !== undefined || Boolean(params.search)
-  if (count === 0 && filtered) return <>{stale}<NoMatch onClearFilters={onClearFilters} /></>
-  if (count === 0) return <>{stale}<Typography>The lab has received no deposits yet.</Typography></>
-  if (results.length === 0) return <>{stale}<PastTheEnd onFirstPage={() => onOffsetChange(0)} /></>
+  if (results.length === 0)
+    return (
+      <>
+        {stale}
+        <EmptyList count={count} filtered={params.status !== undefined || Boolean(params.search)} onOffsetChange={onOffsetChange} onClearFilters={onClearFilters} />
+      </>
+    )
   return (
     <section aria-label="Deposits" aria-busy={list.isPlaceholderData}>
       {stale}
-      <TableContainer component={Paper} variant="outlined">
-        <Table aria-label="Deposits">
-          <TableHead>
-            <TableRow>
-              <TableCell>Received</TableCell>
-              <TableCell>Name as received</TableCell>
-              <TableCell>Depositor</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Strain</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {results.map((d) => (
-              <TableRow key={d.public_id}>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{d.received_on}</TableCell>
-                <TableCell sx={{ overflowWrap: 'anywhere' }}>
-                  <Link to="/labs/$labId/deposits/$depositId" params={{ labId, depositId: d.public_id }}>
-                    {d.name_as_received}
-                  </Link>
-                </TableCell>
-                <TableCell sx={{ overflowWrap: 'anywhere' }}>{depositorLabel(d.depositor)}</TableCell>
-                <TableCell>
-                  <StatusChip tone={DEPOSIT_TONES[d.status]}>{STATUS_LABELS[d.status]}</StatusChip>
-                </TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                  {d.strain ? (
-                    <Link to="/labs/$labId/strains/$strainId" params={{ labId, strainId: d.strain.public_id }}>
-                      <Mono>{d.strain.accession_number ?? 'pending'}</Mono>
-                    </Link>
-                  ) : (
-                    'None'
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <DepositTable labId={labId} rows={results} />
       <Pager label="Deposit pages" count={count} shown={results.length} limit={params.limit} offset={params.offset} loading={list.isPlaceholderData} onOffsetChange={onOffsetChange} />
     </section>
   )
+}
+
+/** While the list has no data: loading, or the load error with a retry. */
+function ListUnavailable({ list }: { list: ReturnType<typeof useDepositList> }) {
+  if (list.isPending) return <Typography>Loading the deposits…</Typography>
+  return <LoadError what="the deposits" error={list.error} onRetry={() => void list.refetch()} />
 }
 
 function NoMatch({ onClearFilters }: { onClearFilters: () => void }) {
