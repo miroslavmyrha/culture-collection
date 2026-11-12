@@ -3,6 +3,11 @@
 from django.core.exceptions import ImproperlyConfigured
 
 from config.env import env_bool, env_int, env_str
+from config.settings.guards import (
+    refuse_default_admin_path,
+    refuse_open_hosts,
+    refuse_weak_secret,
+)
 
 from .base import *  # noqa: F403
 from .base import (
@@ -16,34 +21,15 @@ from .base import (
     TRUSTED_PROXIES,
 )
 
-MIN_SECRET_KEY_LENGTH = 50
-MIN_SECRET_KEY_UNIQUE_CHARS = 5
-WEAK_SECRET_PREFIXES = ("dev-only", "test-only", "django-insecure", "change", "secret")
-
-
-def _refuse_weak_secret(name: str, value: object) -> None:
-    if (
-        not isinstance(value, str)
-        or len(value) < MIN_SECRET_KEY_LENGTH
-        or len(set(value)) < MIN_SECRET_KEY_UNIQUE_CHARS
-        or value.lower().startswith(WEAK_SECRET_PREFIXES)
-    ):
-        raise ImproperlyConfigured(
-            f"{name} must be a real random secret of at least {MIN_SECRET_KEY_LENGTH} characters."
-        )
-
-
-_refuse_weak_secret("DJANGO_SECRET_KEY", SECRET_KEY)
+refuse_weak_secret("DJANGO_SECRET_KEY", SECRET_KEY)
 for _fallback in SECRET_KEY_FALLBACKS:
-    _refuse_weak_secret("DJANGO_SECRET_KEY_FALLBACKS", _fallback)
+    refuse_weak_secret("DJANGO_SECRET_KEY_FALLBACKS", _fallback)
 if SECRET_KEY in SECRET_KEY_FALLBACKS:
     raise ImproperlyConfigured("DJANGO_SECRET_KEY must not also be listed in the fallbacks.")
 
-if not ALLOWED_HOSTS or any(host.strip() in {"*", ".*"} for host in ALLOWED_HOSTS):
-    raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS must list the real host names, never '*'.")
+refuse_open_hosts(ALLOWED_HOSTS)
 
-if ADMIN_PATH.strip("/") in {DEFAULT_ADMIN_PATH.strip("/"), "admin"}:
-    raise ImproperlyConfigured("Set DJANGO_ADMIN_PATH to a non-default path such as 'ops-x7k2/'.")
+refuse_default_admin_path(ADMIN_PATH, DEFAULT_ADMIN_PATH)
 
 # The fake authority's token is evidence of nothing (cultures/audit/timestamping.py).
 if AUDIT_TIMESTAMP_AUTHORITY["BACKEND"].endswith("FakeAuthority"):
