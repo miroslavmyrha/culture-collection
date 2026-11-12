@@ -44,6 +44,7 @@ from cultures.audit.registry import (
     PASSAGE_CREATED,
     PERSONAL_CHANGED,
 )
+from cultures.biosafety.models import RegulatoryListEntry
 from cultures.biosafety.policy import permit_today
 from cultures.core.exceptions import Conflict, DomainError, Forbidden, NotFound, RuleViolation
 from cultures.labs.access import Access
@@ -154,6 +155,10 @@ class StrainFacts:
     identified_on: date
     identification_method: str
     risk_group: int
+    # #169: what the risk group rests on, in words, and the entry of annex 7 of government order
+    # 361/2007 Sb. it was read in, where it was read in one.
+    risk_group_basis: str
+    risk_group_entry: RegulatoryListEntry | None = None
     animal_pathogenicity: Pathogenicity = Pathogenicity.UNKNOWN
     plant_pathogenicity: Pathogenicity = Pathogenicity.UNKNOWN
     isolation_source: str = ""
@@ -631,6 +636,8 @@ def deposit_accept(*, access: Access, deposit: Deposit, facts: StrainFacts) -> D
                 identified_on=facts.identified_on,
                 identification_method=facts.identification_method,
                 risk_group=facts.risk_group,
+                risk_group_basis=facts.risk_group_basis,
+                risk_group_entry=facts.risk_group_entry,
                 animal_pathogenicity=facts.animal_pathogenicity,
                 plant_pathogenicity=facts.plant_pathogenicity,
                 isolation_source=facts.isolation_source,

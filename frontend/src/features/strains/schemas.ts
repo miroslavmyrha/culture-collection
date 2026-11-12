@@ -92,6 +92,15 @@ export const REFERENCE_HINTS: Record<RestrictionKind, string> = {
   quarantine_pest: 'The entry in Annex II of Implementing Regulation (EU) 2019/2072',
   gmo: 'The notification or permit reference under act 78/2004 Sb.',
 }
+export type StrainDisagreement = Schemas['ListDisagreementOutput']
+export type Disagreement = StrainDisagreement['findings'][number]['disagreement']
+/** What each disagreement with the official lists means, in a few words (#169). */
+export const DISAGREEMENT_LABELS: Record<Disagreement, string> = {
+  restriction_missing: 'The list names a restriction the strain does not carry',
+  restriction_unlisted: 'The strain carries a restriction no entry names',
+  risk_group_differs: 'Annex 7 states another risk group',
+}
+
 export const GMO_CATEGORIES = [1, 2, 3, 4] as const
 export const GMO_CATEGORY_LABELS: Record<number, string> = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV' }
 
@@ -173,12 +182,17 @@ const riskGroup = z.string().transform((value, ctx): RiskGroup => {
 })
 const country = z.custom<CountryCode | ''>(isCountry, 'Choose a country')
 
+/** What a risk group rests on, in the person's words: required wherever a group is set. */
+export const basisSchema = required('Say what the group rests on').max(2000, 'Use at most 2000 characters')
+
 /** What the check of a deposit found: the facts of the strain its acceptance creates. */
 export const strainFactsSchema = z.object({
   taxon: z.custom<Taxon | null>().refine((value) => value !== null && value !== undefined, 'Choose a taxon'),
   identified_on: isoDay,
   identification_method: required('Enter how it was identified').max(200, 'Use at most 200 characters'),
   risk_group: riskGroup,
+  // #169: every group says what it rests on, the accession's included.
+  risk_group_basis: basisSchema,
   animal_pathogenicity: choice(['unknown', 'none_known', 'pathogenic'], 'Choose one'),
   plant_pathogenicity: choice(['unknown', 'none_known', 'pathogenic'], 'Choose one'),
   isolation_source: z.string().trim().max(200, 'Use at most 200 characters'),
@@ -206,7 +220,6 @@ export type ReclassifyForm = z.input<typeof reclassifySchema>
  * A risk group change (#174): the group, the basis it rests on and the reason. The same shape
  * serves the raise in one step and the proposal of a lower group; the dialog decides which.
  */
-export const basisSchema = required('Say what the group rests on').max(2000, 'Use at most 2000 characters')
 export const riskGroupSchema = z.object({ risk_group: riskGroup, basis: basisSchema, reason: reasonSchema })
 export type RiskGroupForm = z.input<typeof riskGroupSchema>
 export type RiskGroupValues = z.output<typeof riskGroupSchema>

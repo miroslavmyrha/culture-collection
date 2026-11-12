@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, acceptedStrain, api, batch, batchOf, freezerWithBoxes, labId, openLab, openStrains, openTab, openWaiting, openUnit, strainAction, passAll, receivedDeposit, release, searchStrain, setupAs, supplyStrain } from './walk.js'
+import { RISK_GROUP_BASIS, RUN, Walk, acceptedStrain, api, batch, batchOf, freezerWithBoxes, labId, openLab, openStrains, openTab, openWaiting, openUnit, strainAction, passAll, receivedDeposit, release, searchStrain, setupAs, supplyStrain } from './walk.js'
 
 // A curator of Bacteriology (seed_dev): intake, identification, storage and the strain's record.
 const LAB = 'Bacteriology'
@@ -45,6 +45,8 @@ test('C2 check a deposit and accept it as a strain', async ({ browser }, info) =
   await w.click(w.page.getByRole('option', { name: /^Bacillus subtilis/ }))
   await w.type(form.getByRole('textbox', { name: 'Identification method' }), '16S rRNA gene sequence')
   await w.choose(form.getByRole('combobox', { name: 'Risk group' }), '1')
+  // #169: the accession says what the group rests on, as every later change of it does.
+  await w.type(form.getByRole('textbox', { name: 'Risk group basis' }), RISK_GROUP_BASIS)
   await w.type(form.getByRole('textbox', { name: 'Isolation source' }), 'Garden soil')
   await w.click(form.getByRole('button', { name: 'Accept and add the strain' }))
   const strain = w.page.getByRole('link', { name: /^BAC \d+$/ })
@@ -52,6 +54,7 @@ test('C2 check a deposit and accept it as a strain', async ({ browser }, info) =
   await w.click(strain)
   await expect(w.page.getByRole('heading', { level: 1, name: /^BAC \d+$/ })).toBeVisible()
   w.note('The check itself (purity plate, identity) is a button press, and its results have no place but the identification method text', '#17')
+  w.note('The basis of the risk group is required here: the annex of 361/2007 Sb. says an agent it does not list is not thereby group 1', '#169')
   await w.done()
 })
 

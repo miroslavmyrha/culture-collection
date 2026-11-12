@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { signedInAs, username } from './support.js'
+import { riskGroupBasis, signedInAs, username } from './support.js'
 
 // A write in one part of the app refreshes what another part shows (#64), against the real API.
 // The strain, its restriction, storage and vial are this run's own, made through the API with
@@ -17,7 +17,7 @@ test("ending a restriction shows the vial's place on the strain page without a r
   await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
 
-  const made = await page.evaluate(async (run) => {
+  const made = await page.evaluate(async ({ run, basis }) => {
     await fetch('/api/v1/auth/csrf/')
     const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
     const lab = location.pathname.split('/')[2] ?? ''
@@ -49,6 +49,7 @@ test("ending a restriction shows the vial's place on the strain page without a r
       identified_on: new Date().toLocaleDateString('sv'),
       identification_method: 'MALDI-TOF MS',
       risk_group: 1,
+      risk_group_basis: basis,
       animal_pathogenicity: 'unknown',
       plant_pathogenicity: 'unknown',
       isolation_source: '',
@@ -72,7 +73,7 @@ test("ending a restriction shows the vial's place on the strain page without a r
       box: box.public_id,
     })
     return { lab, strain, reference }
-  }, RUN)
+  }, { run: RUN, basis: riskGroupBasis })
 
   // A restriction ends by two people (#105): e2e-curator proposes it, the e2e user (a manager)
   // confirms it on the page.

@@ -50,12 +50,16 @@ async function pickTaxon(user: UserEvent, text = 'exem') {
   await user.keyboard('{ArrowDown}{Enter}')
 }
 
+const BASIS = 'NV 361/2007 Sb., Příloha 7, part A, table 1.'
+
 async function fillRequired(user: UserEvent) {
   await pickTaxon(user)
   await user.clear(field('Identified on'))
   await user.type(field('Identified on'), '2026-01-10')
   await user.type(field('Identification method'), '16S rRNA gene sequence')
   await user.selectOptions(select('Risk group'), '2')
+  // #169: every group says what it rests on, the one the accession records included.
+  await user.type(field('Risk group basis'), BASIS)
 }
 
 const submit = (user: UserEvent) => user.click(screen.getByRole('button', { name: 'Accept' }))
@@ -91,6 +95,7 @@ describe('StrainFactsForm', () => {
       identified_on: '2026-01-10',
       identification_method: '16S rRNA gene sequence',
       risk_group: 2,
+      risk_group_basis: BASIS,
       animal_pathogenicity: 'unknown',
       plant_pathogenicity: 'pathogenic',
       isolation_source: 'garden  soil',

@@ -100,9 +100,10 @@ export function makeStrain(overrides: Partial<Strain> = {}): Strain {
     regulated: (overrides.restriction_history ?? []).some((r) => r.ended_at === null),
     deaccession: null,
     deaccession_proposal: null,
-    // #174: the group is the one the accession recorded, with no basis of its own and no
-    // proposal to lower it.
-    risk_group_basis: '',
+    // #174 and #169: the accession states what the group rests on, here on no list entry, and
+    // nobody has proposed a lower group.
+    risk_group_basis: 'Recorded with the accession papers.',
+    risk_group_entry: null,
     risk_group_proposal: null,
     // The server sends it only to those who may open deposits (#154).
     deposit: null,
@@ -736,6 +737,44 @@ export function makeReveal(overrides: Partial<Reveal> = {}): Reveal {
     vial_label: `MYC ${n} / 1 / 1`,
     strain: uuid(n + 2000),
     accession_number: `MYC ${n}`,
+    ...overrides,
+  }
+}
+
+export type ListMatch = Schemas['ListMatchOutput']
+
+/**
+ * An entry of an official list that matches a strain's taxon (#169). The organism, the entry
+ * code and the act are invented, so no test states a legal fact about a real organism.
+ */
+export function makeListMatch(overrides: Partial<ListMatch> = {}): ListMatch {
+  const n = next()
+  return {
+    public_id: uuid(n),
+    list: 'eu-2021-821-annex-i',
+    list_title: 'Regulation (EU) 2021/821, Annex I',
+    act: '2021/821',
+    version: '32025R2003',
+    version_date: '2025-09-08',
+    code: '1C351.c.99',
+    name: 'Mockia fictiva',
+    kind: 'organism',
+    restriction_kind: 'dual_use',
+    suggests_act: '(EU) 2025/2003',
+    risk_group: null,
+    match_name: 'mockia fictiva',
+    match_scope: 'exact',
+    ...overrides,
+  }
+}
+
+export type StrainDisagreement = Schemas['ListDisagreementOutput']
+
+/** A strain the lists name a restriction for that it does not carry (#169). */
+export function makeStrainDisagreement(overrides: Partial<StrainDisagreement> = {}): StrainDisagreement {
+  return {
+    strain: makeStrainRow(),
+    findings: [{ disagreement: 'restriction_missing', restriction_kind: 'dual_use', entry: makeListMatch() }],
     ...overrides,
   }
 }

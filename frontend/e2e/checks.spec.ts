@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
-import { axe, contrast, signedInAs, watchCsp } from './support.js'
+import { axe, contrast, riskGroupBasis, signedInAs, watchCsp } from './support.js'
 
 // Checks of a batch and its release (#17) against the real API. Each test makes a strain of
 // its own through deposit intake (received, checked, accepted as Bacillus subtilis, risk group
@@ -75,6 +75,7 @@ async function strainWithBatch(browser: Browser, tag: string) {
     identified_on: today(),
     identification_method: '16S rRNA gene sequence',
     risk_group: 1,
+    risk_group_basis: riskGroupBasis,
     country_of_origin: 'CZ',
     restrictions: [],
   })

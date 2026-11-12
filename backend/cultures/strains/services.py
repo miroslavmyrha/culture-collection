@@ -29,7 +29,7 @@ person's and goes one step at a time.
 import re
 import unicodedata
 import uuid
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any, Literal
@@ -55,7 +55,8 @@ from cultures.audit.registry import (
     STRAIN_RISK_GROUP_LOWER_PROPOSED,
     STRAIN_RISK_GROUP_LOWER_WITHDRAWN,
 )
-from cultures.biosafety.models import RestrictionKind
+from cultures.biosafety import selectors as biosafety_lists
+from cultures.biosafety.models import RegulatoryListEntry, RestrictionKind
 from cultures.biosafety.policy import permit_today, require_authorisation
 from cultures.core.exceptions import Conflict, DomainError, Forbidden, NotFound, RuleViolation
 from cultures.distribution import services as distribution
@@ -98,6 +99,11 @@ STRAIN = "strain"
 RISK_GROUP_REFUSED = 4
 ACCESSION_REASON = "Identification at accession"
 MAX_RESTRICTIONS = 10
+# How a refusal names the restriction decree 474/2002 Sb. asks for (#169).
+_WHAT: dict[str, str] = {
+    RestrictionKind.CZ_VRAT: "highly risky agent (VRAT)",
+    RestrictionKind.CZ_RAT: "risky agent (RAT)",
+}
 
 
 class InvalidStrain(DomainError):
@@ -188,6 +194,53 @@ class ConfirmOwnRiskGroup(Forbidden):
 class AccessionTaken(Conflict):
     default_code = "accession_taken"
     default_detail = "This accession number is taken: try again."
+
+
+class DualUseEntryUnknown(DomainError):
+    """#169: the reference of a dual-use item is an entry the current reading of Annex I of
+    Regulation (EU) 2021/821 holds, and nothing else."""
+
+    default_code = "dual_use_entry_unknown"
+    default_detail = "Annex I of Regulation (EU) 2021/821 has no entry with this code."
+
+
+class RestrictionRequiredByEntry(RuleViolation):
+    """#169: an Annex I entry of 1C351.a, 1C351.c, 1C351.e or 1C354 that decree 474/2002 Sb.
+    also lists is a VRAT or a RAT, so the strain carries that restriction too."""
+
+    default_code = "restriction_required_by_entry"
+    default_detail = "Decree 474/2002 Sb. also lists this agent: record its restriction too."
+
+    def __init__(self, kind: RestrictionKind | None = None, *, attr: str | None = None) -> None:
+        self.kind = kind
+        detail = (
+            None
+            if kind is None
+            else f"Decree 474/2002 Sb. lists this agent as a {_WHAT[kind]}:"
+            " record that restriction too."
+        )
+        super().__init__(detail, attr=attr)
+
+
+class RestrictionHeldByDualUse(RuleViolation):
+    """#169: a VRAT or RAT restriction does not end while a dual-use entry of the same strain
+    names an agent decree 474/2002 Sb. lists as that agent."""
+
+    default_code = "restriction_held_by_dual_use"
+    default_detail = (
+        "A dual-use entry of this strain names an agent decree 474/2002 Sb. lists: end that"
+        " restriction first."
+    )
+
+
+class RiskGroupEntryMismatch(RuleViolation):
+    """#169: a risk group that rests on a list entry rests on an entry of the current reading of
+    annex 7 of government order 361/2007 Sb. that states that very group."""
+
+    default_code = "risk_group_entry_mismatch"
+    default_detail = (
+        "This entry of annex 7 of government order 361/2007 Sb. does not state that risk group."
+    )
 
 
 class RestrictionEnded(Conflict):
@@ -308,6 +361,12 @@ class NewStrain:
     identified_on: date
     identification_method: str
     risk_group: int
+    # #169: what the risk group rests on, in words, and the list entry it was read in where it
+    # was read in one. The words are always required: annex 7 of government order 361/2007 Sb.
+    # says an agent it does not list is not thereby group 1, so no group follows from a list
+    # alone (R-RISK-07).
+    risk_group_basis: str
+    risk_group_entry: RegulatoryListEntry | None = None
     animal_pathogenicity: Pathogenicity = Pathogenicity.UNKNOWN
     plant_pathogenicity: Pathogenicity = Pathogenicity.UNKNOWN
     isolation_source: str = ""
@@ -409,6 +468,10 @@ def _checked(data: NewStrain) -> NewStrain:
         identified_on=data.identified_on,
         identification_method=method,
         risk_group=data.risk_group,
+        risk_group_basis=_check_basis(data.risk_group_basis, attr="risk_group_basis"),
+        risk_group_entry=_check_basis_entry(
+            data.risk_group_entry, data.risk_group, attr="risk_group_basis_entry"
+        ),
         animal_pathogenicity=data.animal_pathogenicity,
         plant_pathogenicity=data.plant_pathogenicity,
         isolation_source=normalised(data.isolation_source),
@@ -425,19 +488,35 @@ def _check_reason(reason: str) -> str:
     return reason.strip()
 
 
-def _check_basis(basis: str) -> str:
-    """Before any write: every risk group change states what the group rests on (#174). Today
-    that is text the person gives (a list entry, a catalogue, a publication); reading it from an
-    official list is #169. Government order 361/2007 Sb., Annex 7, Part A: an agent that is not
-    in groups 2 to 4 of the list is not thereby in group 1, so no group follows from a list
-    alone."""
+def _check_basis(basis: str, attr: str = "basis") -> str:
+    """Before any write: every risk group states what it rests on, in words (#174, #169).
+
+    The words are the person's (a list entry, a catalogue, a publication) and are required even
+    where the group was read from an official list. Government order 361/2007 Sb., Annex 7,
+    Part A: an agent that is not in groups 2 to 4 of the list is not thereby in group 1, so no
+    group follows from a list alone.
+    """
     if not basis.strip():
         raise RuleViolation(
             "A basis is required: name the list entry or the source.",
             code="basis_required",
-            attr="basis",
+            attr=attr,
         )
     return basis.strip()
+
+
+def _check_basis_entry(
+    entry: RegulatoryListEntry | None, risk_group: int, attr: str = "basis_entry"
+) -> RegulatoryListEntry | None:
+    """#169: where a basis points at a list entry, the entry is one of the current reading of
+    annex 7 of government order 361/2007 Sb. that states the very group being recorded.
+
+    No query: the entry was read with its list. `biosafety.selectors.states_risk_group` is the
+    one definition, and the guard of migration 0018 asks the same of every writer.
+    """
+    if entry is not None and not biosafety_lists.states_risk_group(entry, risk_group):
+        raise RiskGroupEntryMismatch(attr=attr)
+    return entry
 
 
 # Under the lab lock.
@@ -482,6 +561,47 @@ def _restriction_values(r: StrainRestriction | RestrictionInput) -> dict[str, An
     return {"kind": r.kind, "reference": r.reference, "act": r.act, "gmo_category": r.gmo_category}
 
 
+def _entry_of(restriction: RestrictionInput, prefix: str = "") -> RegulatoryListEntry | None:
+    """The official list entry the reference names (#169), or None when no list holds it.
+
+    A dual-use item must have one: its reference is an Annex I entry code of Regulation (EU)
+    2021/821 and nothing else, and the database refuses a reference the current reading of the
+    annex does not hold (migration 0016).
+    """
+    entry = biosafety_lists.list_entry(restriction.kind, restriction.reference)
+    if entry is None and restriction.kind in biosafety_lists.ENTRY_REQUIRED:
+        raise DualUseEntryUnknown(attr=f"{prefix}reference")
+    return entry
+
+
+def _require_cz_agent(
+    entries: Sequence[RegulatoryListEntry | None], held: Collection[str], prefix: str = ""
+) -> None:
+    """#169, the last box: a dual-use entry of 1C351.a, 1C351.c, 1C351.e or 1C354 that decree
+    474/2002 Sb. also lists needs that restriction on the same strain. `held` is the kinds the
+    strain has active, the ones being written included. The deferred trigger of migration 0016
+    asks the same at commit, for every writer."""
+    for index, entry in enumerate(entries):
+        if entry is None:
+            continue
+        counterpart = biosafety_lists.also_a_cz_agent(entry)
+        if counterpart is None or counterpart.restriction_kind in held:
+            continue
+        raise RestrictionRequiredByEntry(
+            RestrictionKind(counterpart.restriction_kind),
+            attr=f"{prefix}{index}.reference" if prefix else "reference",
+        )
+
+
+def _active_kinds(strain: Strain) -> set[str]:
+    """The restriction kinds the strain has active now. Caller holds the strain's row."""
+    return set(
+        StrainRestriction.objects.filter(strain=strain, ended_at__isnull=True).values_list(
+            "kind", flat=True
+        )
+    )
+
+
 def _locked_strain(strain: Strain) -> Strain:
     """The strain locked, in the collection: a deaccessioned one changes no more (#20)."""
     locked = Strain.objects.select_for_update().filter(pk=strain.pk).select_related("lab").first()
@@ -514,6 +634,10 @@ def strain_create(*, access: Access, lab: Lab, data: NewStrain) -> Strain:
             name_as_received=data.name_as_received,
             taxon=data.taxon,
             risk_group=data.risk_group,
+            # #169: the accession states what the group rests on, like every change after it.
+            risk_group_basis=data.risk_group_basis,
+            risk_group_set_at=timezone.now(),
+            risk_group_entry=data.risk_group_entry,
             animal_pathogenicity=data.animal_pathogenicity,
             plant_pathogenicity=data.plant_pathogenicity,
             isolation_source=data.isolation_source,
@@ -531,9 +655,11 @@ def strain_create(*, access: Access, lab: Lab, data: NewStrain) -> Strain:
             reason=ACCESSION_REASON,
             is_current=True,
         )
-        for r in data.restrictions:
+        entries = [_entry_of(r, f"restrictions.{i}.") for i, r in enumerate(data.restrictions)]
+        _require_cz_agent(entries, {r.kind for r in data.restrictions}, prefix="restrictions.")
+        for r, entry in zip(data.restrictions, entries, strict=True):
             StrainRestriction.objects.create(
-                lab=locked_lab, strain=strain, **_restriction_values(r)
+                lab=locked_lab, strain=strain, list_entry=entry, **_restriction_values(r)
             )
         values: dict[str, Any] = {
             "accession_number": strain.accession_number,
@@ -541,6 +667,8 @@ def strain_create(*, access: Access, lab: Lab, data: NewStrain) -> Strain:
             "name_as_received": strain.name_as_received,
             "taxon": str(data.taxon.public_id),
             "risk_group": strain.risk_group,
+            "risk_group_basis": strain.risk_group_basis,
+            "risk_group_entry": _entry_code(data.risk_group_entry),
             "animal_pathogenicity": strain.animal_pathogenicity,
             "plant_pathogenicity": strain.plant_pathogenicity,
             "isolation_source": strain.isolation_source,
@@ -638,31 +766,68 @@ def _check_boxes_hold(strain: Strain, risk_group: int) -> None:
         raise RiskGroupAboveBoxCap
 
 
+def _entry_code(entry: RegulatoryListEntry | None) -> str | None:
+    """How an event names a list entry (#169): its code in its list, never its row id."""
+    return None if entry is None else entry.code
+
+
 def _risk_group_fields(
-    locked: Strain, risk_group: int, basis: str, now: datetime
+    locked: Strain,
+    risk_group: int,
+    basis: str,
+    now: datetime,
+    entry: RegulatoryListEntry | None = None,
 ) -> dict[str, Any]:
-    """The strain's new group with its basis and the time of the change, and the changes the
-    event records. The time moves forward with every change, which is what ties a lowering to
-    one confirmed proposal (migration 0014)."""
+    """The strain's new group with its basis, the list entry the basis rests on and the time of
+    the change, and the changes the event records. The time moves forward with every change,
+    which is what ties a lowering to one confirmed proposal (migration 0014)."""
     old, old_basis = locked.risk_group, locked.risk_group_basis
+    # One query, and only for a strain whose group already rested on an entry: the locked row
+    # holds the id, and an event names an entry by its code in its list, never by a row id.
+    old_entry = (
+        RegulatoryListEntry.objects.filter(pk=locked.risk_group_entry_id)
+        .values_list("code", flat=True)
+        .first()
+        if locked.risk_group_entry_id is not None
+        else None
+    )
     locked.risk_group = risk_group
     locked.risk_group_basis = basis
     locked.risk_group_set_at = now
-    return {"risk_group": [old, risk_group], "basis": [old_basis or None, basis]}
+    locked.risk_group_entry = entry
+    return {
+        "risk_group": [old, risk_group],
+        "basis": [old_basis or None, basis],
+        "basis_entry": [old_entry, _entry_code(entry)],
+    }
 
 
-RISK_GROUP_FIELDS = ["risk_group", "risk_group_basis", "risk_group_set_at", "updated_at"]
+RISK_GROUP_FIELDS = [
+    "risk_group",
+    "risk_group_basis",
+    "risk_group_set_at",
+    "risk_group_entry",
+    "updated_at",
+]
 
 
 def strain_set_risk_group(
-    *, access: Access, strain: Strain, risk_group: int, basis: str, reason: str
+    *,
+    access: Access,
+    strain: Strain,
+    risk_group: int,
+    basis: str,
+    reason: str,
+    basis_entry: RegulatoryListEntry | None = None,
 ) -> Strain:
     """A raise, or the same group again, by one person who manages strains, with the basis and
-    the reason (#174). The same group changes nothing and records nothing. A raise goes one step
-    at a time and is refused while a box holding the strain's vials does not allow it. A lower
-    group is proposed instead (strain_risk_group_lower_propose)."""
+    the reason (#174). The basis may point at the entry of annex 7 of government order 361/2007
+    Sb. it was read in (#169). The same group changes nothing and records nothing. A raise goes
+    one step at a time and is refused while a box holding the strain's vials does not allow it.
+    A lower group is proposed instead (strain_risk_group_lower_propose)."""
     _check_risk_group(risk_group)
     basis = _check_basis(basis)
+    _check_basis_entry(basis_entry, risk_group)
     reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(strain.lab_id)
@@ -675,7 +840,7 @@ def strain_set_risk_group(
         if risk_group > locked.risk_group + 1:
             raise RiskGroupStepTooBig
         _check_boxes_hold(locked, risk_group)
-        changes = _risk_group_fields(locked, risk_group, basis, timezone.now())
+        changes = _risk_group_fields(locked, risk_group, basis, timezone.now(), basis_entry)
         record_event(
             STRAIN_RISK_GROUP_CHANGED,
             Change(
@@ -696,7 +861,9 @@ def _open_risk_group(strain: Strain, named: uuid.UUID) -> RiskGroupProposal:
     proposal = (
         RiskGroupProposal.objects.select_for_update(of=("self",))
         .filter(strain=strain, confirmed_at__isnull=True, withdrawn_at__isnull=True)
-        .select_related("proposed_by")
+        # basis_entry is nullable, hence of=("self",) above: the row of the proposal is locked
+        # and the entry, which nothing ever changes, is not.
+        .select_related("proposed_by", "basis_entry")
         .first()
     )
     if proposal is None:
@@ -707,14 +874,22 @@ def _open_risk_group(strain: Strain, named: uuid.UUID) -> RiskGroupProposal:
 
 
 def strain_risk_group_lower_propose(
-    *, access: Access, strain: Strain, risk_group: int, basis: str, reason: str
+    *,
+    access: Access,
+    strain: Strain,
+    risk_group: int,
+    basis: str,
+    reason: str,
+    basis_entry: RegulatoryListEntry | None = None,
 ) -> RiskGroupProposal:
     """The first of two steps to lower a risk group (#174, ADR 0009): someone who manages
-    strains proposes it, with the basis the lower group rests on and the reason. Nothing changes
-    for the strain until a manager other than the proposer confirms it, so every rule that reads
-    the risk group still reads the higher one."""
+    strains proposes it, with the basis the lower group rests on, the list entry that basis was
+    read in where there is one (#169), and the reason. Nothing changes for the strain until a
+    manager other than the proposer confirms it, so every rule that reads the risk group still
+    reads the higher one."""
     _check_risk_group(risk_group)
     basis = _check_basis(basis)
+    _check_basis_entry(basis_entry, risk_group)
     reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(strain.lab_id)
@@ -732,6 +907,7 @@ def strain_risk_group_lower_propose(
             risk_group=risk_group,
             from_risk_group=locked.risk_group,
             basis=basis,
+            basis_entry=basis_entry,
             reason=reason,
             proposed_by=access.user,
             proposed_at=timezone.now(),
@@ -750,6 +926,7 @@ def strain_risk_group_lower_propose(
                             "risk_group": risk_group,
                             "from_risk_group": locked.risk_group,
                             "basis": basis,
+                            "basis_entry": _entry_code(basis_entry),
                         },
                     ]
                 },
@@ -781,7 +958,9 @@ def strain_risk_group_lower_confirm(
         _defer_outcome_check("strains_riskgroupproposal_confirmed")
         proposed.confirmed_by, proposed.confirmed_at = access.user, now
         proposed.save(update_fields=["confirmed_by", "confirmed_at", "updated_at"])
-        changes = _risk_group_fields(locked, proposed.risk_group, proposed.basis, now)
+        changes = _risk_group_fields(
+            locked, proposed.risk_group, proposed.basis, now, proposed.basis_entry
+        )
         record_event(
             STRAIN_RISK_GROUP_CHANGED,
             Change(
@@ -879,8 +1058,13 @@ def strain_restriction_add(
         _require_role(access, strain.lab_id)
         require_authorisation(lab_id=strain.lab_id, kinds=[(restriction.kind, "kind")])
         locked = _locked_strain(strain)
+        entry = _entry_of(restriction)
+        _require_cz_agent([entry], _active_kinds(locked) | {restriction.kind})
         added = StrainRestriction(
-            lab_id=locked.lab_id, strain=locked, **_restriction_values(restriction)
+            lab_id=locked.lab_id,
+            strain=locked,
+            list_entry=entry,
+            **_restriction_values(restriction),
         )
         _save(
             added,
@@ -924,6 +1108,32 @@ def _locked_restriction(restriction: StrainRestriction) -> StrainRestriction:
     return locked
 
 
+def _check_end_allowed(locked: StrainRestriction) -> None:
+    """#169, the last box, the other way round: a VRAT or RAT restriction does not end while an
+    active dual-use restriction of the same strain names an entry of 1C351.a, 1C351.c, 1C351.e
+    or 1C354 that decree 474/2002 Sb. lists as that agent. The deferred trigger of migration
+    0016 asks the same at commit. Caller holds the lab lock and the restriction's row."""
+    if locked.kind not in (RestrictionKind.CZ_VRAT, RestrictionKind.CZ_RAT):
+        return
+    dual_use = (
+        StrainRestriction.objects.filter(
+            strain_id=locked.strain_id,
+            ended_at__isnull=True,
+            kind=RestrictionKind.DUAL_USE,
+            list_entry__isnull=False,
+        )
+        .select_related("list_entry")
+        .order_by("pk")
+    )
+    for other in dual_use:
+        entry = other.list_entry
+        if entry is None:
+            continue
+        counterpart = biosafety_lists.also_a_cz_agent(entry)
+        if counterpart is not None and counterpart.restriction_kind == locked.kind:
+            raise RestrictionHeldByDualUse
+
+
 def _open_proposal(restriction: StrainRestriction, named: uuid.UUID) -> RestrictionEndProposal:
     """The restriction's open proposal, locked, if it is the one the caller read."""
     proposal = (
@@ -950,6 +1160,7 @@ def strain_restriction_end_propose(
         lock_lab(restriction.lab_id)
         _require_role(access, restriction.lab_id)
         locked = _locked_restriction(restriction)
+        _check_end_allowed(locked)
         if locked.end_proposals.filter(confirmed_at__isnull=True, withdrawn_at__isnull=True):
             raise EndProposed
         proposal = RestrictionEndProposal.objects.create(
@@ -1005,6 +1216,7 @@ def strain_restriction_end_confirm(
         lock_lab(restriction.lab_id)
         _require_role(access, restriction.lab_id, Perm.CONFIRM_RESTRICTION_END)
         locked = _locked_restriction(restriction)
+        _check_end_allowed(locked)
         proposed = _open_proposal(locked, proposal)
         if proposed.proposed_by_id == access.user.pk:
             raise ConfirmOwnEndProposal

@@ -36,7 +36,7 @@ from cultures.strains import services
 from cultures.strains.models import RiskGroupProposal, Strain
 from cultures.users.models import User
 
-from .conftest import STRAINS_URL, MakeStrain, at_commit, refused_at_commit
+from .conftest import ACCESSION_BASIS, STRAINS_URL, MakeStrain, at_commit, refused_at_commit
 
 pytestmark = pytest.mark.django_db
 
@@ -116,7 +116,9 @@ def test_one_person_no_longer_lowers_a_risk_group(curator: User, group2: Strain)
 def test_a_proposal_changes_nothing_for_the_strain(curator: User, group2: Strain) -> None:
     proposal = propose(curator, group2, basis=f"  {BASIS}  ")
     group2.refresh_from_db()
-    assert (group2.risk_group, group2.risk_group_basis, group2.risk_group_set_at) == (2, "", None)
+    # #169: the strain still reads what the accession recorded, untouched by the proposal.
+    assert (group2.risk_group, group2.risk_group_basis) == (2, ACCESSION_BASIS)
+    assert group2.risk_group_set_at is not None
     assert (proposal.risk_group, proposal.from_risk_group) == (1, 2)
     assert (proposal.basis, proposal.proposed_by, proposal.confirmed_at) == (BASIS, curator, None)
     event = AuditEvent.objects.get(event_type="strain_risk_group_lower_proposed")
@@ -129,6 +131,7 @@ def test_a_proposal_changes_nothing_for_the_strain(curator: User, group2: Strain
                 "risk_group": 1,
                 "from_risk_group": 2,
                 "basis": BASIS,
+                "basis_entry": None,
             },
         ]
     }
@@ -147,7 +150,8 @@ def test_another_manager_confirms_and_the_group_drops_with_both_people(
     event = AuditEvent.objects.get(event_type="strain_risk_group_changed")
     assert (event.actor_id, event.reason) == (manager.pk, LOWER)
     assert event.changes["risk_group"] == [2, 1]
-    assert event.changes["basis"] == [None, BASIS]
+    assert event.changes["basis"] == [ACCESSION_BASIS, BASIS]
+    assert event.changes["basis_entry"] == [None, None]
     assert event.changes["risk_group_proposal"] == [None, str(proposal.public_id)]
     assert event.changes["proposed_by"] == [None, str(curator.public_id)]
     assert event.changes["confirmed_by"] == [None, str(manager.public_id)]
@@ -329,7 +333,7 @@ def test_a_proposal_is_withdrawn_with_a_reason_and_another_may_follow(
     first.refresh_from_db()
     assert (first.withdrawn_by, first.withdraw_reason) == (manager, "Listed after all.")
     group2.refresh_from_db()
-    assert (group2.risk_group, group2.risk_group_basis) == (2, "")
+    assert (group2.risk_group, group2.risk_group_basis) == (2, ACCESSION_BASIS)
     event = AuditEvent.objects.get(event_type="strain_risk_group_lower_withdrawn")
     assert (event.reason, event.changes) == (
         "Listed after all.",
@@ -393,7 +397,7 @@ def test_the_shipment_rule_and_the_detail_read_the_higher_group_while_it_waits(
     body = logged_in(curator).get(f"{STRAINS_URL}{group2.public_id}/").json()
     assert body["risk_group"] == 2
     assert body["risk_group_proposal"]["risk_group"] == 1
-    assert body["risk_group_basis"] == ""
+    assert body["risk_group_basis"] == ACCESSION_BASIS
 
 
 # The API.
@@ -420,6 +424,7 @@ def test_the_api_offers_the_confirmation_to_the_managers_who_may_give_it(
     shown = response.json()["risk_group_proposal"]
     assert shown["confirm_refusal"] == "confirm_own_risk_group"
     assert (shown["risk_group"], shown["from_risk_group"], shown["basis"]) == (1, 2, BASIS)
+    assert shown["basis_entry"] is None  # #169: this basis rests on no entry of the annex
     assert proposal_as(manager)["confirm_refusal"] is None
     assert proposal_as(viewer) == {**shown, "confirm_refusal": None}  # names nobody
     assert_problem(
@@ -515,12 +520,15 @@ def test_a_lower_group_is_set_only_at_a_confirmed_proposal(
 
 @pytest.mark.rule("R-RISK-07")
 def test_the_database_asks_every_change_for_its_basis_and_its_time(group2: Strain) -> None:
-    with guarded("states its basis and the time"), transaction.atomic():
-        Strain.objects.filter(pk=group2.pk).update(risk_group=3)
-    with guarded("states its basis and the time"), transaction.atomic():
-        Strain.objects.filter(pk=group2.pk).update(risk_group=3, risk_group_basis="   ")
-    with guarded("states its basis and the time"), transaction.atomic():
-        Strain.objects.filter(pk=group2.pk).update(risk_group=3, risk_group_basis=BASIS)
+    """The strain comes out of its accession with a basis (#169), so a change that drops it, or
+    gives words without a time, is refused as a change that never had one is."""
+    for change in (
+        {"risk_group_basis": "", "risk_group_set_at": None},
+        {"risk_group_basis": "   ", "risk_group_set_at": None},
+        {"risk_group_basis": BASIS, "risk_group_set_at": None},
+    ):
+        with guarded("states its basis and the time"), transaction.atomic():
+            Strain.objects.filter(pk=group2.pk).update(risk_group=3, **change)
     with guarded("changes with the group"), transaction.atomic():
         Strain.objects.filter(pk=group2.pk).update(risk_group_basis=BASIS)
     Strain.objects.filter(pk=group2.pk).update(
@@ -611,10 +619,13 @@ def test_the_runtime_role_works_the_two_steps_and_cannot_skip_them(
     group2: Strain,
     runtime_role: CursorWrapper,
 ) -> None:
+    # clock_timestamp(), not now(): now() is the transaction's start, which is before the
+    # accession recorded its own basis in this same transaction (#169), and the guard would
+    # refuse a change that is not later than the one before it instead of the rule under test.
     refused_sql(
         runtime_role,
         "UPDATE strains_strain SET risk_group = 1, risk_group_basis = 'x',"  # noqa: S608
-        f" risk_group_set_at = now() WHERE id = {group2.pk}",
+        f" risk_group_set_at = clock_timestamp() WHERE id = {group2.pk}",
         "a second person confirms a proposal",
     )
     proposal = propose(curator, group2)

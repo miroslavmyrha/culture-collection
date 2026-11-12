@@ -53,12 +53,21 @@ import {
   strainGrowthSchema,
   riskGroupSchema,
   type RiskGroupValues,
+  type RestrictionKind,
   type Strain,
 } from '../schemas'
 import { PERMIT_REFUSED_BY_KIND, RISK_GROUP_4_REFUSED, RISK_GROUP_ABOVE_BOX_CAP, RISK_GROUP_STEP_TOO_BIG, strainError } from '../strainErrors'
 import { TaxonField } from './TaxonField'
 
 type Common = { labId: string; strain: Strain; open: boolean; onClose: () => void; onExited: () => void }
+
+/**
+ * A suggestion read from an official list (#169), offered as the first value of a field. The
+ * person still chooses, and still gives the reason: nothing here is sent without the form.
+ */
+export type RestrictionSuggestion = { kind: RestrictionKind; reference: string; act: string }
+/** `entry` is the public id of the annex 7 entry the group would rest on (#169). */
+export type RiskGroupSuggestion = { risk_group: string; basis: string; entry: string }
 
 const REASON_HINT = 'Stored for good with the change. Name no person.'
 const KIND_OPTIONS = options(RESTRICTION_LABELS, RESTRICTION_KINDS)
@@ -136,14 +145,15 @@ const LOWER_WAITS = 'A lower risk group waits for a manager other than you to co
  * a lower group becomes a proposal a manager other than the proposer confirms. Every change
  * states the basis of the new group.
  */
-export function RiskGroupDialog({ labId, strain, open, onClose, onExited }: Common) {
+export function RiskGroupDialog({ labId, strain, open, onClose, onExited, suggestion }: Common & { suggestion?: RiskGroupSuggestion }) {
   const change = useSetRiskGroup(labId, strain.public_id)
   const propose = useProposeRiskGroup(labId, strain.public_id)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
   const { control, register, handleSubmit, formState, setError } = useForm<RiskGroupForm, unknown, RiskGroupValues>({
     resolver: zodResolver(riskGroupSchema),
-    defaultValues: { risk_group: String(strain.risk_group), basis: '', reason: '' },
+    // #169: a suggestion from a list fills the group and the basis; the reason is the person's.
+    defaultValues: { risk_group: suggestion?.risk_group ?? String(strain.risk_group), basis: suggestion?.basis ?? '', reason: '' },
   })
   const chosen = useWatch({ control, name: 'risk_group' })
   const lowering = Number(chosen) < strain.risk_group
@@ -162,7 +172,14 @@ export function RiskGroupDialog({ labId, strain, open, onClose, onExited }: Comm
   }
   const onSubmit = handleSubmit((values) => {
     setFailure(undefined)
-    const body = { ...values, basis: values.basis.trim(), reason: values.reason.trim() }
+    // #169: the entry comes from the suggestion the person took, not from a field of its own.
+    // Without one the group rests on the words alone, which the annex itself asks for.
+    const body = {
+      ...values,
+      basis: values.basis.trim(),
+      basis_entry: suggestion?.entry ?? null,
+      reason: values.reason.trim(),
+    }
     const mutation = lowering ? propose : change
     mutation.mutate(body, { onSuccess: onClose, onError })
   })
@@ -254,13 +271,15 @@ export function WithdrawRiskGroupDialog({ labId, strain, proposal, open, onClose
   )
 }
 
-export function AddRestrictionDialog({ labId, strain, open, onClose, onExited }: Common) {
+export function AddRestrictionDialog({ labId, strain, open, onClose, onExited, suggestion }: Common & { suggestion?: RestrictionSuggestion }) {
   const add = useAddRestriction(labId, strain.public_id)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
   const { control, register, handleSubmit, formState, setError } = useForm<AddRestrictionForm>({
     resolver: zodResolver(addRestrictionSchema),
-    defaultValues: { ...emptyRestriction, reason: '' },
+    // #169: a suggestion from a list fills the kind, the entry and the act; the reason is the
+    // person's, and the server refuses what the form would not.
+    defaultValues: { ...emptyRestriction, ...suggestion, reason: '' },
   })
   const kind = useWatch({ control, name: 'kind' })
   const errors = formState.errors

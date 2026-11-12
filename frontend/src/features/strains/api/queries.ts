@@ -31,6 +31,19 @@ export const strainTermsOptions = (labId: string, strainId: string) =>
       unwrap(api.GET('/api/v1/labs/{lab_public_id}/strains/{public_id}/terms/', { signal, params: { path: { lab_public_id: labId, public_id: strainId } } })),
   })
 
+/**
+ * What the official lists say about the strain's taxon (#169): a suggestion, never a
+ * classification. Recording one is a write of its own, with a reason.
+ */
+export const strainListMatchesOptions = (labId: string, strainId: string) =>
+  queryOptions({
+    queryKey: strainKeys.matches(labId, strainId),
+    queryFn: ({ signal }) =>
+      unwrap(
+        api.GET('/api/v1/labs/{lab_public_id}/strains/{public_id}/list-matches/', { signal, params: { path: { lab_public_id: labId, public_id: strainId } } }),
+      ),
+  })
+
 /** A page of what happened to the strain, newest first (#19). */
 export const strainHistoryOptions = (labId: string, strainId: string, page: PageParams) =>
   queryOptions({
@@ -57,6 +70,19 @@ export const strainShipmentsOptions = (labId: string, strainId: string, page: Pa
           params: { path: { lab_public_id: labId, public_id: strainId }, query: page },
         }),
       ),
+    placeholderData: keepPreviousData,
+  })
+
+/**
+ * Every strain of the lab whose classification disagrees with the official lists (#169). The
+ * server computes it at the read, so a new reading of a list needs nothing invalidated.
+ * Managers only: the server refuses everyone else (403).
+ */
+export const strainDisagreementsOptions = (labId: string, page: PageParams) =>
+  queryOptions({
+    queryKey: strainKeys.disagreements(labId, page),
+    queryFn: ({ signal }) =>
+      unwrap(api.GET('/api/v1/labs/{lab_public_id}/strains/list-disagreements/', { signal, params: { path: { lab_public_id: labId }, query: page } })),
     placeholderData: keepPreviousData,
   })
 
@@ -90,12 +116,20 @@ export function useStrainTerms(labId: string, strainId: string) {
   return useQuery(strainTermsOptions(labId, strainId))
 }
 
+export function useStrainListMatches(labId: string, strainId: string) {
+  return useQuery(strainListMatchesOptions(labId, strainId))
+}
+
 export function useStrainHistory(labId: string, strainId: string, page: PageParams) {
   return useQuery(strainHistoryOptions(labId, strainId, page))
 }
 
 export function useStrainShipments(labId: string, strainId: string, page: PageParams) {
   return useQuery(strainShipmentsOptions(labId, strainId, page))
+}
+
+export function useStrainDisagreements(labId: string, page: PageParams) {
+  return useQuery(strainDisagreementsOptions(labId, page))
 }
 
 export function useTaxonSearch(text: string, enabled: boolean) {

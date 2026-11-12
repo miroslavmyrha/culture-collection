@@ -1086,3 +1086,164 @@ amendment states the requirements a host must meet and names no provider.
 What this does not decide: where the qualified timestamp provider for the audit anchors sits
 (the 2026-11-04 amendment), and whether the SÚJB register may be electronic, which waits for
 SÚJB in writing.
+
+## Amendment 2026-11-08: the official lists are in the app (#169)
+
+Until now a strain's VRAT, RAT, dual-use, quarantine pest and risk group were typed by hand and
+nothing could check them. The four official lists are now rows of the app, loaded from the data
+files that `tools/fetch_regulatory_lists.py` writes straight from the sources (#187), and
+nothing in the app ever edits one.
+
+- **A list is a reading, not a table to maintain.** One `biosafety.RegulatoryList` per reading
+  of a list, with the source URL, the version, the version date, the fetch date, the SHA-256 of
+  the fetched text and the SHA-256 of the data file, and one `RegulatoryListEntry` per entry.
+  Loading is idempotent, a changed data file is a new reading, the new reading is the current
+  one and the one before it keeps its rows. So "what did the app hold on that day" stays a query,
+  as it does for a lab's permits.
+- **Nothing in the app edits a list.** No screen, no API and no admin page writes one; the
+  runtime role may read the lists and insert a reading and nothing else; and the guards of
+  migration `biosafety/0005` refuse every update of an entry, every delete of either row and
+  every change of a reading but losing `is_current`. The one way the content changes is a new
+  data file loaded by `manage.py load_regulatory_lists`, or by migration `0006` for the files a
+  version ships, which records no audit event: the reading's own row says where it came from,
+  which version it is, when it was loaded and the SHA-256 of the fetched text and of the data
+  file, and nothing can change it, so a deploy needs no event and no database starts its trail
+  with four. A newer list loaded by the command is a choice somebody made, and records one.
+- **An entry carries only what its own list says.** The restriction the list gives (annex 1 of
+  decree 474/2002 Sb. the VRAT, annex 2 the RAT, Annex I of Regulation (EU) 2021/821 the
+  dual-use item, Annex II of Implementing Regulation (EU) 2019/2072 the quarantine pest), and a
+  risk group only from annex 7 of government order 361/2007 Sb., which leaves the column empty
+  where it states none. Both halves are held in Python and in the entry guard.
+- **A name to match is derived, narrowly, and often not at all.** The lists print their names in
+  their own way: Czech prose in decree 474/2002 Sb., a scientific name with its authority in the
+  EU annexes and in annex 7. `biosafety.lists.match_of` reads a leading
+  `Genus [species] [subsp. epithet]`, or the first such name in brackets, and nothing that is
+  followed by a lower-case word, so prose that merely begins like a name is dropped instead of
+  guessed at. 781 of the 1061 entries get a name; the rest suggest nothing, which is where the
+  collection stood before this issue. A suggestion is a read either way: a person confirms it
+  with a reason, and no classification follows from a list alone.
+- **Open: the names of decree 474/2002 Sb.** The data file's `scientific_name` field holds the
+  item number, not a name: the `<var>` element of the e-Sbírka text marks the number. So the
+  VRAT and RAT names come from the Czech item text, and only 57 of its 125 entries yield a
+  scientific name. Fixing the parser means a new fetch and a new data file (#187), not a change
+  here.
+
+Each rule, its source, its code and its tests are in `docs/compliance.md` (R-LIST-01 to
+R-LIST-04).
+
+## Amendment 2026-11-08: a restriction points at its list entry (#169)
+
+The lists are in the app (amendment of the same day), so a restriction can name an entry of one
+instead of free text.
+
+- **A dual-use reference is an entry Annex I holds.** The entry codes of Annex I of Regulation
+  (EU) 2021/821 are the annex's own ("1C351.a.4"), so `StrainRestriction.list_entry` points at
+  the entry of the current reading whose code is the reference, and a reference the annex does
+  not hold is refused by the service and by the insert trigger of `strains/0016`. The pattern of
+  R-KIND-02 stays as the first line.
+- **The other kinds attach an entry where the reference is one.** A VRAT, a RAT and a quarantine
+  pest are referred to by the words of their annex ("Příloha 1, bod 2"), which this app does not
+  own, so the entry is attached when the reference is an entry code of the list and is not
+  demanded when it is not. A GMO is on no list and points at no entry. Where an entry is
+  attached, its list must give that restriction and be the current reading.
+- **A dual-use entry that decree 474/2002 Sb. also lists needs that restriction.** An Annex I
+  entry of 1C351.a, 1C351.c, 1C351.e or 1C354 names an organism, and 46 of them are also in
+  annexes 1 and 2 of decree 474/2002 Sb. (32 as a VRAT, 14 as a RAT) in this version's lists. A
+  strain that carries such a dual-use restriction carries the decree's restriction too, or the
+  permit gate, the distribution gates and the register entry would never see it. The rule is
+  ours: no text read says one classification follows from the other. It is checked at commit by
+  a deferred constraint trigger, because a strain gets both restrictions in one transaction, and
+  the same rule refuses the end of the decree's restriction while the dual-use one is active.
+  Only that direction: the export duty falls on the exporter, so a VRAT does not ask for a
+  dual-use restriction of its own.
+- **Nothing is filled in afterwards.** A restriction changes by nothing but ending (migration
+  `strains/0003`), so restrictions recorded before this keep no entry and the rules bind what is
+  written from now on.
+
+Each rule, its source, its code and its tests are in `docs/compliance.md` (R-KIND-10 and
+R-KIND-11).
+
+## Amendment 2026-11-08: the lists suggest, a person records (#169)
+
+The strain page shows what the official lists say about the strain's taxon, and nothing more.
+
+- **Matching is a read.** `biosafety.selectors.list_matches` takes the taxon's own name, the name
+  of its accepted taxon, the names of every synonym of that taxon, and the genus of each, and
+  returns the entries of the current readings whose derived name is one of them at the matching
+  scope. Never a part of a name. One organism carries different classifications under its
+  accepted name and a synonym, which is why the synonyms are in the set.
+- **A person confirms, with a reason.** The suggestion fills the kind, the entry and the act of
+  the dialog that records a restriction, or the group and the basis of the dialog that changes a
+  risk group. The reason stays the person's to write, and the write is the same service as a
+  classification typed by hand, with the same refusals and the same audit event. Nothing is
+  recorded by reading a list.
+- **Everyone who sees the strain sees the suggestions.** `strains.view`: the lists are public
+  law and the lines name no place and no person. Only somebody who manages strains is offered
+  the buttons that record one, and the server refuses the rest.
+- **What it cannot do.** An entry with no derived name suggests nothing (R-LIST-03), and the
+  genus of a name is its first word rather than the taxon's ancestor at rank genus, so a
+  genus-wide entry does not reach a species the tree places under that genus under another name.
+
+Each rule, its source, its code and its tests are in `docs/compliance.md` (R-MATCH-01).
+
+
+## Amendment 2026-11-09: every risk group says what it rests on (#169)
+
+A risk group was an integer with, since #174, a basis in words on every change of it but none on
+the group the accession recorded. Annex 7 of government order 361/2007 Sb. is now a list the app
+holds (R-LIST-01), so the basis can point at the entry it was read in.
+
+- **Every group states its basis, from the accession on.** `strains.services.strain_create` takes
+  the words with the group, writes them with the time, and the strain guard asks for both on
+  every insert as it already did on every change. A strain accessioned before this keeps its
+  empty basis: nothing is written after the fact, and its next change of group states one.
+- **Why the words stay required.** Annex 7, Part A: „Biologické činitele, které nebyly zařazeny
+  do skupin 2 až 4 seznamu, nejsou automaticky zařazeny do skupiny 1.“ An agent the list does not
+  place in groups 2 to 4 is not thereby in group 1, so the most common case in a collection is
+  the one no list entry can carry. The words carry it, and they are required whether an entry is
+  named or not.
+- **The entry, where there is one.** `Strain.risk_group_entry` and
+  `RiskGroupProposal.basis_entry` are foreign keys to `biosafety.RegulatoryListEntry`. An entry
+  may be named only if it belongs to the current reading of annex 7 and states the very group
+  being recorded: `biosafety.selectors.states_risk_group` in Python, the same question in SQL in
+  the guards of migration `strains/0018`, with a test comparing the two. A lowering lands on the
+  entry its confirmed proposal named, which the strain guard and the deferred check of the
+  proposal both hold.
+- **What is not checked.** That the entry's organism is the strain's taxon. The app offers the
+  entries that match the taxon (the amendment above) and a person decides, because a strain's
+  taxon may itself be wrong and because the annex names genera where a collection holds species.
+- **What the API takes.** `basis_entry` on the risk group actions and `risk_group_basis` with
+  `risk_group_basis_entry` on the acceptance of a deposit, the entry by public id through the
+  same scoped field every other reference uses, so an entry of another list, of a replaced
+  reading or of none gives one error.
+
+Each rule, its source, its code and its tests are in `docs/compliance.md` (R-RISK-07 and
+R-RISK-09).
+
+
+## Amendment 2026-11-09: the managers see where the record and the lists disagree (#169)
+
+The lists only suggest (the amendment above), and the app corrects nothing by itself. What it
+owes the managers is the list of the places where its own record and the official lists differ,
+because every duty the classification carries is theirs to answer for.
+
+- **One read, no row.** `strains.selectors.list_disagreements` computes it from the strains of
+  the lab in the collection and the entries of the current readings that match their taxa. There
+  is nothing to refresh after a reclassification and nothing to recompute after a new reading of
+  a list: the next read gives the new answer. Four queries whatever the number of strains.
+- **Three disagreements**, in `strains.selectors.list_findings`, the one definition:
+  an entry names a restriction the strain does not carry, the strain carries one of a kind whose
+  list names no matching entry, and an entry of annex 7 of government order 361/2007 Sb. states
+  another risk group, either way round.
+- **One matcher.** `biosafety.selectors.matching` asks the question in SQL for one taxon
+  (`list_matches`, the strain page) and `matches` asks it in Python for many at once
+  (`entries_for`, this read). A test compares the two on every entry of every list, so the
+  manager's list and the strain page can never suggest different things.
+- **A manager's read.** `strains.view_list_disagreements`, granted to the manager role alone:
+  they answer to SÚJB and ÚKZÚZ for the lab's classification, as they do for its permits.
+- **Not a fault.** A line is a question. A strain's taxon may be wrong, an annex names genera
+  where a collection holds species, and an agent annex 7 does not list is not thereby group 1,
+  so the record may be right and the list beside the point. Settling a line is a write of its
+  own on the strain's page, with a reason.
+
+Each rule, its source, its code and its tests are in `docs/compliance.md` (R-MATCH-02).

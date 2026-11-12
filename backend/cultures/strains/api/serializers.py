@@ -6,12 +6,20 @@ through ScopedRelatedField: an unknown id and a malformed one give the same
 error.
 """
 
+import re
+
 from django.db.models import QuerySet
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.request import Request
 
-from cultures.biosafety.models import RestrictionKind
+from cultures.biosafety import selectors as biosafety_selectors
+from cultures.biosafety.models import (
+    EntryKind,
+    MatchScope,
+    RegulatoryListEntry,
+    RestrictionKind,
+)
 from cultures.core.api import ScopedRelatedField
 from cultures.distribution.models import RequestLine
 from cultures.growth.api.serializers import GrowthOutputSerializer
@@ -28,6 +36,7 @@ from cultures.strains.models import (
     StrainRestriction,
     StrainStatus,
 )
+from cultures.strains.selectors import DISAGREEMENTS, Finding, StrainFindings
 from cultures.taxonomy.api.serializers import TaxonBriefSerializer
 from cultures.taxonomy.models import Taxon
 
@@ -35,11 +44,28 @@ from cultures.taxonomy.models import Taxon
 RISK_GROUPS = [(1, "1"), (2, "2"), (3, "3"), (4, "4")]
 COUNTRY_CHOICES = sorted(COUNTRY_CODES)
 REASON_HELP = "Why, in a sentence. Stored for good: name no person."
+BASIS_HELP = (
+    "What the group rests on: the list entry, the catalogue or the publication. Stored for good:"
+    " name no person."
+)
+BASIS_ENTRY_HELP = (
+    "The entry of annex 7 of government order 361/2007 Sb. the basis was read in, by public id,"
+    " where it was read in one. It must state the very group being recorded. The words of the"
+    " basis are required either way: an agent the annex does not list is not thereby group 1."
+)
 
 
 def all_taxa(request: Request) -> QuerySet[Taxon]:
     """Taxa are global (ADR 0008, D4): any of them may be referenced."""
     return Taxon.objects.all()
+
+
+def risk_group_entries(request: Request) -> QuerySet[RegulatoryListEntry]:
+    """The list entries a risk group may rest on (#169): the entries of the current reading of
+    annex 7 of government order 361/2007 Sb. that state a group. The lists are law and have no
+    lab, so every signed-in user may reference one; an entry of another list, of a reading that
+    was replaced, or of none gives the same error as an unknown id."""
+    return biosafety_selectors.risk_group_entries()
 
 
 class RestrictionBriefSerializer(serializers.ModelSerializer[StrainRestriction]):
@@ -189,6 +215,9 @@ class RiskGroupProposalOutputSerializer(serializers.ModelSerializer[RiskGroupPro
 
     risk_group = serializers.ChoiceField(choices=RISK_GROUPS, read_only=True)
     from_risk_group = serializers.ChoiceField(choices=RISK_GROUPS, read_only=True)
+    # #169: the entry of annex 7 the basis was read in, by its code in the list. Null where the
+    # basis rests on something the lists do not say.
+    basis_entry = serializers.CharField(source="basis_entry.code", read_only=True, allow_null=True)
     confirm_refusal = serializers.SerializerMethodField()
 
     class Meta:
@@ -198,6 +227,7 @@ class RiskGroupProposalOutputSerializer(serializers.ModelSerializer[RiskGroupPro
             "risk_group",
             "from_risk_group",
             "basis",
+            "basis_entry",
             "reason",
             "proposed_at",
             "confirm_refusal",
@@ -234,6 +264,12 @@ class StrainDetailOutputSerializer(StrainListOutputSerializer):
     # #20: an active restriction of any kind (strains.selectors.regulating_restrictions): the
     # deaccession then takes two people.
     regulated = serializers.BooleanField(read_only=True)
+    # #169: the entry of annex 7 of government order 361/2007 Sb. the risk group rests on, by
+    # its code in the list. Null where the group rests on something the lists do not say, and
+    # for a strain accessioned before the basis was asked for.
+    risk_group_entry = serializers.CharField(
+        source="risk_group_entry.code", read_only=True, allow_null=True
+    )
     # #174: what the current group rests on (blank while it is the one the accession recorded)
     # and the open proposal to lower it.
     risk_group_proposal = serializers.SerializerMethodField()
@@ -258,6 +294,7 @@ class StrainDetailOutputSerializer(StrainListOutputSerializer):
             "restriction_history",
             "regulated",
             "risk_group_basis",
+            "risk_group_entry",
             "risk_group_proposal",
             "deaccession",
             "deaccession_proposal",
@@ -302,6 +339,62 @@ class StrainDetailOutputSerializer(StrainListOutputSerializer):
         return DeaccessionProposalOutputSerializer(open_ones[0], context=self.context).data
 
 
+class ListMatchOutputSerializer(serializers.ModelSerializer[RegulatoryListEntry]):
+    """One entry of an official list that matches a strain's taxon (#169).
+
+    A suggestion and nothing else: what the list says, which reading of it said so, and what it
+    would mean for the strain. Recording it is a write of its own, with a reason.
+    """
+
+    list = serializers.CharField(source="list.code", read_only=True)
+    list_title = serializers.CharField(source="list.title", read_only=True)
+    act = serializers.CharField(source="list.act", read_only=True)
+    version = serializers.CharField(source="list.version", read_only=True)
+    version_date = serializers.DateField(source="list.version_date", read_only=True)
+    kind = serializers.ChoiceField(choices=EntryKind.choices, read_only=True)
+    restriction_kind = serializers.ChoiceField(
+        choices=RestrictionKind.choices, allow_blank=True, read_only=True
+    )
+    match_scope = serializers.ChoiceField(
+        choices=MatchScope.choices, allow_blank=True, read_only=True
+    )
+    risk_group = serializers.IntegerField(allow_null=True, read_only=True)
+    suggests_act = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RegulatoryListEntry
+        fields = (
+            "public_id",
+            "list",
+            "list_title",
+            "act",
+            "version",
+            "version_date",
+            "code",
+            "name",
+            "kind",
+            "restriction_kind",
+            "suggests_act",
+            "risk_group",
+            "match_name",
+            "match_scope",
+        )
+        read_only_fields = fields
+
+    @extend_schema_field(serializers.CharField(allow_blank=True))
+    def get_suggests_act(self, entry: RegulatoryListEntry) -> str:
+        """The act a dual-use restriction would name (R-KIND-03): the delegated regulation whose
+        Annex I this reading was read in, as the Official Journal cites it. The reading's version
+        is that act's CELEX number, so "32025R2003" is "(EU) 2025/2003". Empty for every other
+        list, whose restrictions name no act."""
+        if entry.restriction_kind != RestrictionKind.DUAL_USE:
+            return ""
+        found = re.fullmatch(r"3(?P<year>[0-9]{4})R(?P<number>[0-9]{4})", entry.list.version)
+        if found is None:
+            return ""
+        return f"(EU) {found['year']}/{int(found['number'])}"
+
+
 class RestrictionInputSerializer(serializers.Serializer[None]):
     kind = serializers.ChoiceField(choices=RestrictionKind.choices)
     reference = serializers.CharField(max_length=100)
@@ -319,6 +412,16 @@ class StrainFactsInputSerializer(serializers.Serializer[None]):
     identified_on = serializers.DateField()
     identification_method = serializers.CharField(max_length=200)
     risk_group = serializers.ChoiceField(choices=RISK_GROUPS)
+    # #169: the accession states what the group rests on, as every change of it does.
+    risk_group_basis = serializers.CharField(max_length=2000, help_text=BASIS_HELP)
+    risk_group_basis_entry = ScopedRelatedField(
+        model=RegulatoryListEntry,
+        scope=risk_group_entries,
+        required=False,
+        allow_null=True,
+        default=None,
+        help_text=BASIS_ENTRY_HELP,
+    )
     animal_pathogenicity = serializers.ChoiceField(
         choices=Pathogenicity.choices, default=Pathogenicity.UNKNOWN
     )
@@ -347,17 +450,21 @@ class ReclassifyInputSerializer(serializers.Serializer[None]):
     reason = serializers.CharField(help_text=REASON_HELP)
 
 
-BASIS_HELP = (
-    "What the group rests on: the list entry, the catalogue or the publication. Stored for good:"
-    " name no person."
-)
-
-
 class RiskGroupInputSerializer(serializers.Serializer[None]):
-    """A raise, or the same group again: one person's (#174)."""
+    """A raise, or the same group again: one person's (#174), with the basis of the new group
+    and, where the basis was read in annex 7 of government order 361/2007 Sb., its entry
+    (#169)."""
 
     risk_group = serializers.ChoiceField(choices=RISK_GROUPS)
     basis = serializers.CharField(max_length=2000, help_text=BASIS_HELP)
+    basis_entry = ScopedRelatedField(
+        model=RegulatoryListEntry,
+        scope=risk_group_entries,
+        required=False,
+        allow_null=True,
+        default=None,
+        help_text=BASIS_ENTRY_HELP,
+    )
     reason = serializers.CharField(help_text=REASON_HELP)
 
 
@@ -421,3 +528,24 @@ class StrainShipmentOutputSerializer(serializers.Serializer[RequestLine]):
     country = serializers.CharField(source="request.destination_country", read_only=True)
     shipped_at = serializers.DateTimeField(source="request.shipment.shipped_at", read_only=True)
     vials = serializers.IntegerField(source="vial_count", read_only=True)
+
+
+class DisagreementFindingSerializer(serializers.Serializer[Finding]):
+    """One way a strain's classification disagrees with the official lists (#169).
+
+    `entry` is the entry that was read, and is null where the finding is that no entry names a
+    restriction the strain carries.
+    """
+
+    disagreement = serializers.ChoiceField(choices=DISAGREEMENTS)
+    restriction_kind = serializers.ChoiceField(choices=RestrictionKind.choices, allow_blank=True)
+    entry = ListMatchOutputSerializer(allow_null=True)
+
+
+class ListDisagreementOutputSerializer(serializers.Serializer[StrainFindings]):
+    """One strain whose classification disagrees with the official lists (#169), with the strain
+    as the list shows it and every disagreement found. Nothing is stored: the answer is computed
+    at every read."""
+
+    strain = StrainListOutputSerializer()
+    findings = DisagreementFindingSerializer(many=True)

@@ -107,6 +107,13 @@ TAXON_IDENTIFIER_REMOVED = register(
 )
 
 # Lab authorisations (ADR 0009): permits staff record for a lab. Ended, never deleted.
+# #169: one event per reading of an official list loaded into the app, with the version, the
+# version date, the fetch date and both checksums. The rows themselves are not row-audited
+# (NOT_ROW_AUDITED below): nothing ever changes one.
+REGULATORY_LIST_LOADED = register(
+    EventType("regulatory_list_loaded", "{actor} loaded the list {code} {version}")
+)
+
 LAB_AUTHORISATION_ADDED = register(
     EventType("lab_authorisation_added", "{actor} recorded permit {permit_reference}")
 )
@@ -509,9 +516,11 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "country_of_origin",
             "isolation_date",
             # #174: what the current risk group rests on, free text naming nobody, and when it
-            # was set.
+            # was set. #169: the entry of annex 7 of government order 361/2007 Sb. the basis was
+            # read in, where it was read in one.
             "risk_group_basis",
             "risk_group_set_at",
+            "risk_group_entry_id",
             "growth_medium_id",
             "growth_temperature_low_c",
             "growth_temperature_high_c",
@@ -571,6 +580,8 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "strain_id",
             "kind",
             "reference",
+            # #169: the entry of the official list the reference names, where a list has it.
+            "list_entry_id",
             "act",
             "gmo_category",
             "ended_at",
@@ -610,6 +621,8 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "risk_group",
             "from_risk_group",
             "basis",
+            # #169: the entry of annex 7 the basis was read in, where it was read in one.
+            "basis_entry_id",
             "reason",
             "proposed_by_id",
             "proposed_at",
@@ -1240,6 +1253,17 @@ NOT_ROW_AUDITED: dict[str, str] = {
     "users_loginfailures": (
         "login failure counters: HMAC keys, windows and counts, no record of anyone. A row "
         "change per failed login would flood the trail. Staff clears are service events"
+    ),
+    "biosafety_regulatorylist": (
+        "a reading of an official list (#169): loaded from a data file whose SHA-256 the row "
+        "carries, never edited, never deleted (the guards of biosafety 0005). The load is a "
+        "service event (regulatory_list_loaded), and the one update a row takes is losing "
+        "is_current to its successor"
+    ),
+    "biosafety_regulatorylistentry": (
+        "the entries of such a reading (#169): inserted with their list, never updated, never "
+        "deleted. A row change per entry would put a thousand rows in the trail for every "
+        "load and say nothing the list row's checksum does not"
     ),
     "deposits_contact": (
         "names, e-mail and postal addresses of people (ADR 0008, D11): kept out of every "

@@ -458,6 +458,7 @@ def test_the_lab_with_the_expired_permit_refuses_a_vrat_strain() -> None:
         identified_on=date(2025, 1, 1),
         identification_method="Morphology",
         risk_group=3,
+        risk_group_basis="The lab's own assessment of this invented isolate.",
         restrictions=[strains.RestrictionInput(RestrictionKind.CZ_VRAT, "Příloha 1")],
     )
     with (

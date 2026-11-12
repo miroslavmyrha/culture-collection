@@ -1328,6 +1328,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/strains/{public_id}/list-matches/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description What the official lists say about this strain's taxon (#169): the entries that match
+         *     its name, the name of its accepted taxon, the name of any synonym of that taxon, or the
+         *     genus of one of those, never a part of a name. Each entry says which reading of which
+         *     list it comes from, the restriction it would give and the risk group it states.
+         *
+         *     A suggestion only. Recording a restriction is `restrictions`, a risk group is
+         *     `risk-group` or `risk-group-proposal`, each with a reason that goes into the trail.
+         */
+        get: operations["labs_strains_list_matches_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/strains/{public_id}/reclassify/": {
         parameters: {
             query?: never;
@@ -1527,6 +1552,34 @@ export interface paths {
          *     deposit they belong to only for a reader who may open deposits.
          */
         get: operations["labs_strains_terms_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/strains/list-disagreements/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Every strain of the lab whose classification disagrees with the official lists (#169).
+         *
+         *     A manager's read: the lists say one thing and the record another, and only a person can
+         *     settle which is right. Three disagreements: an entry names a restriction the strain does
+         *     not carry, the strain carries one of a kind no matching entry names, or an entry of annex
+         *     7 of government order 361/2007 Sb. states another risk group.
+         *
+         *     Computed at every read, so it follows every reclassification and every new reading of a
+         *     list by itself. Settling one is a write of its own, with a reason (`restrictions`,
+         *     `risk-group`, `risk-group-proposal`, `reclassify`).
+         */
+        get: operations["labs_strains_list_disagreements_list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2751,6 +2804,24 @@ export interface components {
             public_id: string;
             readonly label: string;
         };
+        /**
+         * @description * `restriction_missing` - restriction_missing
+         *     * `restriction_unlisted` - restriction_unlisted
+         *     * `risk_group_differs` - risk_group_differs
+         * @enum {string}
+         */
+        DisagreementEnum: "restriction_missing" | "restriction_unlisted" | "risk_group_differs";
+        /**
+         * @description One way a strain's classification disagrees with the official lists (#169).
+         *
+         *     `entry` is the entry that was read, and is null where the finding is that no entry names a
+         *     restriction the strain carries.
+         */
+        DisagreementFinding: {
+            disagreement: components["schemas"]["DisagreementEnum"];
+            restriction_kind: components["schemas"]["RestrictionKind"] | components["schemas"]["BlankEnum"];
+            entry: components["schemas"]["ListMatchOutput"] | null;
+        };
         DocumentOutput: {
             /** Format: uuid */
             readonly public_id: string;
@@ -2963,6 +3034,46 @@ export interface components {
             readonly taxon: string;
             readonly risk_group: number;
         };
+        /**
+         * @description One strain whose classification disagrees with the official lists (#169), with the strain
+         *     as the list shows it and every disagreement found. Nothing is stored: the answer is computed
+         *     at every read.
+         */
+        ListDisagreementOutput: {
+            strain: components["schemas"]["StrainListOutput"];
+            findings: components["schemas"]["DisagreementFinding"][];
+        };
+        /**
+         * @description One entry of an official list that matches a strain's taxon (#169).
+         *
+         *     A suggestion and nothing else: what the list says, which reading of it said so, and what it
+         *     would mean for the strain. Recording it is a write of its own, with a reason.
+         */
+        ListMatchOutput: {
+            /** Format: uuid */
+            readonly public_id: string;
+            readonly list: string;
+            readonly list_title: string;
+            readonly act: string;
+            readonly version: string;
+            /** Format: date */
+            readonly version_date: string;
+            readonly code: string;
+            readonly name: string;
+            readonly kind: components["schemas"]["ListMatchOutputKindEnum"];
+            readonly restriction_kind: components["schemas"]["RestrictionKind"] | components["schemas"]["BlankEnum"];
+            readonly suggests_act: string;
+            readonly risk_group: number | null;
+            readonly match_name: string;
+            readonly match_scope: components["schemas"]["MatchScopeEnum"] | components["schemas"]["BlankEnum"];
+        };
+        /**
+         * @description * `organism` - An organism
+         *     * `toxin` - A toxin or a subunit of one
+         *     * `genetic_element` - A genetic element or a modified organism
+         * @enum {string}
+         */
+        ListMatchOutputKindEnum: "organism" | "toxin" | "genetic_element";
         Location: {
             /** Format: uuid */
             box: string;
@@ -3007,6 +3118,12 @@ export interface components {
             /** @description Why, in a sentence. Stored for good: name no person. */
             reason: string;
         };
+        /**
+         * @description * `exact` - That name, and a synonym of it
+         *     * `genus` - Every taxon of that genus
+         * @enum {string}
+         */
+        MatchScopeEnum: "exact" | "genus";
         MeOutput: {
             /** Format: uuid */
             readonly public_id: string;
@@ -3256,6 +3373,36 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["LabOutput"][];
+        };
+        PaginatedListDisagreementOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["ListDisagreementOutput"][];
+        };
+        PaginatedListMatchOutputList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=400&limit=100
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?offset=200&limit=100
+             */
+            previous?: string | null;
+            results: components["schemas"]["ListMatchOutput"][];
         };
         PaginatedMediumOutputList: {
             /** @example 123 */
@@ -3874,11 +4021,20 @@ export interface components {
              */
             proposal: string;
         };
-        /** @description A raise, or the same group again: one person's (#174). */
+        /**
+         * @description A raise, or the same group again: one person's (#174), with the basis of the new group
+         *     and, where the basis was read in annex 7 of government order 361/2007 Sb., its entry
+         *     (#169).
+         */
         RiskGroupInputRequest: {
             risk_group: components["schemas"]["RiskGroup"];
             /** @description What the group rests on: the list entry, the catalogue or the publication. Stored for good: name no person. */
             basis: string;
+            /**
+             * Format: uuid
+             * @description The entry of annex 7 of government order 361/2007 Sb. the basis was read in, by public id, where it was read in one. It must state the very group being recorded. The words of the basis are required either way: an agent the annex does not list is not thereby group 1.
+             */
+            basis_entry?: string | null;
             /** @description Why, in a sentence. Stored for good: name no person. */
             reason: string;
         };
@@ -3893,6 +4049,7 @@ export interface components {
             readonly risk_group: components["schemas"]["RiskGroup"];
             readonly from_risk_group: components["schemas"]["RiskGroup"];
             readonly basis: string;
+            readonly basis_entry: string | null;
             readonly reason: string;
             /** Format: date-time */
             readonly proposed_at: string;
@@ -3908,6 +4065,11 @@ export interface components {
             risk_group: components["schemas"]["RiskGroup"];
             /** @description What the group rests on: the list entry, the catalogue or the publication. Stored for good: name no person. */
             basis: string;
+            /**
+             * Format: uuid
+             * @description The entry of annex 7 of government order 361/2007 Sb. the basis was read in, by public id, where it was read in one. It must state the very group being recorded. The words of the basis are required either way: an agent the annex does not list is not thereby group 1.
+             */
+            basis_entry?: string | null;
             /** @description Why, in a sentence. Stored for good: name no person. */
             reason: string;
         };
@@ -4121,6 +4283,7 @@ export interface components {
             readonly restriction_history: components["schemas"]["RestrictionOutput"][];
             readonly regulated: boolean;
             readonly risk_group_basis: string;
+            readonly risk_group_entry: string | null;
             readonly risk_group_proposal: components["schemas"]["RiskGroupProposalOutput"] | null;
             readonly deaccession: components["schemas"]["DeaccessionOutput"] | null;
             readonly deaccession_proposal: components["schemas"]["DeaccessionProposalOutput"] | null;
@@ -4137,6 +4300,13 @@ export interface components {
             identified_on: string;
             identification_method: string;
             risk_group: components["schemas"]["RiskGroup"];
+            /** @description What the group rests on: the list entry, the catalogue or the publication. Stored for good: name no person. */
+            risk_group_basis: string;
+            /**
+             * Format: uuid
+             * @description The entry of annex 7 of government order 361/2007 Sb. the basis was read in, by public id, where it was read in one. It must state the very group being recorded. The words of the basis are required either way: an agent the annex does not list is not thereby group 1.
+             */
+            risk_group_basis_entry?: string | null;
             /** @default unknown */
             animal_pathogenicity: components["schemas"]["Pathogenicity"];
             /** @default unknown */
@@ -11320,6 +11490,348 @@ export interface operations {
             };
         };
     };
+    labs_strains_list_matches_list: {
+        parameters: {
+            query?: {
+                /**
+                 * @description * `AD` - AD
+                 *     * `AE` - AE
+                 *     * `AF` - AF
+                 *     * `AG` - AG
+                 *     * `AI` - AI
+                 *     * `AL` - AL
+                 *     * `AM` - AM
+                 *     * `AO` - AO
+                 *     * `AQ` - AQ
+                 *     * `AR` - AR
+                 *     * `AS` - AS
+                 *     * `AT` - AT
+                 *     * `AU` - AU
+                 *     * `AW` - AW
+                 *     * `AX` - AX
+                 *     * `AZ` - AZ
+                 *     * `BA` - BA
+                 *     * `BB` - BB
+                 *     * `BD` - BD
+                 *     * `BE` - BE
+                 *     * `BF` - BF
+                 *     * `BG` - BG
+                 *     * `BH` - BH
+                 *     * `BI` - BI
+                 *     * `BJ` - BJ
+                 *     * `BL` - BL
+                 *     * `BM` - BM
+                 *     * `BN` - BN
+                 *     * `BO` - BO
+                 *     * `BQ` - BQ
+                 *     * `BR` - BR
+                 *     * `BS` - BS
+                 *     * `BT` - BT
+                 *     * `BV` - BV
+                 *     * `BW` - BW
+                 *     * `BY` - BY
+                 *     * `BZ` - BZ
+                 *     * `CA` - CA
+                 *     * `CC` - CC
+                 *     * `CD` - CD
+                 *     * `CF` - CF
+                 *     * `CG` - CG
+                 *     * `CH` - CH
+                 *     * `CI` - CI
+                 *     * `CK` - CK
+                 *     * `CL` - CL
+                 *     * `CM` - CM
+                 *     * `CN` - CN
+                 *     * `CO` - CO
+                 *     * `CR` - CR
+                 *     * `CU` - CU
+                 *     * `CV` - CV
+                 *     * `CW` - CW
+                 *     * `CX` - CX
+                 *     * `CY` - CY
+                 *     * `CZ` - CZ
+                 *     * `DE` - DE
+                 *     * `DJ` - DJ
+                 *     * `DK` - DK
+                 *     * `DM` - DM
+                 *     * `DO` - DO
+                 *     * `DZ` - DZ
+                 *     * `EC` - EC
+                 *     * `EE` - EE
+                 *     * `EG` - EG
+                 *     * `EH` - EH
+                 *     * `ER` - ER
+                 *     * `ES` - ES
+                 *     * `ET` - ET
+                 *     * `FI` - FI
+                 *     * `FJ` - FJ
+                 *     * `FK` - FK
+                 *     * `FM` - FM
+                 *     * `FO` - FO
+                 *     * `FR` - FR
+                 *     * `GA` - GA
+                 *     * `GB` - GB
+                 *     * `GD` - GD
+                 *     * `GE` - GE
+                 *     * `GF` - GF
+                 *     * `GG` - GG
+                 *     * `GH` - GH
+                 *     * `GI` - GI
+                 *     * `GL` - GL
+                 *     * `GM` - GM
+                 *     * `GN` - GN
+                 *     * `GP` - GP
+                 *     * `GQ` - GQ
+                 *     * `GR` - GR
+                 *     * `GS` - GS
+                 *     * `GT` - GT
+                 *     * `GU` - GU
+                 *     * `GW` - GW
+                 *     * `GY` - GY
+                 *     * `HK` - HK
+                 *     * `HM` - HM
+                 *     * `HN` - HN
+                 *     * `HR` - HR
+                 *     * `HT` - HT
+                 *     * `HU` - HU
+                 *     * `ID` - ID
+                 *     * `IE` - IE
+                 *     * `IL` - IL
+                 *     * `IM` - IM
+                 *     * `IN` - IN
+                 *     * `IO` - IO
+                 *     * `IQ` - IQ
+                 *     * `IR` - IR
+                 *     * `IS` - IS
+                 *     * `IT` - IT
+                 *     * `JE` - JE
+                 *     * `JM` - JM
+                 *     * `JO` - JO
+                 *     * `JP` - JP
+                 *     * `KE` - KE
+                 *     * `KG` - KG
+                 *     * `KH` - KH
+                 *     * `KI` - KI
+                 *     * `KM` - KM
+                 *     * `KN` - KN
+                 *     * `KP` - KP
+                 *     * `KR` - KR
+                 *     * `KW` - KW
+                 *     * `KY` - KY
+                 *     * `KZ` - KZ
+                 *     * `LA` - LA
+                 *     * `LB` - LB
+                 *     * `LC` - LC
+                 *     * `LI` - LI
+                 *     * `LK` - LK
+                 *     * `LR` - LR
+                 *     * `LS` - LS
+                 *     * `LT` - LT
+                 *     * `LU` - LU
+                 *     * `LV` - LV
+                 *     * `LY` - LY
+                 *     * `MA` - MA
+                 *     * `MC` - MC
+                 *     * `MD` - MD
+                 *     * `ME` - ME
+                 *     * `MF` - MF
+                 *     * `MG` - MG
+                 *     * `MH` - MH
+                 *     * `MK` - MK
+                 *     * `ML` - ML
+                 *     * `MM` - MM
+                 *     * `MN` - MN
+                 *     * `MO` - MO
+                 *     * `MP` - MP
+                 *     * `MQ` - MQ
+                 *     * `MR` - MR
+                 *     * `MS` - MS
+                 *     * `MT` - MT
+                 *     * `MU` - MU
+                 *     * `MV` - MV
+                 *     * `MW` - MW
+                 *     * `MX` - MX
+                 *     * `MY` - MY
+                 *     * `MZ` - MZ
+                 *     * `NA` - NA
+                 *     * `NC` - NC
+                 *     * `NE` - NE
+                 *     * `NF` - NF
+                 *     * `NG` - NG
+                 *     * `NI` - NI
+                 *     * `NL` - NL
+                 *     * `NO` - NO
+                 *     * `NP` - NP
+                 *     * `NR` - NR
+                 *     * `NU` - NU
+                 *     * `NZ` - NZ
+                 *     * `OM` - OM
+                 *     * `PA` - PA
+                 *     * `PE` - PE
+                 *     * `PF` - PF
+                 *     * `PG` - PG
+                 *     * `PH` - PH
+                 *     * `PK` - PK
+                 *     * `PL` - PL
+                 *     * `PM` - PM
+                 *     * `PN` - PN
+                 *     * `PR` - PR
+                 *     * `PS` - PS
+                 *     * `PT` - PT
+                 *     * `PW` - PW
+                 *     * `PY` - PY
+                 *     * `QA` - QA
+                 *     * `RE` - RE
+                 *     * `RO` - RO
+                 *     * `RS` - RS
+                 *     * `RU` - RU
+                 *     * `RW` - RW
+                 *     * `SA` - SA
+                 *     * `SB` - SB
+                 *     * `SC` - SC
+                 *     * `SD` - SD
+                 *     * `SE` - SE
+                 *     * `SG` - SG
+                 *     * `SH` - SH
+                 *     * `SI` - SI
+                 *     * `SJ` - SJ
+                 *     * `SK` - SK
+                 *     * `SL` - SL
+                 *     * `SM` - SM
+                 *     * `SN` - SN
+                 *     * `SO` - SO
+                 *     * `SR` - SR
+                 *     * `SS` - SS
+                 *     * `ST` - ST
+                 *     * `SV` - SV
+                 *     * `SX` - SX
+                 *     * `SY` - SY
+                 *     * `SZ` - SZ
+                 *     * `TC` - TC
+                 *     * `TD` - TD
+                 *     * `TF` - TF
+                 *     * `TG` - TG
+                 *     * `TH` - TH
+                 *     * `TJ` - TJ
+                 *     * `TK` - TK
+                 *     * `TL` - TL
+                 *     * `TM` - TM
+                 *     * `TN` - TN
+                 *     * `TO` - TO
+                 *     * `TR` - TR
+                 *     * `TT` - TT
+                 *     * `TV` - TV
+                 *     * `TW` - TW
+                 *     * `TZ` - TZ
+                 *     * `UA` - UA
+                 *     * `UG` - UG
+                 *     * `UM` - UM
+                 *     * `US` - US
+                 *     * `UY` - UY
+                 *     * `UZ` - UZ
+                 *     * `VA` - VA
+                 *     * `VC` - VC
+                 *     * `VE` - VE
+                 *     * `VG` - VG
+                 *     * `VI` - VI
+                 *     * `VN` - VN
+                 *     * `VU` - VU
+                 *     * `WF` - WF
+                 *     * `WS` - WS
+                 *     * `YE` - YE
+                 *     * `YT` - YT
+                 *     * `ZA` - ZA
+                 *     * `ZM` - ZM
+                 *     * `ZW` - ZW
+                 */
+                country?: "AD" | "AE" | "AF" | "AG" | "AI" | "AL" | "AM" | "AO" | "AQ" | "AR" | "AS" | "AT" | "AU" | "AW" | "AX" | "AZ" | "BA" | "BB" | "BD" | "BE" | "BF" | "BG" | "BH" | "BI" | "BJ" | "BL" | "BM" | "BN" | "BO" | "BQ" | "BR" | "BS" | "BT" | "BV" | "BW" | "BY" | "BZ" | "CA" | "CC" | "CD" | "CF" | "CG" | "CH" | "CI" | "CK" | "CL" | "CM" | "CN" | "CO" | "CR" | "CU" | "CV" | "CW" | "CX" | "CY" | "CZ" | "DE" | "DJ" | "DK" | "DM" | "DO" | "DZ" | "EC" | "EE" | "EG" | "EH" | "ER" | "ES" | "ET" | "FI" | "FJ" | "FK" | "FM" | "FO" | "FR" | "GA" | "GB" | "GD" | "GE" | "GF" | "GG" | "GH" | "GI" | "GL" | "GM" | "GN" | "GP" | "GQ" | "GR" | "GS" | "GT" | "GU" | "GW" | "GY" | "HK" | "HM" | "HN" | "HR" | "HT" | "HU" | "ID" | "IE" | "IL" | "IM" | "IN" | "IO" | "IQ" | "IR" | "IS" | "IT" | "JE" | "JM" | "JO" | "JP" | "KE" | "KG" | "KH" | "KI" | "KM" | "KN" | "KP" | "KR" | "KW" | "KY" | "KZ" | "LA" | "LB" | "LC" | "LI" | "LK" | "LR" | "LS" | "LT" | "LU" | "LV" | "LY" | "MA" | "MC" | "MD" | "ME" | "MF" | "MG" | "MH" | "MK" | "ML" | "MM" | "MN" | "MO" | "MP" | "MQ" | "MR" | "MS" | "MT" | "MU" | "MV" | "MW" | "MX" | "MY" | "MZ" | "NA" | "NC" | "NE" | "NF" | "NG" | "NI" | "NL" | "NO" | "NP" | "NR" | "NU" | "NZ" | "OM" | "PA" | "PE" | "PF" | "PG" | "PH" | "PK" | "PL" | "PM" | "PN" | "PR" | "PS" | "PT" | "PW" | "PY" | "QA" | "RE" | "RO" | "RS" | "RU" | "RW" | "SA" | "SB" | "SC" | "SD" | "SE" | "SG" | "SH" | "SI" | "SJ" | "SK" | "SL" | "SM" | "SN" | "SO" | "SR" | "SS" | "ST" | "SV" | "SX" | "SY" | "SZ" | "TC" | "TD" | "TF" | "TG" | "TH" | "TJ" | "TK" | "TL" | "TM" | "TN" | "TO" | "TR" | "TT" | "TV" | "TW" | "TZ" | "UA" | "UG" | "UM" | "US" | "UY" | "UZ" | "VA" | "VC" | "VE" | "VG" | "VI" | "VN" | "VU" | "WF" | "WS" | "YE" | "YT" | "ZA" | "ZM" | "ZW";
+                depositor?: string;
+                /**
+                 * @description * `true` - true
+                 *     * `false` - false
+                 */
+                distributable?: "false" | "true";
+                isolation_source?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+                /**
+                 * @description * `cz_vrat` - Highly risky agent (VRAT), decree 474/2002 Sb., Annex 1
+                 *     * `cz_rat` - Risky agent (RAT), decree 474/2002 Sb., Annex 2
+                 *     * `dual_use` - Dual-use item, Regulation (EU) 2021/821, Annex I
+                 *     * `quarantine_pest` - Union quarantine pest, Regulation (EU) 2019/2072, Annex II
+                 *     * `gmo` - Genetically modified organism in contained use, act 78/2004 Sb.
+                 */
+                restriction?: "cz_rat" | "cz_vrat" | "dual_use" | "gmo" | "quarantine_pest";
+                /**
+                 * @description * `1` - 1
+                 *     * `2` - 2
+                 *     * `3` - 3
+                 *     * `4` - 4
+                 */
+                risk_group?: 1 | 2 | 3 | 4;
+                search?: string;
+                /**
+                 * @description * `pending` - Pending
+                 *     * `active` - Active
+                 *     * `restricted` - Restricted
+                 *     * `deaccessioned` - Deaccessioned
+                 */
+                status?: "active" | "deaccessioned" | "pending" | "restricted";
+                taxon?: string;
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedListMatchOutputList"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     labs_strains_reclassify_create: {
         parameters: {
             query?: never;
@@ -12409,6 +12921,347 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StrainTermsOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_strains_list_disagreements_list: {
+        parameters: {
+            query?: {
+                /**
+                 * @description * `AD` - AD
+                 *     * `AE` - AE
+                 *     * `AF` - AF
+                 *     * `AG` - AG
+                 *     * `AI` - AI
+                 *     * `AL` - AL
+                 *     * `AM` - AM
+                 *     * `AO` - AO
+                 *     * `AQ` - AQ
+                 *     * `AR` - AR
+                 *     * `AS` - AS
+                 *     * `AT` - AT
+                 *     * `AU` - AU
+                 *     * `AW` - AW
+                 *     * `AX` - AX
+                 *     * `AZ` - AZ
+                 *     * `BA` - BA
+                 *     * `BB` - BB
+                 *     * `BD` - BD
+                 *     * `BE` - BE
+                 *     * `BF` - BF
+                 *     * `BG` - BG
+                 *     * `BH` - BH
+                 *     * `BI` - BI
+                 *     * `BJ` - BJ
+                 *     * `BL` - BL
+                 *     * `BM` - BM
+                 *     * `BN` - BN
+                 *     * `BO` - BO
+                 *     * `BQ` - BQ
+                 *     * `BR` - BR
+                 *     * `BS` - BS
+                 *     * `BT` - BT
+                 *     * `BV` - BV
+                 *     * `BW` - BW
+                 *     * `BY` - BY
+                 *     * `BZ` - BZ
+                 *     * `CA` - CA
+                 *     * `CC` - CC
+                 *     * `CD` - CD
+                 *     * `CF` - CF
+                 *     * `CG` - CG
+                 *     * `CH` - CH
+                 *     * `CI` - CI
+                 *     * `CK` - CK
+                 *     * `CL` - CL
+                 *     * `CM` - CM
+                 *     * `CN` - CN
+                 *     * `CO` - CO
+                 *     * `CR` - CR
+                 *     * `CU` - CU
+                 *     * `CV` - CV
+                 *     * `CW` - CW
+                 *     * `CX` - CX
+                 *     * `CY` - CY
+                 *     * `CZ` - CZ
+                 *     * `DE` - DE
+                 *     * `DJ` - DJ
+                 *     * `DK` - DK
+                 *     * `DM` - DM
+                 *     * `DO` - DO
+                 *     * `DZ` - DZ
+                 *     * `EC` - EC
+                 *     * `EE` - EE
+                 *     * `EG` - EG
+                 *     * `EH` - EH
+                 *     * `ER` - ER
+                 *     * `ES` - ES
+                 *     * `ET` - ET
+                 *     * `FI` - FI
+                 *     * `FJ` - FJ
+                 *     * `FK` - FK
+                 *     * `FM` - FM
+                 *     * `FO` - FO
+                 *     * `FR` - FR
+                 *     * `GA` - GA
+                 *     * `GB` - GB
+                 *     * `GD` - GD
+                 *     * `GE` - GE
+                 *     * `GF` - GF
+                 *     * `GG` - GG
+                 *     * `GH` - GH
+                 *     * `GI` - GI
+                 *     * `GL` - GL
+                 *     * `GM` - GM
+                 *     * `GN` - GN
+                 *     * `GP` - GP
+                 *     * `GQ` - GQ
+                 *     * `GR` - GR
+                 *     * `GS` - GS
+                 *     * `GT` - GT
+                 *     * `GU` - GU
+                 *     * `GW` - GW
+                 *     * `GY` - GY
+                 *     * `HK` - HK
+                 *     * `HM` - HM
+                 *     * `HN` - HN
+                 *     * `HR` - HR
+                 *     * `HT` - HT
+                 *     * `HU` - HU
+                 *     * `ID` - ID
+                 *     * `IE` - IE
+                 *     * `IL` - IL
+                 *     * `IM` - IM
+                 *     * `IN` - IN
+                 *     * `IO` - IO
+                 *     * `IQ` - IQ
+                 *     * `IR` - IR
+                 *     * `IS` - IS
+                 *     * `IT` - IT
+                 *     * `JE` - JE
+                 *     * `JM` - JM
+                 *     * `JO` - JO
+                 *     * `JP` - JP
+                 *     * `KE` - KE
+                 *     * `KG` - KG
+                 *     * `KH` - KH
+                 *     * `KI` - KI
+                 *     * `KM` - KM
+                 *     * `KN` - KN
+                 *     * `KP` - KP
+                 *     * `KR` - KR
+                 *     * `KW` - KW
+                 *     * `KY` - KY
+                 *     * `KZ` - KZ
+                 *     * `LA` - LA
+                 *     * `LB` - LB
+                 *     * `LC` - LC
+                 *     * `LI` - LI
+                 *     * `LK` - LK
+                 *     * `LR` - LR
+                 *     * `LS` - LS
+                 *     * `LT` - LT
+                 *     * `LU` - LU
+                 *     * `LV` - LV
+                 *     * `LY` - LY
+                 *     * `MA` - MA
+                 *     * `MC` - MC
+                 *     * `MD` - MD
+                 *     * `ME` - ME
+                 *     * `MF` - MF
+                 *     * `MG` - MG
+                 *     * `MH` - MH
+                 *     * `MK` - MK
+                 *     * `ML` - ML
+                 *     * `MM` - MM
+                 *     * `MN` - MN
+                 *     * `MO` - MO
+                 *     * `MP` - MP
+                 *     * `MQ` - MQ
+                 *     * `MR` - MR
+                 *     * `MS` - MS
+                 *     * `MT` - MT
+                 *     * `MU` - MU
+                 *     * `MV` - MV
+                 *     * `MW` - MW
+                 *     * `MX` - MX
+                 *     * `MY` - MY
+                 *     * `MZ` - MZ
+                 *     * `NA` - NA
+                 *     * `NC` - NC
+                 *     * `NE` - NE
+                 *     * `NF` - NF
+                 *     * `NG` - NG
+                 *     * `NI` - NI
+                 *     * `NL` - NL
+                 *     * `NO` - NO
+                 *     * `NP` - NP
+                 *     * `NR` - NR
+                 *     * `NU` - NU
+                 *     * `NZ` - NZ
+                 *     * `OM` - OM
+                 *     * `PA` - PA
+                 *     * `PE` - PE
+                 *     * `PF` - PF
+                 *     * `PG` - PG
+                 *     * `PH` - PH
+                 *     * `PK` - PK
+                 *     * `PL` - PL
+                 *     * `PM` - PM
+                 *     * `PN` - PN
+                 *     * `PR` - PR
+                 *     * `PS` - PS
+                 *     * `PT` - PT
+                 *     * `PW` - PW
+                 *     * `PY` - PY
+                 *     * `QA` - QA
+                 *     * `RE` - RE
+                 *     * `RO` - RO
+                 *     * `RS` - RS
+                 *     * `RU` - RU
+                 *     * `RW` - RW
+                 *     * `SA` - SA
+                 *     * `SB` - SB
+                 *     * `SC` - SC
+                 *     * `SD` - SD
+                 *     * `SE` - SE
+                 *     * `SG` - SG
+                 *     * `SH` - SH
+                 *     * `SI` - SI
+                 *     * `SJ` - SJ
+                 *     * `SK` - SK
+                 *     * `SL` - SL
+                 *     * `SM` - SM
+                 *     * `SN` - SN
+                 *     * `SO` - SO
+                 *     * `SR` - SR
+                 *     * `SS` - SS
+                 *     * `ST` - ST
+                 *     * `SV` - SV
+                 *     * `SX` - SX
+                 *     * `SY` - SY
+                 *     * `SZ` - SZ
+                 *     * `TC` - TC
+                 *     * `TD` - TD
+                 *     * `TF` - TF
+                 *     * `TG` - TG
+                 *     * `TH` - TH
+                 *     * `TJ` - TJ
+                 *     * `TK` - TK
+                 *     * `TL` - TL
+                 *     * `TM` - TM
+                 *     * `TN` - TN
+                 *     * `TO` - TO
+                 *     * `TR` - TR
+                 *     * `TT` - TT
+                 *     * `TV` - TV
+                 *     * `TW` - TW
+                 *     * `TZ` - TZ
+                 *     * `UA` - UA
+                 *     * `UG` - UG
+                 *     * `UM` - UM
+                 *     * `US` - US
+                 *     * `UY` - UY
+                 *     * `UZ` - UZ
+                 *     * `VA` - VA
+                 *     * `VC` - VC
+                 *     * `VE` - VE
+                 *     * `VG` - VG
+                 *     * `VI` - VI
+                 *     * `VN` - VN
+                 *     * `VU` - VU
+                 *     * `WF` - WF
+                 *     * `WS` - WS
+                 *     * `YE` - YE
+                 *     * `YT` - YT
+                 *     * `ZA` - ZA
+                 *     * `ZM` - ZM
+                 *     * `ZW` - ZW
+                 */
+                country?: "AD" | "AE" | "AF" | "AG" | "AI" | "AL" | "AM" | "AO" | "AQ" | "AR" | "AS" | "AT" | "AU" | "AW" | "AX" | "AZ" | "BA" | "BB" | "BD" | "BE" | "BF" | "BG" | "BH" | "BI" | "BJ" | "BL" | "BM" | "BN" | "BO" | "BQ" | "BR" | "BS" | "BT" | "BV" | "BW" | "BY" | "BZ" | "CA" | "CC" | "CD" | "CF" | "CG" | "CH" | "CI" | "CK" | "CL" | "CM" | "CN" | "CO" | "CR" | "CU" | "CV" | "CW" | "CX" | "CY" | "CZ" | "DE" | "DJ" | "DK" | "DM" | "DO" | "DZ" | "EC" | "EE" | "EG" | "EH" | "ER" | "ES" | "ET" | "FI" | "FJ" | "FK" | "FM" | "FO" | "FR" | "GA" | "GB" | "GD" | "GE" | "GF" | "GG" | "GH" | "GI" | "GL" | "GM" | "GN" | "GP" | "GQ" | "GR" | "GS" | "GT" | "GU" | "GW" | "GY" | "HK" | "HM" | "HN" | "HR" | "HT" | "HU" | "ID" | "IE" | "IL" | "IM" | "IN" | "IO" | "IQ" | "IR" | "IS" | "IT" | "JE" | "JM" | "JO" | "JP" | "KE" | "KG" | "KH" | "KI" | "KM" | "KN" | "KP" | "KR" | "KW" | "KY" | "KZ" | "LA" | "LB" | "LC" | "LI" | "LK" | "LR" | "LS" | "LT" | "LU" | "LV" | "LY" | "MA" | "MC" | "MD" | "ME" | "MF" | "MG" | "MH" | "MK" | "ML" | "MM" | "MN" | "MO" | "MP" | "MQ" | "MR" | "MS" | "MT" | "MU" | "MV" | "MW" | "MX" | "MY" | "MZ" | "NA" | "NC" | "NE" | "NF" | "NG" | "NI" | "NL" | "NO" | "NP" | "NR" | "NU" | "NZ" | "OM" | "PA" | "PE" | "PF" | "PG" | "PH" | "PK" | "PL" | "PM" | "PN" | "PR" | "PS" | "PT" | "PW" | "PY" | "QA" | "RE" | "RO" | "RS" | "RU" | "RW" | "SA" | "SB" | "SC" | "SD" | "SE" | "SG" | "SH" | "SI" | "SJ" | "SK" | "SL" | "SM" | "SN" | "SO" | "SR" | "SS" | "ST" | "SV" | "SX" | "SY" | "SZ" | "TC" | "TD" | "TF" | "TG" | "TH" | "TJ" | "TK" | "TL" | "TM" | "TN" | "TO" | "TR" | "TT" | "TV" | "TW" | "TZ" | "UA" | "UG" | "UM" | "US" | "UY" | "UZ" | "VA" | "VC" | "VE" | "VG" | "VI" | "VN" | "VU" | "WF" | "WS" | "YE" | "YT" | "ZA" | "ZM" | "ZW";
+                depositor?: string;
+                /**
+                 * @description * `true` - true
+                 *     * `false` - false
+                 */
+                distributable?: "false" | "true";
+                isolation_source?: string;
+                /** @description Number of results to return per page. */
+                limit?: number;
+                /** @description The initial index from which to return the results. */
+                offset?: number;
+                /**
+                 * @description * `cz_vrat` - Highly risky agent (VRAT), decree 474/2002 Sb., Annex 1
+                 *     * `cz_rat` - Risky agent (RAT), decree 474/2002 Sb., Annex 2
+                 *     * `dual_use` - Dual-use item, Regulation (EU) 2021/821, Annex I
+                 *     * `quarantine_pest` - Union quarantine pest, Regulation (EU) 2019/2072, Annex II
+                 *     * `gmo` - Genetically modified organism in contained use, act 78/2004 Sb.
+                 */
+                restriction?: "cz_rat" | "cz_vrat" | "dual_use" | "gmo" | "quarantine_pest";
+                /**
+                 * @description * `1` - 1
+                 *     * `2` - 2
+                 *     * `3` - 3
+                 *     * `4` - 4
+                 */
+                risk_group?: 1 | 2 | 3 | 4;
+                search?: string;
+                /**
+                 * @description * `pending` - Pending
+                 *     * `active` - Active
+                 *     * `restricted` - Restricted
+                 *     * `deaccessioned` - Deaccessioned
+                 */
+                status?: "active" | "deaccessioned" | "pending" | "restricted";
+                taxon?: string;
+            };
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedListDisagreementOutputList"];
                 };
             };
             401: {

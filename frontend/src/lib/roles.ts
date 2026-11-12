@@ -29,3 +29,10 @@ export const canManageMedia = (role: Role | undefined): boolean => role === 'cur
  * grant gives no access to this log. The server decides; this only hides what it would refuse.
  */
 export const canSeeReveals = (role: Role | undefined): boolean => role === 'manager'
+
+/**
+ * Managers see where the lab's record and the official lists disagree
+ * (strains.view_list_disagreements, #169): they answer to the authority for the classification,
+ * as they do for the permits. The server decides; this only hides what it would refuse.
+ */
+export const canSeeListDisagreements = (role: Role | undefined): boolean => role === 'manager'

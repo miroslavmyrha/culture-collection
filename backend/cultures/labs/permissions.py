@@ -10,7 +10,7 @@ versions (#10, #12), view and manage storage (#14), handle vials (#16), release
 and hold batches (#17), read, enter and decide requests (#18), read the lab's permits (#82),
 deaccession strains (#20), read who revealed regulated locations (#83), read the lab's vials
 by state (#81), confirm the destruction of a regulated strain's vials (#160), confirm a lower
-risk group (#174).
+risk group (#174), see where a classification disagrees with the official lists (#169).
 The others are named now so later features plug into the same map instead of inventing their
 own checks.
 """
@@ -106,6 +106,11 @@ class Perm(StrEnum):
     # figures are theirs; every role that sees strains already reads the lab's batches by status
     # and the vials available there (VIEW_STRAINS). A count names no place.
     VIEW_LAB_FIGURES = "labs.view_figures"
+    # #169: reading which strains of the lab are classified otherwise than the official
+    # lists say. Managers answer to the authority for the classification, as they do for the
+    # lab's permits, and only a person settles a disagreement, so the list is theirs. It
+    # reads strains every role already sees, gathered into a question.
+    VIEW_LIST_DISAGREEMENTS = "strains.view_list_disagreements"
 
 
 # What each role adds to the roles below it.
@@ -145,6 +150,7 @@ GRANTS: dict[Role, frozenset[Perm]] = {
             Perm.VIEW_LAB_PERMITS,
             Perm.VIEW_REVEALS,
             Perm.VIEW_LAB_FIGURES,
+            Perm.VIEW_LIST_DISAGREEMENTS,
         }
     ),
 }

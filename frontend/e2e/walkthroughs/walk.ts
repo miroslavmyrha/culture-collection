@@ -300,11 +300,17 @@ export async function receivedDeposit(page: Page, lab: string, name: string) {
 }
 
 /** A strain through intake (received, checked, accepted) with its passage 0. */
+/**
+ * What the risk group of a strain a walkthrough sets up rests on (#169). Every accession states
+ * it, and these strains are development data, so the words say that.
+ */
+export const RISK_GROUP_BASIS = "The lab's own assessment, filed with the accession papers (invented example)."
+
 export async function acceptedStrain(page: Page, lab: string, name: string, taxon: string) {
   const deposit = await receivedDeposit(page, lab, name)
   await api(page, lab, `deposits/${deposit}/start-check/`, {})
   const taxa = rows(await api(page, lab, `/api/v1/taxa/?search=${encodeURIComponent(taxon)}`))
-  const accepted = { taxon: field(taxa.find((t) => t.name === taxon), 'public_id'), identified_on: today(), identification_method: '16S rRNA gene sequence', risk_group: 1, country_of_origin: 'CZ', restrictions: [] }
+  const accepted = { taxon: field(taxa.find((t) => t.name === taxon), 'public_id'), identified_on: today(), identification_method: '16S rRNA gene sequence', risk_group: 1, risk_group_basis: RISK_GROUP_BASIS, country_of_origin: 'CZ', restrictions: [] }
   await api(page, lab, `deposits/${deposit}/accept/`, accepted)
   const strain = rows(await api(page, lab, `strains/?search=${encodeURIComponent(name)}`))[0]
   const passage = rows(await api(page, lab, `passages/?strain=${field(strain, 'public_id')}`)).find((p) => p.number === 0)
@@ -474,7 +480,7 @@ export async function supplyStrain(page: Page, lab: string, name: string, taxon:
   const deposit = field(await api(page, lab, 'deposits/', { depositor: field(depositor, 'public_id'), received_on: today(), condition: 'intact', name_as_received: name, terms }), 'public_id')
   await api(page, lab, `deposits/${deposit}/start-check/`, {})
   const taxa = rows(await api(page, lab, `/api/v1/taxa/?search=${encodeURIComponent(taxon)}`))
-  const facts = { taxon: field(taxa.find((t) => t.name === taxon), 'public_id'), identified_on: today(), identification_method: '16S rRNA gene sequence', risk_group: 1, country_of_origin: 'CZ', restrictions }
+  const facts = { taxon: field(taxa.find((t) => t.name === taxon), 'public_id'), identified_on: today(), identification_method: '16S rRNA gene sequence', risk_group: 1, risk_group_basis: RISK_GROUP_BASIS, country_of_origin: 'CZ', restrictions }
   await api(page, lab, `deposits/${deposit}/accept/`, facts)
   const strain = rows(await api(page, lab, `strains/?search=${encodeURIComponent(name)}`))[0]
   const passage = rows(await api(page, lab, `passages/?strain=${field(strain, 'public_id')}`)).find((p) => p.number === 0)

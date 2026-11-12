@@ -477,6 +477,7 @@ describe('a write refreshes the data other features show', () => {
     await user.keyboard('{ArrowDown}{Enter}')
     await user.type(within(form).getByRole('textbox', { name: 'Identification method' }), '16S rRNA gene sequence')
     await user.selectOptions(within(form).getByRole('combobox', { name: 'Risk group' }), '1')
+    await user.type(within(form).getByRole('textbox', { name: 'Risk group basis' }), 'NV 361/2007 Sb., Příloha 7.')
     const accepted = mockApi('post', '/api/v1/labs/{lab_public_id}/deposits/{public_id}/accept/', { ...deposit, status: 'accepted', strain: { public_id: STRAIN_ID, accession_number: 'MYC 42' } })
     const strains = mockApi('get', STRAINS, page([makeStrainRow({ public_id: STRAIN_ID, accession_number: 'MYC 42' })]))
     await user.click(within(form).getByRole('button', { name: 'Accept and add the strain' }))

@@ -26,6 +26,7 @@ const REQUESTERS = '/api/v1/labs/{lab_public_id}/requesters/'
 const MEDIA = '/api/v1/labs/{lab_public_id}/media/'
 const PERMITS = '/api/v1/labs/{lab_public_id}/permits/'
 const REVEALS = '/api/v1/labs/{public_id}/reveals/'
+const DISAGREEMENTS = '/api/v1/labs/{lab_public_id}/strains/list-disagreements/'
 const VRAT = '/api/v1/labs/{lab_public_id}/vrat-access/'
 const signedIn = (username = 'lab-tech') => void mockApi('get', '/api/v1/auth/me/', makeMe({ username }))
 /** The strain page's passages, batches and vials, and the boxes for its forms: all empty. */
@@ -98,6 +99,9 @@ describe('page titles (WCAG 2.4.2)', () => {
     [`/labs/${LAB_ID}/reveals`, 'Reveals of Mycology', () => (signedIn(), lab({ my_role: 'technician' }), mockApiError('get', REVEALS, 403, problem(403)))],
     [`/labs/${LAB_ID}/reveals`, 'Lab not found', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApiError('get', REVEALS, 404, problem(404)))],
     [`/labs/${LAB_ID}/permits`, 'Lab not found', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApiError('get', PERMITS, 404, problem(404)))],
+    [`/labs/${LAB_ID}/classification`, 'Classification of Mycology', () => (signedIn(), lab({ my_role: 'manager' }), mockApi('get', DISAGREEMENTS, page([])))],
+    [`/labs/${LAB_ID}/classification`, 'Classification of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', DISAGREEMENTS, 403, problem(403)))],
+    [`/labs/${LAB_ID}/classification`, 'Lab not found', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApiError('get', DISAGREEMENTS, 404, problem(404)))],
     ['/no-such-page', 'Page not found', () => undefined],
   ])('%s shows "%s | Culture collection"', async (path, title, setup) => {
     allowConsole(/API error 500/)

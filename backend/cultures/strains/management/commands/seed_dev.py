@@ -481,6 +481,7 @@ class Command(BaseCommand):
 @dataclass(frozen=True)
 class StrainFacts:
     risk_group: int
+    basis: str
     animal: Pathogenicity
     plant: Pathogenicity
 
@@ -502,16 +503,22 @@ def final_taxon(row: dict[str, Any]) -> str:
 
 def strain_facts(row: dict[str, Any], taxa: list[dict[str, Any]]) -> StrainFacts:
     """A strain of a real taxon takes the risk group and pathogenicity verified for its
-    final taxon in the data file. Only an invented taxon's strain states its own."""
+    final taxon in the data file. Only an invented taxon's strain states its own.
+
+    The basis of the group (#169) is the taxon entry's sources, which are the annex 7 line and
+    the DSMZ cross-check the data file records; an invented taxon's strain states its own.
+    """
     entry = accepted_entry(final_taxon(row), taxa)
     if entry.get("invented"):
         return StrainFacts(
             row["risk_group"],
+            row["risk_group_basis"],
             Pathogenicity(row["animal_pathogenicity"]),
             Pathogenicity(row["plant_pathogenicity"]),
         )
     return StrainFacts(
         entry["risk_group"],
+        "; ".join(entry["risk_group_source"]),
         Pathogenicity(entry.get("animal_pathogenicity", Pathogenicity.UNKNOWN)),
         Pathogenicity(entry.get("plant_pathogenicity", Pathogenicity.UNKNOWN)),
     )
@@ -574,6 +581,7 @@ def facts(row: dict[str, Any], taxa: list[dict[str, Any]]) -> seed_strains.SeedF
         identified_on=date.fromisoformat(row["identified_on"]),
         identification_method=row["method"],
         risk_group=known.risk_group,
+        risk_group_basis=known.basis,
         animal_pathogenicity=known.animal,
         plant_pathogenicity=known.plant,
         isolation_source=row["isolation_source"],

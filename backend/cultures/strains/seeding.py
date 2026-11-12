@@ -29,6 +29,9 @@ class SeedFacts:
     identified_on: date
     identification_method: str
     risk_group: int
+    # #169: what the risk group rests on. For a real taxon it is the taxon entry's
+    # risk_group_source of the data file; for an invented one the strain row says it.
+    risk_group_basis: str
     animal_pathogenicity: Pathogenicity = Pathogenicity.UNKNOWN
     plant_pathogenicity: Pathogenicity = Pathogenicity.UNKNOWN
     isolation_source: str = ""
@@ -102,6 +105,7 @@ def strain(curator: Access, manager: Access, lab: Lab, data: SeedStrain) -> bool
             identified_on=facts.identified_on,
             identification_method=facts.identification_method,
             risk_group=facts.risk_group,
+            risk_group_basis=facts.risk_group_basis,
             animal_pathogenicity=facts.animal_pathogenicity,
             plant_pathogenicity=facts.plant_pathogenicity,
             isolation_source=facts.isolation_source,

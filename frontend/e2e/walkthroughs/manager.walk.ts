@@ -277,3 +277,16 @@ test('M13 confirm a lower risk group a curator proposed', async ({ browser }, in
   w.note('The confirmation names what the lower group changes (box cap, containment, shipment class) and the basis the proposer gave', '#174')
   await w.done()
 })
+
+test('M14 check where the record and the official lists disagree', async ({ browser }, info) => {
+  const w = await Walk.as(browser, info, 'reg-manager', manager('M14', 'Check where the record and the official lists disagree'))
+  await w.start()
+  await openLab(w, REG)
+  // The classification check for managers (#169): computed at every read, never stored.
+  await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Classification' }))
+  await expect(w.page.getByRole('heading', { level: 1, name: /^Classification of / })).toBeVisible()
+  w.look()
+  await expect(w.page.getByText('No strain of this lab disagrees with the official lists.').or(w.page.getByRole('table', { name: 'Classification check' }))).toBeVisible()
+  w.note('A line is a question, not a fault: the taxon may be wrong, and an agent annex 7 does not list is not thereby group 1', '#169')
+  await w.done()
+})

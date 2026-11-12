@@ -38,6 +38,7 @@ from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
 
 from .conftest import (
+    ACCESSION_BASIS,
     DUAL_USE,
     GMO,
     QUARANTINE,
@@ -151,6 +152,9 @@ def test_a_curator_accessions_a_strain_with_its_first_identification(
         "name_as_received": [None, "Testella exempli T1"],
         "taxon": [None, str(exempli.public_id)],
         "risk_group": [None, 2],
+        # #169: the accession says what the group rests on, and on no list entry here.
+        "risk_group_basis": [None, ACCESSION_BASIS],
+        "risk_group_entry": [None, None],
         "animal_pathogenicity": [None, "none_known"],
         "plant_pathogenicity": [None, "unknown"],
         "isolation_source": [None, "garden soil"],
@@ -544,7 +548,12 @@ def test_a_risk_group_change_records_old_new_and_the_reason(
     assert (event.changes, event.reason, event.strain_id) == (
         {
             "risk_group": [1, 2],
-            "basis": [None, "NV 361/2007 Sb., Příloha 7, part A, table 1"],
+            "basis": [
+                ACCESSION_BASIS,
+                "NV 361/2007 Sb., Příloha 7, part A, table 1",
+            ],
+            # #169: this change rests on no list entry, and neither did the one before it.
+            "basis_entry": [None, None],
         },
         "reassessed under 361/2007",
         strain.public_id,

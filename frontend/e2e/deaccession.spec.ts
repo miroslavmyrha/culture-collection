@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { signedInAs } from './support.js'
+import { riskGroupBasis, signedInAs } from './support.js'
 
 // Walkthrough C10 (#20): a curator deaccessions a strain that no longer grows, against the real
 // API. The strain, its storage and its two vials are this run's own, made through the API with
@@ -17,7 +17,7 @@ test('C10: a curator deaccessions a strain that no longer grows; its vials are t
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
 
   const made = await page.evaluate(
-    async ({ run, name }) => {
+    async ({ run, name, basis }) => {
       await fetch('/api/v1/auth/csrf/')
       const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
       const lab = location.pathname.split('/')[2] ?? ''
@@ -49,6 +49,7 @@ test('C10: a curator deaccessions a strain that no longer grows; its vials are t
         identified_on: today,
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,
+        risk_group_basis: basis,
         animal_pathogenicity: 'unknown',
         plant_pathogenicity: 'unknown',
         isolation_source: '',
@@ -73,7 +74,7 @@ test('C10: a curator deaccessions a strain that no longer grows; its vials are t
       })
       return { lab, strain, number: accepted.strain?.accession_number ?? '' }
     },
-    { run: RUN, name: NAME },
+    { run: RUN, name: NAME, basis: riskGroupBasis },
   )
 
   // From the strain's page, its header's menu.

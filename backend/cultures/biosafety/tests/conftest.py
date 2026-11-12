@@ -9,6 +9,7 @@ from model_bakery import baker
 
 from cultures.audit.context import AuditContext, audit_context
 from cultures.audit.models import Channel
+from cultures.audit.tests.conftest import database_roles, runtime_role  # noqa: F401 (fixtures)
 from cultures.labs.tests.conftest import (  # noqa: F401 (fixtures)
     _no_last_login_update,
     curator,

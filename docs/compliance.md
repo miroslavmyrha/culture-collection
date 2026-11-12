@@ -65,6 +65,68 @@ and the rules and duties it decides are changed in the same commit.
 
 ## Rules enforced
 
+### The official lists
+
+#### R-LIST-01 Each official list is held as a reading of its source, with its version, its dates and its checksums
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-08 (#169). The four lists are legal texts (decree
+  474/2002 Sb. Annexes 1 and 2, government order 361/2007 Sb. Annex 7, Regulation (EU) 2021/821
+  Annex I, Implementing Regulation (EU) 2019/2072 Annex II); that the app holds each reading of
+  one with its source URL, version, version date, fetch date and two checksums, and that a
+  changed data file is a new reading with the one before it kept, is our own control.
+- Code: `backend/cultures/biosafety/models.py::RegulatoryList`, `backend/cultures/biosafety/lists.py::load`, `backend/cultures/biosafety/lists.py::load_one`, `backend/cultures/biosafety/management/commands/load_regulatory_lists.py::Command`, `backend/cultures/biosafety/migrations/0006_official_lists.py::load`, `backend/cultures/biosafety/models.py::"biosafety_regulatorylist_one_current"`
+- Tests: `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_migration_loaded_every_list_with_its_source_and_its_checksums`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_lists_are_there_for_a_test_that_works_in_a_real_transaction`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_loading_the_same_files_again_changes_nothing`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_command_loads_the_lists_and_says_what_it_did`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_a_changed_data_file_is_a_new_version_and_the_one_before_it_steps_down`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_a_newer_list_loaded_by_the_command_is_one_event_with_the_version_and_the_checksums`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_one_reading_of_a_list_is_current_and_one_row_per_file`
+- Limits: the lists are held, and nothing reads them yet: a strain's restrictions and its risk
+  group are still typed by hand (#169, the boxes after the first). The reading a version ships
+  is loaded by migration 0006 and records no audit event: its own row is the record, with the
+  source, the version, the load time and both checksums, and nothing can change it. A newer
+  list loaded by the command records one.
+
+#### R-LIST-02 A data file is loaded only with the SHA-256 its manifest records
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-08 (#169). `tools/fetch_regulatory_lists.py` writes the
+  data files and `manifest.json` with the SHA-256 of each file; the loader computes it again and
+  refuses a file the manifest does not confirm, so an edited list cannot enter the app as if it
+  came from the source.
+- Code: `backend/cultures/biosafety/lists.py::read_list`, `backend/cultures/biosafety/lists.py::read_manifest`, `backend/cultures/biosafety/lists.py::ListDataError`
+- Tests: `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_a_data_file_whose_checksum_the_manifest_does_not_confirm_is_not_loaded`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_command_reports_a_data_file_it_cannot_read`
+- Limits: the manifest sits in the same repository as the files, so the pair proves that the
+  file is the one the fetch wrote, not that the source said it. What the source said is the
+  SHA-256 of the fetched text on the reading's row, which only a new fetch can check (#187).
+
+#### R-LIST-03 An entry carries what its own list says: its restriction, a risk group only from annex 7, and a name only where its name yields one
+
+- Kind: law in part
+- Source: government order 361/2007 Sb., Annex 7, Part A, the sentence before table 1 (the
+  consolidated text in force from 2026-09-01, e-Sbírka, SHA-256
+  6dd28ebb7fede464528d766d7dd58d066281a6a7fac6ccca99a76c7eb251d64c, the version
+  `backend/cultures/biosafety/data/manifest.json` records). The law is why an entry whose group
+  the annex does not state carries none: no group follows from a row that gives none. Which
+  restriction each list gives, and the narrow rule that derives a scientific name to match a
+  taxon against, are our own (ADR 0009, amendment 2026-11-08, #169).
+- Quote: „Biologické činitele, které nebyly zařazeny do skupin 2 až 4 seznamu, nejsou automaticky zařazeny do skupiny 1.“
+- English: Biological agents that have not been classified into groups 2 to 4 of the list are
+  not automatically classified into group 1.
+- Code: `backend/cultures/biosafety/models.py::LIST_RESTRICTIONS`, `backend/cultures/biosafety/lists.py::match_of`, `backend/cultures/biosafety/lists.py::_entry_values`, `backend/cultures/biosafety/models.py::"biosafety_regulatorylistentry_match_name_with_scope"`, `backend/cultures/biosafety/migrations/0005_regulatory_list_guards.py::"an entry gives the restriction its own list gives"`, `backend/cultures/biosafety/migrations/0005_regulatory_list_guards.py::"only annex 7 of government order 361/2007 Sb. states a risk group"`
+- Tests: `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_each_entry_carries_what_its_own_list_says_and_nothing_else`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_every_match_name_is_a_lower_case_scientific_name_with_its_scope`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_a_name_yields_its_scientific_name_or_none_at_all`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_a_match_name_never_comes_from_a_part_of_a_word`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_database_refuses_an_entry_that_does_not_fit_its_own_list`
+- Limits: 781 of the 1061 entries yield a name to match, and 57 of the 125 entries of decree
+  474/2002 Sb., because the data file's `scientific_name` field holds the item number rather
+  than a name (the `<var>` element of the e-Sbírka text marks the number) and the Czech item
+  text is prose. An entry with no match name suggests nothing. A corrected parser is a new fetch
+  and a new data file (#187).
+
+#### R-LIST-04 No screen, no API, no admin page and no app write edits an official list
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-08 (#169): a reading of a list says what a legal text
+  said on a day. An editable copy would be a classification of our own wearing the law's name.
+- Code: `backend/cultures/biosafety/migrations/0005_regulatory_list_guards.py::"an entry of an official list is never edited"`, `backend/cultures/biosafety/migrations/0005_regulatory_list_guards.py::"a reading of an official list is never edited"`, `backend/cultures/biosafety/migrations/0005_regulatory_list_guards.py::"a reading that was replaced does not become current again"`, `backend/cultures/biosafety/migrations/0005_regulatory_list_guards.py::"an entry is added to the current reading of its list"`, `backend/cultures/audit/roles.py::APP_ROLE_GRANTS`
+- Tests: `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_no_api_and_no_admin_page_writes_a_list`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_database_refuses_to_edit_an_entry_of_a_list`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_database_refuses_to_delete_an_entry_or_a_list`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_database_refuses_every_change_of_a_list_but_stepping_down`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_database_refuses_an_entry_of_a_list_that_was_replaced`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_runtime_role_cannot_edit_or_delete_a_list`
+- Limits: the migration role, which runs `migrate`, owns the tables and is not held by the
+  guards, as everywhere else (ADR 0005).
+
 ### Classification of a strain
 
 #### R-KIND-01 A strain carries any number of restrictions of five kinds
@@ -75,8 +137,9 @@ and the rules and duties it decides are changed in the same commit.
   II, act 78/2004 Sb.). Which lists the app models is a scope choice.
 - Code: `backend/cultures/biosafety/models.py::RestrictionKind`, `backend/cultures/strains/models.py::"strains_restriction_kind_valid"`
 - Tests: `backend/cultures/strains/tests/test_models.py::test_a_restriction_has_the_fields_of_its_kind`, `backend/cultures/strains/tests/test_models.py::test_restrictions_of_the_right_shape_are_stored`
-- Limits: every restriction is typed by a person. No official list is held and the taxon is not
-  consulted (#169).
+- Limits: every restriction is typed by a person, and the taxon is not consulted (#169, the
+  boxes after the second). A dual-use restriction now points at the Annex I entry it names
+  (R-KIND-10), the others at an entry where the reference is one.
 
 #### R-KIND-02 A dual-use restriction names an entry of 1C351, 1C353 or 1C354
 
@@ -87,8 +150,9 @@ and the rules and duties it decides are changed in the same commit.
 - Code: `backend/cultures/strains/models.py::DUAL_USE_ENTRY`, `backend/cultures/strains/services.py::check_restriction`, `backend/cultures/strains/models.py::"strains_restriction_dual_use_entry"`
 - Tests: `backend/cultures/strains/tests/test_models.py::test_a_restriction_has_the_fields_of_its_kind`
 - Limits: the pattern accepts entries the annex does not have: 1C351.b reads "b. Not used;" in
-  Annex I as replaced by Delegated Regulation (EU) 2025/2003. The entry is not checked against
-  the annex (#169).
+  Annex I as replaced by Delegated Regulation (EU) 2025/2003. Since #169 the entry itself is the
+  arbiter (R-KIND-10), which refuses such a reference before the pattern is reached, so the
+  pattern is the first line and no longer the only one. Issue: none
 
 #### R-KIND-03 A dual-use restriction names the delegated act its annex was read in
 
@@ -138,12 +202,89 @@ and the rules and duties it decides are changed in the same commit.
 - Code: `backend/cultures/strains/services.py::strain_restriction_add`
 - Tests: `backend/cultures/strains/tests/test_services.py::test_a_curator_adds_a_restriction_and_it_ends_by_two_people`
 
+#### R-KIND-10 A restriction points at the entry of its official list, and a dual-use reference is one Annex I holds
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-08 (#169). The Annex I entry codes of Regulation (EU)
+  2021/821 are the annex's own, so a dual-use reference is checked against the list the app
+  holds (R-LIST-01) and is nothing else. A VRAT, a RAT and a quarantine pest are referred to by
+  the words of their annex, which this app does not own, so an entry is attached where the
+  reference is an entry code of the list and not demanded where it is not. A GMO is on no list.
+- Code: `backend/cultures/biosafety/selectors.py::list_entry`, `backend/cultures/biosafety/selectors.py::ENTRY_REQUIRED`, `backend/cultures/strains/services.py::_entry_of`, `backend/cultures/strains/services.py::DualUseEntryUnknown`, `backend/cultures/strains/migrations/0016_restriction_list_entry_guards.py::"a dual-use restriction names an entry Annex I of Regulation (EU) 2021/821 holds"`, `backend/cultures/strains/migrations/0016_restriction_list_entry_guards.py::"a restriction points at an entry of the current reading of its own list"`
+- Tests: `backend/cultures/strains/tests/test_list_entries.py::test_a_dual_use_restriction_points_at_the_annex_entry_it_names`, `backend/cultures/strains/tests/test_list_entries.py::test_a_dual_use_reference_annex_i_does_not_hold_is_refused`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_refuses_a_dual_use_row_with_no_entry`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_refuses_an_entry_that_is_not_the_reference`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_refuses_an_entry_of_another_list`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_refuses_an_entry_on_a_gmo`, `backend/cultures/strains/tests/test_list_entries.py::test_a_gmo_and_a_restriction_of_words_the_list_does_not_hold_keep_no_entry`, `backend/cultures/strains/tests/test_list_entries.py::test_a_vrat_reference_that_is_an_entry_code_of_the_decree_gets_its_entry`
+- Limits: the rule binds every restriction written from now on. A restriction recorded before
+  this keeps no entry, and none is filled in after the fact, because a restriction changes by
+  nothing but ending (R-KIND-06). A reference the current reading of Annex I does not hold stops
+  being writable, so a strain whose entry a later annex drops keeps the restriction it has and
+  the end of it is R-KIND-07. Issue: none
+
+#### R-KIND-11 A dual-use entry of 1C351.a, 1C351.c, 1C351.e or 1C354 that decree 474/2002 Sb. also lists needs that restriction
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-08 (#169). The two lists name the same organisms under
+  two acts: Annex I of Regulation (EU) 2021/821 for export control, annexes 1 and 2 of decree
+  474/2002 Sb. for the duties of act 281/2002 Sb. No text read says one follows from the other,
+  so the rule is the collection's own: a strain recorded as the dual-use item and not as the
+  highly risky or risky agent would be out of the permit gate (R-PERMIT-01), the distribution
+  gates (R-DIST-04, R-DIST-05) and the register entry (R-SHIP-07).
+- Code: `backend/cultures/biosafety/selectors.py::also_a_cz_agent`, `backend/cultures/biosafety/selectors.py::DUAL_USE_ORGANISM`, `backend/cultures/strains/services.py::_require_cz_agent`, `backend/cultures/strains/services.py::RestrictionRequiredByEntry`, `backend/cultures/strains/services.py::_check_end_allowed`, `backend/cultures/strains/services.py::RestrictionHeldByDualUse`, `backend/cultures/strains/migrations/0016_restriction_list_entry_guards.py::"a dual-use entry decree 474/2002 Sb. also lists needs its own restriction"`
+- Tests: `backend/cultures/strains/tests/test_list_entries.py::test_a_dual_use_entry_the_decree_also_lists_needs_that_restriction`, `backend/cultures/strains/tests/test_list_entries.py::test_the_dual_use_restriction_is_taken_once_the_decrees_restriction_is_there`, `backend/cultures/strains/tests/test_list_entries.py::test_one_accession_may_record_both_restrictions_at_once`, `backend/cultures/strains/tests/test_list_entries.py::test_an_accession_of_the_dual_use_entry_alone_is_refused`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_asks_for_the_decrees_restriction_at_the_commit`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_takes_both_restrictions_in_one_transaction`, `backend/cultures/strains/tests/test_list_entries.py::test_a_dual_use_entry_the_decree_does_not_list_asks_for_nothing`, `backend/cultures/strains/tests/test_list_entries.py::test_the_decrees_restriction_does_not_end_while_the_dual_use_entry_asks_for_it`
+- Limits: the two entries are paired when they derive the same scientific name at the same scope
+  (R-LIST-03), which pairs 46 of the entries of this version's lists: 32 as a VRAT and 14 as a
+  RAT. An entry with no derived name pairs with nothing, and a genus-wide entry of the decree
+  does not pair with a species entry of Annex I (no such pair exists in this version, so the
+  case is not built and not tested). Only a dual-use restriction asks for its counterpart: a
+  VRAT or RAT restriction does not ask for the dual-use one, because the export duty falls on
+  the exporter and not on holding the strain. Issue: none
+
 #### R-KIND-09 A strain is regulated while it has any active restriction, one definition in Python and SQL
 
 - Kind: own control
 - Source: ADR 0009, Decision: "A strain with any restriction is a regulated strain in this ADR".
 - Code: `backend/cultures/strains/selectors.py::regulating_restrictions`, `backend/cultures/strains/migrations/0009_deaccession_audit_and_guards.py::"strains_strain_guard"`, `backend/cultures/lineage/services/destructions.py::required_for`, `backend/cultures/lineage/migrations/0014_destruction_audit_and_guards.py::"lineage_destructionrecord_guard"`
 - Tests: `backend/cultures/strains/tests/test_deaccession.py::test_the_trigger_and_the_python_predicate_agree_on_regulated`, `backend/cultures/lineage/tests/test_destruction_guards.py::test_the_trigger_asks_a_second_person_exactly_when_python_does`
+
+### What the lists suggest
+
+#### R-MATCH-01 The lists only suggest: whole names, the accepted name, its synonyms and genus-wide entries, and a person confirms with a reason
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-08 (#169). No text read lets a classification follow from
+  a name alone: one organism carries different names under its accepted name and its synonyms
+  (ADR 0008, D4), an annex names a genus where the collection holds a species, and a strain's
+  taxon may be wrong. So the match is a read, and recording what it suggests is a write of its
+  own with a reason, through the same services as a classification typed by hand (R-KIND-08,
+  R-RISK-03, R-RISK-07).
+- Code: `backend/cultures/biosafety/selectors.py::match_names`, `backend/cultures/biosafety/selectors.py::list_matches`, `backend/cultures/strains/api/views.py::StrainViewSet.list_matches`, `backend/cultures/strains/api/serializers.py::ListMatchOutputSerializer`
+- Tests: `backend/cultures/strains/tests/test_list_matches.py::test_an_exact_entry_matches_the_taxons_own_name`, `backend/cultures/strains/tests/test_list_matches.py::test_an_entry_of_a_genus_matches_a_species_of_it`, `backend/cultures/strains/tests/test_list_matches.py::test_a_synonym_and_its_accepted_name_match_the_same_entries`, `backend/cultures/strains/tests/test_list_matches.py::test_a_part_of_a_name_matches_nothing`, `backend/cultures/strains/tests/test_list_matches.py::test_an_invented_taxon_matches_nothing`, `backend/cultures/strains/tests/test_list_matches.py::test_a_reading_that_was_replaced_suggests_nothing`, `backend/cultures/strains/tests/test_list_matches.py::test_the_api_lists_what_the_lists_say_about_the_taxon`, `backend/cultures/strains/tests/test_list_matches.py::test_nobody_outside_the_lab_reads_the_suggestions`
+- Limits: a suggestion reaches only an entry the loader derived a name for (R-LIST-03), so 781
+  of the 1061 entries of this version's lists can suggest anything, and 57 of the 125 entries of
+  decree 474/2002 Sb. A genus of a name is its first word, not the taxon's ancestor at rank
+  genus, so a genus-wide entry reaches a species whose name begins with that genus and not a
+  species the tree places under it under another name. Nothing compares a part of a name.
+  Issue: none
+
+#### R-MATCH-02 Managers see every strain whose classification disagrees with the official lists
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-09 (#169). No text read makes a classification follow
+  from a list (R-MATCH-01), so the app cannot correct a record by itself. What it can do is say
+  where the record and the lists differ and leave the answer to a person. The duties the
+  classification carries are the lab's permit (R-PERMIT-01, R-PERMIT-02), the distribution gates
+  (R-DIST-04, R-DIST-05, R-DIST-07), the register entry (R-SHIP-07) and the containment a box
+  must give (R-RISK-04), so a strain classified below the lists is a legal risk and one
+  classified above it is a cost.
+- Code: `backend/cultures/strains/selectors.py::list_findings`, `backend/cultures/strains/selectors.py::list_disagreements`, `backend/cultures/biosafety/selectors.py::entries_for`, `backend/cultures/biosafety/selectors.py::matches`, `backend/cultures/strains/api/views.py::StrainViewSet.list_disagreements`, `backend/cultures/labs/permissions.py::"strains.view_list_disagreements"`
+- Tests: `backend/cultures/strains/tests/test_list_disagreements.py::test_an_entry_that_names_a_restriction_the_strain_does_not_carry_is_listed`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_restriction_of_a_kind_no_matching_entry_names_is_listed`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_gmo_restriction_is_never_unlisted`, `backend/cultures/strains/tests/test_list_disagreements.py::test_an_entry_of_annex_7_that_states_another_group_is_listed`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_strain_the_lists_say_nothing_about_is_not_listed`, `backend/cultures/strains/tests/test_list_disagreements.py::test_recording_everything_the_lists_say_takes_the_strain_off_the_list`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_reading_that_was_replaced_says_nothing_any_more`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_strain_that_left_the_collection_is_not_listed`, `backend/cultures/strains/tests/test_list_disagreements.py::test_the_managers_read_matches_the_suggestions_of_each_strain_page`, `backend/cultures/strains/tests/test_list_disagreements.py::test_only_a_manager_reads_the_list`, `backend/cultures/strains/tests/test_list_disagreements.py::test_the_api_names_the_strain_and_every_disagreement`, `backend/cultures/strains/tests/test_list_disagreements.py::test_the_read_costs_the_same_whatever_the_number_of_strains`
+- Limits: the answer is computed at every read and stored nowhere, so it follows a
+  reclassification, a restriction added or ended, a risk group changed and a new reading of a
+  list with nothing to refresh. There is no database guard, because there is no rule to hold: a
+  disagreement is a question, not a fault, and a strain may stay on the list as long as its
+  managers decide the lists are wrong about it. It reaches only what the lists can suggest
+  (R-MATCH-01, R-LIST-03): a strain whose entry the loader derived no name for is never listed,
+  and neither is a strain of a taxon no entry names. A deaccessioned strain is left out. A GMO
+  restriction is never reported as unlisted, because act 78/2004 Sb. keeps no list of agents.
+  Nothing is read back for a reading that was replaced. Issue: none
 
 ### Risk groups
 
@@ -154,8 +295,9 @@ and the rules and duties it decides are changed in the same commit.
 - Quote: "'Biological agents' shall be classified into four risk groups, according to their level of risk of infection"
 - Code: `backend/cultures/strains/models.py::"strains_strain_risk_group_1_to_4"`
 - Tests: `backend/cultures/strains/tests/test_models.py::test_risk_groups_one_to_four_are_stored`, `backend/cultures/strains/tests/test_models.py::test_a_strain_row_that_cannot_be_true_is_refused`
-- Limits: the group is typed by a person, not read from the annex of the directive or of the
-  government order (#169).
+- Limits: the group is still chosen by a person. Since #169 the choice may rest on the entry of
+  annex 7 the person read it in, which the app checks (R-RISK-09), and the strain page offers the
+  entries that match its taxon (R-MATCH-01); nothing picks a group by itself.
 
 #### R-RISK-02 A risk group 4 agent is refused at accession and on change
 
@@ -174,7 +316,8 @@ and the rules and duties it decides are changed in the same commit.
 - Code: `backend/cultures/strains/services.py::strain_set_risk_group`
 - Tests: `backend/cultures/strains/tests/test_services.py::test_a_risk_group_change_records_old_new_and_the_reason`, `backend/cultures/strains/tests/test_services.py::test_a_risk_group_change_needs_a_reason`, `backend/cultures/strains/tests/test_services.py::test_the_same_risk_group_again_records_nothing`
 - Limits: the same group again changes nothing and records nothing, so a new basis for an
-  unchanged group is not recorded (#169).
+  unchanged group is not recorded. To restate the basis of a group a strain already has, raise it
+  and lower it again, each step with its own basis. Issue: none
 
 #### R-RISK-04 A higher risk group must fit the cap of every box holding the strain
 
@@ -206,7 +349,7 @@ and the rules and duties it decides are changed in the same commit.
   holds both people. The check that a confirmed proposal was applied passes when the strain
   changed again afterwards (a group changes again and again, unlike a deaccession). Issue: none
 
-#### R-RISK-07 Every risk group change names the basis of the new group
+#### R-RISK-07 Every risk group names what it rests on, from the accession on
 
 - Kind: law in part
 - Source: government order 361/2007 Sb., Annex 7, Part A, the sentence before table 1 (the
@@ -218,11 +361,13 @@ and the rules and duties it decides are changed in the same commit.
 - Quote: „Biologické činitele, které nebyly zařazeny do skupin 2 až 4 seznamu, nejsou automaticky zařazeny do skupiny 1.“
 - English: Biological agents that have not been classified into groups 2 to 4 of the list are
   not automatically classified into group 1.
-- Code: `backend/cultures/strains/services.py::_check_basis`, `backend/cultures/strains/models.py::"strains_strain_risk_group_basis_with_time"`, `backend/cultures/strains/migrations/0014_risk_group_audit_and_guards.py::"a risk group change states its basis and the time it was made"`
-- Tests: `backend/cultures/strains/tests/test_services.py::test_a_risk_group_change_needs_a_basis`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_proposal_without_a_basis_or_a_reason_is_refused`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_database_asks_every_change_for_its_basis_and_its_time`
-- Limits: the basis is text a person types, not an entry of an official list, and the group the
-  accession recorded has none at all (#169). The data files of the lists are in the repository
-  and nothing reads them yet.
+- Code: `backend/cultures/strains/services.py::_check_basis`, `backend/cultures/strains/services.py::strain_create`, `backend/cultures/strains/models.py::"strains_strain_risk_group_basis_with_time"`, `backend/cultures/strains/migrations/0014_risk_group_audit_and_guards.py::"a risk group change states its basis and the time it was made"`, `backend/cultures/strains/migrations/0018_risk_group_basis_guards.py::"a strain states what its risk group rests on and when"`
+- Tests: `backend/cultures/strains/tests/test_services.py::test_a_risk_group_change_needs_a_basis`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_proposal_without_a_basis_or_a_reason_is_refused`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_database_asks_every_change_for_its_basis_and_its_time`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_accession_states_what_its_risk_group_rests_on`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_accession_without_a_basis_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_group_1_states_a_reason_too_and_never_follows_from_a_missing_entry`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_asks_every_new_strain_what_its_group_rests_on`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_strain_page_shows_the_basis_and_the_entry_of_its_group`
+- Limits: since #169 the accession states the basis too, so every group recorded from then on
+  says what it rests on, in words, whether or not it also names a list entry (R-RISK-09). A
+  strain accessioned before #169 keeps an empty basis: nothing writes one after the fact, and its
+  next change of group states one. The words themselves are not checked against the entry they
+  cite. Issue: none
 
 #### R-RISK-08 A risk group rises one step at a time
 
@@ -233,6 +378,30 @@ and the rules and duties it decides are changed in the same commit.
 - Tests: `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_raise_stays_one_step_and_needs_no_second_person`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_database_lets_a_group_rise_one_step_at_a_time`
 - Limits: a strain may still be accessioned straight into group 3 (R-RISK-02 refuses only group
   4): the rule is about changing a classification, not about the first one. Issue: none
+
+#### R-RISK-09 A risk group that rests on a list entry rests on an entry of the current annex 7 that states it
+
+- Kind: law in part
+- Source: government order 361/2007 Sb., Annex 7 (the consolidated text in force from
+  2026-09-01, e-Sbírka, SHA-256
+  6dd28ebb7fede464528d766d7dd58d066281a6a7fac6ccca99a76c7eb251d64c, the version
+  `backend/cultures/biosafety/data/manifest.json` records). The annex is the only list the app
+  holds that states a risk group, so a basis that cites one cites it. That the citation is a
+  foreign key to the entry rather than free text, and that it must state the very group being
+  recorded, is ours (ADR 0009, amendment 2026-11-09, #169).
+- Quote: „Biologické činitele, které nebyly zařazeny do skupin 2 až 4 seznamu, nejsou automaticky zařazeny do skupiny 1.“
+- English: Biological agents that have not been classified into groups 2 to 4 of the list are
+  not automatically classified into group 1.
+- Code: `backend/cultures/biosafety/selectors.py::risk_group_entries`, `backend/cultures/biosafety/selectors.py::states_risk_group`, `backend/cultures/strains/services.py::_check_basis_entry`, `backend/cultures/strains/services.py::RiskGroupEntryMismatch`, `backend/cultures/strains/migrations/0018_risk_group_basis_guards.py::"a risk group rests on an entry of the current annex 7 of government order 361/2007 Sb. that states it"`, `backend/cultures/strains/migrations/0018_risk_group_basis_guards.py::"a proposed risk group rests on an entry of the current annex 7 of government order 361/2007 Sb. that states it"`
+- Tests: `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_accession_may_rest_on_an_entry_of_the_annex`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_entry_that_states_another_group_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_entry_of_another_list_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_entry_of_a_reading_that_was_replaced_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_a_raise_may_name_an_entry_and_the_event_holds_its_code`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_a_raise_on_an_entry_of_another_group_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_a_lowering_carries_the_entry_of_the_proposal_it_confirms`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_a_proposal_on_an_entry_of_another_group_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_refuses_a_new_strain_on_an_entry_that_does_not_state_its_group`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_refuses_a_change_onto_an_entry_that_does_not_state_the_group`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_lets_the_entry_change_only_with_the_group`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_refuses_a_lowering_that_drops_the_entry_of_its_proposal`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_refuses_a_proposal_on_an_entry_that_does_not_state_its_group`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_python_check_and_the_trigger_agree_on_which_entry_states_a_group`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_api_takes_the_entry_by_public_id_and_refuses_one_of_another_list`
+- Limits: the entry is optional, because the annex states a group for a minority of the taxa a
+  collection holds and because an agent it does not list is not thereby group 1 (the sentence
+  above): the words of the basis carry that case and are always required (R-RISK-07). An entry
+  may be named only where the app can offer it, which is where the loader derived a name for it
+  (R-LIST-03, R-MATCH-01). Nothing checks that the entry's organism is the strain's taxon: the
+  person reads the suggestion and decides, as the taxon itself may be wrong. A strain keeps the
+  entry it was given even after a newer reading of the annex replaces it: the row is history, and
+  the next change of the group names an entry of the reading in force then. Issue: none
 
 ### The lab's own permits
 

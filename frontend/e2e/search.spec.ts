@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
-import { axe, signedInAs, watchCsp } from './support.js'
+import { axe, riskGroupBasis, signedInAs, watchCsp } from './support.js'
 
 // The top bar's search (#76) against the real API (seed_e2e: "E2E lab" with its seeded strain
 // E2E 1, e2e-viewer and e2e-technician in it; e2e-outsider views only "E2E other lab"). The scan
@@ -19,7 +19,7 @@ async function as(browser: Browser, username: string, options: { width?: number;
 /** A strain of this run with one vial and the barcode, made as a curator through the API. */
 async function vialWithBarcode(page: Page, name: string, barcode: string) {
   return page.evaluate(
-    async ([received, code]) => {
+    async ([received, code, basis]) => {
       await fetch('/api/v1/auth/csrf/')
       const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
       const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
@@ -51,6 +51,7 @@ async function vialWithBarcode(page: Page, name: string, barcode: string) {
         identified_on: new Date().toLocaleDateString('sv'),
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,
+        risk_group_basis: basis,
         animal_pathogenicity: 'unknown',
         plant_pathogenicity: 'unknown',
         isolation_source: '',
@@ -68,7 +69,7 @@ async function vialWithBarcode(page: Page, name: string, barcode: string) {
       await send(`vials/${second.public_id}/barcode/`, { barcode: code })
       return { number: strain.accession_number, label: second.label }
     },
-    [name, barcode] as const,
+    [name, barcode, riskGroupBasis] as const,
   )
 }
 

@@ -43,6 +43,9 @@ from cultures.taxonomy.tests.conftest import make_synonym, make_taxon
 from cultures.users.models import User
 
 LAB_ID = UUID("00000000-0000-4000-8000-00000000000a")
+# #169: what the risk group of a strain made here rests on. The taxa are invented, so the
+# basis is a sentence about the isolate and no claim about any official list.
+ACCESSION_BASIS = "The lab's own assessment of this invented isolate."
 STRAINS_URL = f"/api/v1/labs/{LAB_ID}/strains/"
 
 
@@ -131,6 +134,8 @@ def new_strain(taxon: Taxon, **changes: Any) -> NewStrain:
         "identified_on": date(2026, 1, 10),
         "identification_method": "16S rRNA gene sequence",
         "risk_group": 1,
+        # #169: every group states what it rests on, the accession's included.
+        "risk_group_basis": ACCESSION_BASIS,
         **changes,
     }
     return NewStrain(**values)

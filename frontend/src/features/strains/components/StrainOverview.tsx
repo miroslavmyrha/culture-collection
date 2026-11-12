@@ -25,6 +25,7 @@ import {
   WithdrawEndDialog,
   WithdrawRiskGroupDialog,
 } from './StrainDialogs'
+import { StrainListMatches } from './StrainListMatches'
 import { StrainShipments } from './StrainShipments'
 import { ActiveTerms } from './StrainTerms'
 
@@ -43,6 +44,12 @@ type Restriction = Strain['restriction_history'][number]
 type Step = 'propose' | 'confirm' | 'withdraw'
 type Open = { step: Step; restriction: Restriction; open: boolean } | null
 type Act = (step: Step, r: Restriction) => (event: MouseEvent<HTMLButtonElement>) => void
+
+/** The basis of a strain's risk group as the facts show it, with the annex 7 entry it cites. */
+function basisOfGroup(s: Strain): string {
+  if (!s.risk_group_basis) return 'From the accession'
+  return s.risk_group_entry === null ? s.risk_group_basis : `${s.risk_group_basis} (annex 7, entry ${s.risk_group_entry})`
+}
 
 /**
  * What the strain is (#19): its facts, its restrictions, the terms of use in force and how it was
@@ -110,9 +117,10 @@ export function StrainOverview({ labId, strain: s, canManage, canConfirm, canCon
               : []),
             ['Status', <StatusChip key="status" tone={STRAIN_TONES[s.status]}>{STATUS_LABELS[s.status]}</StatusChip>],
             ['Risk group', String(s.risk_group)],
-            // #174: what the group rests on, once someone changed it; the group an accession
-            // recorded has none of its own yet.
-            ['Basis of the risk group', s.risk_group_basis || 'From the accession'],
+            // #174 and #169: what the group rests on, in the person's words, and the entry of
+            // annex 7 it was read in where it was read in one. Only a strain accessioned before
+            // #169 has no basis at all.
+            ['Basis of the risk group', basisOfGroup(s)],
             ['Animal pathogenicity', PATHOGENICITY_LABELS[s.animal_pathogenicity]],
             ['Plant pathogenicity', PATHOGENICITY_LABELS[s.plant_pathogenicity]],
             ['Isolation source', s.isolation_source || 'Unknown'],
@@ -180,6 +188,8 @@ export function StrainOverview({ labId, strain: s, canManage, canConfirm, canCon
           </Table>
         </TableContainer>
       </Section>
+
+      <StrainListMatches labId={labId} strain={s} canManage={canManage} />
 
       {/* Mounted until it has faded out, so onExited can place the focus. */}
       {open && <EndDialog labId={labId} strain={s} at={open} onClose={close} onExited={exited} />}

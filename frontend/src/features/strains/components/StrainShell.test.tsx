@@ -94,8 +94,8 @@ describe('StrainShell with the Overview tab', () => {
       'Name as received': 'T. exempli T1',
       Status: 'Active',
       'Risk group': '2',
-      // #174: the group is the one the accession recorded, so it has no basis of its own.
-      'Basis of the risk group': 'From the accession',
+      // #174 and #169: the accession records the basis of the group, on no list entry here.
+      'Basis of the risk group': 'Recorded with the accession papers.',
       'Animal pathogenicity': 'No pathogenicity known',
       'Plant pathogenicity': 'Unknown',
       'Isolation source': 'Unknown',

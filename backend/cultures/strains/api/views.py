@@ -8,6 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from cultures.biosafety import selectors as biosafety
 from cultures.biosafety.models import RestrictionKind
 from cultures.core.api import ScopedReadOnlyViewSet
 from cultures.core.errors import PROBLEM_CONTENT_TYPE as PROBLEM
@@ -35,6 +36,8 @@ from .serializers import (
     EndConfirmInputSerializer,
     EndProposeInputSerializer,
     EndWithdrawInputSerializer,
+    ListDisagreementOutputSerializer,
+    ListMatchOutputSerializer,
     ReclassifyInputSerializer,
     RestrictionAddInputSerializer,
     RiskGroupConfirmInputSerializer,
@@ -174,6 +177,11 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         "shipments": Perm.VIEW_DISTRIBUTION,
         "history": Perm.VIEW_STRAINS,
         "terms": Perm.VIEW_TERMS,
+        # #169: what the official lists say about the strain's taxon. A read, for everyone who
+        # sees the strain: recording any of it is a write with a reason of its own.
+        "list_matches": Perm.VIEW_STRAINS,
+        # #169: where the lab's record and the official lists disagree. A manager's read.
+        "list_disagreements": Perm.VIEW_LIST_DISAGREEMENTS,
     }
     filterset_class = StrainFilter
 
@@ -188,7 +196,7 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         access = access_of(self.request)
         if self.action == "list":
             return selectors.strain_list(access=access, lab=self.lab)
-        if self.action in ("history", "terms", "shipments"):
+        if self.action in ("history", "terms", "shipments", "list_disagreements"):
             return selectors.strain_rows(access=access, lab=self.lab)
         return selectors.strain_detail(access=access, lab=self.lab)
 
@@ -219,6 +227,41 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         if restriction is None:
             raise NotFound
         return restriction
+
+    @extend_schema(responses={200: ListMatchOutputSerializer(many=True)})
+    @action(detail=True, methods=["get"], url_path="list-matches")  # paged, like the history
+    def list_matches(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """What the official lists say about this strain's taxon (#169): the entries that match
+        its name, the name of its accepted taxon, the name of any synonym of that taxon, or the
+        genus of one of those, never a part of a name. Each entry says which reading of which
+        list it comes from, the restriction it would give and the risk group it states.
+
+        A suggestion only. Recording a restriction is `restrictions`, a risk group is
+        `risk-group` or `risk-group-proposal`, each with a reason that goes into the trail.
+        """
+        strain: Strain = self.get_object()
+        page = self.paginate_queryset(biosafety.list_matches(strain.taxon))
+        return self.get_paginated_response(ListMatchOutputSerializer(page or [], many=True).data)
+
+    @extend_schema(responses={200: ListDisagreementOutputSerializer(many=True)})
+    @action(detail=False, methods=["get"], url_path="list-disagreements")
+    def list_disagreements(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Every strain of the lab whose classification disagrees with the official lists (#169).
+
+        A manager's read: the lists say one thing and the record another, and only a person can
+        settle which is right. Three disagreements: an entry names a restriction the strain does
+        not carry, the strain carries one of a kind no matching entry names, or an entry of annex
+        7 of government order 361/2007 Sb. states another risk group.
+
+        Computed at every read, so it follows every reclassification and every new reading of a
+        list by itself. Settling one is a write of its own, with a reason (`restrictions`,
+        `risk-group`, `risk-group-proposal`, `reclassify`).
+        """
+        rows = selectors.list_disagreements(access=access_of(request), lab=self.lab)
+        page = self.paginate_queryset(rows)
+        return self.get_paginated_response(
+            [ListDisagreementOutputSerializer(row).data for row in page or []]
+        )
 
     @extend_schema(
         request=ReclassifyInputSerializer,
@@ -257,13 +300,14 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         """Raises the risk group, or records the same one again, with the basis and the reason
         (#174). A lower group is proposed instead (risk-group-proposal)."""
         strain: Strain = self.get_object()
-        data = RiskGroupInputSerializer(data=request.data)
+        data = RiskGroupInputSerializer(data=request.data, context=self.get_serializer_context())
         data.is_valid(raise_exception=True)
         services.strain_set_risk_group(
             access=access_of(request),
             strain=strain,
             risk_group=data.validated_data["risk_group"],
             basis=data.validated_data["basis"],
+            basis_entry=data.validated_data["basis_entry"],
             reason=data.validated_data["reason"],
         )
         return self._detail(strain)
@@ -283,7 +327,9 @@ class StrainViewSet(ScopedReadOnlyViewSet):
         changes for the strain until a manager other than the proposer confirms the proposal, so
         every rule still reads the higher group."""
         strain: Strain = self.get_object()
-        data = RiskGroupProposeInputSerializer(data=request.data)
+        data = RiskGroupProposeInputSerializer(
+            data=request.data, context=self.get_serializer_context()
+        )
         data.is_valid(raise_exception=True)
         values = data.validated_data
         services.strain_risk_group_lower_propose(
@@ -291,6 +337,7 @@ class StrainViewSet(ScopedReadOnlyViewSet):
             strain=strain,
             risk_group=values["risk_group"],
             basis=values["basis"],
+            basis_entry=values["basis_entry"],
             reason=values["reason"],
         )
         return self._detail(strain)

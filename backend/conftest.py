@@ -10,9 +10,15 @@ from django.core.cache import cache
 # the way asserts in tests do.
 pytest.register_assert_rewrite("cultures.core.testing")
 
+from cultures.biosafety import lists  # noqa: E402
+from cultures.biosafety.models import RegulatoryList  # noqa: E402
 from cultures.core.testing.queries import QueryBaseline, baseline_for  # noqa: E402
 
 TEST_SETTINGS = "config.settings.test"
+# The fixtures that give a test the database. `_django_db_helper` is the one pytest-django
+# 4.14 puts behind the `django_db` marker and behind `db` and `transactional_db` alike, so it is
+# asked for first; the public names stay for a version that drops it.
+DATABASE_FIXTURES = ("_django_db_helper", "transactional_db", "django_db_reset_sequences", "db")
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -36,6 +42,24 @@ def _clear_cache() -> Iterator[None]:
     cache.clear()
     yield
     cache.clear()
+
+
+@pytest.fixture(autouse=True)
+def _official_lists(request: pytest.FixtureRequest) -> None:
+    """Every test that touches the database finds the official lists (#169).
+
+    Migration `biosafety/0006_official_lists` loads them, so they come with the schema. A test
+    that works in a real transaction (`django_db(transaction=True)`) empties every table when it
+    ends, which takes them with it, so this puts them back for the next test. One EXISTS query
+    for a test that uses the database, none for a test that does not, and it runs before
+    anything the test measures.
+    """
+    wanted = [name for name in DATABASE_FIXTURES if name in request.fixturenames]
+    if not wanted:
+        return
+    request.getfixturevalue(wanted[0])  # the database before the rows
+    if not RegulatoryList.objects.exists():
+        lists.load(record=False)
 
 
 @pytest.fixture

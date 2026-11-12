@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { signedInAs, username, watchCsp } from './support.js'
+import { riskGroupBasis, signedInAs, username, watchCsp } from './support.js'
 
 // #159, act 281/2002 Sb., § 5(5): a manager marks a vial of a RAT strain lost, is told of the duty
 // to report the loss to the police, finds the loss on Home and records the report there. The
@@ -19,7 +19,7 @@ test('a manager is told to report a lost RAT vial to the police, and records the
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
 
   const made = await page.evaluate(
-    async ({ run, name }) => {
+    async ({ run, name, basis }) => {
       await fetch('/api/v1/auth/csrf/')
       const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
       const lab = location.pathname.split('/')[2] ?? ''
@@ -51,6 +51,7 @@ test('a manager is told to report a lost RAT vial to the police, and records the
         identified_on: today,
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,
+        risk_group_basis: basis,
         animal_pathogenicity: 'unknown',
         plant_pathogenicity: 'unknown',
         isolation_source: '',
@@ -75,7 +76,7 @@ test('a manager is told to report a lost RAT vial to the police, and records the
       })
       return { lab, strain, number: accepted.strain?.accession_number ?? '' }
     },
-    { run: RUN, name: NAME },
+    { run: RUN, name: NAME, basis: riskGroupBasis },
   )
   const label = `${made.number} / 1 / 1`
 

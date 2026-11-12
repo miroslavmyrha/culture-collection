@@ -198,6 +198,10 @@ HIDDEN: dict[str, str] = {
     "taxon_changed": "global reference data, no lab",
     "taxon_identifier_added": "global reference data, no lab",
     "taxon_identifier_removed": "global reference data, no lab",
+    "regulatory_list_loaded": (
+        "an official list loaded into the app (#169): global reference data of its own, no lab,"
+        " and the reading's row carries its source, version and checksums"
+    ),
     "box_type_created": "global reference data, no lab",
     "box_type_changed": "global reference data, no lab",
     "contact_erased": "an erasure is about a person: the line would point at them",

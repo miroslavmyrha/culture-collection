@@ -29,6 +29,8 @@ const PROPOSAL = {
   risk_group: 1 as const,
   from_risk_group: 2 as const,
   basis: BASIS,
+  // #169: this basis rests on no entry of annex 7, only on the words.
+  basis_entry: null,
   reason: 'Reassessed against the annex.',
   proposed_at: '2026-11-03T10:00:00Z',
   confirm_refusal: null,
@@ -66,7 +68,7 @@ describe('the risk group on the strain page', () => {
     await user.type(within(open).getByRole('textbox', { name: 'Reason' }), 'Reassessed.')
     await user.click(within(open).getByRole('button', { name: 'Save risk group' }))
     await waitFor(() => expect(open).not.toBeInTheDocument())
-    expect(raise[0]?.body).toEqual({ risk_group: 3, basis: BASIS, reason: 'Reassessed.' })
+    expect(raise[0]?.body).toEqual({ risk_group: 3, basis: BASIS, basis_entry: null, reason: 'Reassessed.' })
     expect(proposals).toHaveLength(0)
   })
 
@@ -85,7 +87,7 @@ describe('the risk group on the strain page', () => {
     await user.type(within(open).getByRole('textbox', { name: 'Reason' }), 'Reassessed against the annex.')
     await user.click(within(open).getByRole('button', { name: 'Propose the lower group' }))
     await waitFor(() => expect(open).not.toBeInTheDocument())
-    expect(propose[0]?.body).toEqual({ risk_group: 1, basis: BASIS, reason: 'Reassessed against the annex.' })
+    expect(propose[0]?.body).toEqual({ risk_group: 1, basis: BASIS, basis_entry: null, reason: 'Reassessed against the annex.' })
     expect(change).toHaveLength(0)
     // The strain keeps its group, and the page says who settles the proposal.
     expect(within(screen.getByRole('list', { name: 'Biosafety and status' })).getByText('Risk group 2')).toBeInTheDocument()
@@ -181,8 +183,13 @@ describe('the risk group on the strain page', () => {
     expect(screen.queryByRole('button', { name: 'Actions for MYC 42' })).not.toBeInTheDocument()
   })
 
-  it('shows where the current group comes from, and says so for a group from the accession', async () => {
-    await render(group2)
+  it('shows where the current group comes from, with the annex entry it cites', async () => {
+    await render({ ...group2, risk_group_basis: BASIS, risk_group_entry: '1.99' })
+    expect(await screen.findByRole('region', { name: 'Facts' })).toHaveTextContent(`Basis of the risk group${BASIS} (annex 7, entry 1.99)`)
+  })
+
+  it('says a group from an accession before the basis was asked for comes from the accession', async () => {
+    await render({ ...group2, risk_group_basis: '', risk_group_entry: null })
     expect(await screen.findByRole('region', { name: 'Facts' })).toHaveTextContent('Basis of the risk groupFrom the accession')
   })
 })

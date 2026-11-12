@@ -296,6 +296,8 @@ class DepositViewSet(LabNested):
                 identified_on=values["identified_on"],
                 identification_method=values["identification_method"],
                 risk_group=values["risk_group"],
+                risk_group_basis=values["risk_group_basis"],
+                risk_group_entry=values["risk_group_basis_entry"],
                 animal_pathogenicity=Pathogenicity(values["animal_pathogenicity"]),
                 plant_pathogenicity=Pathogenicity(values["plant_pathogenicity"]),
                 isolation_source=values["isolation_source"],
