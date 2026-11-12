@@ -30,35 +30,57 @@ export function RevealLog({ labId, params, onOffsetChange, onPerson, onClearFilt
   }
   const stale = <StaleNotice what="the reveals" query={list} />
   const { count, results } = list.data
-  const filtered = params.since !== undefined || params.until !== undefined || params.person !== undefined
-  if (count === 0 && filtered) return <>{stale}<NoMatch onClearFilters={onClearFilters} /></>
-  if (count === 0) return <>{stale}<Typography>Nobody has revealed where a regulated vial of this lab is stored.</Typography></>
-  if (results.length === 0) return <>{stale}<PastTheEnd onFirstPage={() => onOffsetChange(0)} /></>
+  if (count === 0 || results.length === 0) {
+    return (
+      <>
+        {stale}
+        <NoReveals count={count} filtered={isFiltered(params)} onClearFilters={onClearFilters} onFirstPage={() => onOffsetChange(0)} />
+      </>
+    )
+  }
   const onePerson = params.person !== undefined
   return (
     <section aria-label="Reveals" aria-busy={list.isPlaceholderData}>
       {stale}
       {onePerson && <OnePerson name={personName(results[0]?.person ?? null)} onEveryone={() => onPerson(undefined)} />}
-      <TableContainer component={Paper} variant="outlined">
-        <Table aria-label="Reveals">
-          <TableHead>
-            <TableRow>
-              <TableCell>When</TableCell>
-              <TableCell>Who</TableCell>
-              <TableCell>Vial</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {/* A reveal has no id of its own: one person reveals one vial once per transaction, so
-                the moment, the vial and the person tell rows apart. */}
-            {results.map((reveal) => (
-              <RevealRow key={`${reveal.occurred_at} ${reveal.vial} ${reveal.person?.public_id ?? ''}`} labId={labId} reveal={reveal} onPerson={onePerson ? undefined : onPerson} />
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <RevealTable labId={labId} results={results} onPerson={onePerson ? undefined : onPerson} />
       <Pager label="Reveal pages" count={count} shown={results.length} limit={params.limit} offset={params.offset} loading={list.isPlaceholderData} onOffsetChange={onOffsetChange} />
     </section>
+  )
+}
+
+const isFiltered = (params: Filters | RevealListParams) => params.since !== undefined || params.until !== undefined || params.person !== undefined
+
+type NoRevealsProps = { count: number; filtered: boolean; onClearFilters: () => void; onFirstPage: () => void }
+
+/** Why the table is empty: the filters match nothing, the lab has no reveal, or the page is past the end. */
+function NoReveals({ count, filtered, onClearFilters, onFirstPage }: NoRevealsProps) {
+  if (count > 0) return <PastTheEnd onFirstPage={onFirstPage} />
+  if (filtered) return <NoMatch onClearFilters={onClearFilters} />
+  return <Typography>Nobody has revealed where a regulated vial of this lab is stored.</Typography>
+}
+
+/** The reveals of the page, one row each. */
+function RevealTable({ labId, results, onPerson }: { labId: string; results: readonly Reveal[]; onPerson: ((person: string) => void) | undefined }) {
+  return (
+    <TableContainer component={Paper} variant="outlined">
+      <Table aria-label="Reveals">
+        <TableHead>
+          <TableRow>
+            <TableCell>When</TableCell>
+            <TableCell>Who</TableCell>
+            <TableCell>Vial</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {/* A reveal has no id of its own: one person reveals one vial once per transaction, so
+              the moment, the vial and the person tell rows apart. */}
+          {results.map((reveal) => (
+            <RevealRow key={`${reveal.occurred_at} ${reveal.vial} ${reveal.person?.public_id ?? ''}`} labId={labId} reveal={reveal} onPerson={onPerson} />
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   )
 }
 
@@ -80,15 +102,19 @@ function RevealRow({ labId, reveal, onPerson }: { labId: string; reveal: Reveal;
         )}
       </TableCell>
       <TableCell sx={{ overflowWrap: 'anywhere' }}>
-        {reveal.vial_label === null || reveal.strain === null ? (
-          'A vial no longer in the lab'
-        ) : (
-          <Link to="/labs/$labId/strains/$strainId/material" params={{ labId, strainId: reveal.strain }} search={{ vial: reveal.vial }}>
-            <Mono>{reveal.vial_label}</Mono>
-          </Link>
-        )}
+        <RevealedVial labId={labId} reveal={reveal} />
       </TableCell>
     </TableRow>
+  )
+}
+
+/** The vial as a link to its strain, or the words that it is gone. */
+function RevealedVial({ labId, reveal }: { labId: string; reveal: Reveal }) {
+  if (reveal.vial_label === null || reveal.strain === null) return <>A vial no longer in the lab</>
+  return (
+    <Link to="/labs/$labId/strains/$strainId/material" params={{ labId, strainId: reveal.strain }} search={{ vial: reveal.vial }}>
+      <Mono>{reveal.vial_label}</Mono>
+    </Link>
   )
 }
 
@@ -126,6 +152,24 @@ function NoMatch({ onClearFilters }: { onClearFilters: () => void }) {
   )
 }
 
+const NOT_A_DAY = 'Enter a day as YYYY-MM-DD.'
+
+/** The message for the "to" day: not a day, or before the first. */
+function untilError(from: string, to: string): string | undefined {
+  if (to === '') return undefined
+  if (!isDay(to)) return NOT_A_DAY
+  return from !== '' && to < from ? 'The last day comes before the first.' : undefined
+}
+
+/** What is wrong with the two days as typed (already trimmed), if anything. */
+const dayErrors = (from: string, to: string) => ({ since: from !== '' && !isDay(from) ? NOT_A_DAY : undefined, until: untilError(from, to) })
+
+/** The button that drops every filter, shown only while one is set. */
+function ClearFilters({ active, onClear }: { active: boolean; onClear: () => void }) {
+  if (!active) return null
+  return <Button onClick={onClear}>Clear filters</Button>
+}
+
 /**
  * The days, from and to, both included and Czech days on the server. Applied when submitted;
  * "This month" fills and applies the current month at once. Both live in the URL.
@@ -144,7 +188,6 @@ export function RevealFilters({ filters, onChange }: { filters: Filters; onChang
   }
   const sinceField = useRef<HTMLInputElement>(null)
   const untilField = useRef<HTMLInputElement>(null)
-  const active = filters.since !== undefined || filters.until !== undefined || filters.person !== undefined
   const apply = (from: string, to: string) => onChange((current) => ({ ...current, since: from || undefined, until: to || undefined }))
   return (
     <Box
@@ -155,10 +198,7 @@ export function RevealFilters({ filters, onChange }: { filters: Filters; onChang
         event.preventDefault()
         const from = since.trim()
         const to = until.trim()
-        const found = {
-          since: from !== '' && !isDay(from) ? 'Enter a day as YYYY-MM-DD.' : undefined,
-          until: to !== '' && !isDay(to) ? 'Enter a day as YYYY-MM-DD.' : from !== '' && to !== '' && to < from ? 'The last day comes before the first.' : undefined,
-        }
+        const found = dayErrors(from, to)
         setErrors(found)
         if (found.since !== undefined) return sinceField.current?.focus()
         if (found.until !== undefined) return untilField.current?.focus()
@@ -182,17 +222,14 @@ export function RevealFilters({ filters, onChange }: { filters: Filters; onChang
           >
             This month
           </Button>
-          {active && (
-            <Button
-              onClick={() => {
-                setErrors({})
-                onChange(() => ({}))
-                sinceField.current?.focus()
-              }}
-            >
-              Clear filters
-            </Button>
-          )}
+          <ClearFilters
+            active={isFiltered(filters)}
+            onClear={() => {
+              setErrors({})
+              onChange(() => ({}))
+              sinceField.current?.focus()
+            }}
+          />
         </Stack>
       </Stack>
     </Box>

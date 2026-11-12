@@ -19,14 +19,14 @@ import { canHandleDeposits, canManageMedia, canSeeListDisagreements, canSeePermi
  * tab of every lab, refreshed by the writes that change them), and show only for a role that
  * acts on them and only when something waits.
  */
+type Figures = { requests_to_decide: number | null | undefined; deposits_to_check: number | null | undefined } | undefined
+
 export function LabTabs({ labId }: { labId: string }) {
   const lab = useLab(labId)
   const figures = useQuery({ ...overviewOptions(), select: (overview) => overview.labs.find((entry) => entry.public_id === labId) }).data
-  const role = lab.data?.my_role
   // A lab the user cannot open (404) or that failed to load has no sections to show.
-  const hidden = lab.data === undefined && !lab.isPending
-
-  if (hidden) return null
+  if (lab.data === undefined && !lab.isPending) return null
+  const role = lab.data?.my_role
   const params = { labId }
   return (
     <Box component="nav" aria-label="Lab sections" sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider', displayPrint: 'none' }}>
@@ -42,43 +42,59 @@ export function LabTabs({ labId }: { labId: string }) {
             Requests
             <TabCount count={figures?.requests_to_decide} />
           </Link>
-          {canHandleDeposits(role) && (
-            <>
-              <Link to="/labs/$labId/deposits" params={params} underline="none" sx={tabSx} aria-label={counted('Deposits', figures?.deposits_to_check, 'to check')}>
-                Deposits
-                <TabCount count={figures?.deposits_to_check} />
-              </Link>
-              <Link to="/labs/$labId/depositors" params={params} underline="none" sx={tabSx}>
-                Depositors
-              </Link>
-              <Link to="/labs/$labId/mta-templates" params={params} underline="none" sx={tabSx}>
-                MTA templates
-              </Link>
-            </>
-          )}
-          {canManageMedia(role) && (
-            <Link to="/labs/$labId/media" params={params} underline="none" sx={tabSx}>
-              Media
-            </Link>
-          )}
-          {canSeeListDisagreements(role) && (
-            <Link to="/labs/$labId/classification" params={params} underline="none" sx={tabSx}>
-              Classification
-            </Link>
-          )}
-          {canSeePermits(role) && (
-            <Link to="/labs/$labId/permits" params={params} underline="none" sx={tabSx}>
-              Permits
-            </Link>
-          )}
-          {canSeeReveals(role) && (
-            <Link to="/labs/$labId/reveals" params={params} underline="none" sx={tabSx}>
-              Reveals
-            </Link>
-          )}
+          {canHandleDeposits(role) && <DepositTabs labId={labId} figures={figures} />}
+          <RoleTabs labId={labId} role={role} />
         </TabRow>
       </Container>
     </Box>
+  )
+}
+
+/** Deposits (with how many wait for a check), Depositors and MTA templates: for those who handle deposits. */
+function DepositTabs({ labId, figures }: { labId: string; figures: Figures }) {
+  const params = { labId }
+  return (
+    <>
+      <Link to="/labs/$labId/deposits" params={params} underline="none" sx={tabSx} aria-label={counted('Deposits', figures?.deposits_to_check, 'to check')}>
+        Deposits
+        <TabCount count={figures?.deposits_to_check} />
+      </Link>
+      <Link to="/labs/$labId/depositors" params={params} underline="none" sx={tabSx}>
+        Depositors
+      </Link>
+      <Link to="/labs/$labId/mta-templates" params={params} underline="none" sx={tabSx}>
+        MTA templates
+      </Link>
+    </>
+  )
+}
+
+/** Media for curators and managers, Classification, Permits and Reveals for managers: each tab by its own right. */
+function RoleTabs({ labId, role }: { labId: string; role: Parameters<typeof canManageMedia>[0] }) {
+  const params = { labId }
+  return (
+    <>
+      {canManageMedia(role) && (
+        <Link to="/labs/$labId/media" params={params} underline="none" sx={tabSx}>
+          Media
+        </Link>
+      )}
+      {canSeeListDisagreements(role) && (
+        <Link to="/labs/$labId/classification" params={params} underline="none" sx={tabSx}>
+          Classification
+        </Link>
+      )}
+      {canSeePermits(role) && (
+        <Link to="/labs/$labId/permits" params={params} underline="none" sx={tabSx}>
+          Permits
+        </Link>
+      )}
+      {canSeeReveals(role) && (
+        <Link to="/labs/$labId/reveals" params={params} underline="none" sx={tabSx}>
+          Reveals
+        </Link>
+      )}
+    </>
   )
 }
 
