@@ -61,7 +61,7 @@ const KLM = {
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g
 const screenOf = (path: string) => path.replace(UUID, ':id')
 
-export const DEV_USERS = ['bac-curator', 'bac-technician', 'bac-manager', 'bac-viewer', 'reg-manager'] as const
+export const DEV_USERS = ['bac-curator', 'bac-technician', 'bac-manager', 'bac-viewer', 'myc-viewer', 'reg-manager'] as const
 export type DevUser = (typeof DEV_USERS)[number]
 
 export class Walk {

@@ -96,18 +96,22 @@ test('V7 may this strain be used for teaching', async ({ browser }, info) => {
 })
 
 test('V8 find soil isolates from Czechia', async ({ browser }, info) => {
-  const w = await Walk.as(browser, info, 'bac-viewer', viewer('V8', 'Find the soil isolates from Czechia'))
+  const w = await Walk.as(browser, info, 'myc-viewer', viewer('V8', 'Find the soil isolates from Czechia'))
   await w.start()
-  await openLab(w, LAB)
+  await openLab(w, 'Mycology')
   await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Strains' }))
-  // The isolation source and country filters (#84). seed_dev: BAC has soil isolates from CZ (garden, forest) and DE (arable).
+  // The isolation source and country filters (#84). seed_dev: Mycology has two Aspergillus
+  // fumigatus isolates from soil in CZ and none from anywhere else.
   await w.type(w.page.getByRole('searchbox', { name: 'Isolation source' }), 'soil')
   await w.choose(w.page.getByRole('combobox', { name: 'Country of origin' }), 'Czechia')
   await w.click(w.page.getByRole('button', { name: 'Search' }))
   w.look()
   const strains = w.page.getByRole('table', { name: 'Strains' })
-  await expect(strains.getByRole('row', { name: /forest isolate/ })).toBeVisible()
-  await expect(strains.getByRole('row', { name: /megaterium/ })).toHaveCount(0)
+  await expect(strains.getByRole('row', { name: /Aspergillus fumigatus/ })).toHaveCount(2)
+  await w.choose(w.page.getByRole('combobox', { name: 'Country of origin' }), 'Germany')
+  await w.click(w.page.getByRole('button', { name: 'Search' }))
+  w.look()
+  await expect(strains.getByRole('row', { name: /Aspergillus fumigatus/ })).toHaveCount(0)
   await w.done()
 })
 

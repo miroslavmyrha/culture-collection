@@ -101,14 +101,14 @@ test('C5 find the strains that came from one depositor', async ({ browser }, inf
   const filters = w.page.getByRole('form', { name: 'Filter strains' })
   await w.type(filters.getByRole('combobox', { name: 'Depositor' }), 'Vzor')
   await w.click(w.page.getByRole('option', { name: /Jana Vzorová/ }))
-  // seed_dev: DEP-1 of Jana Vzorová was accepted as a Bacillus subtilis strain in Bacteriology.
-  const row = w.page.getByRole('table', { name: 'Strains' }).getByRole('row', { name: /Bacillus subtilis soil isolate DEP-1/ })
+  // seed_dev: DEP-1 of Jana Vzorová was accepted as a Bacillus subtilis 168 strain in Bacteriology.
+  const row = w.page.getByRole('table', { name: 'Strains' }).getByRole('row', { name: /Bacillus subtilis 168 DEP-1/ })
   w.look()
   await w.click(row.getByRole('link', { name: /^BAC \d+$/ }))
-  const deposit = w.page.getByRole('link', { name: 'Deposit Bacillus subtilis soil isolate DEP-1', exact: true })
+  const deposit = w.page.getByRole('link', { name: 'Deposit Bacillus subtilis 168 DEP-1', exact: true })
   w.look()
   await w.click(deposit)
-  await expect(w.page.getByRole('heading', { level: 1, name: 'Deposit Bacillus subtilis soil isolate DEP-1' })).toBeVisible()
+  await expect(w.page.getByRole('heading', { level: 1, name: 'Deposit Bacillus subtilis 168 DEP-1' })).toBeVisible()
   await w.done()
 })
 

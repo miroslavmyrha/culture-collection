@@ -424,6 +424,18 @@
    ]
   },
   {
+   "name": "Priestia",
+   "authority": "Gupta et al. 2020",
+   "rank": "genus",
+   "parent": "Bacteria",
+   "accepted": null,
+   "ncbi": "2800373",
+   "source": [
+    "https://lpsn.dsmz.de/genus/priestia",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=2800373"
+   ]
+  },
+  {
    "name": "Bacillus subtilis",
    "authority": "(Ehrenberg 1835) Cohn 1872",
    "rank": "species",
@@ -611,6 +623,29 @@
    "source": [
     "https://api.gbif.org/v1/species/match?name=Saccharomyces%20cerevisiae",
     "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=4932"
+   ]
+  },
+  {
+   "name": "Priestia megaterium",
+   "authority": "(de Bary 1884) Gupta et al. 2020",
+   "rank": "species",
+   "parent": "Priestia",
+   "accepted": null,
+   "ncbi": "1404",
+   "source": [
+    "https://lpsn.dsmz.de/species/priestia-megaterium",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=1404"
+   ]
+  },
+  {
+   "name": "Bacillus megaterium",
+   "authority": "de Bary 1884",
+   "rank": "species",
+   "parent": null,
+   "accepted": "Priestia megaterium",
+   "ncbi": null,
+   "source": [
+    "https://lpsn.dsmz.de/species/bacillus-megaterium"
    ]
   }
  ],
