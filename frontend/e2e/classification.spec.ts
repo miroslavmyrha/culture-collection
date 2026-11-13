@@ -2,9 +2,10 @@ import { type Browser, expect, type Page, test } from '@playwright/test'
 import { axe, signedInAs, username, watchCsp } from './support.js'
 
 // Where the lab's record and the official lists disagree (#169), against the real API. seed_e2e
-// gives the E2E lab one strain of the invented Testella exempli with a risky agent (RAT)
-// restriction: no entry of any list names that taxon, so the check lists it and says so. The
-// seeded Bacillus subtilis strains carry no restriction and no entry names them either.
+// reads its classifications out of the list data files by entry code. The E. coli K-12 strain is
+// recorded at group 1 where annex 7 entry 1.73 states group 2 (it excepts non-pathogenic
+// strains), so the check lists it and shows the reason the collection recorded. The B. subtilis
+// strains show up through their old name Vibrio subtilis, which a genus entry of annex 7 names.
 
 async function as(browser: Browser, user: string) {
   const context = await browser.newContext({ storageState: signedInAs(user), viewport: { width: 1280, height: 900 } })
@@ -19,15 +20,16 @@ const openClassification = async (page: Page) => {
   await page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Classification', exact: true }).click()
 }
 
-test('a manager sees the strain whose restriction no list names, and the page passes axe', async ({ browser }) => {
+test('a manager sees the strain recorded below its entry, with the reason, and the page passes axe', async ({ browser }) => {
   const { page, close } = await as(browser, username)
   const csp = await watchCsp(page)
   await openClassification(page)
   await expect(page.getByRole('heading', { level: 1, name: 'Classification of E2E lab' })).toBeVisible()
   const table = page.getByRole('table', { name: 'Classification check' })
-  const row = table.getByRole('row', { name: /Testella exempli/ }).first()
-  await expect(row).toContainText('The strain carries a restriction no entry names')
-  await expect(row).toContainText('Risky agent (RAT)')
+  const row = table.getByRole('row', { name: /Escherichia coli/ }).first()
+  await expect(row).toContainText('Annex 7 states another risk group: the entry states risk group 2, the strain has 1')
+  await expect(row).toContainText('entry 1.73')
+  await expect(row).toContainText('Accepted by the collection: Annex 7 of 361/2007 Sb. lists the species')
   expect(await axe(page, 'main')).toEqual([])
   expect(csp()).toEqual([])
   await close()

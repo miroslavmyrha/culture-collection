@@ -58,7 +58,7 @@ test('V5 see a strain\'s history', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-viewer', viewer('V5', 'See the history of a reclassified strain'))
   await w.start()
   await openStrains(w, LAB)
-  await findStrain(w, 'Fictivibrio', /Fictivibrio exempli/)
+  await findStrain(w, 'Vibrio subtilis', /Vibrio subtilis/)
   await openTab(w, 'History')
   const history = w.page.getByRole('list', { name: 'History, newest first' })
   await expect(history).toContainText(/identified BAC \d+ anew/)
@@ -96,31 +96,35 @@ test('V7 may this strain be used for teaching', async ({ browser }, info) => {
 })
 
 test('V8 find soil isolates from Czechia', async ({ browser }, info) => {
-  const w = await Walk.as(browser, info, 'bac-viewer', viewer('V8', 'Find the soil isolates from Czechia'))
+  const w = await Walk.as(browser, info, 'myc-viewer', viewer('V8', 'Find the soil isolates from Czechia'))
   await w.start()
-  await openLab(w, LAB)
+  await openLab(w, 'Mycology')
   await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Strains' }))
-  // The isolation source and country filters (#84). seed_dev: BAC has soil isolates from CZ (garden, forest) and DE (arable).
+  // The isolation source and country filters (#84). seed_dev: Mycology has two Aspergillus
+  // fumigatus isolates from soil in CZ and none from anywhere else.
   await w.type(w.page.getByRole('searchbox', { name: 'Isolation source' }), 'soil')
   await w.choose(w.page.getByRole('combobox', { name: 'Country of origin' }), 'Czechia')
   await w.click(w.page.getByRole('button', { name: 'Search' }))
   w.look()
   const strains = w.page.getByRole('table', { name: 'Strains' })
-  await expect(strains.getByRole('row', { name: /forest isolate/ })).toBeVisible()
-  await expect(strains.getByRole('row', { name: /megaterium/ })).toHaveCount(0)
+  await expect(strains.getByRole('row', { name: /Aspergillus fumigatus/ })).toHaveCount(2)
+  await w.choose(w.page.getByRole('combobox', { name: 'Country of origin' }), 'Germany')
+  await w.click(w.page.getByRole('button', { name: 'Search' }))
+  w.look()
+  await expect(strains.getByRole('row', { name: /Aspergillus fumigatus/ })).toHaveCount(0)
   await w.done()
 })
 
 test('V9 look up how to grow a strain', async ({ browser }, info) => {
-  const w = await Walk.as(browser, info, 'bac-viewer', viewer('V9', 'Look up the medium and temperature to grow BAC 28'))
+  const w = await Walk.as(browser, info, 'bac-viewer', viewer('V9', 'Look up the medium and temperature to grow BAC 9'))
   await w.start()
-  // seed_dev: BAC 28 (Fictivibrio exempli, invented) is grown on LB at 25 to 37 °C (#79). BAC 18 is a real taxon and has none recorded.
-  await searchStrain(w, 'BAC 28')
+  // seed_dev: BAC 9 (E. coli K-12) is grown on LB at 25 to 37 °C (#79). BAC 18 (Lactococcus lactis) has none recorded.
+  await searchStrain(w, 'BAC 9')
   const facts = w.page.getByRole('region', { name: 'Growth conditions' })
   await w.read(facts)
   await expect(facts).toContainText('LB (Luria-Bertani), DSMZ medium 381')
   await expect(facts).toContainText('25 to 37 °C')
-  await expect(facts).toContainText('Microaerophilic')
+  await expect(facts).toContainText('Aerobic')
   await w.done()
 })
 

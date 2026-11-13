@@ -774,7 +774,7 @@ export type StrainDisagreement = Schemas['ListDisagreementOutput']
 export function makeStrainDisagreement(overrides: Partial<StrainDisagreement> = {}): StrainDisagreement {
   return {
     strain: makeStrainRow(),
-    findings: [{ disagreement: 'restriction_missing', restriction_kind: 'dual_use', entry: makeListMatch() }],
+    findings: [{ disagreement: 'restriction_missing', restriction_kind: 'dual_use', entry: makeListMatch(), accepted_because: '' }],
     ...overrides,
   }
 }

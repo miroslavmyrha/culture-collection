@@ -12723,7 +12723,13 @@ components:
           allOf:
           - $ref: '#/components/schemas/ListMatchOutput'
           nullable: true
+        accepted_because:
+          type: string
+          description: 'On a risk group that differs from the entry''s: the reason
+            in words the collection recorded for the strain''s group, so the case
+            reads as one a person accepted.'
       required:
+      - accepted_because
       - disagreement
       - entry
       - restriction_kind

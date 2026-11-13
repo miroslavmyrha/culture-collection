@@ -2821,6 +2821,8 @@ export interface components {
             disagreement: components["schemas"]["DisagreementEnum"];
             restriction_kind: components["schemas"]["RestrictionKind"] | components["schemas"]["BlankEnum"];
             entry: components["schemas"]["ListMatchOutput"] | null;
+            /** @description On a risk group that differs from the entry's: the reason in words the collection recorded for the strain's group, so the case reads as one a person accepted. */
+            accepted_because: string;
         };
         DocumentOutput: {
             /** Format: uuid */

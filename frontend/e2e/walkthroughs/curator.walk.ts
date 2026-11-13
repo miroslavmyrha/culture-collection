@@ -101,27 +101,27 @@ test('C5 find the strains that came from one depositor', async ({ browser }, inf
   const filters = w.page.getByRole('form', { name: 'Filter strains' })
   await w.type(filters.getByRole('combobox', { name: 'Depositor' }), 'Vzor')
   await w.click(w.page.getByRole('option', { name: /Jana Vzorová/ }))
-  // seed_dev: DEP-1 of Jana Vzorová was accepted as a Bacillus subtilis strain in Bacteriology.
-  const row = w.page.getByRole('table', { name: 'Strains' }).getByRole('row', { name: /Bacillus subtilis soil isolate DEP-1/ })
+  // seed_dev: DEP-1 of Jana Vzorová was accepted as a Bacillus subtilis 168 strain in Bacteriology.
+  const row = w.page.getByRole('table', { name: 'Strains' }).getByRole('row', { name: /Bacillus subtilis 168 DEP-1/ })
   w.look()
   await w.click(row.getByRole('link', { name: /^BAC \d+$/ }))
-  const deposit = w.page.getByRole('link', { name: 'Deposit Bacillus subtilis soil isolate DEP-1', exact: true })
+  const deposit = w.page.getByRole('link', { name: 'Deposit Bacillus subtilis 168 DEP-1', exact: true })
   w.look()
   await w.click(deposit)
-  await expect(w.page.getByRole('heading', { level: 1, name: 'Deposit Bacillus subtilis soil isolate DEP-1' })).toBeVisible()
+  await expect(w.page.getByRole('heading', { level: 1, name: 'Deposit Bacillus subtilis 168 DEP-1' })).toBeVisible()
   await w.done()
 })
 
 test('C6 see what happened to a strain: its risk group and restriction changes', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-curator', curator('C6', 'See what happened to a strain (risk group, restrictions)'))
   await w.start()
-  // seed_dev: BAC 27 is the Mockia vulgaris strain with the reassessment in its history. BAC 30 is a later deposit of the same taxon.
-  await searchStrain(w, 'BAC 27')
+  // seed_dev: BAC 16 is the E. coli lab stock with the reassessment in its history.
+  await searchStrain(w, 'BAC 16')
   await openTab(w, 'History')
   // seed_dev: the risk group went from 2 to 1 by two people (#174), and a restriction ended.
   const history = w.page.getByRole('list', { name: 'History, newest first' })
-  await expect(history.getByRole('listitem').filter({ hasText: 'changed the risk group of BAC 27' })).toHaveCount(1)
-  await expect(history.getByRole('listitem').filter({ hasText: 'proposed to lower the risk group of BAC 27' })).toHaveCount(1)
+  await expect(history.getByRole('listitem').filter({ hasText: 'changed the risk group of BAC 16' })).toHaveCount(1)
+  await expect(history.getByRole('listitem').filter({ hasText: 'proposed to lower the risk group of BAC 16' })).toHaveCount(1)
   await w.read(history)
   await w.shot('strain-history')
   w.note('The line says the risk group changed, not from what to what or why: the reason and the basis stay in the audit trail', '#19')

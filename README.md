@@ -37,10 +37,11 @@ It creates, all through the services and the audit trail:
   password from `DEV_PASSWORD` (or `--password`), and the command prints the logins;
 - permits with invented references: MYC holds a valid ÚKZÚZ permit and an ended one, REG
   a valid SÚJB permit, ENV only an expired SÚJB permit, so a VRAT strain is refused there;
-- taxa: real bacteria and fungi with their authorities, synonyms and NCBI ids, and the
-  invented Testella, Mockia and Fictivibrio;
-- 55 strains: some reclassified, some restricted. Restrictions and risk groups that
-  matter for the gates are on invented taxa only;
+- taxa: real bacteria and fungi with their authorities, synonyms and NCBI ids;
+- strains of real taxa: some reclassified, some restricted. The seed names list entry codes
+  only, and `backend/cultures/biosafety/entry_seed.py` reads the taxon, the risk group and the
+  restrictions out of the official list data files. Group 1 strains are the standard laboratory
+  organisms, with a basis that says annex 7 does not list them;
 - three box types and a storage tree per lab: freezers and LN2 tanks with racks and
   boxes. REG has a box capped below its freezer's risk group, ENV a freezer out of service.
 

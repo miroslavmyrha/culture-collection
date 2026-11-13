@@ -275,7 +275,7 @@ and the rules and duties it decides are changed in the same commit.
   must give (R-RISK-04), so a strain classified below the lists is a legal risk and one
   classified above it is a cost.
 - Code: `backend/cultures/strains/selectors.py::list_findings`, `backend/cultures/strains/selectors.py::list_disagreements`, `backend/cultures/biosafety/selectors.py::entries_for`, `backend/cultures/biosafety/selectors.py::matches`, `backend/cultures/strains/api/views.py::StrainViewSet.list_disagreements`, `backend/cultures/labs/permissions.py::"strains.view_list_disagreements"`
-- Tests: `backend/cultures/strains/tests/test_list_disagreements.py::test_an_entry_that_names_a_restriction_the_strain_does_not_carry_is_listed`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_restriction_of_a_kind_no_matching_entry_names_is_listed`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_gmo_restriction_is_never_unlisted`, `backend/cultures/strains/tests/test_list_disagreements.py::test_an_entry_of_annex_7_that_states_another_group_is_listed`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_strain_the_lists_say_nothing_about_is_not_listed`, `backend/cultures/strains/tests/test_list_disagreements.py::test_recording_everything_the_lists_say_takes_the_strain_off_the_list`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_reading_that_was_replaced_says_nothing_any_more`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_strain_that_left_the_collection_is_not_listed`, `backend/cultures/strains/tests/test_list_disagreements.py::test_the_managers_read_matches_the_suggestions_of_each_strain_page`, `backend/cultures/strains/tests/test_list_disagreements.py::test_only_a_manager_reads_the_list`, `backend/cultures/strains/tests/test_list_disagreements.py::test_the_api_names_the_strain_and_every_disagreement`, `backend/cultures/strains/tests/test_list_disagreements.py::test_the_read_costs_the_same_whatever_the_number_of_strains`
+- Tests: `backend/cultures/strains/tests/test_list_disagreements.py::test_an_entry_that_names_a_restriction_the_strain_does_not_carry_is_listed`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_restriction_of_a_kind_no_matching_entry_names_is_listed`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_gmo_restriction_is_never_unlisted`, `backend/cultures/strains/tests/test_list_disagreements.py::test_an_entry_of_annex_7_that_states_another_group_is_listed`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_group_that_differs_carries_the_reason_the_collection_recorded`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_strain_the_lists_say_nothing_about_is_not_listed`, `backend/cultures/strains/tests/test_list_disagreements.py::test_recording_everything_the_lists_say_takes_the_strain_off_the_list`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_reading_that_was_replaced_says_nothing_any_more`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_strain_that_left_the_collection_is_not_listed`, `backend/cultures/strains/tests/test_list_disagreements.py::test_the_managers_read_matches_the_suggestions_of_each_strain_page`, `backend/cultures/strains/tests/test_list_disagreements.py::test_only_a_manager_reads_the_list`, `backend/cultures/strains/tests/test_list_disagreements.py::test_the_api_names_the_strain_and_every_disagreement`, `backend/cultures/strains/tests/test_list_disagreements.py::test_the_read_costs_the_same_whatever_the_number_of_strains`
 - Limits: the answer is computed at every read and stored nowhere, so it follows a
   reclassification, a restriction added or ended, a risk group changed and a new reading of a
   list with nothing to refresh. There is no database guard, because there is no rule to hold: a
@@ -284,7 +284,10 @@ and the rules and duties it decides are changed in the same commit.
   (R-MATCH-01, R-LIST-03): a strain whose entry the loader derived no name for is never listed,
   and neither is a strain of a taxon no entry names. A deaccessioned strain is left out. A GMO
   restriction is never reported as unlisted, because act 78/2004 Sb. keeps no list of agents.
-  Nothing is read back for a reading that was replaced. Issue: none
+  Nothing is read back for a reading that was replaced. A finding of a group that differs
+  carries the words the collection recorded for the group (R-RISK-07), so the line reads as a
+  case a person accepted, with the reason readable. The view cannot tell a decision a person took
+  from words typed at accession. Issue: none
 
 ### Risk groups
 
@@ -402,6 +405,59 @@ and the rules and duties it decides are changed in the same commit.
   person reads the suggestion and decides, as the taxon itself may be wrong. A strain keeps the
   entry it was given even after a newer reading of the annex replaces it: the row is history, and
   the next change of the group names an entry of the reading in force then. Issue: none
+
+#### R-RISK-10 A group that differs from what annex 7 states for the agent is recorded with its reason and shown to managers as a case a person accepted
+
+- Kind: law in part
+- Source: government order 361/2007 Sb., Annex 7, the notes to the list (Czech text of the
+  e-Sbírka consolidated version in force from 2026-09-01), with section 36(2) and (3) of the
+  same order and Directive 2000/54/EC, Annex III, introductory notes 3 and the note to the
+  list of bacteria. The texts say three things. A genus written with "spp." covers other species
+  only where they are known human pathogens. A whole genus on the list leaves out the species
+  and strains known not to be pathogenic. An agent the list does not name is not thereby group
+  1. Section 36(2)(a) defines group 1 as agents not likely to cause human disease, and section
+  36(3) says the annex lists groups 2, 3 and 4. They do not say whether a named species of a
+  "spp." genus is a known human pathogen, nor which strain of a listed species is non-pathogenic.
+  A person decides that, so the app never decides it. What is ours (ADR 0009, #211): the
+  decision is recorded in words (R-RISK-07), the Classification view (R-MATCH-02) shows the
+  words beside the entry the group differs from, and the seeds use group 1 only for four standard
+  laboratory organisms and say in the basis that annex 7 does not list them or excepts them.
+- Quote: „U biologických činitelů uvedených v tomto seznamu zápis celého rodu s dodatkem ‚spp.‘ znamená, že zahrnuje i ostatní druhy patřící do stejného rodu, které nejsou v seznamu jmenovitě uvedeny, ale které jsou známými lidskými patogeny. Biologické činitele, které nebyly zařazeny do skupin 2 až 4 seznamu, nejsou automaticky zařazeny do skupiny 1. [...] Pokud je v klasifikovaném seznamu biologických činitelů uveden celý rod, má se za to, že druhy a kmeny, o nichž je známo, že patogenní nejsou, jsou vyjmuty.“
+- English: For the agents on this list, a whole genus written with "spp." also covers the other
+  species of the same genus that are not named on the list but are known human pathogens.
+  Agents that have not been classified into groups 2 to 4 of the list are not automatically
+  classified into group 1. [...] Where a whole genus is on the classified list, the species and
+  strains known not to be pathogenic are taken as excluded. Directive 2000/54/EC, Annex III, note
+  3, says the same in English: "Biological agents which have not been classified for inclusion in
+  groups 2 to 4 of the list are not implicitly classified in group 1" and "When a whole genus is
+  mentioned in the classified list of biological agents, it is implicit that the species and
+  strains known to be non-pathogenic are excluded".
+- Code: `backend/cultures/strains/selectors.py::list_findings`, `backend/cultures/strains/selectors.py::Finding`, `backend/cultures/strains/api/serializers.py::DisagreementFindingSerializer`, `backend/cultures/biosafety/entry_seed.py::standard`, `backend/cultures/biosafety/entry_seed.py::species_under_genus`
+- Tests: `backend/cultures/strains/tests/test_list_disagreements.py::test_a_group_that_differs_carries_the_reason_the_collection_recorded`, `backend/cultures/biosafety/tests/test_entry_seed.py::test_a_standard_organism_is_group_1_with_no_pointer_and_says_annex_7_does_not_list_it`, `backend/cultures/biosafety/tests/test_entry_seed.py::test_escherichia_coli_k12_quotes_the_entry_that_excepts_non_pathogenic_strains`, `backend/cultures/biosafety/tests/test_entry_seed.py::test_the_standard_organisms_are_four_and_none_is_listed_as_group_1`, `backend/cultures/biosafety/tests/test_entry_seed.py::test_a_species_under_a_genus_entry_keeps_the_entrys_group_and_says_why`, `backend/cultures/strains/tests/test_seed_dev.py::test_a_group_one_strain_uses_a_standard_organism_and_says_annex_7_does_not_list_it`
+- Limits: nothing in the texts settles whether a named species of a "spp." genus is a known
+  human pathogen. The seed that stands for such a species (`species_under_genus`) keeps the
+  genus entry's group and says that it holds until a person decides. A strain whose group agrees
+  with its entry gives no finding, so "spp." entries do not fill the view. Entries match on any
+  synonym of the taxon, so the old name of a species can bring in the entry of another genus
+  (the seeded Bacillus subtilis strains are reported through Vibrio subtilis and entry 1.199).
+  The view cannot tell a decision a person took from a basis typed at accession: it shows the
+  words and leaves the judgement to the manager. Issue: none
+
+#### R-SEED-01 The development and e2e seeds name list entry codes and nothing else about a classification
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-12 (#211). A seed that types a risk group, a restriction
+  kind or an entry title beside an invented name states a legal fact nobody read. The seeds name
+  entry codes, and a script reads the taxon, the risk group, the pointer and the restrictions out
+  of the data files (R-LIST-01), so a seeded strain of a listed agent carries the group its entry
+  states and points at that entry (R-RISK-09). An act is derived only for a dual-use entry, from
+  the CELEX number of the reading (R-KIND-03). Invented names stay in unit test fixtures.
+- Code: `backend/cultures/biosafety/entry_seed.py::classify`, `backend/cultures/biosafety/entry_seed.py::listed`, `backend/cultures/strains/seeding.py::resolve`, `backend/cultures/strains/management/commands/seed_dev.py::Command`, `backend/cultures/labs/management/commands/seed_e2e.py::Command`
+- Tests: `backend/cultures/biosafety/tests/test_entry_seed.py::test_a_listed_agent_takes_the_group_its_annex_7_entry_states_and_points_at_it`, `backend/cultures/biosafety/tests/test_entry_seed.py::test_the_restrictions_come_from_the_lists_other_than_annex_7`, `backend/cultures/biosafety/tests/test_entry_seed.py::test_a_classification_row_says_entries_a_standard_organism_or_a_genus`, `backend/cultures/biosafety/tests/test_entry_seed.py::test_a_classification_row_of_another_taxon_or_of_no_kind_is_refused`, `backend/cultures/biosafety/tests/test_entry_seed.py::test_the_act_comes_from_the_celex_number_and_a_bad_number_is_refused`, `backend/cultures/strains/tests/test_seed_dev.py::test_every_seeded_classification_comes_from_its_entry`, `backend/cultures/strains/tests/test_seed_dev.py::test_the_data_file_holds_no_invented_taxon_and_no_typed_classification`, `backend/cultures/strains/tests/test_seed_dev.py::test_every_classification_resolves_to_entries_of_the_data_files`
+- Limits: the seed reads the data files committed in the repository, so a new reading of a list
+  can change a seeded group, and the seed tests then fail until the seed is looked at. The
+  e2e specs and walkthroughs create their own strains through the API with a group typed in the
+  test, which is test data and not seed data. Issue: none
 
 ### The lab's own permits
 

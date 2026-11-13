@@ -301,7 +301,7 @@ def _identity(code: str, payload: dict[str, Any]) -> tuple[str, ...]:
     return tuple(identity)
 
 
-def _rows(code: str, payload: dict[str, Any]) -> list[dict[str, Any]]:
+def entry_rows(code: str, payload: dict[str, Any]) -> list[dict[str, Any]]:
     where = f"{code}"
     identity = _identity(code, payload)
     rows = [_entry_values(code, entry, identity, where) for entry in payload["entries"]]
@@ -351,7 +351,7 @@ def load_one(
     """
     payload = read_list(code, source, data_dir)
     values = _list_values(code, payload, timezone.now())
-    rows = _rows(code, payload)
+    rows = entry_rows(code, payload)
     matched = sum(1 for row in rows if row["match_name"])
     held = RegulatoryList.objects.filter(code=code, file_sha256=values["file_sha256"]).first()
     if held is not None:

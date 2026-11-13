@@ -92,7 +92,10 @@ function says(finding: Finding, riskGroup: number): string {
   const entry = finding.entry
   const where = entry === null ? '' : ` (${entry.act}, entry ${entry.code}, ${entry.version} of ${entry.version_date})`
   const label = DISAGREEMENT_LABELS[finding.disagreement]
-  if (finding.disagreement === 'risk_group_differs') return `${label}: the entry states risk group ${entry?.risk_group ?? '?'}, the strain has ${riskGroup}${where}.`
+  if (finding.disagreement === 'risk_group_differs') {
+    const accepted = finding.accepted_because === '' ? '' : ` Accepted by the collection: ${finding.accepted_because}`
+    return `${label}: the entry states risk group ${entry?.risk_group ?? '?'}, the strain has ${riskGroup}${where}.${accepted}`
+  }
   const kind = finding.restriction_kind === '' ? 'a restriction' : RESTRICTION_LABELS[finding.restriction_kind]
   return `${label}: ${kind}${where}.`
 }

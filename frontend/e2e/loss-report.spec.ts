@@ -5,10 +5,10 @@ import { riskGroupBasis, signedInAs, username, watchCsp } from './support.js'
 // to report the loss to the police, finds the loss on Home and records the report there. The
 // strain, its box and its two vials are this run's own, made through the API with e2e-user's
 // session (the lab's manager): strains are never deleted, so the spec finds its own by a
-// run-unique name. Testella exempli is invented; its RAT restriction here is an invented example.
+// run-unique name. The strain is a Clostridium perfringens strain, a RAT of decree 474/2002 Sb.
 
 const RUN = Date.now().toString(36)
-const NAME = `Testella exempli lost ${RUN}`
+const NAME = `Clostridium perfringens lost ${RUN}`
 
 test('a manager is told to report a lost RAT vial to the police, and records the report from Home', async ({ browser }) => {
   const context = await browser.newContext({ storageState: signedInAs(username) })
@@ -45,19 +45,19 @@ test('a manager is told to report a lost RAT vial to the police, and records the
         terms: { mta: null, abs_scope: 'unknown', uses: uses.map((use) => ({ use, decision: 'on_request' })) },
       })
       await send(`deposits/${deposit.public_id}/start-check/`, {})
-      const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=exempli')
+      const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=perfringens')
       const accepted = await send(`deposits/${deposit.public_id}/accept/`, {
-        taxon: taxa.results.find((t) => t.name === 'Testella exempli')?.public_id,
+        taxon: taxa.results.find((t) => t.name === 'Clostridium perfringens')?.public_id,
         identified_on: today,
         identification_method: 'MALDI-TOF MS',
-        risk_group: 1,
+        risk_group: 2,
         risk_group_basis: basis,
         animal_pathogenicity: 'unknown',
         plant_pathogenicity: 'unknown',
         isolation_source: '',
         country_of_origin: '',
         isolation_date: '',
-        restrictions: [{ kind: 'cz_rat', reference: 'Příloha 2 (invented example)', act: '' }],
+        restrictions: [{ kind: 'cz_rat', reference: 'annex-2 I.II 2', act: '' }],
       })
       const strain = accepted.strain?.public_id ?? ''
       const freezer = await send('storage-units/', { kind: 'freezer', name: `Freezer l${run}`, max_risk_group: 2 })
