@@ -261,22 +261,38 @@ def list_findings(strain: Strain, entries: list[RegulatoryListEntry]) -> list[Fi
     # The prefetch of strain_list, by its to_attr: the restrictions in force, no query.
     active: list[StrainRestriction] = vars(strain)["active_restrictions"]
     held = {restriction.kind for restriction in active}
-    named = {entry.restriction_kind for entry in entries if entry.restriction_kind}
-    findings = [
+    return [
+        *_restrictions_missing(entries, held),
+        *_restrictions_unlisted(entries, held),
+        *_groups_differing(strain, entries),
+    ]
+
+
+def _restrictions_missing(entries: list[RegulatoryListEntry], held: set[str]) -> list[Finding]:
+    """An entry names a restriction of a kind the strain does not carry."""
+    return [
         Finding(Disagreement.RESTRICTION_MISSING, entry.restriction_kind, entry)
         for entry in entries
         if entry.restriction_kind and entry.restriction_kind not in held
     ]
-    findings += [
+
+
+def _restrictions_unlisted(entries: list[RegulatoryListEntry], held: set[str]) -> list[Finding]:
+    """The strain carries a restriction of a kind whose list names no matching entry."""
+    named = {entry.restriction_kind for entry in entries if entry.restriction_kind}
+    return [
         Finding(Disagreement.RESTRICTION_UNLISTED, kind, None)
         for kind in sorted((held & biosafety_lists.LIST_OF_KIND.keys()) - named)
     ]
-    findings += [
+
+
+def _groups_differing(strain: Strain, entries: list[RegulatoryListEntry]) -> list[Finding]:
+    """An entry of annex 7 states another group than the strain's, either way round."""
+    return [
         Finding(Disagreement.RISK_GROUP_DIFFERS, "", entry, strain.risk_group_basis)
         for entry in entries
         if entry.risk_group is not None and entry.risk_group != strain.risk_group
     ]
-    return findings
 
 
 def list_disagreements(*, access: Access, lab: Lab) -> list[StrainFindings]:

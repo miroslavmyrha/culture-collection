@@ -79,26 +79,37 @@ def check_taxon(fields: TaxonFields, *, taxon: Taxon | None = None) -> None:
     if not fields.name:
         raise TaxonRuleBroken("Enter the name.", attr="name")
     if fields.accepted is not None:
-        if fields.parent is not None:
-            raise TaxonRuleBroken(
-                "A synonym has no parent: the accepted taxon has one.", attr="parent"
-            )
-        if fields.accepted.status != TaxonStatus.ACCEPTED:
-            raise TaxonRuleBroken(
-                "The accepted taxon must be an accepted name, not a synonym.", attr="accepted"
-            )
-        if taxon is not None and fields.accepted.pk == taxon.pk:
-            raise TaxonRuleBroken("A taxon is not its own synonym.", attr="accepted")
+        _check_synonym(fields, fields.accepted, taxon)
     if fields.parent is not None:
-        if fields.parent.status != TaxonStatus.ACCEPTED:
-            raise TaxonRuleBroken("The parent must be an accepted name.", attr="parent")
-        if RANK_ORDER[fields.parent.rank] >= RANK_ORDER[fields.rank]:
-            raise TaxonRuleBroken(
-                f"The parent ({fields.parent.rank}) must rank above a {fields.rank}.",
-                attr="parent",
-            )
-    if taxon is None or taxon.pk is None:
-        return
+        _check_parent(fields, fields.parent)
+    if taxon is not None and taxon.pk is not None:
+        _check_rows_below(fields, taxon)
+
+
+def _check_synonym(fields: TaxonFields, accepted: Taxon, taxon: Taxon | None) -> None:
+    """A synonym hangs on an accepted name other than itself, and has no parent of its own."""
+    if fields.parent is not None:
+        raise TaxonRuleBroken("A synonym has no parent: the accepted taxon has one.", attr="parent")
+    if accepted.status != TaxonStatus.ACCEPTED:
+        raise TaxonRuleBroken(
+            "The accepted taxon must be an accepted name, not a synonym.", attr="accepted"
+        )
+    if taxon is not None and accepted.pk == taxon.pk:
+        raise TaxonRuleBroken("A taxon is not its own synonym.", attr="accepted")
+
+
+def _check_parent(fields: TaxonFields, parent: Taxon) -> None:
+    """The parent is an accepted name that ranks above the taxon."""
+    if parent.status != TaxonStatus.ACCEPTED:
+        raise TaxonRuleBroken("The parent must be an accepted name.", attr="parent")
+    if RANK_ORDER[parent.rank] >= RANK_ORDER[fields.rank]:
+        raise TaxonRuleBroken(
+            f"The parent ({parent.rank}) must rank above a {fields.rank}.", attr="parent"
+        )
+
+
+def _check_rows_below(fields: TaxonFields, taxon: Taxon) -> None:
+    """A saved taxon with children or synonyms cannot become a synonym, nor rank below a child."""
     children = Taxon.objects.filter(parent=taxon)
     if fields.accepted is not None and children.exists():
         raise TaxonRuleBroken(

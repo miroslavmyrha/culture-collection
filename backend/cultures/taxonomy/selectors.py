@@ -4,7 +4,7 @@ signed-in user reads them (ADR 0008, D4: labs read taxa, staff change them)."""
 from django.db.models import Case, IntegerField, QuerySet, Value, When
 from django.db.models.expressions import RawSQL
 
-from .models import Taxon, TaxonStatus
+from .models import Taxon
 
 # The accepted taxa at and below a start taxon, then the synonyms of each. The start is
 # resolved to its accepted name first, so filtering by a synonym means its accepted taxon.
@@ -55,10 +55,3 @@ def taxon_search(taxa: QuerySet[Taxon], *, text: str) -> QuerySet[Taxon]:
         )
         .order_by("starts", "name", "authority", "pk")
     )
-
-
-def accepted_name(taxon: Taxon) -> Taxon:
-    """The accepted taxon of a synonym, the taxon itself otherwise (caller selected `accepted`)."""
-    if taxon.status == TaxonStatus.SYNONYM and taxon.accepted is not None:
-        return taxon.accepted
-    return taxon

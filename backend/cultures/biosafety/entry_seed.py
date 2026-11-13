@@ -158,7 +158,18 @@ def listed(codes: Sequence[str], data_dir: Path = lists.DATA_DIR) -> Classified:
     by_list: dict[str, list[SeedEntry]] = {}
     for row in rows:
         by_list.setdefault(row.list_code, []).append(row)
-    annex_7 = by_list.pop(RISK_GROUP_LIST, [])
+    group = _annex_7_entry(by_list.pop(RISK_GROUP_LIST, []))
+    return Classified(
+        taxon=next(iter(taxa)),
+        risk_group=group.risk_group if group else None,
+        risk_group_entry=group.code if group else None,
+        basis=_group_basis(group),
+        restrictions=_restrictions(by_list),
+    )
+
+
+def _annex_7_entry(annex_7: list[SeedEntry]) -> SeedEntry | None:
+    """The one entry of annex 7 that gives the group, if any, and it must state one."""
     if len(annex_7) > 1:
         raise SeedEntryError(
             f"{[row.code for row in annex_7]}: one entry of annex 7 gives the group"
@@ -166,7 +177,12 @@ def listed(codes: Sequence[str], data_dir: Path = lists.DATA_DIR) -> Classified:
     group = annex_7[0] if annex_7 else None
     if group is not None and group.risk_group is None:
         raise SeedEntryError(f"entry {group.code} of annex 7 states no group")
-    restrictions = tuple(
+    return group
+
+
+def _restrictions(by_list: dict[str, list[SeedEntry]]) -> tuple[SeedRestriction, ...]:
+    """The restriction each entry of the other lists carries, a dual-use one with its act."""
+    return tuple(
         SeedRestriction(
             row.restriction_kind, row.code, _eu_act(row.version) if _is_dual_use(row) else ""
         )
@@ -174,17 +190,14 @@ def listed(codes: Sequence[str], data_dir: Path = lists.DATA_DIR) -> Classified:
         for row in other
         if row.restriction_kind
     )
-    return Classified(
-        taxon=next(iter(taxa)),
-        risk_group=group.risk_group if group else None,
-        risk_group_entry=group.code if group else None,
-        basis=(
-            f"Annex 7 of {group.act}, entry {group.code} ({group.name}), states risk group"
-            f" {group.risk_group}."
-            if group
-            else ""
-        ),
-        restrictions=restrictions,
+
+
+def _group_basis(group: SeedEntry | None) -> str:
+    if group is None:
+        return ""
+    return (
+        f"Annex 7 of {group.act}, entry {group.code} ({group.name}), states risk group"
+        f" {group.risk_group}."
     )
 
 

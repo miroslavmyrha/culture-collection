@@ -179,6 +179,37 @@ def test_a_data_file_whose_checksum_the_manifest_does_not_confirm_is_not_loaded(
     assert current(code).entry_count == ENTRIES[code]
 
 
+def _data_file(tmp_path: Path, body: bytes, name: str = "list.json") -> dict[str, Any]:
+    (tmp_path / name).write_bytes(body)
+    return {"file": name, "file_sha256": hashlib.sha256(body).hexdigest()}
+
+
+def _payload(**changes: Any) -> bytes:
+    payload = {"list": ListCode.CZ_474_2002, "entries": [{"code": "1"}], "entry_count": 1}
+    return json.dumps({**payload, **changes}).encode()
+
+
+@pytest.mark.rule("R-LIST-02")
+@pytest.mark.parametrize(
+    ("source", "refusal"),
+    [
+        (lambda d: {"file": "../list.json"}, "the manifest names the file '../list.json'"),
+        (lambda d: {"file": "absent.json"}, "absent.json: .*No such file"),
+        (lambda d: _data_file(d, b"\xff not text"), "list.json: .*utf-8"),
+        (lambda d: _data_file(d, b"{"), "list.json: Expecting"),
+        (lambda d: _data_file(d, _payload(list="eu_other")), "it is the list 'eu_other'"),
+        (lambda d: _data_file(d, _payload(entries=[], entry_count=0)), "it holds no entry"),
+        (lambda d: _data_file(d, _payload(entry_count=3)), "it says 3 entries and holds 1"),
+    ],
+    ids=["path", "missing", "not text", "not json", "other list", "empty", "count"],
+)
+def test_a_data_file_that_is_not_the_list_the_manifest_names_is_refused(
+    tmp_path: Path, source: Any, refusal: str
+) -> None:
+    with pytest.raises(lists.ListDataError, match=refusal):
+        lists.read_list(ListCode.CZ_474_2002, source(tmp_path), data_dir=tmp_path)
+
+
 @pytest.mark.rule("R-LIST-02")
 def test_the_command_reports_a_data_file_it_cannot_read(tmp_path: Path) -> None:
     with pytest.raises(CommandError, match=r"manifest\.json"):
