@@ -627,7 +627,8 @@ and the rules and duties it decides are changed in the same commit.
 - Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_quarantine_pest_needs_a_letter_with_quantity_and_sendings_left`, `backend/cultures/distribution/tests/test_policy.py::test_a_letter_runs_out_of_sendings`, `backend/cultures/distribution/tests/test_policy.py::test_two_lines_of_one_request_draw_on_one_letter_together`, `backend/cultures/distribution/tests/test_policy.py::test_a_cancelled_request_gives_its_quantity_back_to_the_letter`
 - Gate codes: `loa_missing`, `loa_exhausted`
 - Limits: the quantity is counted in vials, and the letter may state another unit (not
-  verified). The endorsement of Art. 6(2) is its own rule, R-DIST-15.
+  verified). The endorsement of Art. 6(2) is its own rule, R-DIST-15, and the authorisation of
+  the isolation facility the letter follows from is R-DIST-16.
 
 #### R-DIST-08 A GMO goes only to a holder of an authorisation for contained use of its category or higher
 
@@ -710,6 +711,31 @@ and the rules and duties it decides are changed in the same commit.
   origin passes, and the endorsement itself is not verified against the authority. The gate runs
   at the approval and again on the ship day (R-DIST-14); a letter endorsed later is recorded as
   a new permit, because a permit row never changes (R-PERMIT-06).
+
+#### R-DIST-16 A quarantine pest goes out only to a recipient whose authorisation of an isolation facility is recorded
+
+- Kind: law
+- Source: Implementing Regulation (EU) 2019/829, Art. 5 c), with Art. 6(1). The authorisation of
+  the activity is granted only where the activity is confirmed to be performed in a quarantine
+  station or confinement facility designated by the competent authority under Articles 60 and 61
+  of Regulation (EU) 2016/2031, and the Letter of Authority is issued "following the granting of
+  the authorisation referred to in Article 5". So a letter without that authorisation behind it
+  is read as no letter, and the gate asks for the authorisation itself, recorded as a permit of
+  the requester. The duty of Art. 5 is the member state's and the recipient's, and the gate is
+  the same hard line this collection holds for a RAT without the recipient's § 17a notice
+  (R-DIST-05): no manager overrides it.
+- Quote: "the specified activities have been confirmed to be performed in quarantine stations or confinement facilities indicated in the application and designated by the competent authority in compliance with Articles 60 and 61 of Regulation (EU) 2016/2031;"
+- Code: `backend/cultures/distribution/policy.py::isolation_facilities`, `backend/cultures/distribution/policy.py::isolation_facility_recorded`, `backend/cultures/distribution/policy.py::_LineCheck.isolation_facility`, `backend/cultures/distribution/models.py::PermitKind`, `backend/cultures/distribution/migrations/0018_isolation_facility_guards.py::"distribution_isolation_facility_recorded"`, `backend/cultures/distribution/migrations/0018_isolation_facility_guards.py::"distribution_check_quarantine_facility"`
+- Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_quarantine_pest_goes_only_to_a_recorded_isolation_facility`, `backend/cultures/distribution/tests/test_policy.py::test_a_letter_of_authority_is_no_authorisation_of_an_isolation_facility`, `backend/cultures/distribution/tests/test_policy.py::test_the_gate_and_the_trigger_agree_on_a_recorded_isolation_facility`, `backend/cultures/distribution/tests/test_shipment.py::test_the_table_refuses_a_quarantine_pest_package_without_its_isolation_facility`
+- Gate codes: `isolation_facility_missing`
+- Limits: the authorisation is the reference, the authority and the days a person copied from the
+  document, as every recipient permit is. Which facility it is is not recorded, so it is not
+  compared with the facility named in box 4 of the Letter of Authority (Annex II, Part A), and
+  the authorisation is not checked to cover the pest of the line: Art. 5 c) ties the facility to
+  the activity, not to a pest, and the pest is what the letter names (R-DIST-07). Whether a
+  designation under Articles 60 and 61 of Regulation (EU) 2016/2031 is still in force is not
+  verified against the authority. The gate runs at the approval and again on the ship day
+  (R-DIST-14).
 
 ### Gates that are not about regulated material
 

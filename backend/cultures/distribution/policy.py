@@ -145,6 +145,8 @@ class _Facts:
     reserved: dict[int, int]
     # Per line, what the depositor answered for a use on request (#144): agreed, and the day.
     answers: dict[int, tuple[bool, date]]
+    # #197: the requester's authorisations of an isolation facility that hold on the day.
+    isolation_facilities: list[RecipientPermit]
 
 
 def _restrictions_of(strain_ids: list[int]) -> dict[int, list[StrainRestriction]]:
@@ -241,6 +243,7 @@ def _facts(request: DistributionRequest, lines: list[RequestLine], day: date) ->
         available=_available(request, strain_ids),
         reserved=_reserved(request) if request.status in HOLDING else {},
         answers=_answers(lines),
+        isolation_facilities=isolation_facilities(request.requester_id, day),
     )
 
 
@@ -262,6 +265,31 @@ def _naming(
     permits: Iterable[RecipientPermit], kinds: set[PermitKind], taxon: Taxon
 ) -> list[RecipientPermit]:
     return [p for p in permits if p.kind in kinds and names(p.covers, taxon)]
+
+
+def isolation_facilities(requester_id: int, day: date) -> list[RecipientPermit]:
+    """The authorisations of an isolation facility of the requester that hold on `day`
+    (Implementing Regulation (EU) 2019/829, Art. 5 c), #197), oldest first.
+
+    The one definition in Python: the gate reads them through `_Facts`, one query per
+    evaluation whatever the number of lines, and the line records the one it went out on.
+    """
+    return list(
+        RecipientPermit.objects.filter(
+            valid_on(day),
+            requester_id=requester_id,
+            kind=PermitKind.PLANT_HEALTH_ISOLATION,
+        ).order_by("valid_from", "pk")
+    )
+
+
+def isolation_facility_recorded(requester_id: int, day: date) -> bool:
+    """Whether any such authorisation holds on `day`, the question the database asks.
+
+    `distribution_isolation_facility_recorded` in SQL answers the same for the shipment
+    guards, and a parity test compares the two.
+    """
+    return bool(isolation_facilities(requester_id, day))
 
 
 def evaluate(request: DistributionRequest, day: date) -> Evaluation:
@@ -442,6 +470,7 @@ class _LineCheck:
         elif kind == RestrictionKind.DUAL_USE:
             self.transfer_licence(restriction)
         elif kind == RestrictionKind.QUARANTINE_PEST:
+            self.isolation_facility()
             self.letter_of_authority()
         elif kind == RestrictionKind.GMO:
             self.gmo_authorisation(restriction)
@@ -500,6 +529,21 @@ class _LineCheck:
             self.used.append(permits[0])
         else:
             self.block(code, sentence)
+
+    def isolation_facility(self) -> None:
+        """2019/829 Art. 5 c): the authorisation of the activity is granted only where the
+        activity is confirmed to be performed in a quarantine station or confinement facility
+        designated by the competent authority, and Art. 6(1) issues the Letter of Authority
+        after that authorisation. No letter is read until the facility is recorded. A hard line
+        with no override, like the § 17a notice of a RAT (R-DIST-05). The line records the
+        authorisation it went out on, as it records the letter."""
+        self.need(
+            self.facts.isolation_facilities,
+            "isolation_facility_missing",
+            f"{self.name} is a quarantine pest: the requester shows no authorisation of an"
+            " isolation facility (a quarantine station or confinement facility designated by"
+            " the competent authority) under Implementing Regulation (EU) 2019/829.",
+        )
 
     def letter_of_authority(self) -> None:
         """2019/829 Art. 6: a letter naming the pest, endorsed by the state of origin, in date,
@@ -639,6 +683,7 @@ GATES: tuple[tuple[str, Severity], ...] = (
     ("vrat_permit_missing", Severity.BLOCK),
     ("rat_notice_missing", Severity.BLOCK),
     ("transfer_licence_required", Severity.BLOCK),
+    ("isolation_facility_missing", Severity.BLOCK),
     ("loa_missing", Severity.BLOCK),
     ("loa_not_endorsed", Severity.BLOCK),
     ("loa_exhausted", Severity.BLOCK),

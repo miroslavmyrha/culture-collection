@@ -853,6 +853,61 @@ def test_the_table_refuses_a_gmo_package_the_records_do_not_allow(
     assert open_preparation(request).transport_class == TransportClass.UN3373
 
 
+@pytest.mark.rule("R-DIST-16")
+def test_the_table_refuses_a_quarantine_pest_package_without_its_isolation_facility(
+    *,
+    curator: User,
+    manager: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+    mockia: Taxon,
+) -> None:
+    """Past the service, with QuerySet, raw SQL or psql: the shipment guard and the preparation
+    guard ask the same rule of the same SQL function, on the Czech day of the row's own time.
+
+    The request is approved while the authorisation holds, and the authorisation ends the same
+    day, which is what the gates read again on the ship day (R-DIST-14)."""
+    strain = supply(mockia, restrictions=[QUARANTINE], vials=6)
+    add_permit(curator, requester, PermitKind.PLANT_HEALTH_LOA)
+    facility = add_permit(curator, requester, PermitKind.PLANT_HEALTH_ISOLATION)
+    request = submit(curator, lab, requester, [(strain, 1)])
+    accept_mtas(curator, request)
+    approve(manager, request, "The letter of authority is in hand.")
+    with as_actor(curator):
+        services.permit_end(
+            access=access_for(curator),
+            permit=facility,
+            ended_on=permit_today(),
+            reason="revoked",
+        )
+    missing = "authorisation of an isolation facility is recorded"
+    with pytest.raises(IntegrityError, match=missing), transaction.atomic():
+        shipment_row(request)
+    contact = Contact.objects.create(lab=request.lab, name="Jan Odpovědný", phone="+420 555 000")
+    with pytest.raises(IntegrityError, match=missing), transaction.atomic():
+        ShipmentPreparation.objects.create(
+            lab=request.lab,
+            request=request,
+            transport_class=TransportClass.NOT_SUBJECT,
+            classification_basis=ClassificationBasis.EXEMPT_NON_PATHOGENIC,
+            packing_instruction=PackingInstruction.TRIPLE,
+            responsible=contact,
+            carrier="Example Courier",
+            prepared_by=manager,
+            prepared_at=timezone.now(),
+        )
+    # Recorded again, and the same guards let the package through.
+    add_permit(
+        curator,
+        requester,
+        PermitKind.PLANT_HEALTH_ISOLATION,
+        reference="ÚKZÚZ/DEV/IZ/2 (invented example)",
+    )
+    prepare(curator, request)
+    assert open_preparation(request).request_id == request.pk
+
+
 def test_a_shipment_and_its_vials_never_change_or_go(
     *, curator: User, supply: Supply, approved: Any
 ) -> None:
@@ -1030,6 +1085,7 @@ def test_a_shipped_request_still_counts_against_its_letter_of_authority(
     """A letter that allows one sending: while the first request's shipment waits for the
     second person, and once it is confirmed, a second request is blocked."""
     strain = supply(mockia, restrictions=[QUARANTINE], vials=6)
+    add_permit(curator, requester, PermitKind.PLANT_HEALTH_ISOLATION)
     add_permit(curator, requester, PermitKind.PLANT_HEALTH_LOA, sendings_allowed=1)
     first = approved(strain, by=manager, reason="The letter allows it.")
     second = submit(curator, lab, requester, [(strain, 1)])

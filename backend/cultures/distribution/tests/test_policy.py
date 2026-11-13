@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from typing import Any
 
 import pytest
+from django.db import connection
 
 from cultures.audit.context import AuditContext
 from cultures.biosafety.models import RestrictionKind
@@ -15,7 +16,13 @@ from cultures.deposits.models import AbsScope, Decision, Deposit, Use
 from cultures.deposits.tests.support import ALL_PERMITTED, DUAL_USE, QUARANTINE, VRAT, terms
 from cultures.distribution import policy, services
 from cultures.distribution.models import DistributionRequest, PermitKind, Requester
-from cultures.distribution.policy import GATES, Severity, evaluate, names
+from cultures.distribution.policy import (
+    GATES,
+    Severity,
+    evaluate,
+    isolation_facility_recorded,
+    names,
+)
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab
 from cultures.strains.models import Strain
@@ -299,6 +306,7 @@ def test_a_quarantine_pest_needs_a_letter_with_quantity_and_sendings_left(
     *, ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User, manager: User
 ) -> None:
     strain = supply(mockia, restrictions=[QUARANTINE], vials=10)
+    add_permit(curator, requester, PermitKind.PLANT_HEALTH_ISOLATION)
     assert "loa_missing" in codes(ask(strain))
     add_permit(
         curator, requester, PermitKind.PLANT_HEALTH_LOA, quantity_allowed=3, sendings_allowed=2
@@ -310,12 +318,98 @@ def test_a_quarantine_pest_needs_a_letter_with_quantity_and_sendings_left(
     assert codes(ask(strain, 1)) == {"regulated": Severity.MANAGER}
 
 
+@pytest.mark.rule("R-DIST-16")
+def test_a_quarantine_pest_goes_only_to_a_recorded_isolation_facility(
+    *, ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User
+) -> None:
+    """2019/829, Art. 5 c): the authorisation of the activity is granted only where the activity
+    is performed in a quarantine station or confinement facility the competent authority
+    designated, and the letter of Art. 6(1) follows that authorisation. A hard line with no
+    override, as a § 17a notice is for a RAT (R-DIST-05)."""
+    strain = supply(mockia, restrictions=[QUARANTINE], vials=10)
+    letter = add_permit(curator, requester, PermitKind.PLANT_HEALTH_LOA)
+    found = {f.code: f for f in evaluate(ask(strain), permit_today()).findings}
+    assert found.keys() == {"regulated", "isolation_facility_missing"}
+    missing = found["isolation_facility_missing"]
+    assert missing.severity == Severity.BLOCK
+    assert f"{strain.accession_number} is a quarantine pest" in missing.sentence
+    assert "no authorisation of an isolation facility" in missing.sentence
+    facility = add_permit(curator, requester, PermitKind.PLANT_HEALTH_ISOLATION)
+    evaluation = evaluate(ask(strain), permit_today())
+    assert {f.code for f in evaluation.findings} == {"regulated"}
+    assert {permit.pk for _, permit in evaluation.used} == {facility.pk, letter.pk}
+
+
+@pytest.mark.rule("R-DIST-16")
+def test_a_letter_of_authority_is_no_authorisation_of_an_isolation_facility(
+    *,
+    ask: Any,
+    supply: Supply,
+    mockia: Taxon,
+    requester: Requester,
+    make_requester: MakeRequester,
+    curator: User,
+) -> None:
+    """Each of the two documents counts for itself: a permit of the neighbouring kind, naming
+    the very pest, does not stand in for the other."""
+    strain = supply(mockia, restrictions=[QUARANTINE], vials=10)
+    add_permit(curator, requester, PermitKind.PLANT_HEALTH_LOA, covers="Mockia vulgaris")
+    assert "isolation_facility_missing" in codes(ask(strain))
+    other = make_requester()
+    add_permit(curator, other, PermitKind.PLANT_HEALTH_ISOLATION)
+    found = codes(ask(strain, requester=other))
+    assert "isolation_facility_missing" not in found
+    assert "loa_missing" in found
+
+
+@pytest.mark.rule("R-DIST-16")
+def test_the_gate_and_the_trigger_agree_on_a_recorded_isolation_facility(
+    *, make_requester: MakeRequester, curator: User
+) -> None:
+    """The one rule, both ways: `policy.isolation_facility_recorded` in Python and the SQL
+    function the two shipment guards call. Remove either and the cases below disagree."""
+    today = permit_today()
+    yesterday, tomorrow = today - timedelta(days=1), today + timedelta(days=1)
+    nothing = make_requester()
+    valid = make_requester()
+    add_permit(curator, valid, PermitKind.PLANT_HEALTH_ISOLATION, valid_from=yesterday)
+    expired = make_requester()
+    add_permit(
+        curator,
+        expired,
+        PermitKind.PLANT_HEALTH_ISOLATION,
+        valid_from=yesterday,
+        expires_on=yesterday,
+    )
+    later = make_requester()
+    add_permit(curator, later, PermitKind.PLANT_HEALTH_ISOLATION, valid_from=tomorrow)
+    ended = make_requester()
+    permit = add_permit(curator, ended, PermitKind.PLANT_HEALTH_ISOLATION, valid_from=yesterday)
+    with as_actor(curator):
+        services.permit_end(
+            access=access_for(curator), permit=permit, ended_on=today, reason="revoked"
+        )
+    letter_only = make_requester()
+    add_permit(curator, letter_only, PermitKind.PLANT_HEALTH_LOA)
+    requesters = [nothing, valid, expired, later, ended, letter_only]
+    with connection.cursor() as cursor:
+        for one in requesters:
+            for day in (yesterday, today, tomorrow):
+                cursor.execute(
+                    "SELECT distribution_isolation_facility_recorded(%s, %s, %s)",
+                    ["public", one.pk, day],
+                )
+                (in_sql,) = cursor.fetchone()
+                assert in_sql == isolation_facility_recorded(one.pk, day), (one.pk, day)
+
+
 @pytest.mark.rule("R-DIST-15")
 def test_a_letter_of_authority_without_its_endorsement_lets_nothing_out(
     *, ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User
 ) -> None:
     """Art. 6(2): the state of origin endorses the letter. It is stored, so it is read."""
     strain = supply(mockia, restrictions=[QUARANTINE], vials=10)
+    add_permit(curator, requester, PermitKind.PLANT_HEALTH_ISOLATION)
     add_permit(
         curator,
         requester,
@@ -333,6 +427,7 @@ def test_the_pest_goes_out_on_the_endorsed_letter_beside_an_unendorsed_one(
     *, ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User
 ) -> None:
     strain = supply(mockia, restrictions=[QUARANTINE], vials=10)
+    facility = add_permit(curator, requester, PermitKind.PLANT_HEALTH_ISOLATION)
     add_permit(
         curator,
         requester,
@@ -344,7 +439,7 @@ def test_the_pest_goes_out_on_the_endorsed_letter_beside_an_unendorsed_one(
     endorsed = add_permit(curator, requester, PermitKind.PLANT_HEALTH_LOA)
     evaluation = evaluate(ask(strain), permit_today())
     assert {f.code for f in evaluation.findings} == {"regulated"}
-    assert {permit.pk for _, permit in evaluation.used} == {endorsed.pk}
+    assert {permit.pk for _, permit in evaluation.used} == {facility.pk, endorsed.pk}
 
 
 @pytest.mark.rule("R-DIST-07")
@@ -352,6 +447,7 @@ def test_a_letter_runs_out_of_sendings(
     *, ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User, manager: User
 ) -> None:
     strain = supply(mockia, restrictions=[QUARANTINE], vials=10)
+    add_permit(curator, requester, PermitKind.PLANT_HEALTH_ISOLATION)
     add_permit(
         curator, requester, PermitKind.PLANT_HEALTH_LOA, quantity_allowed=10, sendings_allowed=1
     )
@@ -364,6 +460,7 @@ def test_a_cancelled_request_gives_its_quantity_back_to_the_letter(
     *, ask: Any, supply: Supply, mockia: Taxon, requester: Requester, curator: User, manager: User
 ) -> None:
     strain = supply(mockia, restrictions=[QUARANTINE], vials=10)
+    add_permit(curator, requester, PermitKind.PLANT_HEALTH_ISOLATION)
     add_permit(
         curator, requester, PermitKind.PLANT_HEALTH_LOA, quantity_allowed=2, sendings_allowed=1
     )
@@ -400,14 +497,16 @@ def test_one_strain_with_several_kinds_meets_each(
     assert codes(ask(strain)) == {
         "regulated": Severity.MANAGER,
         "rat_notice_missing": Severity.BLOCK,
+        "isolation_facility_missing": Severity.BLOCK,
         "loa_missing": Severity.BLOCK,
     }
     rat = add_permit(curator, requester, PermitKind.SUJB_RAT_NOTICE)
+    facility = add_permit(curator, requester, PermitKind.PLANT_HEALTH_ISOLATION)
     loa = add_permit(curator, requester, PermitKind.PLANT_HEALTH_LOA)
     request = ask(strain)
     evaluation = evaluate(request, permit_today())
     assert {f.code for f in evaluation.findings} == {"regulated"}
-    assert {p.pk for _, p in evaluation.used} == {rat.pk, loa.pk}
+    assert {p.pk for _, p in evaluation.used} == {rat.pk, facility.pk, loa.pk}
 
 
 @pytest.mark.rule("R-DIST-01")
@@ -496,6 +595,7 @@ def test_two_lines_of_one_request_draw_on_one_letter_together(
     """2019/829 Art. 6: the quantity a letter allows is for the whole sending, not per line."""
     first = supply(mockia, restrictions=[QUARANTINE])
     second = supply(mockia, restrictions=[QUARANTINE])
+    add_permit(curator, requester, PermitKind.PLANT_HEALTH_ISOLATION)
     add_permit(
         curator, requester, PermitKind.PLANT_HEALTH_LOA, quantity_allowed=3, sendings_allowed=1
     )

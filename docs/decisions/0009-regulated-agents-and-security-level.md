@@ -1289,3 +1289,33 @@ with the package: the delivery note now prints the classification basis and, whe
 stated one, the words it rests on.
 
 Each rule, its source, its code and its tests are in `docs/compliance.md` (R-SHIP-10, R-SHIP-02).
+
+## Amendment 2026-11-13: a quarantine pest goes out only to a recorded isolation facility (#197)
+
+Until now a Union quarantine pest went out on a Letter of Authority alone: valid, naming the
+pest, endorsed by the state of origin, with quantity and sendings left (R-DIST-07, R-DIST-15).
+The letter is only the last step. Implementing Regulation (EU) 2019/829, Art. 5 c) grants the
+authorisation behind it only where "the specified activities have been confirmed to be performed
+in quarantine stations or confinement facilities indicated in the application and designated by
+the competent authority", and Art. 6(1) issues the letter "following the granting of the
+authorisation referred to in Article 5". A letter with no such authorisation behind it is no
+letter.
+
+- **A recipient permit of its own.** The authorisation of the isolation facility is recorded as
+  a permit of the requester, kind `plant_health_isolation`, with its authority, reference and
+  days, like every other document a recipient shows.
+- **A hard line, no override.** A line of a quarantine pest with no such authorisation of the
+  recipient is blocked (`isolation_facility_missing`), at the approval and again on the ship day.
+  No manager approves past it, exactly as for a RAT line without the recipient's § 17a notice.
+  The two documents count each for itself: a Letter of Authority naming the very pest is no
+  authorisation of a facility, and an authorisation of a facility is no letter.
+- **Twice.** `distribution.policy.isolation_facility_recorded` in Python and the SQL function
+  `distribution_isolation_facility_recorded`, which the preparation guard and the shipment guard
+  both ask on the Czech day of the row they are writing, so no writer past the service ships a
+  pest the gate would refuse. A parity test compares the two readings over the validity window.
+
+What is not recorded, and is written into the rule's Limits rather than left to be discovered:
+which facility the authorisation is for, so it is not compared with the facility the letter
+names, and the designation itself is not verified against the authority.
+
+Each rule, its source, its code and its tests are in `docs/compliance.md` (R-DIST-16).

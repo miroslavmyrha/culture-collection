@@ -175,6 +175,10 @@ class PermitKind(models.TextChoices):
     SUJB_RAT_NOTICE = "sujb_rat_notice", "Notice to SÚJB of handling risky agents (RAT)"
     SUJB_EXCEPTION = "sujb_exception", "SÚJB decision allowing a VRAT to a non-holder"
     PLANT_HEALTH_LOA = "plant_health_loa", "Letter of Authority for a quarantine pest"
+    PLANT_HEALTH_ISOLATION = (
+        "plant_health_isolation",
+        "Authorisation of an isolation facility for quarantine pests",
+    )
     GMO_CONTAINED_USE = "gmo_contained_use", "Authorisation for contained use of GMOs"
     PATHOGEN_WORK_PERMIT = "pathogen_work_permit", "Permit to work with pathogens"
 
