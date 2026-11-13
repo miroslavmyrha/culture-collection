@@ -231,34 +231,48 @@ export const requesterSchema = z.object({
 export type RequesterForm = z.input<typeof requesterSchema>
 export type RequesterValues = z.output<typeof requesterSchema>
 
-export const permitSchema = z
-  .object({
-    kind: choice(PERMIT_KINDS, 'Choose the kind'),
-    issuer: required('Enter the issuing authority').max(200, 'Use at most 200 characters'),
-    issuer_country: z.custom<CountryCode | ''>(isCountry, 'Choose a country').refine((v) => v !== '', 'Choose a country'),
-    reference: required('Enter the reference').max(200, 'Use at most 200 characters'),
-    valid_from: isoDay,
-    expires_on: optionalDay,
-    covers: optionalText(2000),
-    endorsement_reference: optionalText(200),
-    endorsed_on: optionalDay,
-    quantity_allowed: optionalNumber(1, 100000, 'Enter a whole number of 1 or more'),
-    sendings_allowed: optionalNumber(1, 1000, 'Enter a whole number of 1 or more'),
-    gmo_category: optionalNumber(1, 4, 'Enter a category from 1 to 4'),
-    risk_group: optionalNumber(1, 4, 'Enter a risk group from 1 to 4'),
-    file: fileOf('Choose the file of the document'),
-  })
-  .superRefine((v, ctx) => {
-    if (NAMES_AGENTS.some((k) => k === v.kind) && !v.covers) ctx.addIssue({ code: 'custom', path: ['covers'], message: 'Write the agents or pests it names, as on the document' })
-    if (v.kind === 'plant_health_loa' && !v.quantity_allowed) ctx.addIssue({ code: 'custom', path: ['quantity_allowed'], message: 'Enter the quantity the letter allows' })
-    if (v.kind === 'plant_health_loa' && !v.sendings_allowed) ctx.addIssue({ code: 'custom', path: ['sendings_allowed'], message: 'Enter the number of sendings' })
-    // Regulation (EU) 2019/829, Art. 6(2): the endorsement and its day travel together, and the
-    // server refuses one without the other. A letter with none is recorded and lets nothing out.
-    if (Boolean(v.endorsement_reference) !== Boolean(v.endorsed_on))
-      ctx.addIssue({ code: 'custom', path: [v.endorsement_reference ? 'endorsed_on' : 'endorsement_reference'], message: 'Give the endorsement with its day' })
-    if (v.kind === 'gmo_contained_use' && !v.gmo_category) ctx.addIssue({ code: 'custom', path: ['gmo_category'], message: 'Enter the category' })
-    if (v.kind === 'pathogen_work_permit' && !v.risk_group) ctx.addIssue({ code: 'custom', path: ['risk_group'], message: 'Enter the risk group it covers' })
-  })
+const permitFields = z.object({
+  kind: choice(PERMIT_KINDS, 'Choose the kind'),
+  issuer: required('Enter the issuing authority').max(200, 'Use at most 200 characters'),
+  issuer_country: z.custom<CountryCode | ''>(isCountry, 'Choose a country').refine((v) => v !== '', 'Choose a country'),
+  reference: required('Enter the reference').max(200, 'Use at most 200 characters'),
+  valid_from: isoDay,
+  expires_on: optionalDay,
+  covers: optionalText(2000),
+  endorsement_reference: optionalText(200),
+  endorsed_on: optionalDay,
+  quantity_allowed: optionalNumber(1, 100000, 'Enter a whole number of 1 or more'),
+  sendings_allowed: optionalNumber(1, 1000, 'Enter a whole number of 1 or more'),
+  gmo_category: optionalNumber(1, 4, 'Enter a category from 1 to 4'),
+  risk_group: optionalNumber(1, 4, 'Enter a risk group from 1 to 4'),
+  file: fileOf('Choose the file of the document'),
+})
+type PermitFields = z.output<typeof permitFields>
+
+/** One cross-field rule: the issue it finds in the values, or nothing. */
+type Issue = { path: string; message: string }
+type Rule<V> = (v: V) => Issue | undefined
+const issueIf = (broken: boolean, path: string, message: string): Issue | undefined => (broken ? { path, message } : undefined)
+/** The issues of every rule that finds one, in the order of the rules. */
+const addIssues = <V>(rules: readonly Rule<V>[], v: V, ctx: z.RefinementCtx) => {
+  for (const rule of rules) {
+    const issue = rule(v)
+    if (issue) ctx.addIssue({ code: 'custom', path: [issue.path], message: issue.message })
+  }
+}
+
+const isLoa = (v: PermitFields) => v.kind === 'plant_health_loa'
+// Regulation (EU) 2019/829, Art. 6(2): the endorsement and its day travel together, and the
+// server refuses one without the other. A letter with none is recorded and lets nothing out.
+const PERMIT_RULES: readonly Rule<PermitFields>[] = [
+  (v) => issueIf(NAMES_AGENTS.some((k) => k === v.kind) && !v.covers, 'covers', 'Write the agents or pests it names, as on the document'),
+  (v) => issueIf(isLoa(v) && !v.quantity_allowed, 'quantity_allowed', 'Enter the quantity the letter allows'),
+  (v) => issueIf(isLoa(v) && !v.sendings_allowed, 'sendings_allowed', 'Enter the number of sendings'),
+  (v) => issueIf(Boolean(v.endorsement_reference) !== Boolean(v.endorsed_on), v.endorsement_reference ? 'endorsed_on' : 'endorsement_reference', 'Give the endorsement with its day'),
+  (v) => issueIf(v.kind === 'gmo_contained_use' && !v.gmo_category, 'gmo_category', 'Enter the category'),
+  (v) => issueIf(v.kind === 'pathogen_work_permit' && !v.risk_group, 'risk_group', 'Enter the risk group it covers'),
+]
+export const permitSchema = permitFields.superRefine((v, ctx) => addIssues(PERMIT_RULES, v, ctx))
 export type PermitForm = z.input<typeof permitSchema>
 export type PermitValues = z.output<typeof permitSchema>
 
@@ -295,29 +309,29 @@ export type DepositorAnswerValues = z.output<typeof depositorAnswerSchema>
 
 /** As the server takes it: a digit or + first, then digits, spaces, ( ) and -, a digit last. */
 const PHONE = /^[+0-9][0-9 ()-]{4,38}[0-9]$/
-export const shipSchema = z
-  .object({
-    transport_class: choice(TRANSPORT_CLASSES, 'Choose the transport class'),
-    classification_basis: choice(CLASSIFICATION_BASES, 'Choose the basis of the classification'),
-    basis_note: optionalText(2000),
-    packing_instruction: choice(PACKING_INSTRUCTIONS, 'Choose the packing'),
-    coolant: z.union([z.literal(''), choice(COOLANTS, 'Choose the coolant')]),
-    coolant_kg: z.union([z.literal(''), z.string().trim().regex(/^\d{1,4}([.,]\d{1,2})?$/, 'Enter kilograms, for example 2.5')]),
-    responsible_name: required('Enter the responsible person').max(200, 'Use at most 200 characters'),
-    responsible_phone: z.string().trim().max(40, 'Use at most 40 characters').regex(PHONE, 'Enter a phone number: digits, spaces, + ( ) and -'),
-    carrier: required('Enter the carrier').max(200, 'Use at most 200 characters'),
-    tracking_number: optionalText(100),
-  })
-  .superRefine((v, ctx) => {
-    if (!BASES[v.transport_class].some((b) => b === v.classification_basis))
-      ctx.addIssue({ code: 'custom', path: ['classification_basis'], message: 'Choose the basis of the classification' })
-    if (v.classification_basis === 'professional_judgement' && !v.basis_note)
-      ctx.addIssue({ code: 'custom', path: ['basis_note'], message: 'Say what the judgement rests on' })
-    if (v.transport_class === 'un3373' && v.packing_instruction !== 'p650') ctx.addIssue({ code: 'custom', path: ['packing_instruction'], message: 'UN 3373 is packed to P650' })
-    if (v.coolant === 'dry_ice' && !v.coolant_kg) ctx.addIssue({ code: 'custom', path: ['coolant_kg'], message: 'Give the quantity of dry ice: it is marked on the package' })
-    if (v.coolant === '' && v.coolant_kg) ctx.addIssue({ code: 'custom', path: ['coolant'], message: 'Choose the coolant of this quantity' })
-    if (v.coolant_kg && Number(v.coolant_kg.replace(',', '.')) <= 0) ctx.addIssue({ code: 'custom', path: ['coolant_kg'], message: 'Give more than 0 kg' })
-  })
+const shipFields = z.object({
+  transport_class: choice(TRANSPORT_CLASSES, 'Choose the transport class'),
+  classification_basis: choice(CLASSIFICATION_BASES, 'Choose the basis of the classification'),
+  basis_note: optionalText(2000),
+  packing_instruction: choice(PACKING_INSTRUCTIONS, 'Choose the packing'),
+  coolant: z.union([z.literal(''), choice(COOLANTS, 'Choose the coolant')]),
+  coolant_kg: z.union([z.literal(''), z.string().trim().regex(/^\d{1,4}([.,]\d{1,2})?$/, 'Enter kilograms, for example 2.5')]),
+  responsible_name: required('Enter the responsible person').max(200, 'Use at most 200 characters'),
+  responsible_phone: z.string().trim().max(40, 'Use at most 40 characters').regex(PHONE, 'Enter a phone number: digits, spaces, + ( ) and -'),
+  carrier: required('Enter the carrier').max(200, 'Use at most 200 characters'),
+  tracking_number: optionalText(100),
+})
+type ShipFields = z.output<typeof shipFields>
+
+const SHIP_RULES: readonly Rule<ShipFields>[] = [
+  (v) => issueIf(!BASES[v.transport_class].some((b) => b === v.classification_basis), 'classification_basis', 'Choose the basis of the classification'),
+  (v) => issueIf(v.classification_basis === 'professional_judgement' && !v.basis_note, 'basis_note', 'Say what the judgement rests on'),
+  (v) => issueIf(v.transport_class === 'un3373' && v.packing_instruction !== 'p650', 'packing_instruction', 'UN 3373 is packed to P650'),
+  (v) => issueIf(v.coolant === 'dry_ice' && !v.coolant_kg, 'coolant_kg', 'Give the quantity of dry ice: it is marked on the package'),
+  (v) => issueIf(v.coolant === '' && Boolean(v.coolant_kg), 'coolant', 'Choose the coolant of this quantity'),
+  (v) => issueIf(Boolean(v.coolant_kg) && Number(v.coolant_kg.replace(',', '.')) <= 0, 'coolant_kg', 'Give more than 0 kg'),
+]
+export const shipSchema = shipFields.superRefine((v, ctx) => addIssues(SHIP_RULES, v, ctx))
 export type ShipForm = z.input<typeof shipSchema>
 export type ShipValues = z.output<typeof shipSchema>
 

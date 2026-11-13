@@ -83,38 +83,44 @@ function Rows({ list, labId, params, canManage, onOffsetChange, show }: RowsProp
       {stale}
       <Stack spacing={3}>
         {results.map((r) => (
-          <Paper key={r.public_id} variant="outlined" component="article" aria-label={r.institution} sx={{ p: 2 }}>
-            <Typography component="h2" variant="h6" sx={{ overflowWrap: 'anywhere' }}>
-              {r.institution}
-            </Typography>
-            <Typography sx={{ overflowWrap: 'anywhere' }}>
-              {LEGAL_FORM_LABELS[r.legal_form]}, {countryName(r.country)}
-              {r.registration_number ? `, company number ${r.registration_number}` : ''}.
-            </Typography>
-            <Typography sx={{ overflowWrap: 'anywhere' }}>
-              Responsible scientist: {scientistName(r)}
-              {!r.erased && r.email ? `, ${r.email}` : ''}.
-            </Typography>
-            <Typography sx={{ overflowWrap: 'anywhere', whiteSpace: 'pre-line' }}>Delivery address: {r.erased ? 'erased' : r.postal_address}</Typography>
-            <Typography sx={{ overflowWrap: 'anywhere' }}>
-              Microbiology laboratory confirmed on {r.lab_confirmed_on}: {r.lab_evidence}
-            </Typography>
-            <Permits labId={labId} requester={r} canManage={canManage} show={show} />
-            {canManage && !r.erased && (
-              <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', mt: 2 }}>
-                <Button variant="outlined" onClick={show({ kind: 'permit', requester: r, open: true })} aria-label={`Add a permit of ${r.institution}`}>
-                  Add a permit
-                </Button>
-                <Button onClick={show({ kind: 'requester', requester: r, open: true })} aria-label={`Change ${r.institution}`}>
-                  Change
-                </Button>
-              </Stack>
-            )}
-          </Paper>
+          <RequesterCard key={r.public_id} labId={labId} requester={r} canManage={canManage} show={show} />
         ))}
       </Stack>
       <Pager label="Requester pages" count={count} shown={results.length} limit={params.limit} offset={params.offset} loading={list.isPlaceholderData} onOffsetChange={onOffsetChange} />
     </section>
+  )
+}
+
+function RequesterCard({ labId, requester: r, canManage, show }: { labId: string; requester: Requester; canManage: boolean; show: RowsProps['show'] }) {
+  return (
+    <Paper variant="outlined" component="article" aria-label={r.institution} sx={{ p: 2 }}>
+      <Typography component="h2" variant="h6" sx={{ overflowWrap: 'anywhere' }}>
+        {r.institution}
+      </Typography>
+      <Typography sx={{ overflowWrap: 'anywhere' }}>
+        {LEGAL_FORM_LABELS[r.legal_form]}, {countryName(r.country)}
+        {r.registration_number ? `, company number ${r.registration_number}` : ''}.
+      </Typography>
+      <Typography sx={{ overflowWrap: 'anywhere' }}>
+        Responsible scientist: {scientistName(r)}
+        {!r.erased && r.email ? `, ${r.email}` : ''}.
+      </Typography>
+      <Typography sx={{ overflowWrap: 'anywhere', whiteSpace: 'pre-line' }}>Delivery address: {r.erased ? 'erased' : r.postal_address}</Typography>
+      <Typography sx={{ overflowWrap: 'anywhere' }}>
+        Microbiology laboratory confirmed on {r.lab_confirmed_on}: {r.lab_evidence}
+      </Typography>
+      <Permits labId={labId} requester={r} canManage={canManage} show={show} />
+      {canManage && !r.erased && (
+        <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', mt: 2 }}>
+          <Button variant="outlined" onClick={show({ kind: 'permit', requester: r, open: true })} aria-label={`Add a permit of ${r.institution}`}>
+            Add a permit
+          </Button>
+          <Button onClick={show({ kind: 'requester', requester: r, open: true })} aria-label={`Change ${r.institution}`}>
+            Change
+          </Button>
+        </Stack>
+      )}
+    </Paper>
   )
 }
 

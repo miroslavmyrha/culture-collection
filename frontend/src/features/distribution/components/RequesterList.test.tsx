@@ -2,9 +2,11 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { api } from '@/lib/api'
-import { makeLab, makeMe, makePermit, makeRequester, page, validationProblem } from '@/test/factories'
+import { allowConsole } from '@/test/console'
+import { makeLab, makeMe, makePermit, makeRequester, page, problem, validationProblem } from '@/test/factories'
 import { mockApi, mockApiError, recordRequests } from '@/test/mockApi'
-import { renderApp } from '@/test/render'
+import { renderApp, renderWithProviders } from '@/test/render'
+import { RequesterList } from './RequesterList'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const LIST = '/api/v1/labs/{lab_public_id}/requesters/'
@@ -245,6 +247,34 @@ describe('the requesters page', () => {
     }
   })
 
+  it('says so when the permit was ended meanwhile, and ends nothing twice', async () => {
+    allowConsole(/API error 409/)
+    signedIn()
+    mockApi('get', LIST, page([institute]))
+    mockApiError('post', `${PERMITS}{public_id}/end/` as '/api/v1/labs/{lab_public_id}/recipient-permits/{public_id}/end/', 409, problem(409, { code: 'permit_ended' }))
+    renderApp({ path: `/labs/${LAB_ID}/requesters` })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'End LoA DEV/1' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'End LoA DEV/1?' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'withdrawn')
+    await user.click(within(dialog).getByRole('button', { name: 'End the permit' }))
+    expect(await within(dialog).findByText('This permit was ended already.')).toBeInTheDocument()
+  })
+
+  it('says so when the contact of a requester was erased meanwhile', async () => {
+    allowConsole(/API error 409/)
+    signedIn()
+    const seated = makeRequester({ institution: 'Seated Institute' })
+    mockApi('get', LIST, page([seated]))
+    mockApiError('put', `${LIST}{public_id}/`, 409, problem(409, { code: 'contact_erased' }))
+    renderApp({ path: `/labs/${LAB_ID}/requesters` })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Change Seated Institute' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Change Seated Institute' })
+    await user.click(within(dialog).getByRole('button', { name: 'Save the requester' }))
+    expect(await within(dialog).findByText('This contact was erased. The requester can no longer be changed.')).toBeInTheDocument()
+  })
+
   it('adds a requester with its registered office, the address in the business register', async () => {
     signedIn()
     mockApi('get', LIST, page([institute]))
@@ -308,5 +338,41 @@ describe('the requesters page', () => {
     await waitFor(() => expect(within(dialog).getByRole('combobox', { name: 'Kind' })).toHaveFocus())
     expect(within(dialog).getByText(/Choose the file of the document/)).toBeInTheDocument()
     expect(calls).toHaveLength(0)
+  })
+})
+
+describe('the requester list states', () => {
+  const PARAMS = { limit: 25, offset: 0 }
+  const noop = vi.fn<(offset: number) => void>()
+  const noSearch = vi.fn<(search: string | undefined) => void>()
+
+  it('shows a failure with a retry that works', async () => {
+    allowConsole(/API error 500/)
+    mockApiError('get', LIST, 500)
+    await renderWithProviders(<RequesterList labId={LAB_ID} params={PARAMS} canManage={false} onOffsetChange={noop} onSearch={noSearch} />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the requesters.')
+    mockApi('get', LIST, page([institute]))
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('article', { name: 'Example Institute' })).toBeInTheDocument()
+  })
+
+  it('says the lab has no requesters yet', async () => {
+    mockApi('get', LIST, page([]))
+    await renderWithProviders(<RequesterList labId={LAB_ID} params={PARAMS} canManage={false} onOffsetChange={noop} onSearch={noSearch} />)
+    expect(await screen.findByText('The lab has no requesters yet.')).toBeInTheDocument()
+  })
+
+  it('says no requester matches a search', async () => {
+    mockApi('get', LIST, page([]))
+    await renderWithProviders(<RequesterList labId={LAB_ID} params={{ ...PARAMS, search: 'nothing' }} canManage={false} onOffsetChange={noop} onSearch={noSearch} />)
+    expect(await screen.findByText('No requester matches this search.')).toBeInTheDocument()
+  })
+
+  it('offers the first page past the end', async () => {
+    mockApi('get', LIST, page([], { count: 3 }))
+    const onOffsetChange = vi.fn<(offset: number) => void>()
+    await renderWithProviders(<RequesterList labId={LAB_ID} params={{ limit: 25, offset: 50 }} canManage={false} onOffsetChange={onOffsetChange} onSearch={noSearch} />)
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Go to the first page' }))
+    expect(onOffsetChange).toHaveBeenCalledWith(0)
   })
 })
