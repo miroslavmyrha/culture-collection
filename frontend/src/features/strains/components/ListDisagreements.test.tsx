@@ -22,9 +22,9 @@ describe('ListDisagreements', () => {
         makeStrainDisagreement({
           strain: makeStrainRow({ public_id: STRAIN_ID, accession_number: 'MYC 42', risk_group: 2 }),
           findings: [
-            { disagreement: 'restriction_missing', restriction_kind: 'dual_use', entry: makeListMatch({ code: '1C351.c.99' }) },
-            { disagreement: 'restriction_unlisted', restriction_kind: 'cz_rat', entry: null },
-            { disagreement: 'risk_group_differs', restriction_kind: '', entry: makeListMatch({ list: 'cz-361-2007-annex-7', act: '361/2007', code: '1.99', risk_group: 3, restriction_kind: '' }) },
+            { disagreement: 'restriction_missing', restriction_kind: 'dual_use', entry: makeListMatch({ code: '1C351.c.99' }), accepted_because: '' },
+            { disagreement: 'restriction_unlisted', restriction_kind: 'cz_rat', entry: null, accepted_because: '' },
+            { disagreement: 'risk_group_differs', restriction_kind: '', entry: makeListMatch({ list: 'cz-361-2007-annex-7', act: '361/2007', code: '1.99', risk_group: 3, restriction_kind: '' }), accepted_because: 'Recorded as group 2 after the lab test.' },
           ],
         }),
       ]),
@@ -34,6 +34,7 @@ describe('ListDisagreements', () => {
     expect(row).toHaveTextContent('The list names a restriction the strain does not carry: Dual-use item (2021/821, entry 1C351.c.99')
     expect(row).toHaveTextContent('The strain carries a restriction no entry names: Risky agent (RAT).')
     expect(row).toHaveTextContent('Annex 7 states another risk group: the entry states risk group 3, the strain has 2')
+    expect(row).toHaveTextContent('Accepted by the collection: Recorded as group 2 after the lab test.')
     expect(within(row).getByRole('link', { name: 'MYC 42' })).toHaveAttribute('href', `/labs/${LAB_ID}/strains/${STRAIN_ID}`)
   })
 

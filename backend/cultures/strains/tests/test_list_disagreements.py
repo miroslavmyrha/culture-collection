@@ -178,6 +178,22 @@ def test_an_entry_of_annex_7_that_states_another_group_is_listed(
 
 
 @pytest.mark.rule("R-MATCH-02")
+def test_a_group_that_differs_carries_the_reason_the_collection_recorded(
+    make_strain: MakeStrain, manager: User
+) -> None:
+    entry = an_entry(ListCode.CZ_361_2007_ANNEX_7, risk_group=2)
+    strain = make_strain(taxon=taxon_of(entry), risk_group=1)
+    body = logged_in(manager).get(URL).json()
+    row = next(
+        r for r in body["results"] if r["strain"]["accession_number"] == strain.accession_number
+    )
+    found = next(f for f in row["findings"] if f["disagreement"] == Disagreement.RISK_GROUP_DIFFERS)
+    assert found["accepted_because"] == strain.risk_group_basis != ""
+    others = [f for f in row["findings"] if f["disagreement"] != Disagreement.RISK_GROUP_DIFFERS]
+    assert all(f["accepted_because"] == "" for f in others)
+
+
+@pytest.mark.rule("R-MATCH-02")
 def test_a_strain_the_lists_say_nothing_about_is_not_listed(
     make_strain: MakeStrain, manager: User, lab: Lab
 ) -> None:

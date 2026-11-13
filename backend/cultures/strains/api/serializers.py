@@ -540,6 +540,11 @@ class DisagreementFindingSerializer(serializers.Serializer[Finding]):
     disagreement = serializers.ChoiceField(choices=DISAGREEMENTS)
     restriction_kind = serializers.ChoiceField(choices=RestrictionKind.choices, allow_blank=True)
     entry = ListMatchOutputSerializer(allow_null=True)
+    accepted_because = serializers.CharField(
+        allow_blank=True,
+        help_text="On a risk group that differs from the entry's: the reason in words the "
+        "collection recorded for the strain's group, so the case reads as one a person accepted.",
+    )
 
 
 class ListDisagreementOutputSerializer(serializers.Serializer[StrainFindings]):

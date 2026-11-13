@@ -230,6 +230,9 @@ class Finding:
     disagreement: str
     restriction_kind: str
     entry: RegulatoryListEntry | None
+    # The reason in words the collection recorded for the strain's group, on a group that
+    # differs from the entry's: a case a person accepted, with the reason to read.
+    accepted_because: str = ""
 
 
 @dataclass(frozen=True)
@@ -269,7 +272,7 @@ def list_findings(strain: Strain, entries: list[RegulatoryListEntry]) -> list[Fi
         for kind in sorted((held & biosafety_lists.LIST_OF_KIND.keys()) - named)
     ]
     findings += [
-        Finding(Disagreement.RISK_GROUP_DIFFERS, "", entry)
+        Finding(Disagreement.RISK_GROUP_DIFFERS, "", entry, strain.risk_group_basis)
         for entry in entries
         if entry.risk_group is not None and entry.risk_group != strain.risk_group
     ]
