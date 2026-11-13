@@ -4,8 +4,8 @@ import { axe, signedInAs, watchCsp } from './support.js'
 // Deposit intake against the real API (seed_e2e: e2e-curator and e2e-viewer in "E2E lab", the
 // depositor "E2E Depositor", MTA STD version 1, no valid permit). Each run adds deposits and strains:
 // numbers are never reused and nothing is deleted, so the tests find theirs by a name made
-// unique per run. B. subtilis is risk group 1 (LPSN, DSMZ); the permit gate is tried on the
-// invented Testella exempli. It works as the sessions auth.setup.ts signed in.
+// unique per run. B. subtilis 168 is a standard group 1 organism of the collection; the permit gate is tried on the
+// Brucella abortus (a VRAT agent of annex 7 and decree 474/2002 Sb.). It works as the sessions auth.setup.ts signed in.
 
 const RUN = Date.now().toString(36)
 // #169: what the risk group of a strain accepted here rests on. The seeded lab is test data.
@@ -191,17 +191,17 @@ async function receiveAndCheck(page: Page, name: string) {
 test('a VRAT strain is refused at acceptance while the lab holds no SÚJB permit, and the deposit stays in its check', async ({ browser }) => {
   const { page, close } = await as(browser, 'e2e-curator')
   await openLab(page)
-  await receiveAndCheck(page, `Testella exempli refused ${RUN}`)
+  await receiveAndCheck(page, `Bacillus subtilis refused ${RUN}`)
   const form = page.getByRole('form', { name: 'Accept the deposit' })
-  await form.getByRole('combobox', { name: 'Taxon' }).fill('exempli')
-  await page.getByRole('option', { name: /Testella exempli/ }).click()
+  await form.getByRole('combobox', { name: 'Taxon' }).fill('abortus')
+  await page.getByRole('option', { name: /Brucella abortus/ }).click()
   await form.getByRole('textbox', { name: 'Identification method' }).fill('MALDI-TOF MS')
   await form.getByRole('combobox', { name: 'Risk group' }).selectOption('2')
   await form.getByRole('textbox', { name: 'Risk group basis' }).fill(BASIS)
   await form.getByRole('button', { name: 'Add a restriction' }).click()
   const kind = form.getByRole('group', { name: 'Restriction 1' }).getByRole('combobox', { name: 'Kind' })
   await kind.selectOption('cz_vrat')
-  await form.getByRole('group', { name: 'Restriction 1' }).getByRole('textbox', { name: 'List entry' }).fill('Příloha 1, bod 2')
+  await form.getByRole('group', { name: 'Restriction 1' }).getByRole('textbox', { name: 'List entry' }).fill('annex-1 I.II 2')
   await form.getByRole('button', { name: 'Accept and add the strain' }).click()
   await expect(kind).toHaveAttribute('aria-invalid', 'true')
   await expect(kind).toHaveAccessibleDescription(/no valid SÚJB permit for highly risky agents \(VRAT\)/)
@@ -214,10 +214,10 @@ test('a VRAT strain is refused at acceptance while the lab holds no SÚJB permit
 test('a curator rejects a deposit with a reason: no strain, and the dialog passes axe', async ({ browser }) => {
   const { page, close } = await as(browser, 'e2e-curator')
   await openLab(page)
-  await receiveAndCheck(page, `Testella exempli rejected ${RUN}`)
+  await receiveAndCheck(page, `Bacillus subtilis rejected ${RUN}`)
   const reject = page.getByRole('button', { name: 'Reject the deposit' })
   await reject.click()
-  const dialog = page.getByRole('alertdialog', { name: `Reject Testella exempli rejected ${RUN}?` })
+  const dialog = page.getByRole('alertdialog', { name: `Reject Bacillus subtilis rejected ${RUN}?` })
   await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused()
   expect(await axe(page, '[role="alertdialog"]')).toEqual([])
   await dialog.getByRole('textbox', { name: 'Reason' }).fill('Mixed culture on the purity plate.')

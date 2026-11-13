@@ -18,8 +18,10 @@ from django.test import override_settings
 from cultures.audit.context import audit_context
 from cultures.audit.models import ActorKind, AuditEvent, Channel, RowChange
 from cultures.audit.reconcile import reconcile
+from cultures.biosafety import entry_seed
 from cultures.biosafety.models import AuthorisationKind, LabAuthorisation, RestrictionKind
 from cultures.biosafety.policy import NEEDS_PERMIT, AuthorisationRequired, permit_today, valid_on
+from cultures.biosafety.selectors import states_risk_group
 from cultures.core.tests.test_settings import BACKEND, GOOD_ENV, production_value
 from cultures.deposits.models import Contact, Deposit, Depositor, DepositTerms, MtaTemplate
 from cultures.distribution.documents import DUAL_USE_NOTICE
@@ -40,6 +42,7 @@ from cultures.labs.permissions import Role
 from cultures.lineage.models import Batch, BatchCheck, BatchStatus, Passage, Vial, VialPlacement
 from cultures.storage.models import KIND_SPEC, BoxType, StorageUnit, UnitKind, may_hold
 from cultures.storage.policy import may_store
+from cultures.strains import seeding as seed_strains
 from cultures.strains import services as strains
 from cultures.strains.countries import COUNTRY_CODES
 from cultures.strains.management.commands.seed_dev import (
@@ -49,7 +52,6 @@ from cultures.strains.management.commands.seed_dev import (
     LAB_ROLES,
     NO_LAB,
     TWO_LABS,
-    accepted_entry,
     final_taxon,
     lab_username,
     load,
@@ -342,7 +344,7 @@ def test_it_creates_the_labs_permits_taxa_and_strains() -> None:
     reclassified = Counter(
         StrainIdentification.objects.values_list("strain_id", flat=True)
     ).most_common(1)
-    assert reclassified[0][1] == 3
+    assert reclassified[0][1] == 2
     today = permit_today()
     valid = {
         (code, kind)
@@ -417,7 +419,7 @@ def test_every_strain_row_comes_from_a_strain_service() -> None:
         == events["strain_restriction_ended"]
     )
     assert events["strain_risk_group_changed"] == sum(
-        1 for row in STRAINS for s in row.get("history", []) if "risk_group" in s
+        1 for row in STRAINS for s in row.get("history", []) if "standard" in s
     )
     # #174: the seeded risk group step is a lowering, so it went through two people and left a
     # confirmed proposal; none is open and nobody confirmed their own.
@@ -438,7 +440,6 @@ def test_every_regulated_strain_lies_in_a_lab_that_holds_the_permit() -> None:
     today = permit_today()
     regulated = StrainRestriction.objects.filter(ended_at__isnull=True, kind__in=NEEDS_PERMIT)
     assert regulated.filter(kind=RestrictionKind.CZ_VRAT).exists()
-    assert regulated.filter(kind=RestrictionKind.QUARANTINE_PEST).exists()
     for restriction in regulated:
         held = LabAuthorisation.objects.filter(
             valid_on(today), lab_id=restriction.lab_id, kind=restriction.kind
@@ -452,14 +453,26 @@ def test_the_lab_with_the_expired_permit_refuses_a_vrat_strain() -> None:
     seed()
     env_lab = Lab.objects.get(code="ENV")
     curator = access_for(User.objects.get(username="env-curator"))
+    row = next(r for r in STRAINS if r["lab"] == "REG" and r["taxon"] == "Brucella abortus")
+    classified = entry_seed.classify(row["classification"], row["taxon"])
+    resolved = seed_strains.resolve(
+        row["name_as_received"],
+        seed_strains.SeedFacts(
+            taxon=row["taxon"],
+            identified_on=date(2025, 1, 1),
+            identification_method="Morphology",
+            classified=classified,
+        ),
+    )
     data = strains.NewStrain(
-        name_as_received="Testella exempli",
-        taxon=Taxon.objects.get(name="Testella exempli"),
+        name_as_received="Brucella abortus held in the wrong lab",
+        taxon=Taxon.objects.get(name="Brucella abortus"),
         identified_on=date(2025, 1, 1),
         identification_method="Morphology",
-        risk_group=3,
-        risk_group_basis="The lab's own assessment of this invented isolate.",
-        restrictions=[strains.RestrictionInput(RestrictionKind.CZ_VRAT, "Příloha 1")],
+        risk_group=resolved.risk_group,
+        risk_group_basis=resolved.basis,
+        risk_group_entry=resolved.entry,
+        restrictions=resolved.restrictions,
     )
     with (
         audit_context(channel=Channel.COMMAND, actor_kind=ActorKind.SYSTEM),
@@ -471,18 +484,22 @@ def test_the_lab_with_the_expired_permit_refuses_a_vrat_strain() -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("env")
-def test_strains_of_real_taxa_carry_the_verified_facts() -> None:
+@pytest.mark.rule("R-SEED-01")
+def test_every_seeded_classification_comes_from_its_entry() -> None:
+    """#211: a pointer names an annex 7 entry stating the strain's group, a strain without
+    one says in words why the collection recorded the group, and nothing carries a group the
+    lists do not give a reason for."""
     seed()
-    for strain in Strain.objects.select_related("taxon", "lab"):
-        found = accepted_entry(strain.taxon.name, TAXA)
-        if found.get("invented"):
-            continue
-        assert strain.risk_group == found["risk_group"], strain
-        assert (
-            not StrainRestriction.objects.filter(strain=strain)
-            .exclude(kind=RestrictionKind.GMO, gmo_category=1)
-            .exists()
-        ), strain
+    pointed = 0
+    for strain in Strain.objects.select_related("risk_group_entry"):
+        assert strain.risk_group_basis.strip(), strain
+        if strain.risk_group_entry is not None:
+            pointed += 1
+            assert states_risk_group(strain.risk_group_entry, strain.risk_group), strain
+        else:
+            assert strain.risk_group == 1, strain
+            assert "annex 7" in strain.risk_group_basis.lower(), strain
+    assert pointed > 20
 
 
 @pytest.mark.django_db
@@ -565,7 +582,7 @@ def test_the_requests_one_approvable_one_on_request_one_blocked_two_ready_two_sh
     approver = DistributionRequest.objects.get(end_use=regulated).decided_by
     assert approver is not None and approver.username == "bac-manager"
     # Shipped through the services, so each has its documents (#90): one in one step, one
-    # prepared by the manager and confirmed by the curator, its dual-use line with the notice.
+    # prepared by the manager and confirmed by the curator, the RAT one with its register entry.
     one_step = Shipment.objects.get(request__end_use=shipped)
     two_step = Shipment.objects.get(request__end_use=confirmed)
     assert one_step.preparation is None
@@ -574,10 +591,13 @@ def test_the_requests_one_approvable_one_on_request_one_blocked_two_ready_two_sh
         "bac-manager",
         "bac-curator",
     )
+    assert list(one_step.documents.values_list("kind", flat=True)) == ["delivery_note"]
+    assert sorted(two_step.documents.values_list("kind", flat=True)) == [
+        "delivery_note",
+        "register_entry",
+    ]
     for shipment in (one_step, two_step):
-        assert list(shipment.documents.values_list("kind", flat=True)) == ["delivery_note"]
-    assert DUAL_USE_NOTICE in two_step.documents.get().text
-    assert DUAL_USE_NOTICE not in one_step.documents.get().text
+        assert all(DUAL_USE_NOTICE not in d.text for d in shipment.documents.all())
 
 
 def test_contacts_and_references_of_the_intake_are_clearly_invented() -> None:
@@ -592,10 +612,9 @@ def test_contacts_and_references_of_the_intake_are_clearly_invented() -> None:
             assert value == "" or "/DEV/" in value, (row["name_as_received"], name)
         for note in (row.get("condition_note", ""), row.get("rejection_reason", "")):
             assert note == "" or "(Invented example.)" in note
-    # A strain of a real taxon states nothing of its own: strain_facts reads its taxon entry.
+    # A deposit's strain states no group of its own: strain_facts reads its entry codes.
     for row in ACCEPTED:
-        invented = accepted_entry(row["strain"]["taxon"], TAXA).get("invented")
-        assert invented or not {"risk_group", "animal_pathogenicity"} & set(row["strain"]), row
+        assert not {"risk_group", "risk_group_basis"} & set(row["strain"]), row
 
 
 def test_help_builds() -> None:
@@ -605,67 +624,53 @@ def test_help_builds() -> None:
 
 # The data file, checked without a database: the facts it states about real organisms.
 
-REAL = [t for t in TAXA if not t.get("invented")]
-SOURCE = re.compile(r"^https://(lpsn\.dsmz\.de|www\.indexfungorum\.org)/")
+SOURCE = re.compile(r"^https://(lpsn\.dsmz\.de|www\.indexfungorum\.org|api\.gbif\.org)/")
 
 
-@pytest.mark.parametrize("taxon", REAL, ids=lambda t: t["name"])
-def test_every_real_taxon_names_its_source(taxon: dict[str, Any]) -> None:
+@pytest.mark.parametrize("taxon", TAXA, ids=lambda t: t["name"])
+def test_every_taxon_names_its_source(taxon: dict[str, Any]) -> None:
     sources = taxon["source"]
     assert any(SOURCE.match(s) for s in sources), sources
     if taxon["ncbi"]:
         assert f"https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id={taxon['ncbi']}" in (
             sources
         )
-    assert not taxon["name"].startswith(INVENTED_GENERA)
 
 
-def test_invented_taxa_are_the_invented_genera_and_claim_no_source() -> None:
-    invented = [t for t in TAXA if t.get("invented")]
-    assert invented
-    for taxon in invented:
-        assert taxon["name"].startswith(INVENTED_GENERA)
-        assert (taxon["ncbi"], taxon.get("source"), taxon["authority"]) == (None, None, "")
-
-
-def test_every_identified_real_species_has_a_verified_risk_group() -> None:
+@pytest.mark.rule("R-SEED-01")
+def test_the_data_file_holds_no_invented_taxon_and_no_typed_classification() -> None:
+    """#211: invented names live in unit test fixtures only, and a taxon row states no group,
+    no entry and no restriction: the classification of a strain names entry codes."""
+    names = " ".join(t["name"] for t in TAXA)
+    assert not any(genus in names for genus in INVENTED_GENERA)
+    for taxon in TAXA:
+        assert not {"invented", "risk_group", "risk_group_source"} & set(taxon), taxon
     for row in STRAINS:
-        found = accepted_entry(final_taxon(row), TAXA)
-        if found.get("invented"):
-            assert row["risk_group"] in (1, 2, 3)
-            continue
-        assert found["risk_group"] in (1, 2), found["name"]
-        rg_source = " ".join(found["risk_group_source"])
-        assert "361/2007" in rg_source
-        assert "DSMZ" in rg_source
-        annex = found["risk_group_source"][0]
-        # Not listed, or listed with its non-pathogenic strains excepted (E. coli K-12).
-        if annex.endswith(("not listed", "except non-pathogenic strains")):
-            assert found["risk_group"] == 1, found["name"]
-        else:
-            assert annex == f"NV 361/2007 Sb., Příloha 7: {found['name']}, group 2", annex
-            assert found["risk_group"] == 2, found["name"]
-        dsmz = next(s for s in found["risk_group_source"] if "DSMZ DSM" in s)
-        assert f"risk group {found['risk_group']}" in dsmz, found["name"]
-        if found.get("plant_pathogenicity") or found.get("animal_pathogenicity"):
-            assert found["pathogenicity_source"]
+        assert "classification" in row, row["name_as_received"]
+        assert not {"risk_group", "risk_group_basis"} & set(row), row["name_as_received"]
+        for step in row.get("history", []):
+            assert "risk_group" not in step, row["name_as_received"]
 
 
-def test_a_real_taxon_is_never_paired_with_a_restriction() -> None:
-    """Only a GMO lab strain (category 1) of a real taxon. Every list entry, risk group
-    and pathogenicity a row states itself is on an invented taxon."""
-    for row in STRAINS:
-        real = [n for n in names_of(row) if not accepted_entry(n, TAXA).get("invented")]
-        if not real:
-            continue
-        assert len(real) == len(names_of(row)), row["name_as_received"]
-        for restriction in restrictions_of(row):
-            assert (restriction["kind"], restriction.get("gmo_category")) == ("gmo", 1), row
-        assert not {"risk_group", "animal_pathogenicity", "plant_pathogenicity"} & set(row)
-        assert not any("risk_group" in step for step in row.get("history", []))
-        rule = accepted_entry(final_taxon(row), TAXA).get("strain_name_contains")
-        if rule:
-            assert rule in row["name_as_received"]
+@pytest.mark.rule("R-SEED-01")
+def test_every_classification_resolves_to_entries_of_the_data_files() -> None:
+    """The script reads each spec against the list data: a code that does not exist, or an
+    entry of another taxon, is an error here and not in a seeded database."""
+    rows = [(final_taxon(r), r["classification"]) for r in STRAINS]
+    rows += [(r["strain"]["taxon"], r["strain"]["classification"]) for r in ACCEPTED]
+    for taxon, spec in rows:
+        made = entry_seed.classify(spec, taxon)
+        assert made.risk_group in (1, 2, 3), (taxon, spec)
+        assert made.basis.strip(), (taxon, spec)
+
+
+@pytest.mark.rule("R-RISK-10")
+def test_a_group_one_strain_uses_a_standard_organism_and_says_annex_7_does_not_list_it() -> None:
+    for taxon, spec in [(final_taxon(r), r["classification"]) for r in STRAINS]:
+        if "standard" in spec and taxon != "Escherichia coli":
+            made = entry_seed.classify(spec, taxon)
+            assert (made.risk_group, made.risk_group_entry) == (1, None)
+            assert "does not list" in made.basis, spec
 
 
 def test_references_and_permits_are_clearly_invented() -> None:
@@ -676,8 +681,6 @@ def test_references_and_permits_are_clearly_invented() -> None:
                 assert "invented example" in permit["end_reason"]
     for row in STRAINS:
         for restriction in restrictions_of(row):
-            if restriction["kind"] == "dual_use":
-                continue  # a format only: the entry is checked by its pattern
             assert re.search(r"invented example|/DEV/", restriction["reference"]), restriction
 
 
@@ -693,7 +696,7 @@ def test_the_strain_rows_are_valid() -> None:
         assert key not in seen, key
         seen.add(key)
     assert 30 <= len(STRAINS) <= 60
-    assert 20 <= len([t for t in REAL if t["rank"] == "species" and not t["accepted"]]) <= 40
+    assert 10 <= len([t for t in TAXA if t["rank"] == "species" and not t["accepted"]]) <= 40
 
 
 # Storage.
@@ -803,12 +806,12 @@ def test_it_records_checks_and_releases_through_the_lineage_services() -> None:
         for b in Batch.objects.filter(lab__code__in=["BAC", "MYC"]).select_related("strain")
     }
     assert statuses == {
-        ("BAC", "Bacillus subtilis soil isolate DEP-1", 1): BatchStatus.RELEASED,
-        ("BAC", "Bacillus subtilis soil isolate DEP-1", 2): BatchStatus.RELEASED,
-        ("BAC", "Bacillus subtilis soil isolate DEP-1", 3): BatchStatus.PENDING_CHECK,
-        ("BAC", "Mockia vulgaris DEP-8", 1): BatchStatus.RELEASED,
-        ("MYC", "Testella cerea DEP-5", 1): BatchStatus.ON_HOLD,
-        ("MYC", "Testella cerea DEP-5", 2): BatchStatus.PENDING_CHECK,
+        ("BAC", "Bacillus subtilis 168 DEP-1", 1): BatchStatus.RELEASED,
+        ("BAC", "Bacillus subtilis 168 DEP-1", 2): BatchStatus.RELEASED,
+        ("BAC", "Bacillus subtilis 168 DEP-1", 3): BatchStatus.PENDING_CHECK,
+        ("BAC", "Clostridium perfringens DEP-8", 1): BatchStatus.RELEASED,
+        ("MYC", "Saccharomyces cerevisiae DEP-5", 1): BatchStatus.ON_HOLD,
+        ("MYC", "Saccharomyces cerevisiae DEP-5", 2): BatchStatus.PENDING_CHECK,
     }
     events = Counter(AuditEvent.objects.values_list("event_type", flat=True))
     assert events["batch_check_recorded"] == len(CHECKS)
@@ -844,7 +847,7 @@ def test_it_seeds_media_and_growth_conditions_through_the_growth_services() -> N
         == retired
     )
     # A strain is grown as its history says; its passage 0 predates that and records nothing.
-    cerea = Strain.objects.get(name_as_received="Testella cerea DEP-5")
+    cerea = Strain.objects.get(name_as_received="Saccharomyces cerevisiae DEP-5")
     assert cerea.growth_medium is not None
     assert (cerea.growth_medium.name, cerea.growth_temperature_low_c, cerea.growth_atmosphere) == (
         "Malt extract agar",
@@ -857,7 +860,7 @@ def test_it_seeds_media_and_growth_conditions_through_the_growth_services() -> N
     assert one.growth_medium is not None
     assert (one.growth_medium.name, one.growth_temperature_low_c) == ("Potato dextrose agar", 22)
     # A real taxon gets none: no citable type-strain entry was checked for it.
-    real = Strain.objects.get(name_as_received="Bacillus subtilis soil isolate DEP-1")
+    real = Strain.objects.get(name_as_received="Bacillus subtilis 168 DEP-1")
     assert real.growth_medium is None
     assert not any(
         row["lab"] == "BAC" and "growth" in row
@@ -882,9 +885,9 @@ def test_every_check_names_a_listed_batch_and_a_vial_it_has() -> None:
         batch = batches[(row["lab"], row["deposit"])][row["batch"] - 1]
         assert row["checked_on"] >= batch["preserved_on"], row
         assert row["vial"] is None or 1 <= row["vial"] <= batch["vial_count"], row
-        # Checks name no real organism's results as facts: a failure only on invented taxa.
+        # A check names no real organism's result as a fact: a failure says it is invented.
         if row["result"] == "fail":
-            assert row["deposit"].startswith(("Testella", "Mockia", "Fictivibrio")), row
+            assert "(Invented example.)" in row["note"], row
 
 
 @pytest.mark.django_db

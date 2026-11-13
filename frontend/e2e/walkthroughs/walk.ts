@@ -473,14 +473,14 @@ export async function openUnit(w: Walk, path: RegExp[]) {
  * A strain through intake whose terms name MTA STD version 2 (every use permitted), with a
  * released batch of distribution stock of `count` vials: one of them is used up by the checks.
  */
-export async function supplyStrain(page: Page, lab: string, name: string, taxon: string, restrictions: Row[] = [], count = 4) {
+export async function supplyStrain(page: Page, lab: string, name: string, taxon: string, restrictions: Row[] = [], count = 4, riskGroup = 1) {
   const depositor = rows(await api(page, lab, 'depositors/?search=Vzor'))[0]
   const mta = rows(await api(page, lab, 'mta-templates/')).find((t) => t.code === 'STD' && t.version === 2)
   const terms = { mta: field(mta, 'public_id'), abs_scope: 'not_in_scope', country_of_origin: 'CZ', uses: USES.map((use) => ({ use, decision: 'permit' })) }
   const deposit = field(await api(page, lab, 'deposits/', { depositor: field(depositor, 'public_id'), received_on: today(), condition: 'intact', name_as_received: name, terms }), 'public_id')
   await api(page, lab, `deposits/${deposit}/start-check/`, {})
   const taxa = rows(await api(page, lab, `/api/v1/taxa/?search=${encodeURIComponent(taxon)}`))
-  const facts = { taxon: field(taxa.find((t) => t.name === taxon), 'public_id'), identified_on: today(), identification_method: '16S rRNA gene sequence', risk_group: 1, risk_group_basis: RISK_GROUP_BASIS, country_of_origin: 'CZ', restrictions }
+  const facts = { taxon: field(taxa.find((t) => t.name === taxon), 'public_id'), identified_on: today(), identification_method: '16S rRNA gene sequence', risk_group: riskGroup, risk_group_basis: RISK_GROUP_BASIS, country_of_origin: 'CZ', restrictions }
   await api(page, lab, `deposits/${deposit}/accept/`, facts)
   const strain = rows(await api(page, lab, `strains/?search=${encodeURIComponent(name)}`))[0]
   const passage = rows(await api(page, lab, `passages/?strain=${field(strain, 'public_id')}`)).find((p) => p.number === 0)

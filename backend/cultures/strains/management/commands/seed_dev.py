@@ -20,17 +20,20 @@ depositors, MTA templates and deposits):
   no lab. dev-inactive, a technician of ENV who was deactivated.
 - the permits: MYC holds a valid ÚKZÚZ permit and an ended one, REG a valid
   SÚJB permit, ENV an expired SÚJB permit, so the gates can be tried in each;
-- real taxa with their sources, and the invented ones the tests use;
+- real taxa with their sources. No invented taxon: a strain names the official list entries of
+  its organism by code (or one of four standard group 1 organisms), and the group, the entry it was
+  read in, the basis and the restrictions are read out of the list data files by script (#211,
+  biosafety.entry_seed; `python tools/seed_classification.py` shows what a code comes to);
 - strains created through the strain services with the role of each lab's
-  curator, some reclassified, some restricted (invented taxa only, a GMO lab
+  curator, some reclassified, some restricted (the entries' own restrictions, a GMO lab
   strain aside);
 - each lab's list of media (names, and a DSMZ medium number where the DSMZ page names the
-  medium), one retired, and growth conditions on the strains of invented taxa and on the
+  medium), one retired, and growth conditions on a few strains and on the
   strain of MYC's deposit, which its passages take (#79);
 - depositors (invented people at example.org), MTA versions (published by each
   lab's manager) and deposits in every intake state, three of them accepted, which
-  makes their strains through the deposit services (the third, in BAC, an invented
-  dual-use strain that goes out in two steps, #89);
+  makes their strains through the deposit services (the third, in BAC, a strain that is
+  a RAT agent and goes out in two steps, #89);
 - three box types and a storage tree per lab (freezers and LN2 tanks, racks,
   boxes), added through the storage services with the curator's role: REG has
   a box capped lower than its freezer, ENV a freezer out of service;
@@ -38,18 +41,18 @@ depositors, MTA templates and deposits):
   technician through the lineage services, most placed into a box in fill order,
   one from a subculture (passage 1), MYC's second grown on other conditions than its strain's;
   REG's strain from its deposit is regulated
-  (a RAT, invented taxon), so its vials' places are masked, and reg-manager holds
+  (Clostridium tetani, a RAT agent), so its vials' places are masked, and reg-manager holds
   the lab's location grant to reveal them.
 - checks of those batches, recorded by each lab's technician (some consume the
   vial they name), and releases by the lab's curator: two BAC batches released,
   one freeze-dried BAC batch with a reduced viability check and nothing else yet,
-  the dual-use strain's batch released, and MYC's batch (invented taxon) held by a
+  the RAT strain's batch released, and MYC's batch (a yeast) held by a
   failed purity check.
 - requesters with their permits (invented institutions and references) and three requests
   waiting for a decision (#18): in BAC one a curator may approve and one whose use is on
   request to the depositor, so a manager approves it; in REG one blocked by a legal gate (a
-  RAT to a laboratory that never notified SÚJB, invented taxon). In BAC also one approved
-  by the curator, ready to ship (#88), and one of the dual-use strain approved by
+  RAT to a laboratory that never notified SÚJB). In BAC also one approved
+  by the curator, ready to ship (#88), and one of the RAT strain approved by
   bac-manager, ready for one person to prepare its shipment and another to confirm it (#89).
 Every user gets the same password. Every write goes through the services in one
 transaction, inside an audit context (channel command, actor kind system,
@@ -78,6 +81,7 @@ from config.env import env_secret
 from cultures.audit.context import audit_context, audited_atomic
 from cultures.audit.models import ActorKind, AuditEvent, Channel
 from cultures.audit.registry import LAB_CREATED
+from cultures.biosafety import entry_seed
 from cultures.biosafety import seeding as seed_biosafety
 from cultures.biosafety.models import AuthorisationKind, DestructionMethod, RestrictionKind
 from cultures.deposits import seeding as seed_deposits
@@ -480,8 +484,7 @@ class Command(BaseCommand):
 
 @dataclass(frozen=True)
 class StrainFacts:
-    risk_group: int
-    basis: str
+    classified: entry_seed.Classified
     animal: Pathogenicity
     plant: Pathogenicity
 
@@ -502,25 +505,16 @@ def final_taxon(row: dict[str, Any]) -> str:
 
 
 def strain_facts(row: dict[str, Any], taxa: list[dict[str, Any]]) -> StrainFacts:
-    """A strain of a real taxon takes the risk group and pathogenicity verified for its
-    final taxon in the data file. Only an invented taxon's strain states its own.
-
-    The basis of the group (#169) is the taxon entry's sources, which are the annex 7 line and
-    the DSMZ cross-check the data file records; an invented taxon's strain states its own.
+    """The group, its entry and its basis of a strain come out of the official list data files by
+    the entry codes the row names (#211, biosafety.entry_seed): the row types no group, no
+    restriction kind and no entry title. The classification is of the strain's final taxon, which
+    the data entry of the taxon (accepted name) gives its pathogenicity.
     """
-    entry = accepted_entry(final_taxon(row), taxa)
-    if entry.get("invented"):
-        return StrainFacts(
-            row["risk_group"],
-            row["risk_group_basis"],
-            Pathogenicity(row["animal_pathogenicity"]),
-            Pathogenicity(row["plant_pathogenicity"]),
-        )
+    taxon = accepted_entry(final_taxon(row), taxa)["name"]
     return StrainFacts(
-        entry["risk_group"],
-        "; ".join(entry["risk_group_source"]),
-        Pathogenicity(entry.get("animal_pathogenicity", Pathogenicity.UNKNOWN)),
-        Pathogenicity(entry.get("plant_pathogenicity", Pathogenicity.UNKNOWN)),
+        entry_seed.classify(row["classification"], taxon),
+        Pathogenicity(row.get("animal_pathogenicity", Pathogenicity.UNKNOWN)),
+        Pathogenicity(row.get("plant_pathogenicity", Pathogenicity.UNKNOWN)),
     )
 
 
@@ -580,8 +574,7 @@ def facts(row: dict[str, Any], taxa: list[dict[str, Any]]) -> seed_strains.SeedF
         taxon=row["taxon"],
         identified_on=date.fromisoformat(row["identified_on"]),
         identification_method=row["method"],
-        risk_group=known.risk_group,
-        risk_group_basis=known.basis,
+        classified=known.classified,
         animal_pathogenicity=known.animal,
         plant_pathogenicity=known.plant,
         isolation_source=row["isolation_source"],
@@ -608,9 +601,11 @@ def step(row: dict[str, Any]) -> seed_strains.Step:
             method=change["method"],
             reason=change["reason"],
         )
-    if "risk_group" in row:
+    if "standard" in row:
+        known = entry_seed.standard(row["standard"])
+        assert known.risk_group is not None  # noqa: S101 (a standard organism states its group)
         return seed_strains.SetRiskGroup(
-            risk_group=row["risk_group"], basis=row["basis"], reason=row["reason"]
+            risk_group=known.risk_group, basis=known.basis, reason=row["reason"]
         )
     if "restriction_add" in row:
         return seed_strains.AddRestriction(

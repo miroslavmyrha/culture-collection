@@ -19,37 +19,42 @@ Brings the database to this state, whatever it was before:
 - the lab "E2E other lab" (code E2O), with e2e-outsider as its viewer (the same password) and
   e2e-other-manager as its manager (no usable password): the search test (#76) shows that a
   viewer finds nothing of a lab they are not in;
-- a few taxa for the strain form: two genera, a species in each with its NCBI id, and a
-  synonym of each species (its basionym), plus an invented genus and species (Testella
-  exempli) for the tests of the restriction gates, so no real organism is entered with a
-  legal status it does not have. The lab holds no valid permit, so a VRAT strain is refused
-  there: its one permit, an invented SÚJB permit for VRAT, ended in 2025 (the permits screen
-  of #82 shows it as ended);
+- a few taxa for the strain form: three genera, a species in each with its NCBI id, and a
+  synonym of each of two species (its basionym). Every taxon is real and every strain's group,
+  entry and restrictions are read out of the official list data files by entry code
+  (biosafety.entry_seed, #211): the seed types no group and no list reference. The lab holds no
+  valid permit, so a VRAT strain is refused there: its one permit, an invented SÚJB permit
+  for VRAT, ended in 2025 (the permits screen of #82 shows it as ended);
 - for the deposit tests: a depositor (an invented person at example.org), the lab's MTA
-  "STD" version 1, and one deposit accepted as a Bacillus subtilis strain (risk group 1,
-  as LPSN and the DSMZ catalogue state for the species), so the strain pages have a row
-  before any test adds one. The depositor and the MTA are found by name and code, the
-  deposit by its name as received;
+  "STD" version 1, and two deposits accepted: a Bacillus subtilis strain (168, a standard
+  organism recorded at group 1, with a basis in words that annex 7 does not list it) and an
+  Escherichia coli strain (K-12, group 1, whose basis says annex 7 lists E. coli except
+  non-pathogenic strains), so the
+  strain pages have a row before any test adds one. The depositor and the MTA are found by
+  name and code, the deposit by its name as received;
 - two box types, and a small storage tree that never changes (E2E freezer > Rack 1 > Box 1),
   added by e2e-curator: the keyboard walk and the focus ring checks need a tree to stand on.
   The storage tests build their own freezers, racks and boxes next to it;
-- for the vial tests (#16): a second accepted deposit, Testella exempli (invented) with a RAT
-  restriction (invented reference), whose two vials lie in E2E freezer > Rack 1 > Box R, so
-  their places are masked; the e2e user holds the lab's location grant and reveals them,
-  e2e-curator does not. The batch is made once, found by its strain.
+- for the vial tests (#16): a second accepted deposit, Clostridium tetani (annex 7 entry 1.56,
+  group 2, and the RAT restriction of decree 474/2002 Sb.), whose two vials lie in
+  E2E freezer > Rack 1 > Box R, so their places are masked; the e2e user holds the lab's
+  location grant and reveals them, e2e-curator does not. The batch is made once, found by its
+  strain.
 - for the check tests (#17): a released batch of the seeded B. subtilis strain, two vials of
   distribution stock, with a passed identity, purity and viability check recorded by
   e2e-technician on its first vial and released by e2e-curator. Made once, found by its status.
-- for the distribution tests (#18): two invented strains that may go out, each from a deposit
+- for the distribution tests (#18): two strains that may go out, each from a deposit
   whose terms name MTA STD, with a released batch of distribution stock (topped up with a new
-  batch when fewer than ten vials are free): Testella exempli e2e supply (risk group 1, no
-  restriction) and Mockia vulgaris e2e supply (invented, a dual-use restriction, so a manager
-  approves it). Two requesters, invented institutions: E2E Institute of Microbiology, which
-  holds an invented § 17a notice and has an invented registered office, and E2E Unnotified
+  batch when fewer than ten vials are free): Bacillus subtilis e2e supply (168, group 1, no
+  restriction) and Clostridium perfringens e2e supply (entry 1.55, group 2, a RAT, so a
+  manager approves it). No dual-use strain is seeded here: every dual-use organism of annex 7
+  is also on decree 474/2002 Sb. as VRAT, and the lab holds no valid VRAT authorisation.
+  Two requesters, invented institutions: E2E Institute of Microbiology, which holds an
+  invented § 17a notice and has an invented registered office, and E2E Unnotified
   Laboratory, which holds none and whose registered office is not known. Four
   requests, found by their end use: one a curator may approve, one a manager must approve, one
   blocked by a legal gate (a RAT to the unnotified laboratory), and one approved, ready to ship
-  (#88; shipped once, it stays shipped). A fifth, of the dual-use strain, approved by
+  (#88; shipped once, it stays shipped). A fifth, of the RAT strain, approved by
   e2e-manager and ready to prepare (#89): entered again by a run that finds none approved, as
   the test prepares and confirms it each run.
 Strains and storage units the tests created stay: numbers are never reused, and neither a
@@ -69,8 +74,9 @@ from django.core.management.base import BaseCommand, CommandError
 from config.env import env_secret, env_str
 from cultures.audit.context import audit_context
 from cultures.audit.models import ActorKind, Channel
+from cultures.biosafety import entry_seed
 from cultures.biosafety import seeding as seed_biosafety
-from cultures.biosafety.models import AuthorisationKind, RestrictionKind
+from cultures.biosafety.models import AuthorisationKind
 from cultures.deposits import seeding as seed_deposits
 from cultures.deposits import services as deposits
 from cultures.deposits.models import (
@@ -97,7 +103,6 @@ from cultures.lineage.models import (
 from cultures.lineage.selectors import distributable
 from cultures.storage import seeding as seed_storage
 from cultures.storage.models import StorageUnit, UnitKind
-from cultures.strains import services as strains
 from cultures.strains.models import Strain
 from cultures.strains.seeding import SeedFacts
 from cultures.taxonomy import seeding as seed_taxa
@@ -110,16 +115,17 @@ LAB_NAME, LAB_CODE = "E2E lab", "E2E"
 COLLEAGUE = "e2e-colleague"
 DEPOSITOR = deposits.ContactInput("E2E Depositor", "e2e.depositor@example.org", "Example street 1")
 SEEDED_DEPOSIT = "B. subtilis e2e seed"
-REGULATED_DEPOSIT = "Testella exempli e2e regulated"
+COLI_DEPOSIT = "E. coli K-12 e2e seed"
+REGULATED_DEPOSIT = "Clostridium tetani e2e regulated"
 REGULATED_BOX = "Box R"
 CURATOR, TECHNICIAN, VIEWER = "e2e-curator", "e2e-technician", "e2e-viewer"
 APPROVER = "e2e-manager"
 OTHER_LAB_NAME, OTHER_LAB_CODE = "E2E other lab", "E2O"
 OUTSIDER, OTHER_MANAGER = "e2e-outsider", "e2e-other-manager"
-SUPPLY = "Testella exempli e2e supply"
-REGULATED_SUPPLY = "Mockia vulgaris e2e supply"
+SUPPLY = "Bacillus subtilis e2e supply"
+REGULATED_SUPPLY = "Clostridium perfringens e2e supply"
 INSTITUTE, UNNOTIFIED = "E2E Institute of Microbiology", "E2E Unnotified Laboratory"
-READY_TO_PREPARE = "E2E seed: research on a dual-use strain, approved and ready to prepare."
+READY_TO_PREPARE = "E2E seed: research on a risky agent (RAT), approved and ready to prepare."
 # Fewer free vials than this, and the next run releases another batch: the tests reserve some.
 MIN_FREE = 10
 
@@ -137,7 +143,10 @@ ENDED_PERMIT = seed_biosafety.SeedAuthorisation(
 # missing parent (cultures/taxonomy/seeding.py). Facts from LPSN
 # and NCBI Taxonomy: Bacillus Cohn 1872 (taxid 1386), B. subtilis (Ehrenberg 1835) Cohn 1872
 # (1423), basionym Vibrio subtilis Ehrenberg 1835; Escherichia Castellani and Chalmers 1919 (561),
-# E. coli (Migula 1895) Castellani and Chalmers 1919 (562), basionym Bacillus coli Migula 1895.
+# E. coli (Migula 1895) Castellani and Chalmers 1919 (562), basionym Bacillus coli Migula 1895;
+# Clostridium Prazmowski 1880 (1485), C. tetani (Flügge 1886) Bergey et al. 1923 (1513) and
+# C. perfringens (Veillon and Zuber 1898) Hauduroy et al. 1937 (1502); Brucella Meyer and Shaw
+# 1920 (234) and B. abortus (Meyer and Shaw 1920) Meyer and Shaw 1920 (235).
 TAXA: tuple[SeedTaxon, ...] = (
     SeedTaxon("Bacillus", "Cohn 1872", Rank.GENUS, ncbi="1386"),
     SeedTaxon(
@@ -153,12 +162,34 @@ TAXA: tuple[SeedTaxon, ...] = (
         ncbi="562",
     ),
     SeedTaxon("Bacillus coli", "Migula 1895", Rank.SPECIES, accepted="Escherichia coli"),
-    # Invented: the e2e tests pair it with restrictions to exercise the gates.
-    SeedTaxon("Testella", "", Rank.GENUS),
-    SeedTaxon("Testella exempli", "", Rank.SPECIES, "Testella"),
-    SeedTaxon("Mockia", "", Rank.GENUS),
-    SeedTaxon("Mockia vulgaris", "", Rank.SPECIES, "Mockia"),
+    SeedTaxon("Clostridium", "Prazmowski 1880", Rank.GENUS, ncbi="1485"),
+    SeedTaxon(
+        "Clostridium tetani",
+        "(Flügge 1886) Bergey et al. 1923",
+        Rank.SPECIES,
+        "Clostridium",
+        ncbi="1513",
+    ),
+    SeedTaxon(
+        "Clostridium perfringens",
+        "(Veillon and Zuber 1898) Hauduroy et al. 1937",
+        Rank.SPECIES,
+        "Clostridium",
+        ncbi="1502",
+    ),
+    SeedTaxon("Brucella", "Meyer and Shaw 1920", Rank.GENUS, ncbi="234"),
+    SeedTaxon(
+        "Brucella abortus",
+        "(Schmidt 1901) Meyer and Shaw 1920",
+        Rank.SPECIES,
+        "Brucella",
+        ncbi="235",
+    ),
 )
+# The entry codes of the strains (#211): what each says is read from the data files.
+TETANI_CODES = ("1.56", "annex-2 I.II 3")
+PERFRINGENS_CODES = ("1.55", "annex-2 I.II 2")
+STANDARD = "bacillus-subtilis-168"
 MTA = seed_deposits.SeedMta(
     "Standard MTA (invented example)",
     "The recipient uses the material for research only. (Invented example.)",
@@ -168,8 +199,6 @@ ALL_PERMITTED = seed_deposits.SeedTerms(
     AbsScope.NOT_IN_SCOPE, tuple((Use(use), Decision.PERMIT) for use in Use.values)
 )
 SEQUENCED = "16S rRNA gene sequence"
-# #169: what a seeded strain's risk group rests on. The e2e seed is development data.
-E2E_BASIS = "Seeded for the end-to-end tests (invented example)."
 GLYCEROL = "10 % glycerol"
 ALL_PASSED = "All three checks passed."
 # (name, rows, cols), the names seed_dev uses too.
@@ -179,7 +208,7 @@ TREE = seed_storage.SeedUnit(
     UnitKind.FREEZER,
     FREEZER,
     temperature_c=-20,
-    max_risk_group=1,
+    max_risk_group=2,  # the seeded group 2 strains lie in it
     children=(
         seed_storage.SeedUnit(
             UnitKind.RACK,
@@ -245,7 +274,7 @@ class Command(BaseCommand):
             f"{username} manages {lab.name}; {CURATOR}, {TECHNICIAN} and {VIEWER} are its"
             " curator, technician and viewer;"
             f" {COLLEAGUE} is in no lab; an ended permit; {len(TAXA)} taxa; a depositor, MTA STD"
-            f" and one accepted deposit; {len(BOX_TYPES)} box types; {FREEZER} > Rack 1 > Box 1;"
+            f" and two accepted deposits; {len(BOX_TYPES)} box types; {FREEZER} > Rack 1 > Box 1;"
             f" a regulated strain with two vials in {REGULATED_BOX}, revealed by {username};"
             " a released batch of the seeded strain; two strains that may go out, two"
             f" requesters and five requests, two approved, one of them regulated and approved"
@@ -254,7 +283,7 @@ class Command(BaseCommand):
         )
 
     def _deposit(self, lab: Lab, *, curator: User, manager: User) -> None:
-        """The depositor, the MTA and one accepted deposit, created through the services."""
+        """The depositor, the MTA and two accepted deposits, created through the services."""
         access = access_for(curator)
         seed_deposits.depositor(access, lab, DEPOSITOR, "Example University")
         seed_deposits.mta_versions(access_for(manager), lab, "STD", (MTA,))
@@ -272,8 +301,27 @@ class Command(BaseCommand):
                     "Bacillus subtilis",
                     date(2026, 10, 2),
                     SEQUENCED,
-                    risk_group=1,
-                    risk_group_basis=E2E_BASIS,
+                    classified=entry_seed.standard(STANDARD),
+                ),
+            ),
+        )
+        # Annex 7 lists E. coli (1.73) except non-pathogenic strains, so the lab's group 1 for K-12
+        # differs from the entry on its face: the Classification view reports it with the basis.
+        seed_deposits.deposit(
+            access,
+            lab,
+            seed_deposits.SeedDeposit(
+                COLI_DEPOSIT,
+                DEPOSITOR.name,
+                date(2026, 10, 1),
+                Condition.INTACT,
+                ALL_PERMITTED,
+                "accepted",
+                strain=SeedFacts(
+                    "Escherichia coli",
+                    date(2026, 10, 2),
+                    SEQUENCED,
+                    classified=entry_seed.standard("escherichia-coli-k12"),
                 ),
             ),
         )
@@ -296,16 +344,10 @@ class Command(BaseCommand):
                 ALL_PERMITTED,
                 "accepted",
                 strain=SeedFacts(
-                    "Testella exempli",
+                    "Clostridium tetani",
                     date(2026, 10, 4),
                     SEQUENCED,
-                    risk_group=1,
-                    risk_group_basis=E2E_BASIS,
-                    restrictions=(
-                        strains.RestrictionInput(
-                            RestrictionKind.CZ_RAT, "Příloha 2 (invented example)"
-                        ),
-                    ),
+                    classified=entry_seed.listed(TETANI_CODES),
                 ),
             ),
         )
@@ -362,12 +404,19 @@ class Command(BaseCommand):
     def _distribution(self, lab: Lab, *, curator: User, technician: User, approver: User) -> None:
         """Strains that may go out, the requesters and the five requests (#18, #88, #89)."""
         access = access_for(curator)
-        supply = self._supply(lab, SUPPLY, "Testella exempli", (), curator, technician)
+        supply = self._supply(
+            lab,
+            SUPPLY,
+            "Bacillus subtilis",
+            entry_seed.standard(STANDARD),
+            curator,
+            technician,
+        )
         regulated = self._supply(
             lab,
             REGULATED_SUPPLY,
-            "Mockia vulgaris",
-            (strains.RestrictionInput(RestrictionKind.DUAL_USE, "1C351.c", act="(EU) 2025/2003"),),
+            "Clostridium perfringens",
+            entry_seed.listed(PERFRINGENS_CODES),
             curator,
             technician,
         )
@@ -391,9 +440,10 @@ class Command(BaseCommand):
                         "SÚJB",
                         "SÚJB/DEV/17a/1 (invented example)",
                         date(2026, 1, 1),
-                        # The notice names its agent (§ 17a(3) a), #173): the risky agent of
-                        # the seed is the invented Testella exempli of REGULATED_DEPOSIT.
-                        covers="Testella exempli",
+                        # The notice names its agent (§ 17a(3) a), #173): the risky agent the
+                        # institute may receive is Clostridium perfringens, not the tetanus
+                        # agent of REGULATED_DEPOSIT.
+                        covers="Clostridium perfringens",
                     ),
                 ),
             ),
@@ -417,7 +467,7 @@ class Command(BaseCommand):
             ),
             seeding.SeedRequest(
                 INSTITUTE,
-                "E2E seed: research on a dual-use strain.",
+                "E2E seed: research on a risky agent (RAT).",
                 Use.RESEARCH_NONCOMMERCIAL,
                 2,
                 ((regulated, 1),),
@@ -455,7 +505,7 @@ class Command(BaseCommand):
                 2,
                 ((regulated, 1),),
                 approve=True,
-                reason="Dual-use inside the EU needs no licence (invented example).",
+                reason="The institute notified SÚJB of this agent under § 17a (invented example).",
                 renew=True,
             ),
             approver=access_for(approver),
@@ -467,7 +517,7 @@ class Command(BaseCommand):
         lab: Lab,
         name: str,
         taxon: str,
-        restrictions: tuple[strains.RestrictionInput, ...],
+        classified: entry_seed.Classified,
         curator: User,
         technician: User,
     ) -> Strain:
@@ -487,9 +537,7 @@ class Command(BaseCommand):
                     taxon,
                     date(2026, 10, 4),
                     SEQUENCED,
-                    risk_group=1,
-                    risk_group_basis=E2E_BASIS,
-                    restrictions=restrictions,
+                    classified=classified,
                 ),
             ),
         )

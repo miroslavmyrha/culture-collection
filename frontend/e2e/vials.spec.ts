@@ -2,7 +2,7 @@ import { type Browser, expect, type Page, test } from '@playwright/test'
 import { axe, signedInAs, username, watchCsp } from './support.js'
 
 // Batches and vials against the real API (seed_e2e: the B. subtilis strain from the seeded
-// deposit has its passage 0; a regulated Testella exempli strain has two vials in E2E freezer >
+// deposit has its passage 0; a regulated Clostridium tetani strain has two vials in E2E freezer >
 // Rack 1 > Box R; the e2e user holds the lab's location grant, e2e-curator does not). Vials and
 // units are never deleted, so each run preserves into a freezer of its own, named uniquely per
 // run, and finds its vials by that name. It works as the sessions auth.setup.ts signed in.
@@ -151,7 +151,7 @@ test('a viewer reads the batches and vials but is offered no bench work, and the
 
 test('a regulated strain hides its places from a curator without the grant; a holder reveals one', async ({ browser }) => {
   const curator = await as(browser, 'e2e-curator')
-  await openStrain(curator.page, /Testella exempli e2e regulated/)
+  await openStrain(curator.page, /Clostridium tetani e2e regulated/)
   const hidden = curator.page.getByRole('table', { name: 'Vials' })
   await expect(hidden.getByRole('row', { name: /Hidden: regulated strain/ })).toHaveCount(2)
   await expect(curator.page.getByText(/Box R/)).toHaveCount(0)
@@ -160,7 +160,7 @@ test('a regulated strain hides its places from a curator without the grant; a ho
 
   const keeper = await as(browser, username)
   const violations = await watchCsp(keeper.page)
-  await openStrain(keeper.page, /Testella exempli e2e regulated/)
+  await openStrain(keeper.page, /Clostridium tetani e2e regulated/)
   const reveal = keeper.page.getByRole('button', { name: /Reveal the location of vial .* \/ 1$/ })
   await expect(keeper.page.getByText(/Box R/)).toHaveCount(0)
   await reveal.focus()

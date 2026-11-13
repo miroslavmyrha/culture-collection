@@ -21,12 +21,14 @@ Two things the lists cannot answer are said in words, and never by a group of th
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+import re
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from . import lists
-from .models import RISK_GROUP_LIST, MatchScope
+from .models import RISK_GROUP_LIST, MatchScope, RestrictionKind
 
 
 class SeedEntryError(Exception):
@@ -45,6 +47,7 @@ class SeedEntry:
     risk_group: int | None
     match_name: str
     match_scope: str
+    version: str = ""  # the reading of the act the entry was read in
 
     @property
     def taxon(self) -> str:
@@ -59,7 +62,7 @@ class SeedEntry:
 class SeedRestriction:
     kind: str
     reference: str  # the entry's code, which the strain service resolves to the entry
-    act: str
+    act: str  # only a dual-use item names one: the regulation Annex I was read in, "(EU) 2025/2003"
 
 
 @dataclass(frozen=True)
@@ -90,6 +93,7 @@ def read_entries(data_dir: Path = lists.DATA_DIR) -> dict[str, list[SeedEntry]]:
                 risk_group=row["risk_group"],
                 match_name=row["match_name"],
                 match_scope=row["match_scope"],
+                version=payload["version"],
             )
             found.setdefault(entry.code, []).append(entry)
     return found
@@ -130,6 +134,19 @@ def _where(row: SeedEntry) -> str:
     return f"{row.act}, entry {row.code} ({row.name})"
 
 
+def _is_dual_use(row: SeedEntry) -> bool:
+    return row.restriction_kind == RestrictionKind.DUAL_USE
+
+
+def _eu_act(version: str) -> str:
+    """The act Annex I was read in, as the strain service wants it, from the CELEX number the
+    data file records as its version: 32025R2003 is "(EU) 2025/2003"."""
+    found = re.fullmatch(r"3(\d{4})R(\d{4})", version)
+    if found is None:
+        raise SeedEntryError(f"the version {version!r} is no CELEX number of a regulation")
+    return f"(EU) {found[1]}/{found[2]}"
+
+
 def listed(codes: Sequence[str], data_dir: Path = lists.DATA_DIR) -> Classified:
     """A strain of the entries these codes name. All name one taxon. The entry of annex 7, where
     there is one, gives the group and the basis points at it; every other list gives the
@@ -150,7 +167,9 @@ def listed(codes: Sequence[str], data_dir: Path = lists.DATA_DIR) -> Classified:
     if group is not None and group.risk_group is None:
         raise SeedEntryError(f"entry {group.code} of annex 7 states no group")
     restrictions = tuple(
-        SeedRestriction(row.restriction_kind, row.code, row.act)
+        SeedRestriction(
+            row.restriction_kind, row.code, _eu_act(row.version) if _is_dual_use(row) else ""
+        )
         for other in by_list.values()
         for row in other
         if row.restriction_kind
@@ -257,3 +276,25 @@ def species_under_genus(taxon: str, data_dir: Path = lists.DATA_DIR) -> Classifi
 def named_taxa(codes: Iterable[str], data_dir: Path = lists.DATA_DIR) -> list[str]:
     """The taxon each code names, for the seeds' list of taxa."""
     return [entry(code, data_dir).taxon for code in codes]
+
+
+def classify(spec: Mapping[str, Any], taxon: str, data_dir: Path = lists.DATA_DIR) -> Classified:
+    """What a seed row's ``classification`` comes to for a strain whose taxon is `taxon`.
+
+    The row says one of ``{"entries": [codes]}``, ``{"standard": key}`` or
+    ``{"under_genus": true}``, and nothing else: the taxon the entries name must be the strain's
+    own, or the seed is wrong and is refused.
+    """
+    if "entries" in spec:
+        made = listed(spec["entries"], data_dir)
+    elif "standard" in spec:
+        made = standard(spec["standard"], data_dir)
+    elif spec.get("under_genus"):
+        made = species_under_genus(taxon, data_dir)
+    else:
+        raise SeedEntryError(
+            f"a classification names entries, a standard organism or a genus: {dict(spec)}"
+        )
+    if made.taxon != taxon:
+        raise SeedEntryError(f"the classification is of {made.taxon}, the strain is {taxon}")
+    return made

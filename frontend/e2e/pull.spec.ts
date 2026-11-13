@@ -2,8 +2,8 @@ import { type Browser, expect, type Page, test } from '@playwright/test'
 import { axe, signedInAs, username, watchCsp } from './support.js'
 
 // The vials to pull for a shipment (#143) against the real API. The curator enters a request of
-// this run for two vials of Testella exempli e2e supply and one of Mockia vulgaris e2e supply
-// (dual-use, so its place is masked), with the signed MTA; the e2e user, the lab's manager,
+// this run for two vials of Bacillus subtilis e2e supply and one of Clostridium perfringens e2e supply
+// (a RAT, so its place is masked), with the signed MTA; the e2e user, the lab's manager,
 // approves it, which reserves the three. The curator builds a freezer of this run with Box 1
 // (slot 1) and Box 2 (slot 2), and e2e-technician puts the first supply vial into Box 2 A1, the
 // second into Box 1 C3 and the regulated one into Box 1 B1. The technician reads them on the
@@ -12,8 +12,8 @@ import { axe, signedInAs, username, watchCsp } from './support.js'
 // request is cancelled at the end, which frees the vials for the next run.
 
 const RUN = Date.now().toString(36)
-const SUPPLY = 'Testella exempli e2e supply'
-const REGULATED = 'Mockia vulgaris e2e supply'
+const SUPPLY = 'Bacillus subtilis e2e supply'
+const REGULATED = 'Clostridium perfringens e2e supply'
 type Row = Record<string, unknown>
 
 async function as(browser: Browser, user: string) {
@@ -102,7 +102,7 @@ test('a technician reads where the reserved vials lie, in walk order, and a regu
   const [box1 = '', box2 = ''] = await freezerWithBoxes(curator.page, lab, freezer, ['Box 1', 'Box 2'])
 
   const manager = await as(browser, username)
-  await api(manager.page, lab, `requests/${request.id}/approve/`, { reason: 'Dual-use inside the EU: no licence needed.' })
+  await api(manager.page, lab, `requests/${request.id}/approve/`, { reason: 'The institute notified SÚJB of this agent (invented example).' })
   const lines = rows(await api(curator.page, lab, `requests/${request.id}/`), 'lines')
   const reserved = (line: Row | undefined) => rows(line, 'reserved').toSorted((a, b) => text(a, 'label').localeCompare(text(b, 'label'), 'en', { numeric: true }))
   const [first, second] = reserved(lines[0])

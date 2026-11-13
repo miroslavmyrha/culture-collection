@@ -1319,3 +1319,24 @@ which facility the authorisation is for, so it is not compared with the facility
 names, and the designation itself is not verified against the authority.
 
 Each rule, its source, its code and its tests are in `docs/compliance.md` (R-DIST-16).
+## Amendment 2026-11-12: the seeds hold real taxa and read their classification from the lists (#211)
+
+A seed that types a risk group or a restriction kind beside an invented name states a legal
+fact nobody read, and a demo built on it teaches the wrong classification. The development and
+e2e seeds now hold real taxa and name list entry codes only. A script
+(`biosafety.entry_seed`) reads the taxon, the group, the pointer and the restrictions out of the
+data files, so a strain of a listed agent carries the group its entry states and points at it.
+
+- **Group 1 is for four standard organisms.** Escherichia coli K-12, Bacillus subtilis 168,
+  Lactococcus lactis and Pseudomonas putida KT2440 are not group 2 to 4 agents on the list, and
+  the basis says so in words, because an unlisted agent is not thereby group 1. E. coli K-12 sits
+  under an entry that excepts non-pathogenic strains, so the Classification view reports it with
+  the reason recorded. Saccharomyces cerevisiae is on annex 7 (group 2), so it is seeded at its
+  entry's group.
+- **A species under a "spp." genus** keeps the genus entry's group and says that it holds until
+  a person decides, because the texts do not say whether a named species is a known human
+  pathogen (R-RISK-10).
+- **The view shows the reason.** A finding of a group that differs from the entry carries the
+  basis the collection recorded, so it reads as a case a person accepted.
+
+Each rule, its source, its code and its tests are in `docs/compliance.md` (R-SEED-01, R-RISK-10).

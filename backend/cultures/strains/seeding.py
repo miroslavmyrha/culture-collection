@@ -12,6 +12,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date
 
+from cultures.biosafety import entry_seed
+from cultures.biosafety.models import RegulatoryListEntry, RestrictionKind
+from cultures.biosafety.selectors import risk_group_entries
 from cultures.growth import seeding as seed_growth
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
@@ -28,15 +31,15 @@ class SeedFacts:
     taxon: str
     identified_on: date
     identification_method: str
-    risk_group: int
-    # #169: what the risk group rests on. For a real taxon it is the taxon entry's
-    # risk_group_source of the data file; for an invented one the strain row says it.
-    risk_group_basis: str
+    # #211: the group, the entry it was read in, the basis in words and the restrictions of the
+    # lists, all read out of the data files by entry code (biosafety.entry_seed).
+    classified: entry_seed.Classified
     animal_pathogenicity: Pathogenicity = Pathogenicity.UNKNOWN
     plant_pathogenicity: Pathogenicity = Pathogenicity.UNKNOWN
     isolation_source: str = ""
     country_of_origin: str = ""
     isolation_date: str = ""
+    # Restrictions no list gives, such as a GMO authorisation.
     restrictions: Sequence[services.RestrictionInput] = field(default_factory=tuple)
 
 
@@ -90,12 +93,46 @@ class SeedStrain:
     history: Sequence[Step] = field(default_factory=tuple)
 
 
+@dataclass(frozen=True)
+class Resolved:
+    """What the strain services are given for a classification read from the data files."""
+
+    risk_group: int
+    basis: str
+    entry: RegulatoryListEntry | None
+    restrictions: list[services.RestrictionInput]
+
+
+def resolve(name: str, facts: SeedFacts) -> Resolved:
+    """The group, the basis, the annex 7 entry the group was read in (one row of the current
+    reading of the list) and every restriction: the lists' own, then the ones no list gives."""
+    classified = facts.classified
+    if classified.risk_group is None:
+        raise entry_seed.SeedEntryError(f"{name}: no entry states a risk group")
+    entry = (
+        risk_group_entries().get(code=classified.risk_group_entry)
+        if classified.risk_group_entry
+        else None
+    )
+    return Resolved(
+        classified.risk_group,
+        classified.basis,
+        entry,
+        [
+            services.RestrictionInput(RestrictionKind(r.kind), r.reference, r.act)
+            for r in classified.restrictions
+        ]
+        + list(facts.restrictions),
+    )
+
+
 def strain(curator: Access, manager: Access, lab: Lab, data: SeedStrain) -> bool:
     """The strain with its history, entered by `curator`; `manager` confirms the end of a
     restriction and a lower risk group. True when created."""
     if Strain.objects.filter(lab=lab, name_as_received=data.name_as_received).exists():
         return False
     facts = data.facts
+    resolved = resolve(data.name_as_received, facts)
     made = services.strain_create(
         access=curator,
         lab=lab,
@@ -104,14 +141,15 @@ def strain(curator: Access, manager: Access, lab: Lab, data: SeedStrain) -> bool
             taxon=seed_taxa.named(facts.taxon),
             identified_on=facts.identified_on,
             identification_method=facts.identification_method,
-            risk_group=facts.risk_group,
-            risk_group_basis=facts.risk_group_basis,
+            risk_group=resolved.risk_group,
+            risk_group_basis=resolved.basis,
+            risk_group_entry=resolved.entry,
             animal_pathogenicity=facts.animal_pathogenicity,
             plant_pathogenicity=facts.plant_pathogenicity,
             isolation_source=facts.isolation_source,
             country_of_origin=facts.country_of_origin,
             isolation_date=facts.isolation_date,
-            restrictions=list(facts.restrictions),
+            restrictions=resolved.restrictions,
         ),
     )
     for step in data.history:

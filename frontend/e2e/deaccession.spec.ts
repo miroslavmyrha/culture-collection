@@ -4,10 +4,10 @@ import { riskGroupBasis, signedInAs } from './support.js'
 // Walkthrough C10 (#20): a curator deaccessions a strain that no longer grows, against the real
 // API. The strain, its storage and its two vials are this run's own, made through the API with
 // e2e-curator's session: strains are never deleted, so the spec finds its own by a run-unique
-// name. Testella exempli is invented and has no restriction here, so one person may do it.
+// name. A Bacillus subtilis strain has no restriction here, so one person may do it.
 
 const RUN = Date.now().toString(36)
-const NAME = `Testella exempli gone ${RUN}`
+const NAME = `Bacillus subtilis gone ${RUN}`
 
 test('C10: a curator deaccessions a strain that no longer grows; its vials are to be destroyed and the list hides it', async ({ browser }) => {
   const context = await browser.newContext({ storageState: signedInAs('e2e-curator') })
@@ -43,9 +43,9 @@ test('C10: a curator deaccessions a strain that no longer grows; its vials are t
         terms: { mta: null, abs_scope: 'unknown', uses: uses.map((use) => ({ use, decision: 'on_request' })) },
       })
       await send(`deposits/${deposit.public_id}/start-check/`, {})
-      const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=exempli')
+      const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=subtilis')
       const accepted = await send(`deposits/${deposit.public_id}/accept/`, {
-        taxon: taxa.results.find((t) => t.name === 'Testella exempli')?.public_id,
+        taxon: taxa.results.find((t) => t.name === 'Bacillus subtilis')?.public_id,
         identified_on: today,
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,

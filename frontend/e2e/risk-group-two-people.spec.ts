@@ -4,11 +4,10 @@ import { riskGroupBasis, signedInAs, username } from './support.js'
 // A risk group drops by two people (#174, ADR 0009): e2e-curator raises a strain of this run to
 // group 2 in one step, proposes group 1 with the basis it rests on, and the e2e user, a manager,
 // confirms it on the strain page. The strain is this run's own, made through the API with the
-// curator's session. Testella exempli is invented, so no real organism is shown with a group it
-// does not have.
+// curator's session. The strain is an E. coli strain of this run.
 
 const RUN = Date.now().toString(36)
-const NAME = `Testella exempli group ${RUN}`
+const NAME = `Escherichia coli group ${RUN}`
 const BASIS = 'NV 361/2007 Sb., Příloha 7: the agent is in none of the groups 2 to 4.'
 
 test('a curator proposes a lower risk group and a manager confirms it', async ({ browser }) => {
@@ -45,9 +44,9 @@ test('a curator proposes a lower risk group and a manager confirms it', async ({
         terms: { mta: null, abs_scope: 'unknown', uses: uses.map((use) => ({ use, decision: 'on_request' })) },
       })
       await send(`deposits/${deposit.public_id}/start-check/`, {})
-      const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=exempli')
+      const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=coli')
       const accepted = await send(`deposits/${deposit.public_id}/accept/`, {
-        taxon: taxa.results.find((t) => t.name === 'Testella exempli')?.public_id,
+        taxon: taxa.results.find((t) => t.name === 'Escherichia coli')?.public_id,
         identified_on: today,
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,

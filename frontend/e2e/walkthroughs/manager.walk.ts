@@ -213,11 +213,12 @@ test('M12 put a colleague on the VRAT access list and print it for SÚJB', async
 })
 
 test('M11 approve a request for a regulated strain', async ({ browser }, info) => {
-  // A strain of an invented taxon with a dual-use restriction, released stock, and a request of
-  // the seeded requester with its MTA accepted: only a manager may approve it.
+  // A Clostridium perfringens strain (annex 7 entry 1.55, group 2, and a RAT of decree 474/2002
+  // Sb.), released stock, and a request of the seeded requester with its MTA accepted: only a
+  // manager may approve it.
   const setup = await setupAs(browser, 'bac-curator')
   const lab = await labId(setup.page, BAC)
-  const strain = await supplyStrain(setup.page, lab, `Testella cerea supply ${RUN}`, 'Testella cerea', [{ kind: 'dual_use', reference: '1C351.c', act: '(EU) 2025/2003' }])
+  const strain = await supplyStrain(setup.page, lab, `Clostridium perfringens supply ${RUN}`, 'Clostridium perfringens', [{ kind: 'cz_rat', reference: 'annex-2 I.II 2', act: '' }], 4, 2)
   const made = await batchOf(setup.page, lab, strain.passage, 4)
   await setup.close()
   const bench = await setupAs(browser, 'bac-technician')
@@ -234,7 +235,7 @@ test('M11 approve a request for a regulated strain', async ({ browser }, info) =
   await openWaiting(w, 'Requests to decide', `Request ${request.number}, Example Institute of Microbiology`)
   await w.read(w.page.getByRole('list', { name: 'Needs a manager’s approval' }))
   await w.click(w.page.getByRole('button', { name: 'Approve and reserve the vials' }))
-  await w.keys('Dual-use inside the EU: no licence is needed for the transfer.')
+  await w.keys('The requester notified SÚJB of this agent under § 17a (walkthrough example).')
   await w.click(w.page.getByRole('dialog').getByRole('button', { name: 'Approve and reserve' }))
   const reserved = w.page.getByRole('table', { name: 'Strains' }).getByRole('row').nth(1).getByRole('cell').nth(4)
   await expect(reserved).toHaveText(new RegExp(`^${strain.number} / 1 / \\d+; ${strain.number} / 1 / \\d+$`))

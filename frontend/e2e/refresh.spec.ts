@@ -5,8 +5,8 @@ import { riskGroupBasis, signedInAs, username } from './support.js'
 // The strain, its restriction, storage and vial are this run's own, made through the API with
 // the session auth.setup.ts signed in: strains and vials are never deleted and a restriction ends
 // only once, so no other spec's data changes. e2e-curator proposes the end and the e2e user, a
-// manager, confirms it (#105). Testella exempli is invented, so a GMO entry on it
-// states nothing about a real organism.
+// manager, confirms it (#105). The strain is a laboratory E. coli
+// strain with an invented GMO entry.
 
 const RUN = Date.now().toString(36)
 
@@ -38,14 +38,14 @@ test("ending a restriction shows the vial's place on the strain page without a r
       depositor: depositors.results[0]?.public_id,
       received_on: new Date().toLocaleDateString('sv'),
       condition: 'intact',
-      name_as_received: `Testella exempli refresh ${run}`,
+      name_as_received: `Escherichia coli refresh ${run}`,
       terms: { mta: null, abs_scope: 'unknown', uses: uses.map((use) => ({ use, decision: 'on_request' })) },
     })
     await send(`deposits/${deposit.public_id}/start-check/`, {})
-    const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=exempli')
+    const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=coli')
     const reference = `MŽP/DEV/${run} (invented example)`
     const accepted = await send(`deposits/${deposit.public_id}/accept/`, {
-      taxon: taxa.results.find((t) => t.name === 'Testella exempli')?.public_id,
+      taxon: taxa.results.find((t) => t.name === 'Escherichia coli')?.public_id,
       identified_on: new Date().toLocaleDateString('sv'),
       identification_method: 'MALDI-TOF MS',
       risk_group: 1,

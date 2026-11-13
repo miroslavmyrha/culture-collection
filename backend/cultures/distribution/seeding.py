@@ -45,6 +45,24 @@ SEED_SHIPMENT = services.ShipmentInput(
     carrier="Example Courier (invented example)",
     tracking_number="DEV0000001CZ",
 )
+# A request with a pathogen in it cannot be exempt as non-pathogenic: it travels as UN 3373.
+SEED_SHIPMENT_CATEGORY_B = services.ShipmentInput(
+    transport_class=TransportClass.UN3373,
+    classification_basis=ClassificationBasis.PROFESSIONAL_JUDGEMENT,
+    basis_note="A group 2 agent, so the shipper does not claim the exemption (invented example).",
+    packing_instruction=PackingInstruction.P650,
+    responsible=services.ContactInput("Invented Responsible Person", phone="+420 555 000 111"),
+    carrier="Example Courier (invented example)",
+    tracking_number="DEV0000002CZ",
+)
+
+
+def _package_for(made: DistributionRequest) -> services.ShipmentInput:
+    pathogen = any(
+        line.strain.risk_group >= 2  # noqa: PLR2004
+        for line in made.lines.select_related("strain")
+    )
+    return SEED_SHIPMENT_CATEGORY_B if pathogen else SEED_SHIPMENT
 
 
 @dataclass(frozen=True)
@@ -173,9 +191,11 @@ def _ship(
     """Ships the request: in one step, or prepared by the shipper and confirmed by the second
     person when the entry names a confirmer."""
     if confirmer is None:
-        return services.request_ship(access=shipper or access, request=made, data=SEED_SHIPMENT)
+        return services.request_ship(
+            access=shipper or access, request=made, data=_package_for(made)
+        )
     made = services.request_prepare_shipment(
-        access=shipper or access, request=made, data=SEED_SHIPMENT
+        access=shipper or access, request=made, data=_package_for(made)
     )
     prepared = made.preparations.get(withdrawn_at__isnull=True)
     return services.request_confirm_shipment(

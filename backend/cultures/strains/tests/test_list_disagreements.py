@@ -177,7 +177,7 @@ def test_an_entry_of_annex_7_that_states_another_group_is_listed(
     assert (Disagreement.RISK_GROUP_DIFFERS, "", entry.code) in found
 
 
-@pytest.mark.rule("R-MATCH-02")
+@pytest.mark.rule("R-MATCH-02", "R-RISK-10")
 def test_a_group_that_differs_carries_the_reason_the_collection_recorded(
     make_strain: MakeStrain, manager: User
 ) -> None:

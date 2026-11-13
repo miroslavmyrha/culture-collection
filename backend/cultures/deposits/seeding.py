@@ -15,6 +15,7 @@ from typing import Literal
 
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
+from cultures.strains import seeding as seed_strains
 from cultures.strains.models import Strain
 from cultures.strains.seeding import SeedFacts
 from cultures.taxonomy import seeding as seed_taxa
@@ -109,6 +110,7 @@ def deposit(access: Access, lab: Lab, data: SeedDeposit) -> tuple[Deposit, bool]
         return made, True
     facts = data.strain
     assert facts is not None  # noqa: S101 (an accepted deposit names its strain)
+    resolved = seed_strains.resolve(data.name_as_received, facts)
     made = services.deposit_accept(
         access=access,
         deposit=made,
@@ -116,14 +118,15 @@ def deposit(access: Access, lab: Lab, data: SeedDeposit) -> tuple[Deposit, bool]
             taxon=seed_taxa.named(facts.taxon),
             identified_on=facts.identified_on,
             identification_method=facts.identification_method,
-            risk_group=facts.risk_group,
-            risk_group_basis=facts.risk_group_basis,
+            risk_group=resolved.risk_group,
+            risk_group_basis=resolved.basis,
+            risk_group_entry=resolved.entry,
             animal_pathogenicity=facts.animal_pathogenicity,
             plant_pathogenicity=facts.plant_pathogenicity,
             isolation_source=facts.isolation_source,
             country_of_origin=facts.country_of_origin,
             isolation_date=facts.isolation_date,
-            restrictions=list(facts.restrictions),
+            restrictions=resolved.restrictions,
         ),
     )
     return made, True

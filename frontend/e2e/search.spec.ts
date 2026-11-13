@@ -4,8 +4,8 @@ import { axe, riskGroupBasis, signedInAs, watchCsp } from './support.js'
 // The top bar's search (#76) against the real API (seed_e2e: "E2E lab" with its seeded strain
 // E2E 1, e2e-viewer and e2e-technician in it; e2e-outsider views only "E2E other lab"). The scan
 // test makes a strain of this run with one vial and a barcode unique to the run, through the API
-// as e2e-curator: strains and vials are never deleted, so each run finds its own. Testella
-// exempli is invented, so nothing here states a fact about a real organism.
+// as e2e-curator: strains and vials are never deleted, so each run finds its own. The strain is a
+// Bacillus subtilis strain of this run.
 
 const RUN = Date.now().toString(36)
 
@@ -45,9 +45,9 @@ async function vialWithBarcode(page: Page, name: string, barcode: string) {
         terms: { mta: null, abs_scope: 'unknown', uses: uses.map((use) => ({ use, decision: 'permit' })) },
       })
       await send(`deposits/${deposit.public_id}/start-check/`, {})
-      const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=exempli')
+      const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=subtilis')
       const accepted = await send<{ strain: { public_id: string; accession_number: string } | null }>(`deposits/${deposit.public_id}/accept/`, {
-        taxon: taxa.results.find((t) => t.name === 'Testella exempli')?.public_id,
+        taxon: taxa.results.find((t) => t.name === 'Bacillus subtilis')?.public_id,
         identified_on: new Date().toLocaleDateString('sv'),
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,
@@ -105,7 +105,7 @@ test('a viewer finds a strain by its number from the top bar and opens it by key
 test('a technician scans a vial barcode into the search and lands on its strain with that vial', async ({ browser }) => {
   const curator = await as(browser, 'e2e-curator')
   await curator.page.goto('/')
-  const made = await vialWithBarcode(curator.page, `Testella exempli search ${RUN}`, `SCAN-${RUN}`)
+  const made = await vialWithBarcode(curator.page, `Bacillus subtilis search ${RUN}`, `SCAN-${RUN}`)
   await curator.close()
 
   const { page, close } = await as(browser, 'e2e-technician')
@@ -140,7 +140,7 @@ test('a viewer of another lab finds nothing of E2E lab, at 320 px, where the sea
   // Full width under the bar's controls, inside the screen.
   const box = await search.boundingBox()
   expect(box?.width ?? 0).toBeGreaterThan(260)
-  for (const text of ['E2E 1', 'Testella exempli e2e regulated', 'Box R']) {
+  for (const text of ['E2E 1', 'Clostridium tetani e2e regulated', 'Box R']) {
     await search.fill(text)
     await expect(bar.getByText(`No results for “${text}”.`, { exact: false })).toBeVisible()
   }

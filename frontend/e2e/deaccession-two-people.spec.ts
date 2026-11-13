@@ -3,11 +3,11 @@ import { riskGroupBasis, signedInAs, username } from './support.js'
 
 // A regulated strain leaves the collection by two people (#20, ADR 0009): e2e-curator proposes
 // it on the strain page, and the e2e user, a manager, confirms it there. The strain, its storage
-// and its vials are this run's own, made through the API with the curator's session. Testella
-// exempli is invented, so its GMO entry states nothing about a real organism.
+// and its vials are this run's own, made through the API with the curator's session. The GMO entry is
+// an invented example on a laboratory E. coli strain.
 
 const RUN = Date.now().toString(36)
-const NAME = `Testella exempli two ${RUN}`
+const NAME = `Escherichia coli two ${RUN}`
 
 test('a curator proposes the deaccession of a regulated strain and a manager confirms it', async ({ browser }) => {
   const curator = await browser.newContext({ storageState: signedInAs('e2e-curator') })
@@ -43,9 +43,9 @@ test('a curator proposes the deaccession of a regulated strain and a manager con
         terms: { mta: null, abs_scope: 'unknown', uses: uses.map((use) => ({ use, decision: 'on_request' })) },
       })
       await send(`deposits/${deposit.public_id}/start-check/`, {})
-      const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=exempli')
+      const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=coli')
       const accepted = await send(`deposits/${deposit.public_id}/accept/`, {
-        taxon: taxa.results.find((t) => t.name === 'Testella exempli')?.public_id,
+        taxon: taxa.results.find((t) => t.name === 'Escherichia coli')?.public_id,
         identified_on: today,
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,

@@ -2,7 +2,7 @@ import { type Browser, expect, type Locator, type Page, test } from '@playwright
 import { axe, ratio, ring, signedInAs, surfaceOf, tabTo, username, watchCsp } from './support.js'
 
 // The box grid (#15) against the real API. seed_e2e: the B. subtilis strain has its passage 0,
-// the regulated Testella exempli strain has two vials in E2E freezer > Rack 1 > Box R (A1, A2),
+// the regulated Clostridium tetani strain has two vials in E2E freezer > Rack 1 > Box R (A1, A2),
 // e2e-user holds the lab's location grant, e2e-technician handles vials, e2e-viewer reads.
 // Vials and units are never deleted, so each run preserves into a box of its own, named per run.
 // It works as the sessions auth.setup.ts signed in.
@@ -91,7 +91,7 @@ async function boxR(page: Page) {
     units.find((u) => u.kind === 'box' && u.name === 'Box R'),
     'public_id',
   )
-  const strain = rows((await call(page, lab, `strains/?search=${encodeURIComponent('Testella exempli e2e regulated')}`)).json)[0]
+  const strain = rows((await call(page, lab, `strains/?search=${encodeURIComponent('Clostridium tetani e2e regulated')}`)).json)[0]
   const vials = rows((await call(page, lab, `vials/?strain=${text(strain, 'public_id')}`)).json)
   const identities = [
     ...['public_id', 'accession_number', 'name_as_received'].map((key) => text(strain, key)),
@@ -178,13 +178,13 @@ test('a regulated vial is an occupied position with no identity, in the page and
     const { page, close } = await as(browser, user)
     const { lab, box, identities } = await boxR(page)
     const answer = await call(page, lab, `boxes/${box}/`)
-    // The organism too (#80): the seed's regulated strain is Testella exempli.
-    for (const identity of [...identities, 'Testella exempli']) expect(answer.text, `${user}: API ${identity}`).not.toContain(identity)
+    // The organism too (#80): the seed's regulated strain is Clostridium tetani.
+    for (const identity of [...identities, 'Clostridium tetani']) expect(answer.text, `${user}: API ${identity}`).not.toContain(identity)
     await page.goto(`/labs/${lab}/storage/${box}`)
     await expect(cell(page, 'Box R', 'A1, occupied, regulated')).toHaveText('Hidden')
     await expect(cell(page, 'Box R', 'A2, occupied, regulated')).toBeVisible()
     const html = await page.content()
-    for (const identity of [...identities, 'Testella exempli']) expect(html, `${user}: page ${identity}`).not.toContain(identity)
+    for (const identity of [...identities, 'Clostridium tetani']) expect(html, `${user}: page ${identity}`).not.toContain(identity)
     await expect(page.getByRole('button', { name: /Reveal/ })).toHaveCount(0)
     await cell(page, 'Box R', 'A1, occupied, regulated').focus()
     await expect(page.getByText('Position A1: a vial of a regulated strain. Which one is hidden.')).toBeVisible()

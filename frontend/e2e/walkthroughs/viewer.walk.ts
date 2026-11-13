@@ -58,7 +58,7 @@ test('V5 see a strain\'s history', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-viewer', viewer('V5', 'See the history of a reclassified strain'))
   await w.start()
   await openStrains(w, LAB)
-  await findStrain(w, 'Fictivibrio', /Fictivibrio exempli/)
+  await findStrain(w, 'Vibrio subtilis', /Vibrio subtilis/)
   await openTab(w, 'History')
   const history = w.page.getByRole('list', { name: 'History, newest first' })
   await expect(history).toContainText(/identified BAC \d+ anew/)
@@ -112,15 +112,15 @@ test('V8 find soil isolates from Czechia', async ({ browser }, info) => {
 })
 
 test('V9 look up how to grow a strain', async ({ browser }, info) => {
-  const w = await Walk.as(browser, info, 'bac-viewer', viewer('V9', 'Look up the medium and temperature to grow BAC 28'))
+  const w = await Walk.as(browser, info, 'bac-viewer', viewer('V9', 'Look up the medium and temperature to grow BAC 9'))
   await w.start()
-  // seed_dev: BAC 28 (Fictivibrio exempli, invented) is grown on LB at 25 to 37 °C (#79). BAC 18 is a real taxon and has none recorded.
-  await searchStrain(w, 'BAC 28')
+  // seed_dev: BAC 9 (E. coli K-12) is grown on LB at 25 to 37 °C (#79). BAC 18 (Lactococcus lactis) has none recorded.
+  await searchStrain(w, 'BAC 9')
   const facts = w.page.getByRole('region', { name: 'Growth conditions' })
   await w.read(facts)
   await expect(facts).toContainText('LB (Luria-Bertani), DSMZ medium 381')
   await expect(facts).toContainText('25 to 37 °C')
-  await expect(facts).toContainText('Microaerophilic')
+  await expect(facts).toContainText('Aerobic')
   await w.done()
 })
 

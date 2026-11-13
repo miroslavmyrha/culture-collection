@@ -2,8 +2,8 @@ import { type Browser, expect, type Page, test } from '@playwright/test'
 import { axe, signedInAs, username, watchCsp } from './support.js'
 
 // Requests for material (#18, part A) against the real API. seed_e2e made two strains that may
-// go out (Testella exempli and Mockia vulgaris e2e supply, invented taxa, the second with a
-// dual-use restriction so a manager approves it), the requesters E2E Institute of Microbiology
+// go out (Bacillus subtilis and Clostridium perfringens e2e supply, the second a risky agent (RAT)
+// at group 2, so a manager approves it), the requesters E2E Institute of Microbiology
 // and E2E Unnotified Laboratory, and a request blocked by a legal gate. The request of the
 // first test names the run in its end use; it is cancelled at the end, which frees its vial
 // for the next run. The shipment test (#88) enters, approves and ships a request of its own:
@@ -54,14 +54,14 @@ test('a curator enters a request with the signed MTA and a manager approves it, 
   await form.getByRole('textbox', { name: 'End use' }).fill(`Growth curves of run ${RUN}.`)
   await form.getByRole('combobox', { name: 'Declared containment level' }).selectOption('2')
   const strain = form.getByRole('combobox', { name: 'Strain 1' })
-  await strain.fill('Mockia vulgaris e2e')
-  await curator.page.getByRole('option', { name: /Mockia vulgaris/ }).first().click()
+  await strain.fill('Clostridium perfringens e2e')
+  await curator.page.getByRole('option', { name: /Clostridium perfringens/ }).first().click()
   await form.getByRole('button', { name: 'Enter the request' }).click()
 
   await expect(curator.page.getByRole('heading', { level: 1, name: /^Request \d{4}\/\d+$/ })).toBeVisible()
   const requestUrl = curator.page.url()
   await expect(curator.page.getByRole('list', { name: 'Blocks the approval' })).toContainText('no acceptance of MTA STD version 1')
-  await expect(curator.page.getByRole('list', { name: 'Needs a manager’s approval' })).toContainText('is regulated (dual_use): a manager approves it.')
+  await expect(curator.page.getByRole('list', { name: 'Needs a manager’s approval' })).toContainText('is regulated (cz_rat): a manager approves it.')
 
   await curator.page.getByRole('button', { name: 'Record an acceptance' }).click()
   const dialog = curator.page.getByRole('dialog', { name: 'Record an acceptance of the MTA' })
@@ -82,10 +82,10 @@ test('a curator enters a request with the signed MTA and a manager approves it, 
   await manager.page.getByRole('button', { name: 'Approve and reserve the vials' }).click()
   const approve = manager.page.getByRole('dialog', { name: /^Approve request/ })
   expect(await axe(manager.page, '[role="dialog"]')).toEqual([])
-  await approve.getByRole('textbox', { name: 'Reason' }).fill('Dual-use inside the EU: no licence needed.')
+  await approve.getByRole('textbox', { name: 'Reason' }).fill('The institute notified SÚJB of this agent (invented example).')
   await approve.getByRole('button', { name: 'Approve and reserve' }).click()
   await expect(approve).toBeHidden()
-  await expect(manager.page.getByText(new RegExp(`Approved by ${username} on .*: Dual-use inside the EU`))).toBeVisible()
+  await expect(manager.page.getByText(new RegExp(`Approved by ${username} on .*: The institute notified SÚJB`))).toBeVisible()
   const reservedCell = manager.page.getByRole('table', { name: 'Strains' }).getByRole('row').nth(1).getByRole('cell').nth(4)
   await expect(reservedCell).toHaveText(/^\S+ \d+ \/ \d+ \/ \d+$/)
 
@@ -144,7 +144,7 @@ test('a viewer reads the requests and what is reserved, at 320 px, and the API r
 })
 
 test('a curator ships an approved request by keyboard and its vial shows as distributed', async ({ browser }) => {
-  // Entered, accepted and approved here (Testella exempli e2e supply: no finding needs a
+  // Entered, accepted and approved here (Bacillus subtilis e2e supply: no finding needs a
   // manager), so every run ships a request of its own.
   const curator = await as(browser, 'e2e-curator')
   const violations = await watchCsp(curator.page)
@@ -156,8 +156,8 @@ test('a curator ships an approved request by keyboard and its vial shows as dist
   await form.getByRole('combobox', { name: 'Use' }).selectOption('teaching')
   await form.getByRole('textbox', { name: 'End use' }).fill(`Shipped in run ${RUN}.`)
   await form.getByRole('combobox', { name: 'Declared containment level' }).selectOption('1')
-  // The full name: 'Testella exempli e2e' also finds the regulated strain of the vial tests.
-  await form.getByRole('combobox', { name: 'Strain 1' }).fill('Testella exempli e2e supply')
+  // The full name: 'Bacillus subtilis e2e' also finds the regulated strain of the vial tests.
+  await form.getByRole('combobox', { name: 'Strain 1' }).fill('Bacillus subtilis e2e supply')
   const choices = page.getByRole('listbox').getByRole('option')
   await expect(choices).toHaveCount(1)
   await choices.click()
@@ -280,8 +280,8 @@ async function approvedRegulatedRequest(browser: Browser, lab: string) {
     await form.getByRole('combobox', { name: 'Use' }).selectOption('research_noncommercial')
     await form.getByRole('textbox', { name: 'End use' }).fill(`Prepared and confirmed in run ${RUN}.`)
     await form.getByRole('combobox', { name: 'Declared containment level' }).selectOption('2')
-    await form.getByRole('combobox', { name: 'Strain 1' }).fill('Mockia vulgaris e2e')
-    await curator.page.getByRole('option', { name: /Mockia vulgaris/ }).first().click()
+    await form.getByRole('combobox', { name: 'Strain 1' }).fill('Clostridium perfringens e2e')
+    await curator.page.getByRole('option', { name: /Clostridium perfringens/ }).first().click()
     await form.getByRole('button', { name: 'Enter the request' }).click()
     await expect(curator.page.getByRole('heading', { level: 1, name: /^Request \d{4}\/\d+$/ })).toBeVisible()
     const requestUrl = curator.page.url()
@@ -302,7 +302,7 @@ async function approvedRegulatedRequest(browser: Browser, lab: string) {
       await approver.page.goto(requestUrl)
       await approver.page.getByRole('button', { name: 'Approve and reserve the vials' }).click()
       const dialog = approver.page.getByRole('dialog', { name: /^Approve request/ })
-      await dialog.getByRole('textbox', { name: 'Reason' }).fill('Dual-use inside the EU: no licence needed.')
+      await dialog.getByRole('textbox', { name: 'Reason' }).fill('The institute notified SÚJB of this agent (invented example).')
       await dialog.getByRole('button', { name: 'Approve and reserve' }).click()
       await expect(dialog).toBeHidden()
       await expect(approver.page.getByText(/Approved by e2e-manager on /)).toBeVisible()
@@ -342,8 +342,10 @@ test('a curator prepares a regulated shipment, and a manager who did not approve
   const dialog = page.getByRole('dialog', { name: /^Prepare the shipment of request/ })
   await expect(dialog.getByRole('combobox', { name: 'Transport class' })).toBeFocused()
   expect(await axe(page, '[role="dialog"]')).toEqual([])
+  // A risk group 2 strain is not exempt as non-pathogenic: UN 3373 on the indicative list.
+  await dialog.getByRole('combobox', { name: 'Transport class' }).selectOption('un3373')
   await page.keyboard.press('Tab')
-  await dialog.getByRole('combobox', { name: 'Basis of the classification' }).selectOption('exempt_non_pathogenic')
+  await dialog.getByRole('combobox', { name: 'Basis of the classification' }).selectOption('indicative_list')
   await dialog.getByRole('textbox', { name: 'Responsible person', exact: true }).focus()
   await page.keyboard.type('E2E Responsible')
   await page.keyboard.press('Tab')

@@ -1,14 +1,14 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
 import { axe, signedInAs, username, watchCsp } from './support.js'
 
-// The reveal log (#83) against the real API. seed_e2e has a regulated strain (Testella exempli
+// The reveal log (#83) against the real API. seed_e2e has a regulated strain (Clostridium tetani
 // e2e regulated) with two vials in E2E freezer > Rack 1 > Box R. The e2e user, the lab's manager,
 // gives e2e-technician the location grant, the technician reveals the first vial through the API,
 // and the manager revokes the grant again, so the technician holds none afterwards. Not
 // e2e-curator: vials.spec.ts checks that the curator holds no grant, and may run at the same time.
 // Then the manager reads the reveal in the log, and a viewer gets no tab.
 
-const REGULATED = 'Testella exempli e2e regulated'
+const REGULATED = 'Clostridium tetani e2e regulated'
 const TECHNICIAN = 'e2e-technician'
 
 async function as(browser: Browser, user: string) {

@@ -59,8 +59,8 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
     assert seed() == (
         "e2e-user manages E2E lab; e2e-curator, e2e-technician and e2e-viewer are its curator,"
         " technician and viewer;"
-        " e2e-colleague is in no lab; an ended permit; 10 taxa; a depositor, MTA STD and one"
-        " accepted deposit;"
+        " e2e-colleague is in no lab; an ended permit; 11 taxa; a depositor, MTA STD and two"
+        " accepted deposits;"
         " 2 box types; E2E freezer > Rack 1 > Box 1; a regulated strain with two vials in"
         " Box R, revealed by e2e-user; a released batch of the seeded strain; two strains that"
         " may go out, two requesters and five requests, two approved, one of them regulated and"
@@ -124,10 +124,10 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
         ("box", "Box 1", "Rack 1"),
         ("box", "Box R", "Rack 1"),
     ]
-    regulated = Deposit.objects.get(lab=lab, name_as_received="Testella exempli e2e regulated")
+    regulated = Deposit.objects.get(lab=lab, name_as_received="Clostridium tetani e2e regulated")
     assert regulated.strain is not None
     assert list(regulated.strain.restrictions.values_list("kind", "reference")) == [
-        ("cz_rat", "Příloha 2 (invented example)")
+        ("cz_rat", "annex-2 I.II 3")
     ]
     vials = Vial.objects.filter(batch__strain=regulated.strain).order_by("seq")
     assert [(p.box.name, p.row, p.col) for v in vials for p in v.placements.all()] == [
@@ -219,10 +219,16 @@ def test_its_writes_are_audited_as_the_command() -> None:
         "taxon_created",
         *["taxon_created", "taxon_identifier_added"] * 2,
         "taxon_created",
-        *["taxon_created"] * 4,  # Testella and Mockia, invented
+        *["taxon_created", "taxon_identifier_added"]
+        * 5,  # Clostridium and Brucella, 2 species each
         "depositor_created",
         "mta_template_published",
         "deposit_received",
+        "deposit_check_started",
+        "strain_created",
+        "deposit_accepted",
+        "passage_created",
+        "deposit_received",  # the K-12 strain
         "deposit_check_started",
         "strain_created",
         "deposit_accepted",

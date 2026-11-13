@@ -54,9 +54,9 @@ async function commercialRequest(page: Page, name: string): Promise<string> {
         terms: { mta: mta?.public_id, abs_scope: 'not_in_scope', country_of_origin: 'CZ', uses: uses.map((use) => ({ use, decision: use === 'research_commercial' ? 'on_request' : 'permit' })) },
       })
       await send(`deposits/${deposit.public_id}/start-check/`, {})
-      const taxa = await read<Listing<{ public_id: string; name: string }>>('/api/v1/taxa/?search=exempli')
+      const taxa = await read<Listing<{ public_id: string; name: string }>>('/api/v1/taxa/?search=subtilis')
       const accepted = await send(`deposits/${deposit.public_id}/accept/`, {
-        taxon: taxa.results.find((t) => t.name === 'Testella exempli')?.public_id,
+        taxon: taxa.results.find((t) => t.name === 'Bacillus subtilis')?.public_id,
         identified_on: today,
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,
@@ -98,7 +98,7 @@ async function approveByApi(page: Page, path: string) {
 test('a curator records the depositor’s yes with the letter, and the manager approves', async ({ browser }) => {
   const curator = await as(browser, 'e2e-curator')
   const violations = await watchCsp(curator.page)
-  const path = await commercialRequest(curator.page, `Testella exempli yes ${RUN}`)
+  const path = await commercialRequest(curator.page, `Bacillus subtilis yes ${RUN}`)
   await curator.page.goto(path)
   await expect(curator.page.getByRole('list', { name: 'Blocks the approval' })).toContainText('only on request to the depositor, and no answer of the depositor is recorded')
   await expect(curator.page.getByRole('list', { name: 'Depositor’s answers' })).toContainText('No answer is recorded yet.')
@@ -142,7 +142,7 @@ test('a curator records the depositor’s yes with the letter, and the manager a
 
 test('without a yes the manager’s approval is refused, and the depositor’s no rejects the request with the answer as the reason', async ({ browser }) => {
   const curator = await as(browser, 'e2e-curator')
-  const path = await commercialRequest(curator.page, `Testella exempli no ${RUN}`)
+  const path = await commercialRequest(curator.page, `Bacillus subtilis no ${RUN}`)
 
   const manager = await as(browser, username)
   await manager.page.goto(path)

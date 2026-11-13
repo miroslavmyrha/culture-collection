@@ -115,13 +115,13 @@ test('C5 find the strains that came from one depositor', async ({ browser }, inf
 test('C6 see what happened to a strain: its risk group and restriction changes', async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-curator', curator('C6', 'See what happened to a strain (risk group, restrictions)'))
   await w.start()
-  // seed_dev: BAC 27 is the Mockia vulgaris strain with the reassessment in its history. BAC 30 is a later deposit of the same taxon.
-  await searchStrain(w, 'BAC 27')
+  // seed_dev: BAC 16 is the E. coli lab stock with the reassessment in its history.
+  await searchStrain(w, 'BAC 16')
   await openTab(w, 'History')
   // seed_dev: the risk group went from 2 to 1 by two people (#174), and a restriction ended.
   const history = w.page.getByRole('list', { name: 'History, newest first' })
-  await expect(history.getByRole('listitem').filter({ hasText: 'changed the risk group of BAC 27' })).toHaveCount(1)
-  await expect(history.getByRole('listitem').filter({ hasText: 'proposed to lower the risk group of BAC 27' })).toHaveCount(1)
+  await expect(history.getByRole('listitem').filter({ hasText: 'changed the risk group of BAC 16' })).toHaveCount(1)
+  await expect(history.getByRole('listitem').filter({ hasText: 'proposed to lower the risk group of BAC 16' })).toHaveCount(1)
   await w.read(history)
   await w.shot('strain-history')
   w.note('The line says the risk group changed, not from what to what or why: the reason and the basis stay in the audit trail', '#19')
