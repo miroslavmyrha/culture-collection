@@ -8,6 +8,7 @@ also names that rule's id in [docs/compliance.md](docs/compliance.md), so the pa
 to the law the rule rests on is one hop.
 
 ## Unreleased
+- The refusal that keeps a found vial of a strain whose material was destroyed out of use, and sends it to destruction, has its rule id in the compliance table and its tests carry it (#209, R-END-11).
 - What the production settings refuse is a module a test can import, with tests for a weak secret, a secret listed in its own fallbacks, an open host list, the default admin path, the fake timestamp authority and a proxy without its addresses (#205).
 - The four official lists of regulated agents live in the app, loaded from the data files by a command with their source, version date, fetch date and checksums, and no write of the app edits a list row (#169, R-LIST-01, R-LIST-02, R-LIST-03, R-LIST-04).
 - A restriction points at the list entry it rests on, and a dual-use reference must be an entry code the current reading holds (#169, R-KIND-10).
