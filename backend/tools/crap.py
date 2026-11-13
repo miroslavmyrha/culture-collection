@@ -31,7 +31,12 @@ at import, so it would give an untested one-line function 50%). A function witho
 statement is skipped. Left out: migrations, test files and the shared test tools (they produce
 the coverage), generated files (``schema.d.ts``), type declaration files. oxlint reports only
 functions above its threshold, so a TypeScript function it does not mention has complexity 1.
-A file with no coverage data is listed under "no coverage data" and is not scored.
+A callback v8 does not report as a function of its own adds its decisions to the function that
+holds it. A file with no coverage data is listed under "no coverage data" and is not scored.
+
+``--gate LIMIT`` makes it a check (``check.sh`` runs it): it fails when a function scores over
+the limit, and also when something could not be measured, a file with no coverage data or a
+complexity that lands on no function, because a gap there would pass unseen.
 """
 
 from __future__ import annotations
@@ -111,33 +116,122 @@ def python_functions(
     skipped: list[str] = []
     for path, blocks in radon.items():
         rel = _rel(path, root)
-        if PY_EXCLUDED.search(rel):
-            continue
         funcs = _radon_functions(blocks) if isinstance(blocks, list) else []
-        if not funcs:
+        if PY_EXCLUDED.search(rel) or not funcs:
             continue
-        data = cov_files.get(rel)
-        if data is None:
+        if rel not in cov_files:
             missing.append(rel)
             continue
-        executed = set(data["executed_lines"])
-        statements = executed | set(data["missing_lines"])
-        for f in funcs:
-            body = [n for n in statements if f["lineno"] < n <= f["endline"]]
-            if not body:
-                skipped.append(f"{rel}:{f['lineno']} {f['name']}")
-                continue
-            cov = sum(1 for n in body if n in executed) / len(body)
-            scored.append(
-                Func("python", rel, f["lineno"], f["name"], f["complexity"], cov,
-                     crap(f["complexity"], cov))
-            )  # fmt: skip
+        scored += _score_python_file(rel, funcs, cov_files[rel], skipped)
     return scored, sorted(set(missing)), skipped
+
+
+def _score_python_file(
+    rel: str, funcs: list[dict[str, Any]], data: dict[str, Any], skipped: list[str]
+) -> list[Func]:
+    executed = set(data["executed_lines"])
+    statements = executed | set(data["missing_lines"])
+    scored = []
+    for f in funcs:
+        body = [n for n in statements if f["lineno"] < n <= f["endline"]]
+        if not body:
+            skipped.append(f"{rel}:{f['lineno']} {f['name']}")
+            continue
+        cov = sum(1 for n in body if n in executed) / len(body)
+        scored.append(
+            Func("python", rel, f["lineno"], f["name"], f["complexity"], cov,
+                 crap(f["complexity"], cov))
+        )  # fmt: skip
+    return scored
 
 
 def _pos(p: dict[str, Any], missing_column: int = 0) -> tuple[int, int]:
     """(line, column) of an istanbul position. v8 leaves some end columns null."""
     return (p["line"], missing_column if p["column"] is None else p["column"])
+
+
+def _holding(
+    fns: list[dict[str, Any]], line: int, col: int, *, free: bool
+) -> dict[str, Any] | None:
+    """The smallest function that holds the position, counted from the start of its
+    declaration line; with ``free``, only one that has no complexity of its own yet."""
+    holds = [f for f in fns if (f["decl"][0], 0) <= (line, col - 1) <= f["end"]]
+    if free:
+        holds = [f for f in holds if f["c"] == 1]
+    return min(holds, key=lambda f: f["end"][0] - f["decl"][0], default=None)
+
+
+def _place(
+    fns: list[dict[str, Any]], diags: list[tuple[int, int, int]]
+) -> list[tuple[int, int, int]]:
+    """Put each complexity on its function, and return the ones that land on none.
+
+    oxlint's span starts at the function keyword or the arrow's parameters, v8's decl is the
+    name (or the parameters) and its loc the body, and oxlint counts columns from 1. First an
+    exact match on the declaration, so a nested function cannot take it, then the smallest
+    function that holds the position. v8 leaves out some callbacks it ran (a `.map((x) => ...)`
+    inside JSX), so their own complexity has no function to land on. Their statements already
+    count towards the function that holds them, and so do their branches: c - 1 decisions each.
+    """
+    left: list[tuple[int, int, int]] = []
+    for line, col, c in diags:
+        hit = next((f for f in fns if f["decl"] == (line, col - 1) and f["c"] == 1), None)
+        if hit is None:
+            left.append((line, col, c))
+        else:
+            hit["c"] = c
+    unplaced = []
+    for line, col, c in left:
+        if (free := _holding(fns, line, col, free=True)) is not None:
+            free["c"] = c
+        elif (holder := _holding(fns, line, col, free=False)) is not None:
+            holder["inner"] += c - 1
+        else:
+            unplaced.append((line, col, c))
+    return unplaced
+
+
+def _complexity_by_file(
+    diagnostics: list[dict[str, Any]], root: str
+) -> dict[str, list[tuple[int, int, int]]]:
+    """oxlint's complexity diagnostics as file -> (line, column, complexity)."""
+    by_file: dict[str, list[tuple[int, int, int]]] = {}
+    for d in diagnostics:
+        m = re.search(r"complexity of (\d+)", d["message"])
+        if not m or not d.get("labels"):
+            continue
+        span = d["labels"][0]["span"]
+        by_file.setdefault(_rel(d["filename"], root), []).append(
+            (span["line"], span["column"], int(m.group(1)))
+        )
+    return by_file
+
+
+def _ts_function_map(data: dict[str, Any]) -> list[dict[str, Any]]:
+    fns = []
+    for fn in data["fnMap"].values():
+        start, end = _pos(fn["loc"]["start"]), _pos(fn["loc"]["end"], END)
+        decl = _pos(fn.get("decl", fn["loc"])["start"])
+        fns.append({"fn": fn, "start": start, "end": end, "decl": decl, "c": 1, "inner": 0})
+    return fns
+
+
+def _score_ts_file(
+    rel: str, data: dict[str, Any], fns: list[dict[str, Any]], skipped: list[str]
+) -> list[Func]:
+    stmts = [(_pos(s["start"]), _pos(s["end"], END), data["s"][k]) for k, s in
+             data["statementMap"].items()]  # fmt: skip
+    scored = []
+    for f in fns:
+        inner = [hits for s0, s1, hits in stmts if f["start"] <= s0 and s1 <= f["end"]]
+        if not inner:
+            skipped.append(f"{rel}:{f['decl'][0]} {f['fn']['name']}")
+            continue
+        complexity = f["c"] + f["inner"]
+        cov = sum(1 for h in inner if h > 0) / len(inner)
+        scored.append(Func("typescript", rel, f["decl"][0], f["fn"]["name"], complexity, cov,
+                           crap(complexity, cov)))  # fmt: skip
+    return scored
 
 
 def typescript_functions(
@@ -148,15 +242,7 @@ def typescript_functions(
     Returns (scored, files with no coverage data, skipped for having no statements, complexity
     diagnostics that matched no function).
     """
-    by_file: dict[str, list[tuple[int, int, int]]] = {}  # file -> (line, column, complexity)
-    for d in diagnostics:
-        m = re.search(r"complexity of (\d+)", d["message"])
-        if not m or not d.get("labels"):
-            continue
-        span = d["labels"][0]["span"]
-        by_file.setdefault(_rel(d["filename"], root), []).append(
-            (span["line"], span["column"], int(m.group(1)))
-        )
+    by_file = _complexity_by_file(diagnostics, root)
     scored: list[Func] = []
     skipped: list[str] = []
     unmatched: list[str] = []
@@ -165,42 +251,9 @@ def typescript_functions(
     for rel, data in cov_files.items():
         if TS_EXCLUDED.search(rel):
             continue
-        stmts = [(_pos(s["start"]), _pos(s["end"], END), data["s"][k]) for k, s in
-                 data["statementMap"].items()]  # fmt: skip
-        diags = by_file.get(rel, [])
-        fns = []
-        for fn in data["fnMap"].values():
-            loc_start, end = _pos(fn["loc"]["start"]), _pos(fn["loc"]["end"], END)
-            decl = _pos(fn.get("decl", fn["loc"])["start"])
-            fns.append({"fn": fn, "start": loc_start, "end": end, "decl": decl, "c": 1})
-        # oxlint's span starts at the function keyword or the arrow's parameters, v8's decl is
-        # the name (or the parameters) and its loc the body, and oxlint counts columns from 1.
-        # First an exact match on the declaration, then the smallest function that holds the
-        # position, counted from the start of its declaration line.
-        left = []
-        for line, col, c in diags:  # exact matches first, so a nested function cannot take them
-            hit = next((f for f in fns if f["decl"] == (line, col - 1) and f["c"] == 1), None)
-            if hit is None:
-                left.append((line, col, c))
-            else:
-                hit["c"] = c
-        for line, col, c in left[:]:
-            holds = [f for f in fns if (f["decl"][0], 0) <= (line, col - 1) <= f["end"]
-                     and f["c"] == 1]  # fmt: skip
-            hit = min(holds, key=lambda f: f["end"][0] - f["decl"][0], default=None)
-            if hit is not None:
-                hit["c"] = c
-                left.remove((line, col, c))
-        unmatched += [f"{rel}:{r[0]} complexity {r[2]}" for r in left]
-        for f in fns:
-            fn, start, end, complexity = f["fn"], f["start"], f["end"], f["c"]
-            inner = [hits for s0, s1, hits in stmts if start <= s0 and s1 <= end]
-            if not inner:
-                skipped.append(f"{rel}:{f['decl'][0]} {fn['name']}")
-                continue
-            cov = sum(1 for h in inner if h > 0) / len(inner)
-            scored.append(Func("typescript", rel, f["decl"][0], fn["name"], complexity, cov,
-                               crap(complexity, cov)))  # fmt: skip
+        fns = _ts_function_map(data)
+        unmatched += [f"{rel}:{r[0]} complexity {r[2]}" for r in _place(fns, by_file.get(rel, []))]
+        scored += _score_ts_file(rel, data, fns, skipped)
     return scored, missing, skipped, unmatched
 
 
@@ -257,29 +310,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--limits", default=",".join(map(str, DEFAULT_LIMITS)))
     ap.add_argument("--top", type=int, default=TOP)
     ap.add_argument("--full", action="store_true", help="print every function, not the top")
+    ap.add_argument("--gate", type=float, help="fail over this score, or on anything unmeasured")
     args = ap.parse_args(argv)
     limits = tuple(int(x) for x in args.limits.split(","))
-
     funcs: list[Func] = []
     notes: list[str] = []
+    gaps: list[str] = []
     if args.py_coverage and args.py_radon:
-        py, missing, skipped = python_functions(
-            json.loads(args.py_coverage.read_text()),
-            json.loads(args.py_radon.read_text()),
-            args.py_root,
-        )
-        funcs += py
-        notes.append(f"python: {len(skipped)} functions without statements skipped")
-        notes += [f"python: no coverage data, not scored: {m}" for m in missing]
+        _measure_python(args, funcs, notes, gaps)
     if args.ts_coverage and args.ts_complexity:
-        diag = json.loads(args.ts_complexity.read_text())["diagnostics"]
-        ts, missing, skipped, unmatched = typescript_functions(
-            json.loads(args.ts_coverage.read_text()), diag, args.ts_root
-        )
-        funcs += ts
-        notes.append(f"typescript: {len(skipped)} functions without statements skipped")
-        notes += [f"typescript: no coverage data, not scored: {m}" for m in missing]
-        notes += [f"typescript: complexity matched no function: {u}" for u in unmatched]
+        _measure_typescript(args, funcs, notes, gaps)
     if not funcs:
         sys.stderr.write(
             "nothing to measure: give --py-coverage with --py-radon and/or "
@@ -287,8 +327,52 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     out = report(funcs, limits, args.top, args.full)
-    sys.stdout.write(out + "\n" + "\n".join(f"- {n}" for n in notes) + "\n")
-    return 0
+    sys.stdout.write(out + "\n" + "\n".join(f"- {n}" for n in notes + gaps) + "\n")
+    if args.gate is None:
+        return 0
+    return gate(funcs, gaps, args.gate)
+
+
+def _measure_python(
+    args: argparse.Namespace, funcs: list[Func], notes: list[str], gaps: list[str]
+) -> None:
+    py, missing, skipped = python_functions(
+        json.loads(args.py_coverage.read_text()),
+        json.loads(args.py_radon.read_text()),
+        args.py_root,
+    )
+    funcs += py
+    notes.append(f"python: {len(skipped)} functions without statements skipped")
+    gaps += [f"python: no coverage data, not scored: {m}" for m in missing]
+
+
+def _measure_typescript(
+    args: argparse.Namespace, funcs: list[Func], notes: list[str], gaps: list[str]
+) -> None:
+    # A relative root never matches the absolute paths v8 writes, and then every function
+    # would read as complexity 1.
+    root = str(Path(args.ts_root).resolve()) if args.ts_root else ""
+    diag = json.loads(args.ts_complexity.read_text())["diagnostics"]
+    ts, missing, skipped, unmatched = typescript_functions(
+        json.loads(args.ts_coverage.read_text()), diag, root
+    )
+    funcs += ts
+    notes.append(f"typescript: {len(skipped)} functions without statements skipped")
+    gaps += [f"typescript: no coverage data, not scored: {m}" for m in missing]
+    gaps += [f"typescript: complexity matched no function: {u}" for u in unmatched]
+
+
+def gate(funcs: list[Func], gaps: list[str], limit: float) -> int:
+    """1, with every function over the limit and every gap named, else 0."""
+    over = sorted((f for f in funcs if f.score > limit), key=lambda f: -f.score)
+    for f in over:
+        sys.stderr.write(
+            f"over {limit:g}: {f.file}:{f.line} {f.name} (complexity {f.complexity}, "
+            f"coverage {f.coverage:.0%}, score {f.score:.1f})\n"
+        )
+    for g in gaps:
+        sys.stderr.write(f"not measured: {g}\n")
+    return 1 if over or gaps else 0
 
 
 if __name__ == "__main__":

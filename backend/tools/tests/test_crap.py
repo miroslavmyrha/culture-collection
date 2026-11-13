@@ -194,3 +194,58 @@ def test_python_method_listed_at_top_level_and_under_its_class_counts_once() -> 
            "methods": [method]}  # fmt: skip
     funcs, _, _ = python_functions(coverage, {"/app/a/m.py": [top, cls]})
     assert [f.name for f in funcs] == ["V.get"]
+
+
+def test_typescript_callback_v8_leaves_out_adds_its_decisions_to_the_function_holding_it() -> None:
+    # The function on lines 3 to 9 has complexity 4 of its own, and a callback on line 6 that
+    # v8 did not report has 3, so two more decisions land on the function.
+    funcs, _, _, unmatched = typescript_functions(
+        _ts_coverage([1, 1, 1, 1]), [_diag("src/a.ts", 3, 8, 4), _diag("src/a.ts", 6, 20, 3)], "/w"
+    )
+    assert unmatched == []
+    assert [(f.name, f.complexity) for f in funcs] == [("f", 6)]
+
+
+def _ts_inputs(tmp_path: Path, hits: list[int], complexity: int, root: Path) -> list[str]:
+    cov, diag = tmp_path / "cov.json", tmp_path / "ox.json"
+    data = _ts_coverage(hits)["/w/src/a.ts"]
+    cov.write_text(json.dumps({str(root / "src" / "a.ts"): data}))
+    diag.write_text(json.dumps({"diagnostics": [_diag("src/a.ts", 3, 8, complexity)]}))
+    return ["--ts-coverage", str(cov), "--ts-complexity", str(diag)]
+
+
+def test_gate_passes_when_every_function_is_at_or_under_the_limit(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    args = _ts_inputs(tmp_path, [1, 1], 10, tmp_path / "w")
+    assert main([*args, "--ts-root", str(tmp_path / "w"), "--gate", "10"]) == 0
+    assert capsys.readouterr().err == ""
+
+
+def test_gate_fails_on_a_function_over_the_limit_and_names_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    args = _ts_inputs(tmp_path, [1, 0], 4, tmp_path / "w")  # 16 * 0.125 + 4 = 6
+    assert main([*args, "--ts-root", str(tmp_path / "w"), "--gate", "5"]) == 1
+    assert "over 5: src/a.ts:3 f (complexity 4, coverage 50%, score 6.0)" in capsys.readouterr().err
+
+
+def test_gate_fails_when_a_file_with_complexity_has_no_coverage_data(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The root does not match the coverage paths: nothing joins, which must not read as a pass.
+    args = _ts_inputs(tmp_path, [1, 1], 4, tmp_path / "w")
+    assert main([*args, "--ts-root", str(tmp_path / "elsewhere"), "--gate", "10"]) == 1
+    assert (
+        "not measured: typescript: no coverage data, not scored: src/a.ts"
+        in capsys.readouterr().err
+    )
+
+
+def test_a_relative_root_joins_the_absolute_paths_v8_writes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    args = _ts_inputs(tmp_path, [1, 1], 4, tmp_path / "w")
+    monkeypatch.chdir(tmp_path)
+    assert main([*args, "--ts-root", "w", "--gate", "10"]) == 0
+    assert "| src/a.ts | 3 | f | 4 | 100% | 4.0 |" in capsys.readouterr().out
