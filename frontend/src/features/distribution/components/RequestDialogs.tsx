@@ -428,6 +428,16 @@ type ShipFieldsProps = {
 function ShipFields({ register, transportClass, errors, bases }: ShipFieldsProps) {
   return (
     <>
+      <ClassificationFields register={register} transportClass={transportClass} errors={errors} bases={bases} />
+      <PackageFields register={register} errors={errors} />
+    </>
+  )
+}
+
+/** What the shipper classified: the class with its basis. */
+function ClassificationFields({ register, transportClass, errors, bases }: ShipFieldsProps) {
+  return (
+    <>
       <SelectField
         label="Transport class"
         // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
@@ -444,6 +454,14 @@ function ShipFields({ register, transportClass, errors, bases }: ShipFieldsProps
         {...register('classification_basis')}
       />
       <TextField label="What the classification rests on" hint={`${REASON_HINT} Required for a professional judgement.`} multiline minRows={2} error={errors.basis_note?.message} {...register('basis_note')} />
+    </>
+  )
+}
+
+/** How the package goes: packing, coolant, who answers for it and the carrier. */
+function PackageFields({ register, errors }: Pick<ShipFieldsProps, 'register' | 'errors'>) {
+  return (
+    <>
       <SelectField label="Packing" options={options(PACKING_LABELS, PACKING_INSTRUCTIONS)} error={errors.packing_instruction?.message} {...register('packing_instruction')} />
       <SelectField label="Coolant" options={[{ value: '', label: 'None' }, ...options(COOLANT_LABELS, COOLANTS)]} error={errors.coolant?.message} {...register('coolant')} />
       <TextField label="Coolant in kg" hint="Required for dry ice: it is marked on the package." autoComplete="off" inputMode="decimal" error={errors.coolant_kg?.message} {...register('coolant_kg')} />

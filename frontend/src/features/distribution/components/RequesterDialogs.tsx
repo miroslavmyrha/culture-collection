@@ -68,6 +68,16 @@ type RequesterFieldsProps = { register: UseFormRegister<RequesterForm>; errors: 
 function RequesterFields({ register, errors, countries }: RequesterFieldsProps) {
   return (
     <>
+      <InstitutionFields register={register} errors={errors} countries={countries} />
+      <ScientistFields register={register} errors={errors} />
+    </>
+  )
+}
+
+/** The institution and the evidence of its microbiology laboratory. */
+function InstitutionFields({ register, errors, countries }: RequesterFieldsProps) {
+  return (
+    <>
       {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
       <TextField label="Institution" autoFocus autoComplete="off" error={errors.institution?.message} {...register('institution')} />
       <SelectField label="Legal form" options={[CHOOSE, ...options(LEGAL_FORM_LABELS, LEGAL_FORMS)]} error={errors.legal_form?.message} {...register('legal_form')} />
@@ -76,6 +86,14 @@ function RequesterFields({ register, errors, countries }: RequesterFieldsProps) 
       <SelectField label="Country" hint="Where the laboratory is: the destination of its requests." options={countries} error={errors.country?.message} {...register('country')} />
       <TextField label="How the laboratory was confirmed" hint="The page, document or call that shows a microbiology laboratory. Name no person." multiline minRows={2} error={errors.lab_evidence?.message} {...register('lab_evidence')} />
       <TextField label="Confirmed on" hint="YYYY-MM-DD" autoComplete="off" error={errors.lab_confirmed_on?.message} {...register('lab_confirmed_on')} />
+    </>
+  )
+}
+
+/** The responsible scientist and the delivery address: personal data. */
+function ScientistFields({ register, errors }: Omit<RequesterFieldsProps, 'countries'>) {
+  return (
+    <>
       <TextField label="Responsible scientist" autoComplete="off" error={errors.name?.message} {...register('name')} />
       <TextField label="E-mail" type="email" autoComplete="off" error={errors.email?.message} {...register('email')} />
       <TextField label="Delivery address of the laboratory" multiline minRows={2} autoComplete="off" error={errors.postal_address?.message} {...register('postal_address')} />
@@ -168,6 +186,18 @@ const permitBody = (requester: Requester, values: PermitValues) => ({
 
 type PermitFieldsProps = { register: UseFormRegister<PermitForm>; errors: FieldErrors<PermitForm>; countries: CountryOptions; kind: string }
 
+/** What a plant health letter of authority carries: the quantities and the endorsement of the state of origin. */
+function LetterFields({ register, errors }: Omit<PermitFieldsProps, 'countries' | 'kind'>) {
+  return (
+    <>
+      <TextField label="Quantity allowed" inputMode="numeric" autoComplete="off" error={errors.quantity_allowed?.message} {...register('quantity_allowed')} />
+      <TextField label="Sendings allowed" inputMode="numeric" autoComplete="off" error={errors.sendings_allowed?.message} {...register('sendings_allowed')} />
+      <TextField label="Endorsement by the state of origin" hint="Its reference, as on the letter. Nothing goes out on a letter with no endorsement (Regulation (EU) 2019/829, Art. 6(2))." autoComplete="off" error={errors.endorsement_reference?.message} {...register('endorsement_reference')} />
+      <TextField label="Endorsed on" hint="YYYY-MM-DD, the day of the endorsement." autoComplete="off" error={errors.endorsed_on?.message} {...register('endorsed_on')} />
+    </>
+  )
+}
+
 /** The fields only some kinds of permit have, in the place they have on the form. */
 function PermitKindFields({ register, errors, kind }: Omit<PermitFieldsProps, 'countries'>) {
   return (
@@ -175,14 +205,7 @@ function PermitKindFields({ register, errors, kind }: Omit<PermitFieldsProps, 'c
       {NAMES_AGENTS.some((k) => k === kind) && (
         <TextField label="Agents or pests it names" hint="As written on the document, with their scientific names." multiline minRows={2} error={errors.covers?.message} {...register('covers')} />
       )}
-      {kind === 'plant_health_loa' && (
-        <>
-          <TextField label="Quantity allowed" inputMode="numeric" autoComplete="off" error={errors.quantity_allowed?.message} {...register('quantity_allowed')} />
-          <TextField label="Sendings allowed" inputMode="numeric" autoComplete="off" error={errors.sendings_allowed?.message} {...register('sendings_allowed')} />
-          <TextField label="Endorsement by the state of origin" hint="Its reference, as on the letter. Nothing goes out on a letter with no endorsement (Regulation (EU) 2019/829, Art. 6(2))." autoComplete="off" error={errors.endorsement_reference?.message} {...register('endorsement_reference')} />
-          <TextField label="Endorsed on" hint="YYYY-MM-DD, the day of the endorsement." autoComplete="off" error={errors.endorsed_on?.message} {...register('endorsed_on')} />
-        </>
-      )}
+      {kind === 'plant_health_loa' && <LetterFields register={register} errors={errors} />}
       {kind === 'gmo_contained_use' && <TextField label="Category" hint="1 to 4, act 78/2004 Sb." inputMode="numeric" autoComplete="off" error={errors.gmo_category?.message} {...register('gmo_category')} />}
       {kind === 'pathogen_work_permit' && <TextField label="Highest risk group" hint="1 to 4." inputMode="numeric" autoComplete="off" error={errors.risk_group?.message} {...register('risk_group')} />}
     </>
