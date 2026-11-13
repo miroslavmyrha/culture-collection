@@ -100,6 +100,7 @@ export const PERMIT_KINDS = [
   'sujb_rat_notice',
   'sujb_exception',
   'plant_health_loa',
+  'plant_health_isolation',
   'gmo_contained_use',
   'pathogen_work_permit',
 ] as const satisfies readonly PermitKind[]
@@ -108,6 +109,7 @@ export const PERMIT_KIND_LABELS: Record<PermitKind, string> = {
   sujb_rat_notice: 'Notice to SÚJB of handling risky agents (RAT)',
   sujb_exception: 'SÚJB decision allowing a VRAT to a non-holder',
   plant_health_loa: 'Letter of Authority for a quarantine pest',
+  plant_health_isolation: 'Authorisation of an isolation facility for quarantine pests',
   gmo_contained_use: 'Authorisation for contained use of GMOs',
   pathogen_work_permit: 'Permit to work with pathogens',
 }

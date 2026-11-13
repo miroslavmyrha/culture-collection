@@ -214,9 +214,8 @@ def _check_gmo(transport_class: str, strains: list[Strain]) -> None:
     """A GMO travels under a number of its own, never exempt: study s10 (section 1, reading the
     WHO transport guidance 4.5 and IATA 3.6.2.4) sends a genetically modified micro-organism
     that is not an infectious substance to UN 3245, and an infectious one stays Category B
-    (UN 3373). Which of the two it is the shipper states (WHO 2.1): nothing here decides whether
-    a culture is infectious, and an unknown pathogenicity is no proof that it is not. UN 3245 is
-    for a GMO line only (#173)."""
+    (UN 3373). UN 3245 is for a GMO line only (#173). Which of the two numbers it is follows the
+    strains' own records, never the GMO flag (#197): _check_gmo_number."""
     gmo = _gmo_strains(strains)
     if gmo and transport_class == TransportClass.NOT_SUBJECT:
         names = ", ".join(str(s.accession_number) for s in gmo)
@@ -233,6 +232,48 @@ def _check_gmo(transport_class: str, strains: list[Strain]) -> None:
             code="un3245_without_a_gmo",
             attr="transport_class",
         )
+    if gmo:
+        _check_gmo_number(transport_class, strains)
+
+
+def _check_gmo_number(transport_class: str, strains: list[Strain]) -> None:
+    """Which number a GMO shipment travels under, where the record answers it (#197, ADR 0009
+    amendment of 2026-11-12). Three cases, and the app decides only in the first two:
+
+    - a strain recorded as pathogenic to humans or to animals: the package is an infectious
+      substance, so UN 3373 is forced and UN 3245 refused;
+    - every strain recorded as pathogenic to neither: the package is no infectious substance,
+      so UN 3245 is forced and UN 3373 refused;
+    - an unknown pathogenicity on either side: the shipper states the class with its basis, as
+      before. Unknown is what most deposits record (R-RISK-05), so this is the common case and
+      it is no statement that the culture is not infectious.
+
+    `policy.recorded_transport_class` is the one definition, which the shipment guards ask of
+    the database through a SQL function of the same reading.
+    """
+    forced = policy.recorded_transport_class(strains)
+    if forced is None or transport_class == forced:
+        return
+    if forced == TransportClass.UN3373:
+        found = [
+            (s.accession_number, why)
+            for s in strains
+            if (why := policy.pathogenic_for_transport(s)) is not None
+        ]
+        raise InvalidDistribution(
+            "; ".join(f"{name}: {why}" for name, why in found)
+            + ". The package is an infectious substance, so a genetically modified organism in"
+            " it travels as UN 3373, Category B.",
+            code="un3245_for_a_pathogen",
+            attr="transport_class",
+        )
+    raise InvalidDistribution(
+        "Every strain of this request is recorded as pathogenic to neither humans nor animals,"
+        " so the package is no infectious substance: a genetically modified organism in it"
+        " travels as UN 3245.",
+        code="un3373_for_a_non_pathogen",
+        attr="transport_class",
+    )
 
 
 def _check_class(transport_class: str, basis: str, strains: list[Strain]) -> None:

@@ -238,6 +238,7 @@ def test_a_quarantine_pest_line_says_its_letter_of_authority_travels_with_it(
     supply: Supply, two_step: Any, mockia: Taxon, curator: User, requester: Requester
 ) -> None:
     strain = supply(mockia, restrictions=[QUARANTINE], vials=6)
+    add_permit(curator, requester, PermitKind.PLANT_HEALTH_ISOLATION)
     letter = add_permit(curator, requester, PermitKind.PLANT_HEALTH_LOA)
     request = two_step(strain)
     assert (

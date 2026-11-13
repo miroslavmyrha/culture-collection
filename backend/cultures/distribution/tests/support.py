@@ -109,6 +109,8 @@ def permit_input(
         # Endorsed by the state of origin (Art. 6(2)): without it nothing goes out (#173).
         values.setdefault("endorsement_reference", "ÚKZÚZ/DEV/E/1 (invented example)")
         values.setdefault("endorsed_on", date(2026, 1, 2))
+    if kind == PermitKind.PLANT_HEALTH_ISOLATION:
+        values.setdefault("issuer", "ÚKZÚZ")
     if kind == PermitKind.GMO_CONTAINED_USE:
         values.setdefault("gmo_category", 2)
     if kind == PermitKind.PATHOGEN_WORK_PERMIT:

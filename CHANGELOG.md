@@ -8,6 +8,8 @@ also names that rule's id in [docs/compliance.md](docs/compliance.md), so the pa
 to the law the rule rests on is one hop.
 
 ## Unreleased
+- A shipment of a Union quarantine pest is refused, with no override, while the recipient has no recorded authorisation of an isolation facility: the Letter of Authority follows that authorisation and is no substitute for it (#197, R-DIST-16).
+- The UN number of a shipment with a GMO line follows the strains' own recorded pathogenicity, never the GMO flag: a record of pathogenic to humans or animals forces UN 3373, a record of neither forces UN 3245, and an unknown pathogenicity leaves the class to the shipper with its basis, which the delivery note now carries (#197, R-SHIP-10, R-SHIP-02).
 - The refusal that keeps a found vial of a strain whose material was destroyed out of use, and sends it to destruction, has its rule id in the compliance table and its tests carry it (#209, R-END-11).
 - What the production settings refuse is a module a test can import, with tests for a weak secret, a secret listed in its own fallbacks, an open host list, the default admin path, the fake timestamp authority and a proxy without its addresses (#205).
 - The four official lists of regulated agents live in the app, loaded from the data files by a command with their source, version date, fetch date and checksums, and no write of the app edits a list row (#169, R-LIST-01, R-LIST-02, R-LIST-03, R-LIST-04).
