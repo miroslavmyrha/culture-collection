@@ -111,6 +111,7 @@ def refused_for_the_strain(strain: Strain, old: VialStatus, new: VialStatus) -> 
     return new in EDGES[old] and not allowed(strain, old, new)
 
 
+@pytest.mark.rule("R-END-11")
 def test_a_strain_whose_material_was_destroyed_sends_its_vials_only_to_destruction() -> None:
     """The table on its own, written out: what the trigger and the service are compared with."""
     written = {

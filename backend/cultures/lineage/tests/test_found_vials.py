@@ -61,6 +61,7 @@ def transition(user: User, vial: Vial, status: VialStatus, reason: str) -> Vial:
 
 
 @pytest.mark.parametrize("found", DESTROYING, indirect=True)
+@pytest.mark.rule("R-END-11")
 def test_a_found_vial_of_a_strain_whose_material_was_destroyed_goes_to_destruction(
     found: tuple[Strain, Vial, Vial], technician: User
 ) -> None:
@@ -84,6 +85,7 @@ def test_a_found_vial_of_a_strain_whose_material_was_destroyed_goes_to_destructi
 
 
 @pytest.mark.parametrize("found", DESTROYING, indirect=True)
+@pytest.mark.rule("R-END-11")
 def test_such_a_vial_is_never_available_again(
     found: tuple[Strain, Vial, Vial], technician: User
 ) -> None:
@@ -113,6 +115,7 @@ def test_such_a_vial_is_never_available_again(
 
 
 @pytest.mark.parametrize("found", KEEPING, indirect=True)
+@pytest.mark.rule("R-END-11")
 def test_a_found_vial_of_a_strain_whose_material_was_kept_is_available_as_before(
     found: tuple[Strain, Vial, Vial], technician: User
 ) -> None:
@@ -126,6 +129,7 @@ def test_a_found_vial_of_a_strain_whose_material_was_kept_is_available_as_before
 
 
 @pytest.mark.parametrize("found", [None], indirect=True)
+@pytest.mark.rule("R-END-11")
 def test_the_api_names_the_refusal_on_the_status(
     found: tuple[Strain, Vial, Vial], technician: User
 ) -> None:

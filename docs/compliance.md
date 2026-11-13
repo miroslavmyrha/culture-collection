@@ -966,6 +966,18 @@ listed here so that the test can tell them from a regulated gate without a rule.
   is a name and the number of its handover document, and the person who carried out the
   destruction inside the lab is the recorder, not a separate field.
 
+#### R-END-11 A vial of a strain whose material was destroyed is never held for use again, and a found one goes to destruction
+
+- Kind: own control
+- Source: ADR 0008, amendment of 2026-10-31 (#150), and his decision on #20: a strain may leave
+  the collection with its material destroyed, and a vial that was lost at that moment turns up
+  later. No law read asks for this edge: the duty is to destroy the material (study s12), and
+  the control is that the record cannot quietly put such a vial back into use.
+- Code: `backend/cultures/lineage/models.py::EDGES_MATERIAL_DESTROYED`, `backend/cultures/lineage/models.py::material_destroyed`, `backend/cultures/lineage/models.py::vial_edges`, `backend/cultures/lineage/migrations/0009_vial_guard_material_destroyed.py::"lineage_vial_guard"`
+- Tests: `backend/cultures/lineage/tests/test_found_vials.py::test_a_found_vial_of_a_strain_whose_material_was_destroyed_goes_to_destruction`, `backend/cultures/lineage/tests/test_found_vials.py::test_such_a_vial_is_never_available_again`, `backend/cultures/lineage/tests/test_found_vials.py::test_a_found_vial_of_a_strain_whose_material_was_kept_is_available_as_before`, `backend/cultures/lineage/tests/test_found_vials.py::test_the_api_names_the_refusal_on_the_status`, `backend/cultures/lineage/tests/test_vial_states.py::test_a_strain_whose_material_was_destroyed_sends_its_vials_only_to_destruction`
+- Limits: the edge to destroyed is still taken only by a destruction record (R-END-03), so a
+  found vial waits in to_destroy until that record exists.
+
 ### The audit trail's integrity
 
 #### R-AUDIT-01 Every audit row carries the hash of its content and of the row before it, written by the database
