@@ -111,11 +111,15 @@ and the rules and duties it decides are changed in the same commit.
   not automatically classified into group 1.
 - Code: `backend/cultures/biosafety/models.py::LIST_RESTRICTIONS`, `backend/cultures/biosafety/lists.py::match_of`, `backend/cultures/biosafety/lists.py::_entry_values`, `backend/cultures/biosafety/models.py::"biosafety_regulatorylistentry_match_name_with_scope"`, `backend/cultures/biosafety/migrations/0005_regulatory_list_guards.py::"an entry gives the restriction its own list gives"`, `backend/cultures/biosafety/migrations/0005_regulatory_list_guards.py::"only annex 7 of government order 361/2007 Sb. states a risk group"`
 - Tests: `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_each_entry_carries_what_its_own_list_says_and_nothing_else`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_every_match_name_is_a_lower_case_scientific_name_with_its_scope`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_a_name_yields_its_scientific_name_or_none_at_all`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_a_match_name_never_comes_from_a_part_of_a_word`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_database_refuses_an_entry_that_does_not_fit_its_own_list`
-- Limits: 781 of the 1061 entries yield a name to match, and 57 of the 125 entries of decree
+- Limits: 762 of the 1061 entries yield a name to match, and 51 of the 125 entries of decree
   474/2002 Sb., because the data file's `scientific_name` field holds the item number rather
   than a name (the `<var>` element of the e-Sbírka text marks the number) and the Czech item
   text is prose. An entry with no match name suggests nothing. A corrected parser is a new fetch
-  and a new data file (#187).
+  and a new data file (#187). The common name of a virus ("Rift Valley fever virus", "Porcine
+  Teschovirus") yields no name: its first word is no genus (#242), so 6 entries of the decree and
+  13 of the dual-use annex suggest nothing rather than every taxon that starts with that word. A
+  match name is derived when a reading is loaded, so a reading loaded before this change keeps the
+  names it was loaded with until its file is loaded again.
 
 #### R-LIST-04 No screen, no API, no admin page and no app write edits an official list
 
@@ -257,8 +261,8 @@ and the rules and duties it decides are changed in the same commit.
   R-RISK-03, R-RISK-07).
 - Code: `backend/cultures/biosafety/selectors.py::match_names`, `backend/cultures/biosafety/selectors.py::list_matches`, `backend/cultures/strains/api/views.py::StrainViewSet.list_matches`, `backend/cultures/strains/api/serializers.py::ListMatchOutputSerializer`
 - Tests: `backend/cultures/strains/tests/test_list_matches.py::test_an_exact_entry_matches_the_taxons_own_name`, `backend/cultures/strains/tests/test_list_matches.py::test_an_entry_of_a_genus_matches_a_species_of_it`, `backend/cultures/strains/tests/test_list_matches.py::test_a_synonym_and_its_accepted_name_match_the_same_entries`, `backend/cultures/strains/tests/test_list_matches.py::test_a_part_of_a_name_matches_nothing`, `backend/cultures/strains/tests/test_list_matches.py::test_an_invented_taxon_matches_nothing`, `backend/cultures/strains/tests/test_list_matches.py::test_a_reading_that_was_replaced_suggests_nothing`, `backend/cultures/strains/tests/test_list_matches.py::test_the_api_lists_what_the_lists_say_about_the_taxon`, `backend/cultures/strains/tests/test_list_matches.py::test_nobody_outside_the_lab_reads_the_suggestions`, `backend/cultures/strains/tests/test_list_disagreements.py::test_a_genus_entry_reached_through_a_synonym_of_another_genus_is_suggested_with_its_name`, `backend/cultures/strains/tests/test_list_disagreements.py::test_an_entry_reached_through_the_accepted_name_names_no_synonym`
-- Limits: a suggestion reaches only an entry the loader derived a name for (R-LIST-03), so 781
-  of the 1061 entries of this version's lists can suggest anything, and 57 of the 125 entries of
+- Limits: a suggestion reaches only an entry the loader derived a name for (R-LIST-03), so 762
+  of the 1061 entries of this version's lists can suggest anything, and 51 of the 125 entries of
   decree 474/2002 Sb. A genus of a name is its first word, not the taxon's ancestor at rank
   genus, so a genus-wide entry reaches a species whose name begins with that genus and not a
   species the tree places under it under another name. Nothing compares a part of a name.

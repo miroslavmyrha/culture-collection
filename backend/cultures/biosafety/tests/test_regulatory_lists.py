@@ -42,9 +42,9 @@ ENTRIES = {
     ListCode.EU_2019_2072_ANNEX_II: 186,
 }
 MATCHED = {
-    ListCode.CZ_474_2002: 57,
+    ListCode.CZ_474_2002: 51,
     ListCode.CZ_361_2007_ANNEX_7: 473,
-    ListCode.EU_2021_821_ANNEX_I: 95,
+    ListCode.EU_2021_821_ANNEX_I: 82,
     ListCode.EU_2019_2072_ANNEX_II: 156,
 }
 
@@ -263,6 +263,12 @@ def test_every_match_name_is_a_lower_case_scientific_name_with_its_scope() -> No
         ("Lidský nákazlivý činitel", None),
         ("toxiny bakterie Mockia fictiva", None),
         ("virus koní (African horse sickness virus)", None),
+        ("virus horečky Údolí Rift (Rift Valley fever virus);", None),
+        ("virus krymsko-konžské hemoragické horečky (Crimean-Congo hemorrhagic fever virus)", None),
+        ("Tick-borne encephalitis virus", None),
+        ("Flaviviridae", ("flaviviridae", MatchScope.GENUS)),
+        ("Mockiavirus Alpha (virus Beta)", ("mockiavirus", MatchScope.GENUS)),
+        ("Mockiaviruses, except: Fictiva mosaic virus", ("mockiaviruses", MatchScope.GENUS)),
         ("Mockia fictiva neurotoxins", None),
         ("Virus horečky", None),
         ("Not used", None),
