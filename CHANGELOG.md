@@ -10,6 +10,7 @@ to the law the rule rests on is one hop.
 ## Unreleased
 - A JSON body nested deeper than 32 levels is refused with 400; one deep enough to exhaust the decoder ended as a server error (#41).
 - The unused HTML renderer, its sanitiser (DOMPurify) and the unused external-open helper are gone, and the CSP now allows no Trusted Types policy at all, so no string can reach an HTML sink (#238).
+- End-to-end tests run without retries on CI too, so a flaky test fails and is named instead of passing on its second try; none needed a retry in the last 15 CI runs (#236).
 - The waiting items of the home overview no longer list a lab-page target that none of them used; the activity feed keeps its own (#228).
 - The code risk report names a method with its class once, whichever order radon lists them in (#196).
 - The last active superuser can no longer be deactivated, alone or with others, or lose the superuser flag, in the services and in the admin form, and two such changes at once leave one; erasing it was refused before (#225).
