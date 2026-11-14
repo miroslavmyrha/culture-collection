@@ -20,28 +20,24 @@ from cultures.labs.access import Access
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Perm
 from cultures.storage.models import StorageUnit, UnitKind
-from cultures.strains.models import Strain, StrainRestriction, StrainStatus
+from cultures.strains.models import Strain, StrainRestriction
 from cultures.strains.selectors import regulating_restrictions
 
+from .distributable import distributable
 from .models import (
     LOSS_REPORTED_KINDS,
     Batch,
     BatchCheck,
-    BatchStatus,
     CheckKind,
     CheckStatus,
     DestructionRecord,
     DestructionVial,
     Passage,
-    Purpose,
     Vial,
     VialLossReport,
     VialPlacement,
     VialStatus,
 )
-
-# A strain in these states may give material (deaccessioned and pending ones do not).
-SUPPLYING = (StrainStatus.ACTIVE, StrainStatus.RESTRICTED)
 
 
 def passage_list(*, access: Access, lab: Lab) -> QuerySet[Passage]:
@@ -57,20 +53,6 @@ def passage_list(*, access: Access, lab: Lab) -> QuerySet[Passage]:
             "source_vial__batch__passage",
         )
         .order_by("strain_id", "number", "created_at", "pk")
-    )
-
-
-def distributable(prefix: str = "") -> Q:
-    """A batch whose vials may go out (ADR 0008, D15 and D16): released after its checks,
-    distribution stock (seed stock never leaves), of a strain that still supplies. `prefix`
-    reaches the batch from another model ("batch__" from a vial). The one definition: the
-    batch figure and the vial selector of distribution (#18) both read it."""
-    return Q(
-        **{
-            f"{prefix}status": BatchStatus.RELEASED,
-            f"{prefix}purpose": Purpose.DISTRIBUTION,
-            f"{prefix}strain__status__in": SUPPLYING,
-        }
     )
 
 
