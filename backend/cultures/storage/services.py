@@ -21,7 +21,6 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
-from django.db import IntegrityError, transaction
 from django.db.models import Max, Min, Model
 from django.utils import timezone
 
@@ -35,11 +34,12 @@ from cultures.audit.registry import (
     STORAGE_UNIT_MOVED,
     STORAGE_UNIT_STATUS_CHANGED,
 )
-from cultures.core.exceptions import Conflict, DomainError, Forbidden, NotFound, RuleViolation
+from cultures.core.constraints import save_arbitrated
+from cultures.core.exceptions import Conflict, DomainError, NotFound, RuleViolation
 from cultures.labs.access import Access
-from cultures.labs.locks import lock_lab
-from cultures.labs.models import Lab, Membership
-from cultures.labs.permissions import Perm, Role, role_has
+from cultures.labs.locks import lock_lab, require_committed
+from cultures.labs.models import Lab
+from cultures.labs.permissions import Perm
 from cultures.lineage.models import VialPlacement
 
 from .models import (
@@ -219,17 +219,6 @@ def _check_slot(slot: int | None) -> None:
 # Under the lab lock.
 
 
-def _require_role(access: Access, lab_id: int) -> None:
-    """The actor's role as committed now (caller holds the lab lock), not as the request began."""
-    role = (
-        Membership.objects.filter(lab_id=lab_id, user=access.user, user__is_active=True)
-        .values_list("role", flat=True)
-        .first()
-    )
-    if role is None or not role_has(Role(role), Perm.MANAGE_STORAGE):
-        raise Forbidden
-
-
 def _check_parent(lab_id: int, kind: UnitKind, parent: StorageUnit | None) -> None:
     """The parent as committed now: same lab, active, and a kind that may hold this one."""
     if not KIND_SPEC[kind].held_by:
@@ -273,19 +262,6 @@ def _locked_unit(unit: StorageUnit) -> StorageUnit:
     if locked.is_retired:
         raise UnitRetired
     return locked
-
-
-def _save(obj: Model, errors: dict[str, DomainError], **kwargs: Any) -> None:
-    """The unique constraints are the final arbiter: a check before saving can race."""
-    try:
-        with transaction.atomic():
-            obj.save(**kwargs)
-    except IntegrityError as exc:
-        diag = getattr(exc.__cause__, "diag", None)
-        error = errors.get(str(getattr(diag, "constraint_name", "")))
-        if error is not None:
-            raise error from exc
-        raise
 
 
 def _unique_errors() -> dict[str, DomainError]:
@@ -336,7 +312,7 @@ def unit_create(*, access: Access, lab: Lab, data: NewUnit) -> StorageUnit:
         raise InvalidUnit("Only a unit inside another has a slot.", attr="slot")
     with audited_atomic():
         locked_lab = lock_lab(lab.pk)
-        _require_role(access, locked_lab.pk)
+        require_committed(access, locked_lab.pk, Perm.MANAGE_STORAGE)
         parent = _fresh_parent(data.parent)
         _check_parent(locked_lab.pk, kind, parent)
         box_type = fields.box_type
@@ -353,7 +329,7 @@ def unit_create(*, access: Access, lab: Lab, data: NewUnit) -> StorageUnit:
             rows=box_type.rows if box_type else None,
             cols=box_type.cols if box_type else None,
         )
-        _save(unit, _unique_errors())
+        save_arbitrated(unit, _unique_errors())
         unit.refresh_from_db(fields=["path"])
         values = {
             "kind": unit.kind,
@@ -398,7 +374,7 @@ def unit_update(*, access: Access, unit: StorageUnit, fields: UnitFields) -> Sto
     again while no position is occupied. Nothing changed records nothing."""
     with audited_atomic():
         lock_lab(unit.lab_id)
-        _require_role(access, unit.lab_id)
+        require_committed(access, unit.lab_id, Perm.MANAGE_STORAGE)
         locked = _locked_unit(unit)
         kind = UnitKind(locked.kind)
         checked = _check_fields(kind, fields, is_root=locked.parent_id is None)
@@ -413,7 +389,7 @@ def unit_update(*, access: Access, unit: StorageUnit, fields: UnitFields) -> Sto
         changes = {k: [before[k], v] for k, v in after.items() if before[k] != v}
         if not changes:
             return locked
-        _save(
+        save_arbitrated(
             locked,
             _unique_errors(),
             update_fields=[
@@ -442,7 +418,7 @@ def unit_move(
     _check_slot(slot)
     with audited_atomic():
         lock_lab(unit.lab_id)
-        _require_role(access, unit.lab_id)
+        require_committed(access, unit.lab_id, Perm.MANAGE_STORAGE)
         locked = _locked_unit(unit)
         target = _fresh_parent(parent)
         assert target is not None  # noqa: S101 (parent is required here)
@@ -459,7 +435,7 @@ def unit_move(
         old_parent = locked.parent
         old_slot, old_path = locked.slot, _public_path(locked)
         locked.parent, locked.slot = target, slot
-        _save(locked, _unique_errors(), update_fields=["parent", "slot", "updated_at"])
+        save_arbitrated(locked, _unique_errors(), update_fields=["parent", "slot", "updated_at"])
         locked.refresh_from_db(fields=["path"])
         record_event(
             STORAGE_UNIT_MOVED,
@@ -486,7 +462,7 @@ def unit_set_status(
         raise RuleViolation("A reason is required.", code="reason_required", attr="reason")
     with audited_atomic():
         lock_lab(unit.lab_id)
-        _require_role(access, unit.lab_id)
+        require_committed(access, unit.lab_id, Perm.MANAGE_STORAGE)
         locked = _locked_unit(unit)
         old = UnitStatus(locked.status)
         if status == old:
@@ -526,7 +502,9 @@ def box_type_create(*, name: str, rows: int, cols: int) -> BoxType:
         raise InvalidUnit(f"A box has 1 to {MAX_COLS} columns.", attr="cols")
     with audited_atomic():
         box_type = BoxType(name=name, rows=rows, cols=cols)
-        _save(box_type, {BOX_TYPE_NAME_UNIQUE: InvalidUnit("This name is taken.", attr="name")})
+        save_arbitrated(
+            box_type, {BOX_TYPE_NAME_UNIQUE: InvalidUnit("This name is taken.", attr="name")}
+        )
         record_event(
             BOX_TYPE_CREATED,
             Change(
@@ -548,6 +526,8 @@ def box_type_rename(*, box_type: BoxType, name: str) -> BoxType:
         if locked.name == name:
             return locked
         old, locked.name = locked.name, name
-        _save(locked, {BOX_TYPE_NAME_UNIQUE: InvalidUnit("This name is taken.", attr="name")})
+        save_arbitrated(
+            locked, {BOX_TYPE_NAME_UNIQUE: InvalidUnit("This name is taken.", attr="name")}
+        )
         record_event(BOX_TYPE_CHANGED, Change(BOX_TYPE, locked.public_id, {"name": [old, name]}))
     return locked

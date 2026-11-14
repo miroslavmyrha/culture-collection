@@ -18,7 +18,7 @@ from cultures.audit.context import AuditContext
 from cultures.audit.models import AuditEvent, RowChange
 from cultures.core.exceptions import Forbidden
 from cultures.core.testing import assert_problem, logged_in
-from cultures.labs import services
+from cultures.labs import locks, services
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
@@ -235,13 +235,13 @@ def test_deactivation_locks_every_lab_of_the_users_in_pk_order(
         Membership.objects.create(user=leaving, lab=lab, role=role)
         Membership.objects.create(user=colleague, lab=lab, role=Role.MANAGER)
     locked: list[int] = []
-    original = services._lock_lab
+    original = locks.lock_lab
 
     def recording(lab_id: int) -> Lab:
         locked.append(lab_id)
         return original(lab_id)
 
-    monkeypatch.setattr(services, "_lock_lab", recording)
+    monkeypatch.setattr(services, "lock_lab", recording)
     user_deactivate(user=leaving, reason=REASON)
     assert locked == sorted(lab.pk for lab in labs)
 

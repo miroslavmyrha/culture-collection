@@ -8,11 +8,10 @@ new one recorded.
 
 from datetime import date
 
-from django.db import IntegrityError, transaction
-
 from cultures.audit.context import audited_atomic
 from cultures.audit.events import Change, record_event
 from cultures.audit.registry import LAB_AUTHORISATION_ADDED, LAB_AUTHORISATION_ENDED
+from cultures.core.constraints import save_arbitrated
 from cultures.core.exceptions import Conflict, DomainError, NotFound
 from cultures.labs.locks import lock_lab
 from cultures.labs.models import Lab
@@ -106,18 +105,14 @@ def _check_authorisation(
 
 def _save_authorisation(authorisation: LabAuthorisation) -> None:
     """The unique constraint is the final arbiter: a second record of a permit is refused."""
-    try:
-        with transaction.atomic():
-            authorisation.save()
-    except IntegrityError as exc:
-        diag = getattr(exc.__cause__, "diag", None)
-        if getattr(diag, "constraint_name", None) == AUTHORISATION_UNIQUE:
-            raise InvalidAuthorisation(
-                "The lab has this permit recorded already.",
-                code="unique",
-                attr="permit_reference",
-            ) from exc
-        raise
+    save_arbitrated(
+        authorisation,
+        {
+            AUTHORISATION_UNIQUE: InvalidAuthorisation(
+                "The lab has this permit recorded already.", code="unique", attr="permit_reference"
+            )
+        },
+    )
 
 
 def authorisation_end(

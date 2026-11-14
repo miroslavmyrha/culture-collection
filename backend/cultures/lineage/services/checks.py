@@ -17,7 +17,7 @@ from cultures.audit.registry import (
 from cultures.biosafety.policy import permit_today
 from cultures.core.exceptions import NotFound
 from cultures.labs.access import Access
-from cultures.labs.locks import lock_lab
+from cultures.labs.locks import lock_lab, require_committed
 from cultures.labs.permissions import Perm
 
 from ..models import (
@@ -44,7 +44,6 @@ from ._shared import (
     _check_reason,
     _locked_vial,
     _ref,
-    _require,
     _transition,
     normalised,
 )
@@ -285,7 +284,7 @@ def check_record(
         reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(batch.lab_id)
-        _require(access, batch.lab_id)
+        require_committed(access, batch.lab_id, Perm.HANDLE_VIALS)
         locked = _locked_batch(batch.pk)
         if locked.status == BatchStatus.EXHAUSTED:
             raise BatchExhausted
@@ -349,7 +348,7 @@ def check_enter_in_error(*, access: Access, check: BatchCheck, reason: str) -> B
     reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(check.lab_id)
-        _require(access, check.lab_id)
+        require_committed(access, check.lab_id, Perm.HANDLE_VIALS)
         locked = _locked_batch(check.batch_id)
         row = BatchCheck.objects.select_for_update().filter(pk=check.pk).first()
         if row is None:
@@ -369,7 +368,7 @@ def batch_release(*, access: Access, batch: Batch, reason: str) -> Batch:
     reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(batch.lab_id)
-        _require(access, batch.lab_id, Perm.RELEASE_BATCHES)
+        require_committed(access, batch.lab_id, Perm.RELEASE_BATCHES)
         locked = _locked_batch(batch.pk)
         if locked.status == BatchStatus.RELEASED:
             return locked
@@ -391,7 +390,7 @@ def batch_hold(*, access: Access, batch: Batch, reason: str) -> Batch:
     reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(batch.lab_id)
-        _require(access, batch.lab_id, Perm.RELEASE_BATCHES)
+        require_committed(access, batch.lab_id, Perm.RELEASE_BATCHES)
         locked = _locked_batch(batch.pk)
         if locked.status == BatchStatus.ON_HOLD:
             return locked

@@ -34,7 +34,6 @@ from django.contrib.admin.models import LogEntry
 from django.contrib.auth import SESSION_KEY
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.sessions.models import Session
-from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -54,6 +53,7 @@ from cultures.audit.registry import (
     USERS_DEACTIVATED,
     EventType,
 )
+from cultures.core.constraints import save_arbitrated
 from cultures.core.exceptions import Conflict, NotFound, RuleViolation
 from cultures.labs.models import Membership
 from cultures.labs.services import (
@@ -105,18 +105,6 @@ def _check_username(username: str) -> str:
     return username
 
 
-def _save(user: User, fields: list[str] | None = None) -> None:
-    """Save in a savepoint, so a duplicate username is a Conflict, not a broken transaction."""
-    try:
-        with transaction.atomic():
-            user.save(update_fields=fields)
-    except IntegrityError as error:
-        diag = getattr(error.__cause__, "diag", None)  # psycopg's error behind Django's
-        if getattr(diag, "constraint_name", None) == USERNAME_UNIQUE:
-            raise UsernameTaken(attr="username") from error
-        raise
-
-
 def _locked(user: User) -> User:
     """The user's row, locked. An erased user is a tombstone: no service changes it."""
     locked = User.objects.select_for_update().get(pk=user.pk)
@@ -145,7 +133,7 @@ def user_create(
             user.set_unusable_password()
         else:
             user.set_password(password)
-        _save(user)
+        save_arbitrated(user, {USERNAME_UNIQUE: UsernameTaken(attr="username")})
         profile = {field: PERSONAL_CHANGED for field in PROFILE_FIELDS if getattr(user, field)}
         record_event(
             USER_CREATED,
@@ -172,7 +160,9 @@ def user_update(*, user: User, changes: Mapping[str, str]) -> User:
             _check_username(diff["username"])
         for field, value in diff.items():
             setattr(user, field, value)
-        _save(user, list(diff))
+        save_arbitrated(
+            user, {USERNAME_UNIQUE: UsernameTaken(attr="username")}, update_fields=list(diff)
+        )
         record_event(
             USER_CHANGED, Change(SUBJECT, user.public_id, dict.fromkeys(diff, PERSONAL_CHANGED))
         )
@@ -189,7 +179,9 @@ def _set_flag(
         if old == value:
             return user
         setattr(user, field, value)
-        _save(user, [field])
+        save_arbitrated(
+            user, {USERNAME_UNIQUE: UsernameTaken(attr="username")}, update_fields=[field]
+        )
         record_event(
             event_type, Change(SUBJECT, user.public_id, {field: [old, value]}), reason=reason
         )
@@ -228,7 +220,9 @@ def user_set_password(*, user: User, raw_password: str | None) -> User:
             user.set_unusable_password()
         else:
             user.set_password(raw_password)
-        _save(user, ["password"])
+        save_arbitrated(
+            user, {USERNAME_UNIQUE: UsernameTaken(attr="username")}, update_fields=["password"]
+        )
         record_event(
             USER_PASSWORD_CHANGED,
             Change(
@@ -365,7 +359,7 @@ def _make_tombstone(target: User) -> tuple[dict[str, bool], bool]:
     target.set_unusable_password()
     target.is_active = target.is_staff = target.is_superuser = False
     target.erased_at = timezone.now()
-    _save(target)
+    save_arbitrated(target, {USERNAME_UNIQUE: UsernameTaken(attr="username")})
     return before, had_password
 
 

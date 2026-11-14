@@ -12,6 +12,7 @@ to the law the rule rests on is one hop.
 - The unused HTML renderer, its sanitiser (DOMPurify) and the unused external-open helper are gone, and the CSP now allows no Trusted Types policy at all, so no string can reach an HTML sink (#238).
 - End-to-end tests run without retries on CI too, so a flaky test fails and is named instead of passing on its second try; none needed a retry in the last 15 CI runs (#236).
 - Every Semgrep rule has a fixture of what it must and must not flag, and `check.sh` runs `semgrep --test` on them, so a rule that stops matching fails the check (#235).
+- Every service checks the actor's committed role through one `require_committed`, which refuses to run without the lab lock, and turns a violated constraint into its domain error through one `save_arbitrated`; the seven and eleven copies are gone (#232).
 - The waiting items of the home overview no longer list a lab-page target that none of them used; the activity feed keeps its own (#228).
 - The code risk report names a method with its class once, whichever order radon lists them in (#196).
 - The last active superuser can no longer be deactivated, alone or with others, or lose the superuser flag, in the services and in the admin form, and two such changes at once leave one; erasing it was refused before (#225).

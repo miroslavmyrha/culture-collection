@@ -3,14 +3,13 @@
 import hashlib
 import unicodedata
 
-from django.db import IntegrityError, connection, transaction
+from django.db import connection
 from django.db.models import Model
 
-from cultures.core.exceptions import DomainError, Forbidden, NotFound, RuleViolation
+from cultures.core.exceptions import NotFound, RuleViolation
 from cultures.labs.access import Access
-from cultures.labs.locks import lock_lab
-from cultures.labs.models import Membership
-from cultures.labs.permissions import Perm, Role, role_has
+from cultures.labs.locks import lock_lab, require_committed
+from cultures.labs.permissions import Perm
 
 from ..models import (
     MAX_DOCUMENT_BYTES,
@@ -113,30 +112,6 @@ def _checked_document(data: DocumentInput) -> DocumentInput:
 # Under the lab lock.
 
 
-def _require(access: Access, lab_id: int, perm: Perm) -> None:
-    """The actor's role as committed now (caller holds the lab lock), not as the request began."""
-    role = (
-        Membership.objects.filter(lab_id=lab_id, user=access.user, user__is_active=True)
-        .values_list("role", flat=True)
-        .first()
-    )
-    if role is None or not role_has(Role(role), perm):
-        raise Forbidden
-
-
-def _save(obj: Model, errors: dict[str, DomainError]) -> None:
-    """The unique constraints are the final arbiter: a check before saving can race."""
-    try:
-        with transaction.atomic():
-            obj.save()
-    except IntegrityError as exc:
-        diag = getattr(exc.__cause__, "diag", None)
-        error = errors.get(str(getattr(diag, "constraint_name", "")))
-        if error is not None:
-            raise error from exc
-        raise
-
-
 def _locked[T: Model](model: type[T], pk: int) -> T:
     row = model._default_manager.select_for_update().filter(pk=pk).first()
     if row is None:
@@ -162,7 +137,7 @@ def _locked_request(
     access: Access, request: DistributionRequest, perm: Perm
 ) -> DistributionRequest:
     lock_lab(request.lab_id)
-    _require(access, request.lab_id, perm)
+    require_committed(access, request.lab_id, perm)
     return (
         DistributionRequest.objects.select_for_update(of=("self",))
         .select_related("requester__contact")

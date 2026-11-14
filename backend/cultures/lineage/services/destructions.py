@@ -55,9 +55,10 @@ from cultures.biosafety.models import (
     RestrictionKind,
 )
 from cultures.biosafety.policy import PERMIT_TIME_ZONE, permit_today, valid_on
+from cultures.core.constraints import save_arbitrated
 from cultures.core.exceptions import Conflict, DomainError, NotFound
 from cultures.labs.access import Access
-from cultures.labs.locks import lock_lab
+from cultures.labs.locks import lock_lab, require_committed
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Perm, Role, role_has
 from cultures.labs.selectors import has_vrat_access
@@ -74,7 +75,7 @@ from ..models import (
     Vial,
     VialStatus,
 )
-from ._shared import VIAL, _check_reason, _close, _open_placement, _require, _save, _where
+from ._shared import VIAL, _check_reason, _close, _open_placement, _where
 from .errors import (
     AuthorisationMethodMissing,
     ConfirmOwnDestruction,
@@ -469,7 +470,7 @@ def destruction_record(
     data = _checked_input(data)
     with audited_atomic():
         lab = lock_lab(strain.lab_id)
-        _require(access, strain.lab_id)
+        require_committed(access, strain.lab_id, Perm.HANDLE_VIALS)
         locked = _locked_strain(strain.pk)
         required = required_for(locked)
         vials = _locked_vials(data, locked)
@@ -499,7 +500,7 @@ def destruction_record(
             completed_at=None if required.confirmation else now,
         )
         # The lab lock serialises numbering; the constraint is the final arbiter.
-        _save(
+        save_arbitrated(
             record,
             {
                 DESTRUCTION_NUMBER_UNIQUE: Conflict(
@@ -556,7 +557,7 @@ def destruction_confirm(*, access: Access, record: DestructionRecord) -> Destruc
     so that the record no longer holds what they ask."""
     with audited_atomic():
         lab = lock_lab(record.lab_id)
-        _require(access, record.lab_id, Perm.CONFIRM_DESTRUCTION)
+        require_committed(access, record.lab_id, Perm.CONFIRM_DESTRUCTION)
         _locked_strain(record.strain_id)
         locked = _locked_record(record)
         if locked.status != DestructionStatus.VALID or locked.completed_at is not None:
@@ -622,13 +623,13 @@ def destruction_enter_in_error(
     reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(record.lab_id)
-        _require(access, record.lab_id)
+        require_committed(access, record.lab_id, Perm.HANDLE_VIALS)
         _locked_strain(record.strain_id)
         locked = _locked_record(record)
         if locked.status != DestructionStatus.VALID:
             raise DestructionEnteredInError
         if locked.confirmed_at is not None:
-            _require(access, record.lab_id, Perm.CONFIRM_DESTRUCTION)
+            require_committed(access, record.lab_id, Perm.CONFIRM_DESTRUCTION)
         now = timezone.now()
         locked.status = DestructionStatus.ENTERED_IN_ERROR
         locked.error_reason = reason

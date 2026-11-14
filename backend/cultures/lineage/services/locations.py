@@ -9,7 +9,7 @@ from cultures.audit.registry import (
 )
 from cultures.core.exceptions import Forbidden
 from cultures.labs.access import Access
-from cultures.labs.locks import lock_lab
+from cultures.labs.locks import lock_lab, require_committed
 from cultures.labs.permissions import Perm
 from cultures.labs.services import holds_location_grant
 from cultures.storage.models import StorageUnit
@@ -20,10 +20,7 @@ from ..models import (
     Vial,
     VialPlacement,
 )
-from ._shared import (
-    VIAL,
-    _require,
-)
+from ._shared import VIAL
 
 
 @dataclass(frozen=True)
@@ -81,7 +78,7 @@ def vial_reveal_location(*, access: Access, vial: Vial) -> Location | None:
     """
     with audited_atomic():
         lock_lab(vial.lab_id)
-        _require(access, vial.lab_id, Perm.VIEW_STRAINS)
+        require_committed(access, vial.lab_id, Perm.VIEW_STRAINS)
         strain = Strain.objects.get(pk=vial.batch.strain_id)
         if is_regulated(strain):
             if not holds_location_grant(lab_id=vial.lab_id, user=access.user):

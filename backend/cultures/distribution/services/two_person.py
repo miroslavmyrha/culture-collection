@@ -11,6 +11,7 @@ from cultures.audit.registry import (
     REQUEST_SHIPMENT_WITHDRAWN,
     REQUEST_SHIPPED,
 )
+from cultures.core.constraints import save_arbitrated
 from cultures.labs.access import Access
 from cultures.labs.permissions import Perm
 
@@ -28,7 +29,6 @@ from ._shared import (
     _defer_reservation_checks,
     _locked_request,
     _move,
-    _save,
 )
 from .errors import (
     ConfirmOwnApproval,
@@ -85,7 +85,7 @@ def request_prepare_shipment(
             prepared_by=access.user,
             prepared_at=timezone.now(),
         )
-        _save(preparation, {ONE_OPEN_PREPARATION: PreparedMeanwhile()})
+        save_arbitrated(preparation, {ONE_OPEN_PREPARATION: PreparedMeanwhile()})
         locked.status = RequestStatus.AWAITING_CONFIRMATION
         locked.save(update_fields=["status", "updated_at"])
         record_event(

@@ -2,7 +2,7 @@
 
 Real threads and real transactions, each thread with its own connection and
 audit context. Two points are forced:
-- the threads meet at the lab lock (the first _lock_lab call of each thread),
+- the threads meet at the lab lock (the first lock_lab call of each thread),
   so both are proven to arrive there with every check still ahead of them.
 - the first thread past the manager check (_keep_a_manager) waits a moment
   for the other one. With the lab lock the other one cannot get there before
@@ -22,7 +22,7 @@ from django.db import connection
 
 from cultures.audit.context import audit_context
 from cultures.audit.models import ActorKind, AuditEvent, Channel
-from cultures.labs import services
+from cultures.labs import locks, services
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
@@ -48,7 +48,7 @@ def race(
     at_lock = threading.Barrier(2, timeout=5)
     after_check = threading.Barrier(2, timeout=AFTER_CHECK_WAIT)
     seen = threading.local()
-    lock_lab: Callable[[int], Lab] = services._lock_lab
+    lock_lab: Callable[[int], Lab] = locks.lock_lab
     keep_a_manager: Callable[..., None] = services._keep_a_manager
 
     def meet_at_lock(lab_id: int) -> Lab:
@@ -63,7 +63,7 @@ def race(
             seen.check = True
             _wait(after_check)
 
-    monkeypatch.setattr(services, "_lock_lab", meet_at_lock)
+    monkeypatch.setattr(services, "lock_lab", meet_at_lock)
     monkeypatch.setattr(services, "_keep_a_manager", wait_after_check)
     outcomes: dict[int, str] = {}
 

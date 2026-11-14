@@ -842,7 +842,7 @@ def test_a_batch_number_taken_at_the_same_moment_is_a_conflict(
         )
 
     with (
-        run_before(services.passages, "_save", competitor),
+        run_before(services.passages, "save_arbitrated", competitor),
         pytest.raises(services.BatchNumberTaken),
     ):
         preserve(technician, passage0)

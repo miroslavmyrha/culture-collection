@@ -25,7 +25,6 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
-from django.db import IntegrityError, transaction
 from django.db.models import Max, Model
 from django.utils import timezone
 
@@ -46,11 +45,12 @@ from cultures.audit.registry import (
 )
 from cultures.biosafety.models import RegulatoryListEntry
 from cultures.biosafety.policy import permit_today
-from cultures.core.exceptions import Conflict, DomainError, Forbidden, NotFound, RuleViolation
+from cultures.core.constraints import save_arbitrated
+from cultures.core.exceptions import Conflict, DomainError, NotFound, RuleViolation
 from cultures.labs.access import Access
-from cultures.labs.locks import lock_lab
-from cultures.labs.models import Lab, Membership
-from cultures.labs.permissions import Perm, Role, role_has
+from cultures.labs.locks import lock_lab, require_committed
+from cultures.labs.models import Lab
+from cultures.labs.permissions import Perm
 from cultures.lineage.models import Passage
 from cultures.strains import services as strains
 from cultures.strains.countries import COUNTRY_CODES
@@ -263,30 +263,6 @@ def sha256_of(text: str) -> str:
 # Under the lab lock.
 
 
-def _require(access: Access, lab_id: int, perm: Perm) -> None:
-    """The actor's role as committed now (caller holds the lab lock), not as the request began."""
-    role = (
-        Membership.objects.filter(lab_id=lab_id, user=access.user, user__is_active=True)
-        .values_list("role", flat=True)
-        .first()
-    )
-    if role is None or not role_has(Role(role), perm):
-        raise Forbidden
-
-
-def _save(obj: Model, errors: dict[str, DomainError]) -> None:
-    """The unique constraints are the final arbiter: a check before saving can race."""
-    try:
-        with transaction.atomic():
-            obj.save()
-    except IntegrityError as exc:
-        diag = getattr(exc.__cause__, "diag", None)
-        error = errors.get(str(getattr(diag, "constraint_name", "")))
-        if error is not None:
-            raise error from exc
-        raise
-
-
 def _locked[T: Model](model: type[T], pk: int) -> T:
     row = model._default_manager.select_for_update().filter(pk=pk).first()
     if row is None:
@@ -308,7 +284,7 @@ def depositor_create(
     institution = normalised(institution)
     with audited_atomic():
         locked_lab = lock_lab(lab.pk)
-        _require(access, locked_lab.pk, Perm.MANAGE_DEPOSITS)
+        require_committed(access, locked_lab.pk, Perm.MANAGE_DEPOSITS)
         person = Contact.objects.create(lab=locked_lab, **_contact_values(contact))
         depositor = Depositor.objects.create(
             lab=locked_lab, contact=person, institution=institution
@@ -338,7 +314,7 @@ def depositor_update(
     institution = normalised(institution)
     with audited_atomic():
         lock_lab(depositor.lab_id)
-        _require(access, depositor.lab_id, Perm.MANAGE_DEPOSITS)
+        require_committed(access, depositor.lab_id, Perm.MANAGE_DEPOSITS)
         locked = _locked(Depositor, depositor.pk)
         person = _locked(Contact, locked.contact_id)
         if person.erased_at is not None:
@@ -418,7 +394,7 @@ def mta_template_publish(
         raise InvalidDeposit(f"Use at most {MAX_MTA_TEXT} characters.", attr="text")
     with audited_atomic():
         locked_lab = lock_lab(lab.pk)
-        _require(access, locked_lab.pk, Perm.MANAGE_MTA)
+        require_committed(access, locked_lab.pk, Perm.MANAGE_MTA)
         last = MtaTemplate.objects.filter(lab=locked_lab, code=code).aggregate(v=Max("version"))
         template = MtaTemplate(
             lab=locked_lab,
@@ -428,7 +404,7 @@ def mta_template_publish(
             text=text,
             text_sha256=sha256_of(text),
         )
-        _save(template, {MTA_VERSION_UNIQUE: MtaVersionTaken()})
+        save_arbitrated(template, {MTA_VERSION_UNIQUE: MtaVersionTaken()})
         record_event(
             MTA_TEMPLATE_PUBLISHED,
             Change(
@@ -483,7 +459,7 @@ def _add_terms(deposit: Deposit, terms: TermsInput, version: int, reason: str) -
         mat_uses=list(terms.mat_uses),
         reason=reason,
     )
-    _save(row, {TERMS_VERSION_UNIQUE: TermsChanged(), ONE_ACTIVE_TERMS: TermsChanged()})
+    save_arbitrated(row, {TERMS_VERSION_UNIQUE: TermsChanged(), ONE_ACTIVE_TERMS: TermsChanged()})
     TermsUse.objects.bulk_create(
         TermsUse(terms=row, use=use, decision=decision) for use, decision in terms.uses
     )
@@ -503,7 +479,7 @@ def deposit_receive(*, access: Access, lab: Lab, data: NewDeposit) -> Deposit:
     terms = _checked_terms(data.terms)
     with audited_atomic():
         locked_lab = lock_lab(lab.pk)
-        _require(access, locked_lab.pk, Perm.MANAGE_DEPOSITS)
+        require_committed(access, locked_lab.pk, Perm.MANAGE_DEPOSITS)
         depositor = _locked(Depositor, data.depositor.pk)
         if depositor.lab_id != locked_lab.pk:
             raise InvalidDeposit("Invalid depositor.", attr="depositor")
@@ -557,7 +533,7 @@ def deposit_terms_replace(
     reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(deposit.lab_id)
-        _require(access, deposit.lab_id, Perm.MANAGE_DEPOSITS)
+        require_committed(access, deposit.lab_id, Perm.MANAGE_DEPOSITS)
         locked = (
             Deposit.objects.select_for_update(of=("self",))
             .select_related("strain")
@@ -597,7 +573,7 @@ def deposit_terms_replace(
 
 def _locked_deposit(access: Access, deposit: Deposit, expected: DepositStatus) -> Deposit:
     lock_lab(deposit.lab_id)
-    _require(access, deposit.lab_id, Perm.MANAGE_DEPOSITS)
+    require_committed(access, deposit.lab_id, Perm.MANAGE_DEPOSITS)
     locked = _locked(Deposit, deposit.pk)
     if locked.status != expected:
         raise WrongState

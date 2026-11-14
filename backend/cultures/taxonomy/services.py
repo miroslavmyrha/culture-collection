@@ -17,9 +17,6 @@ traps, ORM and data).
 import unicodedata
 from dataclasses import dataclass
 
-from django.db import IntegrityError, transaction
-from django.db.models import Model
-
 from cultures.audit.context import audited_atomic
 from cultures.audit.events import Change, record_event
 from cultures.audit.registry import (
@@ -28,6 +25,7 @@ from cultures.audit.registry import (
     TAXON_IDENTIFIER_ADDED,
     TAXON_IDENTIFIER_REMOVED,
 )
+from cultures.core.constraints import save_arbitrated
 from cultures.core.exceptions import DomainError, NotFound
 
 from .models import (
@@ -144,19 +142,6 @@ def _fresh(taxon: Taxon | None) -> Taxon | None:
     return found
 
 
-def _save(obj: Model, errors: dict[str, DomainError]) -> None:
-    """The unique constraints are the final arbiter: a check before saving can race."""
-    try:
-        with transaction.atomic():
-            obj.save()
-    except IntegrityError as exc:
-        diag = getattr(exc.__cause__, "diag", None)
-        error = errors.get(str(getattr(diag, "constraint_name", "")))
-        if error is not None:
-            raise error from exc
-        raise
-
-
 def _duplicate() -> dict[str, DomainError]:
     return {
         TAXON_UNIQUE: TaxonRuleBroken(
@@ -199,7 +184,7 @@ def taxon_create(*, fields: TaxonFields) -> Taxon:
             status=fields.status,
             accepted=fields.accepted,
         )
-        _save(taxon, _duplicate())
+        save_arbitrated(taxon, _duplicate())
         record_event(
             TAXON_CREATED,
             Change(TAXON, taxon.public_id, {k: [None, v] for k, v in _values(taxon).items()}),
@@ -232,7 +217,7 @@ def taxon_update(*, taxon: Taxon, fields: TaxonFields) -> Taxon:
         changes = {k: [before[k], after[k]] for k in before if before[k] != after[k]}
         if not changes:
             return locked
-        _save(locked, _duplicate())
+        save_arbitrated(locked, _duplicate())
         record_event(TAXON_CHANGED, Change(TAXON, locked.public_id, changes))
     return locked
 
@@ -241,7 +226,7 @@ def taxon_identifier_add(*, taxon: Taxon, system: IdentifierSystem, value: str) 
     with audited_atomic():
         _lock(taxon)
         identifier = TaxonIdentifier(taxon=taxon, system=system, value=value.strip())
-        _save(
+        save_arbitrated(
             identifier,
             {
                 IDENTIFIER_UNIQUE: TaxonRuleBroken(

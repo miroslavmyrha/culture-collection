@@ -15,8 +15,10 @@ from cultures.audit.registry import (
     VIALS_MARKED_FOR_DESTRUCTION,
     VIALS_PLACED,
 )
+from cultures.core.constraints import save_arbitrated
 from cultures.labs.access import Access
-from cultures.labs.locks import lock_lab
+from cultures.labs.locks import lock_lab, require_committed
+from cultures.labs.permissions import Perm
 from cultures.storage.models import StorageUnit
 from cultures.storage.policy import StoreDecision, may_store
 from cultures.strains.models import Strain
@@ -44,8 +46,6 @@ from ._shared import (
     _locked_box,
     _locked_vial,
     _open_placement,
-    _require,
-    _save,
     _save_all,
     _transition,
     _where,
@@ -91,7 +91,7 @@ def vial_place(*, access: Access, vial: Vial, box: StorageUnit, row: int, col: i
     _check_counted_from_one(row, col)
     with audited_atomic():
         lock_lab(vial.lab_id)
-        _require(access, vial.lab_id)
+        require_committed(access, vial.lab_id, Perm.HANDLE_VIALS)
         strain = Strain.objects.get(pk=vial.batch.strain_id)
         locked = _locked_vial(vial)
         if locked.status in NOT_IN_A_BOX:
@@ -121,7 +121,7 @@ def vial_place(*, access: Access, vial: Vial, box: StorageUnit, row: int, col: i
             placed_at=now,
             placed_by=access.user,
         )
-        _save(
+        save_arbitrated(
             placement, {POSITION_TAKEN: PositionTaken(), ONE_OPEN_PLACEMENT: VialPlacedMeanwhile()}
         )
         record_event(
@@ -160,7 +160,7 @@ def vials_place(
     _check_entries(placements)
     with audited_atomic():
         lock_lab(box.lab_id)
-        _require(access, box.lab_id)
+        require_committed(access, box.lab_id, Perm.HANDLE_VIALS)
         locked = _locked_unplaced(placements, box.lab_id)
         target = _locked_box(box, box.lab_id)
         _check_positions(target, placements, locked)
@@ -298,7 +298,7 @@ def vial_transition(*, access: Access, vial: Vial, status: VialStatus, reason: s
         raise EdgeNotAllowed("Reservation and dispatch are recorded by distribution.")
     with audited_atomic():
         lock_lab(vial.lab_id)
-        _require(access, vial.lab_id)
+        require_committed(access, vial.lab_id, Perm.HANDLE_VIALS)
         locked = _locked_vial(vial)
         if locked.status == status:
             return locked
@@ -401,13 +401,13 @@ def vial_set_barcode(*, access: Access, vial: Vial, barcode: str) -> Vial:
         raise InvalidVial("A barcode has no spaces.", attr="barcode")
     with audited_atomic():
         lock_lab(vial.lab_id)
-        _require(access, vial.lab_id)
+        require_committed(access, vial.lab_id, Perm.HANDLE_VIALS)
         locked = _locked_vial(vial)
         new = code or None
         if locked.barcode == new:
             return locked
         old, locked.barcode = locked.barcode, new
-        _save(
+        save_arbitrated(
             locked,
             {
                 VIAL_BARCODE_UNIQUE: InvalidVial(

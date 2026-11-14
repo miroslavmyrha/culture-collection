@@ -133,7 +133,7 @@ def test_a_membership_added_meanwhile_is_caught_by_the_constraint(
     def competitor() -> None:
         Membership.objects.create(user=stranger, lab=lab, role=Role.VIEWER)
 
-    with run_before(services, "_save", competitor), pytest.raises(AlreadyMember):
+    with run_before(services, "save_arbitrated", competitor), pytest.raises(AlreadyMember):
         services.member_add(access=manager_access, lab=lab, user=stranger, role=Role.CURATOR)
     assert AuditEvent.objects.count() == 0
 

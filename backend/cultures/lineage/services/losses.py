@@ -16,13 +16,14 @@ from cultures.audit.context import audited_atomic
 from cultures.audit.events import Change, record_event
 from cultures.audit.registry import VIAL_LOSS_REPORTED
 from cultures.biosafety.policy import PERMIT_TIME_ZONE, permit_today
+from cultures.core.constraints import save_arbitrated
 from cultures.labs.access import Access
-from cultures.labs.locks import lock_lab
+from cultures.labs.locks import lock_lab, require_committed
 from cultures.labs.permissions import Perm
 
 from ..models import LOSS_REPORT_ONE_PER_LOSS, Vial, VialLossReport, VialStatus
 from ..selectors import reportable_loss
-from ._shared import VIAL, _check_reason, _locked_vial, _require, _save, normalised
+from ._shared import VIAL, _check_reason, _locked_vial, normalised
 from .errors import InvalidVial, LossChanged, LossNotReportable, LossReported, VialNotLost
 
 REFERENCE_LENGTH = 100
@@ -52,7 +53,7 @@ def vial_loss_report(
         raise InvalidVial("This date is in the future.", attr="reported_on")
     with audited_atomic():
         lock_lab(vial.lab_id)
-        _require(access, vial.lab_id, Perm.APPROVE_REGULATED)
+        require_committed(access, vial.lab_id, Perm.APPROVE_REGULATED)
         locked = _locked_vial(vial)
         if locked.status != VialStatus.LOST:
             raise VialNotLost
@@ -75,7 +76,7 @@ def vial_loss_report(
             recorded_by=access.user,
             recorded_at=timezone.now(),
         )
-        _save(report, {LOSS_REPORT_ONE_PER_LOSS: LossReported()})
+        save_arbitrated(report, {LOSS_REPORT_ONE_PER_LOSS: LossReported()})
         record_event(
             VIAL_LOSS_REPORTED,
             Change(

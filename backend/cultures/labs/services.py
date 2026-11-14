@@ -29,8 +29,7 @@ lab_update before its inline adds members (ADR 0006, known limits).
 
 from collections.abc import Collection
 
-from django.db import IntegrityError, transaction
-from django.db.models import Model, Q
+from django.db.models import Q
 from django.utils import timezone
 
 from cultures.audit.context import audited_atomic, current_context
@@ -46,10 +45,12 @@ from cultures.audit.registry import (
     VRAT_ACCESS_ENDED,
     VRAT_ACCESS_GRANTED,
 )
+from cultures.core.constraints import save_arbitrated
 from cultures.core.exceptions import DomainError, Forbidden, NotFound, RuleViolation
 from cultures.users.models import User
 
 from .access import Access
+from .locks import lock_lab, require_committed
 from .models import (
     LAB_CODE_UNIQUE,
     LAB_NAME_UNIQUE,
@@ -61,7 +62,7 @@ from .models import (
     Membership,
     VratAccess,
 )
-from .permissions import Perm, Role, may_grant, role_has
+from .permissions import Perm, Role, may_grant
 
 LAB = "lab"
 MEMBERSHIP = "membership"
@@ -99,23 +100,6 @@ class GrantAboveOwnRole(Forbidden):
     default_detail = "You cannot grant or change a role above your own."
 
 
-def _save(obj: Model, errors: dict[str, DomainError]) -> None:
-    """The unique constraints are the final arbiter: a check before saving can race."""
-    try:
-        with transaction.atomic():  # a savepoint, so the outer transaction stays usable
-            obj.save()
-    except IntegrityError as exc:
-        diag = getattr(exc.__cause__, "diag", None)
-        error = errors.get(str(getattr(diag, "constraint_name", "")))
-        if error is not None:
-            raise error from exc
-        raise
-
-
-def _lock_lab(lab_id: int) -> Lab:
-    return Lab.objects.select_for_update().get(pk=lab_id)
-
-
 def _lock_active_user(user: User) -> None:
     """The user row, so a deactivation of this user waits for us or we see its result."""
     locked = User.objects.select_for_update(no_key=True).filter(pk=user.pk, is_active=True)
@@ -133,7 +117,7 @@ def _user_id(user: User) -> str:
 def lab_create(*, name: str, code: str) -> Lab:
     with audited_atomic():
         lab = Lab(name=name, code=code)
-        _save(lab, _lab_errors())
+        save_arbitrated(lab, _lab_errors())
         record_event(
             LAB_CREATED,
             Change(LAB, lab.public_id, {"name": [None, name], "code": [None, code]}, lab_id=lab.pk),
@@ -143,7 +127,7 @@ def lab_create(*, name: str, code: str) -> Lab:
 
 def lab_update(*, lab: Lab, name: str, code: str) -> Lab:
     with audited_atomic():
-        locked = _lock_lab(lab.pk)
+        locked = lock_lab(lab.pk)
         changes = {
             field: [old, new]
             for field, old, new in (("name", locked.name, name), ("code", locked.code, code))
@@ -152,7 +136,7 @@ def lab_update(*, lab: Lab, name: str, code: str) -> Lab:
         if not changes:
             return locked
         locked.name, locked.code = name, code
-        _save(locked, _lab_errors())
+        save_arbitrated(locked, _lab_errors())
         record_event(LAB_UPDATED, Change(LAB, locked.public_id, changes, lab_id=locked.pk))
     return locked
 
@@ -171,9 +155,9 @@ def membership_create(*, lab: Lab, user: User, role: Role) -> Membership:
     """Lock order: the user, then the lab (callers that hold the lab lock took the user first)."""
     with audited_atomic():
         _lock_active_user(user)
-        _lock_lab(lab.pk)
+        lock_lab(lab.pk)
         membership = Membership(lab=lab, user=user, role=role)
-        _save(membership, {MEMBERSHIP_UNIQUE: AlreadyMember(attr="username")})
+        save_arbitrated(membership, {MEMBERSHIP_UNIQUE: AlreadyMember(attr="username")})
         record_event(
             MEMBER_ADDED,
             Change(
@@ -230,7 +214,7 @@ def membership_delete(*, membership: Membership) -> None:
 
 def _locked_membership(membership: Membership) -> Membership:
     """The lab first, then the row, both locked. Gone in the meantime: NotFound."""
-    _lock_lab(membership.lab_id)
+    lock_lab(membership.lab_id)
     locked = (
         Membership.objects.select_for_update(of=("self",))
         .select_related("user")
@@ -268,7 +252,7 @@ def users_deactivation_check(*, users: Collection[User]) -> None:
         .distinct()
     )
     for lab_id in list(lab_ids):
-        lab = _lock_lab(lab_id)
+        lab = lock_lab(lab_id)
         leaving = Membership.objects.filter(lab_id=lab_id, user_id__in=user_ids)
         if leaving.filter(role=Role.MANAGER, user__is_active=True).exists():
             _keep_a_manager(lab_id, leaving=Q(user_id__in=user_ids), detail=_last_manager_of(lab))
@@ -300,15 +284,15 @@ def labs_left_without_manager(*, users: Collection[User]) -> list[Lab]:
 def member_add(*, access: Access, lab: Lab, user: User, role: Role) -> Membership:
     with audited_atomic():
         _lock_active_user(user)  # users before labs
-        _lock_lab(lab.pk)
-        _check_grant(_grantor_role(access, lab.pk), role)
+        lock_lab(lab.pk)
+        _check_grant(require_committed(access, lab.pk, Perm.MANAGE_MEMBERS), role)
         return membership_create(lab=lab, user=user, role=role)
 
 
 def member_change_role(*, access: Access, membership: Membership, role: Role) -> Membership:
     with audited_atomic():
-        _lock_lab(membership.lab_id)
-        grantor = _grantor_role(access, membership.lab_id)
+        lock_lab(membership.lab_id)
+        grantor = require_committed(access, membership.lab_id, Perm.MANAGE_MEMBERS)
         _check_grant(grantor, role)
         _check_grant(grantor, _current_role(membership))
         return membership_set_role(membership=membership, role=role)
@@ -316,24 +300,12 @@ def member_change_role(*, access: Access, membership: Membership, role: Role) ->
 
 def member_remove(*, access: Access, membership: Membership) -> None:
     with audited_atomic():
-        _lock_lab(membership.lab_id)
-        _check_grant(_grantor_role(access, membership.lab_id), _current_role(membership))
+        lock_lab(membership.lab_id)
+        _check_grant(
+            require_committed(access, membership.lab_id, Perm.MANAGE_MEMBERS),
+            _current_role(membership),
+        )
         membership_delete(membership=membership)
-
-
-def _grantor_role(access: Access, lab_id: int) -> Role:
-    """The grantor's role as committed now (caller holds the lab lock), not as the request began.
-
-    A grantor deactivated or demoted after the request built its access object is refused.
-    """
-    role = (
-        Membership.objects.filter(lab_id=lab_id, user=access.user, user__is_active=True)
-        .values_list("role", flat=True)
-        .first()
-    )
-    if role is None or not role_has(Role(role), Perm.MANAGE_MEMBERS):
-        raise Forbidden
-    return Role(role)
 
 
 def _current_role(membership: Membership) -> Role:
@@ -403,8 +375,8 @@ def location_grant_add(
     """A manager lets a member of the lab see regulated locations, with a reason."""
     reason = _reason(reason)
     with audited_atomic():
-        _lock_lab(lab.pk)
-        _grantor_role(access, lab.pk)
+        lock_lab(lab.pk)
+        require_committed(access, lab.pk, Perm.MANAGE_MEMBERS)
         member = (
             Membership.objects.filter(pk=membership.pk, lab_id=lab.pk)
             .select_related("user")
@@ -415,7 +387,7 @@ def location_grant_add(
         grant = LocationGrant(
             lab_id=lab.pk, user=member.user, granted_by=access.user, reason=reason
         )
-        _save(grant, {LOCATION_GRANT_OPEN_UNIQUE: GrantExists()})
+        save_arbitrated(grant, {LOCATION_GRANT_OPEN_UNIQUE: GrantExists()})
         record_event(
             LOCATION_GRANT_ADDED,
             Change(
@@ -433,8 +405,8 @@ def location_grant_revoke(*, access: Access, grant: LocationGrant, reason: str) 
     """A manager ends a grant, with a reason. The row stays."""
     reason = _reason(reason)
     with audited_atomic():
-        _lock_lab(grant.lab_id)
-        _grantor_role(access, grant.lab_id)
+        lock_lab(grant.lab_id)
+        require_committed(access, grant.lab_id, Perm.MANAGE_MEMBERS)
         locked = (
             LocationGrant.objects.select_for_update(of=("self",))
             .select_related("user")
@@ -516,12 +488,12 @@ def vrat_access_grant(*, access: Access, lab: Lab, user: User, reason: str) -> V
     reason = _reason(reason)
     with audited_atomic():
         _lock_active_user(user)
-        _lock_lab(lab.pk)
-        _grantor_role(access, lab.pk)
+        lock_lab(lab.pk)
+        require_committed(access, lab.pk, Perm.MANAGE_MEMBERS)
         if not Membership.objects.filter(lab_id=lab.pk, user=user).exists():
             raise NotAMember
         entry = VratAccess(lab_id=lab.pk, user=user, granted_by=access.user, reason=reason)
-        _save(entry, {VRAT_ACCESS_OPEN_UNIQUE: AlreadyOnList()})
+        save_arbitrated(entry, {VRAT_ACCESS_OPEN_UNIQUE: AlreadyOnList()})
         record_event(
             VRAT_ACCESS_GRANTED,
             Change(VRAT_ACCESS, entry.public_id, {"user": [None, _user_id(user)]}, lab_id=lab.pk),
@@ -534,8 +506,8 @@ def vrat_access_end(*, access: Access, entry: VratAccess, reason: str) -> VratAc
     """A manager takes a person off the lab's VRAT access list, with a reason. The row stays."""
     reason = _reason(reason)
     with audited_atomic():
-        _lock_lab(entry.lab_id)
-        _grantor_role(access, entry.lab_id)
+        lock_lab(entry.lab_id)
+        require_committed(access, entry.lab_id, Perm.MANAGE_MEMBERS)
         locked = (
             VratAccess.objects.select_for_update(of=("self",))
             .select_related("user")
@@ -563,7 +535,7 @@ def vrat_access_end_for_users(*, users: Collection[User], reason: str) -> int:
     if not lab_ids:
         return 0
     for lab_id in lab_ids:
-        _lock_lab(lab_id)
+        lock_lab(lab_id)
     entries = list(
         open_entries.select_for_update(of=("self",)).select_related("user").order_by("pk")
     )

@@ -34,8 +34,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any, Literal
 
-from django.db import IntegrityError, connection, transaction
-from django.db.models import Model
+from django.db import connection
 from django.utils import timezone
 
 from cultures.audit.context import audited_atomic
@@ -58,13 +57,14 @@ from cultures.audit.registry import (
 from cultures.biosafety import selectors as biosafety_lists
 from cultures.biosafety.models import RegulatoryListEntry, RestrictionKind
 from cultures.biosafety.policy import permit_today, require_authorisation
+from cultures.core.constraints import save_arbitrated
 from cultures.core.exceptions import Conflict, DomainError, Forbidden, NotFound, RuleViolation
 from cultures.distribution import services as distribution
 from cultures.growth.services import Growth, growth_fields, growth_of, growth_values, locked_growth
 from cultures.labs.access import Access
-from cultures.labs.locks import lock_lab
-from cultures.labs.models import Lab, Membership
-from cultures.labs.permissions import Perm, Role, role_has
+from cultures.labs.locks import lock_lab, require_committed
+from cultures.labs.models import Lab
+from cultures.labs.permissions import Perm
 from cultures.lineage import services as lineage
 from cultures.lineage.models import VialPlacement
 from cultures.storage.models import StorageUnit
@@ -522,17 +522,6 @@ def _check_basis_entry(
 # Under the lab lock.
 
 
-def _require_role(access: Access, lab_id: int, perm: Perm = Perm.MANAGE_STRAINS) -> None:
-    """The actor's role as committed now (caller holds the lab lock), not as the request began."""
-    role = (
-        Membership.objects.filter(lab_id=lab_id, user=access.user, user__is_active=True)
-        .values_list("role", flat=True)
-        .first()
-    )
-    if role is None or not role_has(Role(role), perm):
-        raise Forbidden
-
-
 def _next_seq(lab: Lab) -> int:
     """The lab's next accession sequence. Caller holds the lab lock; the counter row is locked
     too, so a writer that skipped the lab lock still waits here."""
@@ -542,19 +531,6 @@ def _next_seq(lab: Lab) -> int:
     counter.last_seq += 1
     counter.save(update_fields=["last_seq"])
     return counter.last_seq
-
-
-def _save(obj: Model, errors: dict[str, DomainError]) -> None:
-    """The unique constraints are the final arbiter: a check before saving can race."""
-    try:
-        with transaction.atomic():
-            obj.save()
-    except IntegrityError as exc:
-        diag = getattr(exc.__cause__, "diag", None)
-        error = errors.get(str(getattr(diag, "constraint_name", "")))
-        if error is not None:
-            raise error from exc
-        raise
 
 
 def _restriction_values(r: StrainRestriction | RestrictionInput) -> dict[str, Any]:
@@ -620,7 +596,7 @@ def strain_create(*, access: Access, lab: Lab, data: NewStrain) -> Strain:
     data = _checked(data)
     with audited_atomic():
         locked_lab = lock_lab(lab.pk)
-        _require_role(access, locked_lab.pk)
+        require_committed(access, locked_lab.pk, Perm.MANAGE_STRAINS)
         require_authorisation(
             lab_id=locked_lab.pk,
             kinds=[(r.kind, f"restrictions.{i}.kind") for i, r in enumerate(data.restrictions)],
@@ -645,7 +621,7 @@ def strain_create(*, access: Access, lab: Lab, data: NewStrain) -> Strain:
             isolation_date=data.isolation_date,
         )
         taken = AccessionTaken()
-        _save(strain, {ACCESSION_NUMBER_UNIQUE: taken, ACCESSION_SEQ_UNIQUE: taken})
+        save_arbitrated(strain, {ACCESSION_NUMBER_UNIQUE: taken, ACCESSION_SEQ_UNIQUE: taken})
         identification = StrainIdentification.objects.create(
             lab=locked_lab,
             strain=strain,
@@ -705,7 +681,7 @@ def strain_reclassify(
     reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(strain.lab_id)
-        _require_role(access, strain.lab_id)
+        require_committed(access, strain.lab_id, Perm.MANAGE_STRAINS)
         locked = _locked_strain(strain)
         current = (
             StrainIdentification.objects.select_for_update()
@@ -831,7 +807,7 @@ def strain_set_risk_group(
     reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(strain.lab_id)
-        _require_role(access, strain.lab_id)
+        require_committed(access, strain.lab_id, Perm.MANAGE_STRAINS)
         locked = _locked_strain(strain)
         if locked.risk_group == risk_group:
             return locked
@@ -893,7 +869,7 @@ def strain_risk_group_lower_propose(
     reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(strain.lab_id)
-        _require_role(access, strain.lab_id)
+        require_committed(access, strain.lab_id, Perm.MANAGE_STRAINS)
         locked = _locked_strain(strain)
         if risk_group >= locked.risk_group:
             raise RiskGroupNotLower
@@ -912,7 +888,7 @@ def strain_risk_group_lower_propose(
             proposed_by=access.user,
             proposed_at=timezone.now(),
         )
-        _save(proposal, {ONE_OPEN_RISK_GROUP_PROPOSAL: RiskGroupProposed()})
+        save_arbitrated(proposal, {ONE_OPEN_RISK_GROUP_PROPOSAL: RiskGroupProposed()})
         record_event(
             STRAIN_RISK_GROUP_LOWER_PROPOSED,
             Change(
@@ -947,7 +923,7 @@ def strain_risk_group_lower_confirm(
     basis was read against the group the proposal names."""
     with audited_atomic():
         lock_lab(strain.lab_id)
-        _require_role(access, strain.lab_id, Perm.CONFIRM_RISK_GROUP)
+        require_committed(access, strain.lab_id, Perm.CONFIRM_RISK_GROUP)
         locked = _locked_strain(strain)
         proposed = _open_risk_group(locked, proposal)
         if proposed.proposed_by_id == access.user.pk:
@@ -994,7 +970,7 @@ def strain_risk_group_lower_withdraw(
     reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(strain.lab_id)
-        _require_role(access, strain.lab_id)
+        require_committed(access, strain.lab_id, Perm.MANAGE_STRAINS)
         locked = _locked_strain(strain)
         proposed = _open_risk_group(locked, proposal)
         proposed.withdrawn_by, proposed.withdrawn_at = access.user, timezone.now()
@@ -1024,7 +1000,7 @@ def strain_set_growth(*, access: Access, strain: Strain, growth: Growth, reason:
     conditions they were grown under."""
     with audited_atomic():
         lock_lab(strain.lab_id)
-        _require_role(access, strain.lab_id)
+        require_committed(access, strain.lab_id, Perm.MANAGE_STRAINS)
         locked = _locked_strain(strain)
         before = growth_of(locked)
         after = locked_growth(growth, lab_id=locked.lab_id, current=before)
@@ -1055,7 +1031,7 @@ def strain_restriction_add(
     restriction = check_restriction(restriction)
     with audited_atomic():
         lock_lab(strain.lab_id)
-        _require_role(access, strain.lab_id)
+        require_committed(access, strain.lab_id, Perm.MANAGE_STRAINS)
         require_authorisation(lab_id=strain.lab_id, kinds=[(restriction.kind, "kind")])
         locked = _locked_strain(strain)
         entry = _entry_of(restriction)
@@ -1066,7 +1042,7 @@ def strain_restriction_add(
             list_entry=entry,
             **_restriction_values(restriction),
         )
-        _save(
+        save_arbitrated(
             added,
             {
                 ACTIVE_RESTRICTION_UNIQUE: InvalidStrain(
@@ -1158,7 +1134,7 @@ def strain_restriction_end_propose(
     reason = _check_reason(reason)  # the proposal and the restriction's end both keep it
     with audited_atomic():
         lock_lab(restriction.lab_id)
-        _require_role(access, restriction.lab_id)
+        require_committed(access, restriction.lab_id, Perm.MANAGE_STRAINS)
         locked = _locked_restriction(restriction)
         _check_end_allowed(locked)
         if locked.end_proposals.filter(confirmed_at__isnull=True, withdrawn_at__isnull=True):
@@ -1214,7 +1190,7 @@ def strain_restriction_end_confirm(
     stays, and the event holds both people and both times."""
     with audited_atomic():
         lock_lab(restriction.lab_id)
-        _require_role(access, restriction.lab_id, Perm.CONFIRM_RESTRICTION_END)
+        require_committed(access, restriction.lab_id, Perm.CONFIRM_RESTRICTION_END)
         locked = _locked_restriction(restriction)
         _check_end_allowed(locked)
         proposed = _open_proposal(locked, proposal)
@@ -1261,7 +1237,7 @@ def strain_restriction_end_withdraw(
     reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(restriction.lab_id)
-        _require_role(access, restriction.lab_id)
+        require_committed(access, restriction.lab_id, Perm.MANAGE_STRAINS)
         locked = _locked_restriction(restriction)
         proposed = _open_proposal(locked, proposal)
         proposed.withdrawn_by, proposed.withdrawn_at = access.user, timezone.now()
@@ -1382,7 +1358,7 @@ def strain_deaccession(*, access: Access, strain: Strain, data: Deaccession) -> 
     data = _check_deaccession(data)
     with audited_atomic():
         lock_lab(strain.lab_id)
-        _require_role(access, strain.lab_id)
+        require_committed(access, strain.lab_id, Perm.MANAGE_STRAINS)
         locked = _locked_strain(strain)
         if _regulated(locked):
             raise DeaccessionNeedsSecondPerson
@@ -1421,7 +1397,7 @@ def strain_deaccession_propose(
     data = _check_deaccession(data)
     with audited_atomic():
         lock_lab(strain.lab_id)
-        _require_role(access, strain.lab_id)
+        require_committed(access, strain.lab_id, Perm.MANAGE_STRAINS)
         locked = _locked_strain(strain)
         if not _regulated(locked):
             raise DeaccessionInOneStep
@@ -1439,7 +1415,7 @@ def strain_deaccession_propose(
             proposed_by=access.user,
             proposed_at=timezone.now(),
         )
-        _save(proposal, {ONE_OPEN_DEACCESSION_PROPOSAL: DeaccessionProposed()})
+        save_arbitrated(proposal, {ONE_OPEN_DEACCESSION_PROPOSAL: DeaccessionProposed()})
         record_event(
             STRAIN_DEACCESSION_PROPOSED,
             Change(
@@ -1465,7 +1441,7 @@ def strain_deaccession_confirm(*, access: Access, strain: Strain, proposal: uuid
     final use; the event holds both people and both times."""
     with audited_atomic():
         lock_lab(strain.lab_id)
-        _require_role(access, strain.lab_id, Perm.CONFIRM_DEACCESSION)
+        require_committed(access, strain.lab_id, Perm.CONFIRM_DEACCESSION)
         locked = _locked_strain(strain)
         proposed = _open_deaccession(locked, proposal)
         if proposed.proposed_by_id == access.user.pk:
@@ -1509,7 +1485,7 @@ def strain_deaccession_withdraw(
     reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(strain.lab_id)
-        _require_role(access, strain.lab_id)
+        require_committed(access, strain.lab_id, Perm.MANAGE_STRAINS)
         locked = _locked_strain(strain)
         proposed = _open_deaccession(locked, proposal)
         proposed.withdrawn_by, proposed.withdrawn_at = access.user, timezone.now()
