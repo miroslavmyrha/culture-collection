@@ -23,7 +23,14 @@ depositors, MTA templates and deposits):
 - real taxa with their sources. No invented taxon: a strain names the official list entries of
   its organism by code (or one of four standard group 1 organisms), and the group, the entry it was
   read in, the basis and the restrictions are read out of the list data files by script (#211,
-  biosafety.entry_seed; `python tools/seed_classification.py` shows what a code comes to);
+  biosafety.entry_seed; `python tools/seed_classification.py` shows what a code comes to). A
+  pest of plants that annex 7 does not list is group 1 by the same script, in the collection's
+  own words (#221);
+- the regulated scenarios: the dual-use strains live only in REG, the one lab with a VRAT
+  permit in force, because a dual-use agent there is also a VRAT one. A Union quarantine pest
+  (Fusarium circinatum, entry B.2.2) lives in MYC, which holds the ÚKZÚZ permit: one request
+  for it went out to a station whose isolation facility is recorded, and one to a laboratory
+  without it stays refused (R-DIST-16, #221);
 - strains created through the strain services with the role of each lab's
   curator, some reclassified, some restricted (the entries' own restrictions, a GMO lab
   strain aside);
@@ -421,6 +428,10 @@ class Command(BaseCommand):
                         covers=permit.get("covers", ""),
                         risk_group=permit.get("risk_group"),
                         gmo_category=permit.get("gmo_category"),
+                        quantity_allowed=permit.get("quantity_allowed"),
+                        sendings_allowed=permit.get("sendings_allowed"),
+                        endorsement_reference=permit.get("endorsement_reference", ""),
+                        endorsed_on=day(permit.get("endorsed_on")),
                     )
                     for permit in row["permits"]
                 ),

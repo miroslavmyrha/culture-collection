@@ -291,3 +291,19 @@ test('M14 check where the record and the official lists disagree', async ({ brow
   w.note('A line is a question, not a fault: the taxon may be wrong, and an agent annex 7 does not list is not thereby group 1', '#169')
   await w.done()
 })
+
+test('M15 see why a quarantine pest cannot go to a laboratory without an isolation facility', async ({ browser }, info) => {
+  const w = await Walk.as(browser, info, 'myc-manager', manager('M15', 'See why a request for a quarantine pest cannot be approved'))
+  await w.start()
+  // seed_dev (#221): Fusarium circinatum, a Union quarantine pest (entry B.2.2), asked for by a
+  // laboratory with an endorsed Letter of Authority and no recorded isolation facility. No
+  // manager overrides it (R-DIST-16); the same pest went out to a station that has one.
+  const item = w.page.getByRole('region', { name: /^Requests to decide \(\d+\)$/ }).getByRole('link', { name: /, Example Garden Laboratory$/ })
+  await w.read(item)
+  await w.click(item)
+  const blocks = w.page.getByRole('list', { name: 'Blocks the approval' })
+  await w.read(blocks)
+  await expect(blocks).toContainText('is a quarantine pest: the requester shows no authorisation of an isolation facility')
+  await expect(w.page.getByRole('button', { name: 'Approve and reserve the vials' })).toHaveCount(0)
+  await w.done()
+})

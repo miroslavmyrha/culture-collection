@@ -78,6 +78,9 @@ class SeedPermit:
     sendings_allowed: int | None = None
     gmo_category: int | None = None
     risk_group: int | None = None
+    # A Letter of Authority's endorsement by the member state of origin (R-DIST-15).
+    endorsement_reference: str = ""
+    endorsed_on: date | None = None
 
 
 @dataclass(frozen=True)
@@ -148,6 +151,8 @@ def requester(access: Access, lab: Lab, data: SeedRequester) -> Requester:
                 quantity_allowed=permit.quantity_allowed,
                 sendings_allowed=permit.sendings_allowed,
                 gmo_category=permit.gmo_category,
+                endorsement_reference=permit.endorsement_reference,
+                endorsed_on=permit.endorsed_on,
                 risk_group=permit.risk_group,
                 document=services.DocumentInput(INVENTED_PDF),
             ),

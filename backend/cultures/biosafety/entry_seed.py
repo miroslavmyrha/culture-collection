@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from . import lists
-from .models import RISK_GROUP_LIST, MatchScope, RestrictionKind
+from .models import RISK_GROUP_LIST, ListCode, MatchScope, RestrictionKind
 
 
 class SeedEntryError(Exception):
@@ -150,7 +150,8 @@ def _eu_act(version: str) -> str:
 def listed(codes: Sequence[str], data_dir: Path = lists.DATA_DIR) -> Classified:
     """A strain of the entries these codes name. All name one taxon. The entry of annex 7, where
     there is one, gives the group and the basis points at it; every other list gives the
-    restriction its entries carry. No group follows when no code is an annex 7 entry."""
+    restriction its entries carry. No group follows when no code is an annex 7 entry, except for
+    a plant pest that annex 7 does not name (`_plant_pest_basis`, #221)."""
     rows = [entry(code, data_dir) for code in codes]
     taxa = {row.taxon for row in rows}
     if len(taxa) != 1:
@@ -159,8 +160,11 @@ def listed(codes: Sequence[str], data_dir: Path = lists.DATA_DIR) -> Classified:
     for row in rows:
         by_list.setdefault(row.list_code, []).append(row)
     group = _annex_7_entry(by_list.pop(RISK_GROUP_LIST, []))
+    taxon = next(iter(taxa))
+    if group is None and (plant := _plant_pest_basis(taxon, by_list, data_dir)):
+        return Classified(taxon, 1, None, plant, _restrictions(by_list))
     return Classified(
-        taxon=next(iter(taxa)),
+        taxon=taxon,
         risk_group=group.risk_group if group else None,
         risk_group_entry=group.code if group else None,
         basis=_group_basis(group),
@@ -190,6 +194,33 @@ def _restrictions(by_list: dict[str, list[SeedEntry]]) -> tuple[SeedRestriction,
         for row in other
         if row.restriction_kind
     )
+
+
+PLANT_PEST_LIST = ListCode.EU_2019_2072_ANNEX_II
+
+_PLANT_REASON = (
+    "Annex 7 does not make an unlisted agent group 1 by itself, so group 1 is the collection's"
+    " own assessment of a pest of plants."
+)
+
+
+def _plant_pest_basis(
+    taxon: str, by_list: dict[str, list[SeedEntry]], data_dir: Path = lists.DATA_DIR
+) -> str:
+    """The basis of group 1 for a pest of plants, or "" when the rule does not hold (#221).
+
+    It holds only when every code names an entry of the plant health list (Regulation (EU)
+    2019/2072, Annex II) and annex 7 of 361/2007 Sb. has no entry the taxon matches, read out of
+    the data files here: a seed cannot give group 1 to an agent annex 7 names by leaving its code
+    out.
+    """
+    if set(by_list) != {PLANT_PEST_LIST}:
+        return ""
+    if any(row.list_code == RISK_GROUP_LIST for row in entries_matching(taxon, data_dir)):
+        return ""
+    where = "; ".join(_where(row) for row in by_list[PLANT_PEST_LIST])
+    opening = f"Annex 7 of 361/2007 Sb. does not list {taxon}. It is a plant pest: {where}."
+    return f"{opening} {_PLANT_REASON}"
 
 
 def _group_basis(group: SeedEntry | None) -> str:

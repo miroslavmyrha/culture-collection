@@ -436,6 +436,18 @@
    ]
   },
   {
+   "name": "Fusarium",
+   "authority": "Link 1809",
+   "rank": "genus",
+   "parent": "Fungi",
+   "accepted": null,
+   "ncbi": "5506",
+   "source": [
+    "https://api.gbif.org/v1/species/match?name=Fusarium&kingdom=Fungi",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=5506"
+   ]
+  },
+  {
    "name": "Bacillus subtilis",
    "authority": "(Ehrenberg 1835) Cohn 1872",
    "rank": "species",
@@ -646,6 +658,18 @@
    "ncbi": null,
    "source": [
     "https://lpsn.dsmz.de/species/bacillus-megaterium"
+   ]
+  },
+  {
+   "name": "Fusarium circinatum",
+   "authority": "Nirenberg & O'Donnell",
+   "rank": "species",
+   "parent": "Fusarium",
+   "accepted": null,
+   "ncbi": "48490",
+   "source": [
+    "https://api.gbif.org/v1/species/match?name=Fusarium%20circinatum&kingdom=Fungi",
+    "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=48490"
    ]
   }
  ],
@@ -1719,6 +1743,53 @@
      ]
     }
    }
+  },
+  {
+   "lab": "MYC",
+   "depositor": "Eva Ukázková",
+   "name_as_received": "Fusarium circinatum DEP-9",
+   "received_on": "2026-08-18",
+   "condition": "intact",
+   "mta": [
+    "STD",
+    1
+   ],
+   "terms": {
+    "abs_scope": "not_in_scope",
+    "country_of_origin": "",
+    "collection_date": "",
+    "uses": {
+     "research_noncommercial": "permit",
+     "research_commercial": "deny",
+     "teaching": "deny",
+     "diagnostics": "deny",
+     "production": "deny",
+     "reference_qc": "permit",
+     "patent_deposit_related": "deny",
+     "redistribution": "deny"
+    }
+   },
+   "state": "accepted",
+   "strain": {
+    "taxon": "Fusarium circinatum",
+    "identified_on": "2026-08-27",
+    "method": "TEF1-alpha gene sequence",
+    "isolation_source": "Pine seedling (invented example)",
+    "country_of_origin": "",
+    "isolation_date": "",
+    "classification": {
+     "entries": [
+      "B.2.2"
+     ]
+    }
+   },
+   "growth": {
+    "medium": "Potato dextrose agar",
+    "temperature_low_c": 25,
+    "temperature_high_c": 25,
+    "atmosphere": "aerobic"
+   },
+   "reason": "Grown on potato dextrose agar (invented example)."
   }
  ],
  "batches": [
@@ -1818,6 +1889,32 @@
    "purpose": "distribution",
    "cryoprotectant": "skim milk",
    "preserved_on": "2026-09-12",
+   "vial_count": 4,
+   "box": null
+  },
+  {
+   "lab": "MYC",
+   "deposit": "Fusarium circinatum DEP-9",
+   "passage": 0,
+   "method": "cryo_minus80",
+   "purpose": "seed",
+   "cryoprotectant": "10 % glycerol",
+   "preserved_on": "2026-09-01",
+   "vial_count": 4,
+   "box": [
+    "Freezer -80 B",
+    "Rack 1",
+    "Box 2"
+   ]
+  },
+  {
+   "lab": "MYC",
+   "deposit": "Fusarium circinatum DEP-9",
+   "passage": 0,
+   "method": "cryo_minus80",
+   "purpose": "distribution",
+   "cryoprotectant": "10 % glycerol",
+   "preserved_on": "2026-09-01",
    "vial_count": 4,
    "box": null
   }
@@ -1987,6 +2084,51 @@
    "unit": null,
    "vial": 1,
    "note": ""
+  },
+  {
+   "lab": "MYC",
+   "deposit": "Fusarium circinatum DEP-9",
+   "batch": 2,
+   "kind": "identity",
+   "stage": "after_preservation",
+   "checked_on": "2026-09-08",
+   "method": "sequencing",
+   "method_detail": "TEF1-alpha",
+   "result": "pass",
+   "value": null,
+   "unit": null,
+   "vial": 4,
+   "note": ""
+  },
+  {
+   "lab": "MYC",
+   "deposit": "Fusarium circinatum DEP-9",
+   "batch": 2,
+   "kind": "purity",
+   "stage": "after_preservation",
+   "checked_on": "2026-09-08",
+   "method": "streak_plate",
+   "method_detail": "PDA, 25 °C, 7 days",
+   "result": "pass",
+   "value": null,
+   "unit": null,
+   "vial": 4,
+   "note": ""
+  },
+  {
+   "lab": "MYC",
+   "deposit": "Fusarium circinatum DEP-9",
+   "batch": 2,
+   "kind": "viability",
+   "stage": "after_preservation",
+   "checked_on": "2026-09-08",
+   "method": "growth",
+   "method_detail": "PDA, 25 °C, 5 days",
+   "result": "pass",
+   "value": null,
+   "unit": null,
+   "vial": 4,
+   "note": ""
   }
  ],
  "releases": [
@@ -2006,6 +2148,12 @@
    "lab": "BAC",
    "deposit": "Clostridium perfringens DEP-8",
    "batch": 1,
+   "reason": "Identity, purity and viability after preservation passed."
+  },
+  {
+   "lab": "MYC",
+   "deposit": "Fusarium circinatum DEP-9",
+   "batch": 2,
    "reason": "Identity, purity and viability after preservation passed."
   }
  ],
@@ -2065,6 +2213,71 @@
     "postal_address": "Laboratory 3\nVzorová 3\n811 01 Bratislava (invented example)"
    },
    "permits": []
+  },
+  {
+   "lab": "MYC",
+   "institution": "Example Forest Pathology Station",
+   "legal_form": "legal_person",
+   "registration_number": "",
+   "seat": "Vzorová 21, 602 00 Brno (invented example)",
+   "country": "CZ",
+   "lab_evidence": "The station's designated quarantine laboratory (invented example).",
+   "lab_confirmed_on": "2026-10-01",
+   "scientist": {
+    "name": "Hana Lesní",
+    "email": "hana.lesni@example.org",
+    "postal_address": "Vzorová 21, 602 00 Brno (invented example)"
+   },
+   "permits": [
+    {
+     "kind": "plant_health_isolation",
+     "issuer": "ÚKZÚZ",
+     "issuer_country": "CZ",
+     "reference": "ÚKZÚZ/DEV/IZ/1 (invented example)",
+     "valid_from": "2026-01-01"
+    },
+    {
+     "kind": "plant_health_loa",
+     "issuer": "ÚKZÚZ",
+     "issuer_country": "CZ",
+     "reference": "LoA/DEV/1 (invented example)",
+     "valid_from": "2026-09-01",
+     "covers": "Fusarium circinatum",
+     "quantity_allowed": 4,
+     "sendings_allowed": 2,
+     "endorsement_reference": "ÚKZÚZ/DEV/ENDORSE/1 (invented example)",
+     "endorsed_on": "2026-09-02"
+    }
+   ]
+  },
+  {
+   "lab": "MYC",
+   "institution": "Example Garden Laboratory",
+   "legal_form": "legal_person",
+   "registration_number": "",
+   "seat": "Příkladová 4, 779 00 Olomouc (invented example)",
+   "country": "CZ",
+   "lab_evidence": "A letter of the garden names its laboratory (invented example).",
+   "lab_confirmed_on": "2026-10-01",
+   "scientist": {
+    "name": "Jan Zahradník",
+    "email": "jan.zahradnik@example.org",
+    "postal_address": "Příkladová 4, 779 00 Olomouc (invented example)"
+   },
+   "permits": [
+    {
+     "kind": "plant_health_loa",
+     "issuer": "ÚKZÚZ",
+     "issuer_country": "CZ",
+     "reference": "LoA/DEV/2 (invented example)",
+     "valid_from": "2026-09-01",
+     "covers": "Fusarium circinatum",
+     "quantity_allowed": 4,
+     "sendings_allowed": 2,
+     "endorsement_reference": "ÚKZÚZ/DEV/ENDORSE/1 (invented example)",
+     "endorsed_on": "2026-09-02"
+    }
+   ]
   }
  ],
  "requests": [
@@ -2177,6 +2390,40 @@
    "ship": true,
    "prepared_by": "manager",
    "confirmed_by": "curator"
+  },
+  {
+   "lab": "MYC",
+   "requester": "Example Forest Pathology Station",
+   "end_use": "Research on pitch canker of pine in a designated quarantine laboratory (development data, a quarantine pest that goes out).",
+   "use": "research_noncommercial",
+   "containment_level": 2,
+   "lines": [
+    {
+     "deposit": "Fusarium circinatum DEP-9",
+     "quantity": 1
+    }
+   ],
+   "accept": true,
+   "approve": true,
+   "approved_by": "manager",
+   "reason": "The requester's isolation facility and the endorsed Letter of Authority are recorded (development data).",
+   "ship": true,
+   "prepared_by": "manager",
+   "confirmed_by": "curator"
+  },
+  {
+   "lab": "MYC",
+   "requester": "Example Garden Laboratory",
+   "end_use": "Research on pitch canker of pine (development data, refused: no isolation facility recorded).",
+   "use": "research_noncommercial",
+   "containment_level": 2,
+   "lines": [
+    {
+     "deposit": "Fusarium circinatum DEP-9",
+     "quantity": 1
+    }
+   ],
+   "accept": true
   }
  ],
  "media": [

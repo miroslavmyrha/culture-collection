@@ -1340,3 +1340,15 @@ data files, so a strain of a listed agent carries the group its entry states and
   basis the collection recorded, so it reads as a case a person accepted.
 
 Each rule, its source, its code and its tests are in `docs/compliance.md` (R-SEED-01, R-RISK-10).
+
+## Amendment 2026-11-14: a quarantine pest in the seeds, at a group of the collection's own (#221)
+
+The seeds lost their quarantine pest scenario in #211: a strain takes its group from an annex 7
+entry, and a pest of plants has none. Decided 2026-11-14: a strain whose codes are all entries of
+the plant health list (Regulation (EU) 2019/2072, Annex II), and whose taxon no annex 7 entry
+matches, is group 1, with a basis in words that says annex 7 does not list it and that the group
+is the collection's own assessment. The script checks both conditions, so the rule cannot be
+used for an agent annex 7 names. The seeded pest is Fusarium circinatum (entry B.2.2) in MYC,
+which holds the ÚKZÚZ permit, with one request that went out and one refused for want of an
+isolation facility (R-DIST-16). Each rule, its source, its code and its tests are in
+`docs/compliance.md` (R-SEED-01).
