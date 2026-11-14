@@ -62,6 +62,15 @@ describe('the official lists on the strain page', () => {
     expect(section.getByText(/States risk group 3/)).toBeInTheDocument()
   })
 
+  it('says when a genus-wide entry is reached only through a synonym of another genus (#220)', async () => {
+    const borrowed = makeListMatch({ public_id: '00000000-0000-4000-8000-0000000000e3', code: '1.199', match_scope: 'genus', through_synonym: 'Vibrio subtilis' })
+    mockApi('get', MATCHES, page([borrowed, riskGroup]))
+    await render()
+    const section = within(await screen.findByRole('region', { name: 'Official lists' }))
+    expect(await section.findByText(/^Reached only through the synonym Vibrio subtilis, of another genus/)).toBeInTheDocument()
+    expect(section.getAllByText(/Reached only through the synonym/)).toHaveLength(1)
+  })
+
   it('says so when no entry names the taxon', async () => {
     mockApi('get', MATCHES, page([]))
     await render()

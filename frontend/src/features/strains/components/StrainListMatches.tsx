@@ -41,6 +41,9 @@ function MatchItem({ match, strain, held, canManage, show }: ItemProps) {
       </Typography>
       <Typography variant="body2">{source(match)}</Typography>
       <Typography variant="body2">{suggestion(match, strain, held)}</Typography>
+      {match.through_synonym !== '' && (
+        <Typography variant="body2">Reached only through the synonym {match.through_synonym}, of another genus: a name the species may have left. Not counted as a disagreement.</Typography>
+      )}
       {recordKind && (
         <Box>
           <Button onClick={show({ restriction: { kind: match.restriction_kind, reference: match.code, act: match.suggests_act }, open: true })}>Record {RESTRICTION_LABELS[match.restriction_kind]}</Button>

@@ -33,7 +33,7 @@ from cultures.strains.models import DeaccessionCause, Strain
 from cultures.strains.selectors import Disagreement, list_disagreements
 from cultures.strains.services import Deaccession, RestrictionInput
 from cultures.taxonomy.models import Rank, Taxon
-from cultures.taxonomy.tests.conftest import make_taxon
+from cultures.taxonomy.tests.conftest import make_synonym, make_taxon
 from cultures.users.models import User
 
 from .conftest import GMO, LAB_ID, VRAT, MakeStrain, make_permit
@@ -322,3 +322,81 @@ def test_the_read_costs_the_same_whatever_the_number_of_strains(
     with query_baseline("strain_list_disagreements"):
         answer = client.get(URL)
     assert answer.json()["count"] == 4
+
+
+# A synonym of another genus (#220).
+
+
+def a_genus_entry(list_code: str, **filters: Any) -> RegulatoryListEntry:
+    """A genus-wide entry of a list the app holds, read out of the data."""
+    found = (
+        RegulatoryListEntry.objects.filter(
+            list__code=list_code, list__is_current=True, match_scope=MatchScope.GENUS, **filters
+        )
+        .order_by("code")
+        .first()
+    )
+    assert found is not None, f"no genus-wide entry of {list_code} matching {filters}"
+    return found
+
+
+def borrowing(entry: RegulatoryListEntry) -> tuple[Taxon, str]:
+    """An invented species whose only link to the entry's genus is a synonym in that genus."""
+    genus = make_taxon("Testella", Rank.GENUS)
+    accepted = make_taxon("Testella borrowedii", Rank.SPECIES, genus)
+    synonym = f"{entry.match_name.capitalize()} borrowedii"
+    make_synonym(synonym, Rank.SPECIES, accepted)
+    return accepted, synonym
+
+
+@pytest.mark.rule("R-MATCH-01")
+def test_a_genus_entry_reached_through_a_synonym_of_another_genus_is_suggested_with_its_name() -> (
+    None
+):
+    entry = a_genus_entry(ListCode.CZ_361_2007_ANNEX_7, risk_group=2)
+    accepted, synonym = borrowing(entry)
+    suggested = {e.code: vars(e)["through_synonym"] for e in list_matches(accepted)}
+    assert suggested[entry.code] == synonym
+
+
+@pytest.mark.rule("R-MATCH-01")
+def test_an_entry_reached_through_the_accepted_name_names_no_synonym() -> None:
+    entry = an_entry(ListCode.CZ_361_2007_ANNEX_7, risk_group=2)
+    assert {vars(e)["through_synonym"] for e in list_matches(taxon_of(entry))} == {""}
+
+
+@pytest.mark.rule("R-MATCH-02")
+def test_a_genus_entry_reached_through_a_synonym_of_another_genus_is_no_disagreement(
+    make_strain: MakeStrain, manager: User, lab: Lab
+) -> None:
+    entry = a_genus_entry(ListCode.CZ_361_2007_ANNEX_7, risk_group=2)
+    accepted, _ = borrowing(entry)
+    strain = make_strain(taxon=accepted, risk_group=1)
+    assert strain.accession_number not in rows(manager, lab)
+
+
+@pytest.mark.rule("R-MATCH-02")
+def test_a_genus_entry_of_the_accepted_names_own_genus_still_disagrees(
+    make_strain: MakeStrain, manager: User, lab: Lab
+) -> None:
+    entry = a_genus_entry(ListCode.CZ_361_2007_ANNEX_7, risk_group=2)
+    genus = make_taxon(entry.match_name.capitalize(), Rank.GENUS)
+    own = make_taxon(f"{entry.match_name.capitalize()} ownii", Rank.SPECIES, genus)
+    strain = make_strain(taxon=own, risk_group=1)
+    found = rows(manager, lab)[strain.accession_number or ""]
+    assert (Disagreement.RISK_GROUP_DIFFERS, "", entry.code) in found
+
+
+@pytest.mark.rule("R-MATCH-02")
+def test_a_genus_entry_through_a_synonym_still_names_the_restriction_the_strain_carries(
+    make_strain: MakeStrain, manager: User, lab: Lab
+) -> None:
+    """It gives no disagreement of its own, and it does not leave the restriction unlisted."""
+    entry = a_genus_entry(ListCode.CZ_474_2002, restriction_kind=RestrictionKind.CZ_VRAT)
+    accepted, _ = borrowing(entry)
+    make_permit(lab, AuthorisationKind.CZ_VRAT)
+    carrying = make_strain(taxon=accepted, restrictions=[VRAT])
+    bare = make_strain(taxon=accepted)
+    found = rows(manager, lab)
+    assert carrying.accession_number not in found
+    assert bare.accession_number not in found
