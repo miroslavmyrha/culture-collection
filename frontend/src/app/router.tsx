@@ -1,6 +1,7 @@
 import { createRouter, type RouterHistory } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
 import { NotFound, Pending, RouteError } from '@/components/RouteStates'
+import { useMe } from '@/features/auth/api/queries'
 import { isApiError } from '@/lib/api'
 import { reportError } from '@/lib/report'
 import { authenticatedRoute } from '@/routes/authenticated'
@@ -22,6 +23,16 @@ export const routeTree = rootRoute.addChildren([
   authenticatedRoute.addChildren([homeRoute, labListRoute, labDetailRoute, strainListRoute, strainDetailRoute.addChildren([strainOverviewRoute, strainMaterialRoute, strainTermsRoute, strainHistoryRoute]), depositorListRoute, mtaListRoute, mtaNewRoute, mtaDetailRoute, depositListRoute, depositReceiveRoute, depositDetailRoute, storageRoute, storageUnitRoute, requestListRoute, requestNewRoute, requestDetailRoute, requesterListRoute, shipmentDocumentRoute, permitListRoute, mediaListRoute, revealListRoute, vratAccessRoute, classificationRoute]),
 ])
 
+/**
+ * An unknown address runs no route that loads the session, and the shell only reads the cache:
+ * the not-found page asks for it, so a signed-in user who opened the address directly keeps the
+ * top bar (#227).
+ */
+function AppNotFound() {
+  useMe()
+  return <NotFound />
+}
+
 export function createAppRouter(queryClient: QueryClient, history?: RouterHistory) {
   return createRouter({
     routeTree,
@@ -31,7 +42,7 @@ export function createAppRouter(queryClient: QueryClient, history?: RouterHistor
     defaultPreload: 'intent',
     defaultPreloadStaleTime: 0,
     defaultErrorComponent: RouteError,
-    defaultNotFoundComponent: NotFound,
+    defaultNotFoundComponent: AppNotFound,
     defaultPendingComponent: Pending,
     // API errors were already reported by the query cache; report only the rest (render bugs).
     defaultOnCatch: (error) => {
