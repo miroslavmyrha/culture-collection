@@ -20,11 +20,9 @@ from uuid import UUID
 from django.db.models import (
     Case,
     Count,
-    Exists,
     F,
     IntegerField,
     OrderBy,
-    OuterRef,
     Prefetch,
     Q,
     QuerySet,
@@ -45,7 +43,7 @@ from cultures.lineage.models import Vial, VialPlacement
 from cultures.lineage.selectors import box_paths, vials_by_code
 from cultures.lineage.services import Location
 from cultures.strains.models import Strain
-from cultures.strains.selectors import matching, regulating_restrictions
+from cultures.strains.selectors import is_regulated, matching
 
 LIMIT = 5  # results per kind; the group's totals say how many match in each lab
 SHORTEST = 2  # characters, after spaces are folded: one character finds too much to read
@@ -196,7 +194,7 @@ def _vials(access: Access, text: str) -> Group | None:
     scoped = _scope(Vial, access, Kind.VIAL)
     if scoped is None:
         return None
-    regulated = Exists(regulating_restrictions().filter(strain_id=OuterRef("batch__strain_id")))
+    regulated = is_regulated("batch__strain_id")
     rows = (
         vials_by_code(scoped, text)
         .select_related("lab", "batch__strain__taxon")

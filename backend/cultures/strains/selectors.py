@@ -45,6 +45,12 @@ def regulating_restrictions() -> QuerySet[StrainRestriction]:
     return StrainRestriction.objects.filter(ended_at__isnull=True)
 
 
+def is_regulated(strain_ref: str) -> Exists:
+    """Whether the strain whose id is at `strain_ref` (an OuterRef path) is regulated (ADR 0009):
+    the one annotation every read that masks a place or a vial uses (#233)."""
+    return Exists(regulating_restrictions().filter(strain_id=OuterRef(strain_ref)))
+
+
 def strain_rows(*, access: Access, lab: Lab) -> QuerySet[Strain]:
     """The strains of one lab the user may view, as bare rows: for a read about one of them
     (its history, its terms) that needs the strain only to scope the rest."""
@@ -106,7 +112,7 @@ def strain_detail(*, access: Access, lab: Lab) -> QuerySet[Strain]:
         # risk_group_entry: the entry of annex 7 the group rests on (#169), joined so the
         # detail stays one query and the exact count holds.
         .select_related("growth_medium", "deposit", "risk_group_entry")
-        .annotate(regulated=Exists(regulating_restrictions().filter(strain=OuterRef("pk"))))
+        .annotate(regulated=is_regulated("pk"))
         .prefetch_related(
             Prefetch(
                 "identifications",

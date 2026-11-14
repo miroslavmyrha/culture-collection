@@ -20,10 +20,12 @@ from cultures.core.testing import (
     assert_problem,
     logged_in,
 )
+from cultures.labs.access import access_for
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Role
 from cultures.lineage.api.views import BoxViewSet
 from cultures.lineage.models import Passage, Vial, VialPlacement
+from cultures.lineage.selectors import box_positions
 from cultures.lineage.tests.test_masking import end_restrictions, grant
 from cultures.storage.models import StorageUnit, UnitKind
 from cultures.storage.tests.conftest import MakeUnit, Tree
@@ -87,6 +89,17 @@ def identities(vial: Vial) -> list[str]:
         f"{strain.accession_number} / {vial.batch.number} / {vial.seq}",
         strain.taxon.name,
     ]
+
+
+@pytest.mark.rule("R-MASK-04")
+def test_the_selector_itself_leaves_the_vial_of_a_regulated_position_out(
+    manager: User, tree: Tree, mixed: tuple[list[Vial], list[Vial]]
+) -> None:
+    """No caller can show it: the rows come out of the selector without the vial (#233)."""
+    plain, _ = mixed
+    positions = box_positions(access=access_for(manager), box=tree.box)
+    assert [(p.col, p.masked) for p in positions] == [(1, False), (2, False), (3, True), (4, True)]
+    assert [p.vial for p in positions] == [plain[0], plain[1], None, None]
 
 
 @pytest.mark.parametrize("granted", [False, True], ids=["without", "with the grant"])

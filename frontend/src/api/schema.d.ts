@@ -2118,7 +2118,10 @@ export interface components {
             readonly rows: number;
             readonly cols: number;
         };
-        /** @description One taken position (selectors.box_positions): the vial, or `masked` without it. */
+        /**
+         * @description One taken position (selectors.box_positions): the vial, or `masked` without it. The
+         *     selector leaves the vial of a regulated strain out already (ADR 0009, #233).
+         */
         BoxPosition: {
             row: number;
             col: number;

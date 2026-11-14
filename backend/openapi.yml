@@ -11217,8 +11217,9 @@ components:
       - rows
     BoxPosition:
       type: object
-      description: 'One taken position (selectors.box_positions): the vial, or `masked`
-        without it.'
+      description: |-
+        One taken position (selectors.box_positions): the vial, or `masked` without it. The
+        selector leaves the vial of a regulated strain out already (ADR 0009, #233).
       properties:
         row:
           type: integer
