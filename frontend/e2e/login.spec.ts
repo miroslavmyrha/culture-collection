@@ -80,7 +80,7 @@ test('sends exactly the production CSP, the security headers and the nonce place
     'frame-ancestors': ["'none'"],
     'form-action': ["'self'"],
     'require-trusted-types-for': ["'script'"],
-    'trusted-types': ['dompurify'],
+    'trusted-types': ["'none'"],
   })
   expect(headers).toMatchObject({
     'referrer-policy': 'strict-origin-when-cross-origin',
@@ -94,7 +94,7 @@ test('sends exactly the production CSP, the security headers and the nonce place
   expect(nonce).toBe('__CSP_NONCE__')
 })
 
-test('enforces Trusted Types; the dompurify policy exists from boot', async ({ page }) => {
+test('enforces Trusted Types, and no policy may be created', async ({ page }) => {
   await page.goto('/login')
   await expect(page.getByRole('form', { name: 'Sign in' })).toBeVisible()
   const result = await page.evaluate(() => {
@@ -113,13 +113,14 @@ test('enforces Trusted Types; the dompurify policy exists from boot', async ({ p
       rawHtml: attempt(() => {
         document.body.insertAdjacentHTML('beforeend', '<b>raw</b>')
       }),
-      duplicate: attempt(() => tt?.createPolicy('dompurify', {})),
-      other: attempt(() => tt?.createPolicy('other', {})),
+      // The name the CSP allowed before #238, and any other: neither may be created now.
+      dompurify: attempt(() => tt?.createPolicy('dompurify', {})),
+      policy: attempt(() => tt?.createPolicy('any', {})),
     }
   })
   expect(result.rawHtml).toMatch(/TrustedHTML/)
-  expect(result.duplicate).toMatch(/already exists/)
-  expect(result.other).toMatch(/disallowed/)
+  expect(result.dompurify).toMatch(/disallowed/)
+  expect(result.policy).toMatch(/disallowed/)
 })
 
 test('MUI styles apply under the production CSP: every emotion style carries the nonce', async ({ page }) => {

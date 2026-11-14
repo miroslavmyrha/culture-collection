@@ -62,9 +62,3 @@ function ownPath(raw: string): string | null {
     return null
   }
 }
-
-/** window.open does not imply noopener (anchors do), so every external open goes through here. */
-export function openExternal(raw: string): void {
-  const href = safeHref(raw)
-  if (href) window.open(href, '_blank', 'noopener,noreferrer')
-}

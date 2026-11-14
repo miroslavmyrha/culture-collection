@@ -4,15 +4,15 @@ import { defineConfig } from 'vite'
 
 // Vite stamps this placeholder as nonce="" on its script and link tags and adds
 // <meta property="csp-nonce">. The reverse proxy replaces it per response with a fresh
-// random value and sends the same value in the CSP header (nginx: see project-setup.md).
+// random value and sends the same value in the CSP header (the proxy of #178).
 // `vite preview` sends the placeholder itself, which is a valid nonce token, so e2e tests run
 // against the same markup and policy as production.
 export const CSP_NONCE = '__CSP_NONCE__'
 
 /**
  * The production policy. script-src needs no nonce: a Vite build has no inline scripts.
- * The style nonce is for CSS-in-JS (MUI/emotion) once added. Trusted Types: only the policy
- * DOMPurify creates ("dompurify") may produce HTML for DOM sinks; there is no default policy.
+ * The style nonce is for MUI's CSS-in-JS (emotion). Trusted Types: no policy may be created, so
+ * no string ever reaches an HTML sink; the app renders no HTML from data (#238).
  */
 export function productionCsp(nonce: string) {
   return [
@@ -29,7 +29,7 @@ export function productionCsp(nonce: string) {
     "frame-ancestors 'none'",
     "form-action 'self'",
     "require-trusted-types-for 'script'",
-    'trusted-types dompurify',
+    "trusted-types 'none'",
   ].join('; ')
 }
 
