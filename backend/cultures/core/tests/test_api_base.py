@@ -66,6 +66,7 @@ def test_a_mixin_placed_before_the_base_cannot_override_get_queryset() -> None:
         "get_permissions",
         "check_permissions",
         "check_object_permissions",
+        "initial",
     ],
 )
 def test_overriding_permission_plumbing_is_refused(name: str) -> None:
@@ -139,7 +140,7 @@ class UserOut(serializers.ModelSerializer[User]):
 
 class TeamUsers(ScopedModelViewSet):
     serializer_class = UserOut
-    action_perms = {**ALL_PERMS, "stats": "view", "peek": "view"}
+    action_perms = {**ALL_PERMS, "stats": "view", "rename": "change"}
 
     def scoped_queryset(self) -> QuerySet[Any]:
         user = self.request.user
@@ -157,9 +158,11 @@ class TeamUsers(ScopedModelViewSet):
     def stats(self, request: Request) -> Response:
         return Response({"count": self.get_queryset().count()})
 
-    @action(detail=True)
-    def peek(self, request: Request, public_id: str) -> Response:
-        return Response({"seen": public_id})  # never loads the object: a bug the base catches
+    @action(detail=True, methods=["post"])
+    def rename(self, request: Request, public_id: str) -> Response:
+        # Never loads the object and writes straight away: the base checks it before (#231).
+        User.objects.filter(public_id=public_id).update(first_name="written")
+        return Response({"renamed": public_id})
 
 
 class DenyUnsafe(permissions.BasePermission):
@@ -276,9 +279,23 @@ class TestScopedViewSet:
     def test_custom_collection_action_uses_the_scope(self, me: User, outsider: User) -> None:
         assert run("get", {"get": "stats"}, me).data == {"count": 1}
 
-    def test_detail_action_that_skips_get_object_fails_loudly(self, me: User) -> None:
-        with pytest.raises(ImproperlyConfigured, match=r"without self\.get_object"):
-            run("get", {"get": "peek"}, me, public_id=me.public_id)
+    def test_a_detail_action_is_checked_before_it_runs_even_without_get_object(
+        self, me: User, teammate: User, outsider: User
+    ) -> None:
+        """The handler writes without loading the object. Outside the scope it answers 404 and
+        visible but not permitted 403, and in both it never ran: nothing is written (#231)."""
+        assert_problem(
+            run("post", {"post": "rename"}, me, public_id=outsider.public_id), 404, "not_found"
+        )
+        assert_problem(
+            run("post", {"post": "rename"}, me, public_id=teammate.public_id),
+            403,
+            "permission_denied",
+        )
+        assert set(User.objects.values_list("first_name", flat=True)) - {""} == set()
+        assert run("post", {"post": "rename"}, me, public_id=me.public_id).status_code == 200
+        me.refresh_from_db()
+        assert me.first_name == "written"
 
     def test_options_answers_405_not_a_crash(self, me: User) -> None:
         # DRF routes OPTIONS to the "metadata" action, which has no action_perms entry.
