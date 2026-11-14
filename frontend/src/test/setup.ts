@@ -9,6 +9,7 @@ import { assertNoConsoleOutput, watchConsole } from './console'
 import { resetFactories } from './factories'
 import { captureReports } from './reports'
 import { server } from './server'
+import { settleRouters } from './routers'
 
 // How long findBy and waitFor wait for a state, in place of a timeout on every call (#60). The default
 // is 1 s. The slowest test of the suite took 13.1 s with 8 busy processes on 4 cores (vitest.config.ts),
@@ -28,7 +29,8 @@ beforeEach(() => {
   watchConsole()
   restoreReporter = captureReports()
 })
-afterEach(() => {
+afterEach(async () => {
+  await settleRouters()
   cleanup()
   server.resetHandlers()
   restoreReporter()
