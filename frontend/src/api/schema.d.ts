@@ -4735,11 +4735,10 @@ export interface components {
          *     * `strain` - strain
          *     * `request` - request
          *     * `requesters` - requesters
-         *     * `lab` - lab
          *     * `permits` - permits
          * @enum {string}
          */
-        WaitingItemTargetEnum: "deposit" | "strain" | "request" | "requesters" | "lab" | "permits";
+        WaitingItemTargetEnum: "deposit" | "strain" | "request" | "requesters" | "permits";
     };
     responses: never;
     parameters: never;
