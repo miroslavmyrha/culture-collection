@@ -17357,7 +17357,6 @@ components:
       - strain
       - request
       - requesters
-      - lab
       - permits
       type: string
       description: |-
@@ -17365,7 +17364,6 @@ components:
         * `strain` - strain
         * `request` - request
         * `requesters` - requesters
-        * `lab` - lab
         * `permits` - permits
   securitySchemes:
     cookieAuth:
