@@ -190,10 +190,17 @@ def test_python_method_listed_at_top_level_and_under_its_class_counts_once() -> 
     method = _block("get", 3, 5, 2)
     method["type"] = "method"
     top = {**method, "classname": "V"}
-    cls = {"type": "class", "name": "V", "lineno": 2, "endline": 5, "complexity": 2,
-           "methods": [method]}  # fmt: skip
-    funcs, _, _ = python_functions(coverage, {"/app/a/m.py": [top, cls]})
-    assert [f.name for f in funcs] == ["V.get"]
+    cls = {
+        "type": "class",
+        "name": "V",
+        "lineno": 2,
+        "endline": 5,
+        "complexity": 2,
+        "methods": [top],
+    }  # fmt: skip  (radon names the class under it too)
+    for blocks in ([top, cls], [cls, top]):  # radon lists either first
+        funcs, _, _ = python_functions(coverage, {"/app/a/m.py": blocks})
+        assert [f.name for f in funcs] == ["V.get"]
 
 
 def test_typescript_callback_v8_leaves_out_adds_its_decisions_to_the_function_holding_it() -> None:
