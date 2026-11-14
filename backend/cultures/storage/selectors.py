@@ -100,17 +100,25 @@ def unit_counts(units: Iterable[StorageUnit]) -> dict[int, Counts]:
     )
     sums = {pk: [0, 0, 0] for pk in wanted}  # boxes, vials, positions
     for box, path, rows, cols, taken in held:
-        for pk in path:
-            total = sums.get(pk)
-            if total is None:
-                continue
-            total[0] += pk != box
-            total[1] += taken
-            total[2] += (rows or 0) * (cols or 0)  # a box has both: storage_unit_grid_iff_box
+        _add_up_the_path(sums, box, path, taken, (rows or 0) * (cols or 0))
     return {
         pk: Counts(boxes=boxes, vials=vials, free_positions=positions - vials)
         for pk, (boxes, vials, positions) in sums.items()
     }
+
+
+def _add_up_the_path(
+    sums: dict[int, list[int]], box: int, path: list[int], taken: int, positions: int
+) -> None:
+    """One box counts in every wanted unit on its path: as a box below it, its vials and its
+    positions (a box has rows and columns both: storage_unit_grid_iff_box)."""
+    for pk in path:
+        total = sums.get(pk)
+        if total is None:
+            continue
+        total[0] += pk != box
+        total[1] += taken
+        total[2] += positions
 
 
 def units_to_manage(access: Access) -> QuerySet[StorageUnit]:

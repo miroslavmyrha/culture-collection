@@ -4,7 +4,7 @@ import { StaleNotice } from '@/components/StaleNotice'
 import { Box, Button, Link, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@/components/ui'
 import { moment } from '@/lib/activity'
 import { useVratAccess } from '../api/queries'
-import { endedBy, type Lab, personName } from '../schemas'
+import { endedBy, type Lab, personName, type VratAccess } from '../schemas'
 
 type Props = {
   lab: Pick<Lab, 'public_id' | 'name' | 'code'>
@@ -64,14 +64,10 @@ function Rows({ list }: { list: ReturnType<typeof useVratAccess> }) {
     if (list.isPending) return <Typography>Loading the VRAT access list…</Typography>
     return <LoadError what="the VRAT access list" error={list.error} onRetry={() => void list.refetch()} />
   }
-  const open = list.data.filter((e) => e.ended_at === null).length
   return (
     <>
       <StaleNotice what="the VRAT access list" query={list} />
-      <Typography sx={{ mb: 2 }}>
-        {open === 0 ? 'Nobody has access now.' : `${open} ${open === 1 ? 'person has' : 'people have'} access now.`}{' '}
-        {list.data.length === 0 ? 'Nobody was ever on the list.' : 'Entries that ended stay on the list with their end.'}
-      </Typography>
+      <Summary entries={list.data} />
       <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap', mb: 2, displayPrint: 'none' }}>
         <Button variant="contained" onClick={() => window.print()}>
           Print
@@ -97,29 +93,47 @@ function Rows({ list }: { list: ReturnType<typeof useVratAccess> }) {
             </TableHead>
             <TableBody>
               {list.data.map((e) => (
-                <TableRow key={e.public_id}>
-                  <TableCell sx={{ overflowWrap: 'anywhere' }}>
-                    {personName(e) || e.username}
-                    {personName(e) && (
-                      <Box component="span" sx={{ display: 'block' }}>
-                        {e.username}
-                      </Box>
-                    )}
-                  </TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                    <time dateTime={e.granted_at}>{moment(e.granted_at)}</time>
-                  </TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{e.ended_at === null ? 'has access' : <time dateTime={e.ended_at}>{moment(e.ended_at)}</time>}</TableCell>
-                  <TableCell sx={{ overflowWrap: 'break-word' }}>
-                    {e.granted_by}: {e.reason}
-                  </TableCell>
-                  <TableCell sx={{ overflowWrap: 'break-word' }}>{e.ended_at === null ? '' : `${endedBy(e)}: ${e.end_reason}`}</TableCell>
-                </TableRow>
+                <AccessRow key={e.public_id} entry={e} />
               ))}
             </TableBody>
           </Table>
         </Box>
       )}
     </>
+  )
+}
+
+/** How many people have access now, and whether anybody was ever on the list. */
+function Summary({ entries }: { entries: VratAccess[] }) {
+  const open = entries.filter((e) => e.ended_at === null).length
+  return (
+    <Typography sx={{ mb: 2 }}>
+      {open === 0 ? 'Nobody has access now.' : `${open} ${open === 1 ? 'person has' : 'people have'} access now.`}{' '}
+      {entries.length === 0 ? 'Nobody was ever on the list.' : 'Entries that ended stay on the list with their end.'}
+    </Typography>
+  )
+}
+
+/** One entry: the person, from and until, who put them on and took them off, and why. */
+function AccessRow({ entry }: { entry: VratAccess }) {
+  return (
+    <TableRow>
+      <TableCell sx={{ overflowWrap: 'anywhere' }}>
+        {personName(entry) || entry.username}
+        {personName(entry) && (
+          <Box component="span" sx={{ display: 'block' }}>
+            {entry.username}
+          </Box>
+        )}
+      </TableCell>
+      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+        <time dateTime={entry.granted_at}>{moment(entry.granted_at)}</time>
+      </TableCell>
+      <TableCell sx={{ whiteSpace: 'nowrap' }}>{entry.ended_at === null ? 'has access' : <time dateTime={entry.ended_at}>{moment(entry.ended_at)}</time>}</TableCell>
+      <TableCell sx={{ overflowWrap: 'break-word' }}>
+        {entry.granted_by}: {entry.reason}
+      </TableCell>
+      <TableCell sx={{ overflowWrap: 'break-word' }}>{entry.ended_at === null ? '' : `${endedBy(entry)}: ${entry.end_reason}`}</TableCell>
+    </TableRow>
   )
 }

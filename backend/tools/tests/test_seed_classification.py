@@ -22,6 +22,11 @@ def test_find_lists_the_entries_a_name_matches() -> None:
     assert "1.73" in {e["code"] for e in answer["entries"]}
 
 
+def test_search_matches_entry_names_whatever_the_case() -> None:
+    answer = seed_classification.run(["search", "escherichia COLI"])
+    assert "1.73" in {e["code"] for e in answer["entries"]}
+
+
 def test_the_command_line_prints_json_and_exits_1_on_an_unknown_code(
     capsys: pytest.CaptureFixture[str],
 ) -> None:

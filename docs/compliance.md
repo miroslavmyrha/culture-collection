@@ -91,7 +91,7 @@ and the rules and duties it decides are changed in the same commit.
   refuses a file the manifest does not confirm, so an edited list cannot enter the app as if it
   came from the source.
 - Code: `backend/cultures/biosafety/lists.py::read_list`, `backend/cultures/biosafety/lists.py::read_manifest`, `backend/cultures/biosafety/lists.py::ListDataError`
-- Tests: `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_a_data_file_whose_checksum_the_manifest_does_not_confirm_is_not_loaded`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_command_reports_a_data_file_it_cannot_read`
+- Tests: `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_a_data_file_whose_checksum_the_manifest_does_not_confirm_is_not_loaded`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_the_command_reports_a_data_file_it_cannot_read`, `backend/cultures/biosafety/tests/test_regulatory_lists.py::test_a_data_file_that_is_not_the_list_the_manifest_names_is_refused`
 - Limits: the manifest sits in the same repository as the files, so the pair proves that the
   file is the one the fetch wrote, not that the source said it. What the source said is the
   SHA-256 of the fetched text on the reading's row, which only a new fetch can check (#187).

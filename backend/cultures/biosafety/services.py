@@ -50,19 +50,7 @@ def authorisation_create(
     (Regulation (EU) 2019/829, Annex I (i)): destruction records of the lab's quarantine pests
     must use it (#160). A VRAT permit states none."""
     reference = " ".join(permit_reference.split())
-    if not reference:
-        raise InvalidAuthorisation("Enter the permit reference.", attr="permit_reference")
-    if kind == AuthorisationKind.QUARANTINE_PEST and not destruction_method:
-        raise InvalidAuthorisation(
-            "Enter the destruction method the permit declares.", attr="destruction_method"
-        )
-    if kind != AuthorisationKind.QUARANTINE_PEST and destruction_method:
-        raise InvalidAuthorisation(
-            "Only a permit for quarantine pests declares a destruction method.",
-            attr="destruction_method",
-        )
-    if expires_on is not None and expires_on < valid_from:
-        raise InvalidAuthorisation("The expiry comes before the start.", attr="expires_on")
+    _check_authorisation(kind, reference, valid_from, expires_on, destruction_method)
     with audited_atomic():
         lock_lab(lab.pk)
         authorisation = LabAuthorisation(
@@ -74,18 +62,7 @@ def authorisation_create(
             expires_on=expires_on,
             destruction_method=destruction_method or "",
         )
-        try:
-            with transaction.atomic():
-                authorisation.save()
-        except IntegrityError as exc:
-            diag = getattr(exc.__cause__, "diag", None)
-            if getattr(diag, "constraint_name", None) == AUTHORISATION_UNIQUE:
-                raise InvalidAuthorisation(
-                    "The lab has this permit recorded already.",
-                    code="unique",
-                    attr="permit_reference",
-                ) from exc
-            raise
+        _save_authorisation(authorisation)
         record_event(
             LAB_AUTHORISATION_ADDED,
             Change(
@@ -103,6 +80,44 @@ def authorisation_create(
             ),
         )
     return authorisation
+
+
+def _check_authorisation(
+    kind: AuthorisationKind,
+    reference: str,
+    valid_from: date,
+    expires_on: date | None,
+    destruction_method: DestructionMethod | None,
+) -> None:
+    if not reference:
+        raise InvalidAuthorisation("Enter the permit reference.", attr="permit_reference")
+    if kind == AuthorisationKind.QUARANTINE_PEST and not destruction_method:
+        raise InvalidAuthorisation(
+            "Enter the destruction method the permit declares.", attr="destruction_method"
+        )
+    if kind != AuthorisationKind.QUARANTINE_PEST and destruction_method:
+        raise InvalidAuthorisation(
+            "Only a permit for quarantine pests declares a destruction method.",
+            attr="destruction_method",
+        )
+    if expires_on is not None and expires_on < valid_from:
+        raise InvalidAuthorisation("The expiry comes before the start.", attr="expires_on")
+
+
+def _save_authorisation(authorisation: LabAuthorisation) -> None:
+    """The unique constraint is the final arbiter: a second record of a permit is refused."""
+    try:
+        with transaction.atomic():
+            authorisation.save()
+    except IntegrityError as exc:
+        diag = getattr(exc.__cause__, "diag", None)
+        if getattr(diag, "constraint_name", None) == AUTHORISATION_UNIQUE:
+            raise InvalidAuthorisation(
+                "The lab has this permit recorded already.",
+                code="unique",
+                attr="permit_reference",
+            ) from exc
+        raise
 
 
 def authorisation_end(

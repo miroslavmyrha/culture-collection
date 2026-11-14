@@ -2,7 +2,8 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { makeLab, makeLabPermit, makeMe, makeMember, makeVratAccess, page } from '@/test/factories'
-import { mockApi, recordRequests } from '@/test/mockApi'
+import { allowConsole } from '@/test/console'
+import { mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
 // The VRAT access list (#167, act 281/2002 Sb., § 14a(4)): its section on the lab page and its
@@ -67,6 +68,28 @@ describe('the printable VRAT access list', () => {
     renderApp({ path: `/labs/${LAB_ID}/vrat-access` })
     expect(await screen.findByText('None in force on record')).toBeInTheDocument()
     expect(screen.getByText('Nobody has access now. Nobody was ever on the list.')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['two people with access', [alice, makeVratAccess({ username: 'bob' })], '2 people have access now. Entries that ended stay on the list with their end.'],
+    ['every entry ended', [erased], 'Nobody has access now. Entries that ended stay on the list with their end.'],
+  ])('counts who has access now: %s', async (_, entries, sentence) => {
+    signedIn('manager')
+    mockApi('get', VRAT, entries)
+    mockApi('get', PERMITS, [])
+    renderApp({ path: `/labs/${LAB_ID}/vrat-access` })
+    expect(await screen.findByText(sentence)).toBeInTheDocument()
+  })
+
+  it('shows a failure to load the list with a retry', async () => {
+    allowConsole(/API error 500/)
+    signedIn('manager')
+    mockApiError('get', VRAT, 500)
+    mockApi('get', PERMITS, [])
+    renderApp({ path: `/labs/${LAB_ID}/vrat-access` })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the VRAT access list.')
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 

@@ -27,7 +27,7 @@ import json
 import os
 import re
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -42,39 +42,40 @@ def _setup() -> None:
     django.setup()
 
 
+def _search(entry_seed: Any, what: str) -> dict[str, Any]:
+    pattern = re.compile(what, re.IGNORECASE)
+    return {
+        "entries": [
+            dataclasses.asdict(e)
+            for rows in entry_seed.read_entries().values()
+            for e in rows
+            if pattern.search(e.name)
+        ]
+    }
+
+
+# Each command and what it answers, from the entry_seed module and the words after it.
+COMMANDS: dict[str, Callable[[Any, list[str]], dict[str, Any]]] = {
+    "show": lambda es, what: dataclasses.asdict(es.listed(what)),
+    "standard": lambda es, what: dataclasses.asdict(es.standard(what[0])),
+    "under-genus": lambda es, what: dataclasses.asdict(es.species_under_genus(" ".join(what))),
+    "find": lambda es, what: {
+        "entries": [dataclasses.asdict(e) for e in es.entries_matching(" ".join(what))]
+    },
+    "search": lambda es, what: _search(es, " ".join(what)),
+}
+
+
 def run(argv: Sequence[str]) -> dict[str, Any]:
     """The answer of one command line, as plain data."""
     from cultures.biosafety import entry_seed  # noqa: PLC0415 (after setup)
 
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("show", "standard", "under-genus", "find", "search"):
+    for name in COMMANDS:
         sub.add_parser(name).add_argument("what", nargs="+")
     args = parser.parse_args(argv)
-    what: list[str] = args.what
-    match args.command:
-        case "show":
-            return dataclasses.asdict(entry_seed.listed(what))
-        case "standard":
-            return dataclasses.asdict(entry_seed.standard(what[0]))
-        case "under-genus":
-            return dataclasses.asdict(entry_seed.species_under_genus(" ".join(what)))
-        case "find":
-            return {
-                "entries": [
-                    dataclasses.asdict(e) for e in entry_seed.entries_matching(" ".join(what))
-                ]
-            }
-        case _:
-            pattern = re.compile(" ".join(what), re.IGNORECASE)
-            return {
-                "entries": [
-                    dataclasses.asdict(e)
-                    for rows in entry_seed.read_entries().values()
-                    for e in rows
-                    if pattern.search(e.name)
-                ]
-            }
+    return COMMANDS[args.command](entry_seed, args.what)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

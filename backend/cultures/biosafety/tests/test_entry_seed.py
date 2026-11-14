@@ -120,6 +120,11 @@ def test_a_classification_row_says_entries_a_standard_organism_or_a_genus() -> N
     assert under.risk_group_entry == "1.182"
 
 
+def test_two_entries_of_annex_7_for_one_strain_are_refused() -> None:
+    with pytest.raises(SeedEntryError, match="one entry of annex 7 gives the group"):
+        entry_seed.listed(["1.73", "1.73"])
+
+
 @pytest.mark.rule("R-SEED-01")
 def test_a_classification_row_of_another_taxon_or_of_no_kind_is_refused() -> None:
     with pytest.raises(SeedEntryError, match="the strain is Clostridium perfringens"):
