@@ -8,6 +8,7 @@ also names that rule's id in [docs/compliance.md](docs/compliance.md), so the pa
 to the law the rule rests on is one hop.
 
 ## Unreleased
+- The waiting items of the home overview no longer list a lab-page target that none of them used; the activity feed keeps its own (#228).
 - `./check.sh` fails when a function of the backend or the frontend scores over 10 on the code risk score, or when something could not be measured. A callback the coverage tool leaves out now adds its branches to the function that holds it. The functions that were over the limit came apart or got tests, among them the taxon rules, the lab authorisation, the classification read for the seeds and the printable VRAT access list, and an unused taxonomy selector went (#196).
 - A shipment of a Union quarantine pest is refused, with no override, while the recipient has no recorded authorisation of an isolation facility: the Letter of Authority follows that authorisation and is no substitute for it (#197, R-DIST-16).
 - The UN number of a shipment with a GMO line follows the strains' own recorded pathogenicity, never the GMO flag: a record of pathogenic to humans or animals forces UN 3373, a record of neither forces UN 3245, and an unknown pathogenicity leaves the class to the shipper with its basis, which the delivery note now carries (#197, R-SHIP-10, R-SHIP-02).

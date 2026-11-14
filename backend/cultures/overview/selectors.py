@@ -127,7 +127,6 @@ class Target(StrEnum):
     STRAIN = "strain"
     REQUEST = "request"
     REQUESTERS = "requesters"
-    LAB = "lab"
     PERMITS = "permits"
 
 
