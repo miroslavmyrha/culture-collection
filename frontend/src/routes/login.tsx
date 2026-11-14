@@ -16,7 +16,7 @@ export const loginRoute = createRoute({
   path: 'login',
   validateSearch: loginSearchSchema,
   beforeLoad: async ({ context, search }) => {
-    const me = await context.queryClient.ensureQueryData(meQueryOptions())
+    const me = await context.queryClient.query({ ...meQueryOptions(), staleTime: 'static' })
     if (me) throw redirect({ href: safeRedirect(search.redirect) })
   },
   component: lazyRouteComponent(() => import('@/pages/LoginPage'), 'LoginPage'),

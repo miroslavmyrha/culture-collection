@@ -27,6 +27,7 @@
     "react/no-unstable-nested-components": "error",
     "react/error-boundaries": "error",
     "typescript/no-explicit-any": "error",
+    "typescript/no-deprecated": "error",
     "typescript/no-floating-promises": "error",
     "typescript/no-misused-promises": [
       "error",

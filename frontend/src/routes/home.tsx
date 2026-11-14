@@ -1,6 +1,7 @@
 import { createRoute, lazyRouteComponent } from '@tanstack/react-router'
 import { activityOptions, overviewOptions } from '@/features/home/api/queries'
 import { authenticatedRoute } from './authenticated'
+import { prefetch } from '@/lib/prefetch'
 
 export const homeRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
@@ -9,8 +10,8 @@ export const homeRoute = createRoute({
   // throws: a failed read is a state of the page.
   loader: ({ context }) =>
     Promise.all([
-      context.queryClient.prefetchQuery({ ...overviewOptions(), staleTime: 0 }),
-      context.queryClient.prefetchQuery({ ...activityOptions(), staleTime: 0 }),
+      prefetch(context.queryClient, { ...overviewOptions(), staleTime: 0 }),
+      prefetch(context.queryClient, { ...activityOptions(), staleTime: 0 }),
     ]),
   component: lazyRouteComponent(() => import('@/pages/HomePage'), 'HomePage'),
 })

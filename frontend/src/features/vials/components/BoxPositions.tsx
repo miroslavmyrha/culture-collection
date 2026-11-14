@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { type FormEvent, type ReactNode, useRef, useState } from 'react'
+import { type SubmitEvent, type ReactNode, useRef, useState } from 'react'
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form'
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
@@ -199,7 +199,7 @@ const HELP = {
 }
 
 // The field's registration comes from the parent on every render: reset() forgets the field, and a child the compiler skips would not register it again.
-type FindProps = { code: UseFormRegisterReturn<'code'>; error: string | undefined; onSubmit: (event: FormEvent<HTMLFormElement>) => void; finding: boolean }
+type FindProps = { code: UseFormRegisterReturn<'code'>; error: string | undefined; onSubmit: (event: SubmitEvent<HTMLFormElement>) => void; finding: boolean }
 
 /** The scanner's field: a tube scanned or typed is placed the same way a picked one is. */
 function FindVialForm({ code, error, onSubmit, finding }: FindProps) {

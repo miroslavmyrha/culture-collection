@@ -126,7 +126,7 @@ export function TopSearch({ compact }: Props) {
     setOpen(true)
     setDebounced(folded)
     try {
-      const answer = await client.fetchQuery(searchOptions(folded))
+      const answer = await client.query(searchOptions(folded))
       const exact = exactHit(answer.groups)
       if (exact !== null) go(targetOf(exact.kind, exact.hit))
     } catch {

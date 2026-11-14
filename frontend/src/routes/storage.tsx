@@ -2,6 +2,7 @@ import { createRoute, lazyRouteComponent } from '@tanstack/react-router'
 import { labDetailOptions } from '@/features/labs/api/queries'
 import { unitDetailOptions, unitTreeOptions } from '@/features/storage/api/queries'
 import { authenticatedRoute } from './authenticated'
+import { prefetch } from '@/lib/prefetch'
 
 // The storage of one lab, under the authenticated layout: the guard runs first, so anonymous
 // users never fetch. The loaders prefetch with the components' own options and never throw:
@@ -12,8 +13,8 @@ export const storageRoute = createRoute({
   path: 'labs/$labId/storage',
   loader: ({ context, params }) =>
     Promise.all([
-      context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
-      context.queryClient.prefetchQuery(unitTreeOptions(params.labId)),
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      prefetch(context.queryClient, unitTreeOptions(params.labId)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/StoragePage'), 'StoragePage'),
 })
@@ -23,8 +24,8 @@ export const storageUnitRoute = createRoute({
   path: 'labs/$labId/storage/$unitId',
   loader: ({ context, params }) =>
     Promise.all([
-      context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
-      context.queryClient.prefetchQuery(unitDetailOptions(params.labId, params.unitId)),
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      prefetch(context.queryClient, unitDetailOptions(params.labId, params.unitId)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/StorageUnitPage'), 'StorageUnitPage'),
 })

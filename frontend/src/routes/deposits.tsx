@@ -3,6 +3,7 @@ import { depositDetailOptions, depositListOptions, depositorListOptions, mtaDeta
 import { depositListDefaults, depositListSearch, depositorListDefaults, depositorListSearch, mtaNewSearch } from '@/features/deposits/schemas'
 import { labDetailOptions } from '@/features/labs/api/queries'
 import { authenticatedRoute } from './authenticated'
+import { prefetch } from '@/lib/prefetch'
 
 // Depositors, MTA templates and deposits of one lab, under the authenticated layout. The
 // loaders prefetch with the components' own options and never throw: a lab the caller is not
@@ -16,8 +17,8 @@ export const depositorListRoute = createRoute({
   loaderDeps: ({ search }) => search,
   loader: ({ context, params, deps }) =>
     Promise.all([
-      context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
-      context.queryClient.prefetchQuery(depositorListOptions(params.labId, deps)),
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      prefetch(context.queryClient, depositorListOptions(params.labId, deps)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/DepositorListPage'), 'DepositorListPage'),
 })
@@ -26,7 +27,7 @@ export const mtaListRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: 'labs/$labId/mta-templates',
   loader: ({ context, params }) =>
-    Promise.all([context.queryClient.prefetchQuery(labDetailOptions(params.labId)), context.queryClient.prefetchQuery(mtaListOptions(params.labId))]),
+    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetch(context.queryClient, mtaListOptions(params.labId))]),
   component: lazyRouteComponent(() => import('@/pages/MtaTemplateListPage'), 'MtaTemplateListPage'),
 })
 
@@ -37,8 +38,8 @@ export const mtaNewRoute = createRoute({
   loaderDeps: ({ search }) => search,
   loader: ({ context, params, deps }) =>
     Promise.all([
-      context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
-      deps.from ? context.queryClient.prefetchQuery(mtaDetailOptions(params.labId, deps.from)) : undefined,
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      deps.from ? prefetch(context.queryClient, mtaDetailOptions(params.labId, deps.from)) : undefined,
     ]),
   component: lazyRouteComponent(() => import('@/pages/MtaTemplateNewPage'), 'MtaTemplateNewPage'),
 })
@@ -48,8 +49,8 @@ export const mtaDetailRoute = createRoute({
   path: 'labs/$labId/mta-templates/$templateId',
   loader: ({ context, params }) =>
     Promise.all([
-      context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
-      context.queryClient.prefetchQuery(mtaDetailOptions(params.labId, params.templateId)),
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      prefetch(context.queryClient, mtaDetailOptions(params.labId, params.templateId)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/MtaTemplateDetailPage'), 'MtaTemplateDetailPage'),
 })
@@ -62,8 +63,8 @@ export const depositListRoute = createRoute({
   loaderDeps: ({ search }) => search,
   loader: ({ context, params, deps }) =>
     Promise.all([
-      context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
-      context.queryClient.prefetchQuery(depositListOptions(params.labId, deps)),
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      prefetch(context.queryClient, depositListOptions(params.labId, deps)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/DepositListPage'), 'DepositListPage'),
 })
@@ -72,7 +73,7 @@ export const depositReceiveRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: 'labs/$labId/deposits/new',
   loader: ({ context, params }) =>
-    Promise.all([context.queryClient.prefetchQuery(labDetailOptions(params.labId)), context.queryClient.prefetchQuery(mtaListOptions(params.labId))]),
+    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetch(context.queryClient, mtaListOptions(params.labId))]),
   component: lazyRouteComponent(() => import('@/pages/DepositReceivePage'), 'DepositReceivePage'),
 })
 
@@ -81,8 +82,8 @@ export const depositDetailRoute = createRoute({
   path: 'labs/$labId/deposits/$depositId',
   loader: ({ context, params }) =>
     Promise.all([
-      context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
-      context.queryClient.prefetchQuery(depositDetailOptions(params.labId, params.depositId)),
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      prefetch(context.queryClient, depositDetailOptions(params.labId, params.depositId)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/DepositDetailPage'), 'DepositDetailPage'),
 })

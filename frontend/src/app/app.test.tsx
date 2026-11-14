@@ -249,7 +249,7 @@ describe('session expiry (401)', () => {
     // The session ends: every API call now answers 401.
     mockApiError('get', '/api/v1/auth/me/', 401, problem(401))
     mockApiError('get', '/api/v1/auth/csrf/', 401, problem(401))
-    const csrf = (n: number) => client.fetchQuery({ queryKey: ['csrf', n], queryFn: () => unwrap(api.GET('/api/v1/auth/csrf/')) })
+    const csrf = (n: number) => client.query({ queryKey: ['csrf', n], queryFn: () => unwrap(api.GET('/api/v1/auth/csrf/')) })
     await Promise.allSettled([csrf(1), csrf(2), csrf(3)])
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(router.state.location.search).toEqual({ redirect: '/?tab=b' })
@@ -273,7 +273,7 @@ describe('session expiry (401)', () => {
     // One after another, not in parallel: the first 401 clears the cache, which cancels queries
     // still in flight without calling onError, so parallel 401s reach the handler by timing.
     for (const n of [1, 2, 3]) {
-      await client.fetchQuery({ queryKey: ['csrf', n], queryFn: () => unwrap(api.GET('/api/v1/auth/csrf/')) }).catch(() => undefined)
+      await client.query({ queryKey: ['csrf', n], queryFn: () => unwrap(api.GET('/api/v1/auth/csrf/')) }).catch(() => undefined)
     }
     expect(blockerFn).toHaveBeenCalledOnce()
   })

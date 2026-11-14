@@ -66,7 +66,7 @@ describe('401 routing', () => {
     const client = makeQueryClient({ onUnauthorized })
     mockApiError('get', '/api/v1/auth/csrf/', 401, problem(401))
     mockApiError('post', '/api/v1/auth/logout/', 401, problem(401))
-    await client.fetchQuery({ queryKey: ['h'], queryFn: () => unwrap(api.GET('/api/v1/auth/csrf/')) }).catch(() => undefined)
+    await client.query({ queryKey: ['h'], queryFn: () => unwrap(api.GET('/api/v1/auth/csrf/')) }).catch(() => undefined)
     await client
       .getMutationCache()
       .build(client, { mutationFn: () => unwrap(api.POST('/api/v1/auth/logout/')) })
