@@ -111,10 +111,35 @@ class UserChangeForm(UserChangeFormBase):
         )
         if needs_reason and not cleaned.get("reason", "").strip():
             self.add_error("reason", REASON_REQUIRED)
-        if "is_active" in self.changed_data and not cleaned.get("is_active"):
+        self._check_who_is_left(cleaned)
+        return cleaned
+
+    def _check_who_is_left(self, cleaned: dict[str, Any]) -> None:
+        """A lab keeps an active manager and the collection an active superuser: a box unticked
+        that would take the last one away is refused on that box. The services check again."""
+        unticked = {
+            f
+            for f in ("is_active", "is_superuser")
+            if f in self.changed_data and not cleaned.get(f)
+        }
+        if "is_active" in unticked:
             for lab in labs_left_without_manager(users=[self.instance]):
                 self.add_error("is_active", LAST_MANAGER.format(lab=lab))
-        return cleaned
+        if unticked and self._last_superuser():
+            for field in sorted(unticked):
+                self.add_error(field, services.LastSuperuser.default_detail)
+
+    def _last_superuser(self) -> bool:
+        """The stored row is the only active superuser. The service checks again under a lock."""
+        stored = self.instance
+        return bool(
+            stored.pk
+            and stored.is_superuser
+            and stored.is_active
+            and not User.objects.filter(is_superuser=True, is_active=True)
+            .exclude(pk=stored.pk)
+            .exists()
+        )
 
 
 class EraseUserForm(forms.Form):
