@@ -11,7 +11,7 @@ export const authenticatedRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: '_authenticated',
   beforeLoad: async ({ context, location }) => {
-    const me = await context.queryClient.ensureQueryData(meQueryOptions())
+    const me = await context.queryClient.query({ ...meQueryOptions(), staleTime: 'static' })
     // The router's own location, so already a same-origin path; the helper keeps every redirect
     // target on one rule (tools/redirect-sinks.test.ts).
     if (!me) throw redirect({ to: '/login', search: { redirect: safeRedirect(location.href) } })

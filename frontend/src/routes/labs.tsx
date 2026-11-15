@@ -2,6 +2,7 @@ import { createRoute, lazyRouteComponent, stripSearchParams } from '@tanstack/re
 import { labDetailOptions, labListOptions, memberListOptions } from '@/features/labs/api/queries'
 import { pageDefaults, pageSearch } from '@/lib/paging'
 import { authenticatedRoute } from './authenticated'
+import { prefetch } from '@/lib/prefetch'
 
 // Under the authenticated layout: the guard runs first, so anonymous users never fetch.
 // The loaders prefetch with the components' own options and never throw: the feature
@@ -14,7 +15,7 @@ export const labListRoute = createRoute({
   validateSearch: pageSearch,
   search: { middlewares: [stripSearchParams(pageDefaults)] },
   loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) => context.queryClient.prefetchQuery(labListOptions(deps)),
+  loader: ({ context, deps }) => prefetch(context.queryClient, labListOptions(deps)),
   component: lazyRouteComponent(() => import('@/pages/LabListPage'), 'LabListPage'),
 })
 
@@ -26,8 +27,8 @@ export const labDetailRoute = createRoute({
   loaderDeps: ({ search }) => search,
   loader: ({ context, params, deps }) =>
     Promise.all([
-      context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
-      context.queryClient.prefetchQuery(memberListOptions(params.labId, deps)),
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      prefetch(context.queryClient, memberListOptions(params.labId, deps)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/LabDetailPage'), 'LabDetailPage'),
 })
@@ -37,6 +38,6 @@ export const labDetailRoute = createRoute({
 export const vratAccessRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: 'labs/$labId/vrat-access',
-  loader: ({ context, params }) => context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
+  loader: ({ context, params }) => prefetch(context.queryClient, labDetailOptions(params.labId)),
   component: lazyRouteComponent(() => import('@/pages/VratAccessPage'), 'VratAccessPage'),
 })

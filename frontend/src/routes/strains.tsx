@@ -6,6 +6,7 @@ import { batchesOptions, passagesOptions, vialPageOptions } from '@/features/via
 import { vialPageDefaults, vialPageSearch } from '@/features/vials/schemas'
 import { pageDefaults, pageSearch } from '@/lib/paging'
 import { authenticatedRoute } from './authenticated'
+import { prefetch } from '@/lib/prefetch'
 
 // The strains of one lab, under the authenticated layout: the guard runs first, so anonymous
 // users never fetch. The loaders prefetch with the components' own options and never throw:
@@ -19,8 +20,8 @@ export const strainListRoute = createRoute({
   loaderDeps: ({ search }) => search,
   loader: ({ context, params, deps }) =>
     Promise.all([
-      context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
-      context.queryClient.prefetchQuery(strainListOptions(params.labId, deps)),
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      prefetch(context.queryClient, strainListOptions(params.labId, deps)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/StrainListPage'), 'StrainListPage'),
 })
@@ -32,8 +33,8 @@ export const strainDetailRoute = createRoute({
   path: 'labs/$labId/strains/$strainId',
   loader: ({ context, params }) =>
     Promise.all([
-      context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
-      context.queryClient.prefetchQuery(strainDetailOptions(params.labId, params.strainId)),
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      prefetch(context.queryClient, strainDetailOptions(params.labId, params.strainId)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/StrainDetailPage'), 'StrainDetailPage'),
 })
@@ -41,7 +42,7 @@ export const strainDetailRoute = createRoute({
 export const strainOverviewRoute = createRoute({
   getParentRoute: () => strainDetailRoute,
   path: '/',
-  loader: ({ context, params }) => context.queryClient.prefetchQuery(strainTermsOptions(params.labId, params.strainId)),
+  loader: ({ context, params }) => prefetch(context.queryClient, strainTermsOptions(params.labId, params.strainId)),
   component: lazyRouteComponent(() => import('@/pages/StrainDetailPage'), 'StrainOverviewPage'),
 })
 
@@ -53,9 +54,9 @@ export const strainMaterialRoute = createRoute({
   loaderDeps: ({ search }) => search,
   loader: ({ context, params, deps }) =>
     Promise.all([
-      context.queryClient.prefetchQuery(passagesOptions(params.labId, params.strainId)),
-      context.queryClient.prefetchQuery(batchesOptions(params.labId, params.strainId)),
-      context.queryClient.prefetchQuery(vialPageOptions(params.labId, params.strainId, deps)),
+      prefetch(context.queryClient, passagesOptions(params.labId, params.strainId)),
+      prefetch(context.queryClient, batchesOptions(params.labId, params.strainId)),
+      prefetch(context.queryClient, vialPageOptions(params.labId, params.strainId, deps)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/StrainDetailPage'), 'StrainMaterialPage'),
 })
@@ -63,7 +64,7 @@ export const strainMaterialRoute = createRoute({
 export const strainTermsRoute = createRoute({
   getParentRoute: () => strainDetailRoute,
   path: 'terms',
-  loader: ({ context, params }) => context.queryClient.prefetchQuery(strainTermsOptions(params.labId, params.strainId)),
+  loader: ({ context, params }) => prefetch(context.queryClient, strainTermsOptions(params.labId, params.strainId)),
   component: lazyRouteComponent(() => import('@/pages/StrainDetailPage'), 'StrainTermsPage'),
 })
 
@@ -73,6 +74,6 @@ export const strainHistoryRoute = createRoute({
   validateSearch: pageSearch,
   search: { middlewares: [stripSearchParams(pageDefaults)] },
   loaderDeps: ({ search }) => search,
-  loader: ({ context, params, deps }) => context.queryClient.prefetchQuery(strainHistoryOptions(params.labId, params.strainId, deps)),
+  loader: ({ context, params, deps }) => prefetch(context.queryClient, strainHistoryOptions(params.labId, params.strainId, deps)),
   component: lazyRouteComponent(() => import('@/pages/StrainDetailPage'), 'StrainHistoryPage'),
 })

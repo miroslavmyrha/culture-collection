@@ -101,7 +101,7 @@ describe('retry policy', () => {
 
   it('makes exactly one call for a 404', async () => {
     const calls = mockApiError('get', '/api/v1/auth/me/', 404, problem(404))
-    await makeQueryClient().fetchQuery({ queryKey: ['me'], queryFn: getMe }).catch(() => undefined)
+    await makeQueryClient().query({ queryKey: ['me'], queryFn: getMe }).catch(() => undefined)
     expect(calls).toHaveLength(1)
   })
 
@@ -113,7 +113,7 @@ describe('retry policy', () => {
         ++calls <= 2 ? HttpResponse.json(problem(503), { status: 503, headers: { 'Retry-After': '0' } }) : HttpResponse.json(me),
       ),
     )
-    await expect(makeQueryClient().fetchQuery({ queryKey: ['me'], queryFn: getMe })).resolves.toEqual(me)
+    await expect(makeQueryClient().query({ queryKey: ['me'], queryFn: getMe })).resolves.toEqual(me)
     expect(calls).toBe(3)
   })
 })

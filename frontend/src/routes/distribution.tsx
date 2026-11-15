@@ -3,6 +3,7 @@ import { ALL_REQUESTERS, requestDetailOptions, requesterListOptions, requestList
 import { requesterListDefaults, requesterListSearch, requestListDefaults, requestListSearch } from '@/features/distribution/schemas'
 import { labDetailOptions } from '@/features/labs/api/queries'
 import { authenticatedRoute } from './authenticated'
+import { prefetch } from '@/lib/prefetch'
 
 // Requests and requesters of one lab, under the authenticated layout. The loaders prefetch with
 // the components' own options and never throw: a lab the caller is not in (404) and a role that
@@ -15,7 +16,7 @@ export const requestListRoute = createRoute({
   search: { middlewares: [stripSearchParams(requestListDefaults)] },
   loaderDeps: ({ search }) => search,
   loader: ({ context, params, deps }) =>
-    Promise.all([context.queryClient.prefetchQuery(labDetailOptions(params.labId)), context.queryClient.prefetchQuery(requestListOptions(params.labId, deps))]),
+    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetch(context.queryClient, requestListOptions(params.labId, deps))]),
   component: lazyRouteComponent(() => import('@/pages/RequestListPage'), 'RequestListPage'),
 })
 
@@ -23,7 +24,7 @@ export const requestNewRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: 'labs/$labId/requests/new',
   loader: ({ context, params }) =>
-    Promise.all([context.queryClient.prefetchQuery(labDetailOptions(params.labId)), context.queryClient.prefetchQuery(requesterListOptions(params.labId, ALL_REQUESTERS))]),
+    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetch(context.queryClient, requesterListOptions(params.labId, ALL_REQUESTERS))]),
   component: lazyRouteComponent(() => import('@/pages/RequestNewPage'), 'RequestNewPage'),
 })
 
@@ -32,8 +33,8 @@ export const requestDetailRoute = createRoute({
   path: 'labs/$labId/requests/$requestId',
   loader: ({ context, params }) =>
     Promise.all([
-      context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
-      context.queryClient.prefetchQuery(requestDetailOptions(params.labId, params.requestId)),
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      prefetch(context.queryClient, requestDetailOptions(params.labId, params.requestId)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/RequestDetailPage'), 'RequestDetailPage'),
 })
@@ -45,7 +46,7 @@ export const requesterListRoute = createRoute({
   search: { middlewares: [stripSearchParams(requesterListDefaults)] },
   loaderDeps: ({ search }) => search,
   loader: ({ context, params, deps }) =>
-    Promise.all([context.queryClient.prefetchQuery(labDetailOptions(params.labId)), context.queryClient.prefetchQuery(requesterListOptions(params.labId, deps))]),
+    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetch(context.queryClient, requesterListOptions(params.labId, deps))]),
   component: lazyRouteComponent(() => import('@/pages/RequesterListPage'), 'RequesterListPage'),
 })
 
@@ -54,8 +55,8 @@ export const shipmentDocumentRoute = createRoute({
   path: 'labs/$labId/shipment-documents/$documentId',
   loader: ({ context, params }) =>
     Promise.all([
-      context.queryClient.prefetchQuery(labDetailOptions(params.labId)),
-      context.queryClient.prefetchQuery(shipmentDocumentOptions(params.labId, params.documentId)),
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      prefetch(context.queryClient, shipmentDocumentOptions(params.labId, params.documentId)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/ShipmentDocumentPage'), 'ShipmentDocumentPage'),
 })

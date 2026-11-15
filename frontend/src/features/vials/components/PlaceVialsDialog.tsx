@@ -1,4 +1,4 @@
-import { type FormEvent, useId, useState } from 'react'
+import { type SubmitEvent, useId, useState } from 'react'
 import { Box, ConfirmDialog, Stack } from '@/components/ui'
 import { preferences } from '@/lib/storage'
 import { usePlaceMany } from '../api/mutations'
@@ -80,7 +80,7 @@ export function PlaceVialsDialog({ labId, strainId, vials, boxes, boxesFailed, o
     fail.clear()
   }
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  function onSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     if (place.isPending) return
     fail.clear()
