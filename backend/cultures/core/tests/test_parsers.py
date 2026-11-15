@@ -10,9 +10,11 @@ import io
 import json
 
 import pytest
-from django.test import override_settings
+from django.test import Client, override_settings
+from rest_framework.exceptions import ParseError
 
-from cultures.core.parsers import LimitedJSONParser, RequestTooLarge
+from cultures.core.parsers import MAX_DEPTH, LimitedJSONParser, RequestTooLarge
+from cultures.core.testing import assert_problem
 
 LIMIT = 1024
 
@@ -33,3 +35,34 @@ def test_a_stream_over_the_limit_is_refused_without_a_declared_length() -> None:
 def test_a_body_at_the_limit_is_parsed() -> None:
     parsed = LimitedJSONParser().parse(io.BytesIO(body_of(LIMIT)), "application/json", {})
     assert parsed == json.loads(body_of(LIMIT))
+
+
+def nested(depth: int) -> bytes:
+    """A JSON body of arrays inside arrays, `depth` levels deep."""
+    return b"[" * depth + b"]" * depth
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("depth", [MAX_DEPTH + 1, 500, 100_000])
+def test_a_body_nested_too_deep_is_a_bad_request_not_a_server_error(depth: int) -> None:
+    # The sign-in reads the body before anyone is known, so it is the first door to try.
+    client = Client(raise_request_exception=False)
+    response = client.post("/api/v1/auth/login/", nested(depth), content_type="application/json")
+    body = assert_problem(response, 400, "parse_error")
+    assert "nested" in body["detail"]
+
+
+def test_a_body_at_the_depth_limit_is_parsed() -> None:
+    parsed = LimitedJSONParser().parse(io.BytesIO(nested(MAX_DEPTH)), "application/json", {})
+    depth = 0
+    while isinstance(parsed, list) and parsed:
+        parsed, depth = parsed[0], depth + 1
+    assert depth == MAX_DEPTH - 1  # the innermost array is empty
+
+
+def test_objects_count_towards_the_depth_as_arrays_do() -> None:
+    body = b'{"a":' * MAX_DEPTH + b"1" + b"}" * MAX_DEPTH
+    LimitedJSONParser().parse(io.BytesIO(body), "application/json", {})
+    deeper = b'{"a":[' + body + b"]}"
+    with pytest.raises(ParseError, match="nested"):
+        LimitedJSONParser().parse(io.BytesIO(deeper), "application/json", {})
