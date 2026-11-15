@@ -407,10 +407,12 @@ test.describe('keyboard walk through every page', () => {
       // The search field (#76) sits between the lab picker and the account menu.
       expect(stops.slice(0, 5), path).toEqual(['a:Skip to content', 'a:Culture Collection', 'button:Select a lab', 'input:', `button:Account (${username})`])
     }
-    // An unknown URL loaded directly: the shell has not asked for the user yet, so no navigation.
+    // An unknown URL loaded directly: the not-found page asks for the session, so the bar is
+    // there for a signed-in user as on every other page (#227).
     await page.goto('/no-such-page')
     await expect(page.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible()
-    expect(await walk(page)).toEqual(['a:Skip to content', 'a:Culture Collection', 'a:Go to the start page'])
+    await expect(page.getByRole('button', { name: `Account (${username})` })).toBeVisible()
+    expect(await walk(page)).toEqual(['a:Skip to content', 'a:Culture Collection', 'button:Select a lab', 'input:', `button:Account (${username})`, 'a:Go to the start page'])
     await openLab(page, '?limit=1')
     const stops = await walk(page)
     // Every control of the lab page in reading order; Previous is aria-disabled, still a stop.
