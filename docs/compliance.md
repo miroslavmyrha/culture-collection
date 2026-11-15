@@ -151,7 +151,7 @@ and the rules and duties it decides are changed in the same commit.
 - Source: Regulation (EU) 2021/821, Annex I, entries 1C351 (human and animal pathogens and
   toxins), 1C353 (genetic elements and genetically modified organisms), 1C354 (plant pathogens).
   The pattern is a data rule of our own.
-- Code: `backend/cultures/strains/models.py::DUAL_USE_ENTRY`, `backend/cultures/strains/services.py::check_restriction`, `backend/cultures/strains/models.py::"strains_restriction_dual_use_entry"`
+- Code: `backend/cultures/strains/models.py::DUAL_USE_ENTRY`, `backend/cultures/strains/services/_shared.py::check_restriction`, `backend/cultures/strains/models.py::"strains_restriction_dual_use_entry"`
 - Tests: `backend/cultures/strains/tests/test_models.py::test_a_restriction_has_the_fields_of_its_kind`
 - Limits: the pattern accepts entries the annex does not have: 1C351.b reads "b. Not used;" in
   Annex I as replaced by Delegated Regulation (EU) 2025/2003. Since #169 the entry itself is the
@@ -163,7 +163,7 @@ and the rules and duties it decides are changed in the same commit.
 - Kind: own control
 - Source: ADR 0009, Decision: Annex I of Regulation (EU) 2021/821 is replaced by a delegated act
   about once a year, so an entry is only meaningful with the act it was read in.
-- Code: `backend/cultures/strains/models.py::EU_ACT`, `backend/cultures/strains/services.py::check_restriction`, `backend/cultures/strains/models.py::"strains_restriction_act_iff_dual_use"`
+- Code: `backend/cultures/strains/models.py::EU_ACT`, `backend/cultures/strains/services/_shared.py::check_restriction`, `backend/cultures/strains/models.py::"strains_restriction_act_iff_dual_use"`
 - Tests: `backend/cultures/strains/tests/test_models.py::test_a_restriction_has_the_fields_of_its_kind`
 
 #### R-KIND-04 A GMO restriction has a category of risk I to IV, no other kind has one
@@ -173,14 +173,14 @@ and the rules and duties it decides are changed in the same commit.
 - Quote: „Výsledkem hodnocení rizika je v případě uzavřeného nakládání zařazení tohoto nakládání do jedné z kategorií rizika uvedených v příloze č. 3 k tomuto zákonu.“
 - English: The result of the risk assessment of a contained use is its classification into one
   of the categories of risk of Annex 3 of this act (§ 16(2) names the first to fourth category).
-- Code: `backend/cultures/strains/services.py::check_restriction`, `backend/cultures/strains/models.py::"strains_restriction_category_iff_gmo"`
+- Code: `backend/cultures/strains/services/_shared.py::check_restriction`, `backend/cultures/strains/models.py::"strains_restriction_category_iff_gmo"`
 - Tests: `backend/cultures/strains/tests/test_models.py::test_a_restriction_has_the_fields_of_its_kind`, `backend/cultures/strains/tests/test_models.py::test_restrictions_of_the_right_shape_are_stored`
 
 #### R-KIND-05 One active restriction per strain, kind and entry
 
 - Kind: own control
 - Source: a data rule of our own.
-- Code: `backend/cultures/strains/models.py::ACTIVE_RESTRICTION_UNIQUE`, `backend/cultures/strains/services.py::strain_restriction_add`
+- Code: `backend/cultures/strains/models.py::ACTIVE_RESTRICTION_UNIQUE`, `backend/cultures/strains/services/restrictions.py::strain_restriction_add`
 - Tests: `backend/cultures/strains/tests/test_models.py::test_one_active_restriction_of_a_kind_and_entry_per_strain`, `backend/cultures/strains/tests/test_services.py::test_a_restriction_twice_is_a_field_error`
 
 #### R-KIND-06 A restriction is never deleted and ends once, with a reason
@@ -195,7 +195,7 @@ and the rules and duties it decides are changed in the same commit.
 
 - Kind: own control
 - Source: ADR 0009, amendment 2026-10-24 (#105). No law read asks it.
-- Code: `backend/cultures/strains/services.py::strain_restriction_end_propose`, `backend/cultures/strains/services.py::strain_restriction_end_confirm`, `backend/cultures/strains/services.py::ConfirmOwnEndProposal`, `backend/cultures/strains/migrations/0010_confirmed_proposal_outcome.py::"strains_endproposal_confirmed"`
+- Code: `backend/cultures/strains/services/restrictions.py::strain_restriction_end_propose`, `backend/cultures/strains/services/restrictions.py::strain_restriction_end_confirm`, `backend/cultures/strains/services/restrictions.py::ConfirmOwnEndProposal`, `backend/cultures/strains/migrations/0010_confirmed_proposal_outcome.py::"strains_endproposal_confirmed"`
 - Tests: `backend/cultures/strains/tests/test_end_proposals.py::test_nobody_confirms_their_own_proposal`, `backend/cultures/strains/tests/test_end_proposals.py::test_a_restriction_ends_only_at_a_confirmed_proposal`, `backend/cultures/strains/tests/test_end_proposals.py::test_the_runtime_role_cannot_confirm_an_end_that_did_not_happen`, `backend/cultures/strains/tests/test_end_proposals.py::test_a_curator_alone_no_longer_lets_a_vrat_out_of_its_rules`
 
 #### R-KIND-08 A restriction is added by one person who manages strains, with a reason
@@ -203,7 +203,7 @@ and the rules and duties it decides are changed in the same commit.
 - Kind: own control
 - Source: our own. Adding a restriction only tightens the rules, so one person suffices, while
   its end takes two (R-KIND-07).
-- Code: `backend/cultures/strains/services.py::strain_restriction_add`
+- Code: `backend/cultures/strains/services/restrictions.py::strain_restriction_add`
 - Tests: `backend/cultures/strains/tests/test_services.py::test_a_curator_adds_a_restriction_and_it_ends_by_two_people`
 
 #### R-KIND-10 A restriction points at the entry of its official list, and a dual-use reference is one Annex I holds
@@ -214,7 +214,7 @@ and the rules and duties it decides are changed in the same commit.
   holds (R-LIST-01) and is nothing else. A VRAT, a RAT and a quarantine pest are referred to by
   the words of their annex, which this app does not own, so an entry is attached where the
   reference is an entry code of the list and not demanded where it is not. A GMO is on no list.
-- Code: `backend/cultures/biosafety/selectors.py::list_entry`, `backend/cultures/biosafety/selectors.py::ENTRY_REQUIRED`, `backend/cultures/strains/services.py::_entry_of`, `backend/cultures/strains/services.py::DualUseEntryUnknown`, `backend/cultures/strains/migrations/0016_restriction_list_entry_guards.py::"a dual-use restriction names an entry Annex I of Regulation (EU) 2021/821 holds"`, `backend/cultures/strains/migrations/0016_restriction_list_entry_guards.py::"a restriction points at an entry of the current reading of its own list"`
+- Code: `backend/cultures/biosafety/selectors.py::list_entry`, `backend/cultures/biosafety/selectors.py::ENTRY_REQUIRED`, `backend/cultures/strains/services/_shared.py::_entry_of`, `backend/cultures/strains/services/_shared.py::DualUseEntryUnknown`, `backend/cultures/strains/migrations/0016_restriction_list_entry_guards.py::"a dual-use restriction names an entry Annex I of Regulation (EU) 2021/821 holds"`, `backend/cultures/strains/migrations/0016_restriction_list_entry_guards.py::"a restriction points at an entry of the current reading of its own list"`
 - Tests: `backend/cultures/strains/tests/test_list_entries.py::test_a_dual_use_restriction_points_at_the_annex_entry_it_names`, `backend/cultures/strains/tests/test_list_entries.py::test_a_dual_use_reference_annex_i_does_not_hold_is_refused`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_refuses_a_dual_use_row_with_no_entry`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_refuses_an_entry_that_is_not_the_reference`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_refuses_an_entry_of_another_list`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_refuses_an_entry_on_a_gmo`, `backend/cultures/strains/tests/test_list_entries.py::test_a_gmo_and_a_restriction_of_words_the_list_does_not_hold_keep_no_entry`, `backend/cultures/strains/tests/test_list_entries.py::test_a_vrat_reference_that_is_an_entry_code_of_the_decree_gets_its_entry`
 - Limits: the rule binds every restriction written from now on. A restriction recorded before
   this keeps no entry, and none is filled in after the fact, because a restriction changes by
@@ -231,7 +231,7 @@ and the rules and duties it decides are changed in the same commit.
   so the rule is the collection's own: a strain recorded as the dual-use item and not as the
   highly risky or risky agent would be out of the permit gate (R-PERMIT-01), the distribution
   gates (R-DIST-04, R-DIST-05) and the register entry (R-SHIP-07).
-- Code: `backend/cultures/biosafety/selectors.py::also_a_cz_agent`, `backend/cultures/biosafety/selectors.py::DUAL_USE_ORGANISM`, `backend/cultures/strains/services.py::_require_cz_agent`, `backend/cultures/strains/services.py::RestrictionRequiredByEntry`, `backend/cultures/strains/services.py::_check_end_allowed`, `backend/cultures/strains/services.py::RestrictionHeldByDualUse`, `backend/cultures/strains/migrations/0016_restriction_list_entry_guards.py::"a dual-use entry decree 474/2002 Sb. also lists needs its own restriction"`
+- Code: `backend/cultures/biosafety/selectors.py::also_a_cz_agent`, `backend/cultures/biosafety/selectors.py::DUAL_USE_ORGANISM`, `backend/cultures/strains/services/_shared.py::_require_cz_agent`, `backend/cultures/strains/services/_shared.py::RestrictionRequiredByEntry`, `backend/cultures/strains/services/restrictions.py::_check_end_allowed`, `backend/cultures/strains/services/_shared.py::RestrictionHeldByDualUse`, `backend/cultures/strains/migrations/0016_restriction_list_entry_guards.py::"a dual-use entry decree 474/2002 Sb. also lists needs its own restriction"`
 - Tests: `backend/cultures/strains/tests/test_list_entries.py::test_a_dual_use_entry_the_decree_also_lists_needs_that_restriction`, `backend/cultures/strains/tests/test_list_entries.py::test_the_dual_use_restriction_is_taken_once_the_decrees_restriction_is_there`, `backend/cultures/strains/tests/test_list_entries.py::test_one_accession_may_record_both_restrictions_at_once`, `backend/cultures/strains/tests/test_list_entries.py::test_an_accession_of_the_dual_use_entry_alone_is_refused`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_asks_for_the_decrees_restriction_at_the_commit`, `backend/cultures/strains/tests/test_list_entries.py::test_the_database_takes_both_restrictions_in_one_transaction`, `backend/cultures/strains/tests/test_list_entries.py::test_a_dual_use_entry_the_decree_does_not_list_asks_for_nothing`, `backend/cultures/strains/tests/test_list_entries.py::test_the_decrees_restriction_does_not_end_while_the_dual_use_entry_asks_for_it`
 - Limits: the two entries are paired when they derive the same scientific name at the same scope
   (R-LIST-03), which pairs 46 of the entries of this version's lists: 32 as a VRAT and 14 as a
@@ -315,7 +315,7 @@ and the rules and duties it decides are changed in the same commit.
 - Source: ADR 0009, Decision: "A risk group 4 strain is refused at accession, and so is a later
   change of a strain's risk group to 4". No law read forbids holding one under containment
   level 4.
-- Code: `backend/cultures/strains/services.py::_check_risk_group`, `backend/cultures/strains/services.py::RiskGroupRefused`
+- Code: `backend/cultures/strains/services/_shared.py::_check_risk_group`, `backend/cultures/strains/services/_shared.py::RiskGroupRefused`
 - Tests: `backend/cultures/strains/tests/test_services.py::test_a_risk_group_4_agent_is_refused_on_its_field`, `backend/cultures/strains/tests/test_services.py::test_a_change_to_risk_group_4_is_refused`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_proposal_to_group_4_is_refused_before_anything_is_written`, `backend/cultures/deposits/tests/test_services.py::test_a_risk_group_4_agent_is_refused_at_acceptance`
 
 #### R-RISK-03 A risk group rises by one person who manages strains, with a reason
@@ -323,7 +323,7 @@ and the rules and duties it decides are changed in the same commit.
 - Kind: own control
 - Source: our own. A raise only tightens the rules the group brings, so one person suffices,
   while lowering it takes two (R-RISK-06).
-- Code: `backend/cultures/strains/services.py::strain_set_risk_group`
+- Code: `backend/cultures/strains/services/risk_group.py::strain_set_risk_group`
 - Tests: `backend/cultures/strains/tests/test_services.py::test_a_risk_group_change_records_old_new_and_the_reason`, `backend/cultures/strains/tests/test_services.py::test_a_risk_group_change_needs_a_reason`, `backend/cultures/strains/tests/test_services.py::test_the_same_risk_group_again_records_nothing`
 - Limits: the same group again changes nothing and records nothing, so a new basis for an
   unchanged group is not recorded. To restate the basis of a group a strain already has, raise it
@@ -333,7 +333,7 @@ and the rules and duties it decides are changed in the same commit.
 
 - Kind: own control
 - Source: ADR 0009, the `may_store` gate.
-- Code: `backend/cultures/strains/services.py::_check_boxes_hold`, `backend/cultures/strains/services.py::RiskGroupAboveBoxCap`
+- Code: `backend/cultures/strains/services/risk_group.py::_check_boxes_hold`, `backend/cultures/strains/services/risk_group.py::RiskGroupAboveBoxCap`
 - Tests: `backend/cultures/lineage/tests/test_risk_group_caps.py::test_raising_above_the_cap_of_one_of_several_boxes_is_refused`, `backend/cultures/lineage/tests/test_risk_group_caps.py::test_lowering_always_fits`, `backend/cultures/lineage/tests/test_risk_group_caps.py::test_the_api_refusal_names_no_box`
 
 #### R-RISK-05 Pathogenicity for animals and for plants is recorded apart from the risk group
@@ -352,7 +352,7 @@ and the rules and duties it decides are changed in the same commit.
   R-RISK-04, R-DIST-10, R-DIST-12 and R-SHIP-03, so it is a gated action of the project's
   two-person rule, like the end of a restriction (R-KIND-07) and the departure of a regulated
   strain (R-END-01).
-- Code: `backend/cultures/strains/services.py::strain_risk_group_lower_propose`, `backend/cultures/strains/services.py::strain_risk_group_lower_confirm`, `backend/cultures/strains/services.py::RiskGroupNeedsSecondPerson`, `backend/cultures/strains/services.py::ConfirmOwnRiskGroup`, `backend/cultures/strains/models.py::"strains_riskgroupproposal_second_person"`, `backend/cultures/strains/migrations/0014_risk_group_audit_and_guards.py::"a second person confirms a proposal to lower it"`
+- Code: `backend/cultures/strains/services/risk_group.py::strain_risk_group_lower_propose`, `backend/cultures/strains/services/risk_group.py::strain_risk_group_lower_confirm`, `backend/cultures/strains/services/risk_group.py::RiskGroupNeedsSecondPerson`, `backend/cultures/strains/services/risk_group.py::ConfirmOwnRiskGroup`, `backend/cultures/strains/models.py::"strains_riskgroupproposal_second_person"`, `backend/cultures/strains/migrations/0014_risk_group_audit_and_guards.py::"a second person confirms a proposal to lower it"`
 - Tests: `backend/cultures/strains/tests/test_risk_group_proposals.py::test_one_person_no_longer_lowers_a_risk_group`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_proposal_changes_nothing_for_the_strain`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_another_manager_confirms_and_the_group_drops_with_both_people`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_events_of_a_lowering_hold_no_personal_value`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_nobody_confirms_their_own_proposal`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_only_a_manager_confirms`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_manager_demoted_after_reading_does_not_confirm`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_proposal_is_withdrawn_with_a_reason_and_another_may_follow`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_shipment_rule_and_the_detail_read_the_higher_group_while_it_waits`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_lower_group_is_set_only_at_a_confirmed_proposal`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_confirmed_proposal_is_not_applied_twice`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_runtime_role_cannot_confirm_a_lowering_that_did_not_happen`, `backend/cultures/lineage/tests/test_risk_group_caps.py::test_a_lower_group_reaches_the_box_cap_only_at_the_confirmation`
 - Limits: the confirmer is not written on the strain, so the trigger pins a lowering by the
   strain, both groups, the basis and the confirmation's time, not by the person; the proposal
@@ -371,7 +371,7 @@ and the rules and duties it decides are changed in the same commit.
 - Quote: „Biologické činitele, které nebyly zařazeny do skupin 2 až 4 seznamu, nejsou automaticky zařazeny do skupiny 1.“
 - English: Biological agents that have not been classified into groups 2 to 4 of the list are
   not automatically classified into group 1.
-- Code: `backend/cultures/strains/services.py::_check_basis`, `backend/cultures/strains/services.py::strain_create`, `backend/cultures/strains/models.py::"strains_strain_risk_group_basis_with_time"`, `backend/cultures/strains/migrations/0014_risk_group_audit_and_guards.py::"a risk group change states its basis and the time it was made"`, `backend/cultures/strains/migrations/0018_risk_group_basis_guards.py::"a strain states what its risk group rests on and when"`
+- Code: `backend/cultures/strains/services/_shared.py::_check_basis`, `backend/cultures/strains/services/accession.py::strain_create`, `backend/cultures/strains/models.py::"strains_strain_risk_group_basis_with_time"`, `backend/cultures/strains/migrations/0014_risk_group_audit_and_guards.py::"a risk group change states its basis and the time it was made"`, `backend/cultures/strains/migrations/0018_risk_group_basis_guards.py::"a strain states what its risk group rests on and when"`
 - Tests: `backend/cultures/strains/tests/test_services.py::test_a_risk_group_change_needs_a_basis`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_proposal_without_a_basis_or_a_reason_is_refused`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_database_asks_every_change_for_its_basis_and_its_time`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_accession_states_what_its_risk_group_rests_on`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_accession_without_a_basis_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_group_1_states_a_reason_too_and_never_follows_from_a_missing_entry`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_asks_every_new_strain_what_its_group_rests_on`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_strain_page_shows_the_basis_and_the_entry_of_its_group`
 - Limits: since #169 the accession states the basis too, so every group recorded from then on
   says what it rests on, in words, whether or not it also names a list entry (R-RISK-09). A
@@ -384,7 +384,7 @@ and the rules and duties it decides are changed in the same commit.
 - Kind: own control
 - Source: ADR 0009, amendment 2026-11-04 (#174). No law read asks it: it is ours, so that each
   step states its own basis instead of one jump from 1 to 3.
-- Code: `backend/cultures/strains/services.py::RiskGroupStepTooBig`, `backend/cultures/strains/migrations/0014_risk_group_audit_and_guards.py::"a risk group rises one step at a time"`
+- Code: `backend/cultures/strains/services/risk_group.py::RiskGroupStepTooBig`, `backend/cultures/strains/migrations/0014_risk_group_audit_and_guards.py::"a risk group rises one step at a time"`
 - Tests: `backend/cultures/strains/tests/test_risk_group_proposals.py::test_a_raise_stays_one_step_and_needs_no_second_person`, `backend/cultures/strains/tests/test_risk_group_proposals.py::test_the_database_lets_a_group_rise_one_step_at_a_time`
 - Limits: a strain may still be accessioned straight into group 3 (R-RISK-02 refuses only group
   4): the rule is about changing a classification, not about the first one. Issue: none
@@ -402,7 +402,7 @@ and the rules and duties it decides are changed in the same commit.
 - Quote: „Biologické činitele, které nebyly zařazeny do skupin 2 až 4 seznamu, nejsou automaticky zařazeny do skupiny 1.“
 - English: Biological agents that have not been classified into groups 2 to 4 of the list are
   not automatically classified into group 1.
-- Code: `backend/cultures/biosafety/selectors.py::risk_group_entries`, `backend/cultures/biosafety/selectors.py::states_risk_group`, `backend/cultures/strains/services.py::_check_basis_entry`, `backend/cultures/strains/services.py::RiskGroupEntryMismatch`, `backend/cultures/strains/migrations/0018_risk_group_basis_guards.py::"a risk group rests on an entry of the current annex 7 of government order 361/2007 Sb. that states it"`, `backend/cultures/strains/migrations/0018_risk_group_basis_guards.py::"a proposed risk group rests on an entry of the current annex 7 of government order 361/2007 Sb. that states it"`
+- Code: `backend/cultures/biosafety/selectors.py::risk_group_entries`, `backend/cultures/biosafety/selectors.py::states_risk_group`, `backend/cultures/strains/services/_shared.py::_check_basis_entry`, `backend/cultures/strains/services/_shared.py::RiskGroupEntryMismatch`, `backend/cultures/strains/migrations/0018_risk_group_basis_guards.py::"a risk group rests on an entry of the current annex 7 of government order 361/2007 Sb. that states it"`, `backend/cultures/strains/migrations/0018_risk_group_basis_guards.py::"a proposed risk group rests on an entry of the current annex 7 of government order 361/2007 Sb. that states it"`
 - Tests: `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_accession_may_rest_on_an_entry_of_the_annex`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_entry_that_states_another_group_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_entry_of_another_list_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_an_entry_of_a_reading_that_was_replaced_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_a_raise_may_name_an_entry_and_the_event_holds_its_code`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_a_raise_on_an_entry_of_another_group_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_a_lowering_carries_the_entry_of_the_proposal_it_confirms`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_a_proposal_on_an_entry_of_another_group_is_refused`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_refuses_a_new_strain_on_an_entry_that_does_not_state_its_group`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_refuses_a_change_onto_an_entry_that_does_not_state_the_group`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_lets_the_entry_change_only_with_the_group`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_refuses_a_lowering_that_drops_the_entry_of_its_proposal`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_database_refuses_a_proposal_on_an_entry_that_does_not_state_its_group`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_python_check_and_the_trigger_agree_on_which_entry_states_a_group`, `backend/cultures/strains/tests/test_risk_group_basis.py::test_the_api_takes_the_entry_by_public_id_and_refuses_one_of_another_list`
 - Limits: the entry is optional, because the annex states a group for a minority of the taxa a
   collection holds and because an agent it does not list is not thereby group 1 (the sentence
@@ -481,7 +481,7 @@ and the rules and duties it decides are changed in the same commit.
 - Quote: „Nakládat s vysoce rizikovými biologickými agens a s toxiny na území České republiky lze jen na základě povolení vydaného Úřadem…“
 - English: Highly risky biological agents and toxins may be handled in the Czech Republic only
   under a permit issued by the Office.
-- Code: `backend/cultures/biosafety/policy.py::require_authorisation`, `backend/cultures/strains/services.py::strain_create`, `backend/cultures/strains/services.py::strain_restriction_add`
+- Code: `backend/cultures/biosafety/policy.py::require_authorisation`, `backend/cultures/strains/services/accession.py::strain_create`, `backend/cultures/strains/services/restrictions.py::strain_restriction_add`
 - Tests: `backend/cultures/biosafety/tests/test_policy.py::test_no_permit_refuses_with_the_field_and_the_kind`, `backend/cultures/biosafety/tests/test_policy.py::test_a_permit_of_another_kind_does_not_count`, `backend/cultures/biosafety/tests/test_policy.py::test_a_permit_of_another_lab_does_not_count`, `backend/cultures/strains/tests/test_services.py::test_a_vrat_or_quarantine_strain_enters_with_a_valid_permit`, `backend/cultures/strains/tests/test_services.py::test_an_added_vrat_restriction_needs_the_permit_too`
 - Limits: any valid VRAT permit of the lab counts. The permit fixes the kinds and quantities of
   agents (§ 11(3) d)), and the app does not hold them. See D-01 (#170).
@@ -492,7 +492,7 @@ and the rules and duties it decides are changed in the same commit.
 - Source: Regulation (EU) 2016/2031, Art. 5(1) and Art. 8(1). In the Czech Republic ÚKZÚZ
   decides on it, act 326/2004 Sb., § 8(1).
 - Quote: "A Union quarantine pest shall not be introduced into, moved within, or held, multiplied or released in, the Union territory." and "By way of derogation from Article 5(1), Member States may, on application, temporarily authorise the introduction into, the movement within, and the holding and multiplication in, their territory of Union quarantine pests … for official testing, scientific or educational purposes, trials, varietal selections, or breeding."
-- Code: `backend/cultures/biosafety/policy.py::require_authorisation`, `backend/cultures/strains/services.py::strain_create`, `backend/cultures/strains/services.py::strain_restriction_add`
+- Code: `backend/cultures/biosafety/policy.py::require_authorisation`, `backend/cultures/strains/services/accession.py::strain_create`, `backend/cultures/strains/services/restrictions.py::strain_restriction_add`
 - Tests: `backend/cultures/strains/tests/test_services.py::test_without_a_valid_permit_of_its_kind_in_its_lab_the_strain_is_refused`, `backend/cultures/strains/tests/test_services.py::test_a_vrat_or_quarantine_strain_enters_with_a_valid_permit`
 - Limits: any valid ÚKZÚZ authorisation of the lab counts. The authorisation names the pest
   (2019/829 Annex II: "including scientific name of the specified pest concerned"), and the app
@@ -962,7 +962,7 @@ listed here so that the test can tell them from a regulated gate without a rule.
 - Kind: own control
 - Source: ADR 0009, amendment 2026-10-27. WHO Laboratory biosecurity guidance (2024), 6.3.1:
   "removal of biological material from the inventory by two employees" (a guidance, not a law).
-- Code: `backend/cultures/strains/services.py::strain_deaccession`, `backend/cultures/strains/services.py::strain_deaccession_confirm`, `backend/cultures/strains/services.py::DeaccessionNeedsSecondPerson`, `backend/cultures/strains/services.py::ConfirmOwnDeaccession`, `backend/cultures/strains/migrations/0009_deaccession_audit_and_guards.py::"strains_strain_guard"`, `backend/cultures/strains/migrations/0010_confirmed_proposal_outcome.py::"strains_deaccessionproposal_confirmed"`
+- Code: `backend/cultures/strains/services/deaccession.py::strain_deaccession`, `backend/cultures/strains/services/deaccession.py::strain_deaccession_confirm`, `backend/cultures/strains/services/deaccession.py::DeaccessionNeedsSecondPerson`, `backend/cultures/strains/services/deaccession.py::ConfirmOwnDeaccession`, `backend/cultures/strains/migrations/0009_deaccession_audit_and_guards.py::"strains_strain_guard"`, `backend/cultures/strains/migrations/0010_confirmed_proposal_outcome.py::"strains_deaccessionproposal_confirmed"`
 - Tests: `backend/cultures/strains/tests/test_deaccession.py::test_one_person_does_not_deaccession_a_regulated_strain`, `backend/cultures/strains/tests/test_deaccession.py::test_nobody_confirms_their_own_proposal`, `backend/cultures/strains/tests/test_deaccession.py::test_the_database_refuses_a_one_person_deaccession_of_a_regulated_strain`, `backend/cultures/strains/tests/test_deaccession.py::test_the_runtime_role_cannot_confirm_a_deaccession_that_did_not_happen`, `backend/cultures/strains/tests/test_deaccession.py::test_a_curator_alone_cannot_take_a_vrat_strain_out`
 
 #### R-END-02 A quarantine pest states its final use when it leaves: destruction, collection or storage
@@ -971,7 +971,7 @@ listed here so that the test can tell them from a regulated gate without a rule.
 - Source: Implementing Regulation (EU) 2019/829, Annex I (h) and Art. 5(d). Collection and
   storage keep the vials.
 - Quote: "the final use of the specified material on completion of the specified activity e.g.; destruction, collection or storage;"
-- Code: `backend/cultures/strains/services.py::_check_final_use`, `backend/cultures/strains/models.py::FinalUse`, `backend/cultures/strains/models.py::KEEPS_MATERIAL`, `backend/cultures/strains/migrations/0009_deaccession_audit_and_guards.py::"strains_strain_guard"`
+- Code: `backend/cultures/strains/services/deaccession.py::_check_final_use`, `backend/cultures/strains/models.py::FinalUse`, `backend/cultures/strains/models.py::KEEPS_MATERIAL`, `backend/cultures/strains/migrations/0009_deaccession_audit_and_guards.py::"strains_strain_guard"`
 - Tests: `backend/cultures/strains/tests/test_deaccession.py::test_a_quarantine_pest_states_its_final_use`, `backend/cultures/strains/tests/test_deaccession.py::test_only_a_quarantine_pest_states_a_final_use`, `backend/cultures/strains/tests/test_deaccession.py::test_a_proposal_whose_final_use_no_longer_fits_is_not_confirmed`, `backend/cultures/strains/tests/test_deaccession.py::test_the_database_asks_a_quarantine_pest_for_its_final_use`
 
 #### R-END-03 A vial is destroyed only with a destruction record, never by a state change

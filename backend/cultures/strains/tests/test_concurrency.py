@@ -47,7 +47,7 @@ def race(
     after_counter = threading.Barrier(2, timeout=AFTER_COUNTER_WAIT)
     seen = threading.local()
     lock_lab: Callable[[int], Lab] = locks.lock_lab
-    next_seq: Callable[[Lab], int] = services._next_seq
+    next_seq: Callable[[Lab], int] = services.accession._next_seq
 
     def meet_at_lock(lab_id: int) -> Lab:
         if not getattr(seen, "lock", False):
@@ -62,8 +62,8 @@ def race(
             _wait(after_counter)
         return seq
 
-    monkeypatch.setattr(services, "lock_lab", meet_at_lock)
-    monkeypatch.setattr(services, "_next_seq", wait_after_counter)
+    monkeypatch.setattr(services.accession, "lock_lab", meet_at_lock)
+    monkeypatch.setattr(services.accession, "_next_seq", wait_after_counter)
     outcomes: dict[int, str] = {}
 
     def run(index: int, actor: User, call: Callable[[], object]) -> None:

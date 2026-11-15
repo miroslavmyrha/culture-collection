@@ -203,7 +203,7 @@ def test_a_placement_written_just_before_the_box_read_is_seen(
         )
 
     with (
-        run_before(strains, "_check_boxes_hold", competitor),
+        run_before(strains.risk_group, "_check_boxes_hold", competitor),
         pytest.raises(strains.RiskGroupAboveBoxCap),
     ):
         set_group(curator, strain, 2)
