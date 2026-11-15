@@ -66,7 +66,7 @@
       {
         "object": "window",
         "property": "open",
-        "message": "Use openExternal() from lib/safe.ts (noopener)."
+        "message": "Use a link with target=\"_blank\": an anchor implies noopener."
       }
     ],
     "no-restricted-imports": [
@@ -75,7 +75,7 @@
         "paths": [
           {
             "name": "dompurify",
-            "message": "Render HTML only through components/SafeHtml.tsx (lib/sanitize.ts)."
+            "message": "No HTML is rendered from data, and the CSP allows no Trusted Types policy (#238)."
           }
         ],
         "patterns": [
@@ -103,7 +103,7 @@
             "paths": [
               {
                 "name": "dompurify",
-                "message": "Render HTML only through components/SafeHtml.tsx (lib/sanitize.ts)."
+                "message": "No HTML is rendered from data, and the CSP allows no Trusted Types policy (#238)."
               }
             ],
             "patterns": [
@@ -151,7 +151,7 @@
             "paths": [
               {
                 "name": "dompurify",
-                "message": "Render HTML only through components/SafeHtml.tsx (lib/sanitize.ts)."
+                "message": "No HTML is rendered from data, and the CSP allows no Trusted Types policy (#238)."
               }
             ],
             "patterns": [
@@ -200,7 +200,7 @@
             "paths": [
               {
                 "name": "dompurify",
-                "message": "Render HTML only through components/SafeHtml.tsx (lib/sanitize.ts)."
+                "message": "No HTML is rendered from data, and the CSP allows no Trusted Types policy (#238)."
               }
             ],
             "patterns": [
@@ -236,7 +236,7 @@
             "paths": [
               {
                 "name": "dompurify",
-                "message": "Render HTML only through components/SafeHtml.tsx (lib/sanitize.ts)."
+                "message": "No HTML is rendered from data, and the CSP allows no Trusted Types policy (#238)."
               }
             ],
             "patterns": [
@@ -265,7 +265,7 @@
             "paths": [
               {
                 "name": "dompurify",
-                "message": "Render HTML only through components/SafeHtml.tsx (lib/sanitize.ts)."
+                "message": "No HTML is rendered from data, and the CSP allows no Trusted Types policy (#238)."
               }
             ]
           }
@@ -283,7 +283,7 @@
             "paths": [
               {
                 "name": "dompurify",
-                "message": "Render HTML only through components/SafeHtml.tsx (lib/sanitize.ts)."
+                "message": "No HTML is rendered from data, and the CSP allows no Trusted Types policy (#238)."
               }
             ],
             "patterns": [
@@ -304,45 +304,6 @@
             ]
           }
         ]
-      }
-    },
-    {
-      "files": [
-        "src/lib/sanitize.ts"
-      ],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "group": [
-                  "@/app/**",
-                  "@/pages/**",
-                  "@/routes/**",
-                  "@/features/**"
-                ],
-                "message": "Shared code (lib, components, hooks) never imports the app, pages, routes or features."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "files": [
-        "src/components/SafeHtml.tsx"
-      ],
-      "rules": {
-        "react/no-danger": "off"
-      }
-    },
-    {
-      "files": [
-        "src/lib/safe.ts"
-      ],
-      "rules": {
-        "no-restricted-properties": "off"
       }
     },
     {
