@@ -239,7 +239,11 @@ class StrainFindings:
     findings: list[Finding]
 
 
-def list_findings(strain: Strain, entries: list[RegulatoryListEntry]) -> list[Finding]:
+def list_findings(
+    strain: Strain,
+    entries: list[RegulatoryListEntry],
+    names: biosafety_lists.MatchNames | None = None,
+) -> list[Finding]:
     """Where one strain's classification disagrees with the official lists (#169).
 
     The one definition. `entries` are the entries of the current readings that match the
@@ -255,14 +259,19 @@ def list_findings(strain: Strain, entries: list[RegulatoryListEntry]) -> list[Fi
     unlisted. Nothing here decides anything: a disagreement is a question for a person, because
     the taxon may be wrong, an annex names genera where a collection holds species, and an agent
     annex 7 does not list is not thereby group 1.
+
+    A genus-wide entry reached only through a synonym of another genus (`names`, #220) gives no
+    disagreement of its own, as the old name is often one the species left, but it still names
+    a restriction the strain carries, so it never makes one unlisted.
     """
     # The prefetch of strain_list, by its to_attr: the restrictions in force, no query.
     active: list[StrainRestriction] = vars(strain)["active_restrictions"]
     held = {restriction.kind for restriction in active}
+    direct = [e for e in entries if not (names and biosafety_lists.through_synonym(e, names))]
     return [
-        *_restrictions_missing(entries, held),
+        *_restrictions_missing(direct, held),
         *_restrictions_unlisted(entries, held),
-        *_groups_differing(strain, entries),
+        *_groups_differing(strain, direct),
     ]
 
 
@@ -306,9 +315,13 @@ def list_disagreements(*, access: Access, lab: Lab) -> list[StrainFindings]:
     longer held (#20).
     """
     strains = list(in_collection(strain_list(access=access, lab=lab)))
-    entries = biosafety_lists.entries_for(strain.taxon for strain in strains)
+    names = biosafety_lists.match_names_for(strain.taxon for strain in strains)
+    entries = biosafety_lists.entries_for((strain.taxon for strain in strains), names)
     found = (
-        StrainFindings(strain, list_findings(strain, entries.get(strain.taxon_id, [])))
+        StrainFindings(
+            strain,
+            list_findings(strain, entries.get(strain.taxon_id, []), names.get(strain.taxon_id)),
+        )
         for strain in strains
     )
     return [row for row in found if row.findings]

@@ -764,6 +764,7 @@ export function makeListMatch(overrides: Partial<ListMatch> = {}): ListMatch {
     risk_group: null,
     match_name: 'mockia fictiva',
     match_scope: 'exact',
+    through_synonym: '',
     ...overrides,
   }
 }

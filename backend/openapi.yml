@@ -13330,6 +13330,9 @@ components:
           oneOf:
           - $ref: '#/components/schemas/MatchScopeEnum'
           - $ref: '#/components/schemas/BlankEnum'
+        through_synonym:
+          type: string
+          readOnly: true
       required:
       - act
       - code
@@ -13343,6 +13346,7 @@ components:
       - restriction_kind
       - risk_group
       - suggests_act
+      - through_synonym
       - version
       - version_date
     ListMatchOutputKindEnum:

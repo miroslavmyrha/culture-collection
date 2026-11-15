@@ -3068,6 +3068,7 @@ export interface components {
             readonly risk_group: number | null;
             readonly match_name: string;
             readonly match_scope: components["schemas"]["MatchScopeEnum"] | components["schemas"]["BlankEnum"];
+            readonly through_synonym: string;
         };
         /**
          * @description * `organism` - An organism

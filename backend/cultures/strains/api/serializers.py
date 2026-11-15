@@ -360,6 +360,8 @@ class ListMatchOutputSerializer(serializers.ModelSerializer[RegulatoryListEntry]
     )
     risk_group = serializers.IntegerField(allow_null=True, read_only=True)
     suggests_act = serializers.SerializerMethodField()
+    # The synonym of another genus a genus-wide entry is reached through, or "" (#220).
+    through_synonym = serializers.CharField(read_only=True)
 
     class Meta:
         model = RegulatoryListEntry
@@ -378,6 +380,7 @@ class ListMatchOutputSerializer(serializers.ModelSerializer[RegulatoryListEntry]
             "risk_group",
             "match_name",
             "match_scope",
+            "through_synonym",
         )
         read_only_fields = fields
 

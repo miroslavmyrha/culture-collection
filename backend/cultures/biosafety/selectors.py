@@ -6,8 +6,8 @@ The lists have no lab: every signed-in user reads them, like the taxonomy (ADR 0
 
 import re
 from collections import defaultdict
-from collections.abc import Iterable
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from enum import StrEnum
 
@@ -177,6 +177,10 @@ class MatchNames:
 
     exact: frozenset[str]
     genera: frozenset[str]
+    # The genera that come only from a synonym of another genus than the accepted name's, each
+    # with that synonym (#220): a genus-wide entry they reach is a suggestion to look at, not a
+    # disagreement, because an old name in another genus is often a name the species left.
+    borrowed: Mapping[str, str] = field(default_factory=dict)
 
 
 def match_names_for(taxa: Iterable[Taxon]) -> dict[int, MatchNames]:
@@ -204,8 +208,23 @@ def match_names_for(taxa: Iterable[Taxon]) -> dict[int, MatchNames]:
     for pk, root in wanted.items():
         whole = of_root[root] | {own[pk]}
         exact = {lists.normalised(name) for name in whole}
-        found[pk] = MatchNames(frozenset(exact), frozenset(name.split(" ")[0] for name in exact))
+        found[pk] = MatchNames(
+            frozenset(exact),
+            frozenset(name.split(" ")[0] for name in exact),
+            _borrowed(whole, own[root]),
+        )
     return found
+
+
+def _borrowed(names: set[str], accepted: str) -> dict[str, str]:
+    """The genera of these names other than the accepted name's, each with the first synonym of
+    that genus as the taxonomy writes it, for the label (#220)."""
+    accepted_genus = lists.normalised(accepted).split(" ")[0]
+    borrowed: dict[str, str] = {}
+    for name in sorted(names):
+        if (genus := lists.normalised(name).split(" ")[0]) != accepted_genus:
+            borrowed.setdefault(genus, name)
+    return borrowed
 
 
 def match_names(taxon: Taxon) -> tuple[set[str], set[str]]:
@@ -233,31 +252,50 @@ def matches(entry: RegulatoryListEntry, names: MatchNames) -> bool:
     return False
 
 
+def through_synonym(entry: RegulatoryListEntry, names: MatchNames) -> str:
+    """The synonym of another genus through which a genus-wide entry reaches a taxon, or "".
+    Such an entry is still suggested, with the synonym named, and is no disagreement (#220)."""
+    if entry.match_scope != MatchScope.GENUS:
+        return ""
+    return names.borrowed.get(entry.match_name, "")
+
+
 def list_matches(taxon: Taxon) -> QuerySet[RegulatoryListEntry]:
     """The entries of the current readings of the official lists that match a taxon (#169).
 
     A suggestion, never a classification: a person confirms one with a reason, through the
     services. Matching is `matching` above: whole names only, never a part of one.
 
-    Two queries, with each entry's list for its source and version.
+    Two queries, with each entry's list for its source and version, and `through_synonym`, the
+    synonym of another genus a genus-wide entry is reached through, or "" (#220).
     """
+    names = match_names_for([taxon])[taxon.pk]
+    through = Case(
+        *(
+            When(match_scope=MatchScope.GENUS, match_name=genus, then=Value(name))
+            for genus, name in names.borrowed.items()
+        ),
+        default=Value(""),
+        output_field=CharField(),
+    )
     return (
-        RegulatoryListEntry.objects.filter(
-            matching(match_names_for([taxon])[taxon.pk]), list__is_current=True
-        )
+        RegulatoryListEntry.objects.filter(matching(names), list__is_current=True)
+        .annotate(through_synonym=through)
         .select_related("list")
         .order_by("list__code", "code", "pk")
     )
 
 
-def entries_for(taxa: Iterable[Taxon]) -> dict[int, list[RegulatoryListEntry]]:
+def entries_for(
+    taxa: Iterable[Taxon], names: Mapping[int, MatchNames] | None = None
+) -> dict[int, list[RegulatoryListEntry]]:
     """What the current readings of the lists say about each of these taxa, by taxon id (#169).
 
     `list_matches` for one taxon, for many at once: two queries whatever the number of taxa, one
     for the names and one for the entries of the union of them, then each entry placed under
     every taxon it matches, in the order `list_matches` gives.
     """
-    names = match_names_for(taxa)
+    names = match_names_for(taxa) if names is None else names
     if not names:
         return {}
     exact = {name for found in names.values() for name in found.exact}
