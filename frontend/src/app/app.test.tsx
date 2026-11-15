@@ -7,7 +7,7 @@ import { authKeys } from '@/features/auth/api/keys'
 import { api, unwrap } from '@/lib/api'
 import { allowConsole } from '@/test/console'
 import { makeMe, problem } from '@/test/factories'
-import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
+import { holdApi, mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 import { reported } from '@/test/reports'
 import { server } from '@/test/server'
@@ -163,6 +163,23 @@ describe('routing and the session guard', () => {
   it('shows not found for an unknown URL', async () => {
     renderApp({ path: '/no-such-page' })
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
+  })
+
+  it('keeps the top bar on an unknown URL opened directly with a session (#227)', async () => {
+    mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))
+    renderApp({ path: '/no-such-page' })
+    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
+    expect(await account()).toBeInTheDocument()
+    expect(screen.getByRole('banner')).toContainElement(screen.getByRole('button', { name: 'Select a lab' }))
+  })
+
+  it('shows no top bar controls on an unknown URL without a session, after one session check', async () => {
+    const asked = recordRequests('get', '/api/v1/auth/me/')
+    renderApp({ path: '/no-such-page' })
+    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
+    await waitFor(() => expect(asked).toHaveLength(1))
+    expect(screen.queryByRole('button', { name: /^Account/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Select a lab' })).not.toBeInTheDocument()
   })
 })
 
