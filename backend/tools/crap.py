@@ -92,7 +92,9 @@ def _radon_functions(blocks: list[dict[str, Any]], prefix: str = "") -> list[dic
 
     def walk(items: list[dict[str, Any]], prefix: str) -> None:
         for b in items:
-            name = prefix + (b["classname"] + "." if b.get("classname") else "") + b["name"]
+            # A method listed at the top level carries its class; under its class the prefix does.
+            owner = b["classname"] + "." if b.get("classname") and not prefix else ""
+            name = prefix + owner + b["name"]
             if b["type"] in ("function", "method"):
                 found.setdefault(b["lineno"], {**b, "name": name})
                 walk(b.get("closures", []), name + ".")
