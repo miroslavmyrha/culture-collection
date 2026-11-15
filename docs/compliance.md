@@ -575,8 +575,8 @@ and the rules and duties it decides are changed in the same commit.
 
 - Kind: own control
 - Source: ADR 0009, amendment 2026-10-20 (#15).
-- Code: `backend/cultures/lineage/selectors.py::box_positions`
-- Tests: `backend/cultures/lineage/tests/test_box_grid.py::test_a_regulated_position_is_taken_but_names_nothing`, `backend/cultures/lineage/tests/test_box_grid.py::test_a_regulated_vial_found_by_its_code_keeps_its_place_masked`
+- Code: `backend/cultures/lineage/selectors.py::box_positions`, `backend/cultures/strains/selectors.py::is_regulated`
+- Tests: `backend/cultures/lineage/tests/test_box_grid.py::test_a_regulated_position_is_taken_but_names_nothing`, `backend/cultures/lineage/tests/test_box_grid.py::test_a_regulated_vial_found_by_its_code_keeps_its_place_masked`, `backend/cultures/lineage/tests/test_box_grid.py::test_the_selector_itself_leaves_the_vial_of_a_regulated_position_out`
 
 #### R-MASK-05 Only managers read the reveal log
 

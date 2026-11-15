@@ -687,26 +687,22 @@ class BoxVialSerializer(serializers.Serializer[Vial]):
         return f"{vial.batch.strain.accession_number} / {vial.batch.number} / {vial.seq}"
 
 
-class BoxPositionSerializer(serializers.Serializer[VialPlacement]):
-    """One taken position (selectors.box_positions): the vial, or `masked` without it."""
+class BoxPositionSerializer(serializers.Serializer[selectors.BoxPosition]):
+    """One taken position (selectors.box_positions): the vial, or `masked` without it. The
+    selector leaves the vial of a regulated strain out already (ADR 0009, #233)."""
 
     row = serializers.IntegerField()
     col = serializers.IntegerField()
     label = serializers.SerializerMethodField()  # type: ignore[assignment]
-    masked = serializers.SerializerMethodField()
+    masked = serializers.BooleanField(read_only=True)
     vial = serializers.SerializerMethodField()
 
-    def get_label(self, placement: VialPlacement) -> str:
-        return position_label(placement.row, placement.col)
-
-    def get_masked(self, placement: VialPlacement) -> bool:
-        return bool(vars(placement)["regulated"])
+    def get_label(self, position: selectors.BoxPosition) -> str:
+        return position_label(position.row, position.col)
 
     @extend_schema_field(BoxVialSerializer(allow_null=True))
-    def get_vial(self, placement: VialPlacement) -> dict[str, Any] | None:
-        if vars(placement)["regulated"]:
-            return None
-        return BoxVialSerializer(placement.vial).data
+    def get_vial(self, position: selectors.BoxPosition) -> dict[str, Any] | None:
+        return None if position.vial is None else BoxVialSerializer(position.vial).data
 
 
 class BoxOutputSerializer(serializers.ModelSerializer[StorageUnit]):

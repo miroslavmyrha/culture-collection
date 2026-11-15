@@ -8,6 +8,7 @@ reader, a holder of the location grant included (ADR 0009, amendment of 2026-10-
 
 import re
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from uuid import UUID
 
@@ -21,7 +22,7 @@ from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Perm
 from cultures.storage.models import StorageUnit, UnitKind
 from cultures.strains.models import Strain, StrainRestriction
-from cultures.strains.selectors import regulating_restrictions
+from cultures.strains.selectors import is_regulated
 
 from .distributable import distributable
 from .models import (
@@ -134,7 +135,7 @@ def vials_by_code(vials: QuerySet[Vial], text: str) -> QuerySet[Vial]:
 
 
 def _regulated() -> Exists:
-    return Exists(regulating_restrictions().filter(strain_id=OuterRef("batch__strain_id")))
+    return is_regulated("batch__strain_id")
 
 
 def _listed_at_loss() -> Exists:
@@ -201,26 +202,33 @@ def box_list(*, access: Access, lab: Lab) -> QuerySet[StorageUnit]:
     )
 
 
-def box_positions(*, access: Access, box: StorageUnit) -> QuerySet[VialPlacement]:
-    """The open placements of one box, each with its vial, batch, strain and the strain's taxon,
-    and `regulated` (the strain has an active restriction), by row and column. One query for the
-    whole grid.
+@dataclass(frozen=True)
+class BoxPosition:
+    """One taken position of a box: the vial in it, or `masked` and no vial (ADR 0009)."""
 
-    The serializer leaves the vial out of every regulated row: a reader learns that the position
-    is taken, never by what (ADR 0009). The row is still read whole here, so a caller that
-    serialises it must go through BoxPositionSerializer.
-    """
-    return (
+    row: int
+    col: int
+    masked: bool
+    vial: Vial | None
+
+
+def box_positions(*, access: Access, box: StorageUnit) -> list[BoxPosition]:
+    """The taken positions of one box, by row and column, in one query for the whole grid. The
+    vial of a regulated strain is left out here, so no caller can show it: a reader learns that
+    the position is taken, never by what (ADR 0009, #233)."""
+    placements = (
         VialPlacement.objects.for_access(access, Perm.VIEW_STRAINS)
         .filter(box=box, removed_at__isnull=True)
         .select_related("vial__batch__strain__taxon")
-        .annotate(
-            regulated=Exists(
-                regulating_restrictions().filter(strain_id=OuterRef("vial__batch__strain_id"))
-            )
-        )
+        .annotate(regulated=is_regulated("vial__batch__strain_id"))
         .order_by("row", "col", "pk")
     )
+    return [_position(p) for p in placements]
+
+
+def _position(placement: VialPlacement) -> BoxPosition:
+    masked = bool(vars(placement)["regulated"])
+    return BoxPosition(placement.row, placement.col, masked, None if masked else placement.vial)
 
 
 def box_paths(boxes: Iterable[StorageUnit]) -> dict[int, list[str]]:
