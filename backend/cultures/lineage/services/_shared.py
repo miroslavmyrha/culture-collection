@@ -2,11 +2,9 @@
 
 import unicodedata
 from collections.abc import Iterator, Sequence
-from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
 
-from django.db import IntegrityError, transaction
 from django.db.models import Model
 from django.utils import timezone
 
@@ -14,10 +12,9 @@ from cultures.audit.events import Change, record_event
 from cultures.audit.registry import (
     VIAL_STATUS_CHANGED,
 )
-from cultures.core.exceptions import DomainError, Forbidden, NotFound, RuleViolation
+from cultures.core.constraints import arbitrated
+from cultures.core.exceptions import DomainError, NotFound, RuleViolation
 from cultures.labs.access import Access
-from cultures.labs.models import Membership
-from cultures.labs.permissions import Perm, Role, role_has
 from cultures.storage.models import StorageUnit
 from cultures.storage.policy import may_store
 from cultures.strains.models import Strain, StrainStatus
@@ -69,17 +66,6 @@ def _check_reason(reason: str) -> str:
 # Under the lab lock.
 
 
-def _require(access: Access, lab_id: int, perm: Perm = Perm.HANDLE_VIALS) -> None:
-    """The actor's role as committed now (caller holds the lab lock), not as the request began."""
-    role = (
-        Membership.objects.filter(lab_id=lab_id, user=access.user, user__is_active=True)
-        .values_list("role", flat=True)
-        .first()
-    )
-    if role is None or not role_has(Role(role), perm):
-        raise Forbidden
-
-
 def _living_strain(strain_id: int) -> Strain:
     """The strain's row, locked: its batch numbers are taken under it."""
     strain = Strain.objects.select_for_update().filter(pk=strain_id).first()
@@ -126,29 +112,9 @@ def _open_placement(vial: Vial) -> VialPlacement | None:
     )
 
 
-@contextmanager
-def _arbitrated(errors: dict[str, DomainError]) -> Iterator[None]:
-    """The unique constraints are the final arbiter: a check before saving can race. A violation
-    of one in `errors` raises that error, in a savepoint, so the caller's transaction goes on."""
-    try:
-        with transaction.atomic():
-            yield
-    except IntegrityError as exc:
-        diag = getattr(exc.__cause__, "diag", None)
-        error = errors.get(str(getattr(diag, "constraint_name", "")))
-        if error is not None:
-            raise error from exc
-        raise
-
-
-def _save(obj: Model, errors: dict[str, DomainError]) -> None:
-    with _arbitrated(errors):
-        obj.save()
-
-
 def _save_all(rows: Sequence[VialPlacement], errors: dict[str, DomainError]) -> None:
     """_save for several placements in one insert (vials_place, #77)."""
-    with _arbitrated(errors):
+    with arbitrated(errors):
         VialPlacement.objects.bulk_create(rows)
 
 

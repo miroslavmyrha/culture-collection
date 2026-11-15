@@ -21,15 +21,7 @@ message, not a server error.
 """
 
 from ..models import HELD
-from ._shared import (
-    BATCH,
-    CHECK,
-    LIVING,
-    MANUAL_TARGETS,
-    PASSAGE,
-    VIAL,
-    normalised,
-)
+from ._shared import BATCH, CHECK, LIVING, MANUAL_TARGETS, PASSAGE, VIAL, normalised
 from .checks import (
     VALUE_STEP,
     NewCheck,

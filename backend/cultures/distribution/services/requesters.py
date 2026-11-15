@@ -15,7 +15,7 @@ from cultures.audit.registry import (
 from cultures.biosafety.policy import permit_today
 from cultures.deposits.models import Contact
 from cultures.labs.access import Access
-from cultures.labs.locks import lock_lab
+from cultures.labs.locks import lock_lab, require_committed
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
 from cultures.strains.countries import COUNTRY_CODES
@@ -34,7 +34,6 @@ from ._shared import (
     _checked_document,
     _contact_values,
     _locked,
-    _require,
     _store,
     normalised,
 )
@@ -96,7 +95,7 @@ def requester_create(*, access: Access, lab: Lab, data: RequesterInput) -> Reque
     data = _checked_requester(data)
     with audited_atomic():
         locked_lab = lock_lab(lab.pk)
-        _require(access, locked_lab.pk, Perm.MANAGE_DISTRIBUTION)
+        require_committed(access, locked_lab.pk, Perm.MANAGE_DISTRIBUTION)
         person = Contact.objects.create(lab=locked_lab, **_contact_values(data.contact))
         values = _requester_values(data)
         requester = Requester.objects.create(
@@ -127,7 +126,7 @@ def requester_update(*, access: Access, requester: Requester, data: RequesterInp
     data = _checked_requester(data)
     with audited_atomic():
         lock_lab(requester.lab_id)
-        _require(access, requester.lab_id, Perm.MANAGE_DISTRIBUTION)
+        require_committed(access, requester.lab_id, Perm.MANAGE_DISTRIBUTION)
         locked = _locked(Requester, requester.pk)
         person = _locked(Contact, locked.contact_id)
         if person.erased_at is not None:
@@ -258,7 +257,7 @@ def permit_add(*, access: Access, requester: Requester, data: PermitInput) -> Re
     data = _checked_permit(data)
     with audited_atomic():
         lock_lab(requester.lab_id)
-        _require(access, requester.lab_id, Perm.MANAGE_DISTRIBUTION)
+        require_committed(access, requester.lab_id, Perm.MANAGE_DISTRIBUTION)
         locked = _locked(Requester, requester.pk)
         document = _store(locked.lab_id, data.document)
         permit = RecipientPermit.objects.create(
@@ -316,7 +315,7 @@ def permit_end(
     reason = _check_reason(reason)
     with audited_atomic():
         lock_lab(permit.lab_id)
-        _require(access, permit.lab_id, Perm.MANAGE_DISTRIBUTION)
+        require_committed(access, permit.lab_id, Perm.MANAGE_DISTRIBUTION)
         locked = _locked(RecipientPermit, permit.pk)
         if locked.ended_on is not None:
             raise PermitEnded

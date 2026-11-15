@@ -6,12 +6,13 @@ from cultures.audit.context import audited_atomic
 from cultures.audit.events import Change, record_event
 from cultures.audit.registry import DEPOSITOR_ANSWER_RECORDED
 from cultures.biosafety.policy import permit_today
+from cultures.core.constraints import save_arbitrated
 from cultures.deposits.models import Decision, TermsUse, Use
 from cultures.labs.access import Access
 from cultures.labs.permissions import Perm
 
 from ..models import DepositorAnswer, DistributionRequest, RequestLine, RequestStatus
-from ._shared import LINE, _checked_document, _locked_request, _save, _store
+from ._shared import LINE, _checked_document, _locked_request, _store
 from .decisions import _reject
 from .errors import DepositorAnswerExists, InvalidDistribution, WrongState
 from .inputs import DepositorAnswerInput
@@ -90,7 +91,7 @@ def depositor_answer_record(
             recorded_by=access.user,
             recorded_at=timezone.now(),
         )
-        _save(answer, {ANSWER_UNIQUE: DepositorAnswerExists()})
+        save_arbitrated(answer, {ANSWER_UNIQUE: DepositorAnswerExists()})
         record_event(
             DEPOSITOR_ANSWER_RECORDED,
             Change(

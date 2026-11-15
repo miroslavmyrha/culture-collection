@@ -14,8 +14,10 @@ from cultures.audit.registry import (
     REQUEST_REJECTED,
 )
 from cultures.biosafety.policy import permit_today
+from cultures.core.constraints import save_arbitrated
 from cultures.core.exceptions import Forbidden, RuleViolation
 from cultures.labs.access import Access
+from cultures.labs.locks import require_committed
 from cultures.labs.permissions import Perm
 from cultures.lineage import services as lineage
 from cultures.lineage.distributable import distributable
@@ -39,8 +41,6 @@ from ._shared import (
     _defer_reservation_checks,
     _locked_request,
     _move,
-    _require,
-    _save,
 )
 from .errors import (
     ManagerRequired,
@@ -61,7 +61,7 @@ def _check_approval_allowed(
         raise RequestBlocked(" ".join(f.sentence for f in blockers))
     if evaluation.needs_manager:
         try:
-            _require(access, locked.lab_id, Perm.APPROVE_REGULATED)
+            require_committed(access, locked.lab_id, Perm.APPROVE_REGULATED)
         except Forbidden:
             raise ManagerRequired from None
         if not reason:
@@ -112,7 +112,7 @@ def _reserve_lines(
     for line in lines:
         for vial in chosen[line.pk]:
             lineage.vial_reserve_locked(access=access, vial=vial, reason=label)
-            _save(
+            save_arbitrated(
                 VialReservation(
                     lab_id=locked.lab_id,
                     line=line,

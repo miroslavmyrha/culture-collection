@@ -18,6 +18,7 @@ from cultures.audit.registry import (
     VIALS_PLACED,
 )
 from cultures.biosafety.policy import permit_today
+from cultures.core.constraints import save_arbitrated
 from cultures.core.exceptions import NotFound
 from cultures.growth.services import (
     Growth,
@@ -28,7 +29,8 @@ from cultures.growth.services import (
     locked_growth,
 )
 from cultures.labs.access import Access
-from cultures.labs.locks import lock_lab
+from cultures.labs.locks import lock_lab, require_committed
+from cultures.labs.permissions import Perm
 from cultures.storage.models import StorageUnit
 from cultures.strains.models import Strain
 
@@ -53,8 +55,6 @@ from ._shared import (
     _locked_box,
     _locked_vial,
     _ref,
-    _require,
-    _save,
     _transition,
     _where,
     normalised,
@@ -115,7 +115,7 @@ def passage_subculture(*, access: Access, parent: Passage, growth: Growth | None
         growth = check_growth(growth)
     with audited_atomic():
         lock_lab(parent.lab_id)
-        _require(access, parent.lab_id)
+        require_committed(access, parent.lab_id, Perm.HANDLE_VIALS)
         fresh = Passage.objects.filter(pk=parent.pk).first()
         if fresh is None:
             raise NotFound
@@ -131,7 +131,7 @@ def vial_revive(*, access: Access, vial: Vial, growth: Growth | None = None) -> 
         growth = check_growth(growth)
     with audited_atomic():
         lock_lab(vial.lab_id)
-        _require(access, vial.lab_id)
+        require_committed(access, vial.lab_id, Perm.HANDLE_VIALS)
         strain = _living_strain(vial.batch.strain_id)
         locked = _locked_vial(vial)
         number = Passage.objects.get(pk=locked.batch.passage_id).number + 1
@@ -164,7 +164,7 @@ def batch_preserve(*, access: Access, passage: Passage, data: NewBatch) -> Batch
     data = _check_batch(data)
     with audited_atomic():
         lock_lab(passage.lab_id)
-        _require(access, passage.lab_id)
+        require_committed(access, passage.lab_id, Perm.HANDLE_VIALS)
         strain = _living_strain(passage.strain_id)
         box = None
         if data.box is not None:
@@ -189,7 +189,7 @@ def batch_preserve(*, access: Access, passage: Passage, data: NewBatch) -> Batch
             vial_count_created=data.vial_count,
             purpose=data.purpose,
         )
-        _save(batch, {BATCH_NUMBER_UNIQUE: BatchNumberTaken()})
+        save_arbitrated(batch, {BATCH_NUMBER_UNIQUE: BatchNumberTaken()})
         values: dict[str, Any] = {
             "number": batch.number,
             "passage": str(passage.public_id),

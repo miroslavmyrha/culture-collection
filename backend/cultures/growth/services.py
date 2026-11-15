@@ -10,18 +10,17 @@ the strains and passages that name it keep it.
 from dataclasses import dataclass
 from typing import Any
 
-from django.db import IntegrityError, transaction
-from django.db.models import Model
 from django.utils import timezone
 
 from cultures.audit.context import audited_atomic
 from cultures.audit.events import Change, record_event
 from cultures.audit.registry import MEDIUM_CHANGED, MEDIUM_CREATED, MEDIUM_RETIRED
-from cultures.core.exceptions import Conflict, DomainError, Forbidden, NotFound
+from cultures.core.constraints import save_arbitrated
+from cultures.core.exceptions import Conflict, DomainError, NotFound
 from cultures.labs.access import Access
-from cultures.labs.locks import lock_lab
-from cultures.labs.models import Lab, Membership
-from cultures.labs.permissions import Perm, Role, role_has
+from cultures.labs.locks import lock_lab, require_committed
+from cultures.labs.models import Lab
+from cultures.labs.permissions import Perm
 
 from .models import (
     MAX_GROWTH_TEMPERATURE_C,
@@ -139,29 +138,6 @@ def locked_growth(growth: Growth, *, lab_id: int, current: Growth | None = None)
     return Growth(medium, growth.temperature_low_c, growth.temperature_high_c, growth.atmosphere)
 
 
-def _require(access: Access, lab_id: int, perm: Perm) -> None:
-    """The actor's role as committed now (caller holds the lab lock), not as the request began."""
-    role = (
-        Membership.objects.filter(lab_id=lab_id, user=access.user, user__is_active=True)
-        .values_list("role", flat=True)
-        .first()
-    )
-    if role is None or not role_has(Role(role), perm):
-        raise Forbidden
-
-
-def _save(obj: Model) -> None:
-    """The unique constraint is the final arbiter: a check before saving can race."""
-    try:
-        with transaction.atomic():
-            obj.save()
-    except IntegrityError as exc:
-        diag = getattr(exc.__cause__, "diag", None)
-        if str(getattr(diag, "constraint_name", "")) == MEDIUM_NAME_UNIQUE:
-            raise MediumNameTaken from exc
-        raise
-
-
 def _clean(name: str, reference: str) -> tuple[str, str]:
     name = " ".join(name.split())
     reference = " ".join(reference.split())
@@ -182,9 +158,9 @@ def medium_create(
     name, reference = _clean(name, composition_reference)
     with audited_atomic():
         locked_lab = lock_lab(lab.pk)
-        _require(access, locked_lab.pk, Perm.MANAGE_MEDIA)
+        require_committed(access, locked_lab.pk, Perm.MANAGE_MEDIA)
         medium = GrowthMedium(lab=locked_lab, name=name, composition_reference=reference)
-        _save(medium)
+        save_arbitrated(medium, {MEDIUM_NAME_UNIQUE: MediumNameTaken()})
         record_event(
             MEDIUM_CREATED,
             Change(
@@ -212,7 +188,7 @@ def medium_update(
     name, reference = _clean(name, composition_reference)
     with audited_atomic():
         lock_lab(medium.lab_id)
-        _require(access, medium.lab_id, Perm.MANAGE_MEDIA)
+        require_committed(access, medium.lab_id, Perm.MANAGE_MEDIA)
         locked = _locked_medium(medium)
         if locked.is_retired:
             raise MediumRetired
@@ -225,7 +201,7 @@ def medium_update(
             return locked
         locked.name = name
         locked.composition_reference = reference
-        _save(locked)
+        save_arbitrated(locked, {MEDIUM_NAME_UNIQUE: MediumNameTaken()})
         record_event(
             MEDIUM_CHANGED,
             Change(MEDIUM, locked.public_id, changes, lab_id=locked.lab_id),
@@ -238,7 +214,7 @@ def medium_retire(*, access: Access, medium: GrowthMedium, reason: str) -> Growt
     it. Retiring a retired medium changes nothing."""
     with audited_atomic():
         lock_lab(medium.lab_id)
-        _require(access, medium.lab_id, Perm.MANAGE_MEDIA)
+        require_committed(access, medium.lab_id, Perm.MANAGE_MEDIA)
         locked = _locked_medium(medium)
         if locked.is_retired:
             return locked

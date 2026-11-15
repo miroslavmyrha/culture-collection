@@ -9,9 +9,10 @@ from cultures.audit.registry import (
     REQUEST_SUBMITTED,
 )
 from cultures.biosafety.policy import permit_today
+from cultures.core.constraints import save_arbitrated
 from cultures.deposits.models import Contact, DepositTerms
 from cultures.labs.access import Access
-from cultures.labs.locks import lock_lab
+from cultures.labs.locks import lock_lab, require_committed
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
 from cultures.strains.models import Strain, StrainStatus
@@ -38,8 +39,6 @@ from ._shared import (
     _checked_document,
     _locked,
     _locked_request,
-    _require,
-    _save,
     _store,
 )
 from .errors import (
@@ -94,7 +93,7 @@ def _next_number(lab: Lab, year: int) -> int:
     counter = RequestCounter.objects.select_for_update().filter(lab=lab, year=year).first()
     if counter is None:
         counter = RequestCounter(lab=lab, year=year)
-        _save(counter, {COUNTER_UNIQUE: NumberTaken()})
+        save_arbitrated(counter, {COUNTER_UNIQUE: NumberTaken()})
     counter.last_number += 1
     counter.save(update_fields=["last_number"])
     return counter.last_number
@@ -140,7 +139,7 @@ def request_submit(*, access: Access, lab: Lab, data: NewRequest) -> Distributio
     data = _checked_request(data)
     with audited_atomic():
         locked_lab = lock_lab(lab.pk)
-        _require(access, locked_lab.pk, Perm.MANAGE_DISTRIBUTION)
+        require_committed(access, locked_lab.pk, Perm.MANAGE_DISTRIBUTION)
         requester = _locked_requester(locked_lab, data)
         strains = {
             s.pk: s
@@ -171,7 +170,7 @@ def request_submit(*, access: Access, lab: Lab, data: NewRequest) -> Distributio
             containment_level=data.containment_level,
             submitted_by=access.user,
         )
-        _save(request, {REQUEST_NUMBER_UNIQUE: NumberTaken()})
+        save_arbitrated(request, {REQUEST_NUMBER_UNIQUE: NumberTaken()})
         record_event(
             REQUEST_SUBMITTED,
             Change(
@@ -275,7 +274,7 @@ def acceptance_record(
             accepted_on=data.accepted_on,
             document=document,
         )
-        _save(acceptance, {ACCEPTANCE_UNIQUE: AcceptanceExists()})
+        save_arbitrated(acceptance, {ACCEPTANCE_UNIQUE: AcceptanceExists()})
         record_event(
             MTA_ACCEPTANCE_RECORDED,
             Change(
