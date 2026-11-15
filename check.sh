@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Verification before every commit. Levels:
-#   ./check.sh        secrets, static analysis, migrations, API contract, lint, types, tests and the
+#   ./check.sh        secrets, static analysis and its rule tests, migrations, API contract, lint, types, tests and the
 #                     code risk score of every function (both sides)
 #   ./check.sh e2e    plus Playwright against the real API (backend running, test user seeded)
 #   ./check.sh audit  plus known-vulnerability audit of Python and npm dependencies (network)
@@ -40,6 +40,12 @@ docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/backend:/src:ro" \
   semgrep scan --metrics=off --disable-version-check --quiet --error \
   --severity ERROR --severity WARNING --config /rules . \
   || fail "static analysis: fix the findings above, or mark one line with # nosemgrep: <rule-id> and the reason"
+# Every rule fires on its own fixture (tools/semgrep/<set>/<rule>.py: `# ruleid:` lines it must
+# flag, `# ok:` lines it must not), so a rule that stops matching, after a Semgrep upgrade for
+# example, fails here instead of passing in silence (#235).
+docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/tools/semgrep:/rules:ro" -w /rules \
+  "$SEMGREP_IMAGE" semgrep --test --metrics=off --disable-version-check --quiet /rules \
+  || fail "Semgrep rule tests: a rule no longer fires as its fixture says (see above)"
 
 echo "== CI"
 # The e2e job must run the API as the runtime role (ADR 0005), as production does.
