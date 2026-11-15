@@ -235,10 +235,11 @@ def test_a_batch_skips_users_that_are_already_inactive(audited: AuditContext) ->
     ) == [active.public_id]
 
 
-# savepoint, read and set the trigger settings, lock, read their labs (none here: the lab
-# check has its own tests), read the labs of their open VRAT access entries (none here, the
-# same), update, one INSERT for every event, restore the settings, release the savepoint
-BATCH_QUERIES = 10
+# savepoint, read and set the trigger settings, lock them with every active superuser (#225),
+# lock, read their labs (none here: the lab check has its own tests), read the labs of their
+# open VRAT access entries (none here, the same), update, one INSERT for every event, restore
+# the settings, release the savepoint
+BATCH_QUERIES = 11
 
 
 @pytest.mark.parametrize("count", [2, 6])

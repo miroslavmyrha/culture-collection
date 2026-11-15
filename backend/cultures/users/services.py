@@ -28,7 +28,7 @@ user cannot sign in and nothing changes it any more: the other services
 refuse it with UserErased, and a database check constraint holds the tombstone.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 
 from django.contrib.admin.models import LogEntry
 from django.contrib.auth import SESSION_KEY
@@ -94,7 +94,8 @@ class UserErased(Conflict):
 class LastSuperuser(RuleViolation):
     default_code = "last_superuser"
     default_detail = (
-        "The last active superuser cannot be erased. Make another user superuser first."
+        "The last active superuser cannot be erased, deactivated or lose the superuser flag."
+        " Make another user superuser first."
     )
 
 
@@ -206,8 +207,12 @@ def user_set_staff(*, user: User, is_staff: bool, reason: str | None = None) -> 
 
 
 def user_set_superuser(*, user: User, is_superuser: bool, reason: str | None = None) -> User:
-    """Grant or remove every Django permission. Needs a reason."""
-    return _set_flag(user, "is_superuser", is_superuser, USER_SUPERUSER_CHANGED, reason)
+    """Grant or remove every Django permission. Needs a reason. Refused (LastSuperuser) when it
+    would take the flag from the last active superuser."""
+    with audited_atomic():
+        if not is_superuser:
+            _keep_a_superuser([user.pk], _lock_with_superusers([user.pk]))
+        return _set_flag(user, "is_superuser", is_superuser, USER_SUPERUSER_CHANGED, reason)
 
 
 def user_set_password(*, user: User, raw_password: str | None) -> User:
@@ -257,9 +262,11 @@ def user_login_limits_clear(*, user: User, reason: str | None = None) -> int:
 def user_deactivate(*, user: User, reason: str | None = None) -> User:
     """Deactivate one user. The actor and channel come from the audit context.
 
-    Refused (LastManager) when the user is the last active manager of a lab.
+    Refused (LastManager) when the user is the last active manager of a lab, and
+    (LastSuperuser) when the user is the last active superuser.
     """
     with audited_atomic():
+        _keep_a_superuser([user.pk], _lock_with_superusers([user.pk]))
         user = _locked(user)
         users_deactivation_check(users=[user])
         vrat_access_end_for_users(users=[user], reason=DEACTIVATED)
@@ -278,9 +285,12 @@ def users_deactivate(*, users: Sequence[User], reason: str | None = None) -> int
     """Deactivate many users with one UPDATE: one event per user plus a batch event.
 
     All or nothing: refused (LastManager) when together they are the last
-    active managers of a lab, and then no user is deactivated.
+    active managers of a lab, or (LastSuperuser) the last active superusers, and
+    then no user is deactivated.
     """
     with audited_atomic():
+        pks = [u.pk for u in users]
+        _keep_a_superuser(pks, _lock_with_superusers(pks))
         locked = list(
             User.objects.select_for_update()
             .filter(pk__in=[u.pk for u in users], is_active=True)
@@ -313,12 +323,25 @@ def superuser_create(
         return user_set_superuser(user=user, is_superuser=True, reason=reason)
 
 
-def _check_last_superuser(target: User, locked: dict[int, User]) -> None:
-    """The collection keeps an active superuser: the last one is not erased. Caller holds the
-    target's row together with every active superuser's."""
-    if (target.is_superuser and target.is_active) and not any(
-        row.is_superuser and row.is_active for pk, row in locked.items() if pk != target.pk
-    ):
+def _lock_with_superusers(pks: Collection[int]) -> dict[int, User]:
+    """These users' rows together with every active superuser's, locked in one query by pk.
+
+    One query in pk order for every path that can take an active superuser away (erase,
+    deactivate, the flag), so two of them never wait on each other's rows in turn.
+    """
+    rows = (
+        User.objects.select_for_update()
+        .filter(Q(pk__in=list(pks)) | Q(is_superuser=True, is_active=True))
+        .order_by("pk")
+    )
+    return {row.pk: row for row in rows}
+
+
+def _keep_a_superuser(leaving: Collection[int], locked: dict[int, User]) -> None:
+    """The collection keeps an active superuser: refused when every active one is leaving.
+    Caller holds `locked` from _lock_with_superusers."""
+    active = {pk for pk, row in locked.items() if row.is_superuser and row.is_active}
+    if active and active <= set(leaving):
         raise LastSuperuser
 
 
@@ -367,18 +390,13 @@ def user_erase(*, user: User, reason: str | None = None) -> User:
     then the labs by pk (users_deactivation_check), then the memberships.
     """
     with audited_atomic():
-        rows = (
-            User.objects.select_for_update()
-            .filter(Q(pk=user.pk) | Q(is_superuser=True, is_active=True))
-            .order_by("pk")
-        )
-        locked = {row.pk: row for row in rows}
+        locked = _lock_with_superusers([user.pk])
         target = locked.get(user.pk)
         if target is None:
             raise NotFound
         if target.is_erased:
             return target
-        _check_last_superuser(target, locked)
+        _keep_a_superuser([target.pk], locked)
         users_deactivation_check(users=[target])
         vrat_access_end_for_users(users=[target], reason=ERASED)
         memberships = _remove_memberships(target)
