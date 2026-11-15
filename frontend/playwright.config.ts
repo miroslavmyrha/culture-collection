@@ -8,9 +8,8 @@ export default defineConfig({
   testDir: './e2e',
   // The role walkthroughs run on demand with their own config (npm run walkthroughs).
   testIgnore: ['walkthroughs/**'],
-  // One retry on CI only: a flaky test shows up as "flaky" in the report instead of
-  // failing the run. Locally a failure stays a failure.
-  retries: process.env.CI ? 1 : 0,
+  // No retries, on CI either: a retry hides a flaky test instead of naming it (#236).
+  retries: 0,
   // One budget for every test and every expect, in place of a timeout in each spec (#60). Measured over
   // the whole suite (75 tests) against a fresh stack: the slowest test took 36 s with 4 busy processes on
   // the 4 cores and 44 s with 8, and the slowest expect waited 1.5 s with 8. A test gets 150 s, 3.4 times
