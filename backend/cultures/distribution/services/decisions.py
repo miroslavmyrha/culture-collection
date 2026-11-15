@@ -18,8 +18,8 @@ from cultures.core.exceptions import Forbidden, RuleViolation
 from cultures.labs.access import Access
 from cultures.labs.permissions import Perm
 from cultures.lineage import services as lineage
+from cultures.lineage.distributable import distributable
 from cultures.lineage.models import Vial, VialStatus
-from cultures.lineage.selectors import distributable
 from cultures.strains.models import Strain
 
 from .. import policy

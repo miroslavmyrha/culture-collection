@@ -28,8 +28,8 @@ from django.db.models import Count, Sum
 from cultures.biosafety.models import RestrictionKind
 from cultures.biosafety.policy import valid_on
 from cultures.deposits.models import AbsScope, Decision, DepositTerms, TermsUse, Use
+from cultures.lineage.distributable import distributable
 from cultures.lineage.models import Vial, VialStatus
-from cultures.lineage.selectors import distributable
 from cultures.strains.models import Pathogenicity, Strain, StrainRestriction
 from cultures.strains.selectors import regulating_restrictions
 from cultures.taxonomy.models import Taxon

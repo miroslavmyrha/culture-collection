@@ -22,6 +22,7 @@ from cultures.deposits.models import Depositor
 from cultures.labs.access import Access
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Perm
+from cultures.lineage.distributable import distributable
 from cultures.lineage.models import Vial, VialStatus
 from cultures.taxonomy.models import Taxon
 from cultures.taxonomy.selectors import taxon_and_below
@@ -61,9 +62,6 @@ def distributable_vials() -> QuerySet[Vial]:
     batch figure and the distribution of vials read). What the list counts per strain and its
     filter asks for. A count says nothing of where a vial is, so it is not a location and the
     masking of regulated strains (ADR 0009) does not apply to it."""
-    # lineage.selectors imports this module, so it is imported here, when called.
-    from cultures.lineage.selectors import distributable  # noqa: PLC0415
-
     return Vial.objects.filter(distributable("batch__"), status=VialStatus.AVAILABLE)
 
 

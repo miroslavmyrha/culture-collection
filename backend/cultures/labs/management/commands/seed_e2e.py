@@ -93,6 +93,7 @@ from cultures.labs.access import access_for
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Role
 from cultures.lineage import seeding as seed_lineage
+from cultures.lineage.distributable import distributable
 from cultures.lineage.models import (
     Batch,
     BatchStatus,
@@ -100,7 +101,6 @@ from cultures.lineage.models import (
     Purpose,
     Vial,
 )
-from cultures.lineage.selectors import distributable
 from cultures.storage import seeding as seed_storage
 from cultures.storage.models import StorageUnit, UnitKind
 from cultures.strains.models import Strain
