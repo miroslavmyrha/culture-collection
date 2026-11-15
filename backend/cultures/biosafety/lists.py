@@ -82,6 +82,11 @@ CUT_SHORT = re.compile(r"[^\W\dA-Za-z_]", re.UNICODE)
 # text is prose that happens to begin like a name ("Something horse sickness virus"), so the
 # candidate is dropped rather than guessed at.
 AFTER_NAME = re.compile(r"[,;:.()\[\]/|&A-Z0-9-]")
+# The common name of a virus that starts with a capital ("Rift Valley fever virus", "Tick-borne
+# encephalitis virus"): "virus" in the same run of words as the candidate, before any comma,
+# semicolon, colon or bracket, means its first word is no genus (#242). A virus genus followed by
+# a note ("Orthobunyavirus Bunyamwera (virus Germiston)") stays a genus-wide name.
+VIRUS_IN_THE_NAME = re.compile(r"^[^,;:()\[\]]*virus\b", re.IGNORECASE)
 # Words of the lists' own language that read as a genus. The virus families and orders of
 # annex 7 are left in: they are ranks a taxon can have, so matching them is right.
 NOT_A_GENUS = frozenset(
@@ -139,16 +144,9 @@ def normalised(text: str) -> str:
 
 def _candidate(text: str) -> Match | None:
     found = NAME.match(text)
-    if found is None:
-        return None
-    if CUT_SHORT.match(text[found.end("genus") : found.end("genus") + 1] or " "):
-        return None
-    rest = text[found.end() :].strip()
-    if rest and not AFTER_NAME.match(rest[:1]):
+    if found is None or not _reads_as_a_name(text, found):
         return None
     genus = found["genus"].lower()
-    if genus in NOT_A_GENUS:
-        return None
     species = found["species"]
     if species is None or re.fullmatch(_WHOLE_GENUS, species):
         return Match(genus, MatchScope.GENUS)
@@ -156,6 +154,19 @@ def _candidate(text: str) -> Match | None:
     if found["infra"]:
         name = f"{name} {found['infra']}"
     return Match(normalised(name), MatchScope.EXACT)
+
+
+def _reads_as_a_name(text: str, found: re.Match[str]) -> bool:
+    """The candidate is a whole scientific name, not a Czech word cut short, prose that begins
+    like a name, a word of the lists' language, or the first word of a virus's common name."""
+    if CUT_SHORT.match(text[found.end("genus") : found.end("genus") + 1] or " "):
+        return False
+    rest = text[found.end() :].strip()
+    if rest and not AFTER_NAME.match(rest[:1]):
+        return False
+    if found["genus"].lower() in NOT_A_GENUS:
+        return False
+    return not (found["species"] is None and VIRUS_IN_THE_NAME.match(rest))
 
 
 def match_of(name: str) -> Match | None:
