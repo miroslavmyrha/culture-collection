@@ -8,6 +8,7 @@ import pytest
 
 from cultures.biosafety import entry_seed
 from cultures.biosafety.entry_seed import SeedEntryError
+from cultures.biosafety.models import RISK_GROUP_LIST
 
 
 @pytest.mark.rule("R-SEED-01")
@@ -131,3 +132,37 @@ def test_a_classification_row_of_another_taxon_or_of_no_kind_is_refused() -> Non
         entry_seed.classify({"entries": ["1.56"]}, "Clostridium perfringens")
     with pytest.raises(SeedEntryError, match="names entries, a standard organism or a genus"):
         entry_seed.classify({"group": 1}, "Bacillus subtilis")
+
+
+@pytest.mark.rule("R-SEED-01")
+def test_a_plant_pest_annex_7_does_not_name_is_group_1_in_the_collections_own_words() -> None:
+    made = entry_seed.listed(["B.2.2"])
+    assert (made.taxon, made.risk_group, made.risk_group_entry) == ("Fusarium circinatum", 1, None)
+    assert made.basis.startswith("Annex 7 of 361/2007 Sb. does not list Fusarium circinatum.")
+    assert "entry B.2.2" in made.basis
+    assert "the collection's own assessment of a pest of plants" in made.basis
+    assert [r.kind for r in made.restrictions] == ["quarantine_pest"]
+
+
+@pytest.mark.rule("R-SEED-01")
+def test_a_plant_pest_annex_7_names_takes_no_group_from_the_plant_pest_rule(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A seed cannot give group 1 to an agent annex 7 names by leaving its code out."""
+    annex_7 = next(
+        row
+        for rows in entry_seed.read_entries().values()
+        for row in rows
+        if row.list_code == RISK_GROUP_LIST
+    )
+    monkeypatch.setattr(entry_seed, "entries_matching", lambda *_args, **_kw: [annex_7])
+    made = entry_seed.listed(["B.2.2"])
+    assert (made.risk_group, made.basis) == (None, "")
+
+
+@pytest.mark.rule("R-SEED-01")
+def test_an_agent_annex_7_does_not_list_on_another_list_takes_no_group() -> None:
+    """The plant pest rule is for pests of plants only: an animal virus of decree 474/2002 Sb.
+    that annex 7 does not list keeps no group, and its seed row is refused for it."""
+    made = entry_seed.listed(["annex-1 I.I 11"])
+    assert (made.risk_group, made.basis) == (None, "")

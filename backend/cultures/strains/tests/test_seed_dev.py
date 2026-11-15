@@ -551,13 +551,13 @@ def test_requesters_get_their_registered_office() -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("env")
-def test_the_requests_one_approvable_one_on_request_one_blocked_two_ready_two_shipped() -> None:
+def test_the_requests_one_approvable_one_on_request_two_blocked_two_ready_three_shipped() -> None:
     seed()
     found = {
         r.end_use: {f.code: f.severity for f in evaluate(r, permit_today()).findings}
         for r in DistributionRequest.objects.all()
     }
-    approvable, on_request, blocked, ready, regulated, shipped, confirmed = (
+    approvable, on_request, blocked, ready, regulated, shipped, confirmed, pest, no_facility = (
         row["end_use"] for row in DATA["requests"]
     )
     assert found[approvable] == {}
@@ -569,6 +569,9 @@ def test_the_requests_one_approvable_one_on_request_one_blocked_two_ready_two_sh
     # Regulated (dual-use): no blocker, the manager finding was decided by bac-manager, so its
     # shipment is prepared by one person and confirmed by another (#89).
     assert found[regulated] == {"regulated": "manager"}
+    # A Union quarantine pest (#221): it went out to the recipient whose isolation facility is
+    # recorded, and the same pest is refused, with no override, where none is (R-DIST-16).
+    assert found[no_facility] == {"isolation_facility_missing": "block", "regulated": "manager"}
     statuses = dict(DistributionRequest.objects.values_list("end_use", "status"))
     assert statuses == {
         approvable: "submitted",
@@ -578,6 +581,8 @@ def test_the_requests_one_approvable_one_on_request_one_blocked_two_ready_two_sh
         regulated: "approved",
         shipped: "shipped",
         confirmed: "shipped",
+        pest: "shipped",
+        no_facility: "submitted",
     }
     approver = DistributionRequest.objects.get(end_use=regulated).decided_by
     assert approver is not None and approver.username == "bac-manager"
@@ -812,10 +817,12 @@ def test_it_records_checks_and_releases_through_the_lineage_services() -> None:
         ("BAC", "Clostridium perfringens DEP-8", 1): BatchStatus.RELEASED,
         ("MYC", "Saccharomyces cerevisiae DEP-5", 1): BatchStatus.ON_HOLD,
         ("MYC", "Saccharomyces cerevisiae DEP-5", 2): BatchStatus.PENDING_CHECK,
+        ("MYC", "Fusarium circinatum DEP-9", 1): BatchStatus.PENDING_CHECK,
+        ("MYC", "Fusarium circinatum DEP-9", 2): BatchStatus.RELEASED,
     }
     events = Counter(AuditEvent.objects.values_list("event_type", flat=True))
     assert events["batch_check_recorded"] == len(CHECKS)
-    assert events["batch_status_changed"] == 4  # three releases and the hold by a failed check
+    assert events["batch_status_changed"] == 5  # four releases and the hold by a failed check
     named = {(row["lab"], row["batch"], row["vial"]) for row in CHECKS if row["vial"]}
     used = set(
         BatchCheck.objects.filter(vial__isnull=False).values_list(
@@ -830,7 +837,7 @@ def test_it_records_checks_and_releases_through_the_lineage_services() -> None:
     assert f"Checks: 0 created, {len(CHECKS)} found." in again
     assert (
         Counter(AuditEvent.objects.values_list("event_type", flat=True))["batch_status_changed"]
-        == 4
+        == 5
     )
 
 
