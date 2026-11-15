@@ -4,7 +4,10 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { allowConsole, assertNoConsoleOutput, watchConsole } from './console'
-import { renderHookWithProviders, renderWithProviders } from './render'
+import { makeMe } from './factories'
+import { holdApi, mockApi } from './mockApi'
+import { renderApp, renderHookWithProviders, renderWithProviders } from './render'
+import { settleRouters } from './routers'
 
 function SearchProbe() {
   const search = useSearch({ strict: false })
@@ -80,5 +83,23 @@ describe('test environment', () => {
     console.error('boom')
     expect(() => assertNoConsoleOutput()).toThrow('console.error: boom')
     watchConsole() // start clean, so this test's own afterEach passes
+  })
+})
+
+describe('settleRouters (#224)', () => {
+  it('names a navigation still loading when the test ends', async () => {
+    const me = holdApi('get', '/api/v1/auth/me/')
+    renderApp({ path: '/' }) // the session check holds the first page
+    await waitFor(() => expect(me.calls).toHaveLength(1))
+    await expect(settleRouters()).rejects.toThrow('A navigation to / is still loading')
+    me.release(401) // let it end here, so nothing is left for the teardown
+    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+  })
+
+  it('waits for a navigation that ends', async () => {
+    mockApi('get', '/api/v1/auth/me/', makeMe())
+    renderApp({ path: '/' })
+    await settleRouters()
+    expect(screen.getByRole('heading', { name: 'Home' })).toBeInTheDocument()
   })
 })

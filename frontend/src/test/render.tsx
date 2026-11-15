@@ -14,6 +14,7 @@ import { createApp } from '@/app/create-app'
 import { makeQueryClient } from '@/app/query-client'
 import { Providers } from '@/app/providers'
 import type { RouterContext } from '@/routes/root'
+import { trackRouter } from './routers'
 
 type Options = {
   /** Current URL path, e.g. '/samples'. */
@@ -48,6 +49,7 @@ async function setup({ path = '/', search, client = makeTestQueryClient() }: Opt
     context: { queryClient: client },
   })
   // Resolve the first route before rendering, so the first render already shows `ui`.
+  trackRouter(router)
   await router.load()
   function Wrapper({ children }: { children: ReactNode }) {
     return (
@@ -84,6 +86,7 @@ export async function renderHookWithProviders<T>(hook: () => T, options: Options
  */
 export function renderApp({ path = '/', search }: Omit<Options, 'client'> = {}) {
   const { queryClient, router } = createApp({ history: createMemoryHistory({ initialEntries: [url(path, search)] }) })
+  trackRouter(router)
   const defaults = queryClient.getDefaultOptions()
   queryClient.setDefaultOptions({ ...defaults, queries: { ...defaults.queries, retry: false } })
   return {
