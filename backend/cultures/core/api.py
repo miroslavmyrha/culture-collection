@@ -11,8 +11,10 @@ A viewset extends ScopedModelViewSet or ScopedReadOnlyViewSet and provides:
 Order of checks: login (401), then for actions without an object
 has_perm(perm, None) (403); for detail actions the object is loaded through
 scoped_queryset (404 if not visible), then has_perm(perm, obj) (403 if visible
-but not permitted). A detail action that never calls self.get_object() fails
-loudly instead of running unchecked.
+but not permitted). For a detail action this happens in initial(), before the
+handler runs, so a handler that never calls self.get_object() is checked all
+the same and writes nothing it may not (#231); self.get_object() in the handler
+returns the object already checked.
 
 Overriding get_queryset, get_object, get_permissions, check_permissions or
 check_object_permissions is refused at class creation, also when the override
@@ -29,7 +31,6 @@ from django.db.models import Model, QuerySet
 from rest_framework import permissions, serializers, viewsets
 from rest_framework.generics import GenericAPIView
 from rest_framework.request import Request
-from rest_framework.response import Response
 from rest_framework.views import APIView
 
 AUTHENTICATED = "authenticated"  # any logged-in user; rows are still scoped
@@ -47,6 +48,8 @@ PROTECTED = {
     "get_permissions": "declare action_perms and implement has_perm() instead",
     "check_permissions": "implement has_perm() instead",
     "check_object_permissions": "implement has_perm() instead",
+    # initial() runs the object check of a detail action before its handler (#231).
+    "initial": "the object check of a detail action runs there, before the handler",
     "permission_classes": "declare action_perms and implement has_perm() instead",
 }
 
@@ -119,7 +122,7 @@ class ScopedViewSetMixin(viewsets.GenericViewSet):  # type: ignore[type-arg]
     action_perms: ClassVar[Mapping[str, str]]
     # Extra checks on top of login and action_perms (they can only narrow access).
     extra_permission_classes: ClassVar[tuple[type[permissions.BasePermission], ...]] = ()
-    _object_checked = False
+    _checked_object: Any = None
 
     def __init_subclass__(cls, abstract: bool = False, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -180,20 +183,15 @@ class ScopedViewSetMixin(viewsets.GenericViewSet):  # type: ignore[type-arg]
             )
         return queryset
 
-    def get_object(self) -> Any:
-        obj = super().get_object()  # 404 outside the scope, then has_perm
-        self._object_checked = True
-        return obj
+    def initial(self, request: Request, *args: Any, **kwargs: Any) -> None:
+        super().initial(request, *args, **kwargs)  # 401, then has_perm(perm, None) on a list
+        if self.is_detail_action():
+            self.get_object()  # 404 outside the scope, then has_perm(perm, obj), both now
 
-    def finalize_response(
-        self, request: Request, response: Response, *args: Any, **kwargs: Any
-    ) -> Response:
-        if self.is_detail_action() and response.status_code < 400 and not self._object_checked:  # noqa: PLR2004
-            raise ImproperlyConfigured(
-                f"{type(self).__name__}.{self.action} answered without self.get_object(): "
-                "the object permission was never checked"
-            )
-        return super().finalize_response(request, response, *args, **kwargs)
+    def get_object(self) -> Any:
+        if self._checked_object is None:
+            self._checked_object = super().get_object()
+        return self._checked_object
 
 
 class ScopedModelViewSet(ScopedViewSetMixin, viewsets.ModelViewSet, abstract=True):  # type: ignore[type-arg]

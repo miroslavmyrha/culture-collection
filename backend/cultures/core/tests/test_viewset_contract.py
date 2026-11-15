@@ -14,6 +14,7 @@ from django.contrib.auth.signals import user_logged_in
 from django.db.models import Model, QuerySet
 from model_bakery import baker
 from rest_framework import serializers
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.routers import SimpleRouter
@@ -62,8 +63,17 @@ class NoScope(TeamUsers):
 
 
 class WritesBeforeTheCheck(TeamUsers):
+    """The object check passes for everyone, and the handler writes before it refuses by itself.
+    The base runs the object check before a handler (#231), so a write before that check can no
+    longer happen; a handler that writes and then refuses still can, and the contract sees it."""
+
+    def has_perm(self, perm: str, obj: Model | None) -> bool:
+        return True
+
     def partial_update(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         User.objects.filter(public_id=kwargs["public_id"]).update(first_name="touched")
+        if self.request.user != self.get_object():
+            raise PermissionDenied
         return super().partial_update(request, *args, **kwargs)
 
 
