@@ -4788,7 +4788,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["LoginInputRequest"];
-                "multipart/form-data": components["schemas"]["LoginInputRequest"];
             };
         };
         responses: {
@@ -5143,7 +5142,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CheckInputRequest"];
-                "multipart/form-data": components["schemas"]["CheckInputRequest"];
             };
         };
         responses: {
@@ -5283,7 +5281,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CheckErrorInputRequest"];
-                "multipart/form-data": components["schemas"]["CheckErrorInputRequest"];
             };
         };
         responses: {
@@ -5426,7 +5423,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PreserveInputRequest"];
-                "multipart/form-data": components["schemas"]["PreserveInputRequest"];
             };
         };
         responses: {
@@ -5557,7 +5553,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["BatchDecisionInputRequest"];
-                "multipart/form-data": components["schemas"]["BatchDecisionInputRequest"];
             };
         };
         responses: {
@@ -5642,7 +5637,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["BatchDecisionInputRequest"];
-                "multipart/form-data": components["schemas"]["BatchDecisionInputRequest"];
             };
         };
         responses: {
@@ -5839,7 +5833,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PlaceManyInputRequest"];
-                "multipart/form-data": components["schemas"]["PlaceManyInputRequest"];
             };
         };
         responses: {
@@ -5974,7 +5967,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DepositorInputRequest"];
-                "multipart/form-data": components["schemas"]["DepositorInputRequest"];
             };
         };
         responses: {
@@ -6096,7 +6088,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DepositorInputRequest"];
-                "multipart/form-data": components["schemas"]["DepositorInputRequest"];
             };
         };
         responses: {
@@ -6238,7 +6229,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DepositReceiveInputRequest"];
-                "multipart/form-data": components["schemas"]["DepositReceiveInputRequest"];
             };
         };
         responses: {
@@ -6360,7 +6350,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["StrainFactsInputRequest"];
-                "multipart/form-data": components["schemas"]["StrainFactsInputRequest"];
             };
         };
         responses: {
@@ -6446,7 +6435,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RejectInputRequest"];
-                "multipart/form-data": components["schemas"]["RejectInputRequest"];
             };
         };
         responses: {
@@ -6603,7 +6591,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["TermsReplaceInputRequest"];
-                "multipart/form-data": components["schemas"]["TermsReplaceInputRequest"];
             };
         };
         responses: {
@@ -6747,7 +6734,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DestructionInputRequest"];
-                "multipart/form-data": components["schemas"]["DestructionInputRequest"];
             };
         };
         responses: {
@@ -6958,7 +6944,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DestructionErrorInputRequest"];
-                "multipart/form-data": components["schemas"]["DestructionErrorInputRequest"];
             };
         };
         responses: {
@@ -7149,7 +7134,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["LocationGrantInputRequest"];
-                "multipart/form-data": components["schemas"]["LocationGrantInputRequest"];
             };
         };
         responses: {
@@ -7280,7 +7264,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["LocationRevokeInputRequest"];
-                "multipart/form-data": components["schemas"]["LocationRevokeInputRequest"];
             };
         };
         responses: {
@@ -7421,7 +7404,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["MediumInputRequest"];
-                "multipart/form-data": components["schemas"]["MediumInputRequest"];
             };
         };
         responses: {
@@ -7543,7 +7525,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["MediumInputRequest"];
-                "multipart/form-data": components["schemas"]["MediumInputRequest"];
             };
         };
         responses: {
@@ -7620,7 +7601,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["MediumRetireInputRequest"];
-                "multipart/form-data": components["schemas"]["MediumRetireInputRequest"];
             };
         };
         responses: {
@@ -7754,7 +7734,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["MemberCreateInputRequest"];
-                "multipart/form-data": components["schemas"]["MemberCreateInputRequest"];
             };
         };
         responses: {
@@ -7876,7 +7855,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["MemberRoleInputRequest"];
-                "multipart/form-data": components["schemas"]["MemberRoleInputRequest"];
             };
         };
         responses: {
@@ -8023,7 +8001,6 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": components["schemas"]["PatchedMemberRoleInputRequest"];
-                "multipart/form-data": components["schemas"]["PatchedMemberRoleInputRequest"];
             };
         };
         responses: {
@@ -8157,7 +8134,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["MtaTemplateInputRequest"];
-                "multipart/form-data": components["schemas"]["MtaTemplateInputRequest"];
             };
         };
         responses: {
@@ -8346,7 +8322,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SubcultureInputRequest"];
-                "multipart/form-data": components["schemas"]["SubcultureInputRequest"];
             };
         };
         responses: {
@@ -8762,8 +8737,8 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PermitEndInputRequest"];
                 "multipart/form-data": components["schemas"]["PermitEndInputRequest"];
+                "application/json": components["schemas"]["PermitEndInputRequest"];
             };
         };
         responses: {
@@ -8907,7 +8882,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RequesterInputRequest"];
-                "multipart/form-data": components["schemas"]["RequesterInputRequest"];
             };
         };
         responses: {
@@ -9029,7 +9003,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RequesterInputRequest"];
-                "multipart/form-data": components["schemas"]["RequesterInputRequest"];
             };
         };
         responses: {
@@ -9174,7 +9147,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RequestInputRequest"];
-                "multipart/form-data": components["schemas"]["RequestInputRequest"];
             };
         };
         responses: {
@@ -9390,7 +9362,6 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": components["schemas"]["ApproveInputRequest"];
-                "multipart/form-data": components["schemas"]["ApproveInputRequest"];
             };
         };
         responses: {
@@ -9476,7 +9447,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ReasonInputRequest"];
-                "multipart/form-data": components["schemas"]["ReasonInputRequest"];
             };
         };
         responses: {
@@ -9562,7 +9532,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ConfirmInputRequest"];
-                "multipart/form-data": components["schemas"]["ConfirmInputRequest"];
             };
         };
         responses: {
@@ -9725,7 +9694,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ShipInputRequest"];
-                "multipart/form-data": components["schemas"]["ShipInputRequest"];
             };
         };
         responses: {
@@ -9811,7 +9779,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ReasonInputRequest"];
-                "multipart/form-data": components["schemas"]["ReasonInputRequest"];
             };
         };
         responses: {
@@ -9897,7 +9864,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ShipInputRequest"];
-                "multipart/form-data": components["schemas"]["ShipInputRequest"];
             };
         };
         responses: {
@@ -10037,7 +10003,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ReasonInputRequest"];
-                "multipart/form-data": components["schemas"]["ReasonInputRequest"];
             };
         };
         responses: {
@@ -10283,7 +10248,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UnitCreateInputRequest"];
-                "multipart/form-data": components["schemas"]["UnitCreateInputRequest"];
             };
         };
         responses: {
@@ -10405,7 +10369,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UnitFieldsInputRequest"];
-                "multipart/form-data": components["schemas"]["UnitFieldsInputRequest"];
             };
         };
         responses: {
@@ -10482,7 +10445,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UnitMoveInputRequest"];
-                "multipart/form-data": components["schemas"]["UnitMoveInputRequest"];
             };
         };
         responses: {
@@ -10559,7 +10521,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UnitStatusInputRequest"];
-                "multipart/form-data": components["schemas"]["UnitStatusInputRequest"];
             };
         };
         responses: {
@@ -11040,7 +11001,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DeaccessionInputRequest"];
-                "multipart/form-data": components["schemas"]["DeaccessionInputRequest"];
             };
         };
         responses: {
@@ -11126,7 +11086,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DeaccessionInputRequest"];
-                "multipart/form-data": components["schemas"]["DeaccessionInputRequest"];
             };
         };
         responses: {
@@ -11212,7 +11171,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DeaccessionConfirmInputRequest"];
-                "multipart/form-data": components["schemas"]["DeaccessionConfirmInputRequest"];
             };
         };
         responses: {
@@ -11289,7 +11247,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DeaccessionWithdrawInputRequest"];
-                "multipart/form-data": components["schemas"]["DeaccessionWithdrawInputRequest"];
             };
         };
         responses: {
@@ -11374,7 +11331,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["StrainGrowthInputRequest"];
-                "multipart/form-data": components["schemas"]["StrainGrowthInputRequest"];
             };
         };
         responses: {
@@ -11851,7 +11807,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ReclassifyInputRequest"];
-                "multipart/form-data": components["schemas"]["ReclassifyInputRequest"];
             };
         };
         responses: {
@@ -11928,7 +11883,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RestrictionAddInputRequest"];
-                "multipart/form-data": components["schemas"]["RestrictionAddInputRequest"];
             };
         };
         responses: {
@@ -12006,7 +11960,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["EndProposeInputRequest"];
-                "multipart/form-data": components["schemas"]["EndProposeInputRequest"];
             };
         };
         responses: {
@@ -12092,7 +12045,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["EndConfirmInputRequest"];
-                "multipart/form-data": components["schemas"]["EndConfirmInputRequest"];
             };
         };
         responses: {
@@ -12170,7 +12122,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["EndWithdrawInputRequest"];
-                "multipart/form-data": components["schemas"]["EndWithdrawInputRequest"];
             };
         };
         responses: {
@@ -12255,7 +12206,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RiskGroupInputRequest"];
-                "multipart/form-data": components["schemas"]["RiskGroupInputRequest"];
             };
         };
         responses: {
@@ -12332,7 +12282,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RiskGroupProposeInputRequest"];
-                "multipart/form-data": components["schemas"]["RiskGroupProposeInputRequest"];
             };
         };
         responses: {
@@ -12418,7 +12367,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RiskGroupConfirmInputRequest"];
-                "multipart/form-data": components["schemas"]["RiskGroupConfirmInputRequest"];
             };
         };
         responses: {
@@ -12496,7 +12444,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RiskGroupWithdrawInputRequest"];
-                "multipart/form-data": components["schemas"]["RiskGroupWithdrawInputRequest"];
             };
         };
         responses: {
@@ -13445,7 +13392,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["BarcodeInputRequest"];
-                "multipart/form-data": components["schemas"]["BarcodeInputRequest"];
             };
         };
         responses: {
@@ -13513,7 +13459,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["LossReportInputRequest"];
-                "multipart/form-data": components["schemas"]["LossReportInputRequest"];
             };
         };
         responses: {
@@ -13599,7 +13544,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PlaceInputRequest"];
-                "multipart/form-data": components["schemas"]["PlaceInputRequest"];
             };
         };
         responses: {
@@ -13739,7 +13683,6 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": components["schemas"]["GrowthOverrideInputRequest"];
-                "multipart/form-data": components["schemas"]["GrowthOverrideInputRequest"];
             };
         };
         responses: {
@@ -13816,7 +13759,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["VialStatusInputRequest"];
-                "multipart/form-data": components["schemas"]["VialStatusInputRequest"];
             };
         };
         responses: {
@@ -13945,7 +13887,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["VratAccessInputRequest"];
-                "multipart/form-data": components["schemas"]["VratAccessInputRequest"];
             };
         };
         responses: {
@@ -14076,7 +14017,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["VratAccessEndInputRequest"];
-                "multipart/form-data": components["schemas"]["VratAccessEndInputRequest"];
             };
         };
         responses: {

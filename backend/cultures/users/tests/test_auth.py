@@ -97,6 +97,8 @@ def test_logout_needs_the_csrf_token(csrf_client: Client, user: User) -> None:
 
 def test_logout_with_the_csrf_token_works(csrf_client: Client, user: User) -> None:
     csrf_client.force_login(user)
-    response = csrf_client.post(LOGOUT, headers={"X-CSRFToken": _csrf(csrf_client)})
+    response = csrf_client.post(
+        LOGOUT, content_type="application/json", headers={"X-CSRFToken": _csrf(csrf_client)}
+    )
     assert response.status_code == 204
     assert_problem(csrf_client.get(ME), 401, "not_authenticated")
