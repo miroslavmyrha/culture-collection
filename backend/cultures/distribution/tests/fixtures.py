@@ -20,6 +20,7 @@ from cultures.labs.tests.conftest import member_of
 from cultures.lineage import services as lineage
 from cultures.lineage.models import Passage, Purpose
 from cultures.lineage.tests.support import pass_all, preserve
+from cultures.strains import services as strains
 from cultures.strains.models import Pathogenicity, Strain
 from cultures.strains.services import RestrictionInput
 from cultures.strains.tests.conftest import make_permit
@@ -184,6 +185,15 @@ def world(
         curator, lab, requester, [(supply(uses=ON_REQUEST_USES), 1)], use=Use.RESEARCH_COMMERCIAL
     )
     accept_mtas(curator, on_request)
+    # #263: approved by a curator alone, its strain restricted afterwards.
+    later = supply(mockia, vials=6)
+    again = submit(curator, lab, requester, [(later, 1)])
+    accept_mtas(curator, again)
+    approve(curator, again)
+    with as_actor(curator):
+        strains.strain_restriction_add(
+            access=access_for(curator), strain=later, restriction=DUAL_USE, reason="Read."
+        )
     return {
         "lab": lab,
         "requester": requester,
@@ -198,4 +208,8 @@ def world(
         "awaiting_preparation": awaiting.preparations.get().public_id,
         "on_request": on_request,
         "on_request_line": on_request.lines.get().pk,
+        "approve_again": again,
+        "approver": approver,
+        # Built here, as the request builds it before the service runs (the lock order tests).
+        "approver_access": access_for(approver),
     }

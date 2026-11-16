@@ -121,6 +121,8 @@ def request_confirm_shipment(
             raise ConfirmOwnApproval
         if prepared.prepared_by_id == access.user.pk:
             raise ConfirmOwnPreparation
+        if locked.finding_decisions.filter(decided_by=access.user).exists():
+            raise ConfirmOwnApproval  # a second approval is an approval too (#263)
         lines, strains = _locked_strains(locked)
         today = _gates_today(locked)
         _check_class(prepared.transport_class, prepared.classification_basis, strains)

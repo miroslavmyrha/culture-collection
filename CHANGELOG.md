@@ -9,6 +9,7 @@ to the law the rule rests on is one hop.
 
 ## Unreleased
 - The API reads multipart bodies only on the three views that take a file and JSON everywhere else, and refuses with 413 any body declared over 11 MB before reading it, whatever the proxy in front does (#41).
+- A finding that asks for a manager and arises after a request was approved stops its preparation and shipment until a manager approves it again with a reason; the vials stay reserved, and who approved again does not confirm the shipment (#263, R-DIST-03).
 - A JSON body nested deeper than 32 levels is refused with 400; one deep enough to exhaust the decoder ended as a server error (#41).
 - The unused HTML renderer, its sanitiser (DOMPurify) and the unused external-open helper are gone, and the CSP now allows no Trusted Types policy at all, so no string can reach an HTML sink (#238).
 - End-to-end tests run without retries on CI too, so a flaky test fails and is named instead of passing on its second try; none needed a retry in the last 15 CI runs (#236).

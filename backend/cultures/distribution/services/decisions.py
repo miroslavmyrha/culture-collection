@@ -8,6 +8,7 @@ from cultures.audit.context import audited_atomic
 from cultures.audit.events import Change, record_event
 from cultures.audit.registry import (
     REQUEST_APPROVED,
+    REQUEST_APPROVED_AGAIN,
     REQUEST_CANCELLED,
     REQUEST_LINE_RELEASED,
     REQUEST_LINE_RESERVED,
@@ -28,6 +29,7 @@ from .. import policy
 from ..models import (
     ONE_OPEN_RESERVATION,
     DistributionRequest,
+    FindingDecision,
     LinePermit,
     RequestLine,
     RequestStatus,
@@ -45,9 +47,11 @@ from ._shared import (
 from .errors import (
     ManagerRequired,
     NotEnoughVials,
+    NothingToApproveAgain,
     RequestAwaitsConfirmation,
     RequestBlocked,
     ReservedMeanwhile,
+    WrongState,
 )
 
 
@@ -164,6 +168,7 @@ def request_approve(
         chosen = _chosen_vials(locked, lines)
         now = timezone.now()
         _reserve_lines(access, locked, lines, chosen, evaluation=evaluation, now=now)
+        _decide(access, locked, evaluation.manager_findings, now, reason)
         locked.status, locked.decided_by, locked.decided_at = (
             RequestStatus.APPROVED,
             access.user,
@@ -182,6 +187,65 @@ def request_approve(
                     "status": [old, RequestStatus.APPROVED],
                     "findings": [None, [f.code for f in evaluation.findings]],
                 },
+                lab_id=locked.lab_id,
+            ),
+            reason=reason,
+        )
+    return locked
+
+
+def _decide(
+    access: Access,
+    locked: DistributionRequest,
+    findings: list[policy.Finding],
+    now: datetime,
+    reason: str,
+) -> None:
+    """Record the manager findings an approval decided (#263): the shipment asks for each."""
+    FindingDecision.objects.bulk_create(
+        FindingDecision(
+            request=locked,
+            key=policy.finding_key(f),
+            decided_by=access.user,
+            decided_at=now,
+            reason=reason,
+        )
+        for f in findings
+    )
+
+
+def request_approve_again(
+    *, access: Access, request: DistributionRequest, reason: str
+) -> DistributionRequest:
+    """A manager approves an approved request again, with a reason, for the findings that ask
+    for a manager and arose after its approval (#263, R-DIST-03): a restriction added to a
+    strain, a risk group raised, a permit of the requester ended. The vials stay reserved; the
+    approval itself stays as it was given, and the decisions are recorded beside it. A blocker
+    still refuses, and a request whose findings were all decided has nothing to approve."""
+    reason = reason.strip()
+    with audited_atomic():
+        locked = _locked_request(access, request, Perm.MANAGE_DISTRIBUTION)
+        if locked.status != RequestStatus.APPROVED:
+            raise WrongState(
+                f"A {RequestStatus(locked.status).label.lower()} request is not approved again."
+            )
+        list(
+            Strain.objects.select_for_update()
+            .filter(pk__in=locked.lines.values("strain_id"))
+            .order_by("pk")
+        )
+        evaluation = policy.evaluate(locked, permit_today())
+        new = policy.undecided(evaluation, locked)
+        if not new:
+            raise NothingToApproveAgain
+        _check_approval_allowed(access, locked, evaluation, reason)
+        _decide(access, locked, new, timezone.now(), reason)
+        record_event(
+            REQUEST_APPROVED_AGAIN,
+            Change(
+                REQUEST,
+                locked.public_id,
+                {"findings": [None, [f.code for f in new]]},
                 lab_id=locked.lab_id,
             ),
             reason=reason,
