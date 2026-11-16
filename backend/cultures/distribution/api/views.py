@@ -90,7 +90,8 @@ RULE = OpenApiResponse(ProblemSerializer, "reason_required")
 SHIP_REFUSED = OpenApiResponse(
     ProblemSerializer,
     "shipment_blocked: a gate of the policy blocks the shipment on the ship day (the detail"
-    " lists them); second_person_required: a regulated line is prepared and confirmed by a"
+    " lists them); approve_again: a finding that asks for a manager arose after the"
+    " approval; second_person_required: a regulated line is prepared and confirmed by a"
     " second person; ship_in_one_step: no line is regulated, so nothing is prepared",
 )
 NOT_YOURS = OpenApiResponse(
@@ -348,6 +349,7 @@ class RequestViewSet(LabNested):
         "retrieve": Perm.VIEW_DISTRIBUTION,
         "create": Perm.MANAGE_DISTRIBUTION,
         "approve": Perm.MANAGE_DISTRIBUTION,
+        "approve_again": Perm.MANAGE_DISTRIBUTION,
         "reject": Perm.MANAGE_DISTRIBUTION,
         "cancel": Perm.MANAGE_DISTRIBUTION,
         "acceptances": Perm.MANAGE_DISTRIBUTION,
@@ -388,6 +390,10 @@ class RequestViewSet(LabNested):
         context = self.get_serializer_context()
         if fresh.status == RequestStatus.SUBMITTED:
             context["findings"] = policy.evaluate(fresh, permit_today()).findings
+        elif fresh.status in (RequestStatus.APPROVED, RequestStatus.AWAITING_CONFIRMATION):
+            # What stands before the shipment: a blocker, or a finding since the approval (#263).
+            evaluation = policy.evaluate(fresh, permit_today())
+            context["findings"] = (*evaluation.blockers, *policy.undecided(evaluation, fresh))
         return Response(RequestDetailOutputSerializer(fresh, context=context).data, status=code)
 
     def retrieve(self, request: Request, *args: Any, **kwargs: Any) -> Response:
@@ -453,6 +459,32 @@ class RequestViewSet(LabNested):
         target: DistributionRequest = self.get_object()
         values = _input(ApproveInputSerializer, self, request)
         services.request_approve(access=access_of(request), request=target, reason=values["reason"])
+        return self._detail(target)
+
+    # A manager approves an approved request again for the findings since the approval (#263).
+    @extend_schema(
+        request=ReasonInputSerializer,
+        responses={
+            200: RequestDetailOutputSerializer,
+            (400, PROBLEM): INVALID,
+            (403, PROBLEM): OpenApiResponse(
+                ProblemSerializer, "manager_approval_required: only a manager approves again"
+            ),
+            (409, PROBLEM): OpenApiResponse(
+                ProblemSerializer,
+                "wrong_state: the request is not approved; nothing_to_approve_again: every"
+                " finding was decided",
+            ),
+            (422, PROBLEM): RULE,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="approve-again")
+    def approve_again(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        target: DistributionRequest = self.get_object()
+        values = _input(ReasonInputSerializer, self, request)
+        services.request_approve_again(
+            access=access_of(request), request=target, reason=values["reason"]
+        )
         return self._detail(target)
 
     @extend_schema(

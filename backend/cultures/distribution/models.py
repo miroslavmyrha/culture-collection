@@ -55,6 +55,7 @@ COUNTER_UNIQUE = "distribution_counter_lab_year_uniq"
 LINE_STRAIN_UNIQUE = "distribution_line_request_strain_uniq"
 ACCEPTANCE_UNIQUE = "distribution_acceptance_request_mta_uniq"
 LINE_PERMIT_UNIQUE = "distribution_linepermit_line_permit_uniq"
+FINDING_DECISION_UNIQUE = "distribution_findingdecision_request_key_uniq"
 ONE_OPEN_RESERVATION = "distribution_reservation_one_open_per_vial"
 
 TRIMMED = r"^\S(.*\S)?$"
@@ -515,6 +516,33 @@ class LinePermit(models.Model):
 
     def __str__(self) -> str:
         return f"{self.line_id}: {self.permit_id}"
+
+
+class FindingDecision(models.Model):
+    """A finding that asks for a manager, decided for a request: at its approval, or at a second
+    approval when the finding arose after the first (#263, R-DIST-03). Never changed; the
+    shipment refuses while a manager finding stands that no row decided. `key` is the finding's
+    code, with its line's public id when the finding is of one line."""
+
+    # No index of its own: the unique (request, key) leads with it.
+    request = models.ForeignKey(
+        DistributionRequest, on_delete=models.PROTECT, related_name="finding_decisions",
+        db_index=False,
+    )  # fmt: skip
+    key = models.CharField(max_length=120)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    decided_at = models.DateTimeField()
+    reason = models.TextField(blank=True)  # a manager's decision names it; a curator's has none
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["request", "key"], name=FINDING_DECISION_UNIQUE),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.request_id}: {self.key}"
 
 
 class SignerRole(models.TextChoices):

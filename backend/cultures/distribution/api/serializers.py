@@ -576,7 +576,9 @@ class RequestDetailOutputSerializer(RequestListOutputSerializer):
 
     @extend_schema_field(FindingSerializer(many=True))
     def get_findings(self, request: DistributionRequest) -> list[dict[str, Any]]:
-        """What the policy finds today, while the request waits for a decision; else none."""
+        """What the policy finds today: while the request waits for a decision, every finding;
+        once approved, what stands before the shipment, a blocker or a finding that asks for a
+        manager and arose after the approval (#263); else none."""
         findings = self.context.get("findings") or []
         return [
             {

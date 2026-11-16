@@ -373,6 +373,10 @@ DEPOSITOR_ANSWER_RECORDED = register(
     EventType("depositor_answer_recorded", "{actor} recorded the depositor's answer")
 )
 REQUEST_APPROVED = register(EventType("request_approved", "{actor} approved {subject}"))
+# A manager approves again for findings that arose after the approval (#263, R-DIST-03).
+REQUEST_APPROVED_AGAIN = register(
+    EventType("request_approved_again", "{actor} approved {subject} again", reason_required=True)
+)
 REQUEST_LINE_RESERVED = register(
     EventType("request_line_reserved", "{actor} reserved vials for a request")
 )
@@ -1082,6 +1086,10 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
     ),
     "distribution_linepermit": RowAudit(
         label="distribution.linepermit", audited=("id", "line_id", "permit_id")
+    ),
+    "distribution_findingdecision": RowAudit(
+        label="distribution.findingdecision",
+        audited=("id", "request_id", "key", "decided_by_id", "decided_at", "reason"),
     ),
     "distribution_mtaacceptance": RowAudit(
         label="distribution.mtaacceptance",

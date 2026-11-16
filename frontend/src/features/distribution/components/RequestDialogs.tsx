@@ -4,6 +4,7 @@ import { type FieldErrors, type UseFormRegister, type UseFormRegisterReturn, use
 import { CheckboxField, ConfirmDialog, SelectField, Stack, TextField, Typography } from '@/components/ui'
 import { errorMessage, isApiError, readProblem } from '@/lib/api'
 import {
+  useApproveAgain,
   useApproveRequest,
   useCancelRequest,
   useConfirmShipment,
@@ -132,6 +133,24 @@ function ReasonDialog({
         <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} error={formState.errors.reason?.message} {...register('reason')} />
       </Stack>
     </ConfirmDialog>
+  )
+}
+
+/** A manager decides the findings that arose after the approval (#263): the vials stay reserved. */
+export function ApproveAgainDialog({ labId, request, open, onClose, onExited }: Common) {
+  const again = useApproveAgain(labId, request.public_id)
+  return (
+    <ReasonDialog
+      open={open}
+      title={`Approve request ${request.number} again?`}
+      description="A finding since the approval needs a manager. The vials stay reserved; say why the finding allows the shipment."
+      confirmLabel="Approve again"
+      label="Second approval"
+      pending={again.isPending}
+      mutate={(reason, callbacks) => again.mutate({ reason }, callbacks)}
+      onClose={onClose}
+      onExited={onExited}
+    />
   )
 }
 

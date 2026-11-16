@@ -62,6 +62,19 @@ export function useApproveRequest(labId: string, requestId: string) {
   })
 }
 
+/** A manager approves an approved request again, for the findings since its approval (#263). */
+export function useApproveAgain(labId: string, requestId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: Schemas['ReasonInputRequest']) => {
+      await ensureCsrf()
+      return unwrap(api.POST('/api/v1/labs/{lab_public_id}/requests/{public_id}/approve-again/', { ...one(labId, requestId), body }))
+    },
+    meta: { handlesError: true },
+    onSuccess: (request) => settleVials(qc, labId, request),
+  })
+}
+
 export function useRejectRequest(labId: string, requestId: string) {
   const qc = useQueryClient()
   return useMutation({

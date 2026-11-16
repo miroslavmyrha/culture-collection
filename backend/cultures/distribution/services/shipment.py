@@ -53,6 +53,7 @@ from ._shared import (
     normalised,
 )
 from .errors import (
+    ApproveAgain,
     InvalidDistribution,
     SecondPersonRequired,
     ShipmentBlocked,
@@ -156,12 +157,19 @@ def _locked_strains(locked: DistributionRequest) -> tuple[list[RequestLine], lis
 
 
 def _gates_today(locked: DistributionRequest) -> date:
-    """The gates on today's Czech day: any blocker refuses. Manager findings were decided at
-    approval and are not asked again."""
+    """The gates on today's Czech day: any blocker refuses, and so does a finding that asks for
+    a manager and no approval decided, one that arose after the approval (#263, R-DIST-03)."""
     today = permit_today()
-    blockers = policy.evaluate(locked, today).blockers
-    if blockers:
-        raise ShipmentBlocked(" ".join(f.sentence for f in blockers))
+    evaluation = policy.evaluate(locked, today)
+    if evaluation.blockers:
+        raise ShipmentBlocked(" ".join(f.sentence for f in evaluation.blockers))
+    new = policy.undecided(evaluation, locked)
+    if new:
+        raise ApproveAgain(
+            "Since the approval: "
+            + " ".join(f.sentence for f in new)
+            + " A manager approves the request again."
+        )
     return today
 
 

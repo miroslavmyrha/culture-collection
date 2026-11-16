@@ -35,6 +35,7 @@ EXEMPT = dict.fromkeys(NOT_A_WRITE, "no query: input checks and text") | {
 # The services that decide on a request: they lock it before its strains and vials.
 DECISIONS = {
     "request_approve",
+    "request_approve_again",
     "request_reject",
     "request_cancel",
     "acceptance_record",

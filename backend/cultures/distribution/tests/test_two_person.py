@@ -357,9 +357,12 @@ def test_a_batch_held_after_the_preparation_blocks_the_confirmation(
 
 @pytest.mark.rule("R-SHIP-03")
 def test_a_risk_group_raised_after_the_preparation_makes_the_exemption_refused_at_confirmation(
-    *, curator: User, manager: User, approver: User, regulated: Regulated
+    *, curator: User, manager: User, approver: User, requester: Requester, regulated: Regulated
 ) -> None:
     request = regulated(prepared_by=curator)
+    # A work permit for group 2, so the raise brings no new manager finding (#263) and the
+    # exemption is what refuses.
+    add_permit(curator, requester, PermitKind.PATHOGEN_WORK_PERMIT, risk_group=2)
     strain = request.lines.get().strain
     with as_actor(approver):
         strains.strain_set_risk_group(

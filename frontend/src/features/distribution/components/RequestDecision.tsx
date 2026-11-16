@@ -4,7 +4,7 @@ import { SECOND_PERSON } from '../requestErrors'
 import { canApproveRegulated, canPrepare, canShip, CONFIRM_REFUSALS, openPreparation, type Preparation, type Request, type Role } from '../schemas'
 import { ButtonRow, canManage, day, KeepsFocus, reason } from './requestParts'
 
-export type Kind = 'approve' | 'reject' | 'cancel' | 'acceptance' | 'ship' | 'prepare' | 'confirm' | 'withdraw' | 'yes' | 'no'
+export type Kind = 'approve' | 'again' | 'reject' | 'cancel' | 'acceptance' | 'ship' | 'prepare' | 'confirm' | 'withdraw' | 'yes' | 'no'
 export type OnShow = (kind: Kind) => (event: MouseEvent<HTMLButtonElement>) => void
 
 type Props = { request: Request; role: Role; onShow: OnShow }
@@ -64,9 +64,10 @@ function Prepared({ request, prepared, manage, onShow }: { request: Request; pre
         {approvalText(request)} The shipment was prepared by {prepared.prepared_by} on {day(prepared.prepared_at)} and waits for a second person to confirm it. The vials stay reserved until then.
       </Typography>
       {manage && prepared.confirm_refusal && <Alert severity="info">{CONFIRM_REFUSALS[prepared.confirm_refusal]}</Alert>}
+      {manage && sinceApproval(request) && <Alert severity="info">A finding since the approval needs a manager: withdraw the prepared shipment, and a manager approves the request again.</Alert>}
       {manage && (
         <ButtonRow>
-          {!prepared.confirm_refusal && (
+          {!prepared.confirm_refusal && !sinceApproval(request) && (
             <Button variant="contained" onClick={onShow('confirm')}>
               Confirm the shipment
             </Button>
@@ -80,7 +81,11 @@ function Prepared({ request, prepared, manage, onShow }: { request: Request; pre
   )
 }
 
+/** A finding that asks for a manager and arose after the approval stops the shipment (#263). */
+const sinceApproval = (request: Request) => request.findings.some((f) => f.severity === 'manager')
+
 function Approved({ request, role, onShow }: Props) {
+  if (sinceApproval(request)) return <ApproveAgainFirst request={request} role={role} onShow={onShow} />
   const manage = canManage(role)
   return (
     <KeepsFocus>
@@ -102,6 +107,31 @@ function Approved({ request, role, onShow }: Props) {
             Cancel the request
           </Button>
         </ButtonRow>
+      )}
+    </KeepsFocus>
+  )
+}
+
+/** An approved request with a finding since the approval: no shipment until a manager approves it again. */
+function ApproveAgainFirst({ request, role, onShow }: Props) {
+  const manager = canApproveRegulated(role)
+  return (
+    <KeepsFocus>
+      <Typography sx={{ overflowWrap: 'anywhere' }}>{approvalText(request)} The vials stay reserved until the shipment or a cancellation.</Typography>
+      {canManage(role) && (
+        <>
+          <Alert severity="info">{manager ? 'A finding since the approval needs a manager: approve the request again before it ships.' : 'A finding since the approval needs a manager: a manager approves the request again before it ships.'}</Alert>
+          <ButtonRow>
+            {manager && (
+              <Button variant="contained" onClick={onShow('again')}>
+                Approve again
+              </Button>
+            )}
+            <Button color="error" variant="outlined" onClick={onShow('cancel')}>
+              Cancel the request
+            </Button>
+          </ButtonRow>
+        </>
       )}
     </KeepsFocus>
   )

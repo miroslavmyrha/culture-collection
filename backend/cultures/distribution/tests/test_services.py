@@ -780,6 +780,10 @@ SCENARIOS: dict[str, Callable[..., object]] = {
         ),
     ),
     "request_approve": lambda a, f: services.request_approve(access=a, request=f["accepted"]),
+    # A manager's step (#263): the approver's access, not the curator's.
+    "request_approve_again": lambda a, f: services.request_approve_again(
+        access=f["approver_access"], request=f["approve_again"], reason="r"
+    ),
     "request_reject": lambda a, f: services.request_reject(
         access=a, request=f["request"], reason="r"
     ),
@@ -832,7 +836,10 @@ def test_a_curator_demoted_since_the_request_began_is_refused(
     *, name: str, as_curator: AuditContext, curator: User, lab: Lab, world: dict[str, object]
 ) -> None:
     access = access_for(curator)  # built while the curator was one
-    Membership.objects.filter(user=curator, lab=lab).update(role=Role.TECHNICIAN)
+    # The approver too: a manager's step (request_approve_again) runs with the approver's access.
+    Membership.objects.filter(user__in=[curator, world["approver"]], lab=lab).update(
+        role=Role.TECHNICIAN
+    )
     refused(Forbidden, "permission_denied", lambda: SCENARIOS[name](access, world))
 
 

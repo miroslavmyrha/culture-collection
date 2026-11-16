@@ -34,12 +34,14 @@ from ._shared import (
 from .answers import ANSWER_UNIQUE, depositor_answer_record
 from .decisions import (
     request_approve,
+    request_approve_again,
     request_cancel,
     request_reject,
     requests_cancel_for_deaccession_locked,
 )
 from .errors import (
     AcceptanceExists,
+    ApproveAgain,
     ConfirmOwnApproval,
     ConfirmOwnPreparation,
     ContactErased,
@@ -48,6 +50,7 @@ from .errors import (
     InvalidDistribution,
     ManagerRequired,
     NotEnoughVials,
+    NothingToApproveAgain,
     NumberTaken,
     PermitEnded,
     PreparationChanged,
@@ -108,6 +111,7 @@ __all__ = [
     "SIGNATURES",
     "AcceptanceExists",
     "AcceptanceInput",
+    "ApproveAgain",
     "ConfirmOwnApproval",
     "ConfirmOwnPreparation",
     "ContactErased",
@@ -121,6 +125,7 @@ __all__ = [
     "ManagerRequired",
     "NewRequest",
     "NotEnoughVials",
+    "NothingToApproveAgain",
     "NumberTaken",
     "PermitEnded",
     "PermitInput",
@@ -143,6 +148,7 @@ __all__ = [
     "permit_add",
     "permit_end",
     "request_approve",
+    "request_approve_again",
     "request_cancel",
     "request_confirm_shipment",
     "request_prepare_shipment",
