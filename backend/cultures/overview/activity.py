@@ -170,6 +170,7 @@ SHOWN: dict[str, Shown] = {
     # read requesters (#144).
     "depositor_answer_recorded": Shown(R, "recorded the depositor's answer for {subject}", REQUEST),
     "request_approved": Shown(R, "approved {subject}", REQUEST),
+    "request_approved_again": Shown(R, "approved {subject} again", REQUEST),
     "request_line_reserved": Shown(R, "reserved vials for {subject}", REQUEST),
     "request_rejected": Shown(R, "rejected {subject}", REQUEST),
     "request_cancelled": Shown(R, "cancelled {subject}", REQUEST),

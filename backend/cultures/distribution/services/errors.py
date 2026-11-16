@@ -54,6 +54,18 @@ class ManagerRequired(Forbidden):
     default_detail = "A finding on this request needs a manager's approval."
 
 
+class ApproveAgain(RuleViolation):
+    """A finding that asks for a manager arose after the approval (#263, R-DIST-03)."""
+
+    default_code = "approve_again"
+    default_detail = "A finding since the approval needs a manager: a manager approves it again."
+
+
+class NothingToApproveAgain(Conflict):
+    default_code = "nothing_to_approve_again"
+    default_detail = "Every finding of this request was decided at its approval."
+
+
 class NotEnoughVials(Conflict):
     default_code = "not_enough_vials"
 

@@ -93,6 +93,23 @@ class Evaluation:
     def needs_manager(self) -> bool:
         return any(f.severity == Severity.MANAGER for f in self.findings)
 
+    @property
+    def manager_findings(self) -> list[Finding]:
+        return [f for f in self.findings if f.severity == Severity.MANAGER]
+
+
+def finding_key(finding: Finding) -> str:
+    """How a decided finding is recorded (FindingDecision.key): its code, with its line's public
+    id when it is of one line, so the same code on another line is another finding (#263)."""
+    return finding.code if finding.line is None else f"{finding.code}:{finding.line.public_id}"
+
+
+def undecided(evaluation: Evaluation, request: DistributionRequest) -> list[Finding]:
+    """The manager findings of `evaluation` no approval of `request` decided (#263, R-DIST-03):
+    they arose after the approval, and a manager approves the request again before it ships."""
+    decided = set(request.finding_decisions.values_list("key", flat=True))
+    return [f for f in evaluation.manager_findings if finding_key(f) not in decided]
+
 
 def in_eu(country: str) -> bool:
     return country in EU_MEMBER_STATES

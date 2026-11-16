@@ -934,6 +934,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/requests/{public_id}/approve-again/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_requests_approve_again_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/requests/{public_id}/cancel/": {
         parameters: {
             query?: never;
@@ -9434,6 +9450,93 @@ export interface operations {
             };
         };
     };
+    labs_requests_approve_again_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonInputRequest"];
+                "multipart/form-data": components["schemas"]["ReasonInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestDetailOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field: an unknown requester, strain or MTA version, a strain without terms (no_terms), a line whose terms do not leave the use on request (not_on_request), a file that is empty, too large or not a PDF, PNG or JPEG, a shipment field (not_exempt: a pathogen is not exempt as non-pathogenic) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description manager_approval_required: only a manager approves again */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description wrong_state: the request is not approved; nothing_to_approve_again: every finding was decided */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description reason_required */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     labs_requests_cancel_create: {
         parameters: {
             query?: never;
@@ -9586,7 +9689,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description shipment_blocked: a gate of the policy blocks the shipment on the ship day (the detail lists them); second_person_required: a regulated line is prepared and confirmed by a second person; ship_in_one_step: no line is regulated, so nothing is prepared */
+            /** @description shipment_blocked: a gate of the policy blocks the shipment on the ship day (the detail lists them); approve_again: a finding that asks for a manager arose after the approval; second_person_required: a regulated line is prepared and confirmed by a second person; ship_in_one_step: no line is regulated, so nothing is prepared */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -9747,7 +9850,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description shipment_blocked: a gate of the policy blocks the shipment on the ship day (the detail lists them); second_person_required: a regulated line is prepared and confirmed by a second person; ship_in_one_step: no line is regulated, so nothing is prepared */
+            /** @description shipment_blocked: a gate of the policy blocks the shipment on the ship day (the detail lists them); approve_again: a finding that asks for a manager arose after the approval; second_person_required: a regulated line is prepared and confirmed by a second person; ship_in_one_step: no line is regulated, so nothing is prepared */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -9917,7 +10020,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description shipment_blocked: a gate of the policy blocks the shipment on the ship day (the detail lists them); second_person_required: a regulated line is prepared and confirmed by a second person; ship_in_one_step: no line is regulated, so nothing is prepared */
+            /** @description shipment_blocked: a gate of the policy blocks the shipment on the ship day (the detail lists them); approve_again: a finding that asks for a manager arose after the approval; second_person_required: a regulated line is prepared and confirmed by a second person; ship_in_one_step: no line is regulated, so nothing is prepared */
             422: {
                 headers: {
                     [name: string]: unknown;

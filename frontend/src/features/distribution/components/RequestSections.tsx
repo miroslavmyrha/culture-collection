@@ -43,9 +43,9 @@ export function VialsSection({ request: r, renderVials }: { request: Request; re
 }
 
 export function FindingsSection({ request: r }: { request: Request }) {
-  if (r.status !== 'submitted') return null
+  if (r.status !== 'submitted' && r.findings.length === 0) return null
   return (
-    <Section title="What stands in the way">
+    <Section title={r.status === 'submitted' ? 'What stands in the way' : 'What stands before the shipment'}>
       <Findings findings={r.findings} />
     </Section>
   )

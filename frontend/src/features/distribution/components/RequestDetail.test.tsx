@@ -11,7 +11,7 @@ const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const REQUEST_ID = '00000000-0000-4000-8000-0000000000a1'
 const DETAIL = '/api/v1/labs/{lab_public_id}/requests/{public_id}/'
 const VIALS = '/api/v1/labs/{lab_public_id}/requests/{public_id}/vials/'
-const ACTION = (name: 'approve' | 'reject' | 'cancel' | 'ship' | 'prepare-shipment' | 'confirm-shipment' | 'withdraw-shipment') => `/api/v1/labs/{lab_public_id}/requests/{public_id}/${name}/` as const
+const ACTION = (name: 'approve' | 'approve-again' | 'reject' | 'cancel' | 'ship' | 'prepare-shipment' | 'confirm-shipment' | 'withdraw-shipment') => `/api/v1/labs/{lab_public_id}/requests/{public_id}/${name}/` as const
 
 function signedIn(role: 'viewer' | 'technician' | 'curator' | 'manager' = 'curator') {
   mockApi('get', '/api/v1/auth/me/', makeMe())
@@ -776,3 +776,45 @@ describe('the request page', () => {
     expect(await screen.findByText('This shipment was recorded before its documents were written by the app.')).toBeInTheDocument()
   })
 })
+
+const approvedSince = (overrides = {}) => request({ status: 'approved', decided_by: 'curator', decided_at: '2026-10-20T10:00:00Z', findings: regulated, ...overrides })
+
+describe('a finding that arose after the approval (#263)', () => {
+  it('shows the finding, hides the shipment and lets a manager approve again with a reason', async () => {
+    signedIn('manager')
+    mockApi('get', DETAIL, approvedSince())
+    const user = userEvent.setup()
+    open()
+    const section = await screen.findByRole('region', { name: 'What stands before the shipment' })
+    expect(section).toHaveTextContent('MYC 3 is regulated (dual_use): a manager approves it.')
+    expect(screen.getByText('A finding since the approval needs a manager: approve the request again before it ships.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ship the vials' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Prepare the shipment' })).not.toBeInTheDocument()
+    const calls = mockApi('post', ACTION('approve-again'), approvedSince({ findings: [] }))
+    await user.click(screen.getByRole('button', { name: 'Approve again' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Approve request 2026/7 again?' })
+    await user.type(within(dialog).getByRole('textbox', { name: /Reason/ }), 'Dual-use inside the EU needs no licence.')
+    await user.click(within(dialog).getByRole('button', { name: 'Approve again' }))
+    await waitFor(() => expect(calls).toHaveLength(1))
+    expect(calls[0]?.body).toEqual({ reason: 'Dual-use inside the EU needs no licence.' })
+  })
+
+  it('tells a curator that a manager approves again, and offers neither that nor the shipment', async () => {
+    signedIn('curator')
+    mockApi('get', DETAIL, approvedSince())
+    open()
+    expect(await screen.findByText('A finding since the approval needs a manager: a manager approves the request again before it ships.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Approve again' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ship the vials' })).not.toBeInTheDocument()
+  })
+
+  it('offers no confirmation of a prepared shipment while the finding stands', async () => {
+    signedIn('manager')
+    mockApi('get', DETAIL, approvedSince({ status: 'awaiting_confirmation', regulated: true, preparations: [preparation({ prepared_by: 'other', confirm_refusal: null })] }))
+    open()
+    expect(await screen.findByText('A finding since the approval needs a manager: withdraw the prepared shipment, and a manager approves the request again.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Confirm the shipment' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Withdraw the prepared shipment' })).toBeInTheDocument()
+  })
+})
+

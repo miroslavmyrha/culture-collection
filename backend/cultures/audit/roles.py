@@ -116,6 +116,7 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     "distribution_requestcounter": ("SELECT", "INSERT", "UPDATE"),
     "distribution_requestline": ("SELECT", "INSERT"),
     "distribution_linepermit": ("SELECT", "INSERT"),
+    "distribution_findingdecision": ("SELECT", "INSERT"),
     "distribution_mtaacceptance": ("SELECT", "INSERT"),
     "distribution_vialreservation": ("SELECT", "INSERT", "UPDATE"),
     # #144: a depositor's answer is only added (frozen by its trigger).

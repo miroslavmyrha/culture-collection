@@ -6,7 +6,7 @@ import { isApiError } from '@/lib/api'
 import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { useRequest } from '../api/queries'
 import { awaitingAnswer, type Line, openPreparation, type Preparation, type Request, type Role, STATUS_LABELS } from '../schemas'
-import { AcceptanceDialog, ApproveDialog, CancelDialog, type Common, ConfirmShipmentDialog, DepositorAnswerDialog, RejectDialog, ShipDialog, WithdrawShipmentDialog } from './RequestDialogs'
+import { AcceptanceDialog, ApproveAgainDialog, ApproveDialog, CancelDialog, type Common, ConfirmShipmentDialog, DepositorAnswerDialog, RejectDialog, ShipDialog, WithdrawShipmentDialog } from './RequestDialogs'
 import { type Kind } from './RequestDecision'
 import { AcceptancesSection, AnswersSection, AskedSection, DecisionSection, FindingsSection, PreparedSection, ShipmentSections, StrainsSection, VialsSection, WithdrawnSection } from './RequestSections'
 import { PackageFacts } from './requestParts'
@@ -107,6 +107,7 @@ const PrepareDialog = (props: Common) => <ShipDialog prepare {...props} />
 /** The dialogs that need nothing from the page beyond the request. */
 const DIALOGS: Record<Exclude<Kind, 'confirm' | 'yes' | 'no'>, ComponentType<Common>> = {
   approve: ApproveDialog,
+  again: ApproveAgainDialog,
   reject: RejectDialog,
   cancel: CancelDialog,
   ship: ShipDialog,

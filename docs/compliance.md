@@ -640,8 +640,13 @@ and the rules and duties it decides are changed in the same commit.
 
 - Kind: own control
 - Source: ADR 0009, amendment 2026-10-20. No law read asks it.
-- Code: `backend/cultures/distribution/services/decisions.py::request_approve`, `backend/cultures/distribution/services/errors.py::ManagerRequired`
-- Tests: `backend/cultures/distribution/tests/test_services.py::test_a_regulated_line_needs_a_manager_and_a_reason`, `backend/cultures/distribution/tests/test_policy.py::test_a_regulated_strain_needs_a_manager`
+- Code: `backend/cultures/distribution/services/decisions.py::request_approve`, `backend/cultures/distribution/services/errors.py::ManagerRequired`, `backend/cultures/distribution/services/decisions.py::request_approve_again`, `backend/cultures/distribution/policy.py::undecided`, `backend/cultures/distribution/services/shipment.py::_gates_today`, `backend/cultures/distribution/models.py::FindingDecision`
+- Tests: `backend/cultures/distribution/tests/test_services.py::test_a_regulated_line_needs_a_manager_and_a_reason`, `backend/cultures/distribution/tests/test_policy.py::test_a_regulated_strain_needs_a_manager`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_restriction_added_after_the_approval_stops_the_preparation`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_risk_group_raised_after_the_approval_stops_the_one_step_shipment`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_work_permit_ended_after_the_approval_stops_the_one_step_shipment`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_finding_decided_at_the_approval_is_not_asked_again`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_finding_on_another_line_is_another_finding`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_manager_approves_again_and_two_other_people_ship_it`, `backend/cultures/distribution/tests/test_approve_again.py::test_who_approved_again_does_not_confirm`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_curator_does_not_approve_again_and_a_manager_gives_a_reason`
+- Limits: a finding that asks for a manager and arises after the approval (a restriction added,
+  a risk group raised to 3, a requester's work permit ended) is decided by a manager approving
+  the request again, with a reason, before it is prepared or shipped (#263); the approval itself
+  stays as it was given, and each decided finding is a row of its own. A prepared shipment is
+  withdrawn first. Who approved again does not confirm the shipment.
 - Gate codes: `regulated`
 
 #### R-DIST-04 A VRAT goes only to the holder of a valid SÚJB permit that names it, or under an SÚJB exception
