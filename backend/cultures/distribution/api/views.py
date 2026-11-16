@@ -8,6 +8,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import Serializer
@@ -16,6 +17,7 @@ from cultures.biosafety.policy import permit_today
 from cultures.core.api import ScopedViewSetMixin
 from cultures.core.errors import PROBLEM_CONTENT_TYPE as PROBLEM
 from cultures.core.errors import ProblemSerializer
+from cultures.core.parsers import LimitedJSONParser
 from cultures.deposits.models import Use
 from cultures.distribution import policy, selectors, services
 from cultures.distribution.filters import PermitFilter, RequesterFilter, RequestFilter
@@ -103,6 +105,10 @@ def _input(serializer: type[Serializer[None]], view: Any, request: Request) -> A
     data = serializer(data=request.data, context=view.get_serializer_context())
     data.is_valid(raise_exception=True)
     return data.validated_data
+
+
+# The views that take a file read multipart; every other view reads JSON only (#41).
+UPLOAD_PARSERS = [MultiPartParser, LimitedJSONParser]
 
 
 def _content(upload: UploadedFile[bytes]) -> services.DocumentInput:
@@ -212,6 +218,8 @@ class RequesterViewSet(LabNested):
 # record and end them; nothing is deleted.
 @extend_schema(parameters=[LAB_PARAMETER])
 class PermitViewSet(LabNested):
+    # A permit is created with its document; ending one is JSON (#41).
+    parser_classes = UPLOAD_PARSERS
     action_perms = {
         "list": Perm.VIEW_REQUESTERS,
         "retrieve": Perm.VIEW_REQUESTERS,
@@ -487,7 +495,7 @@ class RequestViewSet(LabNested):
             (409, PROBLEM): STATE,
         },
     )
-    @action(detail=True, methods=["post"], url_path="acceptances")
+    @action(detail=True, methods=["post"], url_path="acceptances", parser_classes=UPLOAD_PARSERS)
     def acceptances(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         target: DistributionRequest = self.get_object()
         values = _input(AcceptanceInputSerializer, self, request)
@@ -517,7 +525,9 @@ class RequestViewSet(LabNested):
     )
     # What the depositor answered for a line whose terms leave the use on request (#144). A no
     # rejects the request with the answer as the reason.
-    @action(detail=True, methods=["post"], url_path="depositor-answers")
+    @action(
+        detail=True, methods=["post"], url_path="depositor-answers", parser_classes=UPLOAD_PARSERS
+    )
     def depositor_answers(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         target: DistributionRequest = self.get_object()
         values = _input(DepositorAnswerInputSerializer, self, request)

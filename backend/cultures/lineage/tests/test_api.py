@@ -125,7 +125,9 @@ def test_a_passage_names_its_place_in_the_tree(
         PASSAGES_URL, {"source_passage": str(passage0.public_id)}, content_type="application/json"
     ).json()
     vial = vials_of(make_batch(Passage.objects.get(public_id=first["public_id"]), vial_count=2))[1]
-    revived = client.post(f"{VIALS_URL}{vial.public_id}/revive/").json()
+    revived = client.post(
+        f"{VIALS_URL}{vial.public_id}/revive/", content_type="application/json"
+    ).json()
     rows = client.get(PASSAGES_URL, {"strain": str(strain.public_id)}).json()["results"]
     tree = {row["number"]: (row["parent"], row["source_vial_label"]) for row in rows}
     assert tree == {
@@ -147,7 +149,9 @@ def test_the_passage_list_is_flat_with_revivals(
     query_baseline: QueryBaseline,
 ) -> None:
     for vial in vials_of(make_batch(passage0, vial_count=revivals)):
-        logged_in(technician).post(f"{VIALS_URL}{vial.public_id}/revive/")
+        logged_in(technician).post(
+            f"{VIALS_URL}{vial.public_id}/revive/", content_type="application/json"
+        )
     client = logged_in(viewer)
     with query_baseline("passage_list"):
         rows = client.get(PASSAGES_URL).json()["results"]
@@ -230,11 +234,15 @@ def test_a_revival_through_the_api(
     technician: User, passage0: Passage, make_batch: MakeBatch
 ) -> None:
     vial = vials_of(make_batch(passage0, vial_count=1))[0]
-    response = logged_in(technician).post(f"{VIALS_URL}{vial.public_id}/revive/")
+    response = logged_in(technician).post(
+        f"{VIALS_URL}{vial.public_id}/revive/", content_type="application/json"
+    )
     assert response.status_code == 201
     assert (response.json()["number"], response.json()["source_kind"]) == (1, "vial")
     assert_problem(
-        logged_in(technician).post(f"{VIALS_URL}{vial.public_id}/revive/"),
+        logged_in(technician).post(
+            f"{VIALS_URL}{vial.public_id}/revive/", content_type="application/json"
+        ),
         400,
         "transition_not_allowed",
         "status",

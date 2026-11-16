@@ -62,6 +62,8 @@ MIDDLEWARE = [
     # First: probes answer before host validation, SSL redirect and sessions.
     "cultures.core.health.HealthCheckMiddleware",
     "cultures.core.request_id.RequestIdMiddleware",
+    # Before anything reads the body: a body declared over the cap is refused unread (#41).
+    "cultures.core.middleware.RequestSizeLimitMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "cultures.core.middleware.PermissionsPolicyMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",
@@ -175,12 +177,15 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # Body limits. Django checks DATA_UPLOAD_MAX_MEMORY_SIZE when request.body is read,
 # and DRF >= 3.17.2 parses JSON and form bodies from request.body, so JSON gets a
 # 413 from Django. The API's JSON parser (cultures.core.parsers) caps its read too,
-# as a second line. Django has no limit on multipart file size: the proxy's
-# client_max_body_size is the cap.
+# as a second line. Django has no limit on multipart file size: REQUEST_MAX_BYTES below
+# caps every body in the app (#41), and the proxy's client_max_body_size is the outer line.
 DATA_UPLOAD_MAX_MEMORY_SIZE = env_int("DATA_UPLOAD_MAX_MEMORY_SIZE", default=2 * 1024 * 1024)
 DATA_UPLOAD_MAX_NUMBER_FIELDS = env_int("DATA_UPLOAD_MAX_NUMBER_FIELDS", default=1000)
 DATA_UPLOAD_MAX_NUMBER_FILES = env_int("DATA_UPLOAD_MAX_NUMBER_FILES", default=20)
 FILE_UPLOAD_MAX_MEMORY_SIZE = 0  # uploads stream to a temp file (tmpfs /tmp in the image)
+# The largest body the app reads at all (cultures.core.middleware.RequestSizeLimitMiddleware):
+# the largest document (10 MB, distribution.models.MAX_DOCUMENT_BYTES) and its form fields.
+REQUEST_MAX_BYTES = env_int("REQUEST_MAX_BYTES", default=11 * 1024 * 1024)
 
 # Session auth for the SPA: the session cookie is HttpOnly, the CSRF cookie is
 # readable by the SPA, which sends it back in the X-CSRFToken header.
@@ -267,10 +272,8 @@ REST_FRAMEWORK: dict[str, Any] = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["cultures.core.authentication.SessionAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
-    "DEFAULT_PARSER_CLASSES": [
-        "cultures.core.parsers.LimitedJSONParser",
-        "rest_framework.parsers.MultiPartParser",
-    ],
+    # JSON only: the three views that take a file accept multipart themselves (#41).
+    "DEFAULT_PARSER_CLASSES": ["cultures.core.parsers.LimitedJSONParser"],
     "DEFAULT_SCHEMA_CLASS": "cultures.core.schema.AutoSchema",
     "DEFAULT_METADATA_CLASS": None,  # OPTIONS answers 405 instead of describing endpoints
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],

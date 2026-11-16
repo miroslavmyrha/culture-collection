@@ -117,11 +117,13 @@ def _django_problem(status: int, code: str, detail: str) -> JsonResponse:
     )
 
 
+def request_too_large() -> JsonResponse:
+    return _django_problem(413, RequestTooLarge.default_code, str(RequestTooLarge.default_detail))
+
+
 def bad_request(request: HttpRequest, exception: Exception | None = None) -> JsonResponse:
     if isinstance(exception, RequestDataTooBig):
-        return _django_problem(
-            413, RequestTooLarge.default_code, str(RequestTooLarge.default_detail)
-        )
+        return request_too_large()
     return _django_problem(400, "bad_request", "Bad request.")
 
 

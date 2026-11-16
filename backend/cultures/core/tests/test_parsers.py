@@ -66,3 +66,30 @@ def test_objects_count_towards_the_depth_as_arrays_do() -> None:
     deeper = b'{"a":[' + body + b"]}"
     with pytest.raises(ParseError, match="nested"):
         LimitedJSONParser().parse(io.BytesIO(deeper), "application/json", {})
+
+
+# The cap on every body, and multipart only where a file is taken (#41).
+
+
+@pytest.mark.django_db
+@override_settings(REQUEST_MAX_BYTES=LIMIT)
+def test_a_body_declared_over_the_cap_is_refused_before_it_is_read() -> None:
+    client = Client(raise_request_exception=False)
+    body = b"x" * (LIMIT + 1)
+    response = client.post("/api/v1/auth/login/", body, content_type="application/json")
+    assert_problem(response, 413, "request_too_large")
+
+
+@pytest.mark.django_db
+@override_settings(REQUEST_MAX_BYTES=LIMIT)
+def test_a_body_at_the_cap_is_read() -> None:
+    client = Client(raise_request_exception=False)
+    response = client.post("/api/v1/auth/login/", body_of(LIMIT), content_type="application/json")
+    assert response.status_code != 413
+
+
+@pytest.mark.django_db
+def test_a_multipart_body_to_a_view_that_takes_no_file_is_unsupported() -> None:
+    client = Client(enforce_csrf_checks=False, raise_request_exception=False)
+    response = client.post("/api/v1/auth/login/", {"username": "a", "password": "b"})
+    assert_problem(response, 415, "unsupported_media_type")
