@@ -186,6 +186,10 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 0  # uploads stream to a temp file (tmpfs /tmp in 
 # The largest body the app reads at all (cultures.core.middleware.RequestSizeLimitMiddleware):
 # the largest document (10 MB, distribution.models.MAX_DOCUMENT_BYTES) and its form fields.
 REQUEST_MAX_BYTES = env_int("REQUEST_MAX_BYTES", default=11 * 1024 * 1024)
+# An inbound X-Request-ID is kept only when a proxy in front sets it on every request and
+# drops the client's (#41). Off, the app makes its own id, so a client cannot choose which
+# rows of the audit trail share a request id.
+REQUEST_ID_FROM_PROXY = env_bool("REQUEST_ID_FROM_PROXY", default=False)
 
 # Session auth for the SPA: the session cookie is HttpOnly, the CSRF cookie is
 # readable by the SPA, which sends it back in the X-CSRFToken header.
@@ -300,6 +304,9 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "cultures API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # The schema endpoint answers signed-in users only (#41); openapi.yml in the repo is the
+    # public copy.
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAuthenticated"],
     "COMPONENT_SPLIT_REQUEST": True,  # separate input and output schemas for generated TS types
     # One name per choice set, so the TS types have one Role, not one per field that uses it.
     "ENUM_NAME_OVERRIDES": {

@@ -31,7 +31,7 @@ from .conftest import PASSWORD, make_user, trail
 from .test_admin import form_of
 from .test_login_limits import HOME, admin, api
 
-pytestmark = pytest.mark.django_db
+pytestmark = [pytest.mark.django_db, pytest.mark.usefixtures("behind_proxy")]
 REASON = "erasure request 2026-114, checked by the data protection office"
 
 

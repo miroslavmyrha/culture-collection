@@ -5,6 +5,7 @@ from collections.abc import Iterator
 import pytest
 from django.conf import settings
 from django.core.cache import cache
+from pytest_django.fixtures import Settings
 
 # Before the import below: asserts in the shared test tools then report their values
 # the way asserts in tests do.
@@ -69,3 +70,10 @@ def query_baseline(request: pytest.FixtureRequest) -> QueryBaseline:
     See cultures.core.testing.queries for how to record and review the counts.
     """
     return baseline_for(request.path)
+
+
+@pytest.fixture
+def behind_proxy(settings: Settings) -> None:
+    """A request through a proxy that sets X-Request-ID: the app keeps the inbound id (#41).
+    Without it the app makes its own id, whatever the client sends."""
+    settings.REQUEST_ID_FROM_PROXY = True

@@ -16,7 +16,7 @@ from cultures.users.models import User
 
 from .conftest import MEMBERS_URL, membership
 
-pytestmark = pytest.mark.django_db
+pytestmark = [pytest.mark.django_db, pytest.mark.usefixtures("behind_proxy")]
 
 
 def rows(label: str = "labs.membership") -> list[Any]:

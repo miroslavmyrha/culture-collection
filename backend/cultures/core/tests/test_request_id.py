@@ -13,6 +13,7 @@ pytestmark = pytest.mark.django_db
 GENERATED = re.compile(r"^[0-9a-f]{32}$")
 
 
+@pytest.mark.usefixtures("behind_proxy")
 def test_valid_inbound_request_id_is_kept_and_logged(
     client: Client, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -26,6 +27,14 @@ def test_valid_inbound_request_id_is_kept_and_logged(
     assert {r.request_id for r in records} == {"proxy-1234"}  # type: ignore[attr-defined]
 
 
+def test_a_client_request_id_is_ignored_without_a_proxy(client: Client) -> None:
+    # #41: a client must not pick the request id its audit rows carry.
+    response = client.get("/api/v1/auth/csrf/", HTTP_X_REQUEST_ID="other-request-1234")
+    assert response["X-Request-ID"] != "other-request-1234"
+    assert GENERATED.match(response["X-Request-ID"])
+
+
+@pytest.mark.usefixtures("behind_proxy")
 @pytest.mark.parametrize("inbound", ["bad id", "x" * 65, "a\nb", "<script>"])
 def test_invalid_inbound_request_id_is_replaced(client: Client, inbound: str) -> None:
     response = client.get("/api/v1/auth/csrf/", HTTP_X_REQUEST_ID=inbound)

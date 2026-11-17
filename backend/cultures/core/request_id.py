@@ -1,11 +1,13 @@
 """Request id: one id per request in the logs and the X-Request-ID response header.
 
-An inbound X-Request-ID (from the proxy) is kept only when it is a short token
-of letters, digits and hyphens; anything else is replaced, so a client cannot
-inject text into the logs. The id lives in a ContextVar. It is cleared on
-request_finished, not when the middleware returns, because Django logs 4xx and
-5xx responses (django.request) after the middleware chain; a reused worker
-thread still never carries an old id into the next request.
+An inbound X-Request-ID is read only when REQUEST_ID_FROM_PROXY says a proxy in
+front sets it (#41), and kept only when it is a short token of letters, digits
+and hyphens; anything else is replaced, so a client cannot inject text into the
+logs or group its rows in the audit trail with another request's. The id lives
+in a ContextVar. It is cleared on request_finished, not when the middleware
+returns, because Django logs 4xx and 5xx responses (django.request) after the
+middleware chain; a reused worker thread still never carries an old id into the
+next request.
 """
 
 import logging
@@ -14,6 +16,7 @@ import uuid
 from collections.abc import Callable
 from contextvars import ContextVar
 
+from django.conf import settings
 from django.core.signals import request_finished
 from django.dispatch import receiver
 from django.http import HttpRequest, HttpResponse
@@ -46,7 +49,8 @@ class RequestIdMiddleware:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
-        request_id = accept_or_generate(request.headers.get(HEADER))
+        inbound = request.headers.get(HEADER) if settings.REQUEST_ID_FROM_PROXY else None
+        request_id = accept_or_generate(inbound)
         request_id_var.set(request_id)
         response = self.get_response(request)
         response[HEADER] = request_id
