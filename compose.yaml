@@ -10,7 +10,8 @@ services:
       POSTGRES_DB: cultures
       POSTGRES_USER: cultures
       POSTGRES_PASSWORD: cultures
-    ports: ["${DB_PORT:-5432}:5432"]
+    # Loopback only (#261): the database has a known password, and neither belongs on a shared network.
+    ports: ["127.0.0.1:${DB_PORT:-5432}:5432"]
     volumes: ["db-data:/var/lib/postgresql"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cultures -d cultures"]
@@ -28,7 +29,7 @@ services:
       # the runtime role of ADR 0005 instead and turns on its readiness check.
       DATABASE_URL: ${BACKEND_DATABASE_URL:-postgres://cultures:cultures@db:5432/cultures}
       DB_RUNTIME_ROLE_REQUIRED: ${DB_RUNTIME_ROLE_REQUIRED:-false}
-    ports: ["${BACKEND_PORT:-8000}:8000"]
+    ports: ["127.0.0.1:${BACKEND_PORT:-8000}:8000"]
     # The virtualenv lives in /venv inside the image, outside this mount. docs/ is read by
     # core/tests/test_compliance.py (docs/compliance.md against the code and the tests).
     volumes: ["./backend:/app", "./docs:/docs:ro"]
