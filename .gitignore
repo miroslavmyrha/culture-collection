@@ -9,3 +9,6 @@ node_modules/
 frontend/dist/
 frontend/test-results/
 frontend/playwright-report/
+deploy/.env
+deploy/secrets/
+deploy/certs/

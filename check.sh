@@ -53,10 +53,15 @@ docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/tools/semgrep:/rule
   || fail "Semgrep rule tests: a rule no longer fires as its fixture says (see above)"
 
 echo "== base images"
-# Every image the backend is built from is pinned by digest (#262); stage names are not images.
-stages=$(grep -oiE '^FROM .+ AS [a-z0-9_-]+' backend/Dockerfile | awk '{print $NF}')
-unpinned=$(grep -iE '^FROM ' backend/Dockerfile | awk '{print $2}' | grep -vxF -f <(printf '%s\n' $stages) | grep -v '@sha256:' || true)
-[ -z "$unpinned" ] || fail "backend/Dockerfile takes an image without a digest: $unpinned"
+# Every image the app is built from or runs is pinned by digest (#262, #178); stage names are not
+# images, and the production compose file names its own images by variable.
+for dockerfile in backend/Dockerfile frontend/Dockerfile; do
+  stages=$(grep -oiE '^FROM .+ AS [a-z0-9_-]+' "$dockerfile" | awk '{print $NF}')
+  unpinned=$(grep -iE '^FROM ' "$dockerfile" | awk '{print $2}' | grep -vxF -f <(printf '%s\n' $stages) | grep -v '@sha256:' || true)
+  [ -z "$unpinned" ] || fail "$dockerfile takes an image without a digest: $unpinned"
+done
+unpinned=$(grep -E '^ +image: ' deploy/compose.yaml | grep -v '\${' | grep -v '@sha256:' || true)
+[ -z "$unpinned" ] || fail "deploy/compose.yaml runs an image without a digest: $unpinned"
 
 echo "== CI"
 # The e2e job must run the API as the runtime role (ADR 0005), as production does.

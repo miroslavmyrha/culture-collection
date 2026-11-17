@@ -96,6 +96,27 @@ docker build -t cultures-api backend
 docker run --read-only --tmpfs /tmp -p 8000:8000 --env-file prod.env cultures-api
 ```
 
+### One host: deploy/
+`deploy/compose.yaml` runs the database, the API and the proxy on one Linux host (ADR 0009
+hosting). The proxy (`frontend/Dockerfile`, nginx) terminates TLS, serves the SPA with a fresh
+CSP nonce per response, passes `/api`, `/static` and the admin path to gunicorn with
+`X-Forwarded-For` and `X-Request-ID`, and caps the body at 11 MB. Only the proxy publishes
+ports, the database network is internal, every container drops its capabilities, and the API
+and the proxy run read-only.
+
+1. `cp deploy/.env.example deploy/.env` and fill it in.
+2. `deploy/deploy.sh secrets` writes random secrets to `deploy/secrets/` (the folder mode 700, the
+   files 644 so the containers read them). Keep a
+   copy off the host with the backups.
+3. Put `fullchain.pem` and `privkey.pem` in `deploy/certs/` (or `TLS_DIR`), readable by uid
+   101. Renew them outside the stack (certbot on the host, an institution's CA), then
+   `docker compose -f deploy/compose.yaml exec proxy nginx -s reload`.
+4. `deploy/deploy.sh`: builds the images, creates the roles, migrates as the migration role
+   and starts the API as the runtime role, then the proxy. The same command deploys an update.
+
+`deploy/e2e-production.sh` runs the e2e suite once through this stack with a self-signed
+certificate and throwaway secrets; CI runs it on every pull request.
+
 ### Database roles (once per database)
 The app never connects as the owner of its tables (ADR 0005). As a superuser, or the
 database owner with CREATEROLE, create the roles and their privileges, then set the

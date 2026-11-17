@@ -61,15 +61,24 @@ test('wrong password shows an error', async ({ page }) => {
   await expect(page).toHaveURL('/login')
 })
 
-test('sends exactly the production CSP, the security headers and the nonce placeholder', async ({ page }) => {
+// `vite preview` sends the placeholder as the nonce; the production proxy (E2E_BASE_URL,
+// deploy/e2e-production.sh, #178) puts a fresh random one in each response.
+const PROXIED = process.env.E2E_BASE_URL !== undefined
+const EXPECTED_NONCE = PROXIED ? /^[0-9a-f]{32}$/ : /^__CSP_NONCE__$/
+// How CSS-in-JS reads the nonce: the property, because browsers hide the attribute.
+const pageNonce = (page: Page) => page.evaluate(() => document.querySelector<HTMLMetaElement>('meta[property="csp-nonce"]')?.nonce ?? '')
+
+test('sends exactly the production CSP, the security headers and the nonce of the page', async ({ page }) => {
   const response = await page.goto('/login')
   const headers = response?.headers() ?? {}
+  const nonce = await pageNonce(page)
+  expect(nonce).toMatch(EXPECTED_NONCE)
   // A reviewed security contract, not a snapshot: every relaxation (unsafe-eval, unsafe-inline,
   // a default Trusted Types policy, a new host) has to change this map in review.
   expect(parseCsp(headers['content-security-policy'] ?? '')).toEqual({
     'default-src': ["'self'"],
     'script-src': ["'self'"],
-    'style-src': ["'self'", "'nonce-__CSP_NONCE__'"],
+    'style-src': ["'self'", `'nonce-${nonce}'`],
     'img-src': ["'self'", 'data:'],
     'font-src': ["'self'"],
     'connect-src': ["'self'"],
@@ -89,9 +98,9 @@ test('sends exactly the production CSP, the security headers and the nonce place
     'x-content-type-options': 'nosniff',
   })
   expect(headers['permissions-policy']).toContain('camera=()')
-  // How CSS-in-JS reads the nonce: the property, because browsers hide the attribute.
-  const nonce = await page.evaluate(() => document.querySelector<HTMLMetaElement>('meta[property="csp-nonce"]')?.nonce)
-  expect(nonce).toBe('__CSP_NONCE__')
+  // Behind the proxy each response has its own nonce.
+  await page.reload()
+  if (PROXIED) expect(await pageNonce(page)).not.toBe(nonce)
 })
 
 test('enforces Trusted Types, and no policy may be created', async ({ page }) => {
@@ -135,7 +144,7 @@ test('MUI styles apply under the production CSP: every emotion style carries the
     const emotion = [...document.querySelectorAll<HTMLStyleElement>('style[data-emotion]')]
     return { nonce, count: emotion.length, withNonce: emotion.filter((style) => style.nonce === nonce).length }
   })
-  expect(styles.nonce).toBe('__CSP_NONCE__')
+  expect(styles.nonce).toMatch(EXPECTED_NONCE)
   expect(styles.count).toBeGreaterThan(0)
   expect(styles.withNonce).toBe(styles.count)
   expect(violations()).toEqual([])

@@ -1,9 +1,12 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const port = Number(process.env.E2E_PORT ?? 4173)
+// E2E_BASE_URL: a running production stack (deploy/e2e-production.sh, #178), behind the proxy
+// with a self-signed certificate; nothing is started here then.
+const external = process.env.E2E_BASE_URL
 
 // Runs against the production build served by `vite preview` with the production
-// CSP header, proxying /api to a running backend (VITE_API_PROXY).
+// CSP header, proxying /api to a running backend (VITE_API_PROXY), or against E2E_BASE_URL.
 export default defineConfig({
   testDir: './e2e',
   // The role walkthroughs run on demand with their own config (npm run walkthroughs).
@@ -18,14 +21,14 @@ export default defineConfig({
   // wait that 3 loaded runs did not reproduce.
   timeout: 150_000,
   expect: { timeout: 15_000 },
-  use: { baseURL: `http://localhost:${port}`, trace: 'retain-on-failure' },
+  use: { baseURL: external ?? `http://localhost:${port}`, ignoreHTTPSErrors: external !== undefined, trace: 'retain-on-failure' },
   // setup signs each e2e user in once (e2e/auth.setup.ts), so the run stays under the login
   // throttle; every spec runs after it and reuses those sessions.
   projects: [
     { name: 'setup', testMatch: /auth\.setup\.ts/ },
     { name: 'chromium', use: { ...devices['Desktop Chrome'] }, dependencies: ['setup'] },
   ],
-  webServer: {
+  webServer: external ? undefined : {
     command: `npm run build && npx vite preview --port ${port} --strictPort`,
     url: `http://localhost:${port}`,
     reuseExistingServer: false,
