@@ -13,11 +13,10 @@ from cultures.core.testing import QueryBaseline, assert_problem, logged_in
 from cultures.deposits.tests.support import DUAL_USE, MakeDeposit
 from cultures.distribution.models import Requester
 from cultures.distribution.tests.support import Supply, accept_mtas, approve, as_actor, submit
-from cultures.labs import services as labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
-from cultures.labs.tests.conftest import membership
+from cultures.labs.tests.conftest import confirmed_grant
 from cultures.lineage import services as lineage
 from cultures.lineage.models import Batch, Passage
 from cultures.lineage.tests.support import preserve, vials_of
@@ -97,13 +96,7 @@ def test_a_placement_says_which_vial_never_where(
     history holds the label alone, for a holder of the location grant too."""
     strain = supply(mockia, restrictions=[DUAL_USE], release=False)
     vial = vials_of(Batch.objects.get(strain=strain))[0]
-    with as_actor(manager):
-        labs.location_grant_add(
-            access=access_for(manager),
-            lab=strain.lab,
-            membership=membership(manager, strain.lab),
-            reason="Register.",
-        )
+    confirmed_grant(strain.lab, manager, manager, "Register.")
     with as_actor(curator):
         lineage.vial_place(access=access_for(curator), vial=vial, box=tree.box, row=3, col=4)
     with as_actor(manager):
@@ -145,13 +138,7 @@ def test_a_location_grant_is_never_in_a_strains_history(
 ) -> None:
     strain = supply(release=False)
     manager = team[Role.MANAGER]
-    with as_actor(manager):
-        labs.location_grant_add(
-            access=access_for(manager),
-            lab=lab,
-            membership=membership(team[Role.VIEWER], lab),
-            reason="Register.",
-        )
+    confirmed_grant(lab, manager, team[Role.VIEWER], "Register.")
     assert not [s for s in summaries(manager, strain) if "regulated locations" in s]
 
 

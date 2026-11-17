@@ -251,10 +251,20 @@ STORAGE_UNIT_STATUS_CHANGED = register(
 )
 
 # Location grants (ADR 0009, amendment of 2026-10-19): who may see where a lab's regulated
-# strains are stored. Per person, with a reason both ways.
+# strains are stored. Per person, with a reason each step. One manager proposes, another
+# confirms (#267); a grant reveals nothing before the confirmation.
 LOCATION_GRANT_ADDED = register(
     EventType(
-        "location_grant_added", "{actor} let {user} see regulated locations", reason_required=True
+        "location_grant_added",
+        "{actor} proposed that {user} see regulated locations",
+        reason_required=True,
+    )
+)
+LOCATION_GRANT_CONFIRMED = register(
+    EventType(
+        "location_grant_confirmed",
+        "{actor} confirmed that {user} may see regulated locations",
+        reason_required=True,
     )
 )
 LOCATION_GRANT_REVOKED = register(
@@ -952,6 +962,8 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "user_id",
             "granted_by_id",
             "reason",
+            "confirmed_at",
+            "confirmed_by_id",
             "revoked_at",
             "revoked_by_id",
             "revoke_reason",

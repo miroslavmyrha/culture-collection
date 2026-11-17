@@ -2,7 +2,8 @@ import { type Page, expect, test } from '@playwright/test'
 import { RUN, Walk, acceptedStrain, api, batchOf, field, labId, openLab, openWaiting, passAll, release, requestFor, rows, searchStrain, setupAs, supplyStrain } from './walk.js'
 
 // A manager of Bacteriology and of Regulated agents (seed_dev): people, rights, the VRAT access
-// list and the lab's legal texts. dev-no-lab is a user in no lab, reg-technician works in Regulated agents.
+// list and the lab's legal texts. dev-no-lab is a user in no lab, reg-technician works in Regulated agents,
+// reg-deputy is its second manager, who confirms a location grant reg-manager proposed (#267).
 const BAC = 'Bacteriology'
 const REG = 'Regulated agents'
 const COLLEAGUE = 'dev-no-lab'
@@ -15,13 +16,19 @@ async function membership(page: Page, lab: string, username: string, role: strin
   if (role !== null) await api(page, lab, 'members/', { username, role })
 }
 
-/** Gives or takes the location grant of a member of Regulated agents, before a task. */
-async function grant(page: Page, lab: string, username: string, open: boolean) {
+/** Takes the location grant of a member of Regulated agents away, and proposes it again when asked, before a task. */
+async function grant(page: Page, lab: string, username: string, propose: boolean) {
   const current = rows(await api(page, lab, 'location-grants/')).find((g) => g.username === username)
   if (current !== undefined) await api(page, lab, `location-grants/${field(current, 'public_id')}/revoke/`, { reason: 'Reset before a walkthrough.' })
-  if (!open) return
+  if (!propose) return
   const member = rows(await api(page, lab, 'members/?limit=200')).find((m) => m.username === username)
   await api(page, lab, 'location-grants/', { member: field(member, 'public_id'), reason: 'Set up before a walkthrough.' })
+}
+
+/** A second manager confirms the member's proposed grant (#267), before a task. */
+async function confirmGrant(page: Page, lab: string, username: string) {
+  const current = rows(await api(page, lab, 'location-grants/')).find((g) => g.username === username)
+  await api(page, lab, `location-grants/${field(current, 'public_id')}/confirm/`, { reason: 'Set up before a walkthrough.' })
 }
 
 /** Takes a member of Regulated agents off its VRAT access list (#167), before a task. */
@@ -30,7 +37,7 @@ async function offVratList(page: Page, lab: string, username: string) {
   for (const entry of open) await api(page, lab, `vrat-access/${field(entry, 'public_id')}/end/`, { reason: 'Reset before a walkthrough.' })
 }
 
-async function prepare(browser: Parameters<typeof setupAs>[0], user: 'bac-manager' | 'reg-manager', lab: string, step: (page: Page, lab: string) => Promise<void>) {
+async function prepare(browser: Parameters<typeof setupAs>[0], user: 'bac-manager' | 'reg-manager' | 'reg-deputy', lab: string, step: (page: Page, lab: string) => Promise<void>) {
   const setup = await setupAs(browser, user)
   await step(setup.page, await labId(setup.page, lab))
   await setup.close()
@@ -74,21 +81,35 @@ test('M3 remove a member who left', async ({ browser }, info) => {
   await w.done()
 })
 
-test('M4 grant a colleague the right to see regulated locations', async ({ browser }, info) => {
+test('M4 propose a colleague for the right to see regulated locations', async ({ browser }, info) => {
   await prepare(browser, 'reg-manager', REG, (page, lab) => grant(page, lab, 'reg-technician', false))
-  const w = await Walk.as(browser, info, 'reg-manager', manager('M4', 'Grant a colleague the regulated location right'))
+  const w = await Walk.as(browser, info, 'reg-manager', manager('M4', 'Propose a colleague for the regulated location right'))
   await w.start()
   await openLab(w, REG)
-  await w.click(w.page.getByRole('button', { name: 'Grant regulated locations for reg-technician' }))
-  const dialog = w.page.getByRole('dialog', { name: 'Let reg-technician see regulated locations' })
+  await w.click(w.page.getByRole('button', { name: 'Propose regulated locations for reg-technician' }))
+  const dialog = w.page.getByRole('dialog', { name: 'Propose that reg-technician see regulated locations' })
   await w.type(dialog.getByRole('textbox', { name: 'Reason' }), `Takes over the inventory of the locked freezer (${RUN}).`)
-  await w.click(dialog.getByRole('button', { name: 'Grant' }))
+  await w.click(dialog.getByRole('button', { name: 'Propose' }))
+  await expect(w.page.getByRole('table', { name: 'Members' }).getByRole('row', { name: /^reg-technician / })).toContainText('Awaits a second manager')
+  await w.done()
+})
+
+test('M16 confirm the regulated location right another manager proposed', async ({ browser }, info) => {
+  await prepare(browser, 'reg-manager', REG, (page, lab) => grant(page, lab, 'reg-technician', true))
+  const w = await Walk.as(browser, info, 'reg-deputy', manager('M16', 'Confirm the regulated location right another manager proposed'))
+  await w.start()
+  await openLab(w, REG)
+  await w.click(w.page.getByRole('button', { name: 'Confirm regulated locations for reg-technician' }))
+  const dialog = w.page.getByRole('dialog', { name: 'Confirm that reg-technician may see regulated locations' })
+  await w.type(dialog.getByRole('textbox', { name: 'Reason' }), `Checked the inventory plan (${RUN}).`)
+  await w.click(dialog.getByRole('button', { name: 'Confirm' }))
   await expect(w.page.getByRole('table', { name: 'Members' }).getByRole('row', { name: /^reg-technician / })).toContainText('May see')
   await w.done()
 })
 
 test('M5 revoke the regulated location right', async ({ browser }, info) => {
   await prepare(browser, 'reg-manager', REG, (page, lab) => grant(page, lab, 'reg-technician', true))
+  await prepare(browser, 'reg-deputy', REG, (page, lab) => confirmGrant(page, lab, 'reg-technician'))
   const w = await Walk.as(browser, info, 'reg-manager', manager('M5', 'Revoke the regulated location right'))
   await w.start()
   await openLab(w, REG)

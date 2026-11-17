@@ -28,7 +28,7 @@ async function api(page: Page, lab: string, path: string, body?: Row): Promise<u
   const answer = await page.evaluate(
     async ([labId, url, payload]) => {
       await fetch('/api/v1/auth/csrf/')
-      const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
+      const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
       const target = url.startsWith('/') ? url : `/api/v1/labs/${labId}/${url}`
       const init: RequestInit = { method: payload === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token } }
       if (payload !== undefined) init.body = JSON.stringify(payload)
@@ -71,7 +71,7 @@ async function enterRequest(page: Page, lab: string) {
   const status = await page.evaluate(
     async ([url, id]) => {
       await fetch('/api/v1/auth/csrf/')
-      const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
+      const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
       const data = new FormData()
       for (const [k, v] of Object.entries({ mta: id, signer_name: 'E2E Signatory', signer_role: 'head_of_institution', authorised_signatory: 'true', accepted_on: new Date().toLocaleDateString('sv') })) data.append(k, v)
       data.append('file', new Blob(['%PDF-1.4\n% an invented signed copy of an e2e run\n%%EOF\n'], { type: 'application/pdf' }), 'signed.pdf')

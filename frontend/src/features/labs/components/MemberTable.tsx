@@ -4,7 +4,7 @@ import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { useLocationGrants, useMemberList } from '../api/queries'
 import { type LocationGrant, type Member, type PageParams, ROLE_LABELS, type Role } from '../schemas'
 import { ChangeRoleDialog } from './ChangeRoleDialog'
-import { LocationGrantDialog } from './LocationGrantDialog'
+import { endStep, type GrantStep, LocationGrantDialog } from './LocationGrantDialog'
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
 import { Pager, PastTheEnd } from '@/components/Pager'
@@ -19,7 +19,7 @@ type Props = {
   onOffsetChange: (offset: number) => void
 }
 
-type Kind = 'role' | 'remove' | 'location'
+type Kind = 'role' | 'remove' | GrantStep
 type Open = { kind: Kind; member: Member; open: boolean } | null
 
 const fullName = (m: Member) => [m.first_name, m.last_name].filter(Boolean).join(' ')
@@ -64,25 +64,40 @@ function Members({ labId, labName, grantable, params, onOffsetChange }: Props) {
       <MemberRows
         list={list}
         manage={manage}
-        grants={manage ? { loaded: grants.data !== undefined, failed: grants.data === undefined && grants.isError, of: grantOf } : undefined}
+        grants={manage ? grantsView(grants, grantOf) : undefined}
         params={params}
         onOffsetChange={onOffsetChange}
         show={show}
       />
-      {open?.kind === 'role' && (
-        <ChangeRoleDialog labId={labId} member={open.member} roles={grantable} open={open.open} onClose={close} onExited={exited} />
-      )}
-      {open?.kind === 'location' && (
-        <LocationGrantDialog labId={labId} member={open.member} grant={grantOf(open.member)} open={open.open} onClose={close} onExited={exited} />
-      )}
-      {open?.kind === 'remove' && (
-        <RemoveMemberDialog labId={labId} labName={labName} member={open.member} open={open.open} onClose={close} onExited={exited} />
-      )}
+      {open && <MemberDialog open={open} labId={labId} labName={labName} roles={grantable} grant={grantOf(open.member)} onClose={close} onExited={exited} />}
     </>
   )
 }
 
 type Grants = { loaded: boolean; failed: boolean; of: (member: Member) => LocationGrant | undefined }
+
+/** What the rows know about the grants: loaded, failed, and the grant of a member. */
+function grantsView(grants: ReturnType<typeof useLocationGrants>, of: Grants['of']): Grants {
+  return { loaded: grants.data !== undefined, failed: grants.data === undefined && grants.isError, of }
+}
+
+type DialogProps = {
+  open: NonNullable<Open>
+  labId: string
+  labName: string
+  roles: Role[]
+  grant: LocationGrant | undefined
+  onClose: () => void
+  onExited: () => void
+}
+
+/** The dialog the open action asks for. */
+function MemberDialog({ open, labId, labName, roles, grant, onClose, onExited }: DialogProps) {
+  const common = { labId, member: open.member, open: open.open, onClose, onExited }
+  if (open.kind === 'role') return <ChangeRoleDialog {...common} roles={roles} />
+  if (open.kind === 'remove') return <RemoveMemberDialog {...common} labName={labName} />
+  return <LocationGrantDialog {...common} step={open.kind} grant={grant} />
+}
 
 type RowsProps = {
   list: ReturnType<typeof useMemberList>
@@ -129,15 +144,7 @@ function MemberRows({ list, manage, grants, params, onOffsetChange, show }: Rows
                       <Button size="small" aria-label={`Change role of ${member.username}`} onClick={show('role', member)}>
                         Change role
                       </Button>
-                      {grants?.loaded && (
-                        <Button
-                          size="small"
-                          aria-label={`${grants.of(member) ? 'Revoke' : 'Grant'} regulated locations for ${member.username}`}
-                          onClick={show('location', member)}
-                        >
-                          {grants.of(member) ? 'Revoke locations' : 'Grant locations'}
-                        </Button>
-                      )}
+                      {grants?.loaded && <LocationButtons grant={grants.of(member)} member={member} show={show} />}
                       <Button size="small" color="error" aria-label={`Remove ${member.username}`} onClick={show('remove', member)}>
                         Remove
                       </Button>
@@ -154,8 +161,39 @@ function MemberRows({ list, manage, grants, params, onOffsetChange, show }: Rows
   )
 }
 
+const STEP_LABELS: Record<GrantStep, [string, string]> = {
+  grant: ['Propose regulated locations for', 'Propose locations'],
+  confirm: ['Confirm regulated locations for', 'Confirm locations'],
+  withdraw: ['Withdraw the location proposal for', 'Withdraw proposal'],
+  revoke: ['Revoke regulated locations for', 'Revoke locations'],
+}
+
+type ButtonsProps = { grant: LocationGrant | undefined; member: Member; show: RowsProps['show'] }
+
+/**
+ * Propose, or for an open grant end it, and confirm a proposal another manager made (#267). The
+ * first button stays one element whatever it does, so focus stays on it when it turns from
+ * "Propose" into "Withdraw" after the dialog.
+ */
+function LocationButtons({ grant, member, show }: ButtonsProps) {
+  const main: GrantStep = grant ? endStep(grant) : 'grant'
+  const button = (step: GrantStep) => (
+    <Button size="small" aria-label={`${STEP_LABELS[step][0]} ${member.username}`} onClick={show(step, member)}>
+      {STEP_LABELS[step][1]}
+    </Button>
+  )
+  return (
+    <>
+      {button(main)}
+      {grant?.may_confirm && button('confirm')}
+    </>
+  )
+}
+
 function locationCell(grants: Grants, member: Member): string {
   if (grants.failed) return 'Could not load'
   if (!grants.loaded) return 'Loading…'
-  return grants.of(member) ? 'May see' : 'Hidden'
+  const grant = grants.of(member)
+  if (!grant) return 'Hidden'
+  return grant.confirmed_at ? 'May see' : 'Awaits a second manager'
 }

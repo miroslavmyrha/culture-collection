@@ -61,7 +61,7 @@ const KLM = {
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g
 const screenOf = (path: string) => path.replace(UUID, ':id')
 
-export const DEV_USERS = ['bac-curator', 'bac-technician', 'bac-manager', 'bac-viewer', 'myc-viewer', 'myc-manager', 'reg-manager'] as const
+export const DEV_USERS = ['bac-curator', 'bac-technician', 'bac-manager', 'bac-viewer', 'myc-viewer', 'myc-manager', 'reg-manager', 'reg-deputy'] as const
 export type DevUser = (typeof DEV_USERS)[number]
 
 export class Walk {
@@ -267,7 +267,7 @@ export async function api(page: Page, lab: string, path: string, body?: Row, met
   const answer = await page.evaluate(
     async ([labPublicId, url, payload, verb]) => {
       await fetch('/api/v1/auth/csrf/')
-      const token = /(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
+      const token = /(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
       const target = url.startsWith('/') ? url : `/api/v1/labs/${labPublicId}/${url}`
       const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': decodeURIComponent(token) }
       const init: RequestInit = { method: verb, headers }
@@ -501,7 +501,7 @@ export async function requestFor(page: Page, lab: string, strain: string, quanti
   const status = await page.evaluate(
     async ([url, mtaId]) => {
       await fetch('/api/v1/auth/csrf/')
-      const token = /(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
+      const token = /(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
       const data = new FormData()
       for (const [k, v] of Object.entries({ mta: mtaId, signer_name: 'Walk Signatory', signer_role: 'head_of_institution', authorised_signatory: 'true', accepted_on: new Date().toLocaleDateString('sv') })) data.append(k, v)
       data.append('file', new Blob(['%PDF-1.4\n% walkthrough\n'], { type: 'application/pdf' }), 'signed.pdf')

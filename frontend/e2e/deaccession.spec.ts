@@ -19,7 +19,7 @@ test('C10: a curator deaccessions a strain that no longer grows; its vials are t
   const made = await page.evaluate(
     async ({ run, name, basis }) => {
       await fetch('/api/v1/auth/csrf/')
-      const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
+      const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
       const lab = location.pathname.split('/')[2] ?? ''
       const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
       const send = async (path: string, body: unknown) => {

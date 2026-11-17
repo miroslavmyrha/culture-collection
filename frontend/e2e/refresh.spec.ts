@@ -19,7 +19,7 @@ test("ending a restriction shows the vial's place on the strain page without a r
 
   const made = await page.evaluate(async ({ run, basis }) => {
     await fetch('/api/v1/auth/csrf/')
-    const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
+    const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
     const lab = location.pathname.split('/')[2] ?? ''
     const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
     const send = async (path: string, body: unknown) => {
@@ -82,7 +82,7 @@ test("ending a restriction shows the vial's place on the strain page without a r
   await proposer.goto('/labs')
   await proposer.evaluate(async ({ lab, strain }) => {
     await fetch('/api/v1/auth/csrf/')
-    const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
+    const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
     const detail: { restriction_history: { public_id: string }[] } = await (await fetch(`/api/v1/labs/${lab}/strains/${strain}/`)).json()
     const restriction = detail.restriction_history[0]?.public_id ?? ''
     const response = await fetch(`/api/v1/labs/${lab}/strains/${strain}/restrictions/${restriction}/end-proposal/`, {

@@ -410,26 +410,28 @@ describe('a write refreshes the data other features show', () => {
     expect(units).toHaveLength(1)
   })
 
+  // Mine to revoke, or a colleague's proposal to confirm (#267): either write refreshes the
+  // lab's material, which says whether my vials offer a reveal.
   it.each([
-    ['granting', false, true],
-    ['revoking', true, false],
-  ] as const)('%s my own location grant on the lab page changes whether my vials offer a reveal', async (action, before, after) => {
+    ['revoking my own', 'alice', true, false, 'Revoke regulated locations for alice', 'revoke', 'Revoke'],
+    ["confirming a colleague's", 'bob', false, false, 'Confirm regulated locations for bob', 'confirm', 'Confirm'],
+  ] as const)('%s location grant on the lab page refreshes whether my vials offer a reveal', async (_, holder, before, after, button, step, verb) => {
     const { router, user } = await openStrainPage('manager', regulated, { ...masked, can_reveal: before })
     expect(within(vialRow() ?? document.body).queryAllByRole('button', { name: /Reveal the location/ })).toHaveLength(before ? 1 : 0)
-    const me = makeMember({ username: 'alice', role: 'manager' })
-    mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([me]))
-    const grant = makeLocationGrant({ member: me.public_id, username: 'alice' })
-    mockApi('get', GRANTS, before ? [grant] : [])
+    const member = makeMember({ username: holder, role: 'manager' })
+    mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([member]))
+    const asProposal = holder === 'bob'
+    const grant = makeLocationGrant({ member: member.public_id, username: holder, ...(asProposal ? { confirmed_by: null, confirmed_at: null, may_confirm: true } : {}) })
+    mockApi('get', GRANTS, [grant])
     mockApi('get', '/api/v1/labs/{lab_public_id}/vrat-access/', [])
     await router.navigate({ to: '/labs/$labId', params: { labId: LAB_ID } })
     await screen.findByRole('table', { name: 'Members' })
-    if (action === 'granting') mockApi('post', GRANTS, grant)
+    if (step === 'confirm') mockApi('post', '/api/v1/labs/{lab_public_id}/location-grants/{public_id}/confirm/', { ...grant, confirmed_by: 'alice', confirmed_at: '2026-10-02T09:00:00Z' })
     else mockApi('post', '/api/v1/labs/{lab_public_id}/location-grants/{public_id}/revoke/', undefined)
-    const verb = action === 'granting' ? 'Grant' : 'Revoke'
-    await user.click(await screen.findByRole('button', { name: `${verb} regulated locations for alice` }))
+    await user.click(await screen.findByRole('button', { name: button }))
     const dialog = await screen.findByRole('dialog')
     // The answers after the write, registered only now: the grants loaded above stay as they were.
-    mockApi('get', GRANTS, after ? [grant] : [])
+    mockApi('get', GRANTS, step === 'confirm' ? [{ ...grant, confirmed_by: 'alice', confirmed_at: '2026-10-02T09:00:00Z', may_confirm: false }] : [])
     const vials = mockApi('get', VIALS, page([{ ...masked, can_reveal: after }]))
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'keeps the register')
     await user.click(within(dialog).getByRole('button', { name: verb }))

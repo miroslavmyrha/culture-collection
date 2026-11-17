@@ -1352,3 +1352,32 @@ used for an agent annex 7 names. The seeded pest is Fusarium circinatum (entry B
 which holds the ÚKZÚZ permit, with one request that went out and one refused for want of an
 isolation facility (R-DIST-16). Each rule, its source, its code and its tests are in
 `docs/compliance.md` (R-SEED-01).
+
+## Amendment 2026-11-16: a location grant takes a second manager (#267)
+
+The security audit of 2026-11-15 found that one manager gave the location grant alone, to any
+member or to themselves. Decided 2026-11-16: every grant, to anyone, takes two people.
+
+**Proposed, then confirmed.** A manager proposes a grant with a reason (`location_grant_added`).
+Another manager of the lab, who neither proposed it nor holds it, confirms it with a reason
+(`location_grant_confirmed`). Only a confirmed grant reveals: `holds_location_grant` asks for the
+confirmation, so a proposal reveals nothing. A proposal is withdrawn the way a grant is revoked,
+with a reason. One open row per person and lab stays, proposal or grant.
+
+**The database holds the same rules.** `labs_locationgrant` gets `confirmed_at` and
+`confirmed_by`, both or neither (`labs_locationgrant_confirmation_complete`), and a confirmer who
+is neither the proposer nor the holder (`labs_locationgrant_second_person`). The guard trigger
+lets the confirmation be set once, from nothing, by a manager of the lab, changing nothing else,
+and the revocation after it; nothing changes after a revocation.
+
+**Known limits.** A lab with one manager cannot give the grant: it names a second manager first.
+The seeds do so: seed_dev has `reg-deputy` as a second manager of REG, seed_e2e makes
+`e2e-manager` a manager for the moment it confirms.
+
+Migration impact: additive, `labs` 0007 (the columns and checks, no index on the confirmer, a
+handful of rows per lab) and 0008 (the guard), audit 0040 and 0041 (the reason check, added NOT
+VALID and validated apart). Grants open before the migration stay proposals until a second
+manager confirms them: no production database exists yet (#178). Reversible with `migrate labs
+0006` and `migrate audit 0039`.
+
+Each rule, its source, its code and its tests are in `docs/compliance.md` (R-MASK-06).

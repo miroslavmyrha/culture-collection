@@ -26,7 +26,7 @@ async function openStorage(page: Page) {
 function postUnit(page: Page, body: Record<string, unknown>) {
   return page.evaluate(async (payload) => {
     await fetch('/api/v1/auth/csrf/')
-    const token = /(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
+    const token = /(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
     const lab = location.pathname.split('/')[2] ?? ''
     const response = await fetch(`/api/v1/labs/${lab}/storage-units/`, {
       method: 'POST',

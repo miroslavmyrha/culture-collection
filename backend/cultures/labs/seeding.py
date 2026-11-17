@@ -34,14 +34,25 @@ def no_member(lab: Lab, user: User) -> None:
         services.membership_delete(membership=membership)
 
 
-def location_grant(lab: Lab, user: User, *, granted_by: User, reason: str) -> None:
-    """ADR 0009: the member may see where the lab's regulated strains are, granted by a manager.
-    An open grant is kept as found."""
-    if LocationGrant.objects.filter(lab=lab, user=user, revoked_at__isnull=True).exists():
-        return
-    services.location_grant_add(
-        access=access_for(granted_by),
-        lab=lab,
-        membership=Membership.objects.get(lab=lab, user=user),
-        reason=reason,
-    )
+def only_member(lab: Lab, user: User) -> None:
+    """The user is the lab's one member: every other membership ends."""
+    for membership in Membership.objects.filter(lab=lab).exclude(user=user):
+        services.membership_delete(membership=membership)
+
+
+def location_grant(
+    lab: Lab, user: User, *, granted_by: User, confirmed_by: User, reason: str
+) -> None:
+    """ADR 0009: the member may see where the lab's regulated strains are, proposed by one
+    manager and confirmed by another who is not the member (#267). An open grant is kept as
+    found, and confirmed when it was only proposed."""
+    grant = LocationGrant.objects.filter(lab=lab, user=user, revoked_at__isnull=True).first()
+    if grant is None:
+        grant = services.location_grant_add(
+            access=access_for(granted_by),
+            lab=lab,
+            membership=Membership.objects.get(lab=lab, user=user),
+            reason=reason,
+        )
+    if grant.confirmed_at is None:
+        services.location_grant_confirm(access=access_for(confirmed_by), grant=grant, reason=reason)

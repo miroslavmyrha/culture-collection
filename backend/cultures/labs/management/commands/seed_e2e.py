@@ -12,10 +12,15 @@ Brings the database to this state, whatever it was before:
   same password: the strain tests create strains as the curator and check what a viewer may
   not do, the box grid tests move vials as the technician;
 - e2e-manager, active, with the same password and in no lab: made a manager of the lab only
-  for the moment it approves a regulated request (here for the one below, in distribution.spec.ts
-  for the one that test enters), then removed again, so the e2e user, who did not approve it,
+  for the moment it confirms the e2e user's location grant (#267) and approves a regulated
+  request (here for the one below, in distribution.spec.ts for the one that test enters), then
+  removed again, so the e2e user, who did not approve it,
   may confirm its shipment (#89), and stays the lab's only manager (labs.spec.ts refuses to
   remove the last one);
+- e2e-deputy, active, with the same password and in no lab: reveals.spec.ts makes it a manager
+  of the lab for the moment it confirms a location grant (#267), then removes it again;
+- the lab "E2E solo lab" (code E2S) with the e2e user as its one member, reset to that each
+  run: labs.spec.ts checks there that the last manager stays (#267);
 - the lab "E2E other lab" (code E2O), with e2e-outsider as its viewer (the same password) and
   e2e-other-manager as its manager (no usable password): the search test (#76) shows that a
   viewer finds nothing of a lab they are not in;
@@ -92,6 +97,7 @@ from cultures.labs import seeding as seed_labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Role
+from cultures.labs.services import holds_location_grant
 from cultures.lineage import seeding as seed_lineage
 from cultures.lineage.distributable import distributable
 from cultures.lineage.models import (
@@ -120,7 +126,14 @@ REGULATED_DEPOSIT = "Clostridium tetani e2e regulated"
 REGULATED_BOX = "Box R"
 CURATOR, TECHNICIAN, VIEWER = "e2e-curator", "e2e-technician", "e2e-viewer"
 APPROVER = "e2e-manager"
+# A manager only while reveals.spec.ts confirms a location grant (#267); apart from APPROVER, so
+# that spec and distribution.spec.ts never add and remove the same member at once.
+DEPUTY = "e2e-deputy"
 OTHER_LAB_NAME, OTHER_LAB_CODE = "E2E other lab", "E2O"
+# The e2e user is its one manager, and no spec adds another: labs.spec.ts checks there that the
+# last manager stays, which a temporary second manager of E2E lab (e2e-manager, e2e-deputy) would
+# otherwise let through.
+SOLO_LAB_NAME, SOLO_LAB_CODE = "E2E solo lab", "E2S"
 OUTSIDER, OTHER_MANAGER = "e2e-outsider", "e2e-other-manager"
 SUPPLY = "Bacillus subtilis e2e supply"
 REGULATED_SUPPLY = "Clostridium perfringens e2e supply"
@@ -248,9 +261,13 @@ class Command(BaseCommand):
             seed_labs.member(lab, seed_users.user(VIEWER, password), Role.VIEWER)
             approver = seed_users.user(APPROVER, password)
             seed_labs.no_member(lab, approver)
+            seed_labs.no_member(lab, seed_users.user(DEPUTY, password))
             other = seed_labs.lab(OTHER_LAB_NAME, OTHER_LAB_CODE)
             seed_labs.member(other, seed_users.user(OTHER_MANAGER, None), Role.MANAGER)
             seed_labs.member(other, seed_users.user(OUTSIDER, password), Role.VIEWER)
+            solo = seed_labs.lab(SOLO_LAB_NAME, SOLO_LAB_CODE)
+            seed_labs.member(solo, user, Role.MANAGER)
+            seed_labs.only_member(solo, user)
             seed_biosafety.authorisation(lab, ENDED_PERMIT)
             for row in TAXA:
                 seed_taxa.taxon(row)
@@ -258,7 +275,9 @@ class Command(BaseCommand):
             for name, rows, cols in BOX_TYPES:
                 seed_storage.box_type(name, rows, cols)
             self._storage(lab, User.objects.get(username=CURATOR))
-            self._regulated(lab, curator=User.objects.get(username=CURATOR), manager=user)
+            self._regulated(
+                lab, curator=User.objects.get(username=CURATOR), manager=user, approver=approver
+            )
             self._released(
                 lab,
                 curator=User.objects.get(username=CURATOR),
@@ -279,7 +298,7 @@ class Command(BaseCommand):
             " a released batch of the seeded strain; two strains that may go out, two"
             f" requesters and five requests, two approved, one of them regulated and approved"
             f" by {APPROVER}, who is in no lab; {OUTSIDER} views {OTHER_LAB_NAME}, which"
-            f" {OTHER_MANAGER} manages"
+            f" {OTHER_MANAGER} manages; {username} is the one member of {SOLO_LAB_NAME}"
         )
 
     def _deposit(self, lab: Lab, *, curator: User, manager: User) -> None:
@@ -330,8 +349,9 @@ class Command(BaseCommand):
         """The fixed tree, created when missing and never changed."""
         seed_storage.tree(access_for(curator), lab, (TREE,))
 
-    def _regulated(self, lab: Lab, *, curator: User, manager: User) -> None:
-        """A regulated strain with two placed vials, and the manager's location grant."""
+    def _regulated(self, lab: Lab, *, curator: User, manager: User, approver: User) -> None:
+        """A regulated strain with two placed vials, and the manager's location grant, confirmed
+        by the approver as a second manager for that moment (#267)."""
         access = access_for(curator)
         deposit, _ = seed_deposits.deposit(
             access,
@@ -374,12 +394,17 @@ class Command(BaseCommand):
                 ),
             ),
         )
+        if holds_location_grant(lab_id=lab.pk, user=manager):
+            return
+        seed_labs.member(lab, approver, Role.MANAGER)
         seed_labs.location_grant(
             lab,
             manager,
             granted_by=manager,
+            confirmed_by=approver,
             reason="Keeps the register of the e2e lab (invented example).",
         )
+        seed_labs.no_member(lab, approver)
 
     def _released(self, lab: Lab, *, curator: User, technician: User) -> None:
         """A batch of the seeded strain, checked by the technician and released by the curator."""

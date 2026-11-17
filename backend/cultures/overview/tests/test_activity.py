@@ -19,11 +19,10 @@ from cultures.distribution.tests.support import (
     as_actor,
     submit,
 )
-from cultures.labs import services as labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
-from cultures.labs.tests.conftest import member_of, membership
+from cultures.labs.tests.conftest import confirmed_grant, member_of
 from cultures.lineage import services as lineage
 from cultures.lineage.models import Batch, Passage
 from cultures.lineage.tests.support import preserve, vials_of
@@ -90,13 +89,7 @@ def test_a_placement_says_which_vial_never_where(
     line holds the label alone, for every role, a holder of the location grant included."""
     strain = supply(mockia, restrictions=[DUAL_USE], release=False)
     vial = vials_of(Batch.objects.get(strain=strain))[0]
-    with as_actor(manager):
-        labs.location_grant_add(
-            access=access_for(manager),
-            lab=strain.lab,
-            membership=membership(manager, strain.lab),
-            reason="Register.",
-        )
+    confirmed_grant(strain.lab, manager, manager, "Register.")
     with as_actor(curator):
         lineage.vial_place(access=access_for(curator), vial=vial, box=tree.box, row=3, col=4)
     event = AuditEvent.objects.get(event_type="vial_placed")
@@ -128,13 +121,7 @@ def test_a_reveal_is_never_a_line(
 ) -> None:
     strain = supply(mockia, restrictions=[DUAL_USE], release=False)
     vial = vials_of(Batch.objects.get(strain=strain))[0]
-    with as_actor(manager):
-        labs.location_grant_add(
-            access=access_for(manager),
-            lab=strain.lab,
-            membership=membership(manager, strain.lab),
-            reason="Register.",
-        )
+    confirmed_grant(strain.lab, manager, manager, "Register.")
     with as_actor(curator):
         lineage.vial_place(access=access_for(curator), vial=vial, box=tree.box, row=1, col=1)
     with as_actor(manager):
@@ -145,16 +132,14 @@ def test_a_reveal_is_never_a_line(
 
 def test_a_location_grant_is_read_by_managers_only(lab: Lab, team: dict[Role, User]) -> None:
     manager = team[Role.MANAGER]
-    with as_actor(manager):
-        labs.location_grant_add(
-            access=access_for(manager),
-            lab=lab,
-            membership=membership(team[Role.VIEWER], lab),
-            reason="Register.",
-        )
+    confirmed_grant(lab, manager, team[Role.VIEWER], "Register.")
     for role, user in team.items():
-        shown = "let a member see regulated locations" in summaries(user)
-        assert shown == (role == Role.MANAGER), role
+        seen = summaries(user)
+        shown = [
+            "proposed that a member see regulated locations" in seen,
+            "confirmed that a member may see regulated locations" in seen,
+        ]
+        assert shown == [role == Role.MANAGER] * 2, role
 
 
 def test_lines_name_the_actor_by_label_and_the_reader_as_you(

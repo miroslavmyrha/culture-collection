@@ -30,7 +30,7 @@ test('a viewer reads strains but cannot add one, in the screen and at the API', 
   // The server decides, not the hidden link: strains are no longer created at this URL.
   const status = await page.evaluate(async () => {
     await fetch('/api/v1/auth/csrf/')
-    const token = /(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
+    const token = /(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
     const lab = location.pathname.split('/')[2] ?? ''
     const response = await fetch(`/api/v1/labs/${lab}/strains/`, {
       method: 'POST',

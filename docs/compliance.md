@@ -566,7 +566,7 @@ and the rules and duties it decides are changed in the same commit.
 
 - Kind: own control
 - Source: ADR 0009, amendment 2026-10-19.
-- Code: `backend/cultures/labs/services.py::location_grant_revoke`, `backend/cultures/labs/services.py::membership_delete`, `backend/cultures/labs/migrations/0004_locationgrant_audit_and_guard.py::"labs_locationgrant_guard"`
+- Code: `backend/cultures/labs/services.py::location_grant_revoke`, `backend/cultures/labs/services.py::membership_delete`, `backend/cultures/labs/migrations/0008_locationgrant_confirmation_guard.py::"labs_locationgrant_guard"`
 - Tests: `backend/cultures/labs/tests/test_location_grants.py::test_a_grant_is_revoked_once`, `backend/cultures/labs/tests/test_location_grants.py::test_removing_the_member_revokes_the_grant_in_the_same_transaction`, `backend/cultures/labs/tests/test_location_grants.py::test_one_open_grant_per_person_and_lab`
 - Limits: this is the grant to see a stored location, not the list of people with access to the
   agent (act 281/2002 Sb., § 14a(4)): that is R-ACCESS-01. The two are not linked.
@@ -584,6 +584,14 @@ and the rules and duties it decides are changed in the same commit.
 - Source: ADR 0009, amendment 2026-10-27 (#83).
 - Code: `backend/cultures/lineage/selectors.py::reveal_list`, `backend/cultures/labs/permissions.py::Perm.VIEW_REVEALS`
 - Tests: `backend/cultures/lineage/tests/test_reveal_log.py::test_only_managers_read_the_log`, `backend/cultures/lineage/tests/test_reveal_log.py::test_a_holder_of_the_grant_does_not_read_the_log`, `backend/cultures/lineage/tests/test_reveal_log.py::test_the_answer_holds_no_location_anywhere`, `backend/cultures/lineage/tests/test_reveal_log.py::TestFilters::test_a_month_is_its_czech_days`
+
+#### R-MASK-06 A location grant reveals only once a second manager confirmed it
+
+- Kind: own control
+- Source: ADR 0009, amendment 2026-11-16 (#267): every grant, to anyone, takes two people.
+- Code: `backend/cultures/labs/services.py::location_grant_confirm`, `backend/cultures/labs/services.py::holds_location_grant`, `backend/cultures/labs/models.py::"labs_locationgrant_second_person"`, `backend/cultures/labs/models.py::"labs_locationgrant_confirmation_complete"`, `backend/cultures/labs/migrations/0008_locationgrant_confirmation_guard.py::"labs_locationgrant_guard"`
+- Tests: `backend/cultures/labs/tests/test_location_grants.py::test_a_manager_proposes_another_confirms_and_any_revokes_with_reasons_and_events`, `backend/cultures/labs/tests/test_location_grants.py::test_the_proposer_does_not_confirm`, `backend/cultures/labs/tests/test_location_grants.py::test_nobody_confirms_a_grant_to_themselves`, `backend/cultures/labs/tests/test_location_grants.py::test_a_manager_who_proposed_it_for_themselves_does_not_confirm_it`, `backend/cultures/labs/tests/test_location_grants.py::test_the_database_lets_a_second_manager_confirm_once`, `backend/cultures/labs/tests/test_location_grants.py::test_the_database_refuses_a_bad_confirmation`, `backend/cultures/labs/tests/test_location_grants.py::test_the_database_refuses_a_manager_confirming_their_own_grant`, `backend/cultures/labs/tests/test_location_grants.py::test_a_second_manager_confirms_through_the_api`
+- Limits: a lab with one manager cannot give the grant; it names a second manager first.
 
 ### Who has access to VRAT agents
 

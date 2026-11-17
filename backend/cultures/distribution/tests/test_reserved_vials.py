@@ -13,17 +13,15 @@ from typing import Any
 
 import pytest
 
-from cultures.audit.context import audit_context
-from cultures.audit.models import AuditEvent, Channel
+from cultures.audit.models import AuditEvent
 from cultures.audit.registry import VIAL_LOCATION_REVEALED
 from cultures.core.testing import QueryBaseline, assert_problem, logged_in
 from cultures.deposits.tests.support import DUAL_USE
 from cultures.distribution.models import DistributionRequest, Requester
-from cultures.labs import services as labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
-from cultures.labs.tests.conftest import member_of, membership
+from cultures.labs.tests.conftest import confirmed_grant, member_of
 from cultures.lineage import services as lineage
 from cultures.lineage.models import Passage, Vial
 from cultures.lineage.tests.support import pass_all, preserve
@@ -59,10 +57,7 @@ def place(actor: User, vial: Vial, box: StorageUnit, row: int, col: int) -> None
 
 
 def grant(lab: Lab, manager: User, user: User) -> None:
-    with audit_context(channel=Channel.API, actor=manager, request_id="req-grant"):
-        labs.location_grant_add(
-            access=access_for(manager), lab=lab, membership=membership(user, lab), reason="pulls"
-        )
+    confirmed_grant(lab, manager, user, "pulls")
 
 
 @dataclass(frozen=True)

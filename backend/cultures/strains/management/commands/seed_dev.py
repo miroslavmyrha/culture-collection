@@ -17,7 +17,8 @@ depositors, MTA templates and deposits):
   viewer each (`bac-manager` and so on);
 - dev-admin, staff and superuser, created through User.objects.create_superuser
   with a reason. dev-two-labs, curator in BAC and viewer in MYC. dev-no-lab, in
-  no lab. dev-inactive, a technician of ENV who was deactivated.
+  no lab. dev-inactive, a technician of ENV who was deactivated. reg-deputy, a second
+  manager of REG, who confirms the location grant of reg-manager (#267).
 - the permits: MYC holds a valid ÚKZÚZ permit and an ended one, REG a valid
   SÚJB permit, ENV an expired SÚJB permit, so the gates can be tried in each;
 - real taxa with their sources. No invented taxon: a strain names the official list entries of
@@ -135,11 +136,14 @@ SEED_LABELS = frozenset({LABEL, "command:seed_e2e"})
 REASON = "development data"
 LAB_ROLES = (Role.MANAGER, Role.CURATOR, Role.TECHNICIAN, Role.VIEWER)
 ADMIN, TWO_LABS, NO_LAB, INACTIVE = "dev-admin", "dev-two-labs", "dev-no-lab", "dev-inactive"
+# A second manager of REG: confirms the location grant reg-manager proposed for themselves (#267).
+DEPUTY = "reg-deputy"
 # (username, lab code, role)
 EXTRA_MEMBERS = (
     (TWO_LABS, "BAC", Role.CURATOR),
     (TWO_LABS, "MYC", Role.VIEWER),
     (INACTIVE, "ENV", Role.TECHNICIAN),
+    (DEPUTY, "REG", Role.MANAGER),
 )
 
 
@@ -347,6 +351,7 @@ class Command(BaseCommand):
     def _extra_users(self, lab_by_code: dict[str, Lab], password: str) -> None:
         seed_users.user(TWO_LABS, password)
         seed_users.user(NO_LAB, password)
+        seed_users.user(DEPUTY, password)
         inactive = User.objects.filter(username=INACTIVE).first() or seed_users.user(
             INACTIVE, password
         )
@@ -386,11 +391,13 @@ class Command(BaseCommand):
             self.deposits.add(created)
 
     def _location_grant(self, lab: Lab, row: dict[str, Any]) -> None:
-        """ADR 0009: who may see where the lab's regulated strains are, granted by its manager."""
+        """ADR 0009: who may see where the lab's regulated strains are, proposed by its manager
+        and confirmed by the second manager the row names (#267)."""
         seed_labs.location_grant(
             lab,
             User.objects.get(username=row["user"]),
             granted_by=User.objects.get(username=lab_username(lab.code, Role.MANAGER)),
+            confirmed_by=User.objects.get(username=row["confirmed_by"]),
             reason=row["reason"],
         )
 

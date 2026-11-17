@@ -26,7 +26,7 @@ async function openLab(page: Page) {
 async function offTheList(page: Page, person: string) {
   await page.evaluate(async (who) => {
     await fetch('/api/v1/auth/csrf/')
-    const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
+    const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
     const lab = location.pathname.split('/')[2] ?? ''
     const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
     const entries: { public_id: string; username: string; ended_at: string | null }[] = await (await fetch(`/api/v1/labs/${lab}/vrat-access/`, { headers })).json()

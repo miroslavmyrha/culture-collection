@@ -124,6 +124,15 @@ def location_grant_revoke(lab: Lab) -> Callable[[], object]:
     return lambda: labs.location_grant_revoke(access=access_for(first), grant=grant, reason=REASON)
 
 
+def location_grant_confirm(lab: Lab) -> Callable[[], object]:
+    first, second = _two_managers(lab)
+    third = member_of(lab, Role.MANAGER, "third")
+    grant = labs.location_grant_add(
+        access=access_for(first), lab=lab, membership=membership(second, lab), reason=REASON
+    )
+    return lambda: labs.location_grant_confirm(access=access_for(third), grant=grant, reason=REASON)
+
+
 def vrat_access_grant(lab: Lab) -> Callable[[], object]:
     first, second = _two_managers(lab)
     return lambda: labs.vrat_access_grant(
@@ -163,6 +172,7 @@ SCENARIOS: dict[str, Scenario] = {
         user_erase,
         users_deactivation_check,
         location_grant_add,
+        location_grant_confirm,
         location_grant_revoke,
         vrat_access_grant,
         vrat_access_end,

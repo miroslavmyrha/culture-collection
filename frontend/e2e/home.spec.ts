@@ -22,7 +22,7 @@ async function call(page: Page, path: string, body?: Row): Promise<Row> {
   const answer = await page.evaluate(
     async ([url, payload]) => {
       await fetch('/api/v1/auth/csrf/')
-      const token = /(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
+      const token = /(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
       const init: RequestInit = payload === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': decodeURIComponent(token) }, body: JSON.stringify(payload) }
       const response = await fetch(url, init)
       return { status: response.status, text: await response.text() }

@@ -20,11 +20,10 @@ from cultures.deposits.tests.support import (
     facts,
     make_permit,
 )
-from cultures.labs import services as labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab
 from cultures.labs.permissions import Role
-from cultures.labs.tests.conftest import member_of, membership
+from cultures.labs.tests.conftest import confirmed_grant, member_of
 from cultures.lineage.models import Batch, Passage
 from cultures.strains.models import Strain
 from cultures.taxonomy.models import Taxon
@@ -109,13 +108,8 @@ def as_technician(technician: User) -> Iterator[AuditContext]:
 
 @pytest.fixture
 def keeper(lab: Lab, manager: User) -> User:
-    """A viewer who holds the lab's location grant, given by the manager."""
+    """A viewer who holds the lab's location grant, proposed by the manager and confirmed by a
+    second manager (#267)."""
     user = member_of(lab, Role.VIEWER, "keeper")
-    with audit_context(channel=Channel.API, actor=manager, request_id="req-setup"):
-        labs.location_grant_add(
-            access=access_for(manager),
-            lab=lab,
-            membership=membership(user, lab),
-            reason="keeps the register",
-        )
+    confirmed_grant(lab, manager, user, "keeps the register")
     return user

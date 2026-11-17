@@ -26,6 +26,7 @@ from cultures.labs.management.commands.seed_e2e import (
     OTHER_MANAGER,
     OUTSIDER,
     READY_TO_PREPARE,
+    SOLO_LAB_CODE,
     TECHNICIAN,
     UNNOTIFIED,
     VIEWER,
@@ -65,13 +66,21 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
         " Box R, revealed by e2e-user; a released batch of the seeded strain; two strains that"
         " may go out, two requesters and five requests, two approved, one of them regulated and"
         " approved by e2e-manager, who is in no lab; e2e-outsider views E2E other lab, which"
-        " e2e-other-manager manages\n"
+        " e2e-other-manager manages; e2e-user is the one member of E2E solo lab\n"
     )
     user = User.objects.get(username="e2e-user")
     lab = Lab.objects.get(code=LAB_CODE)
     assert user.check_password(PASSWORD)
-    assert Membership.objects.get(user=user).lab == lab
-    assert Membership.objects.get(user=user).role == Role.MANAGER
+    assert Membership.objects.get(user=user, lab=lab).role == Role.MANAGER
+    # E2E solo lab: the e2e user, its manager, alone (#267).
+    solo = Lab.objects.get(code=SOLO_LAB_CODE)
+    assert list(solo.memberships.values_list("user__username", "role")) == [
+        ("e2e-user", Role.MANAGER)
+    ]
+    assert sorted(Membership.objects.filter(user=user).values_list("lab__code", flat=True)) == [
+        "E2E",
+        "E2S",
+    ]
     colleague = User.objects.get(username=COLLEAGUE)
     assert (colleague.is_active, colleague.has_usable_password()) == (True, False)
     assert not Membership.objects.filter(user=colleague).exists()
@@ -135,7 +144,8 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
         ("Box R", 1, 2),
     ]
     grant = LocationGrant.objects.get(lab=lab, revoked_at__isnull=True)
-    assert grant.user == user
+    assert (grant.user, grant.granted_by, grant.confirmed_by) == (user, user, approver)
+    assert not Membership.objects.filter(lab=lab, user=approver).exists()
     (released,) = Batch.objects.filter(strain=deposit.strain, status=BatchStatus.RELEASED)
     assert (released.purpose, released.vial_count_created) == ("distribution", 2)
     assert sorted(
@@ -206,11 +216,15 @@ def test_its_writes_are_audited_as_the_command() -> None:
         "user_created",
         "member_added",
         "user_created",  # e2e-manager, in no lab until it approves
+        "user_created",  # e2e-deputy, in no lab until reveals.spec.ts confirms a grant (#267)
         # E2E other lab with its manager and e2e-outsider, its viewer (#76)
         "lab_created",
         "user_created",
         "member_added",
         "user_created",
+        "member_added",
+        # E2E solo lab, the e2e user its one member (#267)
+        "lab_created",
         "member_added",
         # The lab's one permit, ended (#82)
         "lab_authorisation_added",
@@ -247,7 +261,11 @@ def test_its_writes_are_audited_as_the_command() -> None:
         "vials_created",
         *["vial_placed"] * 2,
         "vials_placed",
+        # The e2e user's grant, confirmed by e2e-manager as a manager for that moment (#267)
+        "member_added",
         "location_grant_added",
+        "location_grant_confirmed",
+        "member_removed",
         "batch_created",
         *["vial_created"] * 2,
         "vials_created",
@@ -317,6 +335,8 @@ def test_it_resets_what_a_failed_e2e_run_left_behind() -> None:
         user=User.objects.create(username="helper"), lab=lab, role=Role.MANAGER
     )
     Membership.objects.filter(user=user).update(role=Role.VIEWER)
+    solo = Lab.objects.get(code=SOLO_LAB_CODE)
+    Membership.objects.create(user=colleague, lab=solo, role=Role.MANAGER)
     user.set_password("changed")
     user.is_active = False
     user.save()
@@ -328,7 +348,10 @@ def test_it_resets_what_a_failed_e2e_run_left_behind() -> None:
         ("user_activated", "reset the e2e data"),
         ("user_password_changed", "reset the e2e data"),
     ]
-    assert Membership.objects.get(user=user).role == Role.MANAGER
+    assert Membership.objects.get(user=user, lab=lab).role == Role.MANAGER
+    assert list(solo.memberships.values_list("user__username", "role")) == [
+        ("e2e-user", Role.MANAGER)
+    ]
     assert not Membership.objects.filter(user=colleague).exists()
 
 
@@ -353,7 +376,8 @@ def test_a_regulated_request_ready_to_prepare_is_entered_again_once_it_left_appr
 def test_the_username_comes_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("E2E_USERNAME", "ci-user")
     seed()
-    assert Membership.objects.get(user__username="ci-user").role == Role.MANAGER
+    roles = Membership.objects.filter(user__username="ci-user").values_list("lab__code", "role")
+    assert sorted(roles) == [(LAB_CODE, Role.MANAGER), (SOLO_LAB_CODE, Role.MANAGER)]
 
 
 @pytest.mark.usefixtures("env")

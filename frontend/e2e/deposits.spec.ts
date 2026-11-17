@@ -168,7 +168,7 @@ async function receiveAndCheck(page: Page, name: string) {
   // The API through the page's own session: the screens are covered by the test above.
   const deposit = await page.evaluate(async (asReceived) => {
     await fetch('/api/v1/auth/csrf/')
-    const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
+    const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
     const lab = location.pathname.split('/')[2] ?? ''
     const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
     const depositors: { results: { public_id: string }[] } = await (await fetch(`/api/v1/labs/${lab}/depositors/?search=E2E`)).json()

@@ -59,14 +59,37 @@ REASON_HELP = "Why, in a sentence. Stored for good: name no person."
 
 
 class LocationGrantOutputSerializer(serializers.ModelSerializer[LocationGrant]):
-    """An open grant: who may see where the lab's regulated strains are (ADR 0009)."""
+    """An open grant: who may see where the lab's regulated strains are (ADR 0009). A proposal
+    until a second manager confirms it (#267): `confirmed_at` null, and it reveals nothing."""
 
     member = serializers.UUIDField(source="membership_public_id", read_only=True)
     username = serializers.CharField(source="user.username", read_only=True)
+    proposed_by = serializers.CharField(source="granted_by.username", read_only=True)
+    confirmed_by = serializers.CharField(
+        source="confirmed_by.username", read_only=True, allow_null=True, default=None
+    )
+    may_confirm = serializers.SerializerMethodField(
+        help_text="The caller may confirm this proposal: a manager who neither proposed nor holds"
+        " it. The service checks it again."
+    )
+
+    def get_may_confirm(self, grant: LocationGrant) -> bool:
+        caller = self.context["request"].user.pk
+        return grant.confirmed_at is None and caller not in {grant.granted_by_id, grant.user_id}
 
     class Meta:
         model = LocationGrant
-        fields = ("public_id", "member", "username", "reason", "created_at")
+        fields = (
+            "public_id",
+            "member",
+            "username",
+            "reason",
+            "created_at",
+            "proposed_by",
+            "confirmed_by",
+            "confirmed_at",
+            "may_confirm",
+        )
         read_only_fields = fields
 
 
@@ -81,6 +104,10 @@ class LocationGrantInputSerializer(serializers.Serializer[None]):
 
 
 class LocationRevokeInputSerializer(serializers.Serializer[None]):
+    reason = serializers.CharField(help_text=REASON_HELP)
+
+
+class LocationConfirmInputSerializer(serializers.Serializer[None]):
     reason = serializers.CharField(help_text=REASON_HELP)
 
 
