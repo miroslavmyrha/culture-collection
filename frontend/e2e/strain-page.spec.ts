@@ -13,7 +13,7 @@ const NAME = `Bacillus subtilis tabs ${RUN}`
 async function strainWithManyVials(page: Page, name: string) {
   return page.evaluate(async ([received, basis]) => {
     await fetch('/api/v1/auth/csrf/')
-    const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
+    const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
     const lab = location.pathname.split('/')[2] ?? ''
     const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
     const send = async (path: string, body: unknown) => {

@@ -31,7 +31,7 @@ async function post(page: Page, url: string, body: Record<string, unknown>) {
   return page.evaluate(
     async ([target, payload]) => {
       await fetch('/api/v1/auth/csrf/')
-      const token = /(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
+      const token = /(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
       const response = await fetch(target, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': decodeURIComponent(token) },
@@ -312,7 +312,7 @@ async function approvedRegulatedRequest(browser: Browser, lab: string) {
         const rows: unknown = typeof body === 'object' && body !== null ? Reflect.get(body, 'results') : []
         const row = (Array.isArray(rows) ? rows : []).find((r: unknown) => typeof r === 'object' && r !== null && Reflect.get(r, 'username') === 'e2e-manager')
         if (row === undefined) return
-        const token = /(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
+        const token = /(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
         await fetch(`/api/v1${path}/members/${String(Reflect.get(row, 'public_id'))}/`, { method: 'DELETE', headers: { 'X-CSRFToken': decodeURIComponent(token) } })
       }, lab)
     }

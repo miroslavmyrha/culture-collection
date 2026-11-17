@@ -25,7 +25,7 @@ async function commercialRequest(page: Page, name: string): Promise<string> {
   return page.evaluate(
     async ({ strainName, pdf, basis }) => {
       await fetch('/api/v1/auth/csrf/')
-      const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
+      const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
       const lab = location.pathname.split('/')[2] ?? ''
       const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
       type Made = { public_id: string; strain?: { public_id: string } | null }
@@ -89,7 +89,7 @@ async function commercialRequest(page: Page, name: string): Promise<string> {
 async function approveByApi(page: Page, path: string) {
   return page.evaluate(async (target) => {
     await fetch('/api/v1/auth/csrf/')
-    const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
+    const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
     const response = await fetch(target, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token }, body: JSON.stringify({ reason: 'The depositor agreed by phone.' }) })
     return { status: response.status, body: await response.text() }
   }, `/api/v1${path}/approve/`)

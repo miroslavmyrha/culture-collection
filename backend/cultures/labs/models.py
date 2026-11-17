@@ -6,7 +6,7 @@ managed by the lab's managers through the API (services.py has the rules).
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Q
 from django.db.models.functions import Upper
 
 from cultures.core.models import PublicModel
@@ -72,11 +72,13 @@ LOCATION_GRANT_OPEN_UNIQUE = "labs_locationgrant_one_open"
 
 
 class LocationGrant(PublicModel):
-    """A person may see where a lab's regulated strains are stored (ADR 0009, amendment of
-    2026-10-19). Per person and lab, granted by a manager with a reason; part of no role.
+    """A person may see where a lab's regulated strains are stored (ADR 0009, amendments of
+    2026-10-19 and 2026-11-16). Per person and lab, proposed by a manager with a reason and
+    confirmed by another manager who is not the holder (#267); part of no role.
 
-    Counts only while open, the holder active and still a member. Revoked once, never
-    reopened, never deleted (a trigger): a new grant is a new row.
+    Counts only while confirmed and open, the holder active and still a member. Confirmed once,
+    revoked once (a proposal is withdrawn the same way), never reopened, never deleted (a
+    trigger): a new grant is a new row.
     """
 
     lab = models.ForeignKey(Lab, on_delete=models.PROTECT, related_name="+", db_index=False)
@@ -85,6 +87,16 @@ class LocationGrant(PublicModel):
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )
     reason = models.TextField()
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    # No index: nothing looks grants up by their confirmer, and a lab holds a handful of them.
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="+",
+        null=True,
+        blank=True,
+        db_index=False,
+    )
     revoked_at = models.DateTimeField(null=True, blank=True)
     revoked_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+", null=True, blank=True
@@ -110,6 +122,17 @@ class LocationGrant(PublicModel):
                 condition=Q(revoked_at__isnull=True, revoked_by__isnull=True, revoke_reason="")
                 | Q(revoked_at__isnull=False, revoke_reason__regex=r"\S"),
                 name="labs_locationgrant_revocation_complete",
+            ),
+            # #267: confirmed whole or not at all, by a second manager who is not the holder.
+            models.CheckConstraint(
+                condition=Q(confirmed_at__isnull=True, confirmed_by__isnull=True)
+                | Q(confirmed_at__isnull=False, confirmed_by__isnull=False),
+                name="labs_locationgrant_confirmation_complete",
+            ),
+            models.CheckConstraint(
+                condition=Q(confirmed_by__isnull=True)
+                | (~Q(confirmed_by=F("granted_by")) & ~Q(confirmed_by=F("user"))),
+                name="labs_locationgrant_second_person",
             ),
         ]
         indexes = [models.Index(fields=["lab", "user"], name="labs_locgrant_lab_user_idx")]

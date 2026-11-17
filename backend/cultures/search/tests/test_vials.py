@@ -5,14 +5,10 @@ shows its place, as the strain's vial list does."""
 
 import pytest
 
-from cultures.audit.context import audit_context
-from cultures.audit.models import Channel
 from cultures.core.testing import logged_in
-from cultures.labs import services as labs
-from cultures.labs.access import access_for
 from cultures.labs.models import Lab
 from cultures.labs.permissions import ROLES, Role
-from cultures.labs.tests.conftest import member_of, membership
+from cultures.labs.tests.conftest import confirmed_grant, member_of
 from cultures.storage.tests.conftest import Tree
 from cultures.strains.tests.conftest import end_restriction
 from cultures.users.models import User
@@ -66,10 +62,7 @@ def test_an_unplaced_vial_has_no_place_and_nothing_masked(stock: Stock, other_la
 
 
 def _grant(lab: Lab, manager: User, user: User) -> None:
-    with audit_context(channel=Channel.API, actor=manager, request_id="req-grant"):
-        labs.location_grant_add(
-            access=access_for(manager), lab=lab, membership=membership(user, lab), reason="register"
-        )
+    confirmed_grant(lab, manager, user)
 
 
 @pytest.mark.parametrize("granted", [False, True], ids=["without", "with the grant"])

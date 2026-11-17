@@ -51,13 +51,6 @@ test('a manager sees their lab and role, then adds, changes and removes a member
   await expect(roleDialog).toBeHidden()
   await expect(colleague).toContainText('Curator')
 
-  // The last manager stays
-  await page.getByRole('button', { name: `Remove ${username}` }).click()
-  const own = page.getByRole('alertdialog', { name: `Remove ${username}?` })
-  await own.getByRole('button', { name: 'Remove' }).click()
-  await expect(own.getByRole('alert')).toHaveText('A lab needs at least one active manager. Make another member manager first.')
-  await own.getByRole('button', { name: 'Cancel' }).click()
-
   // Remove after a confirmation
   await page.getByRole('button', { name: 'Remove e2e-colleague' }).click()
   const confirm = page.getByRole('alertdialog', { name: 'Remove e2e-colleague?' })
@@ -65,6 +58,18 @@ test('a manager sees their lab and role, then adds, changes and removes a member
   await confirm.getByRole('button', { name: 'Remove' }).click()
   await expect(confirm).toBeHidden()
   await expect(members.getByRole('row', { name: /e2e-colleague/ })).toHaveCount(0)
+
+  // The last manager stays. In E2E solo lab, where no spec adds a second manager: in E2E lab a
+  // temporary one (distribution.spec.ts, reveals.spec.ts) would let the removal through (#267).
+  await openLabList(page)
+  await page.getByRole('row', { name: /E2E solo lab/ }).getByRole('link', { name: 'E2E solo lab' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'E2E solo lab' })).toBeVisible()
+  await page.getByRole('button', { name: `Remove ${username}` }).click()
+  const own = page.getByRole('alertdialog', { name: `Remove ${username}?` })
+  await own.getByRole('button', { name: 'Remove' }).click()
+  await expect(own.getByRole('alert')).toHaveText('A lab needs at least one active manager. Make another member manager first.')
+  await own.getByRole('button', { name: 'Cancel' }).click()
+  await expect(own).toBeHidden()
 
   expect(violations()).toEqual([])
 })
@@ -86,7 +91,7 @@ test('a manager removes a member with the keyboard only; the dialog passes axe a
 
   // From here on only keys.
   const trigger = page.getByRole('button', { name: 'Remove e2e-colleague' })
-  await page.getByRole('button', { name: 'Grant regulated locations for e2e-colleague' }).focus()
+  await page.getByRole('button', { name: 'Propose regulated locations for e2e-colleague' }).focus()
   await page.keyboard.press('Tab')
   await expect(trigger).toBeFocused()
   await page.keyboard.press('Enter')

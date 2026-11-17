@@ -586,6 +586,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/location-grants/{public_id}/confirm/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["labs_location_grants_confirm_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/location-grants/{public_id}/revoke/": {
         parameters: {
             query?: never;
@@ -3105,13 +3121,20 @@ export interface components {
             col: number;
             label: string;
         };
+        LocationConfirmInputRequest: {
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
         LocationGrantInputRequest: {
             /** Format: uuid */
             member: string;
             /** @description Why, in a sentence. Stored for good: name no person. */
             reason: string;
         };
-        /** @description An open grant: who may see where the lab's regulated strains are (ADR 0009). */
+        /**
+         * @description An open grant: who may see where the lab's regulated strains are (ADR 0009). A proposal
+         *     until a second manager confirms it (#267): `confirmed_at` null, and it reveals nothing.
+         */
         LocationGrantOutput: {
             /** Format: uuid */
             readonly public_id: string;
@@ -3121,6 +3144,12 @@ export interface components {
             readonly reason: string;
             /** Format: date-time */
             readonly created_at: string;
+            readonly proposed_by: string;
+            readonly confirmed_by: string | null;
+            /** Format: date-time */
+            readonly confirmed_at: string | null;
+            /** @description The caller may confirm this proposal: a manager who neither proposed nor holds it. The service checks it again. */
+            readonly may_confirm: boolean;
         };
         LocationRevokeInputRequest: {
             /** @description Why, in a sentence. Stored for good: name no person. */
@@ -7250,6 +7279,90 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_location_grants_confirm_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocationConfirmInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationGrantOutput"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description grant_confirmed: confirmed already, or grant_revoked: revoked already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A reason is required (reason_required), or the caller proposed the grant (confirm_own_proposal) or holds it (confirm_own_grant) */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

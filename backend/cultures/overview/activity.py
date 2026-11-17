@@ -80,7 +80,12 @@ SHOWN: dict[str, Shown] = {
     "member_role_changed": Shown(Perm.VIEW_MEMBERS, "changed a member's role", LAB),
     "member_removed": Shown(Perm.VIEW_MEMBERS, "removed a member", LAB),
     # The list of who may find regulated agents is kept to the managers (labs.LocationGrantViewSet).
-    "location_grant_added": Shown(Perm.MANAGE_MEMBERS, "let a member see regulated locations", LAB),
+    "location_grant_added": Shown(
+        Perm.MANAGE_MEMBERS, "proposed that a member see regulated locations", LAB
+    ),
+    "location_grant_confirmed": Shown(
+        Perm.MANAGE_MEMBERS, "confirmed that a member may see regulated locations", LAB
+    ),
     "location_grant_revoked": Shown(
         Perm.MANAGE_MEMBERS, "revoked a member's regulated locations", LAB
     ),

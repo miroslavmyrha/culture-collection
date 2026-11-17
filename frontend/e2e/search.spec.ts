@@ -21,7 +21,7 @@ async function vialWithBarcode(page: Page, name: string, barcode: string) {
   return page.evaluate(
     async ([received, code, basis]) => {
       await fetch('/api/v1/auth/csrf/')
-      const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
+      const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
       const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
       const read = async <T,>(url: string): Promise<T> => {
         const body: T = await (await fetch(url, { headers })).json()

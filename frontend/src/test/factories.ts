@@ -339,9 +339,21 @@ export function makeVial(overrides: Partial<VialRow> = {}): VialRow {
   }
 }
 
+/** A confirmed grant (#267); pass confirmed_by and confirmed_at null for a proposal. */
 export function makeLocationGrant(overrides: Partial<LocationGrant> = {}): LocationGrant {
   const n = next()
-  return { public_id: uuid(n), member: uuid(9003), username: 'bob', reason: 'keeps the register', created_at: '2026-10-01T10:00:00Z', ...overrides }
+  return {
+    public_id: uuid(n),
+    member: uuid(9003),
+    username: 'bob',
+    reason: 'keeps the register',
+    created_at: '2026-10-01T10:00:00Z',
+    proposed_by: 'alice',
+    confirmed_by: 'carol',
+    confirmed_at: '2026-10-01T11:00:00Z',
+    may_confirm: false,
+    ...overrides,
+  }
 }
 
 export type VratAccess = Schemas['VratAccessOutput']

@@ -2161,6 +2161,7 @@
   {
    "lab": "REG",
    "user": "reg-manager",
+   "confirmed_by": "reg-deputy",
    "reason": "Keeps the SÚJB register (invented example)."
   }
  ],

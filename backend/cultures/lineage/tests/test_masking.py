@@ -19,7 +19,7 @@ from cultures.labs import services as labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, LocationGrant, Membership
 from cultures.labs.permissions import GRANTS, Perm, Role
-from cultures.labs.tests.conftest import member_of, membership
+from cultures.labs.tests.conftest import confirmed_grant, member_of, membership
 from cultures.lineage.models import Passage, Vial
 from cultures.lineage.services import is_regulated, location_of
 from cultures.storage.models import StorageUnit, UnitKind
@@ -54,10 +54,7 @@ def plain(passage0: Passage, make_batch: MakeBatch, tree: Tree) -> Vial:
 
 
 def grant(lab: Lab, manager: User, user: User) -> LocationGrant:
-    with audit_context(channel=Channel.API, actor=manager, request_id="req-grant"):
-        return labs.location_grant_add(
-            access=access_for(manager), lab=lab, membership=membership(user, lab), reason="register"
-        )
+    return confirmed_grant(lab, manager, user)
 
 
 def leaks(text: str, box: StorageUnit) -> bool:

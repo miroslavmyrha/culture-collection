@@ -38,6 +38,7 @@ from cultures.audit.registry import (
     LAB_CREATED,
     LAB_UPDATED,
     LOCATION_GRANT_ADDED,
+    LOCATION_GRANT_CONFIRMED,
     LOCATION_GRANT_REVOKED,
     MEMBER_ADDED,
     MEMBER_REMOVED,
@@ -322,7 +323,8 @@ def _check_grant(grantor: Role, role: Role) -> None:
 
 
 # Location grants (ADR 0009, amendment of 2026-10-19): who may see where a lab's regulated
-# strains are stored. Granted and revoked by the lab's managers, part of no role.
+# strains are stored. Proposed by one of the lab's managers, confirmed by another who is not the
+# holder (#267), revoked by any of them; part of no role.
 
 
 class GrantExists(DomainError):
@@ -349,6 +351,22 @@ class GrantRevoked(DomainError):
     default_detail = "This grant has been revoked already."
 
 
+class GrantConfirmed(DomainError):
+    status_code = 409
+    default_code = "grant_confirmed"
+    default_detail = "This grant has been confirmed already."
+
+
+class ConfirmOwnProposal(RuleViolation):
+    default_code = "confirm_own_proposal"
+    default_detail = "Another manager confirms a grant you proposed."
+
+
+class ConfirmOwnGrant(RuleViolation):
+    default_code = "confirm_own_grant"
+    default_detail = "Another manager confirms a grant of your own."
+
+
 def _reason(reason: str) -> str:
     text = reason.strip()
     if not text:
@@ -363,6 +381,7 @@ def holds_location_grant(*, lab_id: int, user: User) -> bool:
     return LocationGrant.objects.filter(
         lab_id=lab_id,
         user=user,
+        confirmed_at__isnull=False,
         revoked_at__isnull=True,
         user__is_active=True,
         user__memberships__lab_id=lab_id,
@@ -372,7 +391,8 @@ def holds_location_grant(*, lab_id: int, user: User) -> bool:
 def location_grant_add(
     *, access: Access, lab: Lab, membership: Membership, reason: str
 ) -> LocationGrant:
-    """A manager lets a member of the lab see regulated locations, with a reason."""
+    """A manager proposes that a member of the lab see regulated locations, with a reason. It
+    reveals nothing until another manager confirms it (location_grant_confirm)."""
     reason = _reason(reason)
     with audited_atomic():
         lock_lab(lab.pk)
@@ -401,22 +421,60 @@ def location_grant_add(
     return grant
 
 
-def location_grant_revoke(*, access: Access, grant: LocationGrant, reason: str) -> LocationGrant:
-    """A manager ends a grant, with a reason. The row stays."""
+def location_grant_confirm(*, access: Access, grant: LocationGrant, reason: str) -> LocationGrant:
+    """A second manager confirms a proposed grant, with a reason (#267): not the one who
+    proposed it and not its holder, so nobody lets themselves see regulated locations alone."""
     reason = _reason(reason)
     with audited_atomic():
         lock_lab(grant.lab_id)
         require_committed(access, grant.lab_id, Perm.MANAGE_MEMBERS)
-        locked = (
-            LocationGrant.objects.select_for_update(of=("self",))
-            .select_related("user")
-            .filter(pk=grant.pk)
-            .first()
+        locked = _locked_grant(grant)
+        if locked.confirmed_at is not None:
+            raise GrantConfirmed
+        if locked.granted_by_id == access.user.pk:
+            raise ConfirmOwnProposal
+        if locked.user_id == access.user.pk:
+            raise ConfirmOwnGrant
+        locked.confirmed_by, locked.confirmed_at = access.user, timezone.now()
+        locked.save(update_fields=["confirmed_by", "confirmed_at", "updated_at"])
+        record_event(
+            LOCATION_GRANT_CONFIRMED,
+            Change(
+                LOCATION_GRANT,
+                locked.public_id,
+                {
+                    "user": [None, _user_id(locked.user)],
+                    "confirmed_by": [None, _user_id(access.user)],
+                },
+                lab_id=locked.lab_id,
+            ),
+            reason=reason,
         )
-        if locked is None:
-            raise NotFound
-        if locked.revoked_at is not None:
-            raise GrantRevoked
+    return locked
+
+
+def _locked_grant(grant: LocationGrant) -> LocationGrant:
+    """The open grant, locked: caller holds the lab lock."""
+    locked = (
+        LocationGrant.objects.select_for_update(of=("self",))
+        .select_related("user")
+        .filter(pk=grant.pk, lab_id=grant.lab_id)
+        .first()
+    )
+    if locked is None:
+        raise NotFound
+    if locked.revoked_at is not None:
+        raise GrantRevoked
+    return locked
+
+
+def location_grant_revoke(*, access: Access, grant: LocationGrant, reason: str) -> LocationGrant:
+    """A manager ends a grant, or withdraws a proposed one, with a reason. The row stays."""
+    reason = _reason(reason)
+    with audited_atomic():
+        lock_lab(grant.lab_id)
+        require_committed(access, grant.lab_id, Perm.MANAGE_MEMBERS)
+        locked = _locked_grant(grant)
         _end(locked, reason)
     return locked
 

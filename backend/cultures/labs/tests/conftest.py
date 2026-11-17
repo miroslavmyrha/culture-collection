@@ -21,8 +21,9 @@ from cultures.audit.models import ActorKind, Channel
 
 # The production roles inside the test transaction, the same fixtures the audit tests use.
 from cultures.audit.tests.conftest import database_roles, runtime_role  # noqa: F401
+from cultures.labs import services
 from cultures.labs.access import Access, access_for
-from cultures.labs.models import Lab, Membership
+from cultures.labs.models import Lab, LocationGrant, Membership
 from cultures.labs.permissions import Role
 from cultures.users.models import User
 
@@ -53,6 +54,24 @@ def member_of(lab: Lab, role: Role, username: str, **fields: Any) -> User:
 
 def membership(user: User, lab: Lab) -> Membership:
     return Membership.objects.get(user=user, lab=lab)
+
+
+DEPUTY = "grant-deputy"
+
+
+def confirmed_grant(lab: Lab, manager: User, user: User, reason: str = "register") -> LocationGrant:
+    """A location grant that reveals (#267): proposed by `manager`, confirmed by the lab's
+    second manager `grant-deputy`, made here when the lab has none. Each step in its own
+    request, as the two managers make them."""
+    deputy = User.objects.filter(username=DEPUTY).first() or member_of(lab, Role.MANAGER, DEPUTY)
+    with audit_context(channel=Channel.API, actor=manager, request_id="req-grant"):
+        grant = services.location_grant_add(
+            access=access_for(manager), lab=lab, membership=membership(user, lab), reason=reason
+        )
+    with audit_context(channel=Channel.API, actor=deputy, request_id="req-confirm"):
+        return services.location_grant_confirm(
+            access=access_for(deputy), grant=grant, reason="second manager"
+        )
 
 
 def snapshot() -> list[tuple[int, int, int, str]]:

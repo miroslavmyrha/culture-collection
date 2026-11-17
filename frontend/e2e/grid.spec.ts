@@ -33,7 +33,7 @@ async function call(page: Page, lab: string, path: string, body?: Record<string,
   const answer = await page.evaluate(
     async ([labId, url, payload]) => {
       await fetch('/api/v1/auth/csrf/')
-      const token = /(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
+      const token = /(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
       const target = url.startsWith('/') ? url : `/api/v1/labs/${labId}/${url}`
       const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': decodeURIComponent(token) }
       const response = payload === undefined ? await fetch(target, { headers }) : await fetch(target, { method: 'POST', headers, body: JSON.stringify(payload) })

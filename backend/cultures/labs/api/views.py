@@ -21,6 +21,7 @@ from cultures.lineage.api.serializers import RevealFilterSerializer, RevealLogEn
 
 from .serializers import (
     LabOutputSerializer,
+    LocationConfirmInputSerializer,
     LocationGrantInputSerializer,
     LocationGrantOutputSerializer,
     LocationRevokeInputSerializer,
@@ -168,10 +169,19 @@ GRANT_INVALID = OpenApiResponse(
 )
 REASON = OpenApiResponse(ProblemSerializer, "reason_required")
 REVOKED = OpenApiResponse(ProblemSerializer, "grant_revoked: revoked already")
+CONFIRM_REFUSED = OpenApiResponse(
+    ProblemSerializer, "grant_confirmed: confirmed already, or grant_revoked: revoked already"
+)
+CONFIRM_RULES = OpenApiResponse(
+    ProblemSerializer,
+    "A reason is required (reason_required), or the caller proposed the grant"
+    " (confirm_own_proposal) or holds it (confirm_own_grant)",
+)
 
 
 # Who may see where the lab's regulated strains are stored (ADR 0009, amendment of
-# 2026-10-19). Part of no role: a manager grants it to a member and revokes it, each with a
+# 2026-10-19). Part of no role: a manager proposes it for a member, another manager who is not
+# the holder confirms it (#267), any manager revokes it or withdraws the proposal, each with a
 # reason. Only managers list the grants (labs.manage_members): the list of people who may
 # find regulated agents is itself kept to few. The list holds the open grants, not paged.
 @extend_schema(parameters=[LAB_PARAMETER])
@@ -181,6 +191,7 @@ class LocationGrantViewSet(ScopedReadOnlyViewSet):
         "retrieve": Perm.MANAGE_MEMBERS,
         "create": Perm.MANAGE_MEMBERS,
         "revoke": Perm.MANAGE_MEMBERS,
+        "confirm": Perm.MANAGE_MEMBERS,
     }
     serializer_class = LocationGrantOutputSerializer
     pagination_class = None
@@ -222,7 +233,31 @@ class LocationGrantViewSet(ScopedReadOnlyViewSet):
             reason=data.validated_data["reason"],
         )
         fresh = self.scoped_queryset().get(pk=grant.pk)
-        return Response(LocationGrantOutputSerializer(fresh).data, status=status.HTTP_201_CREATED)
+        return Response(
+            LocationGrantOutputSerializer(fresh, context=self.get_serializer_context()).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @extend_schema(
+        request=LocationConfirmInputSerializer,
+        responses={
+            200: LocationGrantOutputSerializer,
+            (409, PROBLEM): CONFIRM_REFUSED,
+            (422, PROBLEM): CONFIRM_RULES,
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="confirm")
+    def confirm(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        grant: LocationGrant = self.get_object()
+        data = LocationConfirmInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.location_grant_confirm(
+            access=access_of(request), grant=grant, reason=data.validated_data["reason"]
+        )
+        fresh = self.scoped_queryset().get(pk=grant.pk)
+        return Response(
+            LocationGrantOutputSerializer(fresh, context=self.get_serializer_context()).data
+        )
 
     @extend_schema(
         request=LocationRevokeInputSerializer,

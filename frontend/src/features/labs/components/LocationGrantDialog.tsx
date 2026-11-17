@@ -4,27 +4,59 @@ import { useForm } from 'react-hook-form'
 import { ConfirmDialog, Stack, TextField } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
-import { useGrantLocation, useRevokeLocation } from '../api/mutations'
+import { useConfirmLocation, useGrantLocation, useRevokeLocation } from '../api/mutations'
 import { type LocationGrant, type LocationGrantInput, locationGrantSchema, type Member } from '../schemas'
 import { memberError } from './memberErrors'
 
 type Props = {
   labId: string
   member: Member
-  /** The member's open grant: given, the dialog revokes it; absent, it grants one. */
+  step: GrantStep
+  /** The member's open grant: the one confirmed, withdrawn or revoked. */
   grant: LocationGrant | undefined
   open: boolean
   onClose: () => void
   onExited: () => void
 }
 
+const TEXTS = {
+  grant: {
+    title: (u: string) => `Propose that ${u} see regulated locations`,
+    description: 'Another manager confirms it before they may reveal where vials of regulated strains are stored, one vial at a time. Every reveal is recorded.',
+    confirm: 'Propose',
+  },
+  confirm: {
+    title: (u: string) => `Confirm that ${u} may see regulated locations`,
+    description: 'From now on they may reveal where vials of regulated strains are stored, one vial at a time. Every reveal is recorded.',
+    confirm: 'Confirm',
+  },
+  withdraw: {
+    title: (u: string) => `Withdraw the proposal for ${u}`,
+    description: 'The proposal ends without ever revealing anything.',
+    confirm: 'Withdraw',
+  },
+  revoke: {
+    title: (u: string) => `Stop ${u} seeing regulated locations`,
+    description: 'From now on the places of regulated strains stay hidden from them.',
+    confirm: 'Revoke',
+  },
+} as const
+
+export type GrantStep = keyof typeof TEXTS
+
+/** What the location button of a member does: propose, or end what is open (#267). */
+export const endStep = (grant: LocationGrant): GrantStep => (grant.confirmed_at ? 'revoke' : 'withdraw')
+
 /**
- * Lets a member see where the lab's regulated strains are stored, or takes it back, with a
- * reason the history keeps (ADR 0009). No role carries it.
+ * Proposes that a member see where the lab's regulated strains are stored, confirms a proposal
+ * as a second manager (#267), or ends it, each with a reason the history keeps (ADR 0009). No
+ * role carries it.
  */
-export function LocationGrantDialog({ labId, member, grant, open, onClose, onExited }: Props) {
+export function LocationGrantDialog({ labId, member, step, grant, open, onClose, onExited }: Props) {
   const add = useGrantLocation(labId)
   const revoke = useRevokeLocation(labId)
+  const confirm = useConfirmLocation(labId)
+  const text = TEXTS[step]
   const formId = useId()
   const [failure, setFailure] = useState<string>()
   const { register, handleSubmit, formState, setError } = useForm<LocationGrantInput>({
@@ -45,21 +77,19 @@ export function LocationGrantDialog({ labId, member, grant, open, onClose, onExi
   }
   const onSubmit = handleSubmit(({ reason }) => {
     setFailure(undefined)
-    if (grant) revoke.mutate({ grantId: grant.public_id, reason: reason.trim() }, { onSuccess: onClose, onError: failed })
-    else add.mutate({ member: member.public_id, reason: reason.trim() }, { onSuccess: onClose, onError: failed })
+    const done = { onSuccess: onClose, onError: failed }
+    if (!grant) add.mutate({ member: member.public_id, reason: reason.trim() }, done)
+    else if (step === 'confirm') confirm.mutate({ grantId: grant.public_id, reason: reason.trim() }, done)
+    else revoke.mutate({ grantId: grant.public_id, reason: reason.trim() }, done)
   })
   return (
     <ConfirmDialog
       open={open}
-      title={grant ? `Stop ${member.username} seeing regulated locations` : `Let ${member.username} see regulated locations`}
-      description={
-        grant
-          ? 'From now on the places of regulated strains stay hidden from them.'
-          : 'They may reveal where vials of regulated strains are stored, one vial at a time. Every reveal is recorded.'
-      }
-      confirmLabel={grant ? 'Revoke' : 'Grant'}
+      title={text.title(member.username)}
+      description={text.description}
+      confirmLabel={text.confirm}
       form={formId}
-      pending={add.isPending || revoke.isPending}
+      pending={add.isPending || revoke.isPending || confirm.isPending}
       error={failure ?? formState.errors.root?.server?.message}
       onClose={onClose}
       onExited={onExited}

@@ -88,6 +88,25 @@ export function useRevokeLocation(labId: string) {
   })
 }
 
+/** A second manager confirms a proposed grant (#267): from now on it reveals. */
+export function useConfirmLocation(labId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ grantId, reason }: { grantId: string; reason: string }) => {
+      await ensureCsrf()
+      return unwrap(
+        api.POST('/api/v1/labs/{lab_public_id}/location-grants/{public_id}/confirm/', {
+          params: { path: { lab_public_id: labId, public_id: grantId } },
+          body: { reason },
+        }),
+      )
+    },
+    meta: { handlesError: true },
+    onSuccess: () =>
+      Promise.all([qc.invalidateQueries({ queryKey: labKeys.locationGrants(labId) }), qc.invalidateQueries({ queryKey: sharedKeys.material(labId) })]),
+  })
+}
+
 export function useGrantVratAccess(labId: string) {
   const qc = useQueryClient()
   return useMutation({

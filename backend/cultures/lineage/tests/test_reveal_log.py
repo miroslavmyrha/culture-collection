@@ -10,11 +10,10 @@ import pytest
 from cultures.audit.context import audit_context
 from cultures.audit.models import ActorKind, AuditEvent, Channel
 from cultures.core.testing import QueryBaseline, assert_problem, logged_in
-from cultures.labs import services as labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
-from cultures.labs.tests.conftest import LAB_URL, member_of, membership
+from cultures.labs.tests.conftest import LAB_URL, confirmed_grant, member_of
 from cultures.lineage.models import Passage, Vial
 from cultures.lineage.services import vial_reveal_location
 from cultures.storage.models import StorageUnit, UnitKind
@@ -54,10 +53,7 @@ def holder(lab: Lab, manager: User) -> User:
 
 
 def grant(lab: Lab, manager: User, user: User) -> None:
-    with audit_context(channel=Channel.API, actor=manager, request_id="req-grant"):
-        labs.location_grant_add(
-            access=access_for(manager), lab=lab, membership=membership(user, lab), reason="register"
-        )
+    confirmed_grant(lab, manager, user)
 
 
 def reveal(user: User, vial: Vial) -> AuditEvent:

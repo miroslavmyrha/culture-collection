@@ -3,13 +3,15 @@ import { axe, signedInAs, username, watchCsp } from './support.js'
 
 // The reveal log (#83) against the real API. seed_e2e has a regulated strain (Clostridium tetani
 // e2e regulated) with two vials in E2E freezer > Rack 1 > Box R. The e2e user, the lab's manager,
-// gives e2e-technician the location grant, the technician reveals the first vial through the API,
-// and the manager revokes the grant again, so the technician holds none afterwards. Not
+// proposes the location grant for e2e-technician, e2e-deputy confirms it as a second manager for
+// that moment (#267) and leaves the lab again, the technician reveals the first vial through the
+// API, and the manager revokes the grant, so the technician holds none afterwards. Not
 // e2e-curator: vials.spec.ts checks that the curator holds no grant, and may run at the same time.
 // Then the manager reads the reveal in the log, and a viewer gets no tab.
 
 const REGULATED = 'Clostridium tetani e2e regulated'
 const TECHNICIAN = 'e2e-technician'
+const DEPUTY = 'e2e-deputy'
 
 async function as(browser: Browser, user: string) {
   const context = await browser.newContext({ storageState: signedInAs(user), viewport: { width: 1280, height: 900 } })
@@ -18,13 +20,13 @@ async function as(browser: Browser, user: string) {
 }
 
 /** A JSON read or write with the session and its CSRF token, from the page's origin; fails loudly. */
-async function call<T>(page: Page, verb: 'GET' | 'POST', url: string, payload?: unknown): Promise<T> {
+async function call<T>(page: Page, verb: 'GET' | 'POST' | 'DELETE', url: string, payload?: unknown): Promise<T> {
   const answer: T = await page.evaluate(
     async ({ verb: how, url: where, payload: sent }) => {
       await fetch('/api/v1/auth/csrf/')
-      const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
+      const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
       const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
-      const response = how === 'GET' ? await fetch(where, { headers }) : await fetch(where, { method: 'POST', headers, body: JSON.stringify(sent ?? {}) })
+      const response = how === 'POST' ? await fetch(where, { method: 'POST', headers, body: JSON.stringify(sent ?? {}) }) : await fetch(where, { method: how, headers })
       if (!response.ok) throw new Error(`${how} ${where}: ${response.status} ${await response.text()}`)
       return response.status === 204 ? null : response.json()
     },
@@ -49,6 +51,16 @@ test("a manager reads who revealed a regulated vial's place, without the place; 
   const grant = await call<{ public_id: string }>(page, 'POST', `/api/v1/labs/${lab}/location-grants/`, { member, reason: 'e2e of the reveal log' })
   let label = ''
   try {
+    // A second manager for this one confirmation, out of the lab again right after it.
+    const deputy = await call<{ public_id: string }>(page, 'POST', `/api/v1/labs/${lab}/members/`, { username: DEPUTY, role: 'manager' })
+    try {
+      const second = await as(browser, DEPUTY)
+      await second.page.goto('/labs')
+      await call<unknown>(second.page, 'POST', `/api/v1/labs/${lab}/location-grants/${grant.public_id}/confirm/`, { reason: 'e2e of the reveal log, second manager' })
+      await second.close()
+    } finally {
+      await call<unknown>(page, 'DELETE', `/api/v1/labs/${lab}/members/${deputy.public_id}/`)
+    }
     const technician = await as(browser, TECHNICIAN)
     await technician.page.goto('/labs')
     const strains = await call<{ results: { public_id: string }[] }>(technician.page, 'GET', `/api/v1/labs/${lab}/strains/?search=${encodeURIComponent(REGULATED)}`)

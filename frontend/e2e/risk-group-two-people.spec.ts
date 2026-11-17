@@ -20,7 +20,7 @@ test('a curator proposes a lower risk group and a manager confirms it', async ({
   const made = await page.evaluate(
     async ({ name, basis, acceptBasis }) => {
       await fetch('/api/v1/auth/csrf/')
-      const token = decodeURIComponent(/(?:^|; )csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
+      const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
       const lab = location.pathname.split('/')[2] ?? ''
       const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
       const send = async (path: string, body: unknown) => {

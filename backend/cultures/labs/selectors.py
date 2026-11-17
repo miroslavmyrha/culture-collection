@@ -51,13 +51,13 @@ def _uuid(value: str) -> bool:
 
 
 def location_grant_list(*, access: Access, lab: Lab) -> QuerySet[LocationGrant]:
-    """The open location grants of one lab, for its managers, by username, each with the
-    holder's membership public id (`membership_public_id`)."""
+    """The open location grants of one lab, proposed or confirmed, for its managers, by
+    username, each with the holder's membership public id (`membership_public_id`)."""
     membership = Membership.objects.filter(lab=OuterRef("lab"), user=OuterRef("user"))
     return (
         LocationGrant.objects.for_access(access, Perm.MANAGE_MEMBERS)
         .filter(lab=lab, revoked_at__isnull=True)
-        .select_related("user")
+        .select_related("user", "granted_by", "confirmed_by")
         .annotate(membership_public_id=Subquery(membership.values("public_id")[:1]))
         .order_by("user__username", "pk")
     )
