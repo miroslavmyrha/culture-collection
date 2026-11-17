@@ -12,6 +12,11 @@ fail() { echo "FAILED: $1" >&2; exit 1; }
 GITLEAKS_IMAGE=ghcr.io/gitleaks/gitleaks:v8.30.1
 SEMGREP_IMAGE=semgrep/semgrep:1.179.0@sha256:93963d9295a366f59e4850127b1550400ee7b388f04fe144e4a1f6325d96e01b
 
+echo "== local ports"
+# The development stack publishes its ports on the loopback interface only (#261).
+open_ports=$(grep -nE '^ +ports:' compose.yaml | grep -vE 'ports: \["127\.0\.0\.1:[^",]+"\]' || true)
+[ -z "$open_ports" ] || fail "compose.yaml publishes a port beyond 127.0.0.1: $open_ports"
+
 echo "== secrets"
 if git rev-parse --git-dir >/dev/null 2>&1; then
   # In a linked worktree .git is a file that points into the main checkout's .git: mount that
