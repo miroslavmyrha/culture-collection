@@ -52,6 +52,12 @@ docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/tools/semgrep:/rule
   "$SEMGREP_IMAGE" semgrep --test --metrics=off --disable-version-check --quiet /rules \
   || fail "Semgrep rule tests: a rule no longer fires as its fixture says (see above)"
 
+echo "== base images"
+# Every image the backend is built from is pinned by digest (#262); stage names are not images.
+stages=$(grep -oiE '^FROM .+ AS [a-z0-9_-]+' backend/Dockerfile | awk '{print $NF}')
+unpinned=$(grep -iE '^FROM ' backend/Dockerfile | awk '{print $2}' | grep -vxF -f <(printf '%s\n' $stages) | grep -v '@sha256:' || true)
+[ -z "$unpinned" ] || fail "backend/Dockerfile takes an image without a digest: $unpinned"
+
 echo "== CI"
 # The e2e job must run the API as the runtime role (ADR 0005), as production does.
 grep -Eq '^ +tools/up-with-runtime-role\.sh *$' .github/workflows/ci.yml \

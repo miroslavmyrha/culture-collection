@@ -10,6 +10,7 @@ to the law the rule rests on is one hop.
 ## Unreleased
 - The schema endpoint answers signed-in users only, and a client's `X-Request-ID` is ignored unless `REQUEST_ID_FROM_PROXY` says a proxy in front sets it, so a client cannot choose the request id its audit rows carry (#41).
 - The development stack publishes the database and the API on 127.0.0.1 only, and `check.sh` fails on a port in `compose.yaml` open beyond it (#261).
+- The backend image is built from Python 3.14.10 pinned by digest, Dependabot proposes each new base image as a pull request, and `check.sh` fails on an unpinned base image (#262).
 - The API reads multipart bodies only on the three views that take a file and JSON everywhere else, and refuses with 413 any body declared over 11 MB before reading it, whatever the proxy in front does (#41).
 - A finding that asks for a manager and arises after a request was approved stops its preparation and shipment until a manager approves it again with a reason; the vials stay reserved, and who approved again does not confirm the shipment (#263, R-DIST-03).
 - A JSON body nested deeper than 32 levels is refused with 400; one deep enough to exhaust the decoder ended as a server error (#41).
