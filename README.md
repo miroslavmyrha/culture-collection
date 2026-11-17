@@ -163,8 +163,11 @@ them. Optional: `DJANGO_SECRET_KEY_FALLBACKS` (key rotation), `LOG_FORMAT=json`,
 `ERROR_REPORTING_DSN` (add `sentry-sdk` first), `DB_RUNTIME_ROLE_REQUIRED=false` (only
 where the host gives the app no second role), `THROTTLE_*`, `LOGIN_PAIR_*`,
 `LOGIN_ADDRESS_*`, `LOGIN_ACCOUNT_*` (`backend/config/settings/base.py`),
-`DATA_UPLOAD_MAX_MEMORY_SIZE`. Startup refuses unsafe values; `./check.sh` runs
-`check --deploy` with production settings.
+`DATA_UPLOAD_MAX_MEMORY_SIZE`, `REQUEST_MAX_BYTES`, `REQUEST_ID_FROM_PROXY=true` (only when
+the proxy sets `X-Request-ID` on every request and drops the client's; otherwise the app makes
+its own id). Startup refuses unsafe values; `./check.sh` runs `check --deploy` with production
+settings.
 
-The proxy must cap the request body (`client_max_body_size`): Django limits form
-and JSON bodies but not the total size of uploaded files.
+The app refuses a body declared over `REQUEST_MAX_BYTES` (11 MB); the proxy caps it too
+(`client_max_body_size`) as the outer line. The schema endpoint `/api/v1/schema/` answers
+signed-in users only; `backend/openapi.yml` is the public copy.

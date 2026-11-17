@@ -18,7 +18,7 @@ from .conftest import PASSWORD, trail
 from .test_admin import form_of
 from .test_login_limits import HOME, NEW, api, put_under_attack, staff_user
 
-pytestmark = pytest.mark.django_db
+pytestmark = [pytest.mark.django_db, pytest.mark.usefixtures("behind_proxy")]
 REASON = "called the help desk, confirmed by phone"
 
 

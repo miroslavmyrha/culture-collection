@@ -157,6 +157,9 @@ SELF_TESTS = {
         "cultures.core.tests.test_viewset_contract:"
         "test_contract_catches_a_refused_write_that_changed_the_row"
     ),
+    "behind_proxy": (
+        "cultures.core.tests.test_request_id:test_valid_inbound_request_id_is_kept_and_logged"
+    ),
     "pytest_configure": (
         "cultures.core.tests.test_testing_tools:test_pytest_refuses_any_other_settings_module"
     ),

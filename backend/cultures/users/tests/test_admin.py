@@ -14,7 +14,7 @@ from cultures.users.models import User
 
 from .conftest import PASSWORD, make_user, trail
 
-pytestmark = pytest.mark.django_db
+pytestmark = [pytest.mark.django_db, pytest.mark.usefixtures("behind_proxy")]
 NEW_PASSWORD = "a brand new admin password"  # noqa: S105 (a test password)
 
 

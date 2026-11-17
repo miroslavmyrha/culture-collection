@@ -27,7 +27,11 @@ from cultures.core.testing import logged_in
 from cultures.users.models import User
 from cultures.users.services import user_deactivate
 
-pytestmark = [pytest.mark.django_db, pytest.mark.urls(__name__)]
+pytestmark = [
+    pytest.mark.django_db,
+    pytest.mark.urls(__name__),
+    pytest.mark.usefixtures("behind_proxy"),
+]
 
 
 @api_view(["POST"])
