@@ -3,12 +3,12 @@
 #   runtime  (default): production dependencies only, code owned by root and
 #            read-only for the app user, static files collected, gunicorn.
 # Run the runtime image with --read-only and a tmpfs on /tmp.
-# uv is pinned by version and digest; bump both together.
-ARG PYTHON_IMAGE=python:3.14-slim
+# Base images are pinned by version and digest (#262); bump both together. Dependabot
+# (.github/dependabot.yml) proposes each new digest as a pull request.
 
 FROM ghcr.io/astral-sh/uv:0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef30279f7d64048519ab901ada336 AS uv
 
-FROM ${PYTHON_IMAGE} AS base
+FROM python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f AS base
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PATH="/venv/bin:$PATH"
 WORKDIR /app
 

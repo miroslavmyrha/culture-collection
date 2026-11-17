@@ -1,0 +1,10 @@
+# Base images of backend/Dockerfile move by a reviewed pull request, digest and version
+# together (#262).
+version: 2
+updates:
+  - package-ecosystem: docker
+    directory: /backend
+    target-branch: develop
+    schedule:
+      interval: weekly
+    labels: ["type: chore", "area: ops"]
