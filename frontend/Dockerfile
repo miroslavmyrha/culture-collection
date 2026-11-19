@@ -11,7 +11,7 @@ COPY . .
 # The source maps are for an error tracker (vite.config.ts): none is served.
 RUN npm run build && find dist -name '*.map' -delete
 
-FROM nginxinc/nginx-unprivileged:1.29.8-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6
+FROM nginxinc/nginx-unprivileged:1.31.7-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
 # No packaged default site: the rendered template is the only server.
 USER root
 RUN rm -f /etc/nginx/conf.d/default.conf
