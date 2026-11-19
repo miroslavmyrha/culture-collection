@@ -179,7 +179,9 @@ jobs:
           ./check.sh
 
   changelog:
-    if: github.event_name == 'pull_request'
+    # Dependabot's base image and package updates write no line: the release notes list them
+    # from their pull requests (#277).
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
