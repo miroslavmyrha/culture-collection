@@ -23,7 +23,8 @@ jobs:
   check:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # Measured 2026-11-19: 19 to 26 min; a slow runner took half as long again for the backend tests and hit the old 30 (#280).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -164,7 +165,8 @@ jobs:
   per-commit:
     needs: commits
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # Measured 2026-11-19: 16 to 18 min per commit, half as long again on a slow runner (#280).
+    timeout-minutes: 40
     strategy:
       fail-fast: false # every commit reports, so one red commit does not hide the next
       matrix:
@@ -245,7 +247,8 @@ jobs:
       always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
       || needs.locks.outputs.changed == 'true')
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # Measured 2026-11-18: 15 min, half as long again on a slow runner (#280).
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
