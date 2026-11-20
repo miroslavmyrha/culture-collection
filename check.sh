@@ -62,6 +62,9 @@ for dockerfile in backend/Dockerfile frontend/Dockerfile; do
 done
 unpinned=$(grep -E '^ +image: ' deploy/compose.yaml | grep -v '\${' | grep -v '@sha256:' || true)
 [ -z "$unpinned" ] || fail "deploy/compose.yaml runs an image without a digest: $unpinned"
+# The tools the deploy scripts run in containers (cosign, restic) are pinned the same way (#177).
+unpinned=$(grep -hE '^[A-Z_]+_IMAGE=' deploy/*.sh | grep -v '@sha256:' || true)
+[ -z "$unpinned" ] || fail "a script in deploy/ runs an image without a digest: $unpinned"
 
 echo "== CI"
 # The e2e job must run the API as the runtime role (ADR 0005), as production does.

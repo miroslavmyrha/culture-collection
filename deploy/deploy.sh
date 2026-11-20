@@ -4,8 +4,8 @@
 #   1. the images: a release is verified (cosign) and pulled by digest, or both are built here;
 #   2. the database, then manage.py db_roles as the admin creates the roles;
 #   3. the role passwords are set through psql variables, never on a command line;
-#   4. the backup before migrate (#177), then migrate and createcachetable as the migration
-#      role, with a lock timeout;
+#   4. the backup before migrate (deploy/backup.sh, #177), then migrate and createcachetable as
+#      the migration role, with a lock timeout;
 #   5. the API runs as the runtime role (its health check is /readyz), then the proxy.
 # Running it again is safe: it is also how an update is deployed.
 #
@@ -38,13 +38,14 @@ if [ "${1:-}" = secrets ]; then
   umask 077
   mkdir -p "$SECRETS_DIR"
   chmod 700 "$SECRETS_DIR"
-  for name in db_admin_password db_migration_password db_runtime_password django_secret_key; do
+  for name in db_admin_password db_migration_password db_runtime_password django_secret_key restic_password; do
     [ -s "$SECRETS_DIR/$name" ] || head -c 48 /dev/urandom | base64 | tr -d '/+=\n' > "$SECRETS_DIR/$name"
   done
   [ -s "$SECRETS_DIR/database_url" ] \
     || echo "postgres://cultures_app:$(secret db_runtime_password)@db:5432/cultures" > "$SECRETS_DIR/database_url"
   chmod 644 "$SECRETS_DIR"/*
-  echo "secrets in $SECRETS_DIR: keep a copy outside the host, with the backups (#177)"
+  echo "secrets in $SECRETS_DIR: keep a copy OFF THE HOST. Without restic_password no backup can"
+  echo "be read (deploy/backup.sh, docs/runbook.md)."
   exit 0
 fi
 
@@ -152,12 +153,8 @@ ALTER ROLE cultures_app PASSWORD :'runtime_password';
 SQL
 
 echo "== backup before migrate"
-# The hook of #177: deploy/backup.sh takes the backup a bad migration is restored from.
-if [ -x ./backup.sh ]; then
-  ./backup.sh before-migrate || step_failed "the backup before migrate"
-else
-  echo "no deploy/backup.sh yet (#177): no backup taken"
-fi
+# deploy/backup.sh (#177): the backup a bad migration is restored from. No backup, no migrate.
+./backup.sh before-migrate || step_failed "the backup before migrate"
 
 echo "== migrate (as cultures_migration)"
 DATABASE_URL="postgres://cultures_migration:${DB_MIGRATION_PASSWORD}@db:5432/cultures" \

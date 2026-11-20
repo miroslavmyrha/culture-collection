@@ -106,21 +106,30 @@ and the proxy run read-only.
 
 1. `cp deploy/.env.example deploy/.env` and fill it in.
 2. `deploy/deploy.sh secrets` writes random secrets to `deploy/secrets/` (the folder mode 700, the
-   files 644 so the containers read them). Keep a
-   copy off the host with the backups.
+   files 644 so the containers read them), the restic password of the backups among them. Keep
+   a copy off the host: without it no backup can be read.
 3. Put `fullchain.pem` and `privkey.pem` in `deploy/certs/` (or `TLS_DIR`), readable by uid
    101. Renew them outside the stack (certbot on the host, an institution's CA), then
    `docker compose -f deploy/compose.yaml exec proxy nginx -s reload`.
-4. `deploy/deploy.sh X.Y.Z` deploys a release (below): it verifies both images' signatures,
-   pulls them by digest, creates the roles, takes the backup before migrate (#177), migrates
+4. `RESTIC_REPOSITORY` in `deploy/.env`, then `deploy/backup.sh init` (once): the backups,
+   [docs/runbook.md](docs/runbook.md).
+5. `deploy/deploy.sh X.Y.Z` deploys a release (below): it verifies both images' signatures,
+   pulls them by digest, creates the roles, takes the backup before migrate (`deploy/backup.sh`), migrates
    as the migration role and starts the API as the runtime role, then the proxy. The same
    command deploys an update. `deploy/deploy.sh` without a version builds both images on the
    host instead (trials, e2e), with no signature and no rollback.
 
 `deploy/e2e-production.sh` runs the e2e suite once through this stack with a self-signed
 certificate and throwaway secrets; `deploy/e2e-rollback.sh` deploys a release, then one whose
-proxy never turns healthy, and checks that the first one runs again. CI runs both on every
+proxy never turns healthy, and checks that the first one runs again; `deploy/e2e-restore.sh`
+backs the stack up, restores it into a second one and verifies it. CI runs all three on every
 pull request.
+
+### Backups
+`deploy/backup.sh` backs the database up with restic: daily, before every migrate, with a daily
+check, 14 daily, 8 weekly and 12 monthly sets kept, restored into a stack of its own and
+verified against the row counts and the audit chains. Schedule, restore steps and the
+quarterly drill: [docs/runbook.md](docs/runbook.md).
 
 ### Release and rollback
 A release is cut from main, on Mirek's word:
