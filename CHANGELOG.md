@@ -10,6 +10,7 @@ to the law the rule rests on is one hop.
 ## Unreleased
 - The CI jobs get time limits with room for a slow runner, measured: check 45, per-commit 40, audit 30 minutes; a slow runner had cancelled a green check at 30 (#280).
 - The frontend builds and is tested on Node 26 LTS, and dependency update pull requests from Dependabot need no changelog line (#277).
+- Releases: a tag vX.Y.Z on main builds both images, pushes them to GHCR, signs them with cosign keyless and publishes the notes, and `deploy/deploy.sh X.Y.Z` runs only images release.yml signed, rolling back to the running release when a step fails (#179).
 - The schema endpoint answers signed-in users only, and a client's `X-Request-ID` is ignored unless `REQUEST_ID_FROM_PROXY` says a proxy in front sets it, so a client cannot choose the request id its audit rows carry (#41).
 - The development stack publishes the database and the API on 127.0.0.1 only, and `check.sh` fails on a port in `compose.yaml` open beyond it (#261).
 - The backend image is built from Python 3.14.10 pinned by digest, Dependabot proposes each new base image as a pull request, and `check.sh` fails on an unpinned base image (#262).

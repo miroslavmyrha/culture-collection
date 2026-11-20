@@ -111,11 +111,38 @@ and the proxy run read-only.
 3. Put `fullchain.pem` and `privkey.pem` in `deploy/certs/` (or `TLS_DIR`), readable by uid
    101. Renew them outside the stack (certbot on the host, an institution's CA), then
    `docker compose -f deploy/compose.yaml exec proxy nginx -s reload`.
-4. `deploy/deploy.sh`: builds the images, creates the roles, migrates as the migration role
-   and starts the API as the runtime role, then the proxy. The same command deploys an update.
+4. `deploy/deploy.sh X.Y.Z` deploys a release (below): it verifies both images' signatures,
+   pulls them by digest, creates the roles, takes the backup before migrate (#177), migrates
+   as the migration role and starts the API as the runtime role, then the proxy. The same
+   command deploys an update. `deploy/deploy.sh` without a version builds both images on the
+   host instead (trials, e2e), with no signature and no rollback.
 
 `deploy/e2e-production.sh` runs the e2e suite once through this stack with a self-signed
-certificate and throwaway secrets; CI runs it on every pull request.
+certificate and throwaway secrets; `deploy/e2e-rollback.sh` deploys a release, then one whose
+proxy never turns healthy, and checks that the first one runs again. CI runs both on every
+pull request.
+
+### Release and rollback
+A release is cut from main, on Mirek's word:
+1. Move the Unreleased lines of `CHANGELOG.md` under `## [X.Y.Z] - YYYY-MM-DD` (SemVer, 0.x
+   until the pilot), merge develop into main.
+2. Tag the merge `vX.Y.Z` on main and push the tag. `.github/workflows/release.yml` refuses a
+   tag that is not on main or has no changelog section. It builds both images, pushes
+   `ghcr.io/miroslavmyrha/culture-collection-backend:X.Y.Z` and `-proxy:X.Y.Z`, signs each by
+   digest with cosign keyless, and publishes the release with the changelog section, the
+   Dependabot updates since the previous tag (`backend/tools/release_notes.py`) and both
+   digests. The two packages must be public on GHCR, or the host logs in first.
+3. On the host: `deploy/deploy.sh X.Y.Z`. It runs nothing that release.yml of this repository
+   did not sign on the tag `vX.Y.Z`.
+
+`deploy/state/current` names the running release and its image digests, `previous` the one
+before. A release whose step fails (roles, the backup, migrate, an API or proxy that does not
+turn healthy in 180 s) is replaced by the running one again, and the script exits non-zero
+naming the step. The rollback restores images only: migrations go forward only, and the
+migration linter of `check.sh` refuses one the previous release could not run on, so the
+previous release works on the new schema. A bad migration itself is undone by restoring the
+backup taken before it. To go back to an older release on purpose, deploy it:
+`deploy/deploy.sh <older version>`.
 
 ### Database roles (once per database)
 The app never connects as the owner of its tables (ADR 0005). As a superuser, or the
