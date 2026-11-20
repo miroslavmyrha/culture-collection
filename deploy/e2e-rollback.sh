@@ -8,36 +8,19 @@
 #   deploy/e2e-rollback.sh   E2E_HTTPS_PORT (8543), E2E_HTTP_PORT (8180) move it
 set -euo pipefail
 cd "$(dirname "$0")"
-fail() { echo "FAILED: $1" >&2; exit 1; }
-compose() { docker compose -f compose.yaml "$@"; }
-
-work=$(mktemp -d)
 export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-cultures-e2e-rollback}
 export HTTPS_PORT=${E2E_HTTPS_PORT:-8543} HTTP_PORT=${E2E_HTTP_PORT:-8180}
-export ENV_FILE=$work/env SECRETS_DIR=$work/secrets TLS_DIR=$work/certs STATE_DIR=$work/state
 export WEB_SUBNET=${E2E_WEB_SUBNET:-10.180.0.0/24} PROXY_ADDRESS=${E2E_PROXY_ADDRESS:-10.180.0.10}
-export DJANGO_ADMIN_PATH=e2e-admin-$RANDOM/ LOCAL_RELEASE=1
+export LOCAL_RELEASE=1
 backend=local/culture-collection-backend proxy=local/culture-collection-proxy
+# shellcheck source=e2e-common.sh
+. ./e2e-common.sh
 cleanup() {
   local status=$?
-  [ "$status" -eq 0 ] || compose logs --tail 40 backend proxy 2>&1 || true
-  compose down -v --remove-orphans >/dev/null 2>&1 || true
+  e2e_cleanup "$status"
   docker rmi "$backend:0.0.1" "$backend:0.0.2" "$proxy:0.0.1" "$proxy:0.0.2" >/dev/null 2>&1 || true
-  rm -rf "$work"
 }
 trap cleanup EXIT
-
-cat > "$ENV_FILE" <<ENV
-DJANGO_ALLOWED_HOSTS=localhost
-DJANGO_CSRF_TRUSTED_ORIGINS=https://localhost:$HTTPS_PORT
-DJANGO_ADMIN_PATH=$DJANGO_ADMIN_PATH
-ENV
-mkdir -p "$TLS_DIR"
-openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=localhost \
-  -addext subjectAltName=DNS:localhost -keyout "$TLS_DIR/privkey.pem" -out "$TLS_DIR/fullchain.pem" \
-  >/dev/null 2>&1 || fail "openssl could not make the test certificate"
-chmod 644 "$TLS_DIR/privkey.pem"
-./deploy.sh secrets >/dev/null
 
 echo "== two releases: 0.0.1, and 0.0.2 with a proxy that never turns healthy"
 docker build -q --target runtime -t "$backend:0.0.1" ../backend >/dev/null || fail "the backend image"
