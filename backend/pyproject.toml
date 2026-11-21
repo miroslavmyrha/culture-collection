@@ -11,6 +11,8 @@ dependencies = [
     "django-environ",
     "gunicorn",
     "whitenoise",
+    # Error reporting (#180): imported only when ERROR_REPORTING_DSN is set.
+    "sentry-sdk",
 ]
 
 [dependency-groups]

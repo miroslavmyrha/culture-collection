@@ -28,7 +28,7 @@ chmod 644 "$TLS_DIR/privkey.pem"
 # The stack and $work go when the caller exits. The logs go with the stack: print them first.
 e2e_cleanup() {
   local status=$1
-  [ "$status" -eq 0 ] || compose logs --tail 60 backend proxy 2>&1 || true
+  [ "$status" -eq 0 ] || compose logs --tail 60 backend proxy scheduler 2>&1 || true
   compose down -v --remove-orphans >/dev/null 2>&1 || true
   rm -rf "$work"
 }

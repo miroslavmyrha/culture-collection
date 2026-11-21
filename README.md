@@ -97,7 +97,7 @@ docker run --read-only --tmpfs /tmp -p 8000:8000 --env-file prod.env cultures-ap
 ```
 
 ### One host: deploy/
-`deploy/compose.yaml` runs the database, the API and the proxy on one Linux host (ADR 0009
+`deploy/compose.yaml` runs the database, the API, the proxy and the scheduler of the jobs on one Linux host (ADR 0009
 hosting). The proxy (`frontend/Dockerfile`, nginx) terminates TLS, serves the SPA with a fresh
 CSP nonce per response, passes `/api`, `/static` and the admin path to gunicorn with
 `X-Forwarded-For` and `X-Request-ID`, and caps the body at 11 MB. Only the proxy publishes
@@ -115,15 +115,25 @@ and the proxy run read-only.
    [docs/runbook.md](docs/runbook.md).
 5. `deploy/deploy.sh X.Y.Z` deploys a release (below): it verifies both images' signatures,
    pulls them by digest, creates the roles, takes the backup before migrate (`deploy/backup.sh`), migrates
-   as the migration role and starts the API as the runtime role, then the proxy. The same
+   as the migration role and starts the API as the runtime role, then the proxy and the
+   scheduler. The same
    command deploys an update. `deploy/deploy.sh` without a version builds both images on the
    host instead (trials, e2e), with no signature and no rollback.
 
 `deploy/e2e-production.sh` runs the e2e suite once through this stack with a self-signed
 certificate and throwaway secrets; `deploy/e2e-rollback.sh` deploys a release, then one whose
 proxy never turns healthy, and checks that the first one runs again; `deploy/e2e-restore.sh`
-backs the stack up, restores it into a second one and verifies it. CI runs all three on every
-pull request.
+backs the stack up, restores it into a second one and verifies it; `deploy/e2e-jobs.sh` runs
+every scheduled job against a Healthchecks stand-in. CI runs all four on every pull request.
+
+### Scheduled jobs and alerts
+The `scheduler` service runs `backend/crontab` with supercronic, from the API's image: a
+heartbeat every five minutes (the API ready, the proxy serving the app), the login counters
+hourly, expired sessions, the audit reconciliation and the anchor of the audit chains daily.
+Each job reports to Healthchecks (`deploy/secrets/healthchecks_ping_url`), which emails when a
+job fails or its ping does not come. Application errors go to `ERROR_REPORTING_DSN` (Sentry or
+GlitchTip). The checks to create, what each alert means and what to do:
+[docs/runbook.md](docs/runbook.md).
 
 ### Backups
 `deploy/backup.sh` backs the database up with restic: daily, before every migrate, with a daily
@@ -217,7 +227,7 @@ up to the first address not in the list; gunicorn takes the same list as
 `proxy_add_x_forwarded_for`, plain addresses without ports): a hop that is not an
 address ends the walk at the last trusted one. `DJANGO_NUM_PROXIES` and `GUNICORN_FORWARDED_ALLOW_IPS` are gone, and startup refuses
 them. Optional: `DJANGO_SECRET_KEY_FALLBACKS` (key rotation), `LOG_FORMAT=json`,
-`ERROR_REPORTING_DSN` (add `sentry-sdk` first), `DB_RUNTIME_ROLE_REQUIRED=false` (only
+`ERROR_REPORTING_DSN` (Sentry or GlitchTip), `DB_RUNTIME_ROLE_REQUIRED=false` (only
 where the host gives the app no second role), `THROTTLE_*`, `LOGIN_PAIR_*`,
 `LOGIN_ADDRESS_*`, `LOGIN_ACCOUNT_*` (`backend/config/settings/base.py`),
 `DATA_UPLOAD_MAX_MEMORY_SIZE`, `REQUEST_MAX_BYTES`, `REQUEST_ID_FROM_PROXY=true` (only when

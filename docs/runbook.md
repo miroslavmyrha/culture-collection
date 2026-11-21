@@ -1,7 +1,21 @@
 # Runbook
 
-For the operator of the production stack in `deploy/` (README "One host: deploy/"). Scheduled
-jobs and alerts other than the backup are #180.
+For the operator of the production stack in `deploy/` (README "One host: deploy/"). All
+commands run from the checkout on the host, `/srv/culture-collection` below. Times are UTC.
+
+## Start, stop, upgrade, rollback
+
+| What | How |
+|---|---|
+| Start, or deploy a release | `deploy/deploy.sh X.Y.Z`: verifies the signatures, backs up, migrates, starts the API, the proxy and the scheduler, waits until all three are healthy |
+| Upgrade | the same command with the new version. A release that does not come up healthy is replaced by the one before it, and the command names the step that failed |
+| Roll back by hand | `deploy/deploy.sh <previous version>` (`deploy/state/previous` names it). Images only: a bad migration is undone by a restore of the backup taken before it ("Restore" below) |
+| Stop | `docker compose -f deploy/compose.yaml stop`. The data stays in the `db-data` volume |
+| Start again after a stop or a reboot | the containers restart by themselves (`restart: unless-stopped`); after a `down`, `deploy/deploy.sh <current version>` |
+| State | `docker compose -f deploy/compose.yaml ps` (all four healthy), `logs --tail 100 <service>` |
+
+Never `docker compose down -v`: `-v` deletes the database volume. Only the restore steps below
+use it, after a backup.
 
 ## Backups (#177)
 
@@ -38,8 +52,11 @@ losing the host is what a backup must survive. The same goes for `deploy/secrets
 
 ### Schedule
 
-A systemd timer (as the deploying user, with `loginctl enable-linger` so it runs while nobody
-is logged in), `~/.config/systemd/user/cultures-backup.service`:
+The backups run on the host, not in the scheduler service: they need docker, and no container
+gets the docker socket (that would be root on the host). They report to Healthchecks through
+the same `backend/tools/run_job.py` as the other jobs, with the host's `python3` (standard
+library only). A systemd timer, as the deploying user, with `loginctl enable-linger` so it
+runs while nobody is logged in, `~/.config/systemd/user/cultures-backup.service`:
 
 ```ini
 [Unit]
@@ -47,8 +64,9 @@ Description=culture-collection backup and check
 
 [Service]
 Type=oneshot
-ExecStart=/srv/culture-collection/deploy/backup.sh run
-ExecStart=/srv/culture-collection/deploy/backup.sh check
+Environment=HEALTHCHECKS_PING_URL_FILE=/srv/culture-collection/deploy/secrets/healthchecks_ping_url
+ExecStart=/usr/bin/python3 /srv/culture-collection/backend/tools/run_job.py backup --timeout 7200 -- /srv/culture-collection/deploy/backup.sh run
+ExecStart=/usr/bin/python3 /srv/culture-collection/backend/tools/run_job.py backup-check --timeout 1800 -- /srv/culture-collection/deploy/backup.sh check
 ```
 
 and `cultures-backup.timer`:
@@ -66,11 +84,11 @@ RandomizedDelaySec=10m
 WantedBy=timers.target
 ```
 
-`systemctl --user enable --now cultures-backup.timer`. A failed run is a failed unit:
-`systemctl --user --failed`, and an alert on it belongs to #180. With cron instead:
+`systemctl --user enable --now cultures-backup.timer`. The checks `backup` and `backup-check`
+alert when a run fails or does not come ("Scheduled jobs and alerts" below). With cron instead:
 
 ```cron
-30 2 * * * /srv/culture-collection/deploy/backup.sh run && /srv/culture-collection/deploy/backup.sh check || <alert command>
+30 2 * * * cd /srv/culture-collection && HEALTHCHECKS_PING_URL_FILE=deploy/secrets/healthchecks_ping_url python3 backend/tools/run_job.py backup --timeout 7200 -- deploy/backup.sh run && HEALTHCHECKS_PING_URL_FILE=deploy/secrets/healthchecks_ping_url python3 backend/tools/run_job.py backup-check --timeout 1800 -- deploy/backup.sh check
 ```
 
 ### Restore
@@ -96,3 +114,78 @@ set, why, the result of the verification.
 `deploy/e2e-restore.sh` runs all of this against a local repository, and CI runs it on every
 pull request: a backup, a restore into an empty stack, the verification, and three refusals (a
 restore over data, a row missing, an audit event edited).
+
+## Scheduled jobs and alerts (#180)
+
+The `scheduler` service runs `backend/crontab` with supercronic, from the API's image and as
+the runtime role, so a release or a rollback moves it with the API. Every job goes through
+`backend/tools/run_job.py`, which pings Healthchecks: `start`, then success, or the exit code
+with the last 10 kB of the output, credentials taken out. Healthchecks emails when a job fails,
+and when its ping does not come in time: that also catches a stopped scheduler or a host that
+is down. `deploy/e2e-jobs.sh` runs every line of the crontab against a stand-in, in CI too.
+
+**Setting it up.** A Healthchecks project of its own, on an instance in the EU (Healthchecks is
+open source: healthchecks.io's EU hosting, or one the institution runs), with email
+notifications to the operator and a second person. Its ping URL with the project's ping key,
+`https://<instance>/ping/<ping-key>`, goes in `deploy/secrets/healthchecks_ping_url` (one
+line; empty means nothing is reported, and each job says so once in its log). Then create one
+check per row, with the slug, period and grace given here:
+
+| Check (slug) | Runs | Period | Grace | Where |
+|---|---|---|---|---|
+| `heartbeat` | every 5 min | 5 min | 10 min | scheduler |
+| `prune-login-failures` | hourly, :07 | 1 h | 30 min | scheduler |
+| `clearsessions` | daily 03:17 | 1 day | 2 h | scheduler |
+| `audit-reconcile` | daily 04:17 | 1 day | 2 h | scheduler |
+| `audit-chain-anchor` | daily 04:47 | 1 day | 2 h | scheduler |
+| `backup` | daily 02:30 | 1 day | 3 h | host timer |
+| `backup-check` | daily, after the backup | 1 day | 3 h | host timer |
+
+A ping that cannot reach Healthchecks never changes a job's result: the missing ping is the
+alarm. Application errors (an exception in a request or a job) go to `ERROR_REPORTING_DSN` in
+`deploy/.env`, a Sentry or GlitchTip project in the EU; empty means none are sent. Events carry
+no personal data (`cultures/core/error_reporting.py`).
+
+### When an alert comes
+
+First for all of them: `docker compose -f deploy/compose.yaml ps` and the failed ping's body in
+Healthchecks, which holds the end of the job's output. Then:
+
+| Alert | What it means | First steps |
+|---|---|---|
+| `heartbeat` down | the API is not ready, the proxy does not serve the app, or the scheduler or the host is down | `ps`: which service is not healthy. `logs --tail 100 backend` (a failing `/readyz` names its check: `database`, `cache`, `migrations`, `runtime_role`). Host unreachable: the hosting provider |
+| `heartbeat` fails, body names a URL | that URL did not answer 2xx | `runtime_role`: the API runs as an owner, redeploy with `deploy.sh`. `migrations`: a deploy stopped halfway, run it again. The proxy URL: `logs proxy`, the certificate |
+| `audit-reconcile` fails | a row changed that no service event explains: a write from psql, a script, a bug | Do not "fix" the rows. The body lists the changes. Find who wrote them (time, role, request id), write it in the log book, tell a manager. ADR 0005 |
+| `audit-chain-anchor` fails with "unanchored" | no qualified timestamp today: no authority configured, or it did not answer | Every day until `AUDIT_TIMESTAMP_BACKEND` names a provider (ADR 0009): a known gap, keep the check paused until then. With a provider: its status, then run the job again, `docker compose -f deploy/compose.yaml exec scheduler python manage.py audit_chain_anchor` |
+| `prune-login-failures` or `clearsessions` fails | a database problem, usually | `logs scheduler`, then `heartbeat`. Harmless for a day: the tables only grow |
+| `backup` fails or is late | no backup tonight | The body names the step. Repository unreachable or credentials: `deploy/secrets/restic_env`. Run it again by hand, `deploy/backup.sh run`, and watch `backup-check` |
+| `backup-check` fails | the repository is damaged, or the newest set is older than 26 h | `deploy/backup.sh check` by hand. A damaged repository: start a new one and take a backup now, keep the old one until the next drill |
+| an error report | an exception in the app | The event's request id: the same id is in the logs and in the audit trail of that request |
+
+## Rotating secrets
+
+Each in a quiet hour, with a backup first (`deploy/backup.sh run`), and written in the log book.
+compose mounts each secret file as it was when the container was created, and `up -d` does not
+recreate a container when only a file's content changed: every rotation ends with
+`docker compose -f deploy/compose.yaml up -d --force-recreate --wait backend scheduler`
+("recreate" below).
+
+- **Django secret key** (`deploy/secrets/django_secret_key`): put the old key in `deploy/.env` as
+  `DJANGO_SECRET_KEY_FALLBACKS=<old key>`, write a new random one into the file
+  (`head -c 48 /dev/urandom | base64 | tr -d '/+=\n'`), recreate.
+  Sessions and signed values stay valid through the fallback. After the session age (8 h,
+  `SESSION_COOKIE_AGE`) remove the fallback and recreate again.
+- **Database role passwords** (`db_migration_password`, `db_runtime_password`): write the new
+  password into the file, and for the runtime role the same password into `database_url`, then
+  `deploy/deploy.sh <current version>`, which sets the role passwords, then recreate, so the API
+  and the scheduler connect with them. The admin password (`db_admin_password`) is set when the volume is
+  created: change it with `ALTER ROLE cultures PASSWORD ...` in psql first, then the file.
+- **restic password**: restic keeps several keys. Add the new one, then remove the old one, with
+  the restic image of `deploy/backup.sh` (`RESTIC_IMAGE`) and the repository's credentials:
+  `restic key add`, `restic key list`, `restic key remove <old id>`. Then write the new password
+  into `deploy/secrets/restic_password` and **its copy off the host**: an old copy no longer
+  opens the repository.
+- **Healthchecks ping key**: rotate it in the project's settings, write the new URL into
+  `deploy/secrets/healthchecks_ping_url`, recreate (the host timer reads the file at each run).
+- **TLS certificate**: renewed outside the stack, then `docker compose -f deploy/compose.yaml
+  exec proxy nginx -s reload`.

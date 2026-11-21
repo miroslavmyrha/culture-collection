@@ -1,0 +1,21 @@
+# The scheduled jobs of the production stack (#180), run by supercronic in the scheduler service
+# of deploy/compose.yaml, as the runtime role. Times are UTC. Every line goes through
+# tools/run_job.py, which reports to Healthchecks under the check named first; the period and
+# grace of each check are in docs/runbook.md "Scheduled jobs and alerts". The backups run on the
+# host, not here: they need docker (docs/runbook.md "Backups").
+
+# The API is ready and the proxy serves the app; no ping means the host or the scheduler is down.
+*/5 * * * * python tools/run_job.py heartbeat --timeout 60 -- python tools/heartbeat.py --insecure-internal-tls http://backend:8000/readyz https://proxy:8443/
+
+# Ended login counters, so made-up names do not stay in the table (README "Login limits").
+7 * * * * python tools/run_job.py prune-login-failures --timeout 600 -- python manage.py prune_login_failures
+
+# Expired sessions: they live in the database, and nothing else deletes them.
+17 3 * * * python tools/run_job.py clearsessions --timeout 1800 -- python manage.py clearsessions
+
+# Row changes no service event explains, over the last day and an hour of overlap (ADR 0005).
+17 4 * * * python tools/run_job.py audit-reconcile --timeout 3600 -- python manage.py audit_reconcile --since 25h
+
+# A qualified timestamp over each chain's head (ADR 0009). Fails every day until
+# AUDIT_TIMESTAMP_BACKEND names an authority: that is the gap it reports, not noise.
+47 4 * * * python tools/run_job.py audit-chain-anchor --timeout 600 -- python manage.py audit_chain_anchor

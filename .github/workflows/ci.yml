@@ -140,6 +140,17 @@ jobs:
       - name: deploy/e2e-restore.sh
         run: deploy/e2e-restore.sh
 
+  # The scheduled jobs through the production stack (#180): supercronic runs the heartbeat, every
+  # line of backend/crontab runs once, and each reports to a Healthchecks stand-in as it should.
+  jobs:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: deploy/e2e-jobs.sh
+        run: deploy/e2e-jobs.sh
+
   # A pull request that changes code states what changed in CHANGELOG.md (#206). On pull requests
   # only: per commit, four parallel branches would fight over the same section at every rebase.
   # Every commit of a pull request passes check.sh alone, which is what keeps the history

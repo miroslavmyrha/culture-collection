@@ -32,6 +32,12 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 
 FROM base AS runtime
 COPY --from=build /venv /venv
+# supercronic runs the scheduled jobs of the scheduler service in deploy/compose.yaml (#180).
+# Version and checksum together: the sha256 of the release asset whose sha1 the release notes
+# publish. amd64 only, as the release images are.
+ADD --checksum=sha256:cc232108374e8e2b537045f2d5eaa1229f619db314c3ba6a14d38b35dc0aa123 --chmod=755 \
+    https://github.com/aptible/supercronic/releases/download/v0.2.51/supercronic-linux-amd64 \
+    /usr/local/bin/supercronic
 # Code stays owned by root: the app user can read it but not change it.
 COPY . .
 RUN python -m compileall -q /app \

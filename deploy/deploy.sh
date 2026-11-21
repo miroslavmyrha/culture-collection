@@ -6,7 +6,8 @@
 #   3. the role passwords are set through psql variables, never on a command line;
 #   4. the backup before migrate (deploy/backup.sh, #177), then migrate and createcachetable as
 #      the migration role, with a lock timeout;
-#   5. the API runs as the runtime role (its health check is /readyz), then the proxy.
+#   5. the API runs as the runtime role (its health check is /readyz), then the proxy and the
+#      scheduler of the jobs (#180), on the API's image.
 # Running it again is safe: it is also how an update is deployed.
 #
 #   deploy/deploy.sh secrets   write any missing secret in deploy/secrets/ (random)
@@ -43,6 +44,9 @@ if [ "${1:-}" = secrets ]; then
   done
   [ -s "$SECRETS_DIR/database_url" ] \
     || echo "postgres://cultures_app:$(secret db_runtime_password)@db:5432/cultures" > "$SECRETS_DIR/database_url"
+  # The Healthchecks ping URL with its key (#180), empty until the operator fills it in: the
+  # scheduled jobs then run and report nothing (docs/runbook.md "Scheduled jobs and alerts").
+  [ -e "$SECRETS_DIR/healthchecks_ping_url" ] || : > "$SECRETS_DIR/healthchecks_ping_url"
   chmod 644 "$SECRETS_DIR"/*
   echo "secrets in $SECRETS_DIR: keep a copy OFF THE HOST. Without restic_password no backup can"
   echo "be read (deploy/backup.sh, docs/runbook.md)."
@@ -54,6 +58,8 @@ for name in db_admin_password db_migration_password db_runtime_password django_s
   [ -s "$SECRETS_DIR/$name" ] || fail "no $SECRETS_DIR/$name: run deploy/deploy.sh secrets"
 done
 [ "$(stat -c %a "$SECRETS_DIR")" = 700 ] || fail "$SECRETS_DIR must be mode 700: chmod 700 $SECRETS_DIR"
+# A deployment from before #180 has no ping URL file yet: compose needs the file, empty is fine.
+[ -e "$SECRETS_DIR/healthchecks_ping_url" ] || install -m 644 /dev/null "$SECRETS_DIR/healthchecks_ping_url"
 # compose reads TLS_DIR and the ports from the shell or deploy/.env (its project .env file).
 tls_dir=${TLS_DIR:-$(grep -E '^TLS_DIR=' .env 2>/dev/null | cut -d= -f2- || true)}
 for file in fullchain.pem privkey.pem; do
@@ -80,7 +86,7 @@ rollback() {
   back=$(state_value VERSION "$previous")
   echo "== rollback to $back" >&2
   if BACKEND_IMAGE=$(state_value BACKEND_IMAGE "$previous") PROXY_IMAGE=$(state_value PROXY_IMAGE "$previous") \
-    compose up -d --no-build --wait --wait-timeout 180 backend proxy >/dev/null; then
+    compose up -d --no-build --wait --wait-timeout 180 backend proxy scheduler >/dev/null; then
     echo "rolled back: $back runs" >&2
   else
     echo "ROLLBACK FAILED: the stack is down. Look at the logs, then deploy/deploy.sh $back" >&2
@@ -163,9 +169,9 @@ DATABASE_URL="postgres://cultures_migration:${DB_MIGRATION_PASSWORD}@db:5432/cul
   backend sh -c 'python manage.py migrate --noinput && python manage.py createcachetable' \
   || step_failed "migrate as the migration role"
 
-echo "== API and proxy"
-compose up -d --no-build --wait --wait-timeout 180 backend proxy >/dev/null \
-  || step_failed "the stack is not healthy: docker compose -f deploy/compose.yaml ps, then logs backend proxy"
+echo "== API, proxy and scheduler"
+compose up -d --no-build --wait --wait-timeout 180 backend proxy scheduler >/dev/null \
+  || step_failed "the stack is not healthy: docker compose -f deploy/compose.yaml ps, then logs backend proxy scheduler"
 
 if $release; then
   mkdir -p "$STATE_DIR"
