@@ -74,6 +74,35 @@ services:
     depends_on:
       backend: {condition: service_healthy}
 
+  # The scheduled jobs (#180): supercronic runs backend/crontab from the API's own image, so a
+  # release or a rollback moves both together. Each job reports to Healthchecks through
+  # tools/run_job.py (HEALTHCHECKS_PING_URL in secrets/healthchecks_ping_url, empty: nothing is
+  # reported). The backups are not here: they need docker, and no container gets its socket.
+  scheduler:
+    <<: *hardened
+    image: ${BACKEND_IMAGE:-cultures-backend:production}
+    read_only: true
+    tmpfs: ["/tmp:size=64m"]
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      DJANGO_SECRET_KEY_FILE: /run/secrets/django_secret_key
+      DATABASE_URL_FILE: /run/secrets/database_url
+      HEALTHCHECKS_PING_URL_FILE: /run/secrets/healthchecks_ping_url
+    secrets: [django_secret_key, database_url, healthchecks_ping_url]
+    command: ["supercronic", "-passthrough-logs", "-prometheus-listen-address", "127.0.0.1:9746", "${SCHEDULER_CRONTAB:-/app/crontab}"]
+    # data for the database and the API, web for the proxy and the way out to Healthchecks.
+    networks: [data, web]
+    depends_on:
+      backend: {condition: service_healthy}
+      proxy: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9746/metrics', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 networks:
   # The database is reachable from the API only, and from nowhere outside.
   data: {internal: true}
@@ -85,6 +114,7 @@ secrets:
   db_admin_password: {file: "${SECRETS_DIR:-./secrets}/db_admin_password"}
   django_secret_key: {file: "${SECRETS_DIR:-./secrets}/django_secret_key"}
   database_url: {file: "${SECRETS_DIR:-./secrets}/database_url"}
+  healthchecks_ping_url: {file: "${SECRETS_DIR:-./secrets}/healthchecks_ping_url"}
 
 volumes:
   db-data:

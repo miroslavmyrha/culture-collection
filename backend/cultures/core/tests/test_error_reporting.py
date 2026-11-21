@@ -39,7 +39,12 @@ def test_the_sdk_starts_without_personal_data_and_with_the_scrubber(
     assert len(calls) == 1
     assert calls[0]["dsn"] == DSN
     assert calls[0]["send_default_pii"] is False
-    assert calls[0]["before_send"] is scrub_event
+    # The hook is the scrubber: what it sends of an event is what scrub_event leaves.
+    hook = calls[0]["before_send"]
+    assert callable(hook)
+    event = {"user": {"id": 7, "email": "a@example.com"}, "extra": {"password": "x"}}
+    assert hook(event, {}) == scrub_event(event)
+    assert hook(event, {}) == {"user": {"id": 7}, "extra": {"password": FILTERED}}
 
 
 @override_settings(ERROR_REPORTING_DSN=DSN)

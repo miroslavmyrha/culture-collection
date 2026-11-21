@@ -59,6 +59,9 @@ for dockerfile in backend/Dockerfile frontend/Dockerfile; do
   stages=$(grep -oiE '^FROM .+ AS [a-z0-9_-]+' "$dockerfile" | awk '{print $NF}')
   unpinned=$(grep -iE '^FROM ' "$dockerfile" | awk '{print $2}' | grep -vxF -f <(printf '%s\n' $stages) | grep -v '@sha256:' || true)
   [ -z "$unpinned" ] || fail "$dockerfile takes an image without a digest: $unpinned"
+  # A file fetched at build time (supercronic, #180) is checked against its checksum.
+  unchecked=$(grep -iE '^ADD ' "$dockerfile" | grep -v -- '--checksum=sha256:' || true)
+  [ -z "$unchecked" ] || fail "$dockerfile adds a file without a checksum: $unchecked"
 done
 unpinned=$(grep -E '^ +image: ' deploy/compose.yaml | grep -v '\${' | grep -v '@sha256:' || true)
 [ -z "$unpinned" ] || fail "deploy/compose.yaml runs an image without a digest: $unpinned"

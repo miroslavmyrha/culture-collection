@@ -1,0 +1,10 @@
+# Added to compose.yaml by deploy/e2e-jobs.sh only: a Healthchecks stand-in, and the scheduler on
+# a crontab of the test (E2E_CRONTAB) that runs the heartbeat every ten seconds.
+services:
+  pings:
+    image: ${BACKEND_IMAGE:-cultures-backend:production}
+    command: ["python", "/e2e/pings.py"]
+    volumes: ["./e2e-pings.py:/e2e/pings.py:ro"]
+    networks: [web]
+  scheduler:
+    volumes: ["${E2E_CRONTAB:?}:/e2e/crontab:ro"]
