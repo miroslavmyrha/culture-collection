@@ -5,6 +5,7 @@ import ListSubheader from '@mui/material/ListSubheader'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import { useColorScheme } from '@mui/material/styles'
+import { useNavigate } from '@tanstack/react-router'
 import { type Ref, useId, useState } from 'react'
 import { SCHEME_MODES, type SchemeMode } from './scheme'
 
@@ -20,7 +21,7 @@ type Props = {
 }
 
 /**
- * The signed-in user, the colour scheme and Sign out, as a WAI-ARIA menu button. The button is
+ * The signed-in user, the colour scheme, their second factors (#176) and Sign out, as a WAI-ARIA menu button. The button is
  * named "Account (<username>)" and shows the username, so speech input can say what it sees.
  * MUI Menu brings the menu half of the pattern (@mui/material 9.5.0): focus on the first item
  * when it opens, arrow keys, Home, End and typeahead through MenuList, Escape and Tab close it,
@@ -33,6 +34,7 @@ export function AccountMenu({ username, pending, onSignOut, ref }: Props) {
   const menuId = useId()
   const open = anchor !== null
   const { mode, setMode } = useColorScheme()
+  const navigate = useNavigate()
   return (
     <>
       <Button
@@ -68,6 +70,14 @@ export function AccountMenu({ username, pending, onSignOut, ref }: Props) {
           </MenuItem>
         ))}
         <Divider component="li" />
+        <MenuItem
+          onClick={() => {
+            setAnchor(null)
+            void navigate({ to: '/account/security' })
+          }}
+        >
+          Sign-in and security
+        </MenuItem>
         <MenuItem
           aria-disabled={pending}
           onClick={() => {

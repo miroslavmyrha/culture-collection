@@ -15,6 +15,8 @@ cat > "$ENV_FILE" <<ENV
 DJANGO_ALLOWED_HOSTS=localhost
 DJANGO_CSRF_TRUSTED_ORIGINS=https://localhost:$HTTPS_PORT
 DJANGO_ADMIN_PATH=$DJANGO_ADMIN_PATH
+WEBAUTHN_ORIGINS=https://localhost:$HTTPS_PORT
+WEBAUTHN_RP_ID=localhost
 ENV
 mkdir -p "$TLS_DIR" "$RESTIC_REPOSITORY"
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=localhost \

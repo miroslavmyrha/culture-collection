@@ -18,6 +18,8 @@ export const handlers = [
   // #169: the strain page asks what the official lists say about its taxon. No entry matches
   // unless a test says one does, so a test about anything else needs no handler of its own.
   http.get('*/api/v1/labs/:lab_public_id/strains/:public_id/list-matches/', () => HttpResponse.json({ count: 0, next: null, previous: null, results: [] })),
+  // #176: a manager's lab page lists the open second factor resets: none unless a test says.
+  http.get('*/api/v1/auth/factor-resets/', () => HttpResponse.json([])),
 ]
 
 export const server = setupServer(...handlers)

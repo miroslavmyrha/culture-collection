@@ -8,6 +8,10 @@ from django.core.management import call_command
 from django.templatetags.static import static
 from django.test import Client, override_settings
 from django.urls import reverse
+from model_bakery import baker
+
+from cultures.core.testing import logged_in
+from cultures.users.models import User
 
 pytestmark = pytest.mark.django_db
 
@@ -43,9 +47,12 @@ def policy_of(response: Any) -> dict[str, list[str]]:
     }
 
 
-def test_admin_pages_may_load_their_own_styles_and_scripts(client: Client) -> None:
-    # The API's policy (default-src 'none') blocked the admin's own CSS and JS.
-    response = client.get(reverse("admin:login"))
+@pytest.mark.django_db
+def test_admin_pages_may_load_their_own_styles_and_scripts() -> None:
+    admin_client = logged_in(baker.make(User, is_staff=True, is_superuser=True))
+    # The API's policy (default-src 'none') blocked the admin's own CSS and JS. The admin
+    # index: its login now sends to the app's sign-in (#176).
+    response = admin_client.get(reverse("admin:index"))
     assert response.status_code == 200
     csp = policy_of(response)
     nonce = csp["script-src"][-1].removeprefix("'nonce-").removesuffix("'")

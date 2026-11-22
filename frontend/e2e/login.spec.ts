@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
-import { accountButton, labPicker, password, signOut, username, watchCsp } from './support.js'
+import { accountButton, formUser, labPicker, password, secondFactor, signOut, watchCsp } from './support.js'
 
 /** The CSP header as a map of directive to sources. */
 function parseCsp(header: string): Record<string, string[]> {
@@ -17,7 +17,7 @@ async function knownDeviceCookie(page: Page) {
 }
 
 async function signIn(page: Page, pass = password) {
-  await page.getByLabel('Username').fill(username)
+  await page.getByLabel('Username').fill(formUser)
   await page.getByLabel('Password').fill(pass)
   await page.getByRole('button', { name: 'Sign in' }).click()
 }
@@ -28,20 +28,23 @@ test('signs in through the real API under the production CSP and returns to the 
   await page.goto('/?tab=b')
   await expect(page).toHaveURL('/login?redirect=%2F%3Ftab%3Db')
   await signIn(page)
-  await expect(accountButton(page)).toBeVisible()
+  // The password signs nobody in (#176): the second factor first.
+  await expect(page.getByRole('heading', { name: 'Confirm it is you' })).toBeVisible()
+  await secondFactor(page)
+  await expect(accountButton(page, formUser)).toBeVisible()
   await expect(page).toHaveURL('/?tab=b')
 
   // The session survives a reload: cookie based, nothing in localStorage.
   await page.reload()
-  await expect(accountButton(page)).toBeVisible()
+  await expect(accountButton(page, formUser)).toBeVisible()
   expect(await page.evaluate(() => Object.keys(localStorage))).toEqual([])
   // The login remembered this browser for the login limits: out of reach of scripts, no name in it.
   const device = await knownDeviceCookie(page)
   expect(device).toMatchObject({ httpOnly: true, sameSite: 'Lax', path: '/' })
-  expect(device?.value).not.toContain(username)
+  expect(device?.value).not.toContain(formUser)
   expect(await page.evaluate(() => document.cookie)).not.toContain('knowndevice')
 
-  await signOut(page)
+  await signOut(page, formUser)
   await expect(page.getByRole('form', { name: 'Sign in' })).toBeVisible()
   await expect(page).toHaveURL('/login?signedOut=true')
   await expect(page.getByRole('status')).toHaveText('You have been signed out.')

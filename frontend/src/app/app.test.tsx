@@ -24,6 +24,18 @@ async function signIn(username = 'lab-tech') {
   return user
 }
 
+/** The two steps of the sign-in (#176): the password answers with the second factor step. */
+function mockTwoSteps(me: ReturnType<typeof makeMe>) {
+  const password = mockApi('post', '/api/v1/auth/login/', { step: 'second_factor', methods: ['totp', 'recovery_code'] }, { status: 200 })
+  const code = mockApi('post', '/api/v1/auth/second-factor/', me, { status: 200 })
+  return { password, code }
+}
+
+async function secondStep(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(await screen.findByRole('textbox', { name: 'Code from your authenticator app' }), '123456')
+  await user.click(screen.getByRole('button', { name: 'Continue' }))
+}
+
 const account = (name = 'lab-tech') => screen.findByRole('button', { name: `Account (${name})` })
 
 /** Opens the account menu and returns its Sign out item. */
@@ -93,21 +105,23 @@ describe('routing and the session guard', () => {
 
   it('signs in, sends the CSRF token and returns to the validated redirect', async () => {
     const me = makeMe({ username: 'lab-tech' })
-    const calls = mockApi('post', '/api/v1/auth/login/', me, { status: 200 })
+    const calls = mockTwoSteps(me)
     const { router, client } = renderApp({ path: '/login', search: { redirect: '/?tab=b' } })
-    await signIn()
+    await secondStep(await signIn())
     expect(await account('lab-tech')).toBeInTheDocument()
     expect(router.state.location.href).toBe('/?tab=b')
     expect(client.getMutationCache().getAll()).toEqual([]) // not even the login with its password
-    expect(calls).toHaveLength(1)
-    expect(calls[0]?.body).toEqual({ username: 'lab-tech', password: 'correct horse battery' })
-    expect(calls[0]?.headers.get('X-CSRFToken')).toBe('test-token')
+    expect(calls.password).toHaveLength(1)
+    expect(calls.password[0]?.body).toEqual({ username: 'lab-tech', password: 'correct horse battery' })
+    expect(calls.password[0]?.headers.get('X-CSRFToken')).toBe('test-token')
+    expect(calls.code[0]?.body).toEqual({ method: 'totp', code: '123456' })
+    expect(calls.code[0]?.headers.get('X-CSRFToken')).toBe('test-token')
   })
 
   it('ignores a hostile redirect', async () => {
-    mockApi('post', '/api/v1/auth/login/', makeMe(), { status: 200 })
+    mockTwoSteps(makeMe())
     const { router } = renderApp({ path: '/login', search: { redirect: '//evil.com/x' } })
-    await signIn()
+    await secondStep(await signIn())
     expect(await screen.findByRole('heading', { name: 'Home' })).toBeInTheDocument()
     expect(router.state.location.href).toBe('/')
   })
@@ -153,9 +167,9 @@ describe('routing and the session guard', () => {
   })
 
   it('returns to the start page after signing in with a dot-segment redirect', async () => {
-    mockApi('post', '/api/v1/auth/login/', makeMe(), { status: 200 })
+    mockTwoSteps(makeMe())
     const { router } = renderApp({ path: '/login', search: { redirect: '/a/..//evil.com' } })
-    await signIn()
+    await secondStep(await signIn())
     expect(await screen.findByRole('heading', { name: 'Home' })).toBeInTheDocument()
     expect(router.state.location.href).toBe('/')
   })

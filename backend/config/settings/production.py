@@ -15,10 +15,13 @@ from .base import (
     ALLOWED_HOSTS,
     AUDIT_TIMESTAMP_AUTHORITY,
     DEFAULT_ADMIN_PATH,
+    MFA_SECRET_KEY,
     MIDDLEWARE,
     SECRET_KEY,
     SECRET_KEY_FALLBACKS,
     TRUSTED_PROXIES,
+    WEBAUTHN_ORIGINS,
+    WEBAUTHN_RP_ID,
 )
 
 refuse_weak_secret("DJANGO_SECRET_KEY", SECRET_KEY)
@@ -28,6 +31,13 @@ if SECRET_KEY in SECRET_KEY_FALLBACKS:
     raise ImproperlyConfigured("DJANGO_SECRET_KEY must not also be listed in the fallbacks.")
 
 refuse_open_hosts(ALLOWED_HOSTS)
+
+# The second factor (#176): its own encryption key, and the origins keys are bound to.
+refuse_weak_secret("MFA_SECRET_KEY", MFA_SECRET_KEY)
+if not WEBAUTHN_ORIGINS or any(not o.startswith("https://") for o in WEBAUTHN_ORIGINS):
+    raise ImproperlyConfigured("WEBAUTHN_ORIGINS must list the https origins the app is served on.")
+if not WEBAUTHN_RP_ID:
+    raise ImproperlyConfigured("WEBAUTHN_RP_ID must name the host the security keys bind to.")
 
 refuse_default_admin_path(ADMIN_PATH, DEFAULT_ADMIN_PATH)
 

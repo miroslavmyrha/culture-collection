@@ -38,12 +38,13 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
       DJANGO_SECRET_KEY_FILE: /run/secrets/django_secret_key
+      MFA_SECRET_KEY_FILE: /run/secrets/mfa_secret_key
       DATABASE_URL_FILE: /run/secrets/database_url
       DJANGO_BEHIND_TLS_PROXY: "true"
       # The proxy's fixed address below: the only peer whose X-Forwarded-* the app reads.
       DJANGO_TRUSTED_PROXIES: ${PROXY_ADDRESS:-10.178.0.10}
       REQUEST_ID_FROM_PROXY: "true"
-    secrets: [django_secret_key, database_url]
+    secrets: [django_secret_key, mfa_secret_key, database_url]
     networks: [data, web]
     depends_on:
       db: {condition: service_healthy}
@@ -87,9 +88,10 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
       DJANGO_SECRET_KEY_FILE: /run/secrets/django_secret_key
+      MFA_SECRET_KEY_FILE: /run/secrets/mfa_secret_key
       DATABASE_URL_FILE: /run/secrets/database_url
       HEALTHCHECKS_PING_URL_FILE: /run/secrets/healthchecks_ping_url
-    secrets: [django_secret_key, database_url, healthchecks_ping_url]
+    secrets: [django_secret_key, mfa_secret_key, database_url, healthchecks_ping_url]
     command: ["supercronic", "-passthrough-logs", "-prometheus-listen-address", "127.0.0.1:9746", "${SCHEDULER_CRONTAB:-/app/crontab}"]
     # data for the database and the API, web for the proxy and the way out to Healthchecks.
     networks: [data, web]
@@ -113,6 +115,8 @@ networks:
 secrets:
   db_admin_password: {file: "${SECRETS_DIR:-./secrets}/db_admin_password"}
   django_secret_key: {file: "${SECRETS_DIR:-./secrets}/django_secret_key"}
+  # The key of the TOTP secrets (#176): losing it takes every authenticator app away.
+  mfa_secret_key: {file: "${SECRETS_DIR:-./secrets}/mfa_secret_key"}
   database_url: {file: "${SECRETS_DIR:-./secrets}/database_url"}
   healthchecks_ping_url: {file: "${SECRETS_DIR:-./secrets}/healthchecks_ping_url"}
 

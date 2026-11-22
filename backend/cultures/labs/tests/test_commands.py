@@ -226,6 +226,11 @@ def test_its_writes_are_audited_as_the_command() -> None:
         # E2E solo lab, the e2e user its one member (#267)
         "lab_created",
         "member_added",
+        # e2e-signin and e2e-key (#176): their authenticator apps and e2e-key's enrolment code
+        # are rows, no events; e2e-key is a viewer of E2E other lab
+        "user_created",
+        "user_created",
+        "member_added",
         # The lab's one permit, ended (#82)
         "lab_authorisation_added",
         "lab_authorisation_ended",

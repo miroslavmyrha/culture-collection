@@ -1,6 +1,6 @@
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { Alert, Container, PageTitle, Paper, Typography } from '@/components/ui'
-import { LoginForm } from '@/features/auth/components/LoginForm'
+import { SignIn } from '@/features/auth/components/SignIn'
 import { safeRedirect } from '@/lib/safe'
 
 const route = getRouteApi('/login')
@@ -22,7 +22,7 @@ export function LoginPage() {
             You have been signed out.
           </Alert>
         )}
-        <LoginForm onSuccess={() => void navigate({ href: safeRedirect(redirect), replace: true })} />
+        <SignIn onSignedIn={() => void navigate({ href: safeRedirect(redirect), replace: true })} />
       </Paper>
     </Container>
   )

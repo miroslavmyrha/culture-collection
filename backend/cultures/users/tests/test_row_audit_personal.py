@@ -18,6 +18,7 @@ from django.urls import reverse
 from cultures.audit.context import audit_context, audited_atomic
 from cultures.audit.models import Channel, RowChange
 from cultures.audit.registry import PERSONAL_MARKER, ROW_AUDITED_TABLES, SECRET_MARKER
+from cultures.core.testing import with_second_factor
 from cultures.users import services
 from cultures.users.models import User
 
@@ -43,6 +44,7 @@ def by_service(staff: User, user: User, field: str, value: str) -> None:
 def by_admin(staff: User, user: User, field: str, value: str) -> None:
     client = Client()
     client.force_login(staff)
+    with_second_factor(client)
     response = client.post(
         reverse("admin:users_user_change", args=[user.pk]), form_of(user, **{field: value})
     )

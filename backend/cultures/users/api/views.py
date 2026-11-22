@@ -1,4 +1,4 @@
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, logout
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from drf_spectacular.utils import OpenApiResponse, extend_schema
@@ -15,10 +15,12 @@ from cultures.core.errors import ProblemSerializer
 from cultures.core.exceptions import DomainError
 from cultures.core.security import enforce_csrf
 from cultures.core.throttling import ClientIdentMixin
+from cultures.users import factors, signin
 from cultures.users.auth import current_user
 from cultures.users.login_limits import Attempt, Surface
+from cultures.users.models import User
 
-from .serializers import LoginInputSerializer, MeOutputSerializer
+from .serializers import LoginInputSerializer, LoginStepOutputSerializer, MeOutputSerializer
 
 
 class InvalidCredentials(DomainError):
@@ -52,7 +54,7 @@ def csrf(request: Request) -> Response:
 @extend_schema(
     request=LoginInputSerializer,
     responses={
-        200: MeOutputSerializer,
+        200: LoginStepOutputSerializer,
         (400, PROBLEM): OpenApiResponse(ProblemSerializer, "Invalid input or credentials"),
         (403, PROBLEM): OpenApiResponse(ProblemSerializer, "Missing or invalid CSRF token"),
         (429, PROBLEM): OpenApiResponse(
@@ -64,6 +66,8 @@ def csrf(request: Request) -> Response:
 @permission_classes([AllowAny])
 @throttle_classes([LoginThrottle])
 def login_view(request: Request) -> Response:
+    """The password step. It signs nobody in (#176): the answer names the next step, a second
+    factor (with the methods this account has) or the enrolment of the first one."""
     enforce_csrf(request)  # anonymous write: DRF would not check CSRF here (login CSRF)
     data = LoginInputSerializer(data=request.data)
     data.is_valid(raise_exception=True)
@@ -72,13 +76,13 @@ def login_view(request: Request) -> Response:
     if refusal is not None:
         raise Throttled(wait=refusal.wait_seconds(timezone.now()))
     user = authenticate(request, **data.validated_data)
-    if user is None:
+    if not isinstance(user, User):
         attempt.failed()
         raise InvalidCredentials
-    login(request, user)
-    response = Response(MeOutputSerializer(user).data)
-    attempt.succeeded(user, response)
-    return response
+    signin.begin(request._request, user, data.validated_data["username"], Surface.API)
+    found = factors.methods(user)
+    has_factor = factors.has_second_factor(user)
+    return Response({"step": "second_factor" if has_factor else "enrol", "methods": found})
 
 
 @extend_schema(request=None, responses={204: None})

@@ -1,4 +1,5 @@
 import { AxeBuilder } from '@axe-core/playwright'
+import { createHmac } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { expect, type Locator, type Page } from '@playwright/test'
 
@@ -8,6 +9,35 @@ import { expect, type Locator, type Page } from '@playwright/test'
 // other lab".
 export const username = process.env.E2E_USERNAME ?? 'e2e-user'
 export const password = process.env.E2E_PASSWORD ?? 'e2e correct horse battery'
+/** The TOTP secret seed_e2e gives every user who signs in (#176): E2E_TOTP_SECRET there too. */
+export const totpSecret = process.env.E2E_TOTP_SECRET ?? 'JBSWY3DPEHPK3PXPE2ETESTSECRET234'
+/** The one user login.spec.ts signs in with the form: no other user takes a code twice in a step. */
+export const formUser = 'e2e-signin'
+
+const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+
+function base32(text: string): Buffer {
+  let bits = ''
+  for (const char of text.replace(/=+$/, '').toUpperCase()) bits += BASE32.indexOf(char).toString(2).padStart(5, '0')
+  const bytes = bits.match(/.{8}/g) ?? []
+  return Buffer.from(bytes.map((byte) => Number.parseInt(byte, 2)))
+}
+
+/** The TOTP code (RFC 6238: SHA-1, 30 s, 6 digits) of a secret at a time. */
+export function totp(secret: string, at = Date.now()): string {
+  const counter = Buffer.alloc(8)
+  counter.writeBigUInt64BE(BigInt(Math.floor(at / 30_000)))
+  const digest = createHmac('sha1', base32(secret)).update(counter).digest()
+  const offset = (digest.at(-1) ?? 0) & 0x0f
+  const value = (digest.readUInt32BE(offset) & 0x7f_ff_ff_ff) % 1_000_000
+  return value.toString().padStart(6, '0')
+}
+
+/** The second step of a sign-in: the code of the authenticator app, then Continue (#176). */
+export async function secondFactor(page: Page, secret = totpSecret) {
+  await page.getByLabel('Code from your authenticator app').fill(totp(secret))
+  await page.getByRole('button', { name: 'Continue' }).click()
+}
 
 /**
  * What the risk group of a strain accepted by a spec rests on (#169). Every accession states it,
@@ -28,11 +58,12 @@ export const signedInAs = (user: string) => fileURLToPath(new URL(`./.auth/${use
  * projects call it once per user and run (auth.setup.ts, walkthroughs/walk.setup.ts), so every
  * spec and walkthrough reuses the session instead of signing in again.
  */
-export async function signIn(page: Page, user: string, secret: string) {
+export async function signIn(page: Page, user: string, secret: string, code = totpSecret) {
   await page.goto('/login')
   await page.getByLabel('Username').fill(user)
   await page.getByLabel('Password').fill(secret)
   await page.getByRole('button', { name: 'Sign in' }).click()
+  await secondFactor(page, code)
   await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()
   await page.context().storageState({ path: signedInAs(user) })
 }

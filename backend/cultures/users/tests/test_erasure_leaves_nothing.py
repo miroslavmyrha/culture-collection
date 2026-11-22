@@ -31,7 +31,7 @@ from cultures.users import services
 from cultures.users.models import User
 
 from .test_admin import form_of
-from .test_login_limits import HOME, admin, api
+from .test_login_limits import HOME, api, second
 
 pytestmark = [pytest.mark.django_db(transaction=True), pytest.mark.slow]
 
@@ -152,7 +152,7 @@ def test_an_erased_person_leaves_no_value_in_any_column() -> None:
     person.refresh_from_db()
     for name in (username, person.username):
         assert api(Client(), name, PASSWORD, HOME) == "wrong"
-        assert admin(Client(), name, PASSWORD, HOME) == "wrong"
+        assert second(Client(), name, PASSWORD, HOME) == "wrong"
     assert browser.get("/api/v1/auth/me/").status_code == 401  # the session ended
 
     # Reactivation is refused.

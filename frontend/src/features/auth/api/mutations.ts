@@ -4,8 +4,11 @@ import { api, ensureCsrf, isApiError, unwrap } from '@/lib/api'
 import type { LoginInput } from '../schemas'
 import { resetSessionCache } from './cache'
 
+/**
+ * The password step (#176). It signs nobody in: the answer names the next step, a second
+ * factor or the enrolment of the first one. Nothing is cached until the sign-in ends.
+ */
 export function useLogin() {
-  const qc = useQueryClient()
   return useMutation({
     mutationFn: async (input: LoginInput) => {
       await ensureCsrf()
@@ -13,8 +16,6 @@ export function useLogin() {
     },
     // The form shows every failure itself: no global message.
     meta: { handlesError: true },
-    // Nothing cached for an earlier user (or for the anonymous state) survives.
-    onSuccess: (me) => resetSessionCache(qc, me),
   })
 }
 

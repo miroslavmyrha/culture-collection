@@ -8,7 +8,7 @@ from django.test import Client, RequestFactory
 from django.urls import reverse
 
 from cultures.audit.models import AuditEvent, Channel, RowChange
-from cultures.core.testing import logged_in
+from cultures.core.testing import logged_in, with_second_factor
 from cultures.users.admin import REASON_REQUIRED
 from cultures.users.models import User
 
@@ -270,6 +270,7 @@ def test_the_password_form_can_disable_password_sign_in(admin_client: Client, me
 def test_a_member_without_staff_status_cannot_use_the_user_admin(member: User) -> None:
     client = Client()
     client.force_login(member)
+    with_second_factor(client)
     response = client.get(reverse("admin:users_user_changelist"))
     assert response.status_code == 302
     assert "/login/" in response["Location"]

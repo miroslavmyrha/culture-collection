@@ -44,6 +44,8 @@ RUN python -m compileall -q /app \
     && DJANGO_SETTINGS_MODULE=config.settings.production \
        DJANGO_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(64))')" \
        DJANGO_ALLOWED_HOSTS=build.invalid DJANGO_ADMIN_PATH=build-only/ \
+       MFA_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(64))')" \
+       WEBAUTHN_ORIGINS=https://build.invalid WEBAUTHN_RP_ID=build.invalid \
        DATABASE_URL=sqlite:////tmp/build.sqlite3 \
        python manage.py collectstatic --noinput -v0 \
     && useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app

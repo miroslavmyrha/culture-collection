@@ -51,6 +51,49 @@ USER_DEACTIVATED = register(
 USERS_DEACTIVATED = register(
     EventType("users_deactivated", "{actor} deactivated {count} users", reason_required=True)
 )
+# The second factor (ADR 0009, #176). Events say which kind of factor and its public id,
+# never a secret, a code or a key.
+SECOND_FACTOR_ADDED = register(
+    EventType("second_factor_added", "{actor} added a second factor for {subject}")
+)
+SECOND_FACTOR_REMOVED = register(
+    EventType("second_factor_removed", "{actor} removed a second factor of {subject}")
+)
+RECOVERY_CODES_ISSUED = register(
+    EventType("recovery_codes_issued", "{actor} issued new recovery codes for {subject}")
+)
+RECOVERY_CODE_USED = register(
+    EventType("recovery_code_used", "{actor} signed in with a recovery code")
+)
+ENROLMENT_CODE_ISSUED = register(
+    EventType(
+        "enrolment_code_issued",
+        "{actor} issued an enrolment code for {subject}",
+        reason_required=True,
+    )
+)
+ENROLMENT_CODE_USED = register(EventType("enrolment_code_used", "{actor} used an enrolment code"))
+FACTOR_RESET_PROPOSED = register(
+    EventType(
+        "factor_reset_proposed",
+        "{actor} proposed to reset the second factor of {subject}",
+        reason_required=True,
+    )
+)
+FACTOR_RESET_CONFIRMED = register(
+    EventType(
+        "factor_reset_confirmed",
+        "{actor} confirmed the reset of the second factor of {subject}",
+        reason_required=True,
+    )
+)
+FACTOR_RESET_WITHDRAWN = register(
+    EventType(
+        "factor_reset_withdrawn",
+        "{actor} withdrew the reset of the second factor of {subject}",
+        reason_required=True,
+    )
+)
 LAB_CREATED = register(EventType("lab_created", "{actor} created lab {subject}"))
 LAB_UPDATED = register(EventType("lab_updated", "{actor} changed lab {subject}"))
 MEMBER_ADDED = register(EventType("member_added", "{actor} added {user} as {role}"))
@@ -951,6 +994,67 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
         label="lineage.destructionvial", audited=("id", "lab_id", "record_id", "vial_id")
     ),
     # ADR 0009: who may see regulated locations. Ids, times and reasons that name nobody.
+    # The second factor (#176). The key material and the codes are secret columns: a change
+    # leaves a marker, never a value.
+    "users_securitykey": RowAudit(
+        label="users.securitykey",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "user_id",
+            "sign_count",
+            "transports",
+            "name",
+        ),
+        exclude=("last_used_at",),
+        secret=("credential_id", "public_key"),
+    ),
+    "users_totpdevice": RowAudit(
+        label="users.totpdevice",
+        audited=("id", "user_id", "created_at"),
+        exclude=("last_step", "last_used_at"),
+        secret=("secret",),
+    ),
+    "users_recoverycode": RowAudit(
+        label="users.recoverycode",
+        audited=("id", "user_id", "created_at", "used_at"),
+        secret=("code_hash",),
+    ),
+    "users_enrolmentcode": RowAudit(
+        label="users.enrolmentcode",
+        audited=(
+            "id",
+            "user_id",
+            "lab_id",
+            "issued_by_id",
+            "reason",
+            "created_at",
+            "expires_at",
+            "used_at",
+        ),
+        secret=("code_hash",),
+    ),
+    "users_factorreset": RowAudit(
+        label="users.factorreset",
+        audited=(
+            "id",
+            "public_id",
+            "created_at",
+            "updated_at",
+            "user_id",
+            "lab_id",
+            "proposed_by_id",
+            "reason",
+            "confirmed_by_id",
+            "confirmed_at",
+            "confirm_reason",
+            "withdrawn_by_id",
+            "withdrawn_at",
+            "withdraw_reason",
+        ),
+    ),
     "labs_locationgrant": RowAudit(
         label="labs.locationgrant",
         audited=(

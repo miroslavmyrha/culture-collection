@@ -1,6 +1,7 @@
 import { PageTitle, Typography } from '@/components/ui'
 import { canManageMembers, grantableRoles, type PageParams, ROLE_LABELS } from '../schemas'
 import { AddMemberForm } from './AddMemberForm'
+import { FactorResets } from './FactorResets'
 import { LabGate } from './LabGate'
 import { MemberTable } from './MemberTable'
 import { VratAccessList } from './VratAccessList'
@@ -25,6 +26,7 @@ export function LabDetail({ labId, params, onOffsetChange }: Props) {
             <MemberTable labId={labId} labName={name} grantable={grantable} params={params} onOffsetChange={onOffsetChange} />
             {grantable.length > 0 && <AddMemberForm labId={labId} roles={grantable} />}
             {canManageMembers(role) && <VratAccessList labId={labId} />}
+            {canManageMembers(role) && <FactorResets labId={labId} />}
           </>
         )
       }}

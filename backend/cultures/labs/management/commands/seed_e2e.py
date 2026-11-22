@@ -19,6 +19,13 @@ Brings the database to this state, whatever it was before:
   remove the last one);
 - e2e-deputy, active, with the same password and in no lab: reveals.spec.ts makes it a manager
   of the lab for the moment it confirms a location grant (#267), then removes it again;
+- every user with the password above gets an authenticator app (TOTP, #176) with the secret
+  E2E_TOTP_SECRET (a fixed test value by default), so auth.setup.ts computes the second factor;
+  e2e-signin, with the same password and in no lab, is the one login.spec.ts signs in with the
+  form, so no other user takes a code twice in a time step; e2e-key, with the same password,
+  a viewer of "E2E other lab" and without any factor (reset each run), is the one that enrols a
+  security key in security-key.spec.ts, with a fresh enrolment code E2E_ENROLMENT_CODE (a fixed
+  test value by default) from e2e-other-manager each run;
 - the lab "E2E solo lab" (code E2S) with the e2e user as its one member, reset to that each
   run: labs.spec.ts checks there that the last manager stays (#267);
 - the lab "E2E other lab" (code E2O), with e2e-outsider as its viewer (the same password) and
@@ -134,6 +141,12 @@ OTHER_LAB_NAME, OTHER_LAB_CODE = "E2E other lab", "E2O"
 # last manager stays, which a temporary second manager of E2E lab (e2e-manager, e2e-deputy) would
 # otherwise let through.
 SOLO_LAB_NAME, SOLO_LAB_CODE = "E2E solo lab", "E2S"
+# The second factor (#176): the users who sign in with the form get this TOTP secret.
+# A public test value like the e2e password default of frontend/e2e/support.ts: seed_e2e runs
+# with DEBUG only, and CI may pass its own E2E_TOTP_SECRET.
+E2E_TOTP_SECRET = "JBSWY3DPEHPK3PXPE2ETESTSECRET234"  # noqa: S105  # gitleaks:allow
+SIGNIN, KEY_USER = "e2e-signin", "e2e-key"
+E2E_ENROLMENT_CODE = "e2eke-ycode"
 OUTSIDER, OTHER_MANAGER = "e2e-outsider", "e2e-other-manager"
 SUPPLY = "Bacillus subtilis e2e supply"
 REGULATED_SUPPLY = "Clostridium perfringens e2e supply"
@@ -268,6 +281,7 @@ class Command(BaseCommand):
             solo = seed_labs.lab(SOLO_LAB_NAME, SOLO_LAB_CODE)
             seed_labs.member(solo, user, Role.MANAGER)
             seed_labs.only_member(solo, user)
+            self._second_factors(username, password)
             seed_biosafety.authorisation(lab, ENDED_PERMIT)
             for row in TAXA:
                 seed_taxa.taxon(row)
@@ -299,6 +313,24 @@ class Command(BaseCommand):
             f" requesters and five requests, two approved, one of them regulated and approved"
             f" by {APPROVER}, who is in no lab; {OUTSIDER} views {OTHER_LAB_NAME}, which"
             f" {OTHER_MANAGER} manages; {username} is the one member of {SOLO_LAB_NAME}"
+        )
+
+    def _second_factors(self, username: str, password: str) -> None:
+        """A known TOTP for every user who signs in, none for the key user (#176)."""
+        secret = env_str("E2E_TOTP_SECRET", E2E_TOTP_SECRET)
+        seed_users.user(SIGNIN, password)
+        for name in (username, CURATOR, TECHNICIAN, VIEWER, APPROVER, DEPUTY, OUTSIDER, SIGNIN):
+            seed_users.totp(User.objects.get(username=name), secret)
+        key_user = seed_users.user(KEY_USER, password)
+        seed_users.no_factor(key_user)
+        # The manager's code for its first enrolment (#176), from e2e-other-manager.
+        other = Lab.objects.get(code=OTHER_LAB_CODE)
+        seed_labs.member(other, key_user, Role.VIEWER)
+        seed_users.enrolment_code(
+            key_user,
+            issued_by=User.objects.get(username=OTHER_MANAGER),
+            lab=other,
+            code=env_str("E2E_ENROLMENT_CODE", E2E_ENROLMENT_CODE),
         )
 
     def _deposit(self, lab: Lab, *, curator: User, manager: User) -> None:

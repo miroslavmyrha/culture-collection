@@ -4,8 +4,18 @@ Found again by username, so a second run creates nobody twice. A user found is b
 what the seed names (active, with the seed's password or none), changed only where it differs.
 """
 
+from datetime import timedelta
+
+from django.conf import settings
+from django.contrib.auth.hashers import check_password, make_password
+from django.utils import timezone
+
+from cultures.audit.context import audited_atomic
+from cultures.labs.models import Lab
+
 from . import services
-from .models import User
+from .factors import seal, unseal
+from .models import EnrolmentCode, RecoveryCode, SecurityKey, TotpDevice, User
 
 
 def user(username: str, password: str | None) -> User:
@@ -31,3 +41,44 @@ def superuser(username: str, password: str) -> None:
     found = user(username, password)
     services.user_set_staff(user=found, is_staff=True)
     services.user_set_superuser(user=found, is_superuser=True)
+
+
+def totp(user: User, secret: str) -> None:
+    """An authenticator app with this known secret (#176), so the e2e tests and the dev users
+    compute their codes. Its last step starts at 0: a code of now is accepted right after the
+    seed. Development and CI only: the callers refuse to run without DEBUG."""
+    with audited_atomic():  # the row changes carry the command's request id
+        device = TotpDevice.objects.filter(user=user).first()
+        if device is not None and unseal(device.secret) == secret and not device.last_step:
+            return
+        if device is not None:
+            device.delete()
+        TotpDevice.objects.create(user=user, secret=seal(secret))
+
+
+def no_factor(user: User) -> None:
+    """No key, no authenticator app, no recovery code: the next sign-in enrols one (#176)."""
+    with audited_atomic():
+        SecurityKey.objects.filter(user=user).delete()
+        TotpDevice.objects.filter(user=user).delete()
+        RecoveryCode.objects.filter(user=user).delete()
+
+
+def enrolment_code(user: User, *, issued_by: User, lab: Lab | None, code: str) -> None:
+    """An enrolment code with this known value (#176), unused and valid from now, so the e2e
+    test of a first enrolment types it. Development and CI only, as totp() above."""
+    folded = code.strip().lower().replace("-", "")
+    with audited_atomic():
+        now = timezone.now()
+        valid = EnrolmentCode.objects.filter(user=user, used_at__isnull=True, expires_at__gt=now)
+        if any(check_password(folded, c.code_hash) for c in valid):
+            return  # a second run changes nothing
+        EnrolmentCode.objects.create(
+            user=user,
+            lab=lab,
+            issued_by=issued_by,
+            reason="e2e: the first enrolment of a security key",
+            code_hash=make_password(folded),
+            created_at=now,
+            expires_at=now + timedelta(hours=settings.ENROLMENT_CODE_HOURS),
+        )
