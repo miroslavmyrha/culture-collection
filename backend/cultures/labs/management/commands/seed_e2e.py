@@ -148,6 +148,9 @@ E2E_TOTP_SECRET = "JBSWY3DPEHPK3PXPE2ETESTSECRET234"  # noqa: S105  # gitleaks:a
 SIGNIN, KEY_USER = "e2e-signin", "e2e-key"
 E2E_ENROLMENT_CODE = "e2eke-ycode"
 OUTSIDER, OTHER_MANAGER = "e2e-outsider", "e2e-other-manager"
+# The second manager of E2E other lab: with e2e-other-manager it resets e2e-key at the start of
+# security-key.spec.ts, so the spec runs again without a new seed (#176).
+OTHER_DEPUTY = "e2e-other-deputy"
 SUPPLY = "Bacillus subtilis e2e supply"
 REGULATED_SUPPLY = "Clostridium perfringens e2e supply"
 INSTITUTE, UNNOTIFIED = "E2E Institute of Microbiology", "E2E Unnotified Laboratory"
@@ -276,7 +279,8 @@ class Command(BaseCommand):
             seed_labs.no_member(lab, approver)
             seed_labs.no_member(lab, seed_users.user(DEPUTY, password))
             other = seed_labs.lab(OTHER_LAB_NAME, OTHER_LAB_CODE)
-            seed_labs.member(other, seed_users.user(OTHER_MANAGER, None), Role.MANAGER)
+            seed_labs.member(other, seed_users.user(OTHER_MANAGER, password), Role.MANAGER)
+            seed_labs.member(other, seed_users.user(OTHER_DEPUTY, password), Role.MANAGER)
             seed_labs.member(other, seed_users.user(OUTSIDER, password), Role.VIEWER)
             solo = seed_labs.lab(SOLO_LAB_NAME, SOLO_LAB_CODE)
             seed_labs.member(solo, user, Role.MANAGER)
@@ -312,14 +316,16 @@ class Command(BaseCommand):
             " a released batch of the seeded strain; two strains that may go out, two"
             f" requesters and five requests, two approved, one of them regulated and approved"
             f" by {APPROVER}, who is in no lab; {OUTSIDER} views {OTHER_LAB_NAME}, which"
-            f" {OTHER_MANAGER} manages; {username} is the one member of {SOLO_LAB_NAME}"
+            f" {OTHER_MANAGER} and {OTHER_DEPUTY} manage; {username} is the one member of"
+            f" {SOLO_LAB_NAME}"
         )
 
     def _second_factors(self, username: str, password: str) -> None:
         """A known TOTP for every user who signs in, none for the key user (#176)."""
         secret = env_str("E2E_TOTP_SECRET", E2E_TOTP_SECRET)
         seed_users.user(SIGNIN, password)
-        for name in (username, CURATOR, TECHNICIAN, VIEWER, APPROVER, DEPUTY, OUTSIDER, SIGNIN):
+        signing_in = (username, CURATOR, TECHNICIAN, VIEWER, APPROVER, DEPUTY, OUTSIDER, SIGNIN)
+        for name in (*signing_in, OTHER_MANAGER, OTHER_DEPUTY):
             seed_users.totp(User.objects.get(username=name), secret)
         key_user = seed_users.user(KEY_USER, password)
         seed_users.no_factor(key_user)

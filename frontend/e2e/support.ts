@@ -50,7 +50,7 @@ export const riskGroupBasis = 'Accepted by an end-to-end test (invented example)
  * to the file below, so the whole run stays under the login throttle (10 sign-ins a minute per
  * client). Only login.spec.ts signs in on its own, because sign-in is what it tests.
  */
-export const signedInUsers = [username, 'e2e-curator', 'e2e-technician', 'e2e-viewer', 'e2e-manager', 'e2e-deputy', 'e2e-outsider']
+export const signedInUsers = [username, 'e2e-curator', 'e2e-technician', 'e2e-viewer', 'e2e-manager', 'e2e-deputy', 'e2e-outsider', 'e2e-other-manager', 'e2e-other-deputy']
 export const signedInAs = (user: string) => fileURLToPath(new URL(`./.auth/${user}.json`, import.meta.url))
 
 /**
