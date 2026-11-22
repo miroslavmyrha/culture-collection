@@ -231,11 +231,14 @@ def test_its_writes_are_audited_as_the_command() -> None:
         # E2E solo lab, the e2e user its one member (#267)
         "lab_created",
         "member_added",
-        # e2e-signin and e2e-key (#176): their authenticator apps and e2e-key's enrolment code
-        # are rows, no events; e2e-key is a viewer of E2E other lab
+        # e2e-signin (#176), then the authenticator apps of the ten users who sign in, then
+        # e2e-key, a viewer of E2E other lab, and its enrolment code: each with its event, as
+        # audit_reconcile asks
         "user_created",
+        *["second_factor_added"] * 10,
         "user_created",
         "member_added",
+        "enrolment_code_issued",
         # The lab's one permit, ended (#82)
         "lab_authorisation_added",
         "lab_authorisation_ended",

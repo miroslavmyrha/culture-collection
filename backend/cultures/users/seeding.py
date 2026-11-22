@@ -11,10 +11,17 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.utils import timezone
 
 from cultures.audit.context import audited_atomic
+from cultures.audit.events import Change, record_event
+from cultures.audit.registry import (
+    ENROLMENT_CODE_ISSUED,
+    SECOND_FACTOR_ADDED,
+    SECOND_FACTOR_REMOVED,
+    EventType,
+)
 from cultures.labs.models import Lab
 
 from . import services
-from .factors import seal, unseal
+from .factors import SUBJECT, seal, unseal
 from .models import EnrolmentCode, RecoveryCode, SecurityKey, TotpDevice, User
 
 
@@ -53,15 +60,27 @@ def totp(user: User, secret: str) -> None:
             return
         if device is not None:
             device.delete()
+            _factor_event(SECOND_FACTOR_REMOVED, user, {"totp": ["added", None]})
         TotpDevice.objects.create(user=user, secret=seal(secret))
+        # The same event as factors.totp_enrol: every row change has its event (audit_reconcile).
+        _factor_event(SECOND_FACTOR_ADDED, user, {"totp": [None, "added"]})
+
+
+def _factor_event(event: EventType, user: User, change: dict[str, list[object]]) -> None:
+    record_event(event, Change(SUBJECT, user.public_id, change))
 
 
 def no_factor(user: User) -> None:
     """No key, no authenticator app, no recovery code: the next sign-in enrols one (#176)."""
     with audited_atomic():
-        SecurityKey.objects.filter(user=user).delete()
-        TotpDevice.objects.filter(user=user).delete()
-        RecoveryCode.objects.filter(user=user).delete()
+        for key in SecurityKey.objects.filter(user=user):
+            public_id = str(key.public_id)
+            key.delete()
+            _factor_event(SECOND_FACTOR_REMOVED, user, {"security_key": [public_id, None]})
+        if TotpDevice.objects.filter(user=user).delete()[0]:
+            _factor_event(SECOND_FACTOR_REMOVED, user, {"totp": ["added", None]})
+        if RecoveryCode.objects.filter(user=user).delete()[0]:
+            _factor_event(SECOND_FACTOR_REMOVED, user, {"recovery_codes": ["issued", None]})
 
 
 def enrolment_code(user: User, *, issued_by: User, lab: Lab | None, code: str) -> None:
@@ -73,12 +92,24 @@ def enrolment_code(user: User, *, issued_by: User, lab: Lab | None, code: str) -
         valid = EnrolmentCode.objects.filter(user=user, used_at__isnull=True, expires_at__gt=now)
         if any(check_password(folded, c.code_hash) for c in valid):
             return  # a second run changes nothing
-        EnrolmentCode.objects.create(
+        reason = "e2e: the first enrolment of a security key"
+        entry = EnrolmentCode.objects.create(
             user=user,
             lab=lab,
             issued_by=issued_by,
-            reason="e2e: the first enrolment of a security key",
+            reason=reason,
             code_hash=make_password(folded),
             created_at=now,
             expires_at=now + timedelta(hours=settings.ENROLMENT_CODE_HOURS),
+        )
+        # As factors.enrolment_code_issue records it, with its reason.
+        record_event(
+            ENROLMENT_CODE_ISSUED,
+            Change(
+                SUBJECT,
+                user.public_id,
+                {"enrolment_code": [None, entry.pk]},
+                lab_id=lab.pk if lab else None,
+            ),
+            reason=reason,
         )
