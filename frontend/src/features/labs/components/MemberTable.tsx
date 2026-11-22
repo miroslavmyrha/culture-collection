@@ -8,6 +8,7 @@ import { endStep, type GrantStep, LocationGrantDialog } from './LocationGrantDia
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
 import { Pager, PastTheEnd } from '@/components/Pager'
+import { EnrolmentCodeDialog } from './EnrolmentCodeDialog'
 import { RemoveMemberDialog } from './RemoveMemberDialog'
 
 type Props = {
@@ -19,7 +20,7 @@ type Props = {
   onOffsetChange: (offset: number) => void
 }
 
-type Kind = 'role' | 'remove' | GrantStep
+type Kind = 'role' | 'remove' | 'code' | GrantStep
 type Open = { kind: Kind; member: Member; open: boolean } | null
 
 const fullName = (m: Member) => [m.first_name, m.last_name].filter(Boolean).join(' ')
@@ -96,6 +97,7 @@ function MemberDialog({ open, labId, labName, roles, grant, onClose, onExited }:
   const common = { labId, member: open.member, open: open.open, onClose, onExited }
   if (open.kind === 'role') return <ChangeRoleDialog {...common} roles={roles} />
   if (open.kind === 'remove') return <RemoveMemberDialog {...common} labName={labName} />
+  if (open.kind === 'code') return <EnrolmentCodeDialog {...common} />
   return <LocationGrantDialog {...common} step={open.kind} grant={grant} />
 }
 
@@ -145,6 +147,9 @@ function MemberRows({ list, manage, grants, params, onOffsetChange, show }: Rows
                         Change role
                       </Button>
                       {grants?.loaded && <LocationButtons grant={grants.of(member)} member={member} show={show} />}
+                      <Button size="small" aria-label={`Issue enrolment code for ${member.username}`} onClick={show('code', member)}>
+                        Enrolment code
+                      </Button>
                       <Button size="small" color="error" aria-label={`Remove ${member.username}`} onClick={show('remove', member)}>
                         Remove
                       </Button>

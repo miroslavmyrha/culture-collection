@@ -162,6 +162,29 @@ Healthchecks, which holds the end of the job's output. Then:
 | `backup-check` fails | the repository is damaged, or the newest set is older than 26 h | `deploy/backup.sh check` by hand. A damaged repository: start a new one and take a backup now, keep the old one until the next drill |
 | an error report | an exception in the app | The event's request id: the same id is in the logs and in the audit trail of that request |
 
+## A new user (#176)
+
+Staff create the account (Django admin, Users) and a manager adds it to the lab. The manager
+then opens the lab page, "Enrolment code" on the person's row, writes a reason and hands the
+code over in person or by a call to a known number: it is shown once, valid for 24 hours
+(ENROLMENT_CODE_HOURS) and for one enrolment. The person signs in with their password, types
+the code and adds a security key or an authenticator app, then keeps the ten recovery codes.
+A code that expired or was used: the manager issues a new one. A person in no lab (staff) gets
+the code from a superuser, through `cultures.users.factors.enrolment_code_issue` with no lab in
+`manage.py shell`, in an audit context.
+
+## A lost second factor (#176)
+
+A person who lost their security key and their phone signs in with a recovery code, then adds a
+new factor on "Sign-in and security" (account menu). A person who also lost the recovery codes
+asks two managers of their lab: one proposes a reset on the lab page ("Second factor resets"),
+with a reason, the other one checks who is asking (in person, or a call to a known number) and
+confirms with a reason. The person's keys, app and codes are gone, every session of theirs
+ends, and the confirmer sees an enrolment code, once, to hand over at once: with it and the
+password the person adds a new factor. A person in no lab (staff)
+needs two superusers: the reset service, `cultures.users.factors.factor_reset_propose` with no
+lab, from `manage.py shell` in an audit context. Each step is an audit event with its reason.
+
 ## Rotating secrets
 
 Each in a quiet hour, with a backup first (`deploy/backup.sh run`), and written in the log book.
@@ -185,6 +208,10 @@ recreate a container when only a file's content changed: every rotation ends wit
   `restic key add`, `restic key list`, `restic key remove <old id>`. Then write the new password
   into `deploy/secrets/restic_password` and **its copy off the host**: an old copy no longer
   opens the repository.
+- **MFA secret key** (`deploy/secrets/mfa_secret_key`, #176): it encrypts the TOTP secrets of
+  the authenticator apps. A new key makes every app unreadable, so do not rotate it without a
+  reason: the people sign in with their security key or a recovery code, then add the app
+  again. Keep its copy off the host with the others.
 - **Healthchecks ping key**: rotate it in the project's settings, write the new URL into
   `deploy/secrets/healthchecks_ping_url`, recreate (the host timer reads the file at each run).
 - **TLS certificate**: renewed outside the stack, then `docker compose -f deploy/compose.yaml

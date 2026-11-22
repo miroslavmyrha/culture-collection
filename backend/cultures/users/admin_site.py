@@ -1,43 +1,31 @@
-"""The project's admin site: the API's login limits, and the own-password form through a service.
+"""The project's admin site: the app's sign-in, and the own-password form through a service.
 
-Django's AdminSite.login checks a password with no limit, a second way to guess
-passwords next to the API login. Here a POST to it passes the same checks as
-the API login (cultures.users.api.views.login_view), in the same order:
-1. the per-IP throttle LoginThrottle, with the same cache key, so the API and
-   the admin login share one budget per client;
-2. the failure counters of cultures.users.login_limits, shared with the API:
-   the pair back-off, the address budget, and the account under attack, where
-   only a browser with the account's known-device cookie may try;
-3. Django's login form. A failed attempt (the form again) counts, a
-   successful one (the redirect) clears its pair and sets the cookie.
-Refusals are a 429 problem with Retry-After, the same as the API's.
+Django's AdminSite.login checks a password alone. Since #176 every sign-in needs a second
+factor (ADR 0009), so the admin has no login form of its own: a visitor who is not signed in
+as staff is sent to the app's sign-in (/login), the same two steps with the same login limits,
+and opens the admin again once signed in. A POST with a password to the old form gets the same
+redirect and is never checked, so the admin is no way to guess passwords either. A signed-in
+session without a second factor never reaches this view: SecondFactorMiddleware ends it.
 
 The site's own password change view ("Change password" in the header) saves
 through user_set_password, like UserAdmin's form for other users.
 """
 
-from http import HTTPStatus
-from math import ceil
 from typing import Any
 
 from django.contrib import admin
 from django.contrib.admin.forms import AdminPasswordChangeForm
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.template.response import TemplateResponse
-from django.utils import timezone
-from rest_framework.request import Request
-from rest_framework.views import APIView
 
 from cultures.audit.context import audit_context
 from cultures.audit.models import Channel
-from cultures.core.errors import PROBLEM_CONTENT_TYPE, problem
 
 from . import services
-from .api.views import LoginThrottle
-from .login_limits import Attempt, Surface
 from .models import User
 
-TOO_MANY = "Too many login attempts. Try again later."
+# The app's sign-in page (the frontend route): the password step, then the second factor.
+APP_SIGN_IN = "/login"
 
 
 def staff_actor(request: HttpRequest) -> User | None:
@@ -56,36 +44,15 @@ class OwnPasswordChangeForm(AdminPasswordChangeForm):
         return saved
 
 
-def _too_many(wait: float) -> JsonResponse:
-    response = JsonResponse(
-        problem(429, "throttled", TOO_MANY), status=429, content_type=PROBLEM_CONTENT_TYPE
-    )
-    response["Retry-After"] = str(ceil(wait))
-    return response
-
-
 class AdminSite(admin.AdminSite):
     password_change_form = OwnPasswordChangeForm
 
     def login(
         self, request: HttpRequest, extra_context: dict[str, Any] | None = None
     ) -> HttpResponse:
-        if request.method != "POST":
-            return super().login(request, extra_context)
-        throttle = LoginThrottle()
-        if not throttle.allow_request(Request(request), APIView()):  # the key ignores the view
-            return _too_many(throttle.wait() or 0)
-        username = request.POST.get("username", "")
-        attempt = Attempt.of(request, username, Surface.ADMIN)
-        refusal = attempt.refusal()
-        if refusal is not None:
-            return _too_many(refusal.wait_seconds(timezone.now()))
-        response = super().login(request, extra_context)
-        if response.status_code == HTTPStatus.FOUND and isinstance(request.user, User):
-            attempt.succeeded(request.user, response)  # LoginView redirects after a valid login
-        elif response.status_code == HTTPStatus.OK and username:  # the form again: refused
-            attempt.failed()
-        return response
+        if isinstance(request.user, User) and request.user.is_active and request.user.is_staff:
+            return super().login(request, extra_context)  # Django sends them to the index
+        return HttpResponseRedirect(APP_SIGN_IN)
 
     def password_change(
         self, request: HttpRequest, extra_context: dict[str, Any] | None = None

@@ -14,13 +14,14 @@ import { loginRoute } from '@/routes/login'
 import { mediaListRoute } from '@/routes/media'
 import { permitListRoute } from '@/routes/permits'
 import { revealListRoute } from '@/routes/reveals'
+import { securityRoute } from '@/routes/account'
 import { rootRoute } from '@/routes/root'
 import { storageRoute, storageUnitRoute } from '@/routes/storage'
 import { strainDetailRoute, strainHistoryRoute, strainListRoute, strainMaterialRoute, strainOverviewRoute, strainTermsRoute } from '@/routes/strains'
 
 export const routeTree = rootRoute.addChildren([
   loginRoute,
-  authenticatedRoute.addChildren([homeRoute, labListRoute, labDetailRoute, strainListRoute, strainDetailRoute.addChildren([strainOverviewRoute, strainMaterialRoute, strainTermsRoute, strainHistoryRoute]), depositorListRoute, mtaListRoute, mtaNewRoute, mtaDetailRoute, depositListRoute, depositReceiveRoute, depositDetailRoute, storageRoute, storageUnitRoute, requestListRoute, requestNewRoute, requestDetailRoute, requesterListRoute, shipmentDocumentRoute, permitListRoute, mediaListRoute, revealListRoute, vratAccessRoute, classificationRoute]),
+  authenticatedRoute.addChildren([homeRoute, labListRoute, labDetailRoute, strainListRoute, strainDetailRoute.addChildren([strainOverviewRoute, strainMaterialRoute, strainTermsRoute, strainHistoryRoute]), depositorListRoute, mtaListRoute, mtaNewRoute, mtaDetailRoute, depositListRoute, depositReceiveRoute, depositDetailRoute, storageRoute, storageUnitRoute, requestListRoute, requestNewRoute, requestDetailRoute, requesterListRoute, shipmentDocumentRoute, permitListRoute, mediaListRoute, revealListRoute, vratAccessRoute, classificationRoute, securityRoute]),
 ])
 
 /**

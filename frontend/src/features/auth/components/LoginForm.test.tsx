@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
-import { makeMe, problem, validationProblem } from '@/test/factories'
+import { problem, validationProblem } from '@/test/factories'
 import { holdApi, mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { makeTestQueryClient, renderWithProviders } from '@/test/render'
 import { server } from '@/test/server'
@@ -11,7 +11,7 @@ import { authKeys } from '../api/keys'
 import { LoginForm } from './LoginForm'
 
 async function submit({ username = 'lab-tech', password = 'secret', client }: { username?: string; password?: string; client?: QueryClient } = {}) {
-  const onSuccess = vi.fn<() => void>()
+  const onSuccess = vi.fn<(step: unknown) => void>()
   const view = await renderWithProviders(<LoginForm onSuccess={onSuccess} />, { client })
   const user = userEvent.setup()
   if (username) await user.type(screen.getByRole('textbox', { name: 'Username' }), username)
@@ -21,15 +21,14 @@ async function submit({ username = 'lab-tech', password = 'secret', client }: { 
 }
 
 describe('LoginForm', () => {
-  it('stores the user in a fresh cache and calls onSuccess', async () => {
-    const me = makeMe({ username: 'lab-tech' })
-    mockApi('post', '/api/v1/auth/login/', me, { status: 200 })
+  it('hands the next step to onSuccess and caches no user: the password signs nobody in (#176)', async () => {
+    const step: { step: 'second_factor'; methods: ('security_key' | 'recovery_code')[] } = { step: 'second_factor', methods: ['security_key', 'recovery_code'] }
+    mockApi('post', '/api/v1/auth/login/', step, { status: 200 })
     const client = makeTestQueryClient()
     client.setQueryData(['private', 'records'], ['earlier user'])
     const { onSuccess } = await submit({ client })
-    await vi.waitFor(() => expect(onSuccess).toHaveBeenCalledOnce())
-    expect(client.getQueryData(authKeys.me())).toEqual(me)
-    expect(client.getQueryData(['private', 'records'])).toBeUndefined()
+    await vi.waitFor(() => expect(onSuccess.mock.calls[0]?.[0]).toEqual(step))
+    expect(client.getQueryData(authKeys.me())).toBeUndefined()
   })
 
   it.each([

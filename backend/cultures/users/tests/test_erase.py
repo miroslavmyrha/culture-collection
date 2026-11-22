@@ -29,7 +29,7 @@ from cultures.users.models import LoginFailures, User
 
 from .conftest import PASSWORD, make_user, trail
 from .test_admin import form_of
-from .test_login_limits import HOME, admin, api
+from .test_login_limits import HOME, api, second
 
 pytestmark = [pytest.mark.django_db, pytest.mark.usefixtures("behind_proxy")]
 REASON = "erasure request 2026-114, checked by the data protection office"
@@ -102,6 +102,7 @@ def test_erasure_records_its_event_with_the_reason_and_no_values(
         "has_usable_password": [True, False],
         "memberships": [0, 0],
         "sessions": [1, 0],
+        "second_factors": [0, 0],
         "login_failure_counters": [0, 0],
     }
 
@@ -254,7 +255,7 @@ def test_an_erased_user_cannot_sign_in(person: User, audited: AuditContext) -> N
     erased = services.user_erase(user=person, reason=REASON)
     for username in ("ada.l", erased.username):
         assert api(Client(), username, PASSWORD, HOME) == "wrong"
-        assert admin(Client(), username, PASSWORD, HOME) == "wrong"
+        assert second(Client(), username, PASSWORD, HOME) == "wrong"
 
 
 def test_the_admin_log_shows_the_tombstone_name(

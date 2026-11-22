@@ -31,9 +31,7 @@ refuse it with UserErased, and a database check constraint holds the tombstone.
 from collections.abc import Collection, Mapping, Sequence
 
 from django.contrib.admin.models import LogEntry
-from django.contrib.auth import SESSION_KEY
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.sessions.models import Session
 from django.db.models import Q
 from django.utils import timezone
 
@@ -64,8 +62,9 @@ from cultures.labs.services import (
     vrat_access_end_for_users,
 )
 
-from . import login_limits
+from . import factors, login_limits
 from .models import ERASED_PREFIX, User
+from .sessions import end_sessions
 
 SUBJECT = "user"
 # The fields user_update may change. Privileges and the password have their own services.
@@ -372,8 +371,8 @@ def user_erase(*, user: User, reason: str | None = None) -> User:
     without staff or superuser status, with erased_at set, without memberships
     (removed through membership_delete, one member_removed event each), with its
     VRAT access entries ended (the rows stay, the history SÚJB may check), without
-    sessions and without login counters. Admin log entries about the user get the
-    tombstone name, because Django stores the old username in them.
+    sessions, without second factors (#176) and without login counters. Admin log entries
+    about the user get the tombstone name, because Django stores the old username in them.
 
     Refused, with nothing changed: LastManager when the user is the last active
     manager of a lab (make another member a manager first, ADR 0006), also for an
@@ -394,7 +393,8 @@ def user_erase(*, user: User, reason: str | None = None) -> User:
         users_deactivation_check(users=[target])
         vrat_access_end_for_users(users=[target], reason=ERASED)
         memberships = _remove_memberships(target)
-        sessions = _end_sessions(target)
+        sessions = end_sessions(target)
+        keys, devices, codes = factors.remove_all(target)
         counters = login_limits.clear_account(target.username)
         before, had_password = _make_tombstone(target)
         _rename_in_admin_log(target)
@@ -409,28 +409,13 @@ def user_erase(*, user: User, reason: str | None = None) -> User:
                     "has_usable_password": [had_password, False],
                     "memberships": [memberships, 0],
                     "sessions": [sessions, 0],
+                    "second_factors": [keys + devices + codes, 0],
                     "login_failure_counters": [counters, 0],
                 },
             ),
             reason=reason,
         )
     return target
-
-
-def _end_sessions(user: User) -> int:
-    """Delete the user's sessions. The store has no index by user, so this reads them all.
-
-    Erasure is rare and the table holds live sessions (clearsessions removes old
-    ones). The unusable password alone would end them at the next request (the
-    session hash no longer matches), but the rows would stay.
-    """
-    mine = [
-        session.pk
-        for session in Session.objects.iterator()
-        if session.get_decoded().get(SESSION_KEY) == str(user.pk)
-    ]
-    deleted, _ = Session.objects.filter(pk__in=mine).delete()
-    return deleted
 
 
 def _rename_in_admin_log(user: User) -> None:

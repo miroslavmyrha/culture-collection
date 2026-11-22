@@ -1,7 +1,8 @@
 """Login limits that never lock an account for everyone (cultures.users.login_limits).
 
-Every scenario runs through both doors, the API login and the admin login: they
-share the counters, the cookie and the 429. A door answers "in", "wrong" (the
+Every scenario runs through both doors of the sign-in (#176), the password and the second
+factor: they share the counters, the cookie and the 429. The admin has no login of its own
+any more (cultures.users.admin_site). A door answers "in", "wrong" (the
 password check failed) or "limited" (429 before the password is checked).
 """
 
@@ -12,22 +13,25 @@ from collections.abc import Callable
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
+import pyotp
 import pytest
 import time_machine
 from django.conf import settings
 from django.core.cache import cache
 from django.test import Client
-from django.urls import reverse
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 from pytest_django.fixtures import Settings
 
-from cultures.audit.context import audit_context
+from cultures.audit.context import audit_context, audited_atomic
+from cultures.audit.events import Change, record_event
 from cultures.audit.models import ActorKind, AuditEvent, Channel, RowChange
+from cultures.audit.registry import SECOND_FACTOR_ADDED
 from cultures.core.testing import assert_problem
 from cultures.users import login_limits, services
+from cultures.users.factors import seal
 from cultures.users.login_limits import Outcome
-from cultures.users.models import LoginFailures, User
+from cultures.users.models import LoginFailures, TotpDevice, User
 
 from .conftest import PASSWORD, make_user
 
@@ -39,14 +43,14 @@ else:
 pytestmark = pytest.mark.django_db
 
 API_LOGIN = "/api/v1/auth/login/"
-ADMIN_LOGIN = reverse("admin:login")
+SECOND_FACTOR = "/api/v1/auth/second-factor/"
+TOTP_SECRET = pyotp.random_base32()  # a fresh one per run: nothing to keep secret
 HOME, AWAY, NEW = "198.51.100.1", "198.51.100.2", "198.51.100.77"
 Door = Callable[..., str]
-API_ANSWERS = {200: "in", 400: "wrong", 429: "limited"}
-ADMIN_ANSWERS = {302: "in", 200: "wrong", 429: "limited"}
+API_ANSWERS = {200: "in", 400: "wrong", 429: "limited", 422: "wrong"}
 
 
-def post_api(client: Client, username: str, password: str, ip: str = HOME) -> Response:
+def post_password(client: Client, username: str, password: str, ip: str) -> Response:
     response: Response = client.post(
         API_LOGIN,
         {"username": username, "password": password},
@@ -56,22 +60,55 @@ def post_api(client: Client, username: str, password: str, ip: str = HOME) -> Re
     return response
 
 
-def post_admin(client: Client, username: str, password: str, ip: str = HOME) -> Response:
+def fresh_code(username: str) -> str:
+    """A code the user's authenticator app takes now: the device is made again, so a test may
+    sign the same person in several times in one time step (#176)."""
+    user = User.objects.get(username=username)
+    # As the enrolment writes it: in a transaction with its event, so the trail reconciles.
+    with audit_context(channel=Channel.COMMAND, actor=user), audited_atomic():
+        TotpDevice.objects.filter(user=user).delete()
+        TotpDevice.objects.create(user=user, secret=seal(TOTP_SECRET))
+        record_event(SECOND_FACTOR_ADDED, Change("user", user.public_id, {"totp": [None, "added"]}))
+    return pyotp.TOTP(TOTP_SECRET).now()
+
+
+def post_code(client: Client, username: str, code: str, ip: str) -> Response:
     response: Response = client.post(
-        ADMIN_LOGIN, {"username": username, "password": password, "next": "/"}, REMOTE_ADDR=ip
+        SECOND_FACTOR,
+        {"method": "totp", "code": code},
+        content_type="application/json",
+        REMOTE_ADDR=ip,
     )
     return response
+
+
+def post_api(client: Client, username: str, password: str, ip: str = HOME) -> Response:
+    """The whole sign-in: the password, then the right code when the password was right."""
+    response = post_password(client, username, password, ip)
+    if response.status_code != 200:
+        return response
+    return post_code(client, username, fresh_code(username), ip)
+
+
+def post_second(client: Client, username: str, password: str, ip: str = HOME) -> Response:
+    """The second factor as the door: the right password, then the code decides (#176). The
+    password argument says which: PASSWORD a right code, anything else a wrong one."""
+    response = post_password(client, username, PASSWORD, ip)
+    if response.status_code != 200:
+        return response  # an unknown name, or refused before the password was read
+    code = fresh_code(username) if password == PASSWORD else "000000"
+    return post_code(client, username, code, ip)
 
 
 def api(client: Client, username: str, password: str, ip: str = HOME) -> str:
     return API_ANSWERS[post_api(client, username, password, ip).status_code]
 
 
-def admin(client: Client, username: str, password: str, ip: str = HOME) -> str:
-    return ADMIN_ANSWERS[post_admin(client, username, password, ip).status_code]
+def second(client: Client, username: str, password: str, ip: str = HOME) -> str:
+    return API_ANSWERS[post_second(client, username, password, ip).status_code]
 
 
-DOORS = {"api": (api, post_api), "admin": (admin, post_admin)}
+DOORS = {"api": (api, post_api), "second": (second, post_second)}
 
 
 @pytest.fixture(params=sorted(DOORS))
@@ -231,7 +268,7 @@ class TestUnderAttackEvent:
             "login-limits",
         )
         assert (event.subject_type, event.subject_id) == ("user", alice.public_id)
-        assert event.channel == {"api": Channel.API, "admin": Channel.WEB}[surface]
+        assert event.channel == Channel.API  # both steps are the API
         assert event.changes == {"login_under_attack": [False, True]}
 
     def test_the_event_carries_the_request_that_tripped_it(
@@ -529,13 +566,13 @@ class TestLogLine:
             "event": "login_failed",
             "account_ref": account[:16],
             "ip_bucket": HOME,
-            "surface": surface,
+            "surface": "api",
             "outcome": str(outcome),
             "request_id": response["X-Request-ID"],
         }
         assert record.getMessage() == (
             f"login_failed account_ref={account[:16]} ip_bucket={HOME}"
-            f" surface={surface} outcome={outcome}"
+            f" surface=api outcome={outcome}"
         )
 
     def test_a_success_writes_no_line(

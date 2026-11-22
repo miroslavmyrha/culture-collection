@@ -24,6 +24,9 @@ from config.settings.guards import (
 BACKEND = Path(settings.BASE_DIR)
 STRONG = secrets.token_urlsafe(64)
 SOUND_ENV = {
+    "MFA_SECRET_KEY": "mfa-" + secrets.token_urlsafe(64),
+    "WEBAUTHN_ORIGINS": "https://app.example.com",
+    "WEBAUTHN_RP_ID": "app.example.com",
     "DJANGO_SECRET_KEY": STRONG,
     "DJANGO_ALLOWED_HOSTS": "app.example.com",
     "DJANGO_ADMIN_PATH": "ops-x7k2/",

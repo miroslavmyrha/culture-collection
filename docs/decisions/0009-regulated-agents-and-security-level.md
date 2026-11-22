@@ -1381,3 +1381,47 @@ manager confirms them: no production database exists yet (#178). Reversible with
 0006` and `migrate audit 0039`.
 
 Each rule, its source, its code and its tests are in `docs/compliance.md` (R-MASK-06).
+
+## Amendment 2026-11-21: the second factor is built (#176)
+
+Decided 2026-11-21: py_webauthn and @simplewebauthn/browser for security keys, pyotp for the
+authenticator app; existing accounts enrol at their next sign-in, with a manager's code (below); a lost factor is reset by two
+managers of the person's lab (two superusers for a person in no lab), never by the person.
+
+**Two steps.** The password signs nobody in: it names the next step and keeps the person in the
+session for MFA_PENDING_SECONDS. Django's login runs after a security key, a TOTP code or a
+recovery code, or after the first factor is enrolled, and marks the session. A signed-in
+session without that mark is signed out by `SecondFactorMiddleware`, sessions from before
+#176 included. The admin has no login form any more: it sends every visitor to the app's
+sign-in. Both steps count failures in the login limits of ADR 0007.
+
+**What is kept.** Security keys (credential id, public key, a sign count that only grows),
+one TOTP device per person (the secret encrypted with MFA_SECRET_KEY, each time step taken
+once), ten recovery codes hashed with the password hasher and used once. Removing a factor,
+adding one to a signed-in account and new recovery codes need a second factor of the last
+MFA_STEP_UP_SECONDS; the last factor is never removed.
+
+**Recovery codes stay valid until used** (Mirek, 2026-11-22), against "valid for 24 hours"
+above. They are the backup for a lost key and a lost phone: a code that expired after a day
+would leave the two-manager reset as the only way back in. Each is used once, a new set voids
+the old one, and every use is an audit event (`recovery_code_used`).
+
+**The first factor takes a manager's enrolment code** (Mirek, 2026-11-22). An account without a
+factor enrols one only after a one-time code that a manager of a lab the person belongs to
+issued with a reason (a superuser for a person in no lab): valid ENROLMENT_CODE_HOURS (24), used
+once, hashed like a password, shown once to the manager, issued and used as audit events. So
+the password alone never gets in, neither at the first sign-in after #176 nor after a reset. A
+wrong code counts in the login limits. Confirming a two-manager reset issues the code to the
+confirmer in the same transaction, shown with the confirmation: the confirmer has just checked
+who is asking, so handing the code over at once leaves the person no time without a way in and
+asks no third step of anyone. The database refuses a second use and a use after the expiry.
+
+**User verification is preferred, not required** (Mirek, 2026-11-22): a hardware key without a
+PIN or a fingerprint is still something the person holds next to the password, the second
+factor this ADR asks for; required would refuse those keys outright.
+
+Migration impact: additive, `users` 0008 (the tables), 0009 (row audit and guards), 0010 and
+0011 (the enrolment codes and their guard), audit 0042 to 0045 (the reason checks of the reset
+and of the code, each added NOT VALID and validated apart). Reversible with `migrate users
+0007` and `migrate audit 0041`. Every rule, its code and its tests are in
+`docs/compliance.md` (R-ACCESS-03, R-ACCESS-04).

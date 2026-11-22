@@ -1,167 +1,49 @@
-"""The admin site: the API login's limits on its login, and the own password through a service.
+"""The admin site: its sign-in is the app's (#176), and the own password goes through a service.
 
-The login has the same per-IP budget and the same failure counters as the API
-login. The scenarios of the counters run on both doors in test_login_limits.py.
+The admin has no password form of its own any more: every sign-in takes a second factor, so a
+visitor is sent to the app's sign-in, whose limits test_login_limits.py checks on both steps.
 """
 
-import ipaddress
-
 import pytest
-import time_machine
-from django.conf import settings
-from django.test import Client, override_settings
+from django.test import Client
 from django.urls import reverse
-from django.utils import timezone
-from pytest_django.fixtures import Settings
 
-from config.settings import base
 from cultures.audit.models import AuditEvent, Channel
-from cultures.core.testing import assert_problem
-from cultures.users.api.views import LoginThrottle
-from cultures.users.models import User
+from cultures.users.models import LoginFailures, User
 
 from .conftest import PASSWORD, trail
 
 pytestmark = pytest.mark.django_db
 LOGIN = reverse("admin:login")
-API_LOGIN = "/api/v1/auth/login/"
-IP = "198.51.100.1"
 NEW_PASSWORD = "a brand new admin password"  # noqa: S105 (a test password)
 
 
-@pytest.fixture
-def production_rate(monkeypatch: pytest.MonkeyPatch) -> str:
-    """Test settings switch throttles off: put the production login rate back."""
-    rate: str = base.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["login"]
-    monkeypatch.setattr(LoginThrottle, "rate", rate, raising=False)
-    return rate
+def test_the_admin_login_sends_a_visitor_to_the_app_sign_in(client: Client) -> None:
+    response = client.get(LOGIN)
+    assert (response.status_code, response.headers["Location"]) == (302, "/login")
 
 
-def admin_login(client: Client, username: str, password: str, ip: str = IP) -> int:
-    response = client.post(
-        LOGIN, {"username": username, "password": password, "next": "/"}, REMOTE_ADDR=ip
-    )
-    return response.status_code
+def test_a_password_posted_to_the_admin_is_never_checked(client: Client, staff: User) -> None:
+    response = client.post(LOGIN, {"username": "staff", "password": PASSWORD, "next": "/"})
+    assert (response.status_code, response.headers["Location"]) == (302, "/login")
+    assert "_auth_user_id" not in client.session
+    wrong = client.post(LOGIN, {"username": "staff", "password": "wrong"})
+    assert wrong.status_code == 302
+    assert not LoginFailures.objects.exists()  # nothing to count: no password was read
 
 
-def signed_in(client: Client) -> bool:
-    return client.get(reverse("admin:index")).status_code == 200
+def test_signed_in_staff_go_to_the_index(admin_client: Client) -> None:
+    response = admin_client.get(LOGIN)
+    assert (response.status_code, response.headers["Location"]) == (302, reverse("admin:index"))
+    assert admin_client.get(reverse("admin:index")).status_code == 200
 
 
-def test_the_eleventh_attempt_from_one_address_is_refused(
-    production_rate: str, client: Client, staff: User
-) -> None:
-    assert production_rate == "10/min"
-    # New names each time: this is the per-IP budget, not the account limit.
-    assert [admin_login(client, f"guess{n}", "wrong") for n in range(10)] == [200] * 10
-    response = client.post(LOGIN, {"username": "staff", "password": PASSWORD}, REMOTE_ADDR=IP)
-    assert_problem(response, 429, "throttled")
-    assert 0 < int(response["Retry-After"]) <= 60
-    assert not signed_in(client)
-
-
-def test_another_address_keeps_its_own_admin_login_budget(
-    production_rate: str, client: Client, staff: User
-) -> None:
-    for n in range(10):
-        admin_login(client, f"guess{n}", "wrong")
-    assert admin_login(client, "staff", PASSWORD, ip="198.51.100.2") == 302
-    assert signed_in(client)
-
-
-def test_a_forged_forwarding_header_gives_the_admin_login_no_new_budget(
-    production_rate: str, client: Client
-) -> None:
-    """The admin login reads the client through cultures.core.client_ip like the API."""
-    statuses = [
-        client.post(
-            LOGIN,
-            {"username": f"guess{n}", "password": "wrong"},
-            REMOTE_ADDR=IP,
-            HTTP_X_FORWARDED_FOR=f"203.0.113.{n}",
-        ).status_code
-        for n in range(11)
-    ]
-    assert statuses == [200] * 10 + [429]
-
-
-def test_behind_a_trusted_proxy_the_admin_login_counts_per_client(
-    production_rate: str, client: Client, staff: User, settings: Settings
-) -> None:
-    settings.TRUSTED_PROXIES = (ipaddress.ip_network("10.0.0.0/24"),)
-    for n in range(10):
-        client.post(
-            LOGIN,
-            {"username": f"guess{n}", "password": "wrong"},
-            REMOTE_ADDR="10.0.0.5",
-            HTTP_X_FORWARDED_FOR="203.0.113.1",
-        )
-    behind_the_same_proxy = client.post(
-        LOGIN,
-        {"username": "staff", "password": PASSWORD, "next": "/"},
-        REMOTE_ADDR="10.0.0.5",
-        HTTP_X_FORWARDED_FOR="203.0.113.2",
-    )
-    assert behind_the_same_proxy.status_code == 302
-
-
-def test_the_admin_and_the_api_login_share_one_budget_per_address(
-    production_rate: str, client: Client
-) -> None:
-    for n in range(10):
-        client.post(
-            API_LOGIN,
-            {"username": f"guess{n}", "password": "wrong"},
-            content_type="application/json",
-            REMOTE_ADDR=IP,
-        )
-    assert admin_login(client, "someone", "wrong") == 429
-
-
-@override_settings(LOGIN_ACCOUNT_MAX_FAILURES=5)
-def test_the_right_password_under_attack_is_refused_like_in_the_api(
-    client: Client, staff: User
-) -> None:
-    with time_machine.travel(timezone.now(), tick=False):
-        statuses = [admin_login(client, "staff", "wrong", ip=f"203.0.113.{n}") for n in range(5)]
-        assert statuses == [200] * 5
-        response = client.post(LOGIN, {"username": "staff", "password": PASSWORD}, REMOTE_ADDR=IP)
-        assert_problem(response, 429, "throttled")
-        assert int(response["Retry-After"]) == settings.LOGIN_ACCOUNT_WINDOW_SECONDS
-        assert not signed_in(client)
-        # The API refuses it the same way: the counters are shared, whichever door was used.
-        api = client.post(
-            API_LOGIN,
-            {"username": "staff", "password": PASSWORD},
-            content_type="application/json",
-            REMOTE_ADDR=IP,
-        )
-    assert_problem(api, 429, "throttled")
-    assert api["Retry-After"] == response["Retry-After"]
-
-
-@override_settings(LOGIN_ACCOUNT_MAX_FAILURES=3)
-def test_api_failures_count_for_the_admin_account_limit(client: Client, staff: User) -> None:
-    for _ in range(3):
-        client.post(
-            API_LOGIN,
-            {"username": "STAFF", "password": "wrong"},
-            content_type="application/json",
-        )
-    assert admin_login(client, "staff", PASSWORD) == 429
-
-
-@override_settings(LOGIN_ACCOUNT_MAX_FAILURES=2)
-def test_a_right_password_without_staff_status_counts_as_a_failure(client: Client) -> None:
-    """The admin form refuses non-staff with the wrong-password message: the limit agrees."""
-    member = User.objects.create_user("member", password=PASSWORD)
-    assert [admin_login(client, "member", PASSWORD) for _ in range(3)] == [200, 200, 429]
-    assert member.is_active
-
-
-def test_the_login_page_itself_is_not_counted(production_rate: str, client: Client) -> None:
-    assert {client.get(LOGIN, REMOTE_ADDR=IP).status_code for _ in range(12)} == {200}
-    assert admin_login(client, "someone", "wrong") == 200
+def test_a_staff_session_without_a_second_factor_reaches_nothing(staff: User) -> None:
+    client = Client()
+    client.force_login(staff)  # no second factor: signed out before the admin runs
+    response = client.get(reverse("admin:index"))
+    assert response.status_code == 302
+    assert response.headers["Location"].startswith(LOGIN)
 
 
 def test_staff_change_their_own_password_and_stay_signed_in(

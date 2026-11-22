@@ -313,6 +313,8 @@ def test_it_creates_every_role_with_the_password() -> None:
         ("user_created", "development data"),
         ("user_staff_changed", "development data"),
         ("user_superuser_changed", "development data"),
+        # Its authenticator app (#176), recorded as factors.totp_enrol records it.
+        ("second_factor_added", "development data"),
     ]
 
 

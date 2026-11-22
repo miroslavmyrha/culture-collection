@@ -19,7 +19,8 @@ trap 'e2e_cleanup $?' EXIT
 
 echo "== e2e users"
 # seed_e2e refuses without DEBUG: it runs once with the development settings, against the same
-# database as the runtime role, and never in a real deployment.
+# database as the runtime role, and never in a real deployment. MFA_SECRET_KEY_FILE stays
+# mounted: the seeded TOTP secrets are sealed with the stack's own key (#176).
 docker compose -f compose.yaml run --rm -T --no-deps \
   -e DJANGO_SETTINGS_MODULE=config.settings.local -e DJANGO_SECRET_KEY_FILE= -e E2E_PASSWORD \
   backend python manage.py seed_e2e >/dev/null || fail "seed_e2e"

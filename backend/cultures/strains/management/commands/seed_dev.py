@@ -62,7 +62,9 @@ depositors, MTA templates and deposits):
   RAT to a laboratory that never notified SÚJB). In BAC also one approved
   by the curator, ready to ship (#88), and one of the RAT strain approved by
   bac-manager, ready for one person to prepare its shipment and another to confirm it (#89).
-Every user gets the same password. Every write goes through the services in one
+Every user gets the same password, and an authenticator app (TOTP, #176) with the secret
+DEV_TOTP_SECRET (a fixed development value by default), so a sign-in and the walkthroughs
+compute the second factor. Every write goes through the services in one
 transaction, inside an audit context (channel command, actor kind system,
 label command:seed_dev). A second run finds what exists and changes nothing.
 Strains are never deleted, so a strain is found by its lab and name as received.
@@ -85,7 +87,7 @@ from typing import Any
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
-from config.env import env_secret
+from config.env import env_secret, env_str
 from cultures.audit.context import audit_context, audited_atomic
 from cultures.audit.models import ActorKind, AuditEvent, Channel
 from cultures.audit.registry import LAB_CREATED
@@ -131,6 +133,8 @@ from cultures.users.models import User
 
 DATA = Path(__file__).with_name("seed_dev.json")
 LABEL = "command:seed_dev"
+# The second factor of every seeded user (#176): a public development value.
+DEV_TOTP_SECRET = "JBSWY3DPEHPK3PXPDEVSEEDSECRET234"  # noqa: S105
 # Labs these commands created are development data. Any other lab is somebody's.
 SEED_LABELS = frozenset({LABEL, "command:seed_e2e"})
 REASON = "development data"
@@ -244,6 +248,7 @@ class Command(BaseCommand):
                 seed_users.superuser(ADMIN, password)
                 lab_by_code = {row["code"]: self._lab(row, password) for row in data["labs"]}
                 self._extra_users(lab_by_code, password)
+                self._second_factors(lab_by_code)
                 self._media(data, lab_by_code)
                 self._strains(data, lab_by_code)
                 self.deposits = Counts()
@@ -347,6 +352,15 @@ class Command(BaseCommand):
         for permit in row["authorisations"]:
             seed_biosafety.authorisation(lab, authorisation(permit))
         return lab
+
+    def _second_factors(self, lab_by_code: dict[str, Lab]) -> None:
+        """A known TOTP for every user this seed signs in with (#176), and no one else's."""
+        secret = env_str("DEV_TOTP_SECRET", DEV_TOTP_SECRET)
+        names = [lab_username(code, role) for code in lab_by_code for role in LAB_ROLES]
+        for user in User.objects.filter(
+            username__in=[*names, ADMIN, TWO_LABS, NO_LAB, DEPUTY], is_active=True
+        ).order_by("pk"):
+            seed_users.totp(user, secret)
 
     def _extra_users(self, lab_by_code: dict[str, Lab], password: str) -> None:
         seed_users.user(TWO_LABS, password)

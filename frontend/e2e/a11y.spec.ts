@@ -434,6 +434,7 @@ test.describe('keyboard walk through every page', () => {
       'a:Reveals',
       `button:Change role of ${username}`,
       `button:Revoke regulated locations for ${username}`,
+      `button:Issue enrolment code for ${username}`,
       `button:Remove ${username}`,
       'button:Previous',
       'button:Next',
@@ -445,6 +446,10 @@ test.describe('keyboard walk through every page', () => {
       'input:',
       'input:',
       'button:Put on the list',
+      // The second factor resets (#176): none waits, so only the form.
+      'input:',
+      'input:',
+      'button:Propose a reset',
     ])
     // The storage tree is one stop, on its first unit (seed_e2e's E2E freezer sorts first).
     // Loaded directly, like the pages above: the walk starts at the top of a fresh page.

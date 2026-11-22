@@ -39,7 +39,7 @@ if [ "${1:-}" = secrets ]; then
   umask 077
   mkdir -p "$SECRETS_DIR"
   chmod 700 "$SECRETS_DIR"
-  for name in db_admin_password db_migration_password db_runtime_password django_secret_key restic_password; do
+  for name in db_admin_password db_migration_password db_runtime_password django_secret_key mfa_secret_key restic_password; do
     [ -s "$SECRETS_DIR/$name" ] || head -c 48 /dev/urandom | base64 | tr -d '/+=\n' > "$SECRETS_DIR/$name"
   done
   [ -s "$SECRETS_DIR/database_url" ] \
@@ -54,7 +54,7 @@ if [ "${1:-}" = secrets ]; then
 fi
 
 [ -f "$ENV_FILE" ] || fail "no $ENV_FILE: copy deploy/.env.example to deploy/.env and fill it in"
-for name in db_admin_password db_migration_password db_runtime_password django_secret_key database_url; do
+for name in db_admin_password db_migration_password db_runtime_password django_secret_key mfa_secret_key database_url; do
   [ -s "$SECRETS_DIR/$name" ] || fail "no $SECRETS_DIR/$name: run deploy/deploy.sh secrets"
 done
 [ "$(stat -c %a "$SECRETS_DIR")" = 700 ] || fail "$SECRETS_DIR must be mode 700: chmod 700 $SECRETS_DIR"

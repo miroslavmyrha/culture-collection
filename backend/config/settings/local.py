@@ -1,5 +1,8 @@
 import os
 
+# A mounted key wins (deploy/e2e-common.sh seeds the production stack with its own key).
+if "MFA_SECRET_KEY_FILE" not in os.environ:
+    os.environ.setdefault("MFA_SECRET_KEY", "dev-only-mfa-not-a-secret-" + "y" * 40)
 os.environ.setdefault("DJANGO_SECRET_KEY", "dev-only-not-a-secret-" + "x" * 40)
 os.environ.setdefault("DJANGO_DEBUG", "true")
 os.environ.setdefault("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,backend")
@@ -19,3 +22,6 @@ AUDIT_TIMESTAMP_AUTHORITY = {
     "BACKEND": "cultures.audit.timestamping.FakeAuthority",
     "OPTIONS": {},
 }
+
+# Key operations from the dev server and the e2e preview on any localhost port (#176).
+WEBAUTHN_ALLOW_LOCALHOST = True

@@ -105,6 +105,8 @@ docker compose run --rm -T -e DJANGO_SETTINGS_MODULE=config.settings.test backen
   DJANGO_SECRET_KEY="$(python -c "import secrets; print(secrets.token_urlsafe(64))")" \
   DJANGO_ALLOWED_HOSTS=app.example.com DJANGO_ADMIN_PATH=ops-check/ \
   DJANGO_BEHIND_TLS_PROXY=true DJANGO_TRUSTED_PROXIES=192.0.2.10 \
+  MFA_SECRET_KEY="$(python -c "import secrets; print(secrets.token_urlsafe(64))")" \
+  WEBAUTHN_ORIGINS=https://app.example.com WEBAUTHN_RP_ID=app.example.com \
     python manage.py check --deploy --fail-level WARNING >/dev/null \
     || fail "production settings fail check --deploy: run it with DJANGO_SETTINGS_MODULE=config.settings.production"
   # The data file goes to /tmp: the working directory is the bind mount of ./backend.

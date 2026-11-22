@@ -22,6 +22,7 @@ from cultures.labs.management.commands.seed_e2e import (
     CURATOR,
     INSTITUTE,
     LAB_CODE,
+    OTHER_DEPUTY,
     OTHER_LAB_CODE,
     OTHER_MANAGER,
     OUTSIDER,
@@ -66,7 +67,8 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
         " Box R, revealed by e2e-user; a released batch of the seeded strain; two strains that"
         " may go out, two requesters and five requests, two approved, one of them regulated and"
         " approved by e2e-manager, who is in no lab; e2e-outsider views E2E other lab, which"
-        " e2e-other-manager manages; e2e-user is the one member of E2E solo lab\n"
+        " e2e-other-manager and e2e-other-deputy manage; e2e-user is the one member of E2E solo"
+        " lab\n"
     )
     user = User.objects.get(username="e2e-user")
     lab = Lab.objects.get(code=LAB_CODE)
@@ -98,19 +100,20 @@ def test_it_creates_the_user_the_lab_and_the_manager_membership() -> None:
     assert approver.is_active
     assert approver.check_password(PASSWORD)
     assert not Membership.objects.filter(user=approver).exists()
-    # A viewer of another lab only, for the search test (#76), and that lab's manager, who
-    # never signs in.
+    # A viewer of another lab only, for the search test (#76), and that lab's two managers, who
+    # reset e2e-key in security-key.spec.ts (#176).
     other = Lab.objects.get(code=OTHER_LAB_CODE)
     outsider = User.objects.get(username=OUTSIDER)
     assert outsider.check_password(PASSWORD)
     assert [(m.lab, m.role) for m in Membership.objects.filter(user=outsider)] == [
         (other, Role.VIEWER)
     ]
-    other_manager = User.objects.get(username=OTHER_MANAGER)
-    assert not other_manager.has_usable_password()
-    assert [(m.lab, m.role) for m in Membership.objects.filter(user=other_manager)] == [
-        (other, Role.MANAGER)
-    ]
+    for name in (OTHER_MANAGER, OTHER_DEPUTY):
+        manager = User.objects.get(username=name)
+        assert manager.check_password(PASSWORD)
+        assert [(m.lab, m.role) for m in Membership.objects.filter(user=manager)] == [
+            (other, Role.MANAGER)
+        ]
     synonyms = dict(Taxon.objects.filter(status="synonym").values_list("name", "accepted__name"))
     assert synonyms == {"Vibrio subtilis": "Bacillus subtilis", "Bacillus coli": "Escherichia coli"}
     assert Taxon.objects.get(name="Bacillus subtilis").parent == Taxon.objects.get(name="Bacillus")
@@ -217,8 +220,10 @@ def test_its_writes_are_audited_as_the_command() -> None:
         "member_added",
         "user_created",  # e2e-manager, in no lab until it approves
         "user_created",  # e2e-deputy, in no lab until reveals.spec.ts confirms a grant (#267)
-        # E2E other lab with its manager and e2e-outsider, its viewer (#76)
+        # E2E other lab with its two managers (#176) and e2e-outsider, its viewer (#76)
         "lab_created",
+        "user_created",
+        "member_added",
         "user_created",
         "member_added",
         "user_created",
@@ -226,6 +231,14 @@ def test_its_writes_are_audited_as_the_command() -> None:
         # E2E solo lab, the e2e user its one member (#267)
         "lab_created",
         "member_added",
+        # e2e-signin (#176), then the authenticator apps of the ten users who sign in, then
+        # e2e-key, a viewer of E2E other lab, and its enrolment code: each with its event, as
+        # audit_reconcile asks
+        "user_created",
+        *["second_factor_added"] * 10,
+        "user_created",
+        "member_added",
+        "enrolment_code_issued",
         # The lab's one permit, ended (#82)
         "lab_authorisation_added",
         "lab_authorisation_ended",

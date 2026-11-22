@@ -22,9 +22,696 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/auth/enrolment-code/:
+    post:
+      operationId: auth_enrolment_code_create
+      description: |-
+        The manager's one-time code, after the password, for an account without a factor
+        (#176): without it no first factor is enrolled. A wrong code counts as a failed login.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrolmentCodeInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: No password step and no session
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: CSRF, or a fresh second factor needed
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The factor was not accepted
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Too many attempts, see Retry-After
+  /api/v1/auth/enrolment-codes/:
+    post:
+      operationId: auth_enrolment_codes_create
+      description: A manager issues a member of their lab a one-time code for the
+        first enrolment (#176).
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrolmentCodeIssueInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrolmentCodeOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: No password step and no session
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: CSRF, or a fresh second factor needed
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The factor was not accepted
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Too many attempts, see Retry-After
+  /api/v1/auth/factor-resets/:
+    get:
+      operationId: auth_factor_resets_list
+      description: The open resets of a lab, for its managers.
+      parameters:
+      - in: query
+        name: lab
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FactorResetOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/auth/factor-resets/{public_id}/confirm/:
+    post:
+      operationId: auth_factor_resets_confirm_create
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FactorResetReasonInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FactorResetOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: No password step and no session
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: CSRF, or a fresh second factor needed
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The factor was not accepted
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Too many attempts, see Retry-After
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/auth/factor-resets/{public_id}/withdraw/:
+    post:
+      operationId: auth_factor_resets_withdraw_create
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FactorResetReasonInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FactorResetOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: No password step and no session
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: CSRF, or a fresh second factor needed
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The factor was not accepted
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Too many attempts, see Retry-After
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/auth/factor-resets/propose/:
+    post:
+      operationId: auth_factor_resets_propose_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FactorResetInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FactorResetOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: No password step and no session
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: CSRF, or a fresh second factor needed
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The factor was not accepted
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Too many attempts, see Retry-After
+  /api/v1/auth/factors/:
+    get:
+      operationId: auth_factors_retrieve
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FactorsOutput'
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/auth/factors/keys/:
+    post:
+      operationId: auth_factors_keys_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeyEnrolInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrolledOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: No password step and no session
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: CSRF, or a fresh second factor needed
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The factor was not accepted
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Too many attempts, see Retry-After
+  /api/v1/auth/factors/keys/{public_id}/:
+    delete:
+      operationId: auth_factors_keys_destroy
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: No password step and no session
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: CSRF, or a fresh second factor needed
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The factor was not accepted
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Too many attempts, see Retry-After
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/auth/factors/keys/options/:
+    post:
+      operationId: auth_factors_keys_options_create
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CeremonyOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: No password step and no session
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: CSRF, or a fresh second factor needed
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The factor was not accepted
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Too many attempts, see Retry-After
+  /api/v1/auth/factors/recovery-codes/:
+    post:
+      operationId: auth_factors_recovery_codes_create
+      description: Ten new codes in place of the old ones, shown this once.
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryCodesOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: No password step and no session
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: CSRF, or a fresh second factor needed
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The factor was not accepted
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Too many attempts, see Retry-After
+  /api/v1/auth/factors/totp/:
+    post:
+      operationId: auth_factors_totp_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpEnrolInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrolledOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: No password step and no session
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: CSRF, or a fresh second factor needed
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The factor was not accepted
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Too many attempts, see Retry-After
+  /api/v1/auth/factors/totp/remove/:
+    delete:
+      operationId: auth_factors_totp_remove_destroy
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: No password step and no session
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: CSRF, or a fresh second factor needed
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The factor was not accepted
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Too many attempts, see Retry-After
+  /api/v1/auth/factors/totp/setup/:
+    post:
+      operationId: auth_factors_totp_setup_create
+      description: A new secret for an authenticator app, kept in the session until
+        its first code.
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TotpSetupOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: No password step and no session
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: CSRF, or a fresh second factor needed
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The factor was not accepted
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Too many attempts, see Retry-After
   /api/v1/auth/login/:
     post:
       operationId: auth_login_create
+      description: |-
+        The password step. It signs nobody in (#176): the answer names the next step, a second
+        factor (with the methods this account has) or the enrolment of the first one.
       tags:
       - auth
       requestBody:
@@ -41,7 +728,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MeOutput'
+                $ref: '#/components/schemas/LoginStepOutput'
           description: ''
         '400':
           content:
@@ -128,6 +815,160 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/auth/second-factor/:
+    post:
+      operationId: auth_second_factor_create
+      description: |-
+        A TOTP code or a recovery code: signs in after the password step, or confirms a
+        signed-in user again. A wrong code counts as a failed login (ADR 0007).
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodeInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: No password step and no session
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: CSRF, or a fresh second factor needed
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The factor was not accepted
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Too many attempts, see Retry-After
+  /api/v1/auth/second-factor/key/:
+    post:
+      operationId: auth_second_factor_key_create
+      description: |-
+        The key's answer: signs in, or confirms a signed-in user again. A refused answer counts
+        as a failed login.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: No password step and no session
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: CSRF, or a fresh second factor needed
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The factor was not accepted
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Too many attempts, see Retry-After
+  /api/v1/auth/second-factor/key/options/:
+    post:
+      operationId: auth_second_factor_key_options_create
+      description: The challenge for one of the user's security keys.
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CeremonyOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: No password step and no session
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: CSRF, or a fresh second factor needed
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: The factor was not accepted
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Too many attempts, see Retry-After
   /api/v1/box-types/:
     get:
       operationId: box_types_list
@@ -11290,6 +12131,14 @@ components:
         * `depositor_request` - The depositor asked for it
         * `legal` - Legal reason
         * `lost` - Lost
+    CeremonyOutput:
+      type: object
+      description: WebAuthn options for navigator.credentials, in the JSON form of
+        the spec.
+      properties:
+        options: {}
+      required:
+      - options
     CheckErrorInputRequest:
       type: object
       properties:
@@ -11484,6 +12333,26 @@ components:
         * `indicative_list` - Not on the indicative list of Category A
         * `professional_judgement` - Professional judgement
         * `gmo_not_infectious` - A genetically modified micro-organism that is not an infectious substance
+    CodeInputMethodEnum:
+      enum:
+      - totp
+      - recovery_code
+      type: string
+      description: |-
+        * `totp` - totp
+        * `recovery_code` - recovery_code
+    CodeInputRequest:
+      type: object
+      properties:
+        method:
+          $ref: '#/components/schemas/CodeInputMethodEnum'
+        code:
+          type: string
+          minLength: 1
+          maxLength: 32
+      required:
+      - code
+      - method
     Condition:
       enum:
       - intact
@@ -12017,6 +12886,14 @@ components:
         * `ZA` - ZA
         * `ZM` - ZM
         * `ZW` - ZW
+    CredentialInputRequest:
+      type: object
+      description: The browser's answer to a WebAuthn ceremony, as @simplewebauthn/browser
+        returns it.
+      properties:
+        credential: {}
+      required:
+      - credential
     DeaccessionConfirmInputRequest:
       type: object
       properties:
@@ -12819,6 +13696,136 @@ components:
       required:
       - proposal
       - reason
+    EnrolledOutput:
+      type: object
+      description: |-
+        After an enrolment. On the first factor the sign-in ends here: me is the signed-in user,
+        and the recovery codes are shown this once.
+      properties:
+        me:
+          allOf:
+          - $ref: '#/components/schemas/MeOutput'
+          nullable: true
+        recovery_codes:
+          type: array
+          items:
+            type: string
+      required:
+      - me
+      - recovery_codes
+    EnrolmentCodeInputRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 32
+      required:
+      - code
+    EnrolmentCodeIssueInputRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        member:
+          type: string
+          format: uuid
+          description: The membership of the person, in the lab
+      required:
+      - member
+      - reason
+    EnrolmentCodeOutput:
+      type: object
+      description: The code, shown this once to the manager who hands it over (#176).
+      properties:
+        code:
+          type: string
+        username:
+          type: string
+        valid_hours:
+          type: integer
+      required:
+      - code
+      - username
+      - valid_hours
+    FactorResetInputRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        member:
+          type: string
+          format: uuid
+          description: The membership of the person, in the lab
+      required:
+      - member
+      - reason
+    FactorResetOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        member:
+          type: string
+          format: uuid
+          nullable: true
+        username:
+          type: string
+        proposed_by:
+          type: string
+        proposed_at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        may_confirm:
+          type: boolean
+        enrolment_code:
+          type: string
+          nullable: true
+          description: 'Only on the confirmation: the code to hand over, shown this
+            once'
+      required:
+      - may_confirm
+      - member
+      - proposed_at
+      - proposed_by
+      - public_id
+      - reason
+      - username
+    FactorResetReasonInputRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+      required:
+      - reason
+    FactorsOutput:
+      type: object
+      properties:
+        security_keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/SecurityKeyOutput'
+        totp:
+          type: boolean
+        recovery_codes_left:
+          type: integer
+        fresh:
+          type: boolean
+          description: 'A second factor in the last minutes: removal allowed'
+      required:
+      - fresh
+      - recovery_codes_left
+      - security_keys
+      - totp
     FinalUseEnum:
       enum:
       - destruction
@@ -13002,6 +14009,18 @@ components:
       description: |-
         * `sujb` - SÚJB
         * `ukzuz` - ÚKZÚZ
+    KeyEnrolInputRequest:
+      type: object
+      description: The browser's answer to a WebAuthn ceremony, as @simplewebauthn/browser
+        returns it.
+      properties:
+        credential: {}
+        name:
+          type: string
+          default: ''
+          maxLength: 60
+      required:
+      - credential
     LabOutput:
       type: object
       description: A lab and the caller's role in it (annotated by the selector, never
@@ -13461,6 +14480,20 @@ components:
       required:
       - password
       - username
+    LoginStepOutput:
+      type: object
+      description: 'What the password step leads to (#176): give a second factor,
+        or enrol the first one.'
+      properties:
+        step:
+          $ref: '#/components/schemas/StepEnum'
+        methods:
+          type: array
+          items:
+            $ref: '#/components/schemas/MethodsEnum'
+      required:
+      - methods
+      - step
     LossReportInputRequest:
       type: object
       properties:
@@ -13648,6 +14681,16 @@ components:
           $ref: '#/components/schemas/Role'
       required:
       - role
+    MethodsEnum:
+      enum:
+      - security_key
+      - totp
+      - recovery_code
+      type: string
+      description: |-
+        * `security_key` - security_key
+        * `totp` - totp
+        * `recovery_code` - recovery_code
     MtaBrief:
       type: object
       properties:
@@ -14958,6 +16001,15 @@ components:
       - method
       - reason
       - taxon
+    RecoveryCodesOutput:
+      type: object
+      properties:
+        recovery_codes:
+          type: array
+          items:
+            type: string
+      required:
+      - recovery_codes
     RejectInputRequest:
       type: object
       properties:
@@ -15782,6 +16834,26 @@ components:
       - lab
       - lab_code
       - total
+    SecurityKeyOutput:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - created_at
+      - last_used_at
+      - name
+      - public_id
     SeverityEnum:
       enum:
       - block
@@ -16059,6 +17131,14 @@ components:
         * `not_yet_valid` - not_yet_valid
         * `expires_soon` - expires_soon
         * `valid` - valid
+    StepEnum:
+      enum:
+      - second_factor
+      - enrol
+      type: string
+      description: |-
+        * `second_factor` - second_factor
+        * `enrol` - enrol
     StrainBrief:
       type: object
       properties:
@@ -16682,6 +17762,25 @@ components:
       required:
       - decision
       - use
+    TotpEnrolInputRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 16
+      required:
+      - code
+    TotpSetupOutput:
+      type: object
+      properties:
+        secret:
+          type: string
+        uri:
+          type: string
+      required:
+      - secret
+      - uri
     TransportClass:
       enum:
       - not_subject

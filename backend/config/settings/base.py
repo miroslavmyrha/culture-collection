@@ -72,6 +72,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # A signed-in session without a second factor is signed out (#176).
+    "cultures.users.middleware.SecondFactorMiddleware",
     # The request becomes the audit context: events and row changes carry its user and id.
     "cultures.audit.context.AuditRequestMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -258,6 +260,24 @@ AUDIT_TIMESTAMP_AUTHORITY: dict[str, Any] = {
     "OPTIONS": {"url": env_str("AUDIT_TIMESTAMP_URL", "")},
 }
 
+# The second factor (ADR 0009, #176). TOTP secrets are encrypted with a key of their own, so a
+# rotation of DJANGO_SECRET_KEY does not lock every TOTP user out. WebAuthn checks the origin
+# of every key operation against WEBAUTHN_ORIGINS (never the request's own Origin header in
+# production), and the relying party id is the host the keys are bound to.
+MFA_SECRET_KEY = env_secret("MFA_SECRET_KEY", "")
+WEBAUTHN_ORIGINS: list[str] = env_list("WEBAUTHN_ORIGINS")
+WEBAUTHN_RP_ID = env_str("WEBAUTHN_RP_ID", "")
+WEBAUTHN_RP_NAME = env_str("WEBAUTHN_RP_NAME", "Culture Collection")
+# How long the password step waits for the second factor, and how fresh a second factor must
+# be to remove one or to issue new recovery codes.
+MFA_PENDING_SECONDS = env_int("MFA_PENDING_SECONDS", default=10 * 60, minimum=60)
+MFA_STEP_UP_SECONDS = env_int("MFA_STEP_UP_SECONDS", default=10 * 60, minimum=60)
+# A manager's one-time code for the first enrolment of a factor (#176): how long it is valid.
+ENROLMENT_CODE_HOURS = env_int("ENROLMENT_CODE_HOURS", default=24, minimum=1)
+# Local and test settings: a key operation from http://localhost or 127.0.0.1 on any port is
+# accepted, for the dev server and the e2e preview. Production sets this off.
+WEBAUTHN_ALLOW_LOCALHOST = False
+
 DEFAULT_ADMIN_PATH = "admin-local/"
 ADMIN_PATH = env_str("DJANGO_ADMIN_PATH", DEFAULT_ADMIN_PATH)
 
@@ -296,6 +316,9 @@ REST_FRAMEWORK: dict[str, Any] = {
         "anon": env_str("THROTTLE_ANON", "100/hour"),
         "user": env_str("THROTTLE_USER", "2000/hour"),
         "login": env_str("THROTTLE_LOGIN", "10/min"),
+        # The second step of a sign-in and the first enrolment (#176): a budget of their own,
+        # so a sign-in costs one "login". Every try needs the right password before it.
+        "second_factor": env_str("THROTTLE_SECOND_FACTOR", "30/min"),
     },
     "UNAUTHENTICATED_USER": None,
 }

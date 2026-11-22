@@ -20,6 +20,9 @@ from packaging.requirements import Requirement
 
 BACKEND = Path(settings.BASE_DIR)
 ENV = {
+    "MFA_SECRET_KEY": "mfa-" + secrets.token_urlsafe(64),
+    "WEBAUTHN_ORIGINS": "https://app.example.com",
+    "WEBAUTHN_RP_ID": "app.example.com",
     "DJANGO_SECRET_KEY": secrets.token_urlsafe(64),
     "DJANGO_ALLOWED_HOSTS": "app.example.com",
     "DJANGO_ADMIN_PATH": "ops-x7k2/",

@@ -205,6 +205,16 @@ event, such as a data migration in `migration_audit()`, are printed as `known` a
 not fail it. Examples: cron `17 6 * * * ... audit_reconcile --since 25h || alert`, a
 systemd timer, or a Kubernetes CronJob with the image and the app's environment.
 
+### Second factor (#176)
+Every sign-in takes two steps: the password, then a security key (WebAuthn), an authenticator
+app (TOTP) or a recovery code. An account without a factor adds one after its password and a
+one-time enrolment code from a manager of its lab (the password alone never gets in), and gets
+ten recovery codes shown once. The admin has no login of its own: it sends to the
+app's sign-in. Production needs `MFA_SECRET_KEY` (or `_FILE`, `deploy/deploy.sh secrets`
+writes it), `WEBAUTHN_ORIGINS` (the https origins) and `WEBAUTHN_RP_ID` (the host keys bind
+to). A lost factor: docs/runbook.md. seed_dev and seed_e2e give their users an authenticator
+app with a known secret (`DEV_TOTP_SECRET`, `E2E_TOTP_SECRET`).
+
 ### Login limits
 Failed logins are counted per account and address, per address and per account
 (ADR 0007, `backend/cultures/users/login_limits.py`). No account is ever locked for

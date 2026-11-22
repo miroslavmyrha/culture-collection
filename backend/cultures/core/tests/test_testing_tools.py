@@ -16,11 +16,12 @@ import pytest
 from django.conf import settings
 from django.db import connection
 from django.http import JsonResponse
+from django.test import Client
 from model_bakery import baker
 
 from cultures.core import testing
 from cultures.core.errors import problem
-from cultures.core.testing import assert_problem, logged_in, run_before
+from cultures.core.testing import assert_problem, logged_in, run_before, with_second_factor
 from cultures.core.testing.queries import UPDATE_ENV, check_query_baseline
 from cultures.users.models import User
 
@@ -63,6 +64,18 @@ def test_logged_in_gives_the_users_session() -> None:
     user = baker.make(User)
     assert logged_in(user).session["_auth_user_id"] == str(user.pk)
     assert "_auth_user_id" not in logged_in(None).session
+
+
+@pytest.mark.django_db
+def test_with_second_factor_keeps_a_test_session_signed_in() -> None:
+    user = baker.make(User)
+    bare = Client()
+    bare.force_login(user)  # SecondFactorMiddleware signs this one out (#176)
+    assert bare.get("/api/v1/auth/me/").status_code == 401
+    marked = Client()
+    marked.force_login(user)
+    assert with_second_factor(marked) is marked
+    assert marked.get("/api/v1/auth/me/").status_code == 200
 
 
 def test_run_before_runs_the_competitor_once_before_the_first_call() -> None:
@@ -156,6 +169,10 @@ SELF_TESTS = {
     "Write": (
         "cultures.core.tests.test_viewset_contract:"
         "test_contract_catches_a_refused_write_that_changed_the_row"
+    ),
+    "with_second_factor": (
+        "cultures.core.tests.test_testing_tools:"
+        "test_with_second_factor_keeps_a_test_session_signed_in"
     ),
     "behind_proxy": (
         "cultures.core.tests.test_request_id:test_valid_inbound_request_id_is_kept_and_logged"

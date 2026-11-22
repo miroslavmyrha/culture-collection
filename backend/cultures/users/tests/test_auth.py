@@ -1,9 +1,13 @@
+import pyotp
 import pytest
 from django.conf import settings
 from django.test import Client
 from model_bakery import baker
 
-from cultures.core.testing import QueryBaseline, assert_problem, logged_in
+from cultures.audit.context import audit_context
+from cultures.audit.models import Channel
+from cultures.core.testing import QueryBaseline, assert_problem, logged_in, with_second_factor
+from cultures.users import factors
 from cultures.users.models import User
 
 pytestmark = pytest.mark.django_db
@@ -51,12 +55,36 @@ def test_login_sets_session_and_me_works(
         content_type="application/json",
         headers={"X-CSRFToken": token},
     )
-    assert response.status_code == 200
-    assert response.json()["username"] == "lab-tech"
-    assert "id" not in response.json()  # internal ids never leave the server
+    # The password alone signs nobody in (#176): the first factor is enrolled, then the session.
+    assert response.json() == {"step": "enrol", "methods": []}
+    issuer = baker.make(User, username="issuer", is_superuser=True, is_staff=True)
+    with audit_context(channel=Channel.COMMAND, actor=issuer):
+        code = factors.enrolment_code_issue(actor=issuer, user=user, lab=None, reason="New.")
+    headers = {"X-CSRFToken": csrf_client.cookies[settings.CSRF_COOKIE_NAME].value}
+    accepted = csrf_client.post(
+        "/api/v1/auth/enrolment-code/",
+        {"code": code},
+        content_type="application/json",
+        headers=headers,
+    )
+    assert accepted.status_code == 204
+    setup = csrf_client.post(
+        "/api/v1/auth/factors/totp/setup/", content_type="application/json", headers=headers
+    )
+    secret = setup.json()["secret"]
+    enrolled = csrf_client.post(
+        "/api/v1/auth/factors/totp/",
+        {"code": pyotp.TOTP(secret).now()},
+        content_type="application/json",
+        headers={"X-CSRFToken": csrf_client.cookies[settings.CSRF_COOKIE_NAME].value},
+    )
+    assert enrolled.status_code == 201, enrolled.content
+    signed_in = enrolled.json()["me"]
+    assert signed_in["username"] == "lab-tech"
+    assert "id" not in signed_in  # internal ids never leave the server
     with query_baseline("auth_me"):
         me = csrf_client.get(ME)
-    assert me.json() == response.json()
+    assert me.json() == signed_in
 
 
 def test_wrong_password_is_400(csrf_client: Client, user: User) -> None:
@@ -91,12 +119,14 @@ def test_logout_needs_a_session() -> None:
 
 def test_logout_needs_the_csrf_token(csrf_client: Client, user: User) -> None:
     csrf_client.force_login(user)
+    with_second_factor(csrf_client)
     assert_problem(csrf_client.post(LOGOUT), 403, "permission_denied")
     assert csrf_client.get(ME).json()["username"] == "lab-tech"  # still signed in
 
 
 def test_logout_with_the_csrf_token_works(csrf_client: Client, user: User) -> None:
     csrf_client.force_login(user)
+    with_second_factor(csrf_client)
     response = csrf_client.post(
         LOGOUT, content_type="application/json", headers={"X-CSRFToken": _csrf(csrf_client)}
     )

@@ -56,6 +56,12 @@ APP_ROLE_GRANTS: dict[str, tuple[str, ...]] = {
     # Login counters (cultures.users.login_limits): the upsert inserts, updates and returns
     # the count, a success, a staff clear and prune_login_failures delete. Not row-audited.
     "users_loginfailures": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    # The second factor (#176): keys and TOTP devices are removed (row audit records the
+    # DELETE), recovery codes are used once and removed with a new set or a reset, resets are
+    # confirmed or withdrawn and never deleted.
+    "users_factorreset": ("SELECT", "INSERT", "UPDATE"),
+    # Enrolment codes (#176): issued, used once, never deleted (the guard of users 0011).
+    "users_enrolmentcode": ("SELECT", "INSERT", "UPDATE"),
     # Taxa are never deleted: strains and identifications point at them (PROTECT), and a
     # name that is wrong becomes a synonym or is corrected. External ids may be removed.
     "taxonomy_taxon": ("SELECT", "INSERT", "UPDATE"),

@@ -17,7 +17,7 @@ describe('mockApi', () => {
   })
 
   it('returns the requests it answered', async () => {
-    const calls = mockApi('post', '/api/v1/auth/login/', makeMe(), { status: 200 })
+    const calls = mockApi('post', '/api/v1/auth/login/', { step: 'enrol', methods: [] }, { status: 200 })
     await ensureCsrf()
     await unwrap(api.POST('/api/v1/auth/login/', { body: { username: 'a', password: 'b' } }))
     expect(calls).toHaveLength(1)

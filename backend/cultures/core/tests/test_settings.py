@@ -23,6 +23,9 @@ from config.env import env_bool, env_int, env_secret
 BACKEND = Path(settings.BASE_DIR)
 GOOD_KEY = secrets.token_urlsafe(64)
 GOOD_ENV = {
+    "MFA_SECRET_KEY": "mfa-" + secrets.token_urlsafe(64),
+    "WEBAUTHN_ORIGINS": "https://app.example.com",
+    "WEBAUTHN_RP_ID": "app.example.com",
     "DJANGO_SECRET_KEY": GOOD_KEY,
     "DJANGO_ALLOWED_HOSTS": "app.example.com",
     "DJANGO_ADMIN_PATH": "ops-x7k2/",
@@ -143,6 +146,11 @@ REFUSALS: list[tuple[dict[str, str], str]] = [
     ({"DJANGO_TRUSTED_PROXIES": "10.0.0.5/24"}, "DJANGO_TRUSTED_PROXIES"),
     ({"DJANGO_TRUSTED_PROXIES": "0.0.0.0/0"}, "would trust every client"),
     ({"LOG_FORMAT": "xml"}, "LOG_FORMAT"),
+    # The second factor (#176)
+    ({"MFA_SECRET_KEY": "short"}, "MFA_SECRET_KEY"),
+    ({"WEBAUTHN_ORIGINS": ""}, "WEBAUTHN_ORIGINS"),
+    ({"WEBAUTHN_ORIGINS": "http://app.example.com"}, "WEBAUTHN_ORIGINS"),
+    ({"WEBAUTHN_RP_ID": ""}, "WEBAUTHN_RP_ID"),
     (
         {"AUDIT_TIMESTAMP_BACKEND": "cultures.audit.timestamping.FakeAuthority"},
         "AUDIT_TIMESTAMP_BACKEND",
