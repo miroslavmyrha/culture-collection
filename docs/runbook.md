@@ -156,7 +156,7 @@ Healthchecks, which holds the end of the job's output. Then:
 | `heartbeat` down | the API is not ready, the proxy does not serve the app, or the scheduler or the host is down | `ps`: which service is not healthy. `logs --tail 100 backend` (a failing `/readyz` names its check: `database`, `cache`, `migrations`, `runtime_role`). Host unreachable: the hosting provider |
 | `heartbeat` fails, body names a URL | that URL did not answer 2xx | `runtime_role`: the API runs as an owner, redeploy with `deploy.sh`. `migrations`: a deploy stopped halfway, run it again. The proxy URL: `logs proxy`, the certificate |
 | `audit-reconcile` fails | a row changed that no service event explains: a write from psql, a script, a bug | Do not "fix" the rows. The body lists the changes. Find who wrote them (time, role, request id), write it in the log book, tell a manager. ADR 0005 |
-| `audit-chain-anchor` fails with "unanchored" | no qualified timestamp today: no authority configured, or it did not answer | Every day until `AUDIT_TIMESTAMP_BACKEND` names a provider (ADR 0009): a known gap, keep the check paused until then. With a provider: its status, then run the job again, `docker compose -f deploy/compose.yaml exec scheduler python manage.py audit_chain_anchor` |
+| `audit-chain-anchor` fails with "unanchored" | no qualified timestamp today: no provider configured, it did not answer, or its answer did not verify (the message says which) | Without a provider (`AUDIT_TIMESTAMP_BACKEND` unset) it fails every day: a known gap, keep the check paused until one is contracted (below). With one: its status page, the message of the run, then run the job again, `docker compose -f deploy/compose.yaml exec scheduler python manage.py audit_chain_anchor` |
 | `prune-login-failures` or `clearsessions` fails | a database problem, usually | `logs scheduler`, then `heartbeat`. Harmless for a day: the tables only grow |
 | `backup` fails or is late | no backup tonight | The body names the step. Repository unreachable or credentials: `deploy/secrets/restic_env`. Run it again by hand, `deploy/backup.sh run`, and watch `backup-check` |
 | `backup-check` fails | the repository is damaged, or the newest set is older than 26 h | `deploy/backup.sh check` by hand. A damaged repository: start a new one and take a backup now, keep the old one until the next drill |
@@ -184,6 +184,28 @@ ends, and the confirmer sees an enrolment code, once, to hand over at once: with
 password the person adds a new factor. A person in no lab (staff)
 needs two superusers: the reset service, `cultures.users.factors.factor_reset_propose` with no
 lab, from `manage.py shell` in an audit context. Each step is an audit event with its reason.
+
+## The timestamp provider (#283)
+
+The daily anchor of the audit chains needs a qualified timestamp provider (ADR 0009). Choose one
+on the EU trust list with an RFC 3161 service and a contract; only the hash of each chain's head
+is sent. Then in deploy/.env:
+
+- `AUDIT_TIMESTAMP_BACKEND=cultures.audit.timestamping.Rfc3161Authority`
+- `AUDIT_TIMESTAMP_URL`: the provider's https URL
+- `AUDIT_TIMESTAMP_CA_FILE=/run/tsa/ca.pem`: put the provider's root and intermediates in one
+  PEM file at `deploy/tsa/ca.pem` (or `TSA_DIR`); compose mounts that folder read only into the
+  API and the scheduler. Never the system store: only this bundle is trusted.
+- `AUDIT_TIMESTAMP_NAME`: the name the anchors carry, for example the provider's
+- `AUDIT_TIMESTAMP_USERNAME` and `AUDIT_TIMESTAMP_PASSWORD_FILE` when it asks for HTTP basic
+  authentication. A client certificate is not supported yet.
+
+Then run `audit_chain_anchor` once by hand and `audit_chain_verify`: the last line of each chain
+says the tokens verified. Resume the paused check of the anchor job.
+
+When the provider changes its certificates, add the new root to the bundle and keep the old one:
+`audit_chain_verify` checks old tokens against the bundle of today, and a token whose root left
+the bundle is reported as a finding.
 
 ## Rotating secrets
 

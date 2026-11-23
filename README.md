@@ -240,7 +240,7 @@ them. Optional: `DJANGO_SECRET_KEY_FALLBACKS` (key rotation), `LOG_FORMAT=json`,
 `ERROR_REPORTING_DSN` (Sentry or GlitchTip), `DB_RUNTIME_ROLE_REQUIRED=false` (only
 where the host gives the app no second role), `THROTTLE_*`, `LOGIN_PAIR_*`,
 `LOGIN_ADDRESS_*`, `LOGIN_ACCOUNT_*` (`backend/config/settings/base.py`),
-`DATA_UPLOAD_MAX_MEMORY_SIZE`, `REQUEST_MAX_BYTES`, `REQUEST_ID_FROM_PROXY=true` (only when
+`DATA_UPLOAD_MAX_MEMORY_SIZE`, `AUDIT_TIMESTAMP_*` (the qualified timestamp provider, docs/runbook.md), `REQUEST_MAX_BYTES`, `REQUEST_ID_FROM_PROXY=true` (only when
 the proxy sets `X-Request-ID` on every request and drops the client's; otherwise the app makes
 its own id). Startup refuses unsafe values; `./check.sh` runs `check --deploy` with production
 settings.

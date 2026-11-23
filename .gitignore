@@ -12,4 +12,5 @@ frontend/playwright-report/
 deploy/.env
 deploy/secrets/
 deploy/certs/
+deploy/tsa/
 deploy/state/
