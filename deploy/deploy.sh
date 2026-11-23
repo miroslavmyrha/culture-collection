@@ -65,6 +65,9 @@ tls_dir=${TLS_DIR:-$(grep -E '^TLS_DIR=' .env 2>/dev/null | cut -d= -f2- || true
 for file in fullchain.pem privkey.pem; do
   [ -s "${tls_dir:-./certs}/$file" ] || fail "no ${tls_dir:-./certs}/$file: the proxy needs the certificate"
 done
+# The timestamp provider's trust bundle (#283) is mounted from here: made by us, not by Docker
+# as root when it is missing. Empty until a provider is configured.
+mkdir -p "${TSA_DIR:-./tsa}"
 
 version=${1:-}
 release=false

@@ -8,6 +8,7 @@ also names that rule's id in [docs/compliance.md](docs/compliance.md), so the pa
 to the law the rule rests on is one hop.
 
 ## Unreleased
+- The daily anchor of the audit chains can use a qualified timestamp provider: an RFC 3161 client (rfc3161-client) keeps a token only when it verifies against the provider's roots, and `audit_chain_verify` checks every stored token again; production refuses the client without an https URL and roots (#283, R-AUDIT-04).
 - Superusers reset the second factor of a person in no lab in the admin: one proposes with a reason, another who is not that person confirms and sees the enrolment code once, either withdraws; staff who are not superusers see nothing of it (#285).
 - e2e spec files name their data with `runId()`, the clock plus a random part: two files loaded in the same millisecond took the same id and one test found the other's deposit; a test refuses a spec that makes its own id from the clock (#288).
 - Every sign-in takes a second factor: a security key (WebAuthn), an authenticator app (TOTP) or a single-use recovery code after the password. Accounts without one add it at their next sign-in with a manager's one-time enrolment code, sessions without it are signed out, the admin sends to the app's sign-in, both steps count in the login limits, and a lost factor is reset by two managers, never by the person (#176, R-ACCESS-03, R-ACCESS-04, R-ACCESS-05).

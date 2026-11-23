@@ -1204,13 +1204,17 @@ listed here so that the test can tell them from a regulated gate without a rule.
   910/2014, Article 41), which carries a legal presumption of its date and of the integrity of the
   data it covers", and Consequences: "A missed day leaves a gap in the anchors, not in the chain."
   No legal text read asks it of the collection.
-- Code: `backend/cultures/audit/anchors.py::anchor`, `backend/cultures/audit/models.py::ChainAnchor`, `backend/cultures/audit/timestamping.py::authority`, `backend/cultures/audit/management/commands/audit_chain_anchor.py::Command`
-- Tests: `backend/cultures/audit/tests/test_anchors.py::test_the_job_stamps_each_chains_head`, `backend/cultures/audit/tests/test_anchors.py::test_the_job_twice_writes_no_second_anchor`, `backend/cultures/audit/tests/test_anchors.py::test_a_failing_authority_leaves_the_head_unanchored_and_alerts`, `backend/cultures/audit/tests/test_anchors.py::test_the_default_authority_stamps_nothing`, `backend/cultures/audit/tests/test_anchors.py::test_a_missed_run_leaves_a_gap_in_the_anchors_only`, `backend/cultures/audit/tests/test_anchors.py::test_the_anchors_verify_in_a_session_with_other_time_settings`, `backend/cultures/audit/tests/test_anchors.py::test_an_anchor_holds_no_personal_value`, `backend/cultures/audit/tests/test_anchors.py::test_help_builds`
-- Limits: no qualified provider is contracted and no client for one is written, so the only
-  authority that stamps anything today is the fake one of development and tests; production
-  refuses it and leaves every day unanchored. The anchors live in the same database as the rows
-  they vouch for, and exporting them is not built. The ADR's amendment of 2026-11-04 lists both
-  as open questions and says what the operator must set up.
+- Code: `backend/cultures/audit/anchors.py::anchor`, `backend/cultures/audit/models.py::ChainAnchor`, `backend/cultures/audit/timestamping.py::authority`, `backend/cultures/audit/management/commands/audit_chain_anchor.py::Command`, `backend/cultures/audit/timestamping.py::Rfc3161Authority`, `backend/cultures/audit/timestamping.py::token_problem`, `backend/cultures/audit/chain.py::_token_finding`
+- Tests: `backend/cultures/audit/tests/test_anchors.py::test_the_job_stamps_each_chains_head`, `backend/cultures/audit/tests/test_anchors.py::test_the_job_twice_writes_no_second_anchor`, `backend/cultures/audit/tests/test_anchors.py::test_a_failing_authority_leaves_the_head_unanchored_and_alerts`, `backend/cultures/audit/tests/test_anchors.py::test_the_default_authority_stamps_nothing`, `backend/cultures/audit/tests/test_anchors.py::test_a_missed_run_leaves_a_gap_in_the_anchors_only`, `backend/cultures/audit/tests/test_anchors.py::test_the_anchors_verify_in_a_session_with_other_time_settings`, `backend/cultures/audit/tests/test_anchors.py::test_an_anchor_holds_no_personal_value`, `backend/cultures/audit/tests/test_anchors.py::test_help_builds`, `backend/cultures/audit/tests/test_rfc3161.py::test_the_daily_job_stores_tokens_that_the_verifier_checks`, `backend/cultures/audit/tests/test_rfc3161.py::test_the_verifier_fails_an_anchor_whose_token_the_bundle_no_longer_trusts`
+- Limits: the RFC 3161 client is built (#283) and tested against a TSA of the test's own
+  (`openssl ts`), but no qualified provider is contracted, so until one is configured production
+  leaves every day unanchored and the job alerts. A token is kept only when it verifies: status
+  granted, our nonce and hash, the signature and chain against `AUDIT_TIMESTAMP_CA_FILE`, the
+  critical extended key usage timeStamping (rfc3161-client checks the last; openssl refuses to
+  sign without it, so no test token lacks it). Revocation of the TSA certificate is not checked.
+  Whether a provider's token is qualified is the provider's status on the EU trust list, not
+  something the token proves. The anchors live in the same database as the rows they vouch for,
+  and exporting them is not built.
 
 #### R-AUDIT-05 A command verifies the chains and the anchors from outside the application and exits non-zero on the first break
 

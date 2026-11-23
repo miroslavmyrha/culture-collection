@@ -1425,3 +1425,24 @@ Migration impact: additive, `users` 0008 (the tables), 0009 (row audit and guard
 and of the code, each added NOT VALID and validated apart). Reversible with `migrate users
 0007` and `migrate audit 0041`. Every rule, its code and its tests are in
 `docs/compliance.md` (R-ACCESS-03, R-ACCESS-04).
+
+## Amendment 2026-11-23: the client of a timestamp provider (#283)
+
+The anchors of the 2026-11-04 amendment had no real authority. `Rfc3161Authority` is the client
+of a provider's RFC 3161 service, on rfc3161-client 1.0.9 (Trail of Bits, Apache-2.0, the
+verifier sigstore uses; its only dependency is cryptography). Mirek chose it on 2026-11-23 over
+rfc3161ng, whose last release is from 2020.
+
+- **What leaves the system:** the head's hash, hashed again with SHA-256, with a nonce. No row.
+- **What is kept:** the provider's whole answer, only when it verifies: status granted, our nonce
+  and our hash, the signature and the TSA certificate chain against `AUDIT_TIMESTAMP_CA_FILE`
+  (the provider's roots and intermediates, never the system store), the TSA certificate's
+  critical extended key usage timeStamping. Anything else is `Unavailable`: the day stays
+  unanchored and the job alerts.
+- **Verifying later:** `audit_chain_verify` checks every stored token again against the bundle
+  configured at that time, which may keep the provider's old roots after it changes them. A
+  token that no longer verifies is a finding and the command exits 1.
+- **Which provider:** configuration only. A qualified one per the EU trust list (eIDAS, Article
+  41), contracted by the operator; production refuses the client without an https URL and a
+  bundle. Revocation of the TSA certificate is not checked.
+

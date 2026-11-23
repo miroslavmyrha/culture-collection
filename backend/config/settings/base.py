@@ -257,7 +257,17 @@ SERVER_EMAIL = env_str("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
 # stay unanchored and the daily job alerts on its exit code. No write ever waits for it.
 AUDIT_TIMESTAMP_AUTHORITY: dict[str, Any] = {
     "BACKEND": env_str("AUDIT_TIMESTAMP_BACKEND", "cultures.audit.timestamping.NoAuthority"),
-    "OPTIONS": {"url": env_str("AUDIT_TIMESTAMP_URL", "")},
+    # Rfc3161Authority (#283): the provider's URL, its roots and intermediates as PEM (also
+    # what audit_chain_verify checks stored tokens with, so it may keep old roots), the name
+    # anchors carry, and HTTP basic authentication when the provider asks for it.
+    "OPTIONS": {
+        "url": env_str("AUDIT_TIMESTAMP_URL", ""),
+        "ca_file": env_str("AUDIT_TIMESTAMP_CA_FILE", ""),
+        "name": env_str("AUDIT_TIMESTAMP_NAME", ""),
+        "timeout": env_int("AUDIT_TIMESTAMP_TIMEOUT", default=30, minimum=1),
+        "username": env_str("AUDIT_TIMESTAMP_USERNAME", ""),
+        "password_file": env_str("AUDIT_TIMESTAMP_PASSWORD_FILE", ""),
+    },
 }
 
 # The second factor (ADR 0009, #176). TOTP secrets are encrypted with a key of their own, so a
