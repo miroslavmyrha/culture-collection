@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
-import { axe, signedInAs, watchCsp } from './support.js'
+import { axe, runId, signedInAs, watchCsp } from './support.js'
 
 // Growth media and conditions (#79, walkthroughs V9 and T6) against the real API. A curator adds a
 // medium of this run to the lab's list, sets how the seeded B. subtilis strain is grown, and a
@@ -7,7 +7,7 @@ import { axe, signedInAs, watchCsp } from './support.js'
 // strain's conditions and a second revival overrides them. A viewer reads the result. Media are
 // never deleted, so each run names its own.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 const MEDIUM = `Medium g${RUN}`
 const OTHER = `Medium o${RUN}`
 

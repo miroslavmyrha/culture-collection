@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
-import { axe, signedInAs, watchCsp } from './support.js'
+import { axe, runId, signedInAs, watchCsp } from './support.js'
 
 // Deposit intake against the real API (seed_e2e: e2e-curator and e2e-viewer in "E2E lab", the
 // depositor "E2E Depositor", MTA STD version 1, no valid permit). Each run adds deposits and strains:
@@ -7,7 +7,7 @@ import { axe, signedInAs, watchCsp } from './support.js'
 // unique per run. B. subtilis 168 is a standard group 1 organism of the collection; the permit gate is tried on the
 // Brucella abortus (a VRAT agent of annex 7 and decree 474/2002 Sb.). It works as the sessions auth.setup.ts signed in.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 // #169: what the risk group of a strain accepted here rests on. The seeded lab is test data.
 const BASIS = 'Seeded for the end-to-end tests (invented example).'
 

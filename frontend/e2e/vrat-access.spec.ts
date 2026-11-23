@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
-import { axe, signedInAs, username, watchCsp } from './support.js'
+import { axe, runId, signedInAs, username, watchCsp } from './support.js'
 
 // #167, act 281/2002 Sb., § 14a(4): the lab keeps the list of the people with access to its highly
 // risky agents. The manager (e2e-user) puts e2e-technician on the list, prints it, and takes them
@@ -7,7 +7,7 @@ import { axe, signedInAs, username, watchCsp } from './support.js'
 // 2025, so the printed list says no permit is in force. Only e2e-technician's entries change, and
 // a11y.spec.ts reads the list filtered to its own user, so the two may run side by side.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 const PERSON = 'e2e-technician'
 
 async function as(browser: Browser, user: string) {

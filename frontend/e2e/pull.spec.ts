@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
-import { axe, signedInAs, username, watchCsp } from './support.js'
+import { axe, runId, signedInAs, username, watchCsp } from './support.js'
 
 // The vials to pull for a shipment (#143) against the real API. The curator enters a request of
 // this run for two vials of Bacillus subtilis e2e supply and one of Clostridium perfringens e2e supply
@@ -11,7 +11,7 @@ import { axe, signedInAs, username, watchCsp } from './support.js'
 // no reveal. The e2e user holds the lab's location grant (seed_e2e) and reveals it there. The
 // request is cancelled at the end, which frees the vials for the next run.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 const SUPPLY = 'Bacillus subtilis e2e supply'
 const REGULATED = 'Clostridium perfringens e2e supply'
 type Row = Record<string, unknown>

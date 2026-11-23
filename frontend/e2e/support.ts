@@ -7,6 +7,8 @@ import { expect, type Locator, type Page } from '@playwright/test'
 // locally and in CI: the user manages the lab "E2E lab", e2e-curator, e2e-technician and e2e-viewer
 // are its curator, technician and viewer, e2e-colleague is in no lab, e2e-outsider views only "E2E
 // other lab".
+export { runId } from './run-id.js'
+
 export const username = process.env.E2E_USERNAME ?? 'e2e-user'
 export const password = process.env.E2E_PASSWORD ?? 'e2e correct horse battery'
 /** The TOTP secret seed_e2e gives every user who signs in (#176): E2E_TOTP_SECRET there too. */

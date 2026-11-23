@@ -1,5 +1,5 @@
 import { type Browser, expect, type Locator, type Page, type TestInfo } from '@playwright/test'
-import { signedInAs } from '../support.js'
+import { runId, signedInAs } from '../support.js'
 
 /**
  * Role walkthroughs (#68): one test per task a person in a lab role really does, performed the
@@ -23,7 +23,7 @@ import { signedInAs } from '../support.js'
  * before start(), through the API with a name unique to the run.
  */
 
-export const RUN = Date.now().toString(36)
+export const RUN = runId()
 
 export type Role = 'curator' | 'technician' | 'manager' | 'viewer'
 

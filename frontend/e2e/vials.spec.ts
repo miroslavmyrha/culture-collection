@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
-import { axe, signedInAs, username, watchCsp } from './support.js'
+import { axe, runId, signedInAs, username, watchCsp } from './support.js'
 
 // Batches and vials against the real API (seed_e2e: the B. subtilis strain from the seeded
 // deposit has its passage 0; a regulated Clostridium tetani strain has two vials in E2E freezer >
@@ -7,7 +7,7 @@ import { axe, signedInAs, username, watchCsp } from './support.js'
 // units are never deleted, so each run preserves into a freezer of its own, named uniquely per
 // run, and finds its vials by that name. It works as the sessions auth.setup.ts signed in.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 
 async function as(browser: Browser, name: string, width = 1280) {
   const context = await browser.newContext({ storageState: signedInAs(name), viewport: { width, height: width === 320 ? 640 : 900 } })

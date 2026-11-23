@@ -1,12 +1,12 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
-import { axe, signedInAs, watchCsp } from './support.js'
+import { axe, runId, signedInAs, watchCsp } from './support.js'
 
 // Several vials into one box in one step (#77), against the real API. seed_e2e: the B. subtilis
 // strain has its passage 0; e2e-curator builds storage, e2e-technician handles vials. Vials and
 // units are never deleted, so each run makes a freezer of its own, named per run, preserves
 // three vials in no box, and finds them by the batch it preserved.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 
 async function as(browser: Browser, name: string) {
   const context = await browser.newContext({ storageState: signedInAs(name), viewport: { width: 1280, height: 900 } })

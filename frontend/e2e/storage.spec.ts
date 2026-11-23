@@ -1,12 +1,12 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
-import { axe, signedInAs, username, watchCsp } from './support.js'
+import { axe, runId, signedInAs, username, watchCsp } from './support.js'
 
 // The storage tree against the real API (seed_e2e: the e2e user manages "E2E lab", e2e-viewer
 // views it, and two box types exist). Units are never deleted, so each run builds its own
 // freezer, named uniquely per run, and finds it by that name. It works as the sessions
 // auth.setup.ts signed in.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 
 async function as(browser: Browser, name: string, width = 1280) {
   const context = await browser.newContext({ storageState: signedInAs(name), viewport: { width, height: width === 320 ? 640 : 900 } })

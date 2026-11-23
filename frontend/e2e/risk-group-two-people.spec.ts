@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test'
-import { riskGroupBasis, signedInAs, username } from './support.js'
+import { riskGroupBasis, runId, signedInAs, username } from './support.js'
 
 // A risk group drops by two people (#174, ADR 0009): e2e-curator raises a strain of this run to
 // group 2 in one step, proposes group 1 with the basis it rests on, and the e2e user, a manager,
 // confirms it on the strain page. The strain is this run's own, made through the API with the
 // curator's session. The strain is an E. coli strain of this run.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 const NAME = `Escherichia coli group ${RUN}`
 const BASIS = 'NV 361/2007 Sb., Příloha 7: the agent is in none of the groups 2 to 4.'
 

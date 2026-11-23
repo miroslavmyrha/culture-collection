@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
-import { axe, contrast, riskGroupBasis, signedInAs, watchCsp } from './support.js'
+import { axe, contrast, riskGroupBasis, runId, signedInAs, watchCsp } from './support.js'
 
 // Checks of a batch and its release (#17) against the real API. Each test makes a strain of
 // its own through deposit intake (received, checked, accepted as Bacillus subtilis, risk group
@@ -7,7 +7,7 @@ import { axe, contrast, riskGroupBasis, signedInAs, watchCsp } from './support.j
 // batch of three vials of distribution stock: strains and batches are never deleted, so a run
 // never meets another run's rows. It works as the sessions auth.setup.ts signed in.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 const today = () => new Date().toLocaleDateString('sv')
 
 async function as(browser: Browser, name: string, width = 1280) {
