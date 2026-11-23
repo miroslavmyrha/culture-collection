@@ -20,3 +20,9 @@ updates:
     schedule:
       interval: weekly
     labels: ["type: chore", "area: ops"]
+  - package-ecosystem: docker-compose
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+    labels: ["type: chore", "area: ops"]
