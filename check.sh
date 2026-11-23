@@ -9,7 +9,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 level=${1:-}
 fail() { echo "FAILED: $1" >&2; exit 1; }
-GITLEAKS_IMAGE=ghcr.io/gitleaks/gitleaks:v8.30.1
+GITLEAKS_IMAGE=ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
 SEMGREP_IMAGE=semgrep/semgrep:1.179.0@sha256:93963d9295a366f59e4850127b1550400ee7b388f04fe144e4a1f6325d96e01b
 
 echo "== local ports"
@@ -68,6 +68,10 @@ unpinned=$(grep -E '^ +image: ' deploy/compose.yaml | grep -v '\${' | grep -v '@
 # The tools the deploy scripts run in containers (cosign, restic) are pinned the same way (#177).
 unpinned=$(grep -hE '^[A-Z_]+_IMAGE=' deploy/*.sh | grep -v '@sha256:' || true)
 [ -z "$unpinned" ] || fail "a script in deploy/ runs an image without a digest: $unpinned"
+# So are the tools of this check and of CI (gitleaks, Semgrep) and the development database (#290).
+unpinned=$({ grep -hE '^[A-Z_]+_IMAGE=' check.sh; grep -hE '^ +[A-Z_]+_IMAGE: ' .github/workflows/*.yml
+  grep -E '^ +image: ' compose.yaml; } | grep -v '\${' | grep -v '@sha256:' || true)
+[ -z "$unpinned" ] || fail "check.sh, a workflow or compose.yaml takes an image without a digest: $unpinned"
 
 echo "== CI"
 # The e2e job must run the API as the runtime role (ADR 0005), as production does.
