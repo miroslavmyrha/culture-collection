@@ -181,9 +181,11 @@ asks two managers of their lab: one proposes a reset on the lab page ("Second fa
 with a reason, the other one checks who is asking (in person, or a call to a known number) and
 confirms with a reason. The person's keys, app and codes are gone, every session of theirs
 ends, and the confirmer sees an enrolment code, once, to hand over at once: with it and the
-password the person adds a new factor. A person in no lab (staff)
-needs two superusers: the reset service, `cultures.users.factors.factor_reset_propose` with no
-lab, from `manage.py shell` in an audit context. Each step is an audit event with its reason.
+password the person adds a new factor. A person in no lab (staff) needs two superusers, in the
+admin (#285): on the person's user page, "Second factor" > "Reset the second factor". One
+superuser proposes with a reason, the other checks who is asking and confirms with a reason, and
+sees the enrolment code once, to hand over; either may withdraw an open proposal. Each step is
+an audit event with its reason.
 
 ## Rotating secrets
 

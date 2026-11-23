@@ -16,6 +16,9 @@ model directly and lets staff delete users; this one does neither.
 - "Erase user" (its own page, with a reason and the username typed again)
   turns a user into a tombstone through user_erase (#37). An erased user is
   read-only here: no service changes it any more.
+- "Second factor reset" (its own page, superusers only): two superusers reset the second
+  factors of a user who lost them all, through factor_reset_propose and _confirm (#176, #285).
+  The confirmer sees the enrolment code once, to hand over.
 - Reasons stay in the audit trail for good, so they must not name a person.
 - Groups and per-user Django permissions are not offered: the app's rights
   come from lab roles (ADR 0006), and nothing would audit those tables.
@@ -41,9 +44,9 @@ from cultures.audit.models import Channel
 from cultures.core.exceptions import DomainError
 from cultures.labs.services import labs_left_without_manager
 
-from . import login_limits, services
+from . import factors, login_limits, services
 from .admin_site import staff_actor
-from .models import ERASED_PREFIX, User
+from .models import ERASED_PREFIX, FactorReset, User
 
 # django-stubs makes these generic for mypy only; at run time Django's classes take no
 # type arguments (Django 6.1.2) and the project does not install django_stubs_ext.
@@ -162,6 +165,29 @@ class EraseUserForm(forms.Form):
         return confirm
 
 
+class FactorResetForm(forms.Form):
+    """A reason for each step of the reset; the button pressed names the step."""
+
+    reason = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text=f"Why: for example how the person was checked. {NO_NAMES}",
+    )
+
+
+RESET_STEPS = ("propose", "confirm", "withdraw")
+
+
+def open_reset(user: User) -> FactorReset | None:
+    """The reset of a user without a lab that waits for its second superuser."""
+    return (
+        FactorReset.objects.filter(
+            user=user, lab__isnull=True, confirmed_at__isnull=True, withdrawn_at__isnull=True
+        )
+        .select_related("proposed_by")
+        .first()
+    )
+
+
 class PasswordThroughServiceForm(PasswordFormBase):
     """UserAdmin's password form for another user: saves through user_set_password."""
 
@@ -191,7 +217,15 @@ class UserAdmin(UserAdminBase):
         ("Important dates", {"fields": ("last_login", "date_joined")}),
         ("Erasure", {"fields": ("erasure",)}),
     )
-    readonly_fields = ("last_login", "date_joined", "login_limit_state", "erasure")
+    # Superusers only (get_fieldsets): the reset without a lab is theirs (#285).
+    reset_fieldset = ("Second factor", {"fields": ("second_factor_reset",)})
+    readonly_fields = (
+        "last_login",
+        "date_joined",
+        "login_limit_state",
+        "erasure",
+        "second_factor_reset",
+    )
     list_filter = ("is_staff", "is_superuser", "is_active")
     filter_horizontal = ()
 
@@ -219,6 +253,31 @@ class UserAdmin(UserAdminBase):
             reverse("admin:users_user_erase", args=[obj.pk]),
         )
 
+    @admin.display(description="Reset")
+    def second_factor_reset(self, obj: User) -> str:
+        if obj.pk is None or obj.erased_at is not None:
+            return "-"
+        url = reverse("admin:users_user_factor_reset", args=[obj.pk])
+        reset = open_reset(obj)
+        if reset is None:
+            return format_html(
+                '<a href="{}">Reset the second factor</a>: when this person lost every key,'
+                " app and recovery code. Two superusers decide.",
+                url,
+            )
+        return format_html(
+            'A reset proposed by {} on {} waits for a second superuser: <a href="{}">open it</a>.',
+            reset.proposed_by,
+            f"{reset.created_at:%Y-%m-%d %H:%M} UTC",
+            url,
+        )
+
+    def get_fieldsets(self, request: HttpRequest, obj: User | None = None) -> Any:
+        fieldsets = super().get_fieldsets(request, obj)
+        if obj is not None and getattr(request.user, "is_superuser", False):
+            return (*fieldsets, self.reset_fieldset)
+        return fieldsets
+
     def has_delete_permission(self, request: HttpRequest, obj: User | None = None) -> bool:
         return False  # deactivate instead: audit events and memberships point at users
 
@@ -231,7 +290,12 @@ class UserAdmin(UserAdminBase):
         erase = path(
             "<id>/erase/", self.admin_site.admin_view(self.erase_view), name="users_user_erase"
         )
-        return [erase, *super().get_urls()]
+        reset = path(
+            "<id>/second-factor-reset/",
+            self.admin_site.admin_view(self.factor_reset_view),
+            name="users_user_factor_reset",
+        )
+        return [erase, reset, *super().get_urls()]
 
     def erase_view(self, request: HttpRequest, id: str) -> HttpResponse:
         user = self.get_object(request, unquote(id))
@@ -258,6 +322,61 @@ class UserAdmin(UserAdminBase):
             "form": form,
         }
         return TemplateResponse(request, "admin/users/user/erase.html", context)
+
+    def factor_reset_view(self, request: HttpRequest, id: str) -> HttpResponse:
+        """Propose, confirm or withdraw the reset of a user without a lab (#285). The services
+        decide; the code of a confirmation is in this one response, stored nowhere."""
+        if not getattr(request.user, "is_superuser", False):
+            raise PermissionDenied
+        user = self.get_object(request, unquote(id))
+        if user is None or user.erased_at is not None:
+            raise Http404("No such user.")
+        form = FactorResetForm(request.POST if request.method == "POST" else None)
+        code = self._posted_step(request, user, form)
+        if code == "":
+            return HttpResponseRedirect(request.path)
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Second factor reset",
+            "opts": self.opts,
+            "original": user,
+            "form": FactorResetForm() if code else form,
+            "reset": open_reset(user),
+            "code": code,
+        }
+        return TemplateResponse(request, "admin/users/user/factor_reset.html", context)
+
+    def _posted_step(self, request: HttpRequest, user: User, form: FactorResetForm) -> str | None:
+        """The step the form asked for: None when nothing was done (a GET or a refusal, which
+        the form then carries), "" when it was done, the enrolment code of a confirmation."""
+        step = request.POST.get("step", "")
+        if not form.is_valid() or step not in RESET_STEPS:
+            return None
+        try:
+            return self._reset_step(request, user, step, form.cleaned_data["reason"]) or ""
+        except DomainError as refusal:
+            form.add_error(None, refusal.detail)
+            return None
+
+    def _reset_step(self, request: HttpRequest, user: User, step: str, reason: str) -> str | None:
+        """One step through its service; the enrolment code when it was a confirmation."""
+        actor = staff_actor(request)
+        if actor is None:  # admin_view lets only signed-in staff in
+            raise PermissionDenied
+        with audit_context(channel=Channel.WEB, actor=actor):
+            if step == "propose":
+                factors.factor_reset_propose(actor=actor, user=user, lab=None, reason=reason)
+                self.message_user(request, "Reset proposed: a second superuser confirms it.")
+                return None
+            reset = open_reset(user)
+            if reset is None:
+                raise factors.ResetClosed
+            if step == "withdraw":
+                factors.factor_reset_withdraw(actor=actor, reset=reset, reason=reason)
+                self.message_user(request, "Reset withdrawn.")
+                return None
+            _, code = factors.factor_reset_confirm(actor=actor, reset=reset, reason=reason)
+            return code
 
     def changeform_view(
         self,
