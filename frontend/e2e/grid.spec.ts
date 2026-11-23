@@ -1,5 +1,5 @@
 import { type Browser, expect, type Locator, type Page, test } from '@playwright/test'
-import { axe, ratio, ring, signedInAs, surfaceOf, tabTo, username, watchCsp } from './support.js'
+import { axe, ratio, ring, runId, signedInAs, surfaceOf, tabTo, username, watchCsp } from './support.js'
 
 // The box grid (#15) against the real API. seed_e2e: the B. subtilis strain has its passage 0,
 // the regulated Clostridium tetani strain has two vials in E2E freezer > Rack 1 > Box R (A1, A2),
@@ -7,7 +7,7 @@ import { axe, ratio, ring, signedInAs, surfaceOf, tabTo, username, watchCsp } fr
 // Vials and units are never deleted, so each run preserves into a box of its own, named per run.
 // It works as the sessions auth.setup.ts signed in.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 type Scheme = 'light' | 'dark'
 
 async function as(browser: Browser, name: string, options: { width?: number; colorScheme?: Scheme } = {}) {

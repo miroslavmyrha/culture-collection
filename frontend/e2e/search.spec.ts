@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
-import { axe, riskGroupBasis, signedInAs, watchCsp } from './support.js'
+import { axe, riskGroupBasis, runId, signedInAs, watchCsp } from './support.js'
 
 // The top bar's search (#76) against the real API (seed_e2e: "E2E lab" with its seeded strain
 // E2E 1, e2e-viewer and e2e-technician in it; e2e-outsider views only "E2E other lab"). The scan
@@ -7,7 +7,7 @@ import { axe, riskGroupBasis, signedInAs, watchCsp } from './support.js'
 // as e2e-curator: strains and vials are never deleted, so each run finds its own. The strain is a
 // Bacillus subtilis strain of this run.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 
 async function as(browser: Browser, username: string, options: { width?: number; colorScheme?: 'light' | 'dark' } = {}) {
   const width = options.width ?? 1280

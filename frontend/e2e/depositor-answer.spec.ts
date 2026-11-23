@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
-import { axe, riskGroupBasis, signedInAs, username, watchCsp } from './support.js'
+import { axe, riskGroupBasis, runId, signedInAs, username, watchCsp } from './support.js'
 
 // The depositor's answer (#144, walkthrough C9) against the real API: commercial research that
 // the depositor's terms leave on request. Each test makes a strain of its own through the API
@@ -8,7 +8,7 @@ import { axe, riskGroupBasis, signedInAs, username, watchCsp } from './support.j
 // request of E2E Institute of Microbiology for one vial and records the MTA acceptance. Strains
 // are never deleted, so the names carry the run. The approved request is cancelled at the end.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 const PDF = Buffer.from('%PDF-1.4\n% an invented answer of a depositor, e2e run\n%%EOF\n')
 
 async function as(browser: Browser, name: string) {

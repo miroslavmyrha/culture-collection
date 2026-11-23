@@ -1,12 +1,12 @@
 import { expect, type Page, test } from '@playwright/test'
-import { axe, riskGroupBasis, signedInAs, username, watchCsp } from './support.js'
+import { axe, riskGroupBasis, runId, signedInAs, username, watchCsp } from './support.js'
 
 // The strain page by task (#19, #72) against the real API: a strain of this run with 230 vials
 // (two batches, 200 and 30) made through the API with the session auth.setup.ts signed in.
 // Strains and vials are never deleted, so the strain is this run's own, found by its name.
 // The strain is a Bacillus subtilis strain of this run.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 const NAME = `Bacillus subtilis tabs ${RUN}`
 
 /** The run's strain with 230 unplaced vials, made as the lab's manager would through the API. */

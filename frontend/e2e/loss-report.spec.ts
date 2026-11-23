@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { riskGroupBasis, signedInAs, username, watchCsp } from './support.js'
+import { riskGroupBasis, runId, signedInAs, username, watchCsp } from './support.js'
 
 // #159, act 281/2002 Sb., § 5(5): a manager marks a vial of a RAT strain lost, is told of the duty
 // to report the loss to the police, finds the loss on Home and records the report there. The
@@ -7,7 +7,7 @@ import { riskGroupBasis, signedInAs, username, watchCsp } from './support.js'
 // session (the lab's manager): strains are never deleted, so the spec finds its own by a
 // run-unique name. The strain is a Clostridium perfringens strain, a RAT of decree 474/2002 Sb.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 const NAME = `Clostridium perfringens lost ${RUN}`
 
 test('a manager is told to report a lost RAT vial to the police, and records the report from Home', async ({ browser }) => {

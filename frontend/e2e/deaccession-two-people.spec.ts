@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test'
-import { riskGroupBasis, signedInAs, username } from './support.js'
+import { riskGroupBasis, runId, signedInAs, username } from './support.js'
 
 // A regulated strain leaves the collection by two people (#20, ADR 0009): e2e-curator proposes
 // it on the strain page, and the e2e user, a manager, confirms it there. The strain, its storage
 // and its vials are this run's own, made through the API with the curator's session. The GMO entry is
 // an invented example on a laboratory E. coli strain.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 const NAME = `Escherichia coli two ${RUN}`
 
 test('a curator proposes the deaccession of a regulated strain and a manager confirms it', async ({ browser }) => {

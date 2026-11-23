@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { riskGroupBasis, signedInAs, username, watchCsp } from './support.js'
+import { riskGroupBasis, runId, signedInAs, username, watchCsp } from './support.js'
 
 // The destruction of a regulated strain's vial takes two people (#160, ADR 0009): e2e-curator
 // marks the vial to destroy and records its destruction on the strain's Material tab, and the e2e
@@ -8,7 +8,7 @@ import { riskGroupBasis, signedInAs, username, watchCsp } from './support.js'
 // session: strains are never deleted, so the spec finds its own by a run-unique name. The strain is a
 // Clostridium perfringens strain, a RAT of decree 474/2002 Sb.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 const NAME = `Clostridium perfringens destroyed ${RUN}`
 
 test('a curator records the destruction of a RAT vial and a manager confirms it', async ({ browser }) => {

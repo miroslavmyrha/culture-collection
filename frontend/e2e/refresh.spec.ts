@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { riskGroupBasis, signedInAs, username } from './support.js'
+import { riskGroupBasis, runId, signedInAs, username } from './support.js'
 
 // A write in one part of the app refreshes what another part shows (#64), against the real API.
 // The strain, its restriction, storage and vial are this run's own, made through the API with
@@ -8,7 +8,7 @@ import { riskGroupBasis, signedInAs, username } from './support.js'
 // manager, confirms it (#105). The strain is a laboratory E. coli
 // strain with an invented GMO entry.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 
 test("ending a restriction shows the vial's place on the strain page without a reload", async ({ browser }) => {
   const context = await browser.newContext({ storageState: signedInAs(username) })

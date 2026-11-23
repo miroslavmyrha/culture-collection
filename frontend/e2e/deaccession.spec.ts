@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test'
-import { riskGroupBasis, signedInAs } from './support.js'
+import { riskGroupBasis, runId, signedInAs } from './support.js'
 
 // Walkthrough C10 (#20): a curator deaccessions a strain that no longer grows, against the real
 // API. The strain, its storage and its two vials are this run's own, made through the API with
 // e2e-curator's session: strains are never deleted, so the spec finds its own by a run-unique
 // name. A Bacillus subtilis strain has no restriction here, so one person may do it.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 const NAME = `Bacillus subtilis gone ${RUN}`
 
 test('C10: a curator deaccessions a strain that no longer grows; its vials are to be destroyed and the list hides it', async ({ browser }) => {

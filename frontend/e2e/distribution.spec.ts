@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
-import { axe, signedInAs, username, watchCsp } from './support.js'
+import { axe, runId, signedInAs, username, watchCsp } from './support.js'
 
 // Requests for material (#18, part A) against the real API. seed_e2e made two strains that may
 // go out (Bacillus subtilis and Clostridium perfringens e2e supply, the second a risky agent (RAT)
@@ -11,7 +11,7 @@ import { axe, signedInAs, username, watchCsp } from './support.js'
 // (#89) enters a regulated request of its own and has e2e-manager, a manager for that moment,
 // approve it. It works as the sessions auth.setup.ts signed in.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 const PDF = Buffer.from('%PDF-1.4\n% an invented signed copy of an e2e run\n%%EOF\n')
 
 async function as(browser: Browser, name: string, width = 1280) {

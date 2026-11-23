@@ -1,12 +1,12 @@
 import { type Browser, expect, type Page, test } from '@playwright/test'
-import { axe, signedInAs, watchCsp } from './support.js'
+import { axe, runId, signedInAs, watchCsp } from './support.js'
 
 // Home (#69) against the real API (seed_e2e: e2e-curator and e2e-viewer in "E2E lab", the
 // depositor "E2E Depositor"). The curator's test receives a deposit through the API with a name
 // unique to the run, follows it from Home, and rejects it at the end, so nothing it made keeps
 // waiting for the next run. The viewer's test changes nothing.
 
-const RUN = Date.now().toString(36)
+const RUN = runId()
 
 async function as(browser: Browser, username: string, options: { width?: number; colorScheme?: 'light' | 'dark' } = {}) {
   const width = options.width ?? 1280
