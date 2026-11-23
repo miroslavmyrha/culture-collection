@@ -212,7 +212,8 @@ one-time enrolment code from a manager of its lab (the password alone never gets
 ten recovery codes shown once. The admin has no login of its own: it sends to the
 app's sign-in. Production needs `MFA_SECRET_KEY` (or `_FILE`, `deploy/deploy.sh secrets`
 writes it), `WEBAUTHN_ORIGINS` (the https origins) and `WEBAUTHN_RP_ID` (the host keys bind
-to). A lost factor: docs/runbook.md. seed_dev and seed_e2e give their users an authenticator
+to). A lost factor: docs/runbook.md; for a person in no lab, two superusers reset it on the
+user's admin page ("Second factor", #285). seed_dev and seed_e2e give their users an authenticator
 app with a known secret (`DEV_TOTP_SECRET`, `E2E_TOTP_SECRET`).
 
 ### Login limits

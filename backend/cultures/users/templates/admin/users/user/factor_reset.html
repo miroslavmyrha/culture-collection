@@ -1,0 +1,49 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static admin_urls %}
+
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static "admin/css/forms.css" %}" {% csp_nonce_attr %}>{% endblock %}
+{% block bodyclass %}{{ block.super }} {{ opts.app_label }}-{{ opts.model_name }} change-form{% endblock %}
+{% block breadcrumbs %}
+<ol class="breadcrumbs">
+<li><a href="{% url 'admin:index' %}">{% translate 'Home' %}</a></li>
+<li><a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a></li>
+<li><a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a></li>
+<li><a href="{% url opts|admin_urlname:'change' original.pk|admin_urlquote %}">{{ original }}</a></li>
+<li aria-current="page">Second factor reset</li>
+</ol>
+{% endblock %}
+{% block content %}<div id="content-main">
+{% if code %}
+<p class="successnote" role="status">Reset done: every key, authenticator app and recovery code of
+<strong>{{ original }}</strong> is gone, and so are their sessions.
+Hand them this enrolment code in person, it is not shown again: <code>{{ code }}</code></p>
+{% endif %}
+<p>For a person in no lab who lost every security key, authenticator app and recovery code. One
+superuser proposes the reset, another who is not that person confirms it; then the person adds a
+new second factor with the enrolment code the confirmer hands over.</p>
+{% if reset %}
+<p>Proposed by <strong>{{ reset.proposed_by }}</strong> on {{ reset.created_at|date:"Y-m-d H:i" }} UTC:
+{{ reset.reason }}</p>
+{% endif %}
+<form method="post" id="{{ opts.model_name }}_factor_reset_form">{% csrf_token %}
+{% if form.non_field_errors %}<p class="errornote">{% for error in form.non_field_errors %}{{ error }} {% endfor %}</p>{% endif %}
+<fieldset class="module aligned">
+{% for field in form %}
+<div class="form-row{% if field.errors %} errors{% endif %}">
+  {{ field.errors }}
+  <div class="flex-container">{{ field.label_tag }} {{ field }}</div>
+  {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+</div>
+{% endfor %}
+</fieldset>
+<div class="submit-row">
+{% if reset %}
+<button type="submit" name="step" value="confirm" class="default">Confirm the reset</button>
+<button type="submit" name="step" value="withdraw">Withdraw the reset</button>
+{% else %}
+<button type="submit" name="step" value="propose" class="default">Propose a reset</button>
+{% endif %}
+</div>
+</form>
+</div>
+{% endblock %}
