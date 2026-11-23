@@ -47,6 +47,14 @@ if AUDIT_TIMESTAMP_AUTHORITY["BACKEND"].endswith("FakeAuthority"):
         "AUDIT_TIMESTAMP_BACKEND must not be the fake timestamp authority: point it at a"
         " qualified trust service provider's client, or leave it unset to anchor nothing."
     )
+# A real provider's client needs where to send and what to trust (#283): without them the
+# job would only ever fail, or worse, trust whatever answered.
+if AUDIT_TIMESTAMP_AUTHORITY["BACKEND"].endswith("Rfc3161Authority"):
+    _timestamp = AUDIT_TIMESTAMP_AUTHORITY["OPTIONS"]
+    if not str(_timestamp.get("url", "")).startswith("https://"):
+        raise ImproperlyConfigured("AUDIT_TIMESTAMP_URL must be the provider's https URL.")
+    if not _timestamp.get("ca_file"):
+        raise ImproperlyConfigured("AUDIT_TIMESTAMP_CA_FILE must name the provider's roots.")
 
 DEBUG = False
 # manage.py seed_dev refuses to run (config/settings/local.py sets it on).

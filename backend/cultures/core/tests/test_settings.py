@@ -155,6 +155,22 @@ REFUSALS: list[tuple[dict[str, str], str]] = [
         {"AUDIT_TIMESTAMP_BACKEND": "cultures.audit.timestamping.FakeAuthority"},
         "AUDIT_TIMESTAMP_BACKEND",
     ),
+    # The client of a real timestamp provider (#283)
+    (
+        {
+            "AUDIT_TIMESTAMP_BACKEND": "cultures.audit.timestamping.Rfc3161Authority",
+            "AUDIT_TIMESTAMP_URL": "http://tsa.example.org/tsr",
+            "AUDIT_TIMESTAMP_CA_FILE": "/run/secrets/tsa_roots.pem",
+        },
+        "AUDIT_TIMESTAMP_URL",
+    ),
+    (
+        {
+            "AUDIT_TIMESTAMP_BACKEND": "cultures.audit.timestamping.Rfc3161Authority",
+            "AUDIT_TIMESTAMP_URL": "https://tsa.example.org/tsr",
+        },
+        "AUDIT_TIMESTAMP_CA_FILE",
+    ),
 ]
 
 

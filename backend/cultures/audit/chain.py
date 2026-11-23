@@ -96,6 +96,8 @@ from typing import Any
 
 from django.db import connection
 
+from .timestamping import FAKE, token_problem, verify_bundle
+
 # One lock for both chains (see the module docstring). hashtextextended is the
 # project's way of turning a name into an advisory lock key (storage migration 0003).
 LOCK = "pg_advisory_xact_lock(hashtextextended('audit_chain', 0))"
@@ -333,6 +335,7 @@ def head(chain: Chain) -> tuple[int, bytes] | None:
 ANCHOR_ROW_GONE = "anchor_row_gone"
 ANCHOR_HASH_MISMATCH = "anchor_hash_mismatch"
 ANCHOR_COVERS_BREAK = "anchor_covers_break"
+ANCHOR_TOKEN_INVALID = "anchor_token_invalid"  # noqa: S105 (a finding kind, not a secret)
 
 
 @dataclass(frozen=True)
@@ -344,6 +347,7 @@ class Anchor:
     anchored_at: datetime
     authority: str
     token_time: datetime | None
+    token: bytes = b""
 
 
 @dataclass(frozen=True)
@@ -376,12 +380,12 @@ def anchors(chain: Chain) -> list[Anchor]:
     """Every anchor of this chain, the oldest head first."""
     with connection.cursor() as cursor:
         cursor.execute(
-            "SELECT id, chain, head_id, head_hash, anchored_at, authority, token_time"
+            "SELECT id, chain, head_id, head_hash, anchored_at, authority, token_time, token"
             " FROM public.audit_chainanchor WHERE chain = %s ORDER BY head_id, id",
             [chain.name],
         )
         return [
-            Anchor(row[0], row[1], row[2], bytes(row[3]), row[4], row[5], row[6])
+            Anchor(row[0], row[1], row[2], bytes(row[3]), row[4], row[5], row[6], bytes(row[7]))
             for row in cursor.fetchall()
         ]
 
@@ -429,6 +433,9 @@ def _findings(chain: Chain, found: list[Anchor], broken: Break | None) -> list[A
                     f" {_hex(one.head_hash)}",
                 )
             )
+        token = _token_finding(chain, one)
+        if token is not None:
+            results.append(token)
         if broken is not None and broken.row_id <= one.head_id:
             results.append(
                 AnchorFinding(
@@ -441,6 +448,18 @@ def _findings(chain: Chain, found: list[Anchor], broken: Break | None) -> list[A
                 )
             )
     return results
+
+
+def _token_finding(chain: Chain, one: Anchor) -> AnchorFinding | None:
+    """A token that no longer verifies against the bundle configured now (#283). The fake
+    authority's tokens are evidence of nothing, and without a bundle nothing is claimed."""
+    bundle = verify_bundle()
+    if one.authority == FAKE or not bundle:
+        return None
+    problem = token_problem(one.token, one.head_hash, bundle)
+    if problem is None:
+        return None
+    return AnchorFinding(ANCHOR_TOKEN_INVALID, chain.name, one.id, one.head_id, problem)
 
 
 def verify(chain: Chain, *, batch: int = 5000) -> Report:

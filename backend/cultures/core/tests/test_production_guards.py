@@ -100,6 +100,23 @@ def test_a_sound_configuration_loads() -> None:
             id="the-fake-timestamp-authority",
         ),
         pytest.param(
+            {
+                "AUDIT_TIMESTAMP_BACKEND": "cultures.audit.timestamping.Rfc3161Authority",
+                "AUDIT_TIMESTAMP_URL": "http://tsa.example.org/tsr",
+                "AUDIT_TIMESTAMP_CA_FILE": "/run/secrets/tsa_roots.pem",
+            },
+            "must be the provider's https URL",
+            id="a-timestamp-provider-over-plain-http",
+        ),
+        pytest.param(
+            {
+                "AUDIT_TIMESTAMP_BACKEND": "cultures.audit.timestamping.Rfc3161Authority",
+                "AUDIT_TIMESTAMP_URL": "https://tsa.example.org/tsr",
+            },
+            "must name the provider's roots",
+            id="a-timestamp-provider-without-its-roots",
+        ),
+        pytest.param(
             {"DJANGO_NUM_PROXIES": "1"}, "DJANGO_NUM_PROXIES is gone", id="the-old-hop-count"
         ),
         pytest.param(
