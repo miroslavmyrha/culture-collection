@@ -3,7 +3,7 @@ import { ALL_REQUESTERS, requestDetailOptions, requesterListOptions, requestList
 import { requesterListDefaults, requesterListSearch, requestListDefaults, requestListSearch } from '@/features/distribution/schemas'
 import { labDetailOptions } from '@/features/labs/api/queries'
 import { authenticatedRoute } from './authenticated'
-import { prefetch } from '@/lib/prefetch'
+import { prefetch, prefetchFor } from '@/lib/prefetch'
 
 // Requests and requesters of one lab, under the authenticated layout. The loaders prefetch with
 // the components' own options and never throw: a lab the caller is not in (404) and a role that
@@ -15,8 +15,8 @@ export const requestListRoute = createRoute({
   validateSearch: requestListSearch,
   search: { middlewares: [stripSearchParams(requestListDefaults)] },
   loaderDeps: ({ search }) => search,
-  loader: ({ context, params, deps }) =>
-    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetch(context.queryClient, requestListOptions(params.labId, deps))]),
+  loader: ({ context, params, deps, cause }) =>
+    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetchFor(cause, context.queryClient, requestListOptions(params.labId, deps))]),
   component: lazyRouteComponent(() => import('@/pages/RequestListPage'), 'RequestListPage'),
 })
 
@@ -45,8 +45,8 @@ export const requesterListRoute = createRoute({
   validateSearch: requesterListSearch,
   search: { middlewares: [stripSearchParams(requesterListDefaults)] },
   loaderDeps: ({ search }) => search,
-  loader: ({ context, params, deps }) =>
-    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetch(context.queryClient, requesterListOptions(params.labId, deps))]),
+  loader: ({ context, params, deps, cause }) =>
+    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetchFor(cause, context.queryClient, requesterListOptions(params.labId, deps))]),
   component: lazyRouteComponent(() => import('@/pages/RequesterListPage'), 'RequesterListPage'),
 })
 

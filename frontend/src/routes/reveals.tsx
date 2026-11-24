@@ -3,7 +3,7 @@ import { labDetailOptions } from '@/features/labs/api/queries'
 import { revealListOptions } from '@/features/reveals/api/queries'
 import { revealListDefaults, revealListSearch } from '@/features/reveals/schemas'
 import { authenticatedRoute } from './authenticated'
-import { prefetch } from '@/lib/prefetch'
+import { prefetch, prefetchFor } from '@/lib/prefetch'
 
 // The lab's reveal log (#83), under the authenticated layout. The loader prefetches with the
 // components' own options and never throws: a lab the caller is not in (404) and a role that
@@ -14,7 +14,7 @@ export const revealListRoute = createRoute({
   validateSearch: revealListSearch,
   search: { middlewares: [stripSearchParams(revealListDefaults)] },
   loaderDeps: ({ search }) => search,
-  loader: ({ context, params, deps }) =>
-    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetch(context.queryClient, revealListOptions(params.labId, deps))]),
+  loader: ({ context, params, deps, cause }) =>
+    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetchFor(cause, context.queryClient, revealListOptions(params.labId, deps))]),
   component: lazyRouteComponent(() => import('@/pages/RevealListPage'), 'RevealListPage'),
 })

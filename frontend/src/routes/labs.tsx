@@ -2,7 +2,7 @@ import { createRoute, lazyRouteComponent, stripSearchParams } from '@tanstack/re
 import { labDetailOptions, labListOptions, memberListOptions } from '@/features/labs/api/queries'
 import { pageDefaults, pageSearch } from '@/lib/paging'
 import { authenticatedRoute } from './authenticated'
-import { prefetch } from '@/lib/prefetch'
+import { prefetch, prefetchFor } from '@/lib/prefetch'
 
 // Under the authenticated layout: the guard runs first, so anonymous users never fetch.
 // The loaders prefetch with the components' own options and never throw: the feature
@@ -15,7 +15,7 @@ export const labListRoute = createRoute({
   validateSearch: pageSearch,
   search: { middlewares: [stripSearchParams(pageDefaults)] },
   loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) => prefetch(context.queryClient, labListOptions(deps)),
+  loader: ({ context, deps, cause }) => prefetchFor(cause, context.queryClient, labListOptions(deps)),
   component: lazyRouteComponent(() => import('@/pages/LabListPage'), 'LabListPage'),
 })
 
@@ -25,10 +25,10 @@ export const labDetailRoute = createRoute({
   validateSearch: pageSearch,
   search: { middlewares: [stripSearchParams(pageDefaults)] },
   loaderDeps: ({ search }) => search,
-  loader: ({ context, params, deps }) =>
+  loader: ({ context, params, deps, cause }) =>
     Promise.all([
       prefetch(context.queryClient, labDetailOptions(params.labId)),
-      prefetch(context.queryClient, memberListOptions(params.labId, deps)),
+      prefetchFor(cause, context.queryClient, memberListOptions(params.labId, deps)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/LabDetailPage'), 'LabDetailPage'),
 })

@@ -103,6 +103,9 @@ test('a strain opens on its overview, its tabs switch by keyboard, every one of 
   const next = pager.getByRole('button', { name: 'Next' })
   await next.focus()
   for (const shown of ['51 to 100', '101 to 150', '151 to 200', '201 to 230']) {
+    // Next is aria-disabled while a page loads (the range shows the URL's page at once, #292):
+    // like a person, the test presses it again once it is not.
+    await expect(next).not.toHaveAttribute('aria-disabled', 'true')
     await page.keyboard.press('Enter')
     await expect(pager).toContainText(`${shown} of 230`)
     await expect(next).toBeFocused()

@@ -6,7 +6,7 @@ import { batchesOptions, passagesOptions, vialPageOptions } from '@/features/via
 import { vialPageDefaults, vialPageSearch } from '@/features/vials/schemas'
 import { pageDefaults, pageSearch } from '@/lib/paging'
 import { authenticatedRoute } from './authenticated'
-import { prefetch } from '@/lib/prefetch'
+import { prefetch, prefetchFor } from '@/lib/prefetch'
 
 // The strains of one lab, under the authenticated layout: the guard runs first, so anonymous
 // users never fetch. The loaders prefetch with the components' own options and never throw:
@@ -18,10 +18,10 @@ export const strainListRoute = createRoute({
   validateSearch: strainListSearch,
   search: { middlewares: [stripSearchParams(strainListDefaults)] },
   loaderDeps: ({ search }) => search,
-  loader: ({ context, params, deps }) =>
+  loader: ({ context, params, deps, cause }) =>
     Promise.all([
       prefetch(context.queryClient, labDetailOptions(params.labId)),
-      prefetch(context.queryClient, strainListOptions(params.labId, deps)),
+      prefetchFor(cause, context.queryClient, strainListOptions(params.labId, deps)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/StrainListPage'), 'StrainListPage'),
 })
@@ -52,11 +52,11 @@ export const strainMaterialRoute = createRoute({
   validateSearch: vialPageSearch,
   search: { middlewares: [stripSearchParams(vialPageDefaults)] },
   loaderDeps: ({ search }) => search,
-  loader: ({ context, params, deps }) =>
+  loader: ({ context, params, deps, cause }) =>
     Promise.all([
       prefetch(context.queryClient, passagesOptions(params.labId, params.strainId)),
       prefetch(context.queryClient, batchesOptions(params.labId, params.strainId)),
-      prefetch(context.queryClient, vialPageOptions(params.labId, params.strainId, deps)),
+      prefetchFor(cause, context.queryClient, vialPageOptions(params.labId, params.strainId, deps)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/StrainDetailPage'), 'StrainMaterialPage'),
 })
@@ -74,6 +74,6 @@ export const strainHistoryRoute = createRoute({
   validateSearch: pageSearch,
   search: { middlewares: [stripSearchParams(pageDefaults)] },
   loaderDeps: ({ search }) => search,
-  loader: ({ context, params, deps }) => prefetch(context.queryClient, strainHistoryOptions(params.labId, params.strainId, deps)),
+  loader: ({ context, params, deps, cause }) => prefetchFor(cause, context.queryClient, strainHistoryOptions(params.labId, params.strainId, deps)),
   component: lazyRouteComponent(() => import('@/pages/StrainDetailPage'), 'StrainHistoryPage'),
 })
