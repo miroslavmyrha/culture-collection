@@ -3,8 +3,9 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { pageSearch } from '@/lib/paging'
 import { makeLab, makeMe, makeMember, page } from '@/test/factories'
-import { mockApi } from '@/test/mockApi'
+import { mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
+import { reported } from '@/test/reports'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const signedIn = () => mockApi('get', '/api/v1/auth/me/', makeMe())
@@ -71,5 +72,21 @@ describe('/labs/$labId route', () => {
     await userEvent.setup().click(await screen.findByRole('link', { name: 'Mycology' }))
     expect(await screen.findByRole('heading', { name: 'Mycology' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe(`/labs/${LAB_ID}`)
+  })
+})
+
+// #43: the loader fetches a failing list (with its retries) and reports it once; the page then
+// shows the failure with its retry, and its mount neither fetches nor reports it again.
+describe('a failing page load', () => {
+  it('is fetched and reported once, and names the reference of the server failure', async () => {
+    signedIn()
+    const calls = mockApiError('get', '/api/v1/labs/', 500, { detail: 'boom' }, { headers: { 'Retry-After': '0', 'X-Request-ID': 'req-43' } })
+    renderApp({ path: '/labs' })
+    expect(await screen.findByText(/Could not load/)).toHaveTextContent('Reference: req-43.')
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    expect(pageCalls(calls)).toHaveLength(1) // the loader's; tests send no retries
+    // The lab picker of the top bar asks the same failing endpoint (limit=200): one report per
+    // failing request, and none for a second fetch of the page that no longer happens.
+    expect(reported).toHaveLength(calls.length)
   })
 })

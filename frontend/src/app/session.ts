@@ -17,7 +17,7 @@ export function createUnauthorizedHandler(getRouter: () => AnyRouter, queryClien
     redirecting = true
     resetSessionCache(queryClient, null)
     void router
-      .navigate({ to: '/login', search: { redirect: safeRedirect(href) }, replace: true })
+      .navigate({ to: '/login', search: { redirect: safeRedirect(href), sessionEnded: true }, replace: true })
       .finally(() => {
         redirecting = false
       })

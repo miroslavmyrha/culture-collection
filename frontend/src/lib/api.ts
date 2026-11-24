@@ -88,6 +88,17 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The CSRF token could not be fetched before a write (#43): the write was not sent. An ApiError
+ * still (its status drives retries and reports), with its own message.
+ */
+export class CsrfError extends ApiError {
+  constructor(error: ApiError) {
+    super(error.status, error.body, { requestId: error.requestId, retryAfterMs: error.retryAfterMs, cause: error })
+    this.name = 'CsrfError'
+  }
+}
+
 export const isApiError = (error: unknown, status?: number): error is ApiError =>
   error instanceof ApiError && (status === undefined || error.status === status)
 
@@ -158,7 +169,12 @@ export async function unwrap<T>(request: Promise<Result<T>> | Result<T>): Promis
  * says what failed instead of a 403 for a write sent without a token.
  */
 export async function ensureCsrf(): Promise<void> {
-  if (!csrfToken()) await unwrap(api.GET('/api/v1/auth/csrf/'))
+  if (csrfToken()) return
+  try {
+    await unwrap(api.GET('/api/v1/auth/csrf/'))
+  } catch (error) {
+    throw error instanceof ApiError ? new CsrfError(error) : error
+  }
 }
 
 const MAX_RETRIES = 2
@@ -179,11 +195,17 @@ export function retryDelay(failureCount: number, error: unknown): number {
 /** A message that is safe to show to anyone. Never the raw server text or a stack. */
 export function errorMessage(error: unknown): string {
   if (!(error instanceof ApiError)) return 'Something went wrong. Try again.'
+  if (error instanceof CsrfError) return `Could not prepare the change: the security check of the page did not load. Nothing was saved. Reload the page and try again.${reference(error)}`
   if (error.status === 0) return error.message
   if (error.status === 403) return 'You do not have permission to do that.'
   if (error.status === 404) return 'It no longer exists. Reload the page.'
   if (error.status === 409) return 'Someone else changed it. Reload and try again.'
   if (error.status === 429) return 'Too many requests. Wait a moment and try again.'
-  if (error.status >= 500) return 'The server failed. Try again in a moment.'
+  if (error.status >= 500) return `The server failed. Try again in a moment.${reference(error)}`
   return 'The request was rejected. Check the form and try again.'
+}
+
+/** The request id of a server failure, for the user to quote when they report it (#43). */
+function reference(error: ApiError): string {
+  return error.requestId && error.status >= 500 ? ` Reference: ${error.requestId}.` : ''
 }
