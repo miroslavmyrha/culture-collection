@@ -1,7 +1,8 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'node:path'
 import ts from 'typescript'
-import { describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vitest'
 
 // Invariant: every place that sends the browser somewhere takes its target from safeRedirect
 // (paths) or safeHref (links). oxlint 1.88 has no no-restricted-syntax rule, so this test reads
@@ -85,10 +86,14 @@ function redirectSinks(file: string, source: string): Site[] {
   return sites
 }
 
-function sourceFiles(dir: string): string[] {
+/**
+ * The source files under src, without the generated API types (src/api) and the test helpers
+ * (src/test). Only those two folders, by path (#65): a feature's own api/ folder is scanned.
+ */
+function sourceFiles(src: string, dir = src): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name)
-    if (entry.isDirectory()) return entry.name === 'test' || entry.name === 'api' ? [] : sourceFiles(path)
+    if (entry.isDirectory()) return path === join(src, 'api') || path === join(src, 'test') ? [] : sourceFiles(src, path)
     return /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name) ? [path] : []
   })
 }
@@ -154,5 +159,23 @@ describe('redirect sink checker', () => {
   it('leaves reads of the location and typed navigation alone', () => {
     const code = "const o = window.location.origin\nwindow.location.reload()\nvoid navigate({ to: '/labs', search: { offset: 0 } })"
     expect(redirectSinks('probe.ts', code)).toEqual([])
+  })
+})
+
+describe('the walk of the sources', () => {
+  // A copy of the layout in a temporary folder: nothing is written into src.
+  const root = mkdtempSync(join(tmpdir(), 'redirect-sinks-'))
+  afterAll(() => rmSync(root, { recursive: true, force: true }))
+  const plant = (path: string) => {
+    mkdirSync(join(root, path, '..'), { recursive: true })
+    writeFileSync(join(root, path), 'window.location.href = raw\n')
+  }
+
+  it('scans the api folder of a feature and skips only the generated src/api and src/test (#65)', () => {
+    for (const path of ['src/features/x/api/queries.ts', 'src/api/schema.ts', 'src/test/server.ts', 'src/lib/api/client.ts']) plant(path)
+    const found = sourceFiles(join(root, 'src'))
+      .map((path) => relative(root, path))
+      .toSorted()
+    expect(found).toEqual(['src/features/x/api/queries.ts', 'src/lib/api/client.ts'])
   })
 })

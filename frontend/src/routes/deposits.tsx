@@ -2,8 +2,19 @@ import { createRoute, lazyRouteComponent, stripSearchParams } from '@tanstack/re
 import { depositDetailOptions, depositListOptions, depositorListOptions, mtaDetailOptions, mtaListOptions } from '@/features/deposits/api/queries'
 import { depositListDefaults, depositListSearch, depositorListDefaults, depositorListSearch, mtaNewSearch } from '@/features/deposits/schemas'
 import { labDetailOptions } from '@/features/labs/api/queries'
+import { canHandleDeposits } from '@/lib/roles'
 import { authenticatedRoute } from './authenticated'
 import { prefetch, prefetchFor } from '@/lib/prefetch'
+import type { QueryClient } from '@tanstack/react-query'
+
+/**
+ * The lab, then its MTA templates only for a role that may read them (#65): a viewer's page shows
+ * its refusal without asking the API for a list it would refuse.
+ */
+async function prefetchMtas(client: QueryClient, labId: string): Promise<void> {
+  await prefetch(client, labDetailOptions(labId))
+  if (canHandleDeposits(client.getQueryData(labDetailOptions(labId).queryKey)?.my_role)) await prefetch(client, mtaListOptions(labId))
+}
 
 // Depositors, MTA templates and deposits of one lab, under the authenticated layout. The
 // loaders prefetch with the components' own options and never throw: a lab the caller is not
@@ -26,8 +37,7 @@ export const depositorListRoute = createRoute({
 export const mtaListRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: 'labs/$labId/mta-templates',
-  loader: ({ context, params }) =>
-    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetch(context.queryClient, mtaListOptions(params.labId))]),
+  loader: ({ context, params }) => prefetchMtas(context.queryClient, params.labId),
   component: lazyRouteComponent(() => import('@/pages/MtaTemplateListPage'), 'MtaTemplateListPage'),
 })
 
@@ -72,8 +82,7 @@ export const depositListRoute = createRoute({
 export const depositReceiveRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: 'labs/$labId/deposits/new',
-  loader: ({ context, params }) =>
-    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetch(context.queryClient, mtaListOptions(params.labId))]),
+  loader: ({ context, params }) => prefetchMtas(context.queryClient, params.labId),
   component: lazyRouteComponent(() => import('@/pages/DepositReceivePage'), 'DepositReceivePage'),
 })
 

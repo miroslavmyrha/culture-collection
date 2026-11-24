@@ -48,6 +48,15 @@ const away = (router: Awaited<ReturnType<typeof setup>>['router']) => {
 const submit = (user: UserEvent) => user.click(screen.getByRole('button', { name: 'Record the deposit' }))
 
 describe('ReceiveDepositForm', () => {
+  it('searches the depositors by what was typed (#65)', async () => {
+    const { user } = await setup()
+    const searches = recordRequests('get', '/api/v1/labs/{lab_public_id}/depositors/')
+    await pickDepositor(user)
+    const typed = searches.map((call) => call.url.searchParams.get('search')).filter(Boolean)
+    expect(typed).toContain('vzor')
+    expect(typed.every((text) => text === 'vzor')).toBe(true)
+  })
+
   it('says how many MTA versions are not in the list when the lab has more than the API gives at once', async () => {
     mockApi('get', '/api/v1/labs/{lab_public_id}/depositors/', page([jana]))
     mockApi('get', '/api/v1/labs/{lab_public_id}/mta-templates/', page([std], { count: 230 }))

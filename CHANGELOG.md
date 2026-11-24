@@ -8,6 +8,8 @@ also names that rule's id in [docs/compliance.md](docs/compliance.md), so the pa
 to the law the rule rests on is one hop.
 
 ## Unreleased
+- A viewer opening the MTA templates or the new deposit page no longer sends the API a request for the templates it would refuse: the loaders ask for them only for curators and managers (#65).
+- Frontend tests check what lists ask for (the strain of passages, batches and vials, the depositor search), who handles vials and manages strains for every role, the no-match and retry states their names promise, the MTA form refused to a curator and offered to a manager, a refresh counted only after the first load; the redirect sink walk scans the api folders of features and skips only the generated src/api (#65).
 - Lab names are stored trimmed: the services trim them and the database refuses leading or trailing whitespace, so " Mycology" cannot pass as another lab (#40).
 - The gunicorn access log names no client address (behind the proxy it was the proxy's, and the app's logs never name one), and writes JSON lines with `LOG_FORMAT=json` (#42).
 - The audit events lose the actor's single-column index, which their (actor, time) index covers; dropped concurrently (#42).

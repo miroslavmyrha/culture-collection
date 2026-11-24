@@ -141,8 +141,19 @@ describe('the MTA pages', () => {
     signedIn('curator')
     mockApi('get', ONE, v2)
     mockApi('get', LIST, page([v2]))
-    renderApp({ path: `/labs/${LAB_ID}/mta-templates` })
+    const { router } = renderApp({ path: `/labs/${LAB_ID}/mta-templates` })
     expect(await screen.findByRole('table', { name: 'MTA templates' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Publish an MTA version' })).not.toBeInTheDocument()
+    // #65: the form the name promises, reached by its URL, refused.
+    await router.navigate({ to: '/labs/$labId/mta-templates/new', params: { labId: LAB_ID } })
+    expect(await screen.findByText('Only managers publish MTA versions.')).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Code' })).not.toBeInTheDocument()
+  })
+
+  it('offers a manager the link to publish a version (#65)', async () => {
+    signedIn('manager')
+    mockApi('get', LIST, page([v2]))
+    renderApp({ path: `/labs/${LAB_ID}/mta-templates` })
+    expect(await screen.findByRole('link', { name: 'Publish an MTA version' })).toHaveAttribute('href', `/labs/${LAB_ID}/mta-templates/new`)
   })
 })

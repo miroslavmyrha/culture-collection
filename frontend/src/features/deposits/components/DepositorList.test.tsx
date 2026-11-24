@@ -36,8 +36,15 @@ describe('DepositorList', () => {
 
   it('says when the lab has none, and when a search finds none', async () => {
     mockApi('get', LIST, page([]))
-    await renderList()
+    const { unmount } = await renderList()
     expect(await screen.findByText('The lab has no depositors yet.')).toBeInTheDocument()
+    unmount()
+    // #65: the second half the name promises, asked with the search.
+    const calls = mockApi('get', LIST, page([]))
+    await renderList({ ...PARAMS, search: 'nobody' })
+    expect(await screen.findByText('No depositor matches this search.')).toBeInTheDocument()
+    expect(screen.queryByText('The lab has no depositors yet.')).not.toBeInTheDocument()
+    expect(calls.at(-1)?.url.searchParams.get('search')).toBe('nobody')
   })
 
   it('shows a load error with a retry that works', async () => {
@@ -45,9 +52,11 @@ describe('DepositorList', () => {
     mockApiError('get', LIST, 500)
     const { user } = await renderList()
     const retry = await screen.findByRole('button', { name: 'Try again' })
-    mockApi('get', LIST, page([jana]))
+    const again = mockApi('get', LIST, page([jana]))
     await user.click(retry)
     expect(await screen.findByRole('table', { name: 'Depositors' })).toBeInTheDocument()
+    // #65: the table comes from the request Try again sent, not from a cache.
+    expect(again).toHaveLength(1)
   })
 
   it('submits the search text, trimmed', async () => {
