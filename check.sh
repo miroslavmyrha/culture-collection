@@ -80,6 +80,9 @@ grep -Eq '^ +tools/up-with-runtime-role\.sh *$' .github/workflows/ci.yml \
 # A gate nothing guards is a gate anyone can drop: the changelog job must stay (#206).
 grep -Eq '^  changelog:$' .github/workflows/ci.yml \
   || fail "ci.yml must keep the changelog job: a pull request that changes code adds its CHANGELOG.md line"
+# A scheduled run must not cancel the push run a merge waits for (#252).
+grep -Eq '^  group: .*\$\{\{ github\.event_name \}\}' .github/workflows/ci.yml \
+  || fail "ci.yml's concurrency group must name the event: a scheduled run cancelled a push run"
 
 echo "== backend"
 # The dev container writes caches into the ./backend bind mount: build it with the caller's uid.
