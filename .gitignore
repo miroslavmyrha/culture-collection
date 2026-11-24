@@ -5,9 +5,11 @@ __pycache__/
 .ruff_cache/
 .pytest_cache/
 backend/staticfiles/
+backend/.reports/
 node_modules/
 frontend/dist/
 frontend/test-results/
+frontend/junit.xml
 frontend/playwright-report/
 deploy/.env
 deploy/secrets/

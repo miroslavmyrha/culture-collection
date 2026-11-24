@@ -328,3 +328,14 @@ def test_the_trusted_layer_refuses_inactive_users(lab: Lab, as_system: AuditCont
         services.membership_create(
             lab=lab, user=make_user("gone", is_active=False), role=Role.VIEWER
         )
+
+
+def test_the_trusted_layer_trims_a_lab_name(lab: Lab, as_system: AuditContext) -> None:
+    # #40: a name typed with spaces is stored and compared trimmed, so it meets the unique name.
+    created = services.lab_create(name="  Virology ", code="VIR")
+    assert created.name == "Virology"
+    services.lab_update(lab=created, name=" Plant virology ", code="VIR")
+    created.refresh_from_db()
+    assert created.name == "Plant virology"
+    with pytest.raises(DuplicateLab):
+        services.lab_create(name=" mycology ", code="NEW")

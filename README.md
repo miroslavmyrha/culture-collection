@@ -237,7 +237,7 @@ up to the first address not in the list; gunicorn takes the same list as
 `forwarded_allow_ips`. Each proxy must append the address it saw (nginx
 `proxy_add_x_forwarded_for`, plain addresses without ports): a hop that is not an
 address ends the walk at the last trusted one. `DJANGO_NUM_PROXIES` and `GUNICORN_FORWARDED_ALLOW_IPS` are gone, and startup refuses
-them. Optional: `DJANGO_SECRET_KEY_FALLBACKS` (key rotation), `LOG_FORMAT=json`,
+them. Optional: `DJANGO_SECRET_KEY_FALLBACKS` (key rotation), `LOG_FORMAT=json` (the gunicorn access log too, with no client address),
 `ERROR_REPORTING_DSN` (Sentry or GlitchTip), `DB_RUNTIME_ROLE_REQUIRED=false` (only
 where the host gives the app no second role), `THROTTLE_*`, `LOGIN_PAIR_*`,
 `LOGIN_ADDRESS_*`, `LOGIN_ACCOUNT_*` (`backend/config/settings/base.py`),

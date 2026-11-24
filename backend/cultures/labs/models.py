@@ -34,6 +34,10 @@ class Lab(PublicModel):
             models.UniqueConstraint(Upper("name"), name=LAB_NAME_UNIQUE),
             models.UniqueConstraint(fields=["code"], name=LAB_CODE_UNIQUE),
             models.CheckConstraint(condition=~Q(name=""), name="labs_lab_name_not_blank"),
+            # Trimmed (#40): " Mycology" would pass as another lab past the unique name above.
+            models.CheckConstraint(
+                condition=Q(name__regex=r"^\S(.*\S)?$"), name="labs_lab_name_trimmed"
+            ),
             models.CheckConstraint(
                 condition=Q(code__regex=r"^[A-Z0-9]{2,10}$"), name="labs_lab_code_format"
             ),
