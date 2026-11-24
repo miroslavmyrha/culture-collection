@@ -100,6 +100,20 @@ const render = (canHandle = true, limit = 50, strainGrowth: Growth = noGrowth(),
   renderWithProviders(<Material canHandle={canHandle} limit={limit} strainGrowth={strainGrowth} materialDestroyed={materialDestroyed} kinds={kinds} />)
 
 describe('StrainMaterial', () => {
+  it('asks for the passages, batches and vials of its own strain only (#65)', async () => {
+    const passages = mockApi('get', PASSAGES, page([makePassage({ number: 0, strain: STRAIN_ID })]))
+    const batches = mockApi('get', BATCHES, page([makeBatch({ number: 1, strain: STRAIN_ID, vials_available: 1 })]))
+    const vials = mockApi('get', VIALS, page([loose]))
+    mockApi('get', UNITS, [freezer, rack, box])
+    mockApi('get', MEDIA, page([lb]))
+    await render()
+    await screen.findByRole('table', { name: 'Vials' })
+    for (const calls of [passages, batches, vials]) {
+      expect(calls.length).toBeGreaterThan(0)
+      for (const call of calls) expect(call.url.searchParams.get('strain')).toBe(STRAIN_ID)
+    }
+  })
+
   it('shows the passages, the batches and where each vial is', async () => {
     mockMaterial()
     await render()
@@ -246,10 +260,12 @@ describe('StrainMaterial', () => {
   it('preserves a batch into a box by keyboard and refreshes the lists', async () => {
     mockMaterial()
     const calls = mockApi('post', BATCHES, makeBatch({ number: 2 }))
-    const reloads = recordRequests('get', BATCHES)
     await render()
     const user = userEvent.setup()
     const trigger = await screen.findByRole('button', { name: 'Preserve a batch' })
+    // #65: only the requests after the first load count as a refresh.
+    await screen.findByRole('table', { name: 'Vials' })
+    const reloads = recordRequests('get', BATCHES)
     trigger.focus()
     await user.keyboard('{Enter}')
     const dialog = await screen.findByRole('dialog', { name: 'Preserve a batch of MYC 42' })
@@ -277,7 +293,7 @@ describe('StrainMaterial', () => {
       box: box.public_id,
     })
     expect(calls[0]?.headers.get('X-CSRFToken')).toBeTruthy()
-    expect(reloads.length).toBeGreaterThan(0)
+    await waitFor(() => expect(reloads.length).toBeGreaterThan(0))
     await waitFor(() => expect(trigger).toHaveFocus())
   })
 

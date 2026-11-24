@@ -5,6 +5,7 @@ import {
   batchStatusReason,
   boxChoices,
   boxOption,
+  canHandleVials,
   canRecordLossReport,
   destructionRules,
   checkDetails,
@@ -162,5 +163,18 @@ describe('destructionRules (#160)', () => {
     [['gmo'], { confirmation: true, verification: true, witness: false, inactivatedBeforeHandover: false, declaredMethod: false }],
   ])('asks %j for its rules', (kinds, rules) => {
     expect(destructionRules(kinds)).toEqual(rules)
+  })
+})
+
+// #65: who handles vials, every role and none (the API refuses the rest; the page offers nothing).
+describe('canHandleVials', () => {
+  it.each([
+    ['viewer', false],
+    ['technician', true],
+    ['curator', true],
+    ['manager', true],
+    [undefined, false],
+  ] as const)('a %s handles vials: %s', (role, expected) => {
+    expect(canHandleVials(role)).toBe(expected)
   })
 })
