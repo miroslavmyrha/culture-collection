@@ -8,6 +8,7 @@ also names that rule's id in [docs/compliance.md](docs/compliance.md), so the pa
 to the law the rule rests on is one hop.
 
 ## Unreleased
+- Paging or filtering a list no longer swaps in the router's pending screen when the server answers after a second: the page keeps its rows and the focused Next button. The loaders wait for a list on entering its page only (#292).
 - CI runs are grouped by event and branch, so the nightly run no longer cancels the push run of a merge on develop; `check.sh` keeps it so (#252).
 - The e2e test of the VRAT refusal picks its taxon with the keyboard and checks the field shows it: a click as the list appeared was lost now and then, and the form refused an empty taxon before the API was asked (#244).
 - The daily anchor of the audit chains can use a qualified timestamp provider: an RFC 3161 client (rfc3161-client) keeps a token only when it verifies against the provider's roots, and `audit_chain_verify` checks every stored token again; production refuses the client without an https URL and roots (#283, R-AUDIT-04).

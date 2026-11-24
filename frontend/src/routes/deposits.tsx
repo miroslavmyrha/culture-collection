@@ -3,7 +3,7 @@ import { depositDetailOptions, depositListOptions, depositorListOptions, mtaDeta
 import { depositListDefaults, depositListSearch, depositorListDefaults, depositorListSearch, mtaNewSearch } from '@/features/deposits/schemas'
 import { labDetailOptions } from '@/features/labs/api/queries'
 import { authenticatedRoute } from './authenticated'
-import { prefetch } from '@/lib/prefetch'
+import { prefetch, prefetchFor } from '@/lib/prefetch'
 
 // Depositors, MTA templates and deposits of one lab, under the authenticated layout. The
 // loaders prefetch with the components' own options and never throw: a lab the caller is not
@@ -15,10 +15,10 @@ export const depositorListRoute = createRoute({
   validateSearch: depositorListSearch,
   search: { middlewares: [stripSearchParams(depositorListDefaults)] },
   loaderDeps: ({ search }) => search,
-  loader: ({ context, params, deps }) =>
+  loader: ({ context, params, deps, cause }) =>
     Promise.all([
       prefetch(context.queryClient, labDetailOptions(params.labId)),
-      prefetch(context.queryClient, depositorListOptions(params.labId, deps)),
+      prefetchFor(cause, context.queryClient, depositorListOptions(params.labId, deps)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/DepositorListPage'), 'DepositorListPage'),
 })
@@ -61,10 +61,10 @@ export const depositListRoute = createRoute({
   validateSearch: depositListSearch,
   search: { middlewares: [stripSearchParams(depositListDefaults)] },
   loaderDeps: ({ search }) => search,
-  loader: ({ context, params, deps }) =>
+  loader: ({ context, params, deps, cause }) =>
     Promise.all([
       prefetch(context.queryClient, labDetailOptions(params.labId)),
-      prefetch(context.queryClient, depositListOptions(params.labId, deps)),
+      prefetchFor(cause, context.queryClient, depositListOptions(params.labId, deps)),
     ]),
   component: lazyRouteComponent(() => import('@/pages/DepositListPage'), 'DepositListPage'),
 })

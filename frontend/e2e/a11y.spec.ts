@@ -335,6 +335,12 @@ test.describe('titles and focus after navigation', () => {
     const { page, close } = await open(browser)
     await pretendMembers(page, 2)
     await openLab(page, '?limit=1')
+    // #292: the second page answers after the router's pending time (1 s), as a loaded server
+    // did on CI. The page must stay and keep the focus, not swap in the pending screen.
+    await page.route('**/api/v1/labs/*/members/?*offset=1*', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      await route.fallback()
+    })
     const pager = page.getByRole('navigation', { name: 'Member pages' })
     const next = pager.getByRole('button', { name: 'Next' })
     await tabTo(page, next)

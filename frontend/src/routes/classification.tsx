@@ -3,7 +3,7 @@ import { labDetailOptions } from '@/features/labs/api/queries'
 import { strainDisagreementsOptions } from '@/features/strains/api/queries'
 import { pageDefaults, pageSearch } from '@/lib/paging'
 import { authenticatedRoute } from './authenticated'
-import { prefetch } from '@/lib/prefetch'
+import { prefetch, prefetchFor } from '@/lib/prefetch'
 
 // Where the lab's classification disagrees with the official lists (#169), under the
 // authenticated layout. The loader prefetches with the component's own options and never
@@ -15,7 +15,7 @@ export const classificationRoute = createRoute({
   validateSearch: pageSearch,
   search: { middlewares: [stripSearchParams(pageDefaults)] },
   loaderDeps: ({ search }) => search,
-  loader: ({ context, params, deps }) =>
-    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetch(context.queryClient, strainDisagreementsOptions(params.labId, deps))]),
+  loader: ({ context, params, deps, cause }) =>
+    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetchFor(cause, context.queryClient, strainDisagreementsOptions(params.labId, deps))]),
   component: lazyRouteComponent(() => import('@/pages/ClassificationPage'), 'ClassificationPage'),
 })
