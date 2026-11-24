@@ -12,8 +12,10 @@ on:
 permissions:
   contents: read
 
+# Per event and branch (#252): the nightly run and a push to develop no longer cancel each other,
+# so every merge keeps its develop result; a newer push still cancels an older push run.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
