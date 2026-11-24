@@ -116,6 +116,7 @@ def _user_id(user: User) -> str:
 
 
 def lab_create(*, name: str, code: str) -> Lab:
+    name = name.strip()  # trimmed as the database asks (#40), from a command too
     with audited_atomic():
         lab = Lab(name=name, code=code)
         save_arbitrated(lab, _lab_errors())
@@ -127,6 +128,7 @@ def lab_create(*, name: str, code: str) -> Lab:
 
 
 def lab_update(*, lab: Lab, name: str, code: str) -> Lab:
+    name = name.strip()
     with audited_atomic():
         locked = lock_lab(lab.pk)
         changes = {

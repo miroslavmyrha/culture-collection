@@ -63,3 +63,15 @@ def test_a_user_with_memberships_cannot_be_deleted(lab: Lab, viewer: User) -> No
     with pytest.raises(ProtectedError):
         viewer.delete()
     assert membership(viewer, lab).role == Role.VIEWER
+
+
+@pytest.mark.parametrize("name", [" Mycology", "Mycology ", "\tMycology", "Mycology\n"])
+def test_an_untrimmed_lab_name_is_refused(name: str) -> None:
+    # #40: names are compared as written, so the database keeps them trimmed.
+    with pytest.raises(IntegrityError, match="labs_lab_name_trimmed"), transaction.atomic():
+        make_lab(name=name, code="NEW")
+
+
+@pytest.mark.parametrize("name", ["V", "Virology", "Plant virology"])
+def test_trimmed_lab_names_are_accepted(name: str) -> None:
+    assert make_lab(name=name, code="NEW").name == name

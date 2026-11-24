@@ -1,5 +1,8 @@
+import json
 import runpy
+from datetime import timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from django.conf import settings
@@ -107,3 +110,58 @@ def test_a_client_scheme_header_cannot_fail_the_request(monkeypatch: pytest.Monk
     default.set("forwarded_allow_ips", "10.0.0.5")
     with pytest.raises(InvalidSchemeHeaders):
         scheme(default, *headers)
+
+
+# The access log (#42): no client address, and JSON lines with LOG_FORMAT=json.
+CLIENT = "203.0.113.9"
+
+
+def access_line(cfg: Config, capsys: pytest.CaptureFixture[str]) -> str:
+    """What gunicorn's access log writes for one request from CLIENT, with a quote in its URI."""
+    logger = cfg.logger_class(cfg)
+    environ = {
+        "REQUEST_METHOD": "GET",
+        "RAW_URI": '/api/v1/strains/?search="mycology"',
+        "SERVER_PROTOCOL": "HTTP/1.1",
+        "REMOTE_ADDR": CLIENT,
+    }
+    response = SimpleNamespace(status="200 OK", headers=[("X-Request-ID", "req-42")], sent=12)
+    capsys.readouterr()
+    logger.access(response, SimpleNamespace(headers=[]), environ, timedelta(milliseconds=15))
+    return capsys.readouterr().out.strip()
+
+
+def configured(monkeypatch: pytest.MonkeyPatch, log_format: str) -> Config:
+    monkeypatch.setenv("LOG_FORMAT", log_format)
+    conf = runpy.run_path(str(CONF))
+    cfg = Config()
+    cfg.set("accesslog", conf["accesslog"])
+    cfg.set("access_log_format", conf["access_log_format"])
+    if "logger_class" in conf:
+        cfg.set("logger_class", conf["logger_class"])
+    return cfg
+
+
+def test_the_plain_access_log_names_no_client_address(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    line = access_line(configured(monkeypatch, "plain"), capsys)
+    assert line.startswith('"GET /api/v1/strains/')
+    assert "request_id=req-42" in line
+    assert CLIENT not in line
+
+
+def test_the_json_access_log_is_one_json_object_per_request(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    line = access_line(configured(monkeypatch, "json"), capsys)
+    entry = json.loads(line)
+    assert entry["request"] == 'GET /api/v1/strains/?search="mycology" HTTP/1.1'
+    assert (entry["status"], entry["bytes"], entry["duration_ms"], entry["request_id"]) == (
+        "200",
+        12,
+        15,
+        "req-42",
+    )
+    assert entry["logger"] == "gunicorn.access"
+    assert CLIENT not in line

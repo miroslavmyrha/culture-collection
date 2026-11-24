@@ -94,7 +94,7 @@ docker compose up -d db >/dev/null || fail "the database did not start: docker c
 # The tests create a database and roles: they connect as the owner, whatever role
 # the running API uses (the empty values select compose's defaults).
 BACKEND_DATABASE_URL='' DB_RUNTIME_ROLE_REQUIRED='' \
-docker compose run --rm -T -e DJANGO_SETTINGS_MODULE=config.settings.test backend sh -c '
+docker compose run --rm -T -e DJANGO_SETTINGS_MODULE=config.settings.test -e PYTEST_ADDOPTS backend sh -c '
   set -eu
   fail() { echo "FAILED: $1" >&2; exit 1; }
   ruff format --check . || fail "ruff format: run ruff format ."

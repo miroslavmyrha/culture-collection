@@ -75,7 +75,15 @@ jobs:
           docker compose exec -T -e E2E_PASSWORD="$password" backend python manage.py seed_e2e
 
       - name: ./check.sh e2e
+        # JUnit reports for the summary below (#42); check.sh passes PYTEST_ADDOPTS on.
+        env:
+          PYTEST_ADDOPTS: --junitxml=/app/.reports/pytest.xml
+          PLAYWRIGHT_JUNIT_OUTPUT_NAME: junit.xml
         run: ./check.sh e2e
+
+      - name: Test summary
+        if: ${{ !cancelled() }}
+        run: python3 backend/tools/junit_summary.py backend/.reports/pytest.xml frontend/junit.xml >> "$GITHUB_STEP_SUMMARY"
 
       - name: Playwright traces
         if: failure()

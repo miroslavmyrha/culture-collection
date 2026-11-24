@@ -19,6 +19,8 @@ export default defineConfig({
   // the slowest at 8 (the 30 s default failed it). An expect gets 15 s: 10 times the slowest wait seen and
   // 3 times the old default, because deposits.spec.ts:126 failed at 5 s on a strain page still loading, a
   // wait that 3 loaded runs did not reproduce.
+  // CI also writes a JUnit report for the job summary (#42); locally the default reporter alone.
+  ...(process.env.PLAYWRIGHT_JUNIT_OUTPUT_NAME ? { reporter: [[process.env.CI ? 'dot' : 'list'], ['junit']] } : {}),
   timeout: 150_000,
   expect: { timeout: 15_000 },
   use: { baseURL: external ?? `http://localhost:${port}`, ignoreHTTPSErrors: external !== undefined, trace: 'retain-on-failure' },

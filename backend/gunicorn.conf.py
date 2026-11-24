@@ -52,4 +52,9 @@ limit_request_field_size = 8190
 accesslog = "-"
 errorlog = "-"
 loglevel = os.environ.get("GUNICORN_LOG_LEVEL", "info")
-access_log_format = '%(h)s "%(r)s" %(s)s %(b)s %(M)sms request_id=%({x-request-id}o)s'
+# No client address (#42): behind the proxy it is the proxy's, and the app's logs never name
+# one (an address bucket, ADR 0007). The request id joins a line to the app's.
+access_log_format = '"%(r)s" %(s)s %(b)s %(M)sms request_id=%({x-request-id}o)s'
+# JSON lines, as the app writes with LOG_FORMAT=json (cultures/core/gunicorn_logging.py).
+if os.environ.get("LOG_FORMAT", "").strip() == "json":
+    logger_class = "cultures.core.gunicorn_logging.JsonAccessLogger"

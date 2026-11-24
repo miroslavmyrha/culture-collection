@@ -8,6 +8,11 @@ also names that rule's id in [docs/compliance.md](docs/compliance.md), so the pa
 to the law the rule rests on is one hop.
 
 ## Unreleased
+- Lab names are stored trimmed: the services trim them and the database refuses leading or trailing whitespace, so " Mycology" cannot pass as another lab (#40).
+- The gunicorn access log names no client address (behind the proxy it was the proxy's, and the app's logs never name one), and writes JSON lines with `LOG_FORMAT=json` (#42).
+- The audit events lose the actor's single-column index, which their (actor, time) index covers; dropped concurrently (#42).
+- A test takes every app's migrations to zero and back on the test database, and another refuses a migration operation without its reverse (#42).
+- The CI check job writes a summary of the pytest and Playwright results to the job page (#42).
 - Paging or filtering a list no longer swaps in the router's pending screen when the server answers after a second: the page keeps its rows and the focused Next button. The loaders wait for a list on entering its page only (#292).
 - CI runs are grouped by event and branch, so the nightly run no longer cancels the push run of a merge on develop; `check.sh` keeps it so (#252).
 - The e2e test of the VRAT refusal picks its taxon with the keyboard and checks the field shows it: a click as the list appeared was lost now and then, and the form refused an empty taxon before the API was asked (#244).

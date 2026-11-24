@@ -110,8 +110,13 @@ class AuditEvent(models.Model):
     # cannot (a command and a psql fix in one session have different transactions).
     txid = models.BigIntegerField(db_default=CurrentTransactionId())
     event_type = models.CharField(max_length=60)  # a code from registry.EVENT_TYPES
+    # No index of its own (#42): (actor, -occurred_at) below serves the lookups and the FK.
     actor = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, related_name="+"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        related_name="+",
+        db_index=False,
     )
     # user:<public_id> for a user (never a name: it must outlive an erasure), else the
     # system actor's label ("command:seed_e2e"). Show a user's name through `actor`.
