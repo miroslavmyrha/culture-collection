@@ -9,6 +9,7 @@ to the law the rule rests on is one hop.
 
 ## Unreleased
 - CI runs are grouped by event and branch, so the nightly run no longer cancels the push run of a merge on develop; `check.sh` keeps it so (#252).
+- The e2e test of the VRAT refusal picks its taxon with the keyboard and checks the field shows it: a click as the list appeared was lost now and then, and the form refused an empty taxon before the API was asked (#244).
 - The daily anchor of the audit chains can use a qualified timestamp provider: an RFC 3161 client (rfc3161-client) keeps a token only when it verifies against the provider's roots, and `audit_chain_verify` checks every stored token again; production refuses the client without an https URL and roots (#283, R-AUDIT-04).
 - gitleaks and the development database are pinned by version and digest, and the digest guard of `check.sh` also reads `check.sh`, the workflows and `compose.yaml` (#290).
 - Superusers reset the second factor of a person in no lab in the admin: one proposes with a reason, another who is not that person confirms and sees the enrolment code once, either withdraws; staff who are not superusers see nothing of it (#285).

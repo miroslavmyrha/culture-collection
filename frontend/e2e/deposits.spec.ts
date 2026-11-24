@@ -193,8 +193,15 @@ test('a VRAT strain is refused at acceptance while the lab holds no SÚJB permit
   await openLab(page)
   await receiveAndCheck(page, `Bacillus subtilis refused ${RUN}`)
   const form = page.getByRole('form', { name: 'Accept the deposit' })
-  await form.getByRole('combobox', { name: 'Taxon' }).fill('abortus')
-  await page.getByRole('option', { name: /Brucella abortus/ }).click()
+  const taxon = form.getByRole('combobox', { name: 'Taxon' })
+  await taxon.fill('abortus')
+  // #244: a click as the list appeared could land while its popper was still placed, and the
+  // pick was lost (the trace kept "abortus", the form then refused an empty taxon on the client).
+  // The keyboard picks the highlighted result wherever the list is, and the field must show it.
+  await expect(page.getByRole('option', { name: /Brucella abortus/ })).toBeVisible()
+  await taxon.press('ArrowDown')
+  await taxon.press('Enter')
+  await expect(taxon).toHaveValue(/^Brucella abortus/)
   await form.getByRole('textbox', { name: 'Identification method' }).fill('MALDI-TOF MS')
   await form.getByRole('combobox', { name: 'Risk group' }).selectOption('2')
   await form.getByRole('textbox', { name: 'Risk group basis' }).fill(BASIS)
