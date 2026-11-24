@@ -37,7 +37,9 @@ export function makeQueryClient({ onUnauthorized }: Options = {}) {
       },
     }),
     defaultOptions: {
-      queries: { retry: shouldRetry, retryDelay, staleTime: 30_000 },
+      // retryOnMount false (#43): a page whose loader already fetched a failing query shows the
+      // failure with its own retry; mounting must not fetch and report the same failure again.
+      queries: { retry: shouldRetry, retryDelay, staleTime: 30_000, retryOnMount: false },
       mutations: { retry: false }, // never retry writes blindly
     },
   })

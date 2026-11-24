@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import type { components } from '@/api/schema'
 import { useForm } from 'react-hook-form'
 import { Alert, Button, Stack, TextField } from '@/components/ui'
-import { isApiError } from '@/lib/api'
+import { CsrfError, errorMessage, isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
 import { useLogin } from '../api/mutations'
 import { type LoginInput, loginSchema } from '../schemas'
@@ -38,7 +38,12 @@ function LoginFailure({ error, isError, username, password }: { error: unknown; 
 const onField = (error: FieldError) => error?.type === 'server'
 
 /** The 429's own words, else the general ones. */
-const failureText = (error: unknown) => (isApiError(error, 429) ? tooManyAttempts(error.retryAfterMs) : 'Sign-in failed. Try again.')
+function failureText(error: unknown): string {
+  if (isApiError(error, 429)) return tooManyAttempts(error.retryAfterMs)
+  // The token the form needs did not load (#43): say so, not a wrong password.
+  if (error instanceof CsrfError) return errorMessage(error)
+  return 'Sign-in failed. Try again.'
+}
 
 export function LoginForm({ onSuccess }: Props) {
   const login = useLogin()

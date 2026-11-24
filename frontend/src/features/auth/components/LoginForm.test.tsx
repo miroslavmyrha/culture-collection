@@ -97,6 +97,14 @@ describe('LoginForm', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Sign-in failed. Try again.')
   })
 
+  it('says the security check did not load, not that the sign-in failed (#43)', async () => {
+    server.use(http.get('*/api/v1/auth/csrf/', () => HttpResponse.error()))
+    const calls = recordRequests('post', '/api/v1/auth/login/')
+    await submit()
+    expect(await screen.findByRole('alert')).toHaveTextContent('the security check of the page did not load')
+    expect(calls).toHaveLength(0)
+  })
+
   it('validates empty fields without calling the API', async () => {
     const calls = recordRequests('post', '/api/v1/auth/login/')
     await submit({ username: '', password: '' })

@@ -9,6 +9,8 @@ export const loginSearchSchema = z.object({
   redirect: z.string().optional().catch(undefined),
   // Set by sign-out to confirm it on the login page.
   signedOut: z.boolean().optional().catch(undefined),
+  // Set by the 401 handler: the session ended while the user worked (#43).
+  sessionEnded: z.boolean().optional().catch(undefined),
 })
 
 export const loginRoute = createRoute({

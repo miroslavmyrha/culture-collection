@@ -6,7 +6,7 @@ import { safeRedirect } from '@/lib/safe'
 const route = getRouteApi('/login')
 
 export function LoginPage() {
-  const { redirect, signedOut } = route.useSearch()
+  const { redirect, signedOut, sessionEnded } = route.useSearch()
   const navigate = useNavigate()
   return (
     <Container component="section" maxWidth="xs" disableGutters>
@@ -20,6 +20,12 @@ export function LoginPage() {
           // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- MUI Alert owns its root element and defaults to role="alert"; role="status" is what <output> would give
           <Alert severity="info" role="status" sx={{ mb: 2 }}>
             You have been signed out.
+          </Alert>
+        )}
+        {sessionEnded && !signedOut && (
+          // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- MUI Alert owns its root element and defaults to role="alert"; role="status" is what <output> would give
+          <Alert severity="info" role="status" sx={{ mb: 2 }}>
+            Your session ended. Sign in again to go back to where you were.
           </Alert>
         )}
         <SignIn onSignedIn={() => void navigate({ href: safeRedirect(redirect), replace: true })} />

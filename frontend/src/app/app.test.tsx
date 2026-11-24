@@ -266,7 +266,9 @@ describe('session expiry (401)', () => {
     const csrf = (n: number) => client.query({ queryKey: ['csrf', n], queryFn: () => unwrap(api.GET('/api/v1/auth/csrf/')) })
     await Promise.allSettled([csrf(1), csrf(2), csrf(3)])
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
-    expect(router.state.location.search).toEqual({ redirect: '/?tab=b' })
+    expect(router.state.location.search).toEqual({ redirect: '/?tab=b', sessionEnded: true })
+    // #43: the login page says why the user is there.
+    expect(screen.getByRole('status')).toHaveTextContent('Your session ended. Sign in again to go back to where you were.')
     expect(client.getQueryCache().findAll({ queryKey: ['csrf'] })).toHaveLength(0)
     expect(client.getQueryData(authKeys.me())).toBeNull()
     expect(client.getMutationCache().getAll()).toEqual([])
@@ -306,6 +308,7 @@ describe('sign out', () => {
     expect(client.getQueryData(authKeys.me())).toBeNull()
     expect(client.getMutationCache().getAll()).toEqual([])
     expect(screen.getByRole('status')).toHaveTextContent('You have been signed out.')
+    expect(screen.queryByText(/Your session ended/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Account/ })).not.toBeInTheDocument()
   })
 
@@ -320,6 +323,7 @@ describe('sign out', () => {
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(router.state.location.search).toEqual({ signedOut: true })
     expect(screen.getByRole('status')).toHaveTextContent('You have been signed out.')
+    expect(screen.queryByText(/Your session ended/)).not.toBeInTheDocument()
     expect(client.getQueryData(['private', 'records'])).toBeUndefined()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
@@ -388,6 +392,7 @@ describe('sign out', () => {
     await user.click(await signOutItem(user))
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('You have been signed out.')
+    expect(screen.queryByText(/Your session ended/)).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 

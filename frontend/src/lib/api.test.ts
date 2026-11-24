@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { makeMe, problem } from '@/test/factories'
 import { mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { server } from '@/test/server'
-import { api, ApiError, csrfToken, ensureCsrf, errorMessage, parseRetryAfter, readProblem, retryDelay, shouldRetry, unwrap } from './api'
+import { api, ApiError, CsrfError, csrfToken, ensureCsrf, errorMessage, parseRetryAfter, readProblem, retryDelay, shouldRetry, unwrap } from './api'
 
 const getMe = () => unwrap(api.GET('/api/v1/auth/me/'))
 
@@ -128,6 +128,16 @@ describe('errorMessage', () => {
     expect(errorMessage(new ApiError(status, { detail: 'internal detail' }))).toBe(message)
   })
 
+  it('names the reference of a server failure, and of nothing else (#43)', () => {
+    expect(errorMessage(new ApiError(503, undefined, { requestId: 'req-1' }))).toBe('The server failed. Try again in a moment. Reference: req-1.')
+    expect(errorMessage(new ApiError(503, undefined))).toBe('The server failed. Try again in a moment.')
+    expect(errorMessage(new ApiError(403, undefined, { requestId: 'req-2' }))).toBe('You do not have permission to do that.')
+  })
+
+  it('says a write was not sent when the security token did not load (#43)', () => {
+    expect(errorMessage(new CsrfError(new ApiError(0, undefined)))).toMatch(/^Could not prepare the change: the security check of the page did not load\. Nothing was saved\./)
+  })
+
   it('never shows a raw error', () => {
     expect(errorMessage(new Error('SELECT * FROM secrets'))).toBe('Something went wrong. Try again.')
   })
@@ -156,11 +166,15 @@ describe('ensureCsrf', () => {
 
   it('throws an ApiError when the ask gets an error status, so the write is not sent', async () => {
     mockApiError('get', '/api/v1/auth/csrf/', 500)
-    await expect(ensureCsrf()).rejects.toMatchObject({ name: 'ApiError', status: 500 })
+    // #43: its own error, still an ApiError for retries and reports.
+    const error = await ensureCsrf().catch((caught: unknown) => caught)
+    expect(error).toBeInstanceOf(CsrfError)
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({ name: 'CsrfError', status: 500 })
   })
 
   it('stops the write with status 0 when the ask gets no response', async () => {
     server.use(http.get('*/api/v1/auth/csrf/', () => HttpResponse.error()))
-    await expect(ensureCsrf()).rejects.toMatchObject({ name: 'ApiError', status: 0 })
+    await expect(ensureCsrf()).rejects.toMatchObject({ name: 'CsrfError', status: 0 })
   })
 })
