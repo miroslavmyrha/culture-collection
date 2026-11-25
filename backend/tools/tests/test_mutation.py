@@ -43,6 +43,7 @@ def test_the_run_exits_1_only_for_a_new_survivor(
     class Done:
         def __init__(self, stdout: str) -> None:
             self.stdout = stdout
+            self.returncode = 0
 
     monkeypatch.setattr(mutation, "BACKEND", tmp_path)
     monkeypatch.setattr("tools.mutation.subprocess.run", lambda *a, **k: Done(next(outputs, "")))
@@ -93,3 +94,33 @@ def test_the_baseline_names_only_known_areas() -> None:
 def test_areas_prints_the_matrix(capsys: pytest.CaptureFixture[str]) -> None:
     assert mutation.main(["areas"]) == 0
     assert capsys.readouterr().out.split() == sorted(mutation.AREAS)
+
+
+def test_a_run_that_checked_no_mutant_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 2026-11-25: a test failed before any mutant ran, mutmut left nothing, the night was green.
+    class Done:
+        def __init__(self, stdout: str, code: int) -> None:
+            self.stdout, self.returncode = stdout, code
+
+    monkeypatch.setattr(mutation, "BACKEND", tmp_path)
+    summary = tmp_path / "summary.md"
+    for code, results in ((0, ""), (1, RESULTS)):
+        answers = iter([Done("", code), Done(results, 0)])
+        monkeypatch.setattr(
+            "tools.mutation.subprocess.run", lambda *a, _answers=answers, **k: next(_answers)
+        )
+        assert mutation.run("audit", 1, summary) == 1
+    assert summary.read_text().count("mutmut did not run its mutants") == 2
+
+
+def test_a_module_reading_test_is_deselected_in_its_area() -> None:
+    parser = ConfigParser()
+    parser.read_string(mutation.setup_cfg(mutation.AREAS["strains"]))
+    args = [line for line in parser.get("mutmut", "pytest_add_cli_args").split("\n") if line]
+    assert args[-2:] == [
+        "--deselect",
+        "cultures/strains/tests/test_services.py"
+        "::test_every_public_strain_service_has_a_strain_id_scenario",
+    ]

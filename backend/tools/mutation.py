@@ -34,6 +34,9 @@ NOT_KILLED = frozenset({"survived", "no tests", "suspicious"})
 class Area:
     sources: tuple[str, ...]
     tests: tuple[str, ...]
+    # Tests that read a module's own functions: mutmut adds its trampolines there, so they fail
+    # before any mutant runs. They are proofs of structure, not of behaviour.
+    deselect: tuple[str, ...] = ()
 
 
 def _tests(app: str, *names: str) -> tuple[str, ...]:
@@ -83,6 +86,10 @@ AREAS: dict[str, Area] = {
             "test_end_proposals.py",
             "test_services.py",
         ),
+        deselect=(
+            "cultures/strains/tests/test_services.py"
+            "::test_every_public_strain_service_has_a_strain_id_scenario",
+        ),
     ),
     "users": Area(
         ("cultures/users/factors.py", "cultures/users/login_limits.py", "cultures/users/signin.py"),
@@ -98,6 +105,13 @@ AREAS: dict[str, Area] = {
 }
 
 
+PYTEST_ARGS = ("-p", "no:cacheprovider", "--ds=config.settings.test", "-m", "not slow")
+
+
+def _deselect(area: Area) -> tuple[str, ...]:
+    return tuple(arg for test in area.deselect for arg in ("--deselect", test))
+
+
 def setup_cfg(area: Area) -> str:
     """mutmut's config for one area. mutmut reads setup.cfg when pyproject has no
     [tool.mutmut], so the areas need no second pyproject."""
@@ -111,11 +125,20 @@ def setup_cfg(area: Area) -> str:
         "source_paths = cultures\n"
         f"only_mutate ={lines(area.sources)}\n"
         f"also_copy ={lines(('config', 'conftest.py', 'cultures', 'tools', 'manage.py'))}\n"
-        "pytest_add_cli_args ="
-        f"{lines(('-p', 'no:cacheprovider', '--ds=config.settings.test', '-m', 'not slow'))}\n"
+        f"pytest_add_cli_args ={lines(PYTEST_ARGS + _deselect(area))}\n"
         f"pytest_add_cli_args_test_selection ={lines(area.tests)}\n"
         "use_git_change_detection = false\n"
     )
+
+
+def statuses(results: str) -> dict[str, str]:
+    """Every mutant `mutmut results` lists, with its status."""
+    found: dict[str, str] = {}
+    for line in results.splitlines():
+        name, separator, status = line.strip().rpartition(": ")
+        if separator and name and " " not in name:
+            found[name] = status
+    return found
 
 
 def not_killed(results: str) -> dict[str, str]:
@@ -161,21 +184,37 @@ def run(area_name: str, max_children: int, summary_path: Path | None) -> int:
     area = AREAS[area_name]
     (BACKEND / "setup.cfg").write_text(setup_cfg(area), encoding="utf-8")
     mutmut = [*MUTMUT, "run", "--max-children", str(max_children)]
-    subprocess.run(mutmut, cwd=BACKEND, check=False)  # noqa: S603  # fixed arguments
+    code = subprocess.run(mutmut, cwd=BACKEND, check=False).returncode  # noqa: S603
     results = subprocess.run(  # noqa: S603  # fixed arguments
-        [*MUTMUT, "results"], cwd=BACKEND, capture_output=True, text=True, check=False
+        [*MUTMUT, "results", "--all", "true"],
+        cwd=BACKEND,
+        capture_output=True,
+        text=True,
+        check=False,
     ).stdout
+    checked = {k: v for k, v in statuses(results).items() if v != "not checked"}
+    if code != 0 or not checked:
+        # 2026-11-25: a test that failed before any mutant ran left 0 survivors, a green night.
+        text = (
+            f"### Mutation: {area_name}\n\nmutmut did not run its mutants"
+            f" (exit {code}, {len(checked)} checked).\n"
+        )
+        _report(text, summary_path)
+        return 1
     found = not_killed(results)
     new, gone = compare(found, load_baseline(area_name))
     for name in new:  # the diff of each new survivor, in the log
         subprocess.run([*MUTMUT, "show", name], cwd=BACKEND, check=False)  # noqa: S603
-    text = summary(area_name, found, new, gone)
+    _report(summary(area_name, found, new, gone), summary_path)
+    return 1 if new else 0
+
+
+def _report(text: str, summary_path: Path | None) -> None:
     sys.stdout.write(text)
     if summary_path is not None:
         summary_path.parent.mkdir(parents=True, exist_ok=True)
         with summary_path.open("a", encoding="utf-8") as handle:
             handle.write(text)
-    return 1 if new else 0
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -52,7 +52,7 @@ jobs:
       - name: mutmut over ${{ matrix.area }}
         run: >-
           docker compose run --rm -T backend
-          python tools/mutation.py run ${{ matrix.area }} --max-children 1 --summary .reports/mutation.md
+          python tools/mutation.py run ${{ matrix.area }} --max-children 4 --summary .reports/mutation.md
 
       - name: Survivors on the job page
         if: ${{ !cancelled() }}
