@@ -1,9 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useId, useState } from 'react'
-import { type FieldValues, type Path, type UseFormSetError, useForm, useWatch } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { ConfirmDialog, SelectField, Stack, TextField } from '@/components/ui'
-import { isApiError } from '@/lib/api'
-import { applyServerErrors } from '@/lib/forms'
+import { placeError, REASON_HINT } from '@/lib/forms'
 import { useCreateUnit, useEditUnit, useMoveUnit, useSetUnitStatus } from '../api/mutations'
 import { useUnitTree } from '../api/queries'
 import {
@@ -30,26 +29,7 @@ import { KindField, SlotField, UnitFields } from './UnitFields'
 
 type Visibility = { open: boolean; onClose: () => void; onExited: () => void }
 
-const REASON_HINT = 'Stored for good with the change. Name no person.'
 const FIELDS = ['name', 'barcode', 'temperature_c', 'max_risk_group', 'box_type'] as const
-
-/**
- * The failure of a dialog's request: field errors on their fields (focused), everything else
- * as the dialog's own message. Returns that message, or undefined when a field took it.
- */
-function placeError<T extends FieldValues>(
-  error: unknown,
-  fields: readonly Path<T>[],
-  setError: UseFormSetError<T>,
-  reasonField?: Path<T>,
-): string | undefined {
-  // A reason of spaces only passes the form and fails the server: say so on the field.
-  if (isApiError(error) && error.code === 'reason_required' && reasonField) {
-    setError(reasonField, { type: 'server', message: 'Say why' }, { shouldFocus: true })
-    return undefined
-  }
-  return applyServerErrors(error, fields, setError) ? undefined : storageError(error)
-}
 
 type CreateProps = Visibility & {
   labId: string
@@ -86,7 +66,7 @@ export function CreateUnitDialog({ labId, parent, open, onClose, onExited, onCre
     create.mutate(createBody(values, parent?.public_id ?? null), {
       onSuccess: (unit) => onCreated(unit),
       // A refused parent has no field here: it shows as the dialog's message.
-      onError: (error) => setFailure(placeError(error, ['kind', 'slot', ...FIELDS], setError)),
+      onError: (error) => setFailure(placeError(error, ['kind', 'slot', ...FIELDS], setError, storageError)),
     })
   })
   const { title, description } = createTexts(parent, kinds)
@@ -131,7 +111,7 @@ export function EditUnitDialog({ labId, unit, open, onClose, onExited }: UnitPro
     setFailure(undefined)
     edit.mutate(fieldsBody(unit.kind, values), {
       onSuccess: onClose,
-      onError: (error) => setFailure(placeError(error, FIELDS, setError)),
+      onError: (error) => setFailure(placeError(error, FIELDS, setError, storageError)),
     })
   })
   return (
@@ -200,7 +180,7 @@ export function MoveUnitDialog({ labId, unit, open, onClose, onExited }: UnitPro
     setFailure(undefined)
     move.mutate(moveBody(values), {
       onSuccess: onClose,
-      onError: (error) => setFailure(placeError(error, ['parent', 'slot'], setError)),
+      onError: (error) => setFailure(placeError(error, ['parent', 'slot'], setError, storageError)),
     })
   })
   return (
@@ -260,7 +240,7 @@ export function UnitStatusDialog({ labId, unit, to, open, onClose, onExited }: S
     setFailure(undefined)
     change.mutate(
       { status: to, reason: values.reason.trim() },
-      { onSuccess: onClose, onError: (error) => setFailure(placeError(error, ['reason'], setError, 'reason')) },
+      { onSuccess: onClose, onError: (error) => setFailure(placeError(error, ['reason'], setError, storageError, 'reason')) },
     )
   })
   const form = (

@@ -1,7 +1,7 @@
 import { type SubmitEvent, useState } from 'react'
 import { Alert, Button, Stack, TextField, Typography } from '@/components/ui'
 import { useEnrolmentCode } from '../api/factors'
-import { factorError, stepExpired } from './factorErrors'
+import { factorError, stepExpired } from '../factorErrors'
 
 type Props = { onAccepted: () => void; onRestart: () => void }
 

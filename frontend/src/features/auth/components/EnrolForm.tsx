@@ -1,7 +1,7 @@
 import { type SubmitEvent, useState } from 'react'
 import { Alert, Button, Mono, Stack, TextField, Typography } from '@/components/ui'
 import { type Enrolled, useKeyEnrol, useTotpEnrol, useTotpSetup } from '../api/factors'
-import { factorError, stepExpired } from './factorErrors'
+import { factorError, stepExpired } from '../factorErrors'
 import { QrCode } from './QrCode'
 
 type Props = { onEnrolled: (result: Enrolled) => void; onRestart: () => void; intro?: boolean }

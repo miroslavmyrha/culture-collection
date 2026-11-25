@@ -1,11 +1,11 @@
-import { type MouseEvent, useRef, useState } from 'react'
+import { type MouseEvent } from 'react'
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
 import { Button, Paper, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
-import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { type Medium } from '@/lib/growth'
 import { useMediaList } from '../api/queries'
 import { MediumDialog, RetireMediumDialog } from './MediumDialogs'
+import { useDialogSlot } from '@/lib/dialog'
 
 type Open = { kind: 'new' | 'edit' | 'retire'; medium?: Medium; open: boolean } | null
 
@@ -15,17 +15,9 @@ type Open = { kind: 'new' | 'edit' | 'retire'; medium?: Medium; open: boolean } 
  */
 export function MediaList({ labId, canManage }: { labId: string; canManage: boolean }) {
   const list = useMediaList(labId)
-  const [open, setOpen] = useState<Open>(null)
-  const spot = useRef<FocusReturn | null>(null)
+  const { slot: open, openFrom, close, exited } = useDialogSlot<NonNullable<Open>>()
   const show = (kind: 'new' | 'edit' | 'retire', medium?: Medium) => (event: MouseEvent<HTMLButtonElement>) => {
-    spot.current = rememberFocus(event.currentTarget)
-    setOpen({ kind, medium, open: true })
-  }
-  const close = () => setOpen((current) => current && { ...current, open: false })
-  const exited = () => {
-    spot.current?.restore()
-    spot.current = null
-    setOpen(null)
+    openFrom(event.currentTarget, { kind, medium, open: true })
   }
   if (list.data === undefined) {
     if (list.isPending) return <Typography>Loading the media…</Typography>

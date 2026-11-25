@@ -1,11 +1,12 @@
 import { type ReactNode } from 'react'
-import { Box, Stack, Typography } from '@/components/ui'
+import { Stack } from '@/components/ui'
 import { useFocusReturnOnUnmount } from '@/lib/focus'
 import { BASIS_LABELS, COOLANT_LABELS, PACKING_LABELS, type Preparation, type Role, type Shipment, TRANSPORT_CLASS_LABELS } from '../schemas'
+import { day } from '@/lib/dates'
+import { Facts, Section } from '@/components/DetailParts'
 
 /** The small parts the request page is built from: a titled section, a list of facts, a row of buttons. */
 
-export const day = (iso: string) => new Date(iso).toLocaleDateString('sv')
 
 export const reason = (text: string) => (text ? `: ${text}` : '.')
 
@@ -27,35 +28,6 @@ export function ButtonRow({ children }: { children: ReactNode }) {
     <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap' }}>
       {children}
     </Stack>
-  )
-}
-
-export function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <Box component="section" aria-label={title} sx={{ mt: 4 }}>
-      {/* tabIndex -1: where focus goes when the control that had it is gone. */}
-      <Typography component="h2" variant="h6" tabIndex={-1} gutterBottom>
-        {title}
-      </Typography>
-      <Stack spacing={2}>{children}</Stack>
-    </Box>
-  )
-}
-
-export function Facts({ rows }: { rows: [string, string][] }) {
-  return (
-    <Box component="dl" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'max-content 1fr' }, columnGap: 3, rowGap: 1, m: 0 }}>
-      {rows.map(([label, value]) => (
-        <Box key={label} sx={{ display: 'contents' }}>
-          <Typography component="dt" sx={{ fontWeight: 'bold' }}>
-            {label}
-          </Typography>
-          <Typography component="dd" sx={{ m: 0, overflowWrap: 'anywhere' }}>
-            {value}
-          </Typography>
-        </Box>
-      ))}
-    </Box>
   )
 }
 
@@ -89,3 +61,5 @@ export function PackageFacts({ package: s, people }: { package: Shipment | Prepa
   rows.push(['Carrier', s.carrier], ['Tracking number', s.tracking_number || 'None'])
   return <Facts rows={rows} />
 }
+
+export { day, Facts, Section }

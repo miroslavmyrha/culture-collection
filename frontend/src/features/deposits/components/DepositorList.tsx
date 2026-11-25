@@ -1,12 +1,12 @@
-import { type MouseEvent, useRef, useState } from 'react'
+import { type MouseEvent, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
 import { Pager, PastTheEnd } from '@/components/Pager'
 import { Box, Button, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@/components/ui'
-import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { useDepositorList } from '../api/queries'
 import { type Depositor, depositorName, type DepositorListParams } from '../schemas'
 import { DepositorDialog } from './DepositorDialog'
+import { useDialogSlot } from '@/lib/dialog'
 
 type Props = {
   labId: string
@@ -21,11 +21,9 @@ type Open = { depositor?: Depositor; open: boolean } | null
 /** The lab's depositors with their contacts, found by name or institution, added and changed in a dialog. */
 export function DepositorList({ labId, params, onOffsetChange, onSearch }: Props) {
   const list = useDepositorList(labId, params)
-  const [open, setOpen] = useState<Open>(null)
-  const spot = useRef<FocusReturn | null>(null)
+  const { slot: open, openFrom, close, exited } = useDialogSlot<NonNullable<Open>>()
   const show = (depositor?: Depositor) => (event: MouseEvent<HTMLButtonElement>) => {
-    spot.current = rememberFocus(event.currentTarget)
-    setOpen({ depositor, open: true })
+    openFrom(event.currentTarget, { depositor, open: true })
   }
   return (
     <>
@@ -42,12 +40,8 @@ export function DepositorList({ labId, params, onOffsetChange, onSearch }: Props
           labId={labId}
           depositor={open.depositor}
           open={open.open}
-          onClose={() => setOpen((current) => current && { ...current, open: false })}
-          onExited={() => {
-            spot.current?.restore()
-            spot.current = null
-            setOpen(null)
-          }}
+          onClose={close}
+          onExited={exited}
         />
       )}
     </>

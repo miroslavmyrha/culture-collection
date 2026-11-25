@@ -1,7 +1,7 @@
 import { ConfirmDialog } from '@/components/ui'
 import { useRemoveMember } from '../api/mutations'
 import type { Member } from '../schemas'
-import { memberError } from './memberErrors'
+import { memberError } from '../memberErrors'
 
 type Props = { labId: string; labName: string; member: Member; open: boolean; onClose: () => void; onExited: () => void }
 

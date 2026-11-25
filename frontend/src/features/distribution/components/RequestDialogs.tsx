@@ -49,11 +49,11 @@ import {
 } from '../schemas'
 import { STATE_ERRORS, stateError } from '../requestErrors'
 import { ACCEPTANCE_ERRORS, ANSWER_ERRORS, reasonFailure, submitFailure } from '../submitErrors'
+import { today } from '@/lib/dates'
 
 export type Common = { labId: string; request: Request; open: boolean; onClose: () => void; onExited: () => void }
 
 const REASON_HINT = 'Stored for good with the decision. Name no person.'
-const today = () => new Date().toLocaleDateString('sv')
 
 export function ApproveDialog({ labId, request, open, onClose, onExited }: Common) {
   const approve = useApproveRequest(labId, request.public_id)

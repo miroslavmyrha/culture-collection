@@ -8,6 +8,7 @@ import type { components } from '@/api/schema'
 import { type CountryCode, type StrainFactsForm as Values, type StrainFactsValues, strainFactsSchema, restrictionBody } from '../schemas'
 import { PERMIT_REFUSED_BY_KIND, problemField, RISK_GROUP_4_REFUSED, strainError } from '../strainErrors'
 import { BiosafetyFields, IdentityFields, OriginFields, RestrictionFields } from './StrainFactsFields'
+import { today } from '@/lib/dates'
 
 export type StrainFactsBody = components['schemas']['StrainFactsInputRequest']
 
@@ -45,7 +46,6 @@ const FIELDS = [
 ] as const satisfies readonly Path<Values>[]
 const RESTRICTION_FIELDS = ['kind', 'reference', 'act', 'gmo_category'] as const
 
-const today = () => new Date().toLocaleDateString('sv') // YYYY-MM-DD in local time
 
 /**
  * For curators: what the check of a deposit found, which the new strain takes. The server

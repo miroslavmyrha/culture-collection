@@ -1,11 +1,11 @@
-import { type ReactNode, useRef, useState } from 'react'
+import { type ReactNode } from 'react'
 import { StaleNotice } from '@/components/StaleNotice'
 import type { ActionItem } from '@/components/ui'
-import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { useStrain } from '../api/queries'
 import type { Strain } from '../schemas'
 import { AddRestrictionDialog, DeaccessionDialog, GrowthDialog, ProposeDeaccessionDialog, ReclassifyDialog, RiskGroupDialog } from './StrainDialogs'
 import { StrainHeader, StrainUnavailable } from './StrainShellParts'
+import { useDialogSlot } from '@/lib/dialog'
 
 type Props = {
   labId: string
@@ -33,17 +33,9 @@ function leaveItems(s: Strain, show: (kind: Kind) => (button: HTMLButtonElement)
  */
 export function StrainShell({ labId, strainId, canManage, children }: Props) {
   const strain = useStrain(labId, strainId)
-  const [open, setOpen] = useState<Open>(null)
-  const spot = useRef<FocusReturn | null>(null)
+  const { slot: open, openFrom, close, exited } = useDialogSlot<NonNullable<Open>>()
   const show = (kind: Kind) => (button: HTMLButtonElement) => {
-    spot.current = rememberFocus(button)
-    setOpen({ kind, open: true })
-  }
-  const close = () => setOpen((current) => current && { ...current, open: false })
-  const exited = () => {
-    spot.current?.restore()
-    spot.current = null
-    setOpen(null)
+    openFrom(button, { kind, open: true })
   }
 
   if (strain.data === undefined) return <StrainUnavailable strain={strain} />

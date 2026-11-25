@@ -1,12 +1,12 @@
-import { type MouseEvent, useRef, useState } from 'react'
+import { type MouseEvent } from 'react'
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
 import { Box, Button, Stack, Typography } from '@/components/ui'
-import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { useDestructions } from '../api/queries'
 import { type Destruction, destructionRules } from '../schemas'
 import { ConfirmDestructionDialog, DestructionErrorDialog, RecordDestructionDialog } from './DestructionDialogs'
 import { DestructionTable, type Rights } from './DestructionRecords'
+import { useDialogSlot } from '@/lib/dialog'
 
 type Props = {
   labId: string
@@ -62,19 +62,11 @@ const waitingVials = (rows: readonly Destruction[] | undefined) => new Set((rows
  */
 export function Destructions({ labId, strainId, accession, kinds, canHandle, canConfirm }: Props) {
   const records = useDestructions(labId, strainId)
-  const [open, setOpen] = useState<Open>(null)
-  const spot = useRef<FocusReturn | null>(null)
+  const { slot: open, openFrom, close, exited } = useDialogSlot<NonNullable<Open>>()
   // The control may be gone once the action ran (Confirm on a confirmed record): rememberFocus
   // then finds the next one in the table, or the section's heading.
   const show = (next: NonNullable<Open>) => (event: MouseEvent<HTMLButtonElement>) => {
-    spot.current = rememberFocus(event.currentTarget)
-    setOpen(next)
-  }
-  const close = () => setOpen((current) => current && { ...current, open: false })
-  const exited = () => {
-    spot.current?.restore()
-    spot.current = null
-    setOpen(null)
+    openFrom(event.currentTarget, next)
   }
   const common = { labId, strainId, onClose: close, onExited: exited }
   const actions = {

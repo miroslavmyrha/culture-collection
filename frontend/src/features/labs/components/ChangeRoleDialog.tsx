@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { ConfirmDialog, SelectField } from '@/components/ui'
 import { useChangeRole } from '../api/mutations'
 import { type ChangeRoleInput, changeRoleSchema, type Member, type Role, roleOptions } from '../schemas'
-import { memberError } from './memberErrors'
+import { memberError } from '../memberErrors'
 
 type Props = { labId: string; member: Member; roles: Role[]; open: boolean; onClose: () => void; onExited: () => void }
 

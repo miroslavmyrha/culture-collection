@@ -1,13 +1,12 @@
-import type { ReactNode } from 'react'
-import { LoadError } from '@/components/LoadError'
-import { Box, PageTitle, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
-import { isApiError } from '@/lib/api'
+import { Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@/components/ui'
 import { countryName } from '@/lib/countries'
 import type { useDeposit } from '../api/queries'
 import { ABS_SCOPE_LABELS, CONDITION_LABELS, DECISION_LABELS, type Deposit, depositorLabel, mtaLabel, type Terms, USE_LABELS } from '../schemas'
 import { scrollable } from './scroll'
+import { day } from '@/lib/dates'
+import { Facts, Section } from '@/components/DetailParts'
+import { DetailUnavailable } from '@/components/DetailUnavailable'
 
-export const day = (iso: string) => new Date(iso).toLocaleDateString('sv')
 
 /** A value that may be empty, or the words for empty. */
 const orElse = (value: string | null | undefined, empty: string): string => (value ? value : empty)
@@ -16,58 +15,7 @@ const mtaText = (mta: Terms['mta']): string => (mta ? mtaLabel(mta) : 'None')
 
 /** What the deposit page shows while it has no deposit: loading, not found, or the load error, each with its title. */
 export function DepositUnavailable({ deposit }: { deposit: ReturnType<typeof useDeposit> }) {
-  if (deposit.isPending)
-    return (
-      <>
-        <PageTitle>Loading the deposit</PageTitle>
-        <Typography>Loading the deposit…</Typography>
-      </>
-    )
-  if (isApiError(deposit.error, 404))
-    return (
-      <>
-        <PageTitle>Deposit not found</PageTitle>
-        <Typography component="h1" variant="h4" gutterBottom>
-          Deposit not found
-        </Typography>
-        <Typography>The deposit does not exist, or it is not in this lab.</Typography>
-      </>
-    )
-  return (
-    <>
-      <PageTitle>Could not load the deposit</PageTitle>
-      <LoadError what="the deposit" error={deposit.error} onRetry={() => void deposit.refetch()} />
-    </>
-  )
-}
-
-export function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <Box component="section" aria-label={title} sx={{ mt: 4 }}>
-      {/* tabIndex -1: where focus goes when the control that had it is gone. */}
-      <Typography component="h2" variant="h6" tabIndex={-1} gutterBottom>
-        {title}
-      </Typography>
-      <Stack spacing={2}>{children}</Stack>
-    </Box>
-  )
-}
-
-function Facts({ rows }: { rows: [string, string][] }) {
-  return (
-    <Box component="dl" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'max-content 1fr' }, columnGap: 3, rowGap: 1, m: 0 }}>
-      {rows.map(([label, value]) => (
-        <Box key={label} sx={{ display: 'contents' }}>
-          <Typography component="dt" sx={{ fontWeight: 'bold' }}>
-            {label}
-          </Typography>
-          <Typography component="dd" sx={{ m: 0, overflowWrap: 'anywhere' }}>
-            {value}
-          </Typography>
-        </Box>
-      ))}
-    </Box>
-  )
+  return <DetailUnavailable query={deposit} noun="deposit" notFound="The deposit does not exist, or it is not in this lab." />
 }
 
 /** The receipt: who deposited, when, in what condition. */
@@ -170,3 +118,5 @@ export function TermsHistory({ rows }: { rows: Terms[] }) {
     </TableContainer>
   )
 }
+
+export { day, Section }

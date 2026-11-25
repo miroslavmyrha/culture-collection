@@ -3,7 +3,7 @@ import { useId, useState } from 'react'
 import { type FieldValues, type Path, type UseFormSetError, useForm, useWatch } from 'react-hook-form'
 import { ConfirmDialog, Stack, TextField } from '@/components/ui'
 import { isApiError } from '@/lib/api'
-import { applyServerErrors } from '@/lib/forms'
+import { applyServerErrors, REASON_HINT } from '@/lib/forms'
 import { useDecideBatch, useEnterCheckInError, useRecordCheck } from '../api/mutations'
 import {
   type Batch,
@@ -23,8 +23,6 @@ import { vialError } from '../vialErrors'
 import { CheckFields } from './CheckFields'
 
 type Common = { labId: string; strainId: string; open: boolean; onClose: () => void; onExited: () => void }
-
-const REASON_HINT = 'Stored for good with the change. Name no person.'
 
 /** Field errors on their fields (the first focused); anything else is the dialog's message. */
 function failureOf<T extends FieldValues>(error: unknown, fields: readonly Path<T>[], setError: UseFormSetError<T>, reasonField?: Path<T>): string | undefined {

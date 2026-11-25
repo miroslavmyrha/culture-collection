@@ -1,5 +1,5 @@
 import { isApiError, readProblem } from '@/lib/api'
-import { tooManyAttempts } from './LoginForm'
+import { tooManyAttempts } from './components/LoginForm'
 
 const OWN_WORDS = new Set([409, 422])
 

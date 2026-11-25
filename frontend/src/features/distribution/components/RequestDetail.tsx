@@ -1,15 +1,14 @@
-import { type ComponentType, type MouseEvent, type ReactNode, useRef, useState } from 'react'
-import { LoadError } from '@/components/LoadError'
+import { type ComponentType, type MouseEvent, type ReactNode } from 'react'
 import { StaleNotice } from '@/components/StaleNotice'
 import { PageTitle, Typography, Mono } from '@/components/ui'
-import { isApiError } from '@/lib/api'
-import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { useRequest } from '../api/queries'
 import { awaitingAnswer, type Line, openPreparation, type Preparation, type Request, type Role, STATUS_LABELS } from '../schemas'
 import { AcceptanceDialog, ApproveAgainDialog, ApproveDialog, CancelDialog, type Common, ConfirmShipmentDialog, DepositorAnswerDialog, RejectDialog, ShipDialog, WithdrawShipmentDialog } from './RequestDialogs'
 import { type Kind } from './RequestDecision'
 import { AcceptancesSection, AnswersSection, AskedSection, DecisionSection, FindingsSection, PreparedSection, ShipmentSections, StrainsSection, VialsSection, WithdrawnSection } from './RequestSections'
 import { PackageFacts } from './requestParts'
+import { useDialogSlot } from '@/lib/dialog'
+import { DetailUnavailable } from '@/components/DetailUnavailable'
 
 type Props = {
   labId: string
@@ -32,19 +31,11 @@ type Open = { kind: Kind; open: boolean; preparation?: Preparation; lines?: Line
  */
 export function RequestDetail({ labId, requestId, role, renderVials }: Props) {
   const request = useRequest(labId, requestId)
-  const [open, setOpen] = useState<Open>(null)
-  const spot = useRef<FocusReturn | null>(null)
+  const { slot: open, openFrom, close, exited } = useDialogSlot<NonNullable<Open>>()
   const show = (kind: Kind) => (event: MouseEvent<HTMLButtonElement>) => {
-    spot.current = rememberFocus(event.currentTarget)
-    // The confirmation keeps the preparation it was opened on: a refetch does not swap it.
+        // The confirmation keeps the preparation it was opened on: a refetch does not swap it.
     // The answer keeps the strains it was opened on: a refetch does not change the choice.
-    setOpen({ kind, open: true, preparation: request.data && openPreparation(request.data), lines: request.data && awaitingAnswer(request.data) })
-  }
-  const close = () => setOpen((current) => current && { ...current, open: false })
-  const exited = () => {
-    spot.current?.restore()
-    spot.current = null
-    setOpen(null)
+openFrom(event.currentTarget, { kind, open: true, preparation: request.data && openPreparation(request.data), lines: request.data && awaitingAnswer(request.data) })
   }
 
   const r = request.data
@@ -77,29 +68,7 @@ export function RequestDetail({ labId, requestId, role, renderVials }: Props) {
 
 /** What the page says while there is no request to show: loading, not found, or the load failed. */
 function RequestMissing({ query }: { query: ReturnType<typeof useRequest> }) {
-  if (query.isPending)
-    return (
-      <>
-        <PageTitle>Loading the request</PageTitle>
-        <Typography>Loading the request…</Typography>
-      </>
-    )
-  if (isApiError(query.error, 404))
-    return (
-      <>
-        <PageTitle>Request not found</PageTitle>
-        <Typography component="h1" variant="h4" gutterBottom>
-          Request not found
-        </Typography>
-        <Typography>The request does not exist, or it is not in this lab.</Typography>
-      </>
-    )
-  return (
-    <>
-      <PageTitle>Could not load the request</PageTitle>
-      <LoadError what="the request" error={query.error} onRetry={() => void query.refetch()} />
-    </>
-  )
+  return <DetailUnavailable query={query} noun="request" notFound="The request does not exist, or it is not in this lab." />
 }
 
 const PrepareDialog = (props: Common) => <ShipDialog prepare {...props} />
