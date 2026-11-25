@@ -3,10 +3,10 @@ import { useId, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { ConfirmDialog, Stack, TextField } from '@/components/ui'
 import { isApiError } from '@/lib/api'
-import { applyServerErrors } from '@/lib/forms'
+import { applyServerErrors, REASON_HINT } from '@/lib/forms'
 import { useConfirmLocation, useGrantLocation, useRevokeLocation } from '../api/mutations'
 import { type LocationGrant, type LocationGrantInput, locationGrantSchema, type Member } from '../schemas'
-import { memberError } from './memberErrors'
+import { memberError } from '../memberErrors'
 
 type Props = {
   labId: string
@@ -97,7 +97,7 @@ export function LocationGrantDialog({ labId, member, step, grant, open, onClose,
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Reason" spacing={2} sx={{ mt: 2 }}>
         <TextField
           label="Reason"
-          hint="Stored for good with the change. Name no person."
+          hint={REASON_HINT}
           multiline
           minRows={2}
           // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)

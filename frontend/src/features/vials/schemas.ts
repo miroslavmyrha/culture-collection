@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { addIssues, type Rule } from '@/lib/rules'
 import type { components } from '@/api/schema'
+import { today } from '@/lib/dates'
 
 type Schemas = components['schemas']
 export type Passage = Schemas['PassageOutput']
@@ -195,7 +196,6 @@ export const locationText = (l: Location) => `${l.path.join(' / ')}, ${l.label}`
 // Forms. Limits mirror the backend; the server still decides and its errors map back.
 const required = (message: string) => z.string().trim().min(1, message)
 export const reasonSchema = required('Say why').max(2000, 'Use at most 2000 characters')
-const today = () => new Date().toLocaleDateString('sv')
 
 export const preserveSchema = z.object({
   passage: required('Choose the passage'),

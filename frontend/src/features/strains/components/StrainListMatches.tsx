@@ -1,12 +1,11 @@
-import { useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
 import { Box, Button, Mono, Stack, Typography } from '@/components/ui'
-import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { useStrainListMatches } from '../api/queries'
 import { RESTRICTION_LABELS, type Strain } from '../schemas'
 import { AddRestrictionDialog, type RestrictionSuggestion, RiskGroupDialog, type RiskGroupSuggestion } from './StrainDialogs'
 import { Section } from './parts'
+import { useDialogSlot } from '@/lib/dialog'
 
 type Props = { labId: string; strain: Strain; canManage: boolean }
 type Match = NonNullable<ReturnType<typeof useStrainListMatches>['data']>['results'][number]
@@ -66,17 +65,9 @@ function MatchItem({ match, strain, held, canManage, show }: ItemProps) {
  */
 export function StrainListMatches({ labId, strain, canManage }: Props) {
   const matches = useStrainListMatches(labId, strain.public_id)
-  const [open, setOpen] = useState<Open>(null)
-  const spot = useRef<FocusReturn | null>(null)
+  const { slot: open, openFrom, close, exited } = useDialogSlot<NonNullable<Open>>()
   const show = (next: NonNullable<Open>) => (event: React.MouseEvent<HTMLButtonElement>) => {
-    spot.current = rememberFocus(event.currentTarget)
-    setOpen(next)
-  }
-  const close = () => setOpen((current) => current && { ...current, open: false })
-  const exited = () => {
-    spot.current?.restore()
-    spot.current = null
-    setOpen(null)
+    openFrom(event.currentTarget, next)
   }
 
   const held = new Set(strain.restriction_history.filter((r) => r.ended_at === null).map((r) => r.kind))

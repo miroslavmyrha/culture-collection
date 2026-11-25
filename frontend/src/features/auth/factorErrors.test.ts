@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { problem } from '@/test/factories'
 import { ApiError } from '@/lib/api'
 import { factorError, stepExpired } from './factorErrors'
-import { tooManyAttempts } from './LoginForm'
+import { tooManyAttempts } from './components/LoginForm'
 
 const browser = (name: string) => Object.assign(new Error('refused'), { name })
 

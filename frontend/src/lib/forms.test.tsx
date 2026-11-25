@@ -1,12 +1,12 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useForm } from 'react-hook-form'
+import { type UseFormSetError, useForm } from 'react-hook-form'
 import { describe, expect, it } from 'vitest'
 import { TextField } from '@/components/ui'
 import { renderWithProviders } from '@/test/render'
 import { problem, validationProblem } from '@/test/factories'
 import { ApiError } from './api'
-import { applyServerErrors } from './forms'
+import { applyServerErrors, placeError } from './forms'
 
 type Values = { name: string; code: string }
 
@@ -88,5 +88,36 @@ describe('applyServerErrors', () => {
     const calls: unknown[] = []
     expect(applyServerErrors<Values>(error, ['name'], (...args) => calls.push(args))).toBe(false)
     expect(calls).toEqual([])
+  })
+})
+
+type ReasonForm = { reason: string; name: string }
+const describeIt = () => 'In the words of the feature.'
+const calls = () => {
+  const set: [string, string][] = []
+  const setError: UseFormSetError<ReasonForm> = (name, error) => {
+    set.push([name, error.message ?? ''])
+  }
+  return { set, setError }
+}
+
+describe('placeError (#67)', () => {
+
+  it('puts a refused empty reason on the reason field when the dialog has one', () => {
+    const { set, setError } = calls()
+    expect(placeError(new ApiError(422, { code: 'reason_required', title: 'x' }), ['reason'], setError, describeIt, 'reason')).toBeUndefined()
+    expect(set).toEqual([['reason', 'Say why']])
+  })
+
+  it('names the failure in the feature words without a reason field', () => {
+    const { set, setError } = calls()
+    expect(placeError(new ApiError(422, { code: 'reason_required', title: 'x' }), ['reason'], setError, describeIt)).toBe('In the words of the feature.')
+    expect(set).toEqual([])
+  })
+
+  it('leaves a field error on its field', () => {
+    const { set, setError } = calls()
+    expect(placeError(new ApiError(400, { name: ['Too long.'] }), ['name'], setError, describeIt)).toBeUndefined()
+    expect(set).toEqual([['name', 'Too long.']])
   })
 })

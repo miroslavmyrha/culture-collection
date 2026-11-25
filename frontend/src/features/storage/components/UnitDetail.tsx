@@ -1,7 +1,6 @@
-import { type MouseEvent, type ReactNode, useRef, useState } from 'react'
+import { type MouseEvent, type ReactNode } from 'react'
 import { StaleNotice } from '@/components/StaleNotice'
 import { PageTitle } from '@/components/ui'
-import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { useUnit } from '../api/queries'
 import { HOLDS, type Unit } from '../schemas'
 import { UnitActions, type UnitAction } from './UnitActions'
@@ -10,6 +9,7 @@ import { UnitFacts } from './UnitFacts'
 import { UnitHeader } from './UnitHeader'
 import { UnitHolds } from './UnitHolds'
 import { UnitUnavailable } from './UnitStates'
+import { useDialogSlot } from '@/lib/dialog'
 
 type Props = {
   labId: string
@@ -27,17 +27,9 @@ type Open = { kind: UnitAction; open: boolean } | null
 /** One storage unit: where it is (breadcrumbs), what it is, what it holds, and for curators the actions. */
 export function UnitDetail({ labId, labName, unitId, canManage, onCreated, renderContents }: Props) {
   const unit = useUnit(labId, unitId)
-  const [open, setOpen] = useState<Open>(null)
-  const spot = useRef<FocusReturn | null>(null)
+  const { slot: open, openFrom, close, exited } = useDialogSlot<NonNullable<Open>>()
   const show = (kind: UnitAction) => (event: MouseEvent<HTMLButtonElement>) => {
-    spot.current = rememberFocus(event.currentTarget)
-    setOpen({ kind, open: true })
-  }
-  const close = () => setOpen((current) => current && { ...current, open: false })
-  const exited = () => {
-    spot.current?.restore()
-    spot.current = null
-    setOpen(null)
+    openFrom(event.currentTarget, { kind, open: true })
   }
 
   if (unit.data === undefined) return <UnitUnavailable unit={unit} />

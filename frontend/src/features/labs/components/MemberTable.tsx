@@ -1,6 +1,5 @@
-import { type MouseEvent, useId, useRef, useState } from 'react'
+import { type MouseEvent, useId } from 'react'
 import { Button, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
-import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { useLocationGrants, useMemberList } from '../api/queries'
 import { type LocationGrant, type Member, type PageParams, ROLE_LABELS, type Role } from '../schemas'
 import { ChangeRoleDialog } from './ChangeRoleDialog'
@@ -10,6 +9,7 @@ import { StaleNotice } from '@/components/StaleNotice'
 import { Pager, PastTheEnd } from '@/components/Pager'
 import { EnrolmentCodeDialog } from './EnrolmentCodeDialog'
 import { RemoveMemberDialog } from './RemoveMemberDialog'
+import { useDialogSlot } from '@/lib/dialog'
 
 type Props = {
   labId: string
@@ -41,22 +41,13 @@ export function MemberTable(props: Props) {
 
 function Members({ labId, labName, grantable, params, onOffsetChange }: Props) {
   const list = useMemberList(labId, params)
-  const [open, setOpen] = useState<Open>(null)
-  // The trigger, taken when a dialog opens: a removal takes its row, and with it the button.
-  const spot = useRef<FocusReturn | null>(null)
+  const { slot: open, openFrom, close, exited } = useDialogSlot<NonNullable<Open>>()
   const manage = grantable.length > 0
   // Who may see regulated locations (ADR 0009): managers only, so nobody else asks.
   const grants = useLocationGrants(labId, manage)
   const grantOf = (member: Member) => grants.data?.find((g) => g.member === member.public_id)
   const show = (kind: Kind, member: Member) => (event: MouseEvent<HTMLButtonElement>) => {
-    spot.current = rememberFocus(event.currentTarget)
-    setOpen({ kind, member, open: true })
-  }
-  const close = () => setOpen((current) => current && { ...current, open: false })
-  const exited = () => {
-    spot.current?.restore()
-    spot.current = null
-    setOpen(null)
+    openFrom(event.currentTarget, { kind, member, open: true })
   }
   // The dialogs render in every state: removing the last row of a page shows "This page is
   // empty", and a dialog unmounted there would never run onExited to place the focus.

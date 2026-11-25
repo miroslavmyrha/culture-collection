@@ -1,7 +1,7 @@
 import { type SubmitEvent, useState } from 'react'
 import { Alert, Button, Stack, TextField, Typography } from '@/components/ui'
 import { type Me, type Method, useCodeSignIn, useKeySignIn } from '../api/factors'
-import { factorError, stepExpired } from './factorErrors'
+import { factorError, stepExpired } from '../factorErrors'
 
 type Props = { methods: Method[]; onSignedIn: (me: Me) => void; onRestart: () => void }
 

@@ -2,20 +2,13 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useId, useState } from 'react'
 import { type FieldErrors, type UseFormRegister, useForm } from 'react-hook-form'
 import { ConfirmDialog, Stack, TextField } from '@/components/ui'
-import { errorMessage, isApiError } from '@/lib/api'
-import { applyServerErrors } from '@/lib/forms'
+import { isApiError } from '@/lib/api'
+import { applyServerErrors, REASON_HINT } from '@/lib/forms'
 import { useCreateMedium, useRetireMedium, useUpdateMedium } from '../api/mutations'
+import { mediumError } from '../mediumErrors'
 import { type Medium, type MediumForm, mediumSchema, type RetireForm, retireSchema } from '../schemas'
 
 type Common = { labId: string; open: boolean; onClose: () => void; onExited: () => void }
-
-const REASON_HINT = 'Stored for good with the change. Name no person.'
-
-/** The message a medium dialog owns for a failure, by the problem code. */
-export function mediumError(error: unknown): string {
-  if (isApiError(error, 409) && error.code === 'medium_retired') return 'This medium is retired. Close this and reload the list.'
-  return errorMessage(error)
-}
 
 const FIELDS = ['name', 'composition_reference'] as const
 

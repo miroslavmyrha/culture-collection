@@ -1,12 +1,12 @@
-import { type MouseEvent, type ReactNode, useRef, useState } from 'react'
+import { type MouseEvent, type ReactNode } from 'react'
 import { StaleNotice } from '@/components/StaleNotice'
 import { Box, Button, PageTitle, Typography } from '@/components/ui'
-import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { useDeposit } from '../api/queries'
 import { type Deposit, STATUS_LABELS } from '../schemas'
 import { Decision } from './DepositDecision'
 import { RejectDialog, ReplaceTermsDialog } from './DepositDialogs'
 import { DepositUnavailable, ReceiptFacts, Section, TermsFacts, TermsHistory } from './DepositParts'
+import { useDialogSlot } from '@/lib/dialog'
 
 type Props = {
   labId: string
@@ -45,17 +45,9 @@ function DepositDialogHost({ open, labId, deposit, onClose, onExited }: HostProp
  */
 export function DepositDetail({ labId, depositId, canManage, renderAccept }: Props) {
   const deposit = useDeposit(labId, depositId)
-  const [open, setOpen] = useState<Open>(null)
-  const spot = useRef<FocusReturn | null>(null)
+  const { slot: open, openFrom, close, exited } = useDialogSlot<NonNullable<Open>>()
   const show = (kind: Kind) => (event: MouseEvent<HTMLButtonElement>) => {
-    spot.current = rememberFocus(event.currentTarget)
-    setOpen({ kind, open: true })
-  }
-  const close = () => setOpen((current) => current && { ...current, open: false })
-  const exited = () => {
-    spot.current?.restore()
-    spot.current = null
-    setOpen(null)
+    openFrom(event.currentTarget, { kind, open: true })
   }
 
   if (deposit.data === undefined) return <DepositUnavailable deposit={deposit} />

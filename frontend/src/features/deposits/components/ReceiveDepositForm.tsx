@@ -11,11 +11,11 @@ import { CONDITION_LABELS, CONDITIONS, type Deposit, type Depositor, emptyTerms,
 import { DepositorDialog } from './DepositorDialog'
 import { DepositorField } from './DepositorField'
 import { TERMS_FIELDS, TermsFields } from './TermsFields'
+import { today } from '@/lib/dates'
 
 type Props = { labId: string; onReceived: (deposit: Deposit) => void }
 
 const FIELDS = ['depositor', 'received_on', 'condition', 'condition_note', 'name_as_received', 'depositor_passages', ...TERMS_FIELDS] as const
-const today = () => new Date().toLocaleDateString('sv') // YYYY-MM-DD in local time
 
 const defaults = (): ReceiveForm => ({
   depositor: null,

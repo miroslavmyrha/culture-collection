@@ -1,14 +1,14 @@
-import { type MouseEvent, useRef, useState } from 'react'
+import { type MouseEvent, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
 import { Pager, PastTheEnd } from '@/components/Pager'
 import { StaleNotice } from '@/components/StaleNotice'
 import { Box, Button, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@/components/ui'
 import { countryName } from '@/lib/countries'
-import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { safeHref } from '@/lib/safe'
 import { useRequesterList } from '../api/queries'
 import { LEGAL_FORM_LABELS, type Permit, PERMIT_KIND_LABELS, type Requester, type RequesterListParams, scientistName } from '../schemas'
 import { EndPermitDialog, PermitDialog, RequesterDialog } from './RequesterDialogs'
+import { useDialogSlot } from '@/lib/dialog'
 
 type Props = {
   labId: string
@@ -29,17 +29,9 @@ type Open =
  * responsible scientist and the permits they hold, each with its file. */
 export function RequesterList({ labId, params, canManage, onOffsetChange, onSearch }: Props) {
   const list = useRequesterList(labId, params)
-  const [open, setOpen] = useState<Open>(null)
-  const spot = useRef<FocusReturn | null>(null)
+  const { slot: open, openFrom, close, exited } = useDialogSlot<NonNullable<Open>>()
   const show = (next: NonNullable<Open>) => (event: MouseEvent<HTMLButtonElement>) => {
-    spot.current = rememberFocus(event.currentTarget)
-    setOpen(next)
-  }
-  const close = () => setOpen((current) => current && { ...current, open: false })
-  const exited = () => {
-    spot.current?.restore()
-    spot.current = null
-    setOpen(null)
+    openFrom(event.currentTarget, next)
   }
   return (
     <>

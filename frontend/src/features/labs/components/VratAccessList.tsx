@@ -1,16 +1,16 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { type MouseEvent, useId, useRef, useState } from 'react'
+import { type MouseEvent, useId, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
 import { Alert, Box, Button, ConfirmDialog, Link, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@/components/ui'
 import { moment } from '@/lib/activity'
 import { errorMessage, isApiError, readProblem } from '@/lib/api'
-import { type FocusReturn, rememberFocus } from '@/lib/focus'
-import { applyServerErrors } from '@/lib/forms'
+import { applyServerErrors, REASON_HINT } from '@/lib/forms'
 import { useEndVratAccess, useGrantVratAccess } from '../api/mutations'
 import { useVratAccess } from '../api/queries'
 import { endedBy, type LocationGrantInput, locationGrantSchema, personName, type VratAccess, type VratAccessInput, vratAccessSchema } from '../schemas'
+import { useDialogSlot } from '@/lib/dialog'
 
 type Open = { entry: VratAccess; open: boolean } | null
 
@@ -43,23 +43,16 @@ export function VratAccessList({ labId }: { labId: string }) {
 
 function Entries({ labId }: { labId: string }) {
   const list = useVratAccess(labId)
-  const [open, setOpen] = useState<Open>(null)
-  const spot = useRef<FocusReturn | null>(null)
+  const { slot: open, openFrom, close, exited } = useDialogSlot<NonNullable<Open>>()
   const show = (entry: VratAccess) => (event: MouseEvent<HTMLButtonElement>) => {
-    spot.current = rememberFocus(event.currentTarget)
-    setOpen({ entry, open: true })
-  }
-  const exited = () => {
-    spot.current?.restore()
-    spot.current = null
-    setOpen(null)
+    openFrom(event.currentTarget, { entry, open: true })
   }
   // The dialog renders in every state, outside the list's branches: ending the last open entry
   // must still run onExited to place the focus.
   return (
     <>
       <EntryTables labId={labId} list={list} show={show} />
-      {open && <EndDialog labId={labId} entry={open.entry} open={open.open} onClose={() => setOpen((c) => c && { ...c, open: false })} onExited={exited} />}
+      {open && <EndDialog labId={labId} entry={open.entry} open={open.open} onClose={close} onExited={exited} />}
     </>
   )
 }
@@ -265,7 +258,7 @@ function EndDialog({ labId, entry, open, onClose, onExited }: DialogProps) {
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Reason" spacing={2} sx={{ mt: 2 }}>
         <TextField
           label="Reason"
-          hint="Stored for good with the change. Name no person."
+          hint={REASON_HINT}
           multiline
           minRows={2}
           // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)

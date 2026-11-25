@@ -1,6 +1,6 @@
 import { type SubmitEvent, useId, useState } from 'react'
 import { Alert, Box, Button, Mono, Stack, TextField, Typography } from '@/components/ui'
-import { resetError } from './resetErrors'
+import { resetError } from '../resetErrors'
 import { type FactorReset, useDecideReset, useFactorResets, useProposeReset } from '../api/factorResets'
 import { useMemberList } from '../api/queries'
 

@@ -1,39 +1,15 @@
-import { LoadError } from '@/components/LoadError'
-import { ActionMenu, Box, type ActionItem, Mono, PageTitle, Stack, StatusChip, type Tone, Typography } from '@/components/ui'
-import { isApiError } from '@/lib/api'
+import { ActionMenu, Box, type ActionItem, Mono, Stack, StatusChip, type Tone, Typography } from '@/components/ui'
 import { STRAIN_TONES } from '@/lib/tones'
 import type { useStrain } from '../api/queries'
 import { RESTRICTION_LABELS, STATUS_LABELS, type Strain } from '../schemas'
+import { DetailUnavailable } from '@/components/DetailUnavailable'
 
 /** A risk group as a chip: group 1 plain, group 2 to look at, 3 and 4 a warning to everyone. */
 const RISK_TONES: Record<number, Tone> = { 1: 'neutral', 2: 'warning', 3: 'danger', 4: 'danger' }
 
 /** What the strain page shows while it has no strain: loading, not found, or the load error, each with its title. */
 export function StrainUnavailable({ strain }: { strain: ReturnType<typeof useStrain> }) {
-  if (strain.isPending)
-    return (
-      <>
-        <PageTitle>Loading the strain</PageTitle>
-        <Typography>Loading the strain…</Typography>
-      </>
-    )
-  // 404 means "not in this lab" as much as "does not exist": the text says both.
-  if (isApiError(strain.error, 404))
-    return (
-      <>
-        <PageTitle>Strain not found</PageTitle>
-        <Typography component="h1" variant="h4" gutterBottom>
-          Strain not found
-        </Typography>
-        <Typography>The strain does not exist, or it is not in this lab.</Typography>
-      </>
-    )
-  return (
-    <>
-      <PageTitle>Could not load the strain</PageTitle>
-      <LoadError what="the strain" error={strain.error} onRetry={() => void strain.refetch()} />
-    </>
-  )
+  return <DetailUnavailable query={strain} noun="strain" notFound="The strain does not exist, or it is not in this lab." />
 }
 
 type HeaderProps = {

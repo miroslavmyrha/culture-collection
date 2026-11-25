@@ -1,5 +1,5 @@
 import type { FieldValues, Path, UseFormSetError } from 'react-hook-form'
-import { ApiError, readProblem } from './api'
+import { ApiError, isApiError, readProblem } from './api'
 
 /**
  * Puts a 400's errors into the form: known fields get setError (the first one is focused),
@@ -45,4 +45,27 @@ function serverMessages(body: unknown): [string | null, string][] {
     if (Array.isArray(value) && typeof value[0] === 'string') return [[key, value[0]]]
     return [] // nested (field arrays): flatten to "items.1.qty" when a form needs it
   })
+}
+
+/** Under every reason field: a reason stays in the audit trail for good (#67). */
+export const REASON_HINT = 'Stored for good with the change. Name no person.'
+
+/**
+ * The failure of a dialog's request: field errors on their fields (focused), everything else
+ * as the dialog's own message in the feature's words (`describe`). Returns that message, or
+ * undefined when a field took it. A reason of spaces only passes the form and fails the server:
+ * with `reasonField` that refusal goes on the field, focused.
+ */
+export function placeError<T extends FieldValues>(
+  error: unknown,
+  fields: readonly Path<T>[],
+  setError: UseFormSetError<T>,
+  describe: (error: unknown) => string,
+  reasonField?: Path<T>,
+): string | undefined {
+  if (isApiError(error) && error.code === 'reason_required' && reasonField) {
+    setError(reasonField, { type: 'server', message: 'Say why' }, { shouldFocus: true })
+    return undefined
+  }
+  return applyServerErrors(error, fields, setError) ? undefined : describe(error)
 }

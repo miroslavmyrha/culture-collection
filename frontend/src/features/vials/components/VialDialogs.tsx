@@ -1,11 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { useId, useState } from 'react'
-import { type FieldValues, type Path, type UseFormSetError, useForm, useWatch } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { GrowthFields } from '@/components/GrowthFields'
 import { ConfirmDialog, SelectField, Stack, TextField } from '@/components/ui'
-import { isApiError } from '@/lib/api'
-import { applyServerErrors } from '@/lib/forms'
+import { placeError, REASON_HINT } from '@/lib/forms'
 import { type Growth, type GrowthBody, type GrowthForm, GROWTH_FIELDS, growthBody, growthDefaults, growthSchema, mediaListOptions } from '@/lib/growth'
 import { usePlace, usePreserve, useReportLoss, useRevive, useSetVialStatus, useSubculture } from '../api/mutations'
 import {
@@ -34,27 +33,9 @@ import { BoxesWait, PlaceFields, PreserveFields } from './VialDialogFields'
 
 type Common = { labId: string; strainId: string; open: boolean; onClose: () => void; onExited: () => void }
 
-const REASON_HINT = 'Stored for good with the change. Name no person.'
 // A failed box load is no empty list: "no boxes" would read as a lab without storage.
 const BOXES_FAILED = 'Could not load the boxes. Close this dialog and try again.'
 const BOXES_FAILED_PRESERVE = 'Could not load the boxes, so the vials cannot be placed now. Close this dialog and try again, or preserve them and place them later.'
-
-/**
- * The failure of a dialog's request: field errors on their fields (focused), everything else
- * as the dialog's own message. Returns that message, or undefined when a field took it.
- */
-function placeError<T extends FieldValues>(
-  error: unknown,
-  fields: readonly Path<T>[],
-  setError: UseFormSetError<T>,
-  onReasonMissing?: () => void,
-): string | undefined {
-  if (isApiError(error) && error.code === 'reason_required' && onReasonMissing) {
-    onReasonMissing()
-    return undefined
-  }
-  return applyServerErrors(error, fields, setError) ? undefined : vialError(error)
-}
 
 type PreserveProps = Common & { accession: string; passages: readonly Passage[]; boxes: readonly BoxChoice[] | undefined; boxesFailed?: boolean }
 
@@ -80,7 +61,7 @@ export function PreserveBatchDialog({ labId, strainId, accession, passages, boxe
   })
   const onSubmit = handleSubmit((values) => {
     setFailure(undefined)
-    preserve.mutate(preserveBody(values), { onSuccess: onClose, onError: (error) => setFailure(placeError(error, PRESERVE_FIELDS, setError)) })
+    preserve.mutate(preserveBody(values), { onSuccess: onClose, onError: (error) => setFailure(placeError(error, PRESERVE_FIELDS, setError, vialError)) })
   })
   return (
     <ConfirmDialog
@@ -137,7 +118,7 @@ export function PlaceVialDialog({ labId, strainId, vial, boxes, boxesFailed, ope
           onPlaced?.()
           onClose()
         },
-        onError: (error) => setFailure(placeError(error, ['box', 'row', 'col'], setError)),
+        onError: (error) => setFailure(placeError(error, ['box', 'row', 'col'], setError, vialError)),
       },
     )
   })
@@ -189,7 +170,7 @@ export function VialStatusDialog({ labId, strainId, vial, materialDestroyed, los
       {
         onSuccess: onClose,
         onError: (error) =>
-          setFailure(placeError(error, ['status', 'reason'], setError, () => setError('reason', { type: 'server', message: 'Say why' }, { shouldFocus: true }))),
+          setFailure(placeError(error, ['status', 'reason'], setError, vialError, 'reason')),
       },
     )
   })
@@ -246,7 +227,7 @@ export function LossReportDialog({ labId, strainId, vial, lostAt, open, onClose,
         onSuccess: onClose,
         onError: (error) =>
           setFailure(
-            placeError(error, ['reported_on', 'reference', 'reason'], setError, () => setError('reason', { type: 'server', message: 'Say why' }, { shouldFocus: true })),
+            placeError(error, ['reported_on', 'reference', 'reason'], setError, vialError, 'reason'),
           ),
       },
     )
@@ -306,7 +287,7 @@ function GrowthStepDialog({ labId, strainGrowth, title, description, confirmLabe
     setFailure(undefined)
     const body = growthBody(values)
     const unchanged = JSON.stringify(body) === JSON.stringify(growthBody(growthDefaults(strainGrowth)))
-    send(unchanged ? undefined : body, { onSuccess: onClose, onError: (error) => setFailure(placeError(error, GROWTH_FIELDS, setError)) })
+    send(unchanged ? undefined : body, { onSuccess: onClose, onError: (error) => setFailure(placeError(error, GROWTH_FIELDS, setError, vialError)) })
   })
   return (
     <ConfirmDialog

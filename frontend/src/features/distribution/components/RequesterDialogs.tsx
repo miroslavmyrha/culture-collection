@@ -24,9 +24,9 @@ import {
 } from '../schemas'
 import { END_PERMIT_ERRORS, REQUESTER_ERRORS, submitFailure } from '../submitErrors'
 import { FileField } from './RequestDialogs'
+import { today } from '@/lib/dates'
 
 type Base = { labId: string; open: boolean; onClose: () => void; onExited: () => void }
-const today = () => new Date().toLocaleDateString('sv')
 const CHOOSE = { value: '', label: 'Choose' }
 
 const REQUESTER_FIELDS = ['institution', 'legal_form', 'registration_number', 'seat', 'country', 'lab_evidence', 'lab_confirmed_on', 'name', 'email', 'postal_address'] as const

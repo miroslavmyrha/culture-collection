@@ -3,7 +3,7 @@ import { LoadError } from '@/components/LoadError'
 import { Alert, Button, Stack, Typography } from '@/components/ui'
 import { type Factors, type Method, useMyFactors, useNewRecoveryCodes, useRemoveKey, useRemoveTotp } from '../api/factors'
 import { EnrolForm } from './EnrolForm'
-import { factorError } from './factorErrors'
+import { factorError } from '../factorErrors'
 import { RecoveryCodes } from './RecoveryCodes'
 import { SecondFactorForm } from './SecondFactorForm'
 
