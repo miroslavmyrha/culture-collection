@@ -16,10 +16,7 @@ function mockLab(role: Role) {
   mockApi(
     'get',
     '/api/v1/labs/{lab_public_id}/members/',
-    page([
-      makeMember({ username: 'alice', first_name: 'Alice', last_name: 'Adams', role: 'manager' }),
-      makeMember({ username: 'bob', role: 'technician' }),
-    ]),
+    page([makeMember({ username: 'alice', first_name: 'Alice', last_name: 'Adams', role: 'manager' }), makeMember({ username: 'bob', role: 'technician' })]),
   )
   mockApi('get', '/api/v1/labs/{lab_public_id}/location-grants/', [])
   mockApi('get', '/api/v1/labs/{lab_public_id}/vrat-access/', [])
@@ -38,7 +35,13 @@ describe('LabDetail', () => {
     expect(screen.queryByRole('navigation', { name: 'Lab sections' })).not.toBeInTheDocument()
     const table = await screen.findByRole('table', { name: 'Members' })
     const rows = within(table).getAllByRole('row').slice(1)
-    expect(rows.map((row) => within(row).getAllByRole('cell').map((cell) => cell.textContent))).toEqual([
+    expect(
+      rows.map((row) =>
+        within(row)
+          .getAllByRole('cell')
+          .map((cell) => cell.textContent),
+      ),
+    ).toEqual([
       ['alice', 'Alice Adams', 'Manager'],
       ['bob', '', 'Technician'],
     ])
@@ -60,7 +63,9 @@ describe('LabDetail', () => {
     expect(await screen.findByRole('button', { name: 'Change role of alice' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove bob' })).toBeInTheDocument()
     const form = screen.getByRole('form', { name: 'Add a member' })
-    const options = within(form).getAllByRole('option').map((o) => o.textContent)
+    const options = within(form)
+      .getAllByRole('option')
+      .map((o) => o.textContent)
     expect(options).toEqual(['Viewer', 'Technician', 'Curator', 'Manager'])
   })
 

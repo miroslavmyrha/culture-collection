@@ -24,7 +24,10 @@ async function as(browser: Browser, name: string, options: { width?: number; col
 /** The seeded lab's public id, from its link in the labs list. */
 async function labOf(page: Page) {
   await page.goto('/labs')
-  const href = await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).getAttribute('href')
+  const href = await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .getAttribute('href')
   return (href ?? '').split('/')[2] ?? ''
 }
 
@@ -36,7 +39,8 @@ async function call(page: Page, lab: string, path: string, body?: Record<string,
       const token = /(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
       const target = url.startsWith('/') ? url : `/api/v1/labs/${labId}/${url}`
       const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': decodeURIComponent(token) }
-      const response = payload === undefined ? await fetch(target, { headers }) : await fetch(target, { method: 'POST', headers, body: JSON.stringify(payload) })
+      const response =
+        payload === undefined ? await fetch(target, { headers }) : await fetch(target, { method: 'POST', headers, body: JSON.stringify(payload) })
       return { status: response.status, text: await response.text() }
     },
     [lab, path, body] as const,
@@ -65,13 +69,19 @@ async function boxWithVials(browser: Browser, name: string) {
   expect(freezer.status).toBe(201)
   const rack = await call(page, lab, 'storage-units/', { kind: 'rack', name: 'Rack 1', parent: text(freezer.json, 'public_id') })
   const types = await call(page, lab, '/api/v1/box-types/')
-  const nine = text(rows(types.json).find((t) => text(t, 'name') === '81-place cryobox (9 x 9)'), 'public_id')
+  const nine = text(
+    rows(types.json).find((t) => text(t, 'name') === '81-place cryobox (9 x 9)'),
+    'public_id',
+  )
   const box = await call(page, lab, 'storage-units/', { kind: 'box', name, parent: text(rack.json, 'public_id'), box_type: nine })
   expect(box.status).toBe(201)
   const strains = await call(page, lab, `strains/?search=${encodeURIComponent('B. subtilis e2e seed')}`)
   const passages = await call(page, lab, `passages/?strain=${text(rows(strains.json)[0], 'public_id')}`)
   const batch = await call(page, lab, 'batches/', {
-    passage: text(rows(passages.json).find((p) => p.number === 0), 'public_id'),
+    passage: text(
+      rows(passages.json).find((p) => p.number === 0),
+      'public_id',
+    ),
     method: 'cryo_minus80',
     purpose: 'distribution',
     preserved_on: '2026-10-01',

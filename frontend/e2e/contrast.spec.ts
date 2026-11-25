@@ -14,7 +14,10 @@ async function open(browser: Browser, colorScheme: 'light' | 'dark', width = 128
 
 async function openLab(page: Page) {
   await page.goto('/labs')
-  const href = await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).getAttribute('href')
+  const href = await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .getAttribute('href')
   await page.goto(href ?? '')
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
 }
@@ -117,7 +120,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
       const active = page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Strains' })
       await expect(active).toHaveAttribute('aria-current', 'page')
       await textRatio(active, 'active tab')
-      for (const control of [page.getByRole('link', { name: 'Culture Collection' }), page.getByRole('button', { name: /^(Lab|Select a lab)/ }), page.getByRole('button', { name: `Account (${username})` })]) {
+      for (const control of [
+        page.getByRole('link', { name: 'Culture Collection' }),
+        page.getByRole('button', { name: /^(Lab|Select a lab)/ }),
+        page.getByRole('button', { name: `Account (${username})` }),
+      ]) {
         const box = await control.boundingBox()
         expect(box?.height).toBeGreaterThanOrEqual(24)
         expect(box?.width).toBeGreaterThanOrEqual(24)

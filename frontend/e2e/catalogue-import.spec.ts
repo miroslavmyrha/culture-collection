@@ -9,10 +9,29 @@ import { axe, runId, signedInAs, username, watchCsp } from './support.js'
 const RUN = runId()
 const FORMER = `OLD-${RUN}`
 const HEADER = [
-  'accession_number', 'name_as_received', 'depositor', 'depositor_institution', 'received_on', 'condition', 'note',
-  'taxon', 'taxon_authority', 'identified_on', 'identification_method', 'risk_group', 'risk_group_basis', 'risk_group_entry',
-  'animal_pathogenicity', 'plant_pathogenicity', 'isolation_source', 'country_of_origin', 'isolation_date', 'restrictions',
-  'abs_scope', 'uses', 'mta',
+  'accession_number',
+  'name_as_received',
+  'depositor',
+  'depositor_institution',
+  'received_on',
+  'condition',
+  'note',
+  'taxon',
+  'taxon_authority',
+  'identified_on',
+  'identification_method',
+  'risk_group',
+  'risk_group_basis',
+  'risk_group_entry',
+  'animal_pathogenicity',
+  'plant_pathogenicity',
+  'isolation_source',
+  'country_of_origin',
+  'isolation_date',
+  'restrictions',
+  'abs_scope',
+  'uses',
+  'mta',
 ]
 
 function csv(taxon: string): Buffer {
@@ -37,7 +56,10 @@ test('a manager checks a catalogue, sees the row error, imports the corrected fi
   const page = await context.newPage()
   const violations = await watchCsp(page)
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await page.getByRole('link', { name: 'Strains' }).click()
   await page.getByRole('link', { name: 'Import a catalogue' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Import a catalogue into E2E lab' })).toBeVisible()
@@ -71,7 +93,10 @@ test('a manager checks a catalogue, sees the row error, imports the corrected fi
 
   // Search by the former number finds it, and the strain page shows the number.
   await page.goto(page.url().replace(/catalogue-import$/, `strains?search=${FORMER}`))
-  await page.getByRole('link', { name: /^E2E \d+$/ }).first().click()
+  await page
+    .getByRole('link', { name: /^E2E \d+$/ })
+    .first()
+    .click()
   await expect(page.getByRole('definition').filter({ hasText: FORMER })).toBeVisible()
   expect(violations()).toEqual([])
   await context.close()

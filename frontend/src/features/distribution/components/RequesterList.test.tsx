@@ -17,7 +17,14 @@ function signedIn(role: 'viewer' | 'curator' | 'manager' = 'curator') {
   mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: role }))
 }
 
-const loa = makePermit({ kind: 'plant_health_loa', reference: 'LoA DEV/1', covers: 'Mockia vulgaris', quantity_allowed: 4, sendings_allowed: 2, expires_on: '2026-12-31' })
+const loa = makePermit({
+  kind: 'plant_health_loa',
+  reference: 'LoA DEV/1',
+  covers: 'Mockia vulgaris',
+  quantity_allowed: 4,
+  sendings_allowed: 2,
+  expires_on: '2026-12-31',
+})
 const institute = makeRequester({ institution: 'Example Institute', permits: [loa] })
 
 describe('the requesters page', () => {
@@ -29,8 +36,13 @@ describe('the requesters page', () => {
     expect(card).toHaveTextContent('Responsible scientist: Petra Ukázková, petra@example.org.')
     expect(card).toHaveTextContent('Microbiology laboratory confirmed on 2026-10-01')
     const permits = within(card).getByRole('table', { name: 'Permits of Example Institute' })
-    expect(within(permits).getAllByRole('row')[1]).toHaveTextContent('Letter of Authority for a quarantine pest: LoA DEV/1 (SÚJB). Names: Mockia vulgaris. 4 allowed in 2 sendings')
-    expect(within(permits).getByRole('link', { name: 'Download' })).toHaveAttribute('href', `${window.location.origin}/api/v1/labs/${LAB_ID}/documents/${loa.document.public_id}/`)
+    expect(within(permits).getAllByRole('row')[1]).toHaveTextContent(
+      'Letter of Authority for a quarantine pest: LoA DEV/1 (SÚJB). Names: Mockia vulgaris. 4 allowed in 2 sendings',
+    )
+    expect(within(permits).getByRole('link', { name: 'Download' })).toHaveAttribute(
+      'href',
+      `${window.location.origin}/api/v1/labs/${LAB_ID}/documents/${loa.document.public_id}/`,
+    )
   })
 
   it('says of a Letter of Authority whether the state of origin endorsed it', async () => {
@@ -251,7 +263,12 @@ describe('the requesters page', () => {
     allowConsole(/API error 409/)
     signedIn()
     mockApi('get', LIST, page([institute]))
-    mockApiError('post', `${PERMITS}{public_id}/end/` as '/api/v1/labs/{lab_public_id}/recipient-permits/{public_id}/end/', 409, problem(409, { code: 'permit_ended' }))
+    mockApiError(
+      'post',
+      `${PERMITS}{public_id}/end/` as '/api/v1/labs/{lab_public_id}/recipient-permits/{public_id}/end/',
+      409,
+      problem(409, { code: 'permit_ended' }),
+    )
     renderApp({ path: `/labs/${LAB_ID}/requesters` })
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'End LoA DEV/1' }))
@@ -316,7 +333,12 @@ describe('the requesters page', () => {
     signedIn()
     const seated = makeRequester({ institution: 'Seated Institute' })
     mockApi('get', LIST, page([seated]))
-    mockApiError('put', `${LIST}{public_id}/`, 400, validationProblem([{ attr: 'seat', code: 'max_length', detail: 'Ensure this field has no more than 300 characters.' }]))
+    mockApiError(
+      'put',
+      `${LIST}{public_id}/`,
+      400,
+      validationProblem([{ attr: 'seat', code: 'max_length', detail: 'Ensure this field has no more than 300 characters.' }]),
+    )
     renderApp({ path: `/labs/${LAB_ID}/requesters` })
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Change Seated Institute' }))
@@ -364,14 +386,18 @@ describe('the requester list states', () => {
 
   it('says no requester matches a search', async () => {
     mockApi('get', LIST, page([]))
-    await renderWithProviders(<RequesterList labId={LAB_ID} params={{ ...PARAMS, search: 'nothing' }} canManage={false} onOffsetChange={noop} onSearch={noSearch} />)
+    await renderWithProviders(
+      <RequesterList labId={LAB_ID} params={{ ...PARAMS, search: 'nothing' }} canManage={false} onOffsetChange={noop} onSearch={noSearch} />,
+    )
     expect(await screen.findByText('No requester matches this search.')).toBeInTheDocument()
   })
 
   it('offers the first page past the end', async () => {
     mockApi('get', LIST, page([], { count: 3 }))
     const onOffsetChange = vi.fn<(offset: number) => void>()
-    await renderWithProviders(<RequesterList labId={LAB_ID} params={{ limit: 25, offset: 50 }} canManage={false} onOffsetChange={onOffsetChange} onSearch={noSearch} />)
+    await renderWithProviders(
+      <RequesterList labId={LAB_ID} params={{ limit: 25, offset: 50 }} canManage={false} onOffsetChange={onOffsetChange} onSearch={noSearch} />,
+    )
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Go to the first page' }))
     expect(onOffsetChange).toHaveBeenCalledWith(0)
   })

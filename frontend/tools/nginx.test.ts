@@ -18,7 +18,9 @@ export function addedHeaders(text: string): Record<string, string> {
 
 describe('the proxy configuration', () => {
   it('sends the security headers of vite.config.ts with the nonce of the response, and HSTS', () => {
-    const expected = Object.fromEntries(Object.entries(securityHeaders).map(([name, value]: [string, string]) => [name, value.replaceAll(CSP_NONCE, NGINX_NONCE)]))
+    const expected = Object.fromEntries(
+      Object.entries(securityHeaders).map(([name, value]: [string, string]) => [name, value.replaceAll(CSP_NONCE, NGINX_NONCE)]),
+    )
     expect(addedHeaders(read('snippets/spa-headers.conf'))).toEqual({ ...expected, 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' })
   })
 

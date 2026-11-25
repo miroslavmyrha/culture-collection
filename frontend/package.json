@@ -11,6 +11,8 @@
     "lint": "oxlint --type-aware --deny-warnings",
     "lint:baseline": "oxlint --type-aware --suppress-all",
     "lint:prune": "oxlint --type-aware --prune-suppressions",
+    "format": "prettier --write src e2e tools \"*.ts\"",
+    "format:check": "prettier --check src e2e tools \"*.ts\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
@@ -53,6 +55,7 @@
     "openapi-typescript": "7.13.0",
     "oxlint": "^1.89.0",
     "oxlint-tsgolint": "^7.0.2005",
+    "prettier": "3.10.1",
     "typescript": "~6.0.2",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"

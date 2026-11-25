@@ -29,7 +29,13 @@ function Lines({ query }: { query: ReturnType<typeof useActivity> }) {
   }
   const stale = <StaleNotice what="the activity" query={query} />
   const lines = query.data.results
-  if (lines.length === 0) return <>{stale}<Typography>Nothing has happened in your labs yet.</Typography></>
+  if (lines.length === 0)
+    return (
+      <>
+        {stale}
+        <Typography>Nothing has happened in your labs yet.</Typography>
+      </>
+    )
   return (
     <>
       {stale}
@@ -57,8 +63,17 @@ function keyed(lines: ActivityLine[]): [string, ActivityLine][] {
 
 function Line({ line }: { line: ActivityLine }) {
   return (
-    <Box component="li" sx={{ px: 2, py: 0.75, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 1, '& + &': { borderTop: 1, borderColor: 'divider' } }}>
-      <Typography component="time" variant="body2" color="text.secondary" dateTime={line.occurred_at} sx={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+    <Box
+      component="li"
+      sx={{ px: 2, py: 0.75, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 1, '& + &': { borderTop: 1, borderColor: 'divider' } }}
+    >
+      <Typography
+        component="time"
+        variant="body2"
+        color="text.secondary"
+        dateTime={line.occurred_at}
+        sx={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}
+      >
         {moment(line.occurred_at)}
       </Typography>
       <Typography component="span" variant="body2" color="text.secondary">

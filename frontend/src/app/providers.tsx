@@ -16,9 +16,7 @@ export function Providers({ children, client }: { children: ReactNode; client: Q
     <CacheProvider value={emotionCache}>
       <ThemeProvider theme={theme} defaultMode="system" modeStorageKey={SCHEME_KEY} storageManager={schemeStorage}>
         <CssBaseline enableColorScheme />
-        <QueryClientProvider client={client}>
-          {children}
-        </QueryClientProvider>
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
       </ThemeProvider>
     </CacheProvider>
   )

@@ -18,7 +18,12 @@ export function RequestDetailPage() {
                 Requests of {lab.name}
               </Link>
             </Typography>
-            <RequestDetail labId={labId} requestId={requestId} role={lab.my_role} renderVials={(request) => <VialsToPull labId={labId} requestId={request.public_id} />} />
+            <RequestDetail
+              labId={labId}
+              requestId={requestId}
+              role={lab.my_role}
+              renderVials={(request) => <VialsToPull labId={labId} requestId={request.public_id} />}
+            />
           </>
         )}
       </LabGate>

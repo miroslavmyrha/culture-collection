@@ -1,5 +1,20 @@
 import { useId, useState } from 'react'
-import { Alert, Box, Button, Link, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@/components/ui'
+import {
+  Alert,
+  Box,
+  Button,
+  Link,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from '@/components/ui'
 import { errorMessage } from '@/lib/api'
 import { REASON_HINT } from '@/lib/forms'
 import { safeHref } from '@/lib/safe'
@@ -71,8 +86,8 @@ function Steps({ labId }: { labId: string }) {
     <Box component="ol" sx={{ m: 0, pl: 3 }}>
       <li>
         <Typography>
-          Fill in the template, one row per strain, and save it as CSV UTF-8, at most {MAX_MB} MB. A depositor, a taxon, an MTA and a list entry must
-          already exist here.
+          Fill in the template, one row per strain, and save it as CSV UTF-8, at most {MAX_MB} MB. A depositor, a taxon, an MTA and a list entry must already
+          exist here.
         </Typography>
         <Typography sx={{ my: 1 }}>
           <a href={safeHref(templateUrl(labId))} download="catalogue-template.csv">
@@ -147,8 +162,7 @@ function CheckResult({ checked }: { checked: Checked }) {
     <Stack spacing={1}>
       {/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- MUI Alert owns its root element; role="status" is what <output> would give */}
       <Alert severity="warning" role="status">
-        {count(checked.row_errors.length, 'error')} in {count(checked.rows, 'row')}. Correct the file and check it again: nothing is imported while a row
-        fails.
+        {count(checked.row_errors.length, 'error')} in {count(checked.rows, 'row')}. Correct the file and check it again: nothing is imported while a row fails.
       </Alert>
       <TableContainer {...scrollable('Row errors')}>
         <Table size="small">

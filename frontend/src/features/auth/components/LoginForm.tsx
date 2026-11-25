@@ -31,7 +31,8 @@ type FieldError = { type?: string; message?: string } | undefined
  * of the two was wrong. Every other failure (CSRF 403, throttling 429, 5xx, network) must be visible too.
  */
 function LoginFailure({ error, isError, username, password }: { error: unknown; isError: boolean; username: FieldError; password: FieldError }) {
-  if (isApiError(error, 400) || isApiError(error, 401)) return onField(username) || onField(password) ? null : <Alert severity="error">Invalid username or password.</Alert>
+  if (isApiError(error, 400) || isApiError(error, 401))
+    return onField(username) || onField(password) ? null : <Alert severity="error">Invalid username or password.</Alert>
   return isError ? <Alert severity="error">{failureText(error)}</Alert> : null
 }
 

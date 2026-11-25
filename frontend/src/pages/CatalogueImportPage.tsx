@@ -17,11 +17,7 @@ export function CatalogueImportPage() {
             <Typography component="h1" variant="h4" gutterBottom sx={{ overflowWrap: 'anywhere' }}>
               Import a catalogue into {lab.name}
             </Typography>
-            {canImportCatalogue(lab.my_role) ? (
-              <CatalogueImport labId={labId} />
-            ) : (
-              <Typography>Only managers import a catalogue.</Typography>
-            )}
+            {canImportCatalogue(lab.my_role) ? <CatalogueImport labId={labId} /> : <Typography>Only managers import a catalogue.</Typography>}
           </>
         )}
       </LabGate>

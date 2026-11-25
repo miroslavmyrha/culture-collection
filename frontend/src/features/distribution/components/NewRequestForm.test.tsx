@@ -10,7 +10,11 @@ const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const POST = '/api/v1/labs/{lab_public_id}/requests/'
 const requester = makeRequester({ public_id: '00000000-0000-4000-8000-0000000000a5', institution: 'Example Institute', country: 'CZ' })
 const base = makeStrainRow()
-const strain = makeStrainRow({ public_id: '00000000-0000-4000-8000-0000000000c1', accession_number: 'MYC 3', taxon: { ...base.taxon, name: 'Testella exempli' } })
+const strain = makeStrainRow({
+  public_id: '00000000-0000-4000-8000-0000000000c1',
+  accession_number: 'MYC 3',
+  taxon: { ...base.taxon, name: 'Testella exempli' },
+})
 
 function setup() {
   mockApi('get', '/api/v1/auth/me/', makeMe())
@@ -91,7 +95,12 @@ describe('entering a request', () => {
     allowConsole(/API error (400|422)/)
     const { user } = setup()
     await fill(user)
-    mockApiError('post', POST, 400, validationProblem([{ attr: 'lines.0.strain', code: 'no_terms', detail: 'This strain has no terms: it came from no deposit.' }]))
+    mockApiError(
+      'post',
+      POST,
+      400,
+      validationProblem([{ attr: 'lines.0.strain', code: 'no_terms', detail: 'This strain has no terms: it came from no deposit.' }]),
+    )
     await user.click(screen.getByRole('button', { name: 'Enter the request' }))
     await waitFor(() => expect(screen.getByRole('combobox', { name: 'Strain 1' })).toHaveAccessibleDescription(/no terms/))
     expect(screen.getByRole('combobox', { name: 'Strain 1' })).toHaveFocus()
@@ -116,5 +125,4 @@ describe('entering a request', () => {
     const select = await screen.findByRole('combobox', { name: 'Requester' })
     expect([...select.querySelectorAll('option')].map((o) => o.textContent)).toEqual(['Choose', 'Example Institute (CZ)'])
   })
-
 })

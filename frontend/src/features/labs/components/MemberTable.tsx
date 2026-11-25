@@ -108,8 +108,20 @@ function MemberRows({ list, manage, grants, params, onOffsetChange, show }: Rows
   }
   const stale = <StaleNotice what="the members" query={list} />
   const { count, results } = list.data
-  if (count === 0) return <>{stale}<Typography>This lab has no members yet.</Typography></>
-  if (results.length === 0) return <>{stale}<PastTheEnd onFirstPage={() => onOffsetChange(0)} /></>
+  if (count === 0)
+    return (
+      <>
+        {stale}
+        <Typography>This lab has no members yet.</Typography>
+      </>
+    )
+  if (results.length === 0)
+    return (
+      <>
+        {stale}
+        <PastTheEnd onFirstPage={() => onOffsetChange(0)} />
+      </>
+    )
   return (
     <div aria-busy={list.isPlaceholderData}>
       {stale}

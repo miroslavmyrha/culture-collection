@@ -36,11 +36,30 @@ export function PreserveFields({ register, errors, passages, boxes, boxesFailed 
       />
       <SelectField label="Method" options={METHOD_OPTIONS} error={errors.method?.message} {...register('method')} />
       <SelectField label="Purpose" hint="Seed stock is never distributed." options={PURPOSE_OPTIONS} error={errors.purpose?.message} {...register('purpose')} />
-      <TextField label="Protectant" hint="For example 10 % glycerol, or skim milk. Optional." autoComplete="off" error={errors.cryoprotectant?.message} {...register('cryoprotectant')} />
+      <TextField
+        label="Protectant"
+        hint="For example 10 % glycerol, or skim milk. Optional."
+        autoComplete="off"
+        error={errors.cryoprotectant?.message}
+        {...register('cryoprotectant')}
+      />
       <TextField label="Preserved on" hint="YYYY-MM-DD" autoComplete="off" error={errors.preserved_on?.message} {...register('preserved_on')} />
-      <TextField label="Number of vials" hint="1 to 200" inputMode="numeric" autoComplete="off" error={errors.vial_count?.message} {...register('vial_count')} />
+      <TextField
+        label="Number of vials"
+        hint="1 to 200"
+        inputMode="numeric"
+        autoComplete="off"
+        error={errors.vial_count?.message}
+        {...register('vial_count')}
+      />
       {boxes ? (
-        <SelectField label="Box" hint="Optional. Placed later otherwise." options={[choose('Do not place them yet'), ...boxes.map(boxOption)]} error={errors.box?.message} {...register('box')} />
+        <SelectField
+          label="Box"
+          hint="Optional. Placed later otherwise."
+          options={[choose('Do not place them yet'), ...boxes.map(boxOption)]}
+          error={errors.box?.message}
+          {...register('box')}
+        />
       ) : (
         <BoxesWait failed={boxesFailed} />
       )}
@@ -49,7 +68,8 @@ export function PreserveFields({ register, errors, passages, boxes, boxesFailed 
 }
 
 /** The numbers 1 to n as options: the rows of a box, by their letters, or its columns. */
-const rangeOptions = (n: number | undefined, label: (i: number) => string) => Array.from({ length: n ?? 0 }, (_, i) => ({ value: String(i + 1), label: label(i + 1) }))
+const rangeOptions = (n: number | undefined, label: (i: number) => string) =>
+  Array.from({ length: n ?? 0 }, (_, i) => ({ value: String(i + 1), label: label(i + 1) }))
 
 type PlaceFieldsProps = {
   register: UseFormRegister<PlaceForm>

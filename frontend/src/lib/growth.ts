@@ -41,7 +41,9 @@ export const mediumName = (medium: MediumBrief) => (medium.retired_at ? `${mediu
 
 /** The medium, temperature and atmosphere in one line, or a note that none is recorded. */
 export function growthText(growth: Growth): string {
-  const parts = [growth.medium ? mediumName(growth.medium) : '', temperatureText(growth), growth.atmosphere ? ATMOSPHERE_LABELS[growth.atmosphere] : ''].filter(Boolean)
+  const parts = [growth.medium ? mediumName(growth.medium) : '', temperatureText(growth), growth.atmosphere ? ATMOSPHERE_LABELS[growth.atmosphere] : ''].filter(
+    Boolean,
+  )
   return parts.length > 0 ? parts.join(', ') : 'Not recorded'
 }
 
@@ -52,8 +54,7 @@ export const MEDIA_ALL = { limit: 200, offset: 0 }
 export const mediaListOptions = (labId: string) =>
   queryOptions({
     queryKey: sharedKeys.mediaList(labId, MEDIA_ALL),
-    queryFn: ({ signal }) =>
-      unwrap(api.GET('/api/v1/labs/{lab_public_id}/media/', { signal, params: { path: { lab_public_id: labId }, query: MEDIA_ALL } })),
+    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/labs/{lab_public_id}/media/', { signal, params: { path: { lab_public_id: labId }, query: MEDIA_ALL } })),
     placeholderData: keepPreviousData,
   })
 
@@ -89,7 +90,11 @@ const TEMPERATURE_RULES: readonly Rule<Temperatures>[] = [
   [(f) => f.temperature_low_c === '' && f.temperature_high_c !== '', 'temperature_low_c', 'Enter the low end too'],
   [(f) => f.temperature_low_c !== '' && outOfRange(f.temperature_low_c), 'temperature_low_c', RANGE],
   [(f) => f.temperature_high_c !== '' && outOfRange(f.temperature_high_c), 'temperature_high_c', RANGE],
-  [(f) => given(f.temperature_low_c) && given(f.temperature_high_c) && Number(f.temperature_high_c) < Number(f.temperature_low_c), 'temperature_high_c', 'The high end is below the low end'],
+  [
+    (f) => given(f.temperature_low_c) && given(f.temperature_high_c) && Number(f.temperature_high_c) < Number(f.temperature_low_c),
+    'temperature_high_c',
+    'The high end is below the low end',
+  ],
 ]
 
 /** The two temperature boxes together, for a schema that holds them next to other fields. */

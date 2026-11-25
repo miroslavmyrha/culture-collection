@@ -92,9 +92,7 @@ export function useWithdrawRiskGroup(labId: string, strainId: string) {
   return useMutation({
     mutationFn: async (body: Schemas['RiskGroupWithdrawInputRequest']) => {
       await ensureCsrf()
-      return unwrap(
-        api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group-proposal/withdraw/', { params: path(labId, strainId), body }),
-      )
+      return unwrap(api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/risk-group-proposal/withdraw/', { params: path(labId, strainId), body }))
     },
     meta: { handlesError: true },
     onSuccess: (strain) => settle(qc, labId, strain),
@@ -230,9 +228,7 @@ export function useWithdrawDeaccession(labId: string, strainId: string) {
   return useMutation({
     mutationFn: async (body: Schemas['DeaccessionWithdrawInputRequest']) => {
       await ensureCsrf()
-      return unwrap(
-        api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/deaccession-proposal/withdraw/', { params: path(labId, strainId), body }),
-      )
+      return unwrap(api.POST('/api/v1/labs/{lab_public_id}/strains/{public_id}/deaccession-proposal/withdraw/', { params: path(labId, strainId), body }))
     },
     meta: { handlesError: true },
     onSuccess: (strain) => settle(qc, labId, strain),

@@ -32,7 +32,12 @@ describe('handlePreloadError', () => {
 
   it('never reloads without storage', () => {
     const { reload, event } = setup(1)
-    const broken = { getItem: () => { throw new Error('denied') }, setItem: () => {} }
+    const broken = {
+      getItem: () => {
+        throw new Error('denied')
+      },
+      setItem: () => {},
+    }
     handlePreloadError(event, { reload, storage: broken, now: 1 })
     expect(reload).not.toHaveBeenCalled()
   })

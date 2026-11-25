@@ -11,7 +11,13 @@ export function MtaTemplateList({ labId }: { labId: string }) {
     return <LoadError what="the MTA templates" error={list.error} onRetry={() => void list.refetch()} />
   }
   const stale = <StaleNotice what="the MTA templates" query={list} />
-  if (list.data.count === 0) return <>{stale}<Typography>The lab has no MTA template yet.</Typography></>
+  if (list.data.count === 0)
+    return (
+      <>
+        {stale}
+        <Typography>The lab has no MTA template yet.</Typography>
+      </>
+    )
   return (
     <>
       {stale}

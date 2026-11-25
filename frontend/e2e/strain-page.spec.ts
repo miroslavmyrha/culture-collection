@@ -11,60 +11,72 @@ const NAME = `Bacillus subtilis tabs ${RUN}`
 
 /** The run's strain with 230 unplaced vials, made as the lab's manager would through the API. */
 async function strainWithManyVials(page: Page, name: string) {
-  return page.evaluate(async ([received, basis]) => {
-    await fetch('/api/v1/auth/csrf/')
-    const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
-    const lab = location.pathname.split('/')[2] ?? ''
-    const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
-    const send = async (path: string, body: unknown) => {
-      const response = await fetch(`/api/v1/labs/${lab}/${path}`, { method: 'POST', headers, body: JSON.stringify(body) })
-      if (!response.ok) throw new Error(`${path}: ${response.status} ${await response.text()}`)
-      const created: { public_id: string; strain?: { public_id: string; accession_number: string } | null } = await response.json()
-      return created
-    }
-    const read = async <T>(url: string): Promise<T> => {
-      const body: T = await (await fetch(url, { headers })).json()
-      return body
-    }
-    const depositors = await read<{ results: { public_id: string }[] }>(`/api/v1/labs/${lab}/depositors/?search=E2E`)
-    const uses = ['research_noncommercial', 'research_commercial', 'teaching', 'diagnostics', 'production', 'reference_qc', 'patent_deposit_related', 'redistribution']
-    const deposit = await send('deposits/', {
-      depositor: depositors.results[0]?.public_id,
-      received_on: new Date().toLocaleDateString('sv'),
-      condition: 'intact',
-      name_as_received: received,
-      terms: { mta: null, abs_scope: 'unknown', uses: uses.map((use) => ({ use, decision: use === 'teaching' ? 'deny' : 'permit' })) },
-    })
-    await send(`deposits/${deposit.public_id}/start-check/`, {})
-    const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=subtilis')
-    const accepted = await send(`deposits/${deposit.public_id}/accept/`, {
-      taxon: taxa.results.find((t) => t.name === 'Bacillus subtilis')?.public_id,
-      identified_on: new Date().toLocaleDateString('sv'),
-      identification_method: 'MALDI-TOF MS',
-      risk_group: 1,
-      risk_group_basis: basis,
-      animal_pathogenicity: 'unknown',
-      plant_pathogenicity: 'unknown',
-      isolation_source: '',
-      country_of_origin: '',
-      isolation_date: '',
-      restrictions: [],
-    })
-    const strain = accepted.strain
-    if (!strain) throw new Error('the deposit made no strain')
-    const passages = await read<{ results: { public_id: string }[] }>(`/api/v1/labs/${lab}/passages/?strain=${strain.public_id}`)
-    for (const count of [200, 30])
-      await send('batches/', {
-        passage: passages.results[0]?.public_id,
-        method: 'cryo_minus80',
-        purpose: 'seed',
-        cryoprotectant: '10 % glycerol',
-        preserved_on: new Date().toLocaleDateString('sv'),
-        vial_count: count,
-        box: null,
+  return page.evaluate(
+    async ([received, basis]) => {
+      await fetch('/api/v1/auth/csrf/')
+      const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
+      const lab = location.pathname.split('/')[2] ?? ''
+      const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
+      const send = async (path: string, body: unknown) => {
+        const response = await fetch(`/api/v1/labs/${lab}/${path}`, { method: 'POST', headers, body: JSON.stringify(body) })
+        if (!response.ok) throw new Error(`${path}: ${response.status} ${await response.text()}`)
+        const created: { public_id: string; strain?: { public_id: string; accession_number: string } | null } = await response.json()
+        return created
+      }
+      const read = async <T>(url: string): Promise<T> => {
+        const body: T = await (await fetch(url, { headers })).json()
+        return body
+      }
+      const depositors = await read<{ results: { public_id: string }[] }>(`/api/v1/labs/${lab}/depositors/?search=E2E`)
+      const uses = [
+        'research_noncommercial',
+        'research_commercial',
+        'teaching',
+        'diagnostics',
+        'production',
+        'reference_qc',
+        'patent_deposit_related',
+        'redistribution',
+      ]
+      const deposit = await send('deposits/', {
+        depositor: depositors.results[0]?.public_id,
+        received_on: new Date().toLocaleDateString('sv'),
+        condition: 'intact',
+        name_as_received: received,
+        terms: { mta: null, abs_scope: 'unknown', uses: uses.map((use) => ({ use, decision: use === 'teaching' ? 'deny' : 'permit' })) },
       })
-    return { lab, id: strain.public_id, number: strain.accession_number }
-  }, [name, riskGroupBasis] as const)
+      await send(`deposits/${deposit.public_id}/start-check/`, {})
+      const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=subtilis')
+      const accepted = await send(`deposits/${deposit.public_id}/accept/`, {
+        taxon: taxa.results.find((t) => t.name === 'Bacillus subtilis')?.public_id,
+        identified_on: new Date().toLocaleDateString('sv'),
+        identification_method: 'MALDI-TOF MS',
+        risk_group: 1,
+        risk_group_basis: basis,
+        animal_pathogenicity: 'unknown',
+        plant_pathogenicity: 'unknown',
+        isolation_source: '',
+        country_of_origin: '',
+        isolation_date: '',
+        restrictions: [],
+      })
+      const strain = accepted.strain
+      if (!strain) throw new Error('the deposit made no strain')
+      const passages = await read<{ results: { public_id: string }[] }>(`/api/v1/labs/${lab}/passages/?strain=${strain.public_id}`)
+      for (const count of [200, 30])
+        await send('batches/', {
+          passage: passages.results[0]?.public_id,
+          method: 'cryo_minus80',
+          purpose: 'seed',
+          cryoprotectant: '10 % glycerol',
+          preserved_on: new Date().toLocaleDateString('sv'),
+          vial_count: count,
+          box: null,
+        })
+      return { lab, id: strain.public_id, number: strain.accession_number }
+    },
+    [name, riskGroupBasis] as const,
+  )
 }
 
 test('a strain opens on its overview, its tabs switch by keyboard, every one of 230 vials is a page away, and its history reads', async ({ browser }) => {
@@ -72,7 +84,10 @@ test('a strain opens on its overview, its tabs switch by keyboard, every one of 
   const page = await context.newPage()
   const violations = await watchCsp(page)
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
   const strain = await strainWithManyVials(page, NAME)
 
@@ -133,7 +148,12 @@ test('a strain opens on its overview, its tabs switch by keyboard, every one of 
   for (const scheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme: scheme })
     await page.setViewportSize({ width: 320, height: 640 })
-    for (const [tab, tail] of [['Overview', ''], ['Material', '/material'], ['Terms', '/terms'], ['History', '/history']] as const) {
+    for (const [tab, tail] of [
+      ['Overview', ''],
+      ['Material', '/material'],
+      ['Terms', '/terms'],
+      ['History', '/history'],
+    ] as const) {
       await page.goto(`/labs/${strain.lab}/strains/${strain.id}${tail}`)
       await expect(tabs.getByRole('link', { name: tab })).toHaveAttribute('aria-current', 'page')
       await expect(page.getByRole('heading', { level: 2 }).first()).toBeVisible()

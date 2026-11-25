@@ -30,7 +30,17 @@ export function DepositListPage() {
             )}
             {canHandleDeposits(lab.my_role) ? (
               <>
-                <DepositFilters filters={filters} onChange={(update) => void navigate({ search: (prev) => { const { limit: keep, offset: _dropped, ...current } = prev; return { ...update(current), limit: keep, offset: 0 } } })} />
+                <DepositFilters
+                  filters={filters}
+                  onChange={(update) =>
+                    void navigate({
+                      search: (prev) => {
+                        const { limit: keep, offset: _dropped, ...current } = prev
+                        return { ...update(current), limit: keep, offset: 0 }
+                      },
+                    })
+                  }
+                />
                 <DepositList
                   labId={labId}
                   params={search}

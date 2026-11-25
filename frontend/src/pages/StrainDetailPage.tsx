@@ -10,7 +10,14 @@ import { StrainTabs } from '@/features/strains/components/StrainTabs'
 import { StrainTerms } from '@/features/strains/components/StrainTerms'
 import { canConfirmDeaccession, canConfirmRestrictionEnd, canConfirmRiskGroup, canManageStrains } from '@/features/strains/schemas'
 import { StrainMaterial } from '@/features/vials/components/StrainMaterial'
-import { canConfirmDestruction, canHandleVials, canRecordLossReport, canReleaseBatches, lossMustBeReported, strainMaterialDestroyed } from '@/features/vials/schemas'
+import {
+  canConfirmDestruction,
+  canHandleVials,
+  canRecordLossReport,
+  canReleaseBatches,
+  lossMustBeReported,
+  strainMaterialDestroyed,
+} from '@/features/vials/schemas'
 
 const route = getRouteApi('/_authenticated/labs/$labId/strains/$strainId')
 const historyRoute = getRouteApi('/_authenticated/labs/$labId/strains/$strainId/history')

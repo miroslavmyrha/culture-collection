@@ -68,8 +68,20 @@ function Rows({ list, labId, params, canManage, onOffsetChange, show }: RowsProp
   }
   const stale = <StaleNotice what="the requesters" query={list} />
   const { count, results } = list.data
-  if (count === 0) return <>{stale}<Typography>{params.search ? 'No requester matches this search.' : 'The lab has no requesters yet.'}</Typography></>
-  if (results.length === 0) return <>{stale}<PastTheEnd onFirstPage={() => onOffsetChange(0)} /></>
+  if (count === 0)
+    return (
+      <>
+        {stale}
+        <Typography>{params.search ? 'No requester matches this search.' : 'The lab has no requesters yet.'}</Typography>
+      </>
+    )
+  if (results.length === 0)
+    return (
+      <>
+        {stale}
+        <PastTheEnd onFirstPage={() => onOffsetChange(0)} />
+      </>
+    )
   return (
     <section aria-label="Requesters" aria-busy={list.isPlaceholderData}>
       {stale}
@@ -78,7 +90,15 @@ function Rows({ list, labId, params, canManage, onOffsetChange, show }: RowsProp
           <RequesterCard key={r.public_id} labId={labId} requester={r} canManage={canManage} show={show} />
         ))}
       </Stack>
-      <Pager label="Requester pages" count={count} shown={results.length} limit={params.limit} offset={params.offset} loading={list.isPlaceholderData} onOffsetChange={onOffsetChange} />
+      <Pager
+        label="Requester pages"
+        count={count}
+        shown={results.length}
+        limit={params.limit}
+        offset={params.offset}
+        loading={list.isPlaceholderData}
+        onOffsetChange={onOffsetChange}
+      />
     </section>
   )
 }
@@ -133,10 +153,13 @@ function Permits({ labId, requester, canManage, show }: { labId: string; request
           {requester.permits.map((p) => (
             <TableRow key={p.public_id}>
               <TableCell sx={{ overflowWrap: 'anywhere' }}>
-                {PERMIT_KIND_LABELS[p.kind]}: {p.reference} ({p.issuer})
-                {p.covers ? `. Names: ${p.covers}` : ''}
+                {PERMIT_KIND_LABELS[p.kind]}: {p.reference} ({p.issuer}){p.covers ? `. Names: ${p.covers}` : ''}
                 {p.quantity_allowed !== null ? `. ${p.quantity_allowed} allowed in ${p.sendings_allowed} sendings` : ''}
-                {p.kind === 'plant_health_loa' ? (p.endorsed_on ? `. Endorsed on ${p.endorsed_on}: ${p.endorsement_reference}` : '. Not endorsed by the state of origin: nothing goes out on it') : ''}
+                {p.kind === 'plant_health_loa'
+                  ? p.endorsed_on
+                    ? `. Endorsed on ${p.endorsed_on}: ${p.endorsement_reference}`
+                    : '. Not endorsed by the state of origin: nothing goes out on it'
+                  : ''}
                 {p.gmo_category !== null ? `. Category ${p.gmo_category}` : ''}
                 {p.risk_group !== null ? `. Up to risk group ${p.risk_group}` : ''}
               </TableCell>

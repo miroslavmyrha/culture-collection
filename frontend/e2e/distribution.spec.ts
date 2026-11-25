@@ -22,7 +22,10 @@ async function as(browser: Browser, name: string, width = 1280) {
 
 async function labPath(page: Page) {
   await page.goto('/labs')
-  const href = await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).getAttribute('href')
+  const href = await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .getAttribute('href')
   return href ?? ''
 }
 
@@ -55,7 +58,10 @@ test('a curator enters a request with the signed MTA and a manager approves it, 
   await form.getByRole('combobox', { name: 'Declared containment level' }).selectOption('2')
   const strain = form.getByRole('combobox', { name: 'Strain 1' })
   await strain.fill('Clostridium perfringens e2e')
-  await curator.page.getByRole('option', { name: /Clostridium perfringens/ }).first().click()
+  await curator.page
+    .getByRole('option', { name: /Clostridium perfringens/ })
+    .first()
+    .click()
   await form.getByRole('button', { name: 'Enter the request' }).click()
 
   await expect(curator.page.getByRole('heading', { level: 1, name: /^Request \d{4}\/\d+$/ })).toBeVisible()
@@ -113,7 +119,14 @@ test('a request blocked by a legal gate is not approved, on screen or through th
   const blocks = curator.page.getByRole('list', { name: 'Blocks the approval' })
   await expect(blocks).toContainText('the requester shows no reference of a notice to SÚJB (§ 17a) that names')
   await expect(curator.page.getByRole('button', { name: 'Approve and reserve the vials' })).toHaveCount(0)
-  const answer = await post(curator.page, `/api/v1${curator.page.url().replace(/^https?:\/\/[^/]+/, '').replace(/\/$/, '')}/approve/`, { reason: 'try anyway' })
+  const answer = await post(
+    curator.page,
+    `/api/v1${curator.page
+      .url()
+      .replace(/^https?:\/\/[^/]+/, '')
+      .replace(/\/$/, '')}/approve/`,
+    { reason: 'try anyway' },
+  )
   expect(answer.status).toBe(422)
   expect(answer.body).toContain('request_blocked')
   await curator.close()
@@ -133,7 +146,10 @@ test('a viewer reads the requests and what is reserved, at 320 px, and the API r
   expect(await viewer.page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
   expect(await axe(viewer.page, 'main')).toEqual([])
   await expect(viewer.page.getByRole('main').getByRole('button')).toHaveCount(0)
-  const requestPath = viewer.page.url().replace(/^https?:\/\/[^/]+/, '').replace(/\/$/, '')
+  const requestPath = viewer.page
+    .url()
+    .replace(/^https?:\/\/[^/]+/, '')
+    .replace(/\/$/, '')
   for (const action of ['approve', 'reject', 'cancel']) {
     const answer = await post(viewer.page, `/api/v1${requestPath}/${action}/`, { reason: 'not mine to decide' })
     expect(answer.status, action).toBe(403)
@@ -281,7 +297,10 @@ async function approvedRegulatedRequest(browser: Browser, lab: string) {
     await form.getByRole('textbox', { name: 'End use' }).fill(`Prepared and confirmed in run ${RUN}.`)
     await form.getByRole('combobox', { name: 'Declared containment level' }).selectOption('2')
     await form.getByRole('combobox', { name: 'Strain 1' }).fill('Clostridium perfringens e2e')
-    await curator.page.getByRole('option', { name: /Clostridium perfringens/ }).first().click()
+    await curator.page
+      .getByRole('option', { name: /Clostridium perfringens/ })
+      .first()
+      .click()
     await form.getByRole('button', { name: 'Enter the request' }).click()
     await expect(curator.page.getByRole('heading', { level: 1, name: /^Request \d{4}\/\d+$/ })).toBeVisible()
     const requestUrl = curator.page.url()
@@ -313,7 +332,10 @@ async function approvedRegulatedRequest(browser: Browser, lab: string) {
         const row = (Array.isArray(rows) ? rows : []).find((r: unknown) => typeof r === 'object' && r !== null && Reflect.get(r, 'username') === 'e2e-manager')
         if (row === undefined) return
         const token = /(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
-        await fetch(`/api/v1${path}/members/${String(Reflect.get(row, 'public_id'))}/`, { method: 'DELETE', headers: { 'X-CSRFToken': decodeURIComponent(token) } })
+        await fetch(`/api/v1${path}/members/${String(Reflect.get(row, 'public_id'))}/`, {
+          method: 'DELETE',
+          headers: { 'X-CSRFToken': decodeURIComponent(token) },
+        })
       }, lab)
     }
     return new URL(requestUrl).pathname

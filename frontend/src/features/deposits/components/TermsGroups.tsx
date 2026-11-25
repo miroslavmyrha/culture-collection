@@ -34,7 +34,13 @@ export function UsesFieldset() {
       <Typography sx={{ mb: 2 }}>What the material may be used for, as the depositor agreed. Decide each one.</Typography>
       <Stack spacing={2}>
         {USES.map((use, i) => (
-          <SelectField key={use} label={USE_LABELS[use]} options={DECISION_OPTIONS} error={uses?.[i]?.decision?.message} {...register(`terms.uses.${i}.decision`)} />
+          <SelectField
+            key={use}
+            label={USE_LABELS[use]}
+            options={DECISION_OPTIONS}
+            error={uses?.[i]?.decision?.message}
+            {...register(`terms.uses.${i}.decision`)}
+          />
         ))}
       </Stack>
       <FieldError message={uses?.message} />
@@ -73,13 +79,28 @@ export function AbsFields() {
         error={errors?.abs_scope?.message}
         {...register('terms.abs_scope')}
       />
-      <SelectField label="Country of origin" hint="Where the material was accessed." options={countries} error={errors?.country_of_origin?.message} {...register('terms.country_of_origin')} />
-      <TextField label="Collection date" hint="YYYY, YYYY-MM or YYYY-MM-DD, as far as known" autoComplete="off" error={errors?.collection_date?.message} {...register('terms.collection_date')} />
+      <SelectField
+        label="Country of origin"
+        hint="Where the material was accessed."
+        options={countries}
+        error={errors?.country_of_origin?.message}
+        {...register('terms.country_of_origin')}
+      />
+      <TextField
+        label="Collection date"
+        hint="YYYY, YYYY-MM or YYYY-MM-DD, as far as known"
+        autoComplete="off"
+        error={errors?.collection_date?.message}
+        {...register('terms.collection_date')}
+      />
     </>
   )
 }
 
-const IRCC_HINT = { true: 'The certificate of compliance in the ABS Clearing-House. In scope needs it or a permit.', false: 'The certificate of compliance in the ABS Clearing-House, if any.' }
+const IRCC_HINT = {
+  true: 'The certificate of compliance in the ABS Clearing-House. In scope needs it or a permit.',
+  false: 'The certificate of compliance in the ABS Clearing-House, if any.',
+}
 
 /** The IRCC, the permit, and the PIC and MAT references. In scope the IRCC hint says it is needed. */
 export function ReferenceFields({ inScope }: { inScope: boolean }) {
@@ -87,9 +108,27 @@ export function ReferenceFields({ inScope }: { inScope: boolean }) {
   return (
     <>
       <TextField label="IRCC" hint={IRCC_HINT[`${inScope}`]} autoComplete="off" error={errors?.ircc?.message} {...register('terms.ircc')} />
-      <TextField label="Permit reference" hint="The access permit, when there is no IRCC." autoComplete="off" error={errors?.permit_reference?.message} {...register('terms.permit_reference')} />
-      <TextField label="PIC reference" hint="Prior informed consent." autoComplete="off" error={errors?.pic_reference?.message} {...register('terms.pic_reference')} />
-      <TextField label="MAT reference" hint="Mutually agreed terms." autoComplete="off" error={errors?.mat_reference?.message} {...register('terms.mat_reference')} />
+      <TextField
+        label="Permit reference"
+        hint="The access permit, when there is no IRCC."
+        autoComplete="off"
+        error={errors?.permit_reference?.message}
+        {...register('terms.permit_reference')}
+      />
+      <TextField
+        label="PIC reference"
+        hint="Prior informed consent."
+        autoComplete="off"
+        error={errors?.pic_reference?.message}
+        {...register('terms.pic_reference')}
+      />
+      <TextField
+        label="MAT reference"
+        hint="Mutually agreed terms."
+        autoComplete="off"
+        error={errors?.mat_reference?.message}
+        {...register('terms.mat_reference')}
+      />
     </>
   )
 }
@@ -105,7 +144,8 @@ export function MatUsesFieldset({ inScope }: { inScope: boolean }) {
         Uses the MAT covers
       </Typography>
       <Typography id={hintId}>
-        What a recipient may use the material for under the mutually agreed terms. None ticked: the MAT lets nothing go to a third party, and no request is approved.
+        What a recipient may use the material for under the mutually agreed terms. None ticked: the MAT lets nothing go to a third party, and no request is
+        approved.
       </Typography>
       <Stack>
         {USES.map((use) => (

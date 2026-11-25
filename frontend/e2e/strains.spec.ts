@@ -15,7 +15,10 @@ async function as(browser: Browser, username: string, width = 1280) {
 /** From the labs list to the seeded lab's strains, by its links. */
 async function openStrains(page: Page) {
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await page.getByRole('link', { name: 'Strains' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Strains of E2E lab' })).toBeVisible()
 }

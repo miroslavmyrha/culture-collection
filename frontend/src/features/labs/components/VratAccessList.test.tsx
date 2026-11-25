@@ -12,7 +12,13 @@ const LIST = '/api/v1/labs/{lab_public_id}/vrat-access/'
 const END = '/api/v1/labs/{lab_public_id}/vrat-access/{public_id}/end/'
 
 const alice = makeVratAccess({ username: 'alice', first_name: 'Alice', last_name: 'Adams', granted_by: 'carol', reason: 'works in the BSL-3 suite' })
-const bob = makeVratAccess({ username: 'bob', granted_at: '2026-03-01T08:00:00Z', ended_at: '2026-09-01T08:00:00Z', ended_by: 'carol', end_reason: 'The member left the lab.' })
+const bob = makeVratAccess({
+  username: 'bob',
+  granted_at: '2026-03-01T08:00:00Z',
+  ended_at: '2026-09-01T08:00:00Z',
+  ended_by: 'carol',
+  end_reason: 'The member left the lab.',
+})
 const dan = makeVratAccess({ username: 'dan', ended_at: '2026-09-02T08:00:00Z', ended_by: null, end_reason: 'The account was deactivated.' })
 
 async function render() {
@@ -24,14 +30,20 @@ const rowsOf = (name: string) =>
   within(screen.getByRole('table', { name }))
     .getAllByRole('row')
     .slice(1)
-    .map((row) => within(row).getAllByRole('cell').map((cell) => cell.textContent))
+    .map((row) =>
+      within(row)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    )
 
 describe('the VRAT access list on the lab page (act 281/2002 Sb., § 14a(4))', () => {
   it('lists who has access now and the entries that ended, and links to the printable list', async () => {
     mockApi('get', LIST, [alice, bob, dan])
     await render()
     await screen.findByRole('table', { name: 'People with VRAT access' })
-    expect(rowsOf('People with VRAT access')).toEqual([['alice', 'Alice Adams', expect.stringMatching(/^2026-10-01 \d\d:00$/), 'carol', 'works in the BSL-3 suite', 'End access']])
+    expect(rowsOf('People with VRAT access')).toEqual([
+      ['alice', 'Alice Adams', expect.stringMatching(/^2026-10-01 \d\d:00$/), 'carol', 'works in the BSL-3 suite', 'End access'],
+    ])
     expect(rowsOf('Ended entries of the VRAT access list')).toEqual([
       ['bob', expect.stringMatching(/^2026-03-01/), expect.stringMatching(/^2026-09-01/), 'carol', 'The member left the lab.'],
       ['dan', expect.any(String), expect.stringMatching(/^2026-09-02/), 'the system', 'The account was deactivated.'],
@@ -81,9 +93,21 @@ describe('the VRAT access list on the lab page (act 281/2002 Sb., § 14a(4))', (
   })
 
   it.each([
-    ['an unknown or inactive user', validationProblem([{ attr: 'username', code: 'does_not_exist', detail: 'Invalid user.' }]), 'No active member of this lab has this username'],
-    ['an active user of another lab', problem(400, { code: 'invalid_user', errors: [{ attr: 'username', code: 'invalid_user', detail: 'x' }] }), 'No active member of this lab has this username'],
-    ['a member on the list already', problem(400, { code: 'already_on_list', errors: [{ attr: 'username', code: 'already_on_list', detail: 'x' }] }), 'This member is on the list already'],
+    [
+      'an unknown or inactive user',
+      validationProblem([{ attr: 'username', code: 'does_not_exist', detail: 'Invalid user.' }]),
+      'No active member of this lab has this username',
+    ],
+    [
+      'an active user of another lab',
+      problem(400, { code: 'invalid_user', errors: [{ attr: 'username', code: 'invalid_user', detail: 'x' }] }),
+      'No active member of this lab has this username',
+    ],
+    [
+      'a member on the list already',
+      problem(400, { code: 'already_on_list', errors: [{ attr: 'username', code: 'already_on_list', detail: 'x' }] }),
+      'This member is on the list already',
+    ],
   ])('puts the error of %s on the username, focused', async (_, body, message) => {
     allowConsole(/API error 400/)
     mockApi('get', LIST, [])

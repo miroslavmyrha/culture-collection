@@ -44,7 +44,11 @@ describe('StrainHistory', () => {
     )
     await renderWithProviders(<Harness />)
     const list = await screen.findByRole('list', { name: 'History, newest first' })
-    expect(within(list).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+    expect(
+      within(list)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual([
       '2026-10-23 12:05You asked for vials in request 2026/3',
       '2026-10-22 08:00user 0b9a4c7e placed vial MYC 42 / 1 / 1',
       '2026-10-01 08:00command:seed_dev accessioned MYC 42',

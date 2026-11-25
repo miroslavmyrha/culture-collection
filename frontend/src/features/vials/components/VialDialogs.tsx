@@ -35,7 +35,8 @@ type Common = { labId: string; strainId: string; open: boolean; onClose: () => v
 
 // A failed box load is no empty list: "no boxes" would read as a lab without storage.
 const BOXES_FAILED = 'Could not load the boxes. Close this dialog and try again.'
-const BOXES_FAILED_PRESERVE = 'Could not load the boxes, so the vials cannot be placed now. Close this dialog and try again, or preserve them and place them later.'
+const BOXES_FAILED_PRESERVE =
+  'Could not load the boxes, so the vials cannot be placed now. Close this dialog and try again, or preserve them and place them later.'
 
 type PreserveProps = Common & { accession: string; passages: readonly Passage[]; boxes: readonly BoxChoice[] | undefined; boxesFailed?: boolean }
 
@@ -97,7 +98,11 @@ const PLACE_TEXTS = {
   move: { verb: 'Move', confirm: 'Move vial' },
 }
 
-const placeDefaults = (location: Vial['location']): PlaceForm => ({ box: location?.box ?? '', row: location ? String(location.row) : '', col: location ? String(location.col) : '' })
+const placeDefaults = (location: Vial['location']): PlaceForm => ({
+  box: location?.box ?? '',
+  row: location ? String(location.row) : '',
+  col: location ? String(location.col) : '',
+})
 
 export function PlaceVialDialog({ labId, strainId, vial, boxes, boxesFailed, open, onClose, onExited, onPlaced }: PlaceProps) {
   const place = usePlace(labId, strainId)
@@ -169,8 +174,7 @@ export function VialStatusDialog({ labId, strainId, vial, materialDestroyed, los
       { vialId: vial.public_id, status: values.status, reason: values.reason.trim() },
       {
         onSuccess: onClose,
-        onError: (error) =>
-          setFailure(placeError(error, ['status', 'reason'], setError, vialError, 'reason')),
+        onError: (error) => setFailure(placeError(error, ['status', 'reason'], setError, vialError, 'reason')),
       },
     )
   })
@@ -225,10 +229,7 @@ export function LossReportDialog({ labId, strainId, vial, lostAt, open, onClose,
       { vialId: vial.public_id, lost_at: lostAt, reported_on: values.reported_on, reference: values.reference.trim(), reason: values.reason.trim() },
       {
         onSuccess: onClose,
-        onError: (error) =>
-          setFailure(
-            placeError(error, ['reported_on', 'reference', 'reason'], setError, vialError, 'reason'),
-          ),
+        onError: (error) => setFailure(placeError(error, ['reported_on', 'reference', 'reason'], setError, vialError, 'reason')),
       },
     )
   })
@@ -254,7 +255,13 @@ export function LossReportDialog({ labId, strainId, vial, lostAt, open, onClose,
           error={formState.errors.reported_on?.message}
           {...register('reported_on')}
         />
-        <TextField label="Police reference" hint="As the police wrote it. Name no person." autoComplete="off" error={formState.errors.reference?.message} {...register('reference')} />
+        <TextField
+          label="Police reference"
+          hint="As the police wrote it. Name no person."
+          autoComplete="off"
+          error={formState.errors.reference?.message}
+          {...register('reference')}
+        />
         <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} error={formState.errors.reason?.message} {...register('reason')} />
       </Stack>
     </ConfirmDialog>
@@ -282,7 +289,10 @@ function GrowthStepDialog({ labId, strainGrowth, title, description, confirmLabe
   const media = useQuery(mediaListOptions(labId))
   const formId = useId()
   const [failure, setFailure] = useState<string>()
-  const { register, handleSubmit, formState, setError } = useForm<GrowthForm>({ resolver: zodResolver(growthSchema), defaultValues: growthDefaults(strainGrowth) })
+  const { register, handleSubmit, formState, setError } = useForm<GrowthForm>({
+    resolver: zodResolver(growthSchema),
+    defaultValues: growthDefaults(strainGrowth),
+  })
   const onSubmit = handleSubmit((values) => {
     setFailure(undefined)
     const body = growthBody(values)
@@ -303,8 +313,15 @@ function GrowthStepDialog({ labId, strainGrowth, title, description, confirmLabe
       onExited={onExited}
     >
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label={label} spacing={2} sx={{ mt: 2 }}>
-        {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
-        <GrowthFields register={(name) => register(name)} errors={formState.errors} media={media.data?.results} mediaFailed={media.isError && media.data === undefined} current={strainGrowth.medium} autoFocus={!destructive} />
+        <GrowthFields
+          register={(name) => register(name)}
+          errors={formState.errors}
+          media={media.data?.results}
+          mediaFailed={media.isError && media.data === undefined}
+          current={strainGrowth.medium}
+          // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
+          autoFocus={!destructive}
+        />
       </Stack>
     </ConfirmDialog>
   )

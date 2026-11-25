@@ -4,7 +4,20 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { allowConsole } from '@/test/console'
-import { makeBatch, makeBoxGrid, makeMedium, makePassage, makeUnitRow, makeVial, mediumBrief, noGrowth, page, problem, validationProblem, type Growth } from '@/test/factories'
+import {
+  makeBatch,
+  makeBoxGrid,
+  makeMedium,
+  makePassage,
+  makeUnitRow,
+  makeVial,
+  mediumBrief,
+  noGrowth,
+  page,
+  problem,
+  validationProblem,
+  type Growth,
+} from '@/test/factories'
 import { holdApi, mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { vialAction } from '@/test/actions'
 import { renderWithProviders } from '@/test/render'
@@ -53,7 +66,8 @@ function mockMaterial(vials = [placed, loose, consumed]) {
 beforeEach(() => void mockApi('get', DESTRUCTIONS, page([])))
 
 /** Vials number `from` to `to` of a strain with 200 in batch 1 and the rest in batch 2. */
-const many = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => makeVial({ label: `MYC 42 / ${from + i > 200 ? 2 : 1} / ${((from + i - 1) % 200) + 1}` }))
+const many = (from: number, to: number) =>
+  Array.from({ length: to - from + 1 }, (_, i) => makeVial({ label: `MYC 42 / ${from + i > 200 ? 2 : 1} / ${((from + i - 1) % 200) + 1}` }))
 
 /** The tab as the page drives it: the page of the vials in the page's state (the URL there). */
 function Material({
@@ -118,11 +132,12 @@ describe('StrainMaterial', () => {
     mockMaterial()
     await render()
     const vials = await screen.findByRole('table', { name: 'Vials' })
-    expect(within(vials).getAllByRole('row').slice(1).map((row) => within(row).getAllByRole('cell')[2]?.textContent)).toEqual([
-      'Freezer A / Rack 1 / Box 1, B3',
-      'Not placed',
-      'Left the collection',
-    ])
+    expect(
+      within(vials)
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => within(row).getAllByRole('cell')[2]?.textContent),
+    ).toEqual(['Freezer A / Rack 1 / Box 1, B3', 'Not placed', 'Left the collection'])
     // The passages as a tree from the deposit: passage 1 nested under passage 0.
     const tree = screen.getByRole('list', { name: 'Passages from the deposit' })
     const root = within(tree).getByRole('listitem', { name: 'Passage 0' })
@@ -130,13 +145,19 @@ describe('StrainMaterial', () => {
     const grown = within(root).getByRole('list', { name: 'Grown from passage 0' })
     expect(within(grown).getByRole('listitem', { name: 'Passage 1' })).toHaveTextContent(/^Passage 1Subculture of passage 0Subculture$/)
     const batches = screen.getByRole('table', { name: 'Batches' })
-    expect(within(batches).getAllByRole('row')[1]).toHaveTextContent('10Frozen at -80 °C, 10 % glycerolDistribution stock2026-10-01Pending checkWaiting for a passed identity, purity and viability check.2 of 3Checks')
+    expect(within(batches).getAllByRole('row')[1]).toHaveTextContent(
+      '10Frozen at -80 °C, 10 % glycerolDistribution stock2026-10-01Pending checkWaiting for a passed identity, purity and viability check.2 of 3Checks',
+    )
     for (const name of ['Batches', 'Vials']) expect(screen.getByRole('region', { name: `${name} table` })).toHaveAttribute('tabindex', '0')
     // A consumed vial has no place and no next state: no actions. The others have one menu each.
     const last = within(vials).getAllByRole('row')[3]
     expect(last && within(last).queryAllByRole('button')).toEqual([])
     expect(last).toHaveTextContent(/None$/)
-    expect(within(vials).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Actions for vial MYC 42 / 1 / 1', 'Actions for vial MYC 42 / 1 / 2'])
+    expect(
+      within(vials)
+        .getAllByRole('button')
+        .map((b) => b.getAttribute('aria-label')),
+    ).toEqual(['Actions for vial MYC 42 / 1 / 1', 'Actions for vial MYC 42 / 1 / 2'])
     expect(screen.getByText('3 vials')).toBeInTheDocument()
   })
 
@@ -161,7 +182,9 @@ describe('StrainMaterial', () => {
       next.release(200, page(many(offset + 1, Math.min(offset + 50, 230)), { count: 230 }))
       await waitFor(() => expect(pager).toHaveTextContent(`${offset + 1} to ${Math.min(offset + 50, 230)} of 230`))
     }
-    const rows = within(screen.getByRole('table', { name: 'Vials' })).getAllByRole('row').slice(1)
+    const rows = within(screen.getByRole('table', { name: 'Vials' }))
+      .getAllByRole('row')
+      .slice(1)
     expect(rows).toHaveLength(30)
     expect(rows[29]).toHaveTextContent('MYC 42 / 2 / 30')
     expect(within(pager).getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'true')
@@ -216,14 +239,23 @@ describe('StrainMaterial', () => {
     const second = makeVial({ label: 'MYC 42 / 1 / 4' })
     mockMaterial([placed, loose, second, consumed])
     mockApi('get', '/api/v1/labs/{lab_public_id}/boxes/{public_id}/', makeBoxGrid({ public_id: box.public_id, rows: 3, cols: 4 }))
-    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/boxes/{public_id}/place/', { vials: [{ ...loose, placed: true }, { ...second, placed: true }] })
+    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/boxes/{public_id}/place/', {
+      vials: [
+        { ...loose, placed: true },
+        { ...second, placed: true },
+      ],
+    })
     const { client } = await render()
     const elsewhere = vialKeys.box(LAB_ID, '00000000-0000-4000-8000-0000000000b9')
     client.setQueryData(elsewhere, makeBoxGrid())
     const user = userEvent.setup()
     const vials = await screen.findByRole('table', { name: 'Vials' })
     // Only vials in no box and in the collection can be chosen.
-    expect(within(vials).getAllByRole('checkbox').map((c) => c.closest('label')?.textContent)).toEqual(['MYC 42 / 1 / 2', 'MYC 42 / 1 / 4'])
+    expect(
+      within(vials)
+        .getAllByRole('checkbox')
+        .map((c) => c.closest('label')?.textContent),
+    ).toEqual(['MYC 42 / 1 / 2', 'MYC 42 / 1 / 4'])
     const place = screen.getByRole('button', { name: 'Place in a box' })
     expect(place).toHaveAttribute('aria-disabled', 'true')
     expect(place).toHaveAccessibleDescription('Choose the vials in no box first.')
@@ -237,7 +269,12 @@ describe('StrainMaterial', () => {
     await within(dialog).findByRole('grid', { name: 'Free positions of Freezer A / Rack 1 / Box 1' })
     await user.click(within(dialog).getByRole('button', { name: 'Place vials' }))
     await waitFor(() => expect(dialog).not.toBeInTheDocument())
-    expect(calls[0]?.body).toEqual({ placements: [{ vial: loose.public_id, row: 1, col: 1 }, { vial: second.public_id, row: 1, col: 2 }] })
+    expect(calls[0]?.body).toEqual({
+      placements: [
+        { vial: loose.public_id, row: 1, col: 1 },
+        { vial: second.public_id, row: 1, col: 2 },
+      ],
+    })
     expect(calls[0]?.url.pathname).toBe(`/api/v1/labs/${LAB_ID}/boxes/${box.public_id}/place/`)
     expect(client.getQueryState(elsewhere)?.isInvalidated).toBe(true)
     expect(document.activeElement).not.toBe(document.body)
@@ -276,7 +313,11 @@ describe('StrainMaterial', () => {
     await user.type(within(dialog).getByRole('textbox', { name: 'Protectant' }), ' 10 % glycerol ')
     await user.type(within(dialog).getByRole('textbox', { name: 'Number of vials' }), '5')
     const boxField = await within(dialog).findByRole('combobox', { name: 'Box' })
-    expect(within(boxField).getAllByRole('option').map((o) => o.textContent)).toEqual(['Do not place them yet', 'Freezer A / Rack 1 / Box 1, 12 free'])
+    expect(
+      within(boxField)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Do not place them yet', 'Freezer A / Rack 1 / Box 1, 12 free'])
     await user.selectOptions(boxField, box.public_id)
     await user.tab() // Cancel
     await user.tab()
@@ -363,7 +404,11 @@ describe('StrainMaterial', () => {
     expect(boxField).toHaveValue(box.public_id) // where it is now
     const row = within(dialog).getByRole('combobox', { name: 'Row' })
     expect(row).toHaveValue('2')
-    expect(within(row).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'A', 'B', 'C'])
+    expect(
+      within(row)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Choose', 'A', 'B', 'C'])
     await user.selectOptions(row, '3')
     await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Column' }), '4')
     await user.click(within(dialog).getByRole('button', { name: 'Move vial' }))
@@ -447,7 +492,11 @@ describe('StrainMaterial', () => {
     await vialAction(user, 'MYC 42 / 1 / 2', 'Change state')
     const dialog = await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 2' })
     const state = within(dialog).getByRole('combobox', { name: 'New state' })
-    expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(['Quarantined', 'To destroy', 'Consumed', 'Lost', 'Entered in error'])
+    expect(
+      within(state)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Quarantined', 'To destroy', 'Consumed', 'Lost', 'Entered in error'])
     await user.click(within(dialog).getByRole('button', { name: 'Save state' }))
     expect(within(dialog).getByRole('textbox', { name: 'Reason' })).toHaveAccessibleDescription('Stored for good with the change. Name no person. Say why')
     expect(calls).toHaveLength(0)
@@ -467,7 +516,11 @@ describe('StrainMaterial', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 4' })
     expect(dialog).toHaveAccessibleDescription(/Now lost\. Its strain was deaccessioned and its material destroyed: a found vial goes to destruction\./)
     const state = within(dialog).getByRole('combobox', { name: 'New state' })
-    expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(['To destroy'])
+    expect(
+      within(state)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['To destroy'])
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'Found behind the rack.')
     await user.click(within(dialog).getByRole('button', { name: 'Save state' }))
     await waitFor(() => expect(dialog).not.toBeInTheDocument())
@@ -482,7 +535,11 @@ describe('StrainMaterial', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 4' })
     expect(dialog).toHaveAccessibleDescription('Now lost. A vial that is consumed, lost or entered in error leaves its position.')
     const state = within(dialog).getByRole('combobox', { name: 'New state' })
-    expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(['Available'])
+    expect(
+      within(state)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Available'])
   })
 
   it.each([
@@ -503,7 +560,11 @@ describe('StrainMaterial', () => {
       'Now available. A vial marked to destroy is destroyed with a destruction record, in the Destruction section of this tab. A vial that is consumed, lost or entered in error leaves its position.',
     )
     const state = within(dialog).getByRole('combobox', { name: 'New state' })
-    expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(['Quarantined', 'To destroy', 'Consumed', 'Lost', 'Entered in error'])
+    expect(
+      within(state)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Quarantined', 'To destroy', 'Consumed', 'Lost', 'Entered in error'])
   })
 
   it.each([
@@ -523,10 +584,23 @@ describe('StrainMaterial', () => {
   })
 
   it('shows a lost VRAT or RAT vial as not reported, and a manager records the report (#159)', async () => {
-    const due = makeVial({ label: 'MYC 42 / 1 / 6', status: 'lost', status_changed_at: '2026-10-02T10:00:00.123456Z', police_report: { reported_on: null, reference: null } })
-    const done = makeVial({ label: 'MYC 42 / 1 / 7', status: 'lost', status_changed_at: '2026-10-01T10:00:00Z', police_report: { reported_on: '2026-10-01', reference: 'KRPB-1/TČ-2026' } })
+    const due = makeVial({
+      label: 'MYC 42 / 1 / 6',
+      status: 'lost',
+      status_changed_at: '2026-10-02T10:00:00.123456Z',
+      police_report: { reported_on: null, reference: null },
+    })
+    const done = makeVial({
+      label: 'MYC 42 / 1 / 7',
+      status: 'lost',
+      status_changed_at: '2026-10-01T10:00:00Z',
+      police_report: { reported_on: '2026-10-01', reference: 'KRPB-1/TČ-2026' },
+    })
     mockMaterial([due, done])
-    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/loss-report/', { ...due, police_report: { reported_on: '2026-10-02', reference: 'KRPB-2' } })
+    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/loss-report/', {
+      ...due,
+      police_report: { reported_on: '2026-10-02', reference: 'KRPB-2' },
+    })
     await renderWithProviders(<Material canHandle lossReported kinds={['cz_rat']} canReportLoss />)
     const vials = await screen.findByRole('table', { name: 'Vials' })
     const [dueRow, doneRow] = within(vials).getAllByRole('row').slice(1)
@@ -546,18 +620,30 @@ describe('StrainMaterial', () => {
     await user.type(day, '2026-10-02')
     await user.click(within(dialog).getByRole('button', { name: 'Record report' }))
     // Reference and reason are required before anything is sent.
-    expect(within(dialog).getByRole('textbox', { name: 'Police reference' })).toHaveAccessibleDescription('As the police wrote it. Name no person. Give the reference the police gave the report')
+    expect(within(dialog).getByRole('textbox', { name: 'Police reference' })).toHaveAccessibleDescription(
+      'As the police wrote it. Name no person. Give the reference the police gave the report',
+    )
     expect(within(dialog).getByRole('textbox', { name: 'Reason' })).toHaveAccessibleDescription('Stored for good with the change. Name no person. Say why')
     expect(calls).toHaveLength(0)
     await user.type(within(dialog).getByRole('textbox', { name: 'Police reference' }), ' KRPB-2 ')
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'Reported at the station.')
     await user.click(within(dialog).getByRole('button', { name: 'Record report' }))
     await waitFor(() => expect(dialog).not.toBeInTheDocument())
-    expect(calls[0]?.body).toEqual({ lost_at: '2026-10-02T10:00:00.123456Z', reported_on: '2026-10-02', reference: 'KRPB-2', reason: 'Reported at the station.' })
+    expect(calls[0]?.body).toEqual({
+      lost_at: '2026-10-02T10:00:00.123456Z',
+      reported_on: '2026-10-02',
+      reference: 'KRPB-2',
+      reason: 'Reported at the station.',
+    })
   })
 
   it('offers the record of a police report to managers only (#159)', async () => {
-    const due = makeVial({ label: 'MYC 42 / 1 / 6', status: 'lost', status_changed_at: '2026-10-02T10:00:00Z', police_report: { reported_on: null, reference: null } })
+    const due = makeVial({
+      label: 'MYC 42 / 1 / 6',
+      status: 'lost',
+      status_changed_at: '2026-10-02T10:00:00Z',
+      police_report: { reported_on: null, reference: null },
+    })
     mockMaterial([due])
     await renderWithProviders(<Material canHandle lossReported kinds={['cz_rat']} />)
     const user = userEvent.setup()
@@ -566,7 +652,12 @@ describe('StrainMaterial', () => {
   })
 
   it('names a loss found and lost again since the page loaded, inside the report dialog (#159)', async () => {
-    const due = makeVial({ label: 'MYC 42 / 1 / 6', status: 'lost', status_changed_at: '2026-10-02T10:00:00Z', police_report: { reported_on: null, reference: null } })
+    const due = makeVial({
+      label: 'MYC 42 / 1 / 6',
+      status: 'lost',
+      status_changed_at: '2026-10-02T10:00:00Z',
+      police_report: { reported_on: null, reference: null },
+    })
     mockMaterial([due])
     mockApiError('post', '/api/v1/labs/{lab_public_id}/vials/{public_id}/loss-report/', 409, problem(409, { code: 'loss_changed' }))
     await renderWithProviders(<Material canHandle lossReported kinds={['cz_rat']} canReportLoss />)
@@ -577,7 +668,9 @@ describe('StrainMaterial', () => {
     await user.type(within(dialog).getByRole('textbox', { name: 'Police reference' }), 'KRPB-2')
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'Reported.')
     await user.click(within(dialog).getByRole('button', { name: 'Record report' }))
-    expect(await within(dialog).findByText('This vial was found and lost again since the page was loaded. Reload and record the report of the new loss.')).toBeInTheDocument()
+    expect(
+      await within(dialog).findByText('This vial was found and lost again since the page was loaded. Reload and record the report of the new loss.'),
+    ).toBeInTheDocument()
   })
 
   it('offers no "entered in error" for a vial whose state changed before', async () => {
@@ -673,7 +766,7 @@ describe('StrainMaterial', () => {
     expect(calls[0]?.body).toEqual({ source_passage: one.public_id })
   })
 
-  it('records a subculture on other conditions than the strain\'s when the person changes them', async () => {
+  it("records a subculture on other conditions than the strain's when the person changes them", async () => {
     mockMaterial()
     const calls = mockApi('post', PASSAGES, makePassage({ number: 2, source_kind: 'passage' }))
     await render(true, 50, lbGrowth)
@@ -684,7 +777,10 @@ describe('StrainMaterial', () => {
     await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Atmosphere' }), 'Anaerobic')
     await user.click(within(dialog).getByRole('button', { name: 'Record subculture' }))
     await waitFor(() => expect(dialog).not.toBeInTheDocument())
-    expect(calls[0]?.body).toEqual({ source_passage: one.public_id, growth: { medium: lb.public_id, temperature_low_c: 28, temperature_high_c: null, atmosphere: 'anaerobic' } })
+    expect(calls[0]?.body).toEqual({
+      source_passage: one.public_id,
+      growth: { medium: lb.public_id, temperature_low_c: 28, temperature_high_c: null, atmosphere: 'anaerobic' },
+    })
   })
 
   it('offers a retired medium only when the strain is on it', async () => {
@@ -694,11 +790,17 @@ describe('StrainMaterial', () => {
     await user.click(await screen.findByRole('button', { name: 'Subculture passage 1' }))
     const dialog = await screen.findByRole('dialog', { name: 'Subculture passage 1' })
     await waitFor(() => expect(within(dialog).getByRole('combobox', { name: 'Medium' })).toHaveDisplayValue('Old agar (retired)'))
-    expect(within(within(dialog).getByRole('combobox', { name: 'Medium' })).getAllByRole('option').map((o) => o.textContent)).toEqual(['No medium', 'LB', 'R2A', 'Old agar (retired)'])
+    expect(
+      within(within(dialog).getByRole('combobox', { name: 'Medium' }))
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['No medium', 'LB', 'R2A', 'Old agar (retired)'])
   })
 })
 
-const answer = { location: { box: '00000000-0000-4000-8000-000000000b01', box_name: 'Box R', path: ['Freezer A', 'Rack 1', 'Box R'], row: 1, col: 2, label: 'A2' } }
+const answer = {
+  location: { box: '00000000-0000-4000-8000-000000000b01', box_name: 'Box R', path: ['Freezer A', 'Rack 1', 'Box R'], row: 1, col: 2, label: 'A2' },
+}
 /** Mutations that still hold an answer, a revealed location among them. */
 const revealed = (client: QueryClient) =>
   client
@@ -730,7 +832,9 @@ describe('the location of a regulated strain', () => {
     expect(button).toHaveAttribute('aria-disabled', 'true')
     await user.click(button) // pending: no second request
     expect(held.calls).toHaveLength(1)
-    held.release(200, { location: { box: '00000000-0000-4000-8000-000000000b01', box_name: 'Box R', path: ['Freezer A', 'Rack 1', 'Box R'], row: 1, col: 2, label: 'A2' } })
+    held.release(200, {
+      location: { box: '00000000-0000-4000-8000-000000000b01', box_name: 'Box R', path: ['Freezer A', 'Rack 1', 'Box R'], row: 1, col: 2, label: 'A2' },
+    })
     const text = await screen.findByText('Freezer A / Rack 1 / Box R, A2')
     expect(text).toHaveAttribute('aria-live', 'polite')
     expect(button).toHaveFocus()

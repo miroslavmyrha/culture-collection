@@ -3,7 +3,22 @@ import { type MouseEvent, useId, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
-import { Alert, Box, Button, ConfirmDialog, Link, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@/components/ui'
+import {
+  Alert,
+  Box,
+  Button,
+  ConfirmDialog,
+  Link,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from '@/components/ui'
 import { moment } from '@/lib/activity'
 import { errorMessage, isApiError, readProblem } from '@/lib/api'
 import { applyServerErrors, REASON_HINT } from '@/lib/forms'
@@ -14,7 +29,13 @@ import { useDialogSlot } from '@/lib/dialog'
 
 type Open = { entry: VratAccess; open: boolean } | null
 
-const regionSx = { border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'background.paper', '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 } }
+const regionSx = {
+  border: 1,
+  borderColor: 'divider',
+  borderRadius: 1,
+  bgcolor: 'background.paper',
+  '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+}
 
 /**
  * For managers, on the lab page: the lab's list of the people with access to its highly risky
@@ -32,8 +53,8 @@ export function VratAccessList({ labId }: { labId: string }) {
         VRAT access list
       </Typography>
       <Typography sx={{ mb: 2 }}>
-        The people with access to the lab&apos;s highly risky agents (VRAT), which the permit holder keeps up to date (act 281/2002 Sb., § 14a(4)). Only
-        members are on it: leaving the lab or a deactivated account ends an entry. Seeing regulated locations is a separate right.
+        The people with access to the lab&apos;s highly risky agents (VRAT), which the permit holder keeps up to date (act 281/2002 Sb., § 14a(4)). Only members
+        are on it: leaving the lab or a deactivated account ends an entry. Seeing regulated locations is a separate right.
       </Typography>
       <Entries labId={labId} />
       <AddToListForm labId={labId} />
@@ -184,7 +205,13 @@ function AddToListForm({ labId }: { labId: string }) {
         Put a member on the list
       </Typography>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: 'flex-start' }}>
-        <TextField label="Username" autoComplete="off" hint="An active member of this lab" error={formState.errors.username?.message} {...register('username')} />
+        <TextField
+          label="Username"
+          autoComplete="off"
+          hint="An active member of this lab"
+          error={formState.errors.username?.message}
+          {...register('username')}
+        />
         <TextField label="Reason" hint="Stored for good. Name no person." error={formState.errors.reason?.message} {...register('reason')} />
         <Button type="submit" variant="contained" aria-disabled={add.isPending} sx={{ mt: 1 }}>
           Put on the list

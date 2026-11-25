@@ -19,7 +19,5 @@ type Props = Omit<MuiTextFieldProps, 'error' | 'helperText' | 'inputRef' | 'ref'
  */
 export function TextField({ error, hint, ref, ...props }: Props) {
   const description = [hint, error].filter(Boolean).join(' ')
-  return (
-    <MuiTextField {...props} inputRef={ref} error={error !== undefined} helperText={description === '' ? undefined : description} />
-  )
+  return <MuiTextField {...props} inputRef={ref} error={error !== undefined} helperText={description === '' ? undefined : description} />
 }

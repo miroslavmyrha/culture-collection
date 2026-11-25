@@ -30,8 +30,16 @@ describe('DepositorList', () => {
     const table = await screen.findByRole('table', { name: 'Depositors' })
     const [, first, second] = within(table).getAllByRole('row')
     if (!first || !second) throw new Error('no rows')
-    expect(within(first).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['Jana Vzorová', 'Example University', 'jana@example.org', 'Change'])
-    expect(within(second).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['Erased contact', 'Old Institute', '', ''])
+    expect(
+      within(first)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual(['Jana Vzorová', 'Example University', 'jana@example.org', 'Change'])
+    expect(
+      within(second)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual(['Erased contact', 'Old Institute', '', ''])
   })
 
   it('says when the lab has none, and when a search finds none', async () => {

@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { makeMedium, mediumBrief, noGrowth } from '@/test/factories'
 import { growthBody, growthDefaults, growthSchema, growthText, mediumChoices, temperatureText } from './growth'
 
-const form = (over: Partial<ReturnType<typeof growthDefaults>> = {}) => ({ medium: '', temperature_low_c: '', temperature_high_c: '', atmosphere: '' as const, ...over })
+const form = (over: Partial<ReturnType<typeof growthDefaults>> = {}) => ({
+  medium: '',
+  temperature_low_c: '',
+  temperature_high_c: '',
+  atmosphere: '' as const,
+  ...over,
+})
 const messages = (value: ReturnType<typeof form>) => {
   const result = growthSchema.safeParse(value)
   return result.success ? {} : Object.fromEntries(result.error.issues.map((i) => [String(i.path[0]), i.message]))
@@ -46,13 +52,23 @@ describe('the growth form', () => {
 
   it('sends empty as none, a single value alone, and the medium by id', () => {
     expect(growthBody(form())).toEqual({ medium: null, temperature_low_c: null, temperature_high_c: null, atmosphere: '' })
-    expect(growthBody(form({ medium: 'm1', temperature_low_c: '28', atmosphere: 'aerobic' }))).toEqual({ medium: 'm1', temperature_low_c: 28, temperature_high_c: null, atmosphere: 'aerobic' })
+    expect(growthBody(form({ medium: 'm1', temperature_low_c: '28', atmosphere: 'aerobic' }))).toEqual({
+      medium: 'm1',
+      temperature_low_c: 28,
+      temperature_high_c: null,
+      atmosphere: 'aerobic',
+    })
   })
 
   it('starts from the recorded values, a one-degree range as one box', () => {
     const lb = makeMedium()
-    expect(growthDefaults({ medium: mediumBrief(lb), temperature_low_c: 28, temperature_high_c: 28, atmosphere: 'aerobic' })).toEqual(form({ medium: lb.public_id, temperature_low_c: '28', atmosphere: 'aerobic' }))
-    expect(growthDefaults({ ...noGrowth(), temperature_low_c: 25, temperature_high_c: 30 })).toMatchObject({ temperature_low_c: '25', temperature_high_c: '30' })
+    expect(growthDefaults({ medium: mediumBrief(lb), temperature_low_c: 28, temperature_high_c: 28, atmosphere: 'aerobic' })).toEqual(
+      form({ medium: lb.public_id, temperature_low_c: '28', atmosphere: 'aerobic' }),
+    )
+    expect(growthDefaults({ ...noGrowth(), temperature_low_c: 25, temperature_high_c: 30 })).toMatchObject({
+      temperature_low_c: '25',
+      temperature_high_c: '30',
+    })
   })
 })
 

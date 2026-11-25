@@ -76,7 +76,11 @@ function PassageItem({ node, passages, subculture }: PassageItemProps) {
         </Typography>
       )}
       {node.children.length > 0 && (
-        <Box component="ul" aria-label={`Grown from passage ${p.number}`} sx={{ listStyle: 'none', m: 0, pl: { xs: 1.5, sm: 3 }, ml: 1, borderLeft: 1, borderColor: 'divider' }}>
+        <Box
+          component="ul"
+          aria-label={`Grown from passage ${p.number}`}
+          sx={{ listStyle: 'none', m: 0, pl: { xs: 1.5, sm: 3 }, ml: 1, borderLeft: 1, borderColor: 'divider' }}
+        >
           {node.children.map((child) => (
             <PassageItem key={child.passage.public_id} node={child} passages={passages} subculture={subculture} />
           ))}

@@ -20,7 +20,17 @@ function cellOf(pos: GridPos, selected: string | null): GridCell {
  * 5 by 5 unless a test needs the full box: the keys and the selection behave the same at any size,
  * and 81 cells made these tests run past their budget on a busy machine (#60, #128).
  */
-function Selecting({ onActivate, onEscape, handle, size = 5 }: { onActivate?: (pos: GridPos) => void; onEscape?: () => void; handle?: Ref<PositionGridHandle>; size?: number }) {
+function Selecting({
+  onActivate,
+  onEscape,
+  handle,
+  size = 5,
+}: {
+  onActivate?: (pos: GridPos) => void
+  onEscape?: () => void
+  handle?: Ref<PositionGridHandle>
+  size?: number
+}) {
   const [selected, setSelected] = useState<string | null>(null)
   return (
     <>
@@ -59,11 +69,19 @@ describe('PositionGrid', () => {
   it('labels a full box: rows A to I and columns 1 to 9', () => {
     // Two narrow boxes instead of one of 81 cells: the labels are the same, the render is cheaper.
     const { unmount } = render(<PositionGrid label="Box 1" rows={9} cols={2} cell={(pos) => cellOf(pos, null)} />)
-    expect(within(grid()).getAllByRole('rowheader').map((h) => h.textContent)).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'])
+    expect(
+      within(grid())
+        .getAllByRole('rowheader')
+        .map((h) => h.textContent),
+    ).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'])
     expect(grid().querySelector('[data-pos="I2"]')).toHaveAccessibleName('I2, empty')
     unmount()
     render(<PositionGrid label="Box 1" rows={2} cols={9} cell={(pos) => cellOf(pos, null)} />)
-    expect(within(grid()).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9'])
+    expect(
+      within(grid())
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent),
+    ).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9'])
     expect(grid().querySelector('[data-pos="B9"]')).toHaveAccessibleName('B9, empty')
   })
 
@@ -190,7 +208,15 @@ describe('PositionGrid', () => {
 
   it('marks a refused position aria-disabled and keeps it in the arrow order', async () => {
     const user = userEvent.setup()
-    render(<PositionGrid label="Box 1" rows={2} cols={2} cell={(pos) => ({ name: `${gridLabel(pos)}, empty`, tone: 'empty', disabled: pos.col === 1 })} onActivate={vi.fn<(pos: GridPos) => void>()} />)
+    render(
+      <PositionGrid
+        label="Box 1"
+        rows={2}
+        cols={2}
+        cell={(pos) => ({ name: `${gridLabel(pos)}, empty`, tone: 'empty', disabled: pos.col === 1 })}
+        onActivate={vi.fn<(pos: GridPos) => void>()}
+      />,
+    )
     expect(cell('A2, empty')).toHaveAttribute('aria-disabled', 'true')
     expect(cell('A1, empty')).not.toHaveAttribute('aria-disabled')
     cell('A1, empty').focus()

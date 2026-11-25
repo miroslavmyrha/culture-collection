@@ -151,14 +151,28 @@ function DestructionFields({ formId, labId, rules, vials, more, onSubmit }: Fiel
   const outside = useWatch({ control, name: 'outside' })
   const group = { register, errors }
   return (
-    <Stack component="form" id={formId} onSubmit={handleSubmit((values) => onSubmit(values, setError))} noValidate aria-label="Destruction" spacing={2} sx={{ mt: 2 }}>
+    <Stack
+      component="form"
+      id={formId}
+      onSubmit={handleSubmit((values) => onSubmit(values, setError))}
+      noValidate
+      aria-label="Destruction"
+      spacing={2}
+      sx={{ mt: 2 }}
+    >
       <VialsFieldset vials={vials} more={more} {...group} />
       <TextField label="Destroyed on" hint="YYYY-MM-DD" autoComplete="off" error={errors.destroyed_on?.message} {...register('destroyed_on')} />
       <MethodFields rules={rules} {...group} />
       {rules.witness && <WitnessField witnesses={witnesses} {...group} />}
       <CheckboxField label="Handed to an outside firm" {...register('outside')} />
       {outside && <OutsideFields {...group} />}
-      <TextField label="Run" hint="Optional. The autoclave cycle or run, as the lab names it." autoComplete="off" error={errors.run?.message} {...register('run')} />
+      <TextField
+        label="Run"
+        hint="Optional. The autoclave cycle or run, as the lab names it."
+        autoComplete="off"
+        error={errors.run?.message}
+        {...register('run')}
+      />
       <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} error={errors.reason?.message} {...register('reason')} />
     </Stack>
   )

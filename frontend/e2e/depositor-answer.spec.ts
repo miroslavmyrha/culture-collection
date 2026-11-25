@@ -20,7 +20,10 @@ async function as(browser: Browser, name: string) {
 /** A strain of this run whose terms leave commercial research on request, and a request for it with the MTA accepted. Answers the request's page. */
 async function commercialRequest(page: Page, name: string): Promise<string> {
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
   return page.evaluate(
     async ({ strainName, pdf, basis }) => {
@@ -45,13 +48,27 @@ async function commercialRequest(page: Page, name: string): Promise<string> {
       const mta = (await read<Listing<{ public_id: string; code: string; version: number }>>('mta-templates/')).results
         .filter((t) => t.code === 'STD')
         .toSorted((a, b) => b.version - a.version)[0]
-      const uses = ['research_noncommercial', 'research_commercial', 'teaching', 'diagnostics', 'production', 'reference_qc', 'patent_deposit_related', 'redistribution']
+      const uses = [
+        'research_noncommercial',
+        'research_commercial',
+        'teaching',
+        'diagnostics',
+        'production',
+        'reference_qc',
+        'patent_deposit_related',
+        'redistribution',
+      ]
       const deposit = await send('deposits/', {
         depositor,
         received_on: today,
         condition: 'intact',
         name_as_received: strainName,
-        terms: { mta: mta?.public_id, abs_scope: 'not_in_scope', country_of_origin: 'CZ', uses: uses.map((use) => ({ use, decision: use === 'research_commercial' ? 'on_request' : 'permit' })) },
+        terms: {
+          mta: mta?.public_id,
+          abs_scope: 'not_in_scope',
+          country_of_origin: 'CZ',
+          uses: uses.map((use) => ({ use, decision: use === 'research_commercial' ? 'on_request' : 'permit' })),
+        },
       })
       await send(`deposits/${deposit.public_id}/start-check/`, {})
       const taxa = await read<Listing<{ public_id: string; name: string }>>('/api/v1/taxa/?search=subtilis')
@@ -66,18 +83,46 @@ async function commercialRequest(page: Page, name: string): Promise<string> {
       })
       const strain = accepted.strain?.public_id ?? ''
       const passage = (await read<Listing<{ public_id: string }>>(`passages/?strain=${strain}`)).results[0]?.public_id
-      const batch = await send('batches/', { passage, method: 'cryo_minus80', purpose: 'distribution', cryoprotectant: '10 % glycerol', preserved_on: today, vial_count: 2 })
+      const batch = await send('batches/', {
+        passage,
+        method: 'cryo_minus80',
+        purpose: 'distribution',
+        cryoprotectant: '10 % glycerol',
+        preserved_on: today,
+        vial_count: 2,
+      })
       const vial = (await read<Listing<{ public_id: string }>>(`vials/?batch=${batch.public_id}`)).results[0]?.public_id
-      for (const [kind, method] of [['identity', 'sequencing'], ['purity', 'streak_plate'], ['viability', 'growth']]) {
+      for (const [kind, method] of [
+        ['identity', 'sequencing'],
+        ['purity', 'streak_plate'],
+        ['viability', 'growth'],
+      ]) {
         await send('batch-checks/', { batch: batch.public_id, kind, stage: 'after_preservation', checked_on: today, method, result: 'pass', vial })
       }
       await send(`batches/${batch.public_id}/release/`, { reason: 'Identity, purity and viability passed.' })
       const requester = (await read<Listing<{ public_id: string }>>('requesters/?search=E2E%20Institute')).results[0]?.public_id
-      const request = await send('requests/', { requester, use: 'research_commercial', end_use: `Enzyme screening for a company, ${strainName}.`, containment_level: 2, lines: [{ strain, quantity: 1 }] })
+      const request = await send('requests/', {
+        requester,
+        use: 'research_commercial',
+        end_use: `Enzyme screening for a company, ${strainName}.`,
+        containment_level: 2,
+        lines: [{ strain, quantity: 1 }],
+      })
       const signed = new FormData()
-      for (const [k, v] of Object.entries({ mta: mta?.public_id ?? '', signer_name: 'E2E Signatory', signer_role: 'head_of_institution', authorised_signatory: 'true', accepted_on: today })) signed.append(k, v)
+      for (const [k, v] of Object.entries({
+        mta: mta?.public_id ?? '',
+        signer_name: 'E2E Signatory',
+        signer_role: 'head_of_institution',
+        authorised_signatory: 'true',
+        accepted_on: today,
+      }))
+        signed.append(k, v)
       signed.append('file', new Blob([pdf], { type: 'application/pdf' }), 'signed.pdf')
-      const acceptance = await fetch(`/api/v1/labs/${lab}/requests/${request.public_id}/acceptances/`, { method: 'POST', headers: { 'X-CSRFToken': token }, body: signed })
+      const acceptance = await fetch(`/api/v1/labs/${lab}/requests/${request.public_id}/acceptances/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': token },
+        body: signed,
+      })
       if (!acceptance.ok) throw new Error(`acceptance: ${acceptance.status} ${await acceptance.text()}`)
       return `/labs/${lab}/requests/${request.public_id}`
     },
@@ -90,7 +135,11 @@ async function approveByApi(page: Page, path: string) {
   return page.evaluate(async (target) => {
     await fetch('/api/v1/auth/csrf/')
     const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
-    const response = await fetch(target, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token }, body: JSON.stringify({ reason: 'The depositor agreed by phone.' }) })
+    const response = await fetch(target, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
+      body: JSON.stringify({ reason: 'The depositor agreed by phone.' }),
+    })
     return { status: response.status, body: await response.text() }
   }, `/api/v1${path}/approve/`)
 }
@@ -100,7 +149,9 @@ test('a curator records the depositor’s yes with the letter, and the manager a
   const violations = await watchCsp(curator.page)
   const path = await commercialRequest(curator.page, `Bacillus subtilis yes ${RUN}`)
   await curator.page.goto(path)
-  await expect(curator.page.getByRole('list', { name: 'Blocks the approval' })).toContainText('only on request to the depositor, and no answer of the depositor is recorded')
+  await expect(curator.page.getByRole('list', { name: 'Blocks the approval' })).toContainText(
+    'only on request to the depositor, and no answer of the depositor is recorded',
+  )
   await expect(curator.page.getByRole('list', { name: 'Depositor’s answers' })).toContainText('No answer is recorded yet.')
 
   await curator.page.getByRole('button', { name: 'Record the depositor’s yes' }).click()
@@ -111,7 +162,9 @@ test('a curator records the depositor’s yes with the letter, and the manager a
   await dialog.getByRole('button', { name: 'Record the yes' }).click()
   await expect(dialog).toBeHidden()
   const answers = curator.page.getByRole('list', { name: 'Depositor’s answers' })
-  await expect(answers).toContainText(/the depositor agreed to commercial research \(answer of \d{4}-\d{2}-\d{2}, recorded by e2e-curator on .*\): The depositor agreed by e-mail/)
+  await expect(answers).toContainText(
+    /the depositor agreed to commercial research \(answer of \d{4}-\d{2}-\d{2}, recorded by e2e-curator on .*\): The depositor agreed by e-mail/,
+  )
   // The letter comes back as it was sent.
   const download = curator.page.waitForEvent('download')
   await answers.getByRole('link', { name: /^Download the depositor’s answer for / }).click()
@@ -160,7 +213,11 @@ test('without a yes the manager’s approval is refused, and the depositor’s n
   await dialog.getByRole('button', { name: 'Record the no and reject' }).click()
   await expect(dialog).toBeHidden()
   await expect(curator.page.getByText(/^Status: Rejected\.$/)).toBeVisible()
-  await expect(curator.page.getByText(/^Rejected by e2e-curator on .*: The depositor declined commercial research of \S+ \d+ \(answer of \d{4}-\d{2}-\d{2}\): The depositor keeps commercial use for its own company\.$/)).toBeVisible()
+  await expect(
+    curator.page.getByText(
+      /^Rejected by e2e-curator on .*: The depositor declined commercial research of \S+ \d+ \(answer of \d{4}-\d{2}-\d{2}\): The depositor keeps commercial use for its own company\.$/,
+    ),
+  ).toBeVisible()
   await curator.close()
   await manager.close()
 })

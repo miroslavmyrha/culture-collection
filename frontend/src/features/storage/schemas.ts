@@ -91,7 +91,8 @@ const fieldShape = {
 
 /** A root states its cap, a box its type: the same rules as the server, before the request. */
 function kindRules(kind: UnitKind, value: { max_risk_group: string; box_type: string }, ctx: z.RefinementCtx) {
-  if (isRoot(kind) && value.max_risk_group === '') ctx.addIssue({ code: 'custom', path: ['max_risk_group'], message: 'A freezer or tank states the highest risk group it may hold' })
+  if (isRoot(kind) && value.max_risk_group === '')
+    ctx.addIssue({ code: 'custom', path: ['max_risk_group'], message: 'A freezer or tank states the highest risk group it may hold' })
   if (kind === 'box' && value.box_type === '') ctx.addIssue({ code: 'custom', path: ['box_type'], message: 'Choose the box type' })
 }
 

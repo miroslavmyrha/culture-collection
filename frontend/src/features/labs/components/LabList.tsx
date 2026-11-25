@@ -19,8 +19,20 @@ export function LabList({ params, onOffsetChange }: Props) {
   }
   const stale = <StaleNotice what="your labs" query={list} />
   const { count, results } = list.data
-  if (count === 0) return <>{stale}<Typography>You are not a member of any lab yet. Staff add new labs and their first manager.</Typography></>
-  if (results.length === 0) return <>{stale}<PastTheEnd onFirstPage={() => onOffsetChange(0)} /></>
+  if (count === 0)
+    return (
+      <>
+        {stale}
+        <Typography>You are not a member of any lab yet. Staff add new labs and their first manager.</Typography>
+      </>
+    )
+  if (results.length === 0)
+    return (
+      <>
+        {stale}
+        <PastTheEnd onFirstPage={() => onOffsetChange(0)} />
+      </>
+    )
   return (
     <section aria-label="Your labs" aria-busy={list.isPlaceholderData}>
       {stale}

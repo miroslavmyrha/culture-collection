@@ -46,7 +46,9 @@ type SlotFieldProps = { parent: Pick<Unit, 'name'> | null; register: UseFormRegi
 /** The numbered place in the parent: only a unit being added into another one has it. */
 export function SlotField({ parent, register, error }: SlotFieldProps) {
   if (parent === null) return null
-  return <TextField label="Slot" hint={`Its numbered place in ${parent.name}, if it has one.`} inputMode="numeric" autoComplete="off" error={error} {...register} />
+  return (
+    <TextField label="Slot" hint={`Its numbered place in ${parent.name}, if it has one.`} inputMode="numeric" autoComplete="off" error={error} {...register} />
+  )
 }
 
 type UnitFieldsProps = {
@@ -68,8 +70,23 @@ export function UnitFields({ kind, slot, focusName, register, errors }: UnitFiel
       <TextField label="Name" autoFocus={focusName} autoComplete="off" error={errors.name?.message} {...register('name')} />
       {kind === 'box' && <BoxTypeField error={errors.box_type?.message} {...register('box_type')} />}
       {slot}
-      {root && <TextField label="Temperature (°C)" hint="Optional, whole degrees." inputMode="numeric" autoComplete="off" error={errors.temperature_c?.message} {...register('temperature_c')} />}
-      <SelectField label="Highest risk group" hint="What it and everything in it may hold." options={capOptions(root)} error={errors.max_risk_group?.message} {...register('max_risk_group')} />
+      {root && (
+        <TextField
+          label="Temperature (°C)"
+          hint="Optional, whole degrees."
+          inputMode="numeric"
+          autoComplete="off"
+          error={errors.temperature_c?.message}
+          {...register('temperature_c')}
+        />
+      )}
+      <SelectField
+        label="Highest risk group"
+        hint="What it and everything in it may hold."
+        options={capOptions(root)}
+        error={errors.max_risk_group?.message}
+        {...register('max_risk_group')}
+      />
       <TextField label="Barcode" hint="Optional, the label on the unit." autoComplete="off" error={errors.barcode?.message} {...register('barcode')} />
     </>
   )

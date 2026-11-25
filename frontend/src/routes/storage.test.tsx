@@ -9,7 +9,8 @@ const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const TREE = '/api/v1/labs/{lab_public_id}/storage-units/'
 const UNIT = '/api/v1/labs/{lab_public_id}/storage-units/{public_id}/'
 const signedIn = () => mockApi('get', '/api/v1/auth/me/', makeMe())
-const lab = (role: 'viewer' | 'technician' | 'curator' | 'manager') => mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: role }))
+const lab = (role: 'viewer' | 'technician' | 'curator' | 'manager') =>
+  mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: role }))
 const freezer = makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000f1', name: 'Freezer A', temperature_c: -80 })
 
 describe('/labs/$labId/storage route', () => {
@@ -53,7 +54,11 @@ describe('/labs/$labId/storage route', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Add a freezer or tank' })
     const kind = within(dialog).getByRole('combobox', { name: 'Kind' })
     await waitFor(() => expect(kind).toHaveFocus())
-    expect(within(kind).getAllByRole('option').map((o) => o.textContent)).toEqual(['Freezer', 'LN2 tank'])
+    expect(
+      within(kind)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Freezer', 'LN2 tank'])
     await user.type(within(dialog).getByRole('textbox', { name: 'Name' }), 'Freezer C')
     await user.type(within(dialog).getByRole('textbox', { name: 'Temperature (°C)' }), '-80')
     // A root states its cap: the form asks before any request.
@@ -66,7 +71,16 @@ describe('/labs/$labId/storage route', () => {
     await user.selectOptions(cap, '2')
     await user.click(within(dialog).getByRole('button', { name: 'Add' }))
     await waitFor(() => expect(router.state.location.pathname).toBe(`/labs/${LAB_ID}/storage/${created.public_id}`))
-    expect(calls[0]?.body).toEqual({ kind: 'freezer', parent: null, slot: null, name: 'Freezer C', barcode: '', temperature_c: -80, max_risk_group: 2, box_type: null })
+    expect(calls[0]?.body).toEqual({
+      kind: 'freezer',
+      parent: null,
+      slot: null,
+      name: 'Freezer C',
+      barcode: '',
+      temperature_c: -80,
+      max_risk_group: 2,
+      box_type: null,
+    })
     expect(await screen.findByRole('heading', { level: 1, name: 'Freezer C' })).toBeInTheDocument()
   })
 

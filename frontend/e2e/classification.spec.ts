@@ -15,7 +15,10 @@ async function as(browser: Browser, user: string) {
 
 const openClassification = async (page: Page) => {
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
   await page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Classification', exact: true }).click()
 }
@@ -38,7 +41,10 @@ test('a manager sees the strain recorded below its entry, with the reason, and t
 test('a viewer gets no tab and is told the check is the managers’', async ({ browser }) => {
   const { page, close } = await as(browser, 'e2e-viewer')
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   const tabs = page.getByRole('navigation', { name: 'Lab sections' })
   await expect(tabs.getByRole('link', { name: 'Strains' })).toBeVisible()
   await expect(tabs.getByRole('link', { name: 'Classification', exact: true })).toHaveCount(0)

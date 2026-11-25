@@ -108,7 +108,11 @@ test.describe('reflow at 320 px', () => {
     expect(await axe(page, 'body')).toEqual([])
     // The lab tabs do not widen the page: the row scrolls inside itself, and the active tab is in view.
     const tabs = page.getByRole('navigation', { name: 'Lab sections' })
-    const row = await tabs.locator('a').first().locator('xpath=..').evaluate((e) => ({ scroll: e.scrollWidth, client: e.clientWidth, overflow: getComputedStyle(e).overflowX }))
+    const row = await tabs
+      .locator('a')
+      .first()
+      .locator('xpath=..')
+      .evaluate((e) => ({ scroll: e.scrollWidth, client: e.clientWidth, overflow: getComputedStyle(e).overflowX }))
     expect(row.overflow).toBe('auto')
     expect(row.scroll).toBeGreaterThan(row.client) // seven tabs do not fit in 320 px
     for (const name of ['Strains', 'MTA templates']) {
@@ -375,7 +379,8 @@ async function walk(page: Page) {
       const drawn = e.getAttribute('role') === 'treeitem' ? (e.firstElementChild ?? e) : e
       const style = getComputedStyle(drawn)
       const fieldset = e.matches('input, select, textarea') ? e.parentElement?.querySelector('fieldset') : null
-      const visible = style.outlineStyle !== 'none' && style.outlineWidth !== '0px' ? true : fieldset ? getComputedStyle(fieldset).borderTopWidth === '2px' : false
+      const visible =
+        style.outlineStyle !== 'none' && style.outlineWidth !== '0px' ? true : fieldset ? getComputedStyle(fieldset).borderTopWidth === '2px' : false
       const labelledBy = e.getAttribute('aria-labelledby')
       const named = labelledBy ? document.getElementById(labelledBy)?.textContent : undefined
       // A lab tab names what waits after its name ("Requests, 3 to decide", #69): the count depends
@@ -418,7 +423,14 @@ test.describe('keyboard walk through every page', () => {
     await page.goto('/no-such-page')
     await expect(page.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible()
     await expect(page.getByRole('button', { name: `Account (${username})` })).toBeVisible()
-    expect(await walk(page)).toEqual(['a:Skip to content', 'a:Culture Collection', 'button:Select a lab', 'input:', `button:Account (${username})`, 'a:Go to the start page'])
+    expect(await walk(page)).toEqual([
+      'a:Skip to content',
+      'a:Culture Collection',
+      'button:Select a lab',
+      'input:',
+      `button:Account (${username})`,
+      'a:Go to the start page',
+    ])
     await openLab(page, '?limit=1')
     const stops = await walk(page)
     // Every control of the lab page in reading order; Previous is aria-disabled, still a stop.

@@ -78,8 +78,16 @@ describe('the strain page in tabs (#19)', () => {
     const { router } = renderApp({ path: BASE })
     await TABS[0][2]()
     const nav = screen.getByRole('navigation', { name: 'Strain sections' })
-    const current = () => within(nav).getAllByRole('link').filter((link) => link.getAttribute('aria-current') === 'page').map((link) => link.textContent)
-    expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Overview', 'Material', 'Terms', 'History'])
+    const current = () =>
+      within(nav)
+        .getAllByRole('link')
+        .filter((link) => link.getAttribute('aria-current') === 'page')
+        .map((link) => link.textContent)
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(['Overview', 'Material', 'Terms', 'History'])
     expect(current()).toEqual(['Overview'])
     const user = userEvent.setup()
     // Tab reaches the tab links in order; Enter opens one.
@@ -142,7 +150,11 @@ describe('the strain page in tabs (#19)', () => {
     await screen.findByRole('table', { name: 'Vials' })
     await vialAction(userEvent.setup(), 'MYC 42 / 1 / 1', 'Change state')
     const state = within(await screen.findByRole('dialog', { name: 'Change the state of vial MYC 42 / 1 / 1' })).getByRole('combobox', { name: 'New state' })
-    expect(within(state).getAllByRole('option').map((o) => o.textContent)).toEqual(offered)
+    expect(
+      within(state)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(offered)
   })
 
   // #160: no state change destroys a vial, whatever its strain's restrictions: a destruction
@@ -172,7 +184,12 @@ describe('the strain page in tabs (#19)', () => {
     mockApi(
       'get',
       STRAIN,
-      makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42', restrictions: [{ kind, reference: restriction.reference }], restriction_history: [restriction] }),
+      makeStrain({
+        public_id: STRAIN_ID,
+        accession_number: 'MYC 42',
+        restrictions: [{ kind, reference: restriction.reference }],
+        restriction_history: [restriction],
+      }),
     )
     mockApi(
       'get',

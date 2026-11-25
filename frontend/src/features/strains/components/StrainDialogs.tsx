@@ -91,7 +91,10 @@ export function ReclassifyDialog({ labId, strain, open, onClose, onExited }: Com
     setFailure(undefined)
     reclassify.mutate(
       { taxon: values.taxon.public_id, identified_on: values.identified_on, method: values.method.trim(), reason: values.reason.trim() },
-      { onSuccess: onClose, onError: (error) => setFailure(placeError(error, ['taxon', 'identified_on', 'method', 'reason'], setError, strainError, 'reason')) },
+      {
+        onSuccess: onClose,
+        onError: (error) => setFailure(placeError(error, ['taxon', 'identified_on', 'method', 'reason'], setError, strainError, 'reason')),
+      },
     )
   })
   return (
@@ -110,14 +113,21 @@ export function ReclassifyDialog({ labId, strain, open, onClose, onExited }: Com
         {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
         <TaxonField label="Taxon" autoFocus error={errors.taxon?.message} value={taxon ?? null} onChange={onTaxonChange} onBlur={onTaxonBlur} ref={taxonRef} />
         <TextField label="Identified on" hint="YYYY-MM-DD" autoComplete="off" error={errors.identified_on?.message} {...register('identified_on')} />
-        <TextField label="Method" hint="For example 16S rRNA gene sequence. Name no person." autoComplete="off" error={errors.method?.message} {...register('method')} />
+        <TextField
+          label="Method"
+          hint="For example 16S rRNA gene sequence. Name no person."
+          autoComplete="off"
+          error={errors.method?.message}
+          {...register('method')}
+        />
         <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} error={errors.reason?.message} {...register('reason')} />
       </Stack>
     </ConfirmDialog>
   )
 }
 
-const BASIS_HINT = 'The list entry, the catalogue or the publication the group comes from. An agent missing from a list is not thereby group 1 (NV 361/2007 Sb., Příloha 7).'
+const BASIS_HINT =
+  'The list entry, the catalogue or the publication the group comes from. An agent missing from a list is not thereby group 1 (NV 361/2007 Sb., Příloha 7).'
 const LOWER_WAITS = 'A lower risk group waits for a manager other than you to confirm it. Until then every rule reads the group the strain has now.'
 
 const WORDS = {
@@ -316,13 +326,7 @@ export function AddRestrictionDialog({ labId, strain, open, onClose, onExited, s
         <SelectField label="Kind" options={KIND_OPTIONS} autoFocus error={errors.kind?.message} {...register('kind')} />
         <TextField label="List entry" hint={REFERENCE_HINTS[kind]} autoComplete="off" error={errors.reference?.message} {...register('reference')} />
         {kind === 'dual_use' && (
-          <TextField
-            label="Act Annex I was read in"
-            hint="For example (EU) 2025/2003"
-            autoComplete="off"
-            error={errors.act?.message}
-            {...register('act')}
-          />
+          <TextField label="Act Annex I was read in" hint="For example (EU) 2025/2003" autoComplete="off" error={errors.act?.message} {...register('act')} />
         )}
         {kind === 'gmo' && (
           <SelectField label="Contained use category" options={CATEGORY_OPTIONS} error={errors.gmo_category?.message} {...register('gmo_category')} />
@@ -379,7 +383,10 @@ export function ConfirmEndDialog({ labId, strain, restriction, proposal, open, o
   const [failure, setFailure] = useState<string>()
   const onConfirm = () => {
     setFailure(undefined)
-    confirm.mutate({ restrictionId: restriction.public_id, proposal: proposal.public_id }, { onSuccess: onClose, onError: (error) => setFailure(strainError(error)) })
+    confirm.mutate(
+      { restrictionId: restriction.public_id, proposal: proposal.public_id },
+      { onSuccess: onClose, onError: (error) => setFailure(strainError(error)) },
+    )
   }
   return (
     <ConfirmDialog
@@ -464,8 +471,15 @@ export function GrowthDialog({ labId, strain, open, onClose, onExited }: Common)
       onExited={onExited}
     >
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Growth conditions" spacing={2} sx={{ mt: 2 }}>
-        {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
-        <GrowthFields register={(name) => register(name)} errors={errors} media={media.data?.results} mediaFailed={media.isError && media.data === undefined} current={strain.growth.medium} autoFocus />
+        <GrowthFields
+          register={(name) => register(name)}
+          errors={errors}
+          media={media.data?.results}
+          mediaFailed={media.isError && media.data === undefined}
+          current={strain.growth.medium}
+          // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
+          autoFocus
+        />
         <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} error={errors.reason?.message} {...register('reason')} />
       </Stack>
     </ConfirmDialog>

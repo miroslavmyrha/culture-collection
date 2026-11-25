@@ -44,7 +44,15 @@ export function RevealLog({ labId, params, onOffsetChange, onPerson, onClearFilt
       {stale}
       {onePerson && <OnePerson name={personName(results[0]?.person ?? null)} onEveryone={() => onPerson(undefined)} />}
       <RevealTable labId={labId} results={results} onPerson={onePerson ? undefined : onPerson} />
-      <Pager label="Reveal pages" count={count} shown={results.length} limit={params.limit} offset={params.offset} loading={list.isPlaceholderData} onOffsetChange={onOffsetChange} />
+      <Pager
+        label="Reveal pages"
+        count={count}
+        shown={results.length}
+        limit={params.limit}
+        offset={params.offset}
+        loading={list.isPlaceholderData}
+        onOffsetChange={onOffsetChange}
+      />
     </section>
   )
 }
@@ -207,8 +215,24 @@ export function RevealFilters({ filters, onChange }: { filters: Filters; onChang
       sx={{ mb: 3 }}
     >
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ alignItems: { md: 'flex-start' }, flexWrap: 'wrap' }}>
-        <TextField ref={sinceField} label="From" hint="YYYY-MM-DD" autoComplete="off" error={errors.since} value={since} onChange={(event) => setSince(event.target.value)} />
-        <TextField ref={untilField} label="To" hint="YYYY-MM-DD" autoComplete="off" error={errors.until} value={until} onChange={(event) => setUntil(event.target.value)} />
+        <TextField
+          ref={sinceField}
+          label="From"
+          hint="YYYY-MM-DD"
+          autoComplete="off"
+          error={errors.since}
+          value={since}
+          onChange={(event) => setSince(event.target.value)}
+        />
+        <TextField
+          ref={untilField}
+          label="To"
+          hint="YYYY-MM-DD"
+          autoComplete="off"
+          error={errors.until}
+          value={until}
+          onChange={(event) => setUntil(event.target.value)}
+        />
         <Stack direction="row" spacing={1} useFlexGap sx={{ pt: 1, flexWrap: 'wrap' }}>
           <Button type="submit" variant="outlined">
             Show

@@ -3,7 +3,21 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { allowConsole } from '@/test/console'
 import { notify } from '@/lib/notify'
-import { makeDeposit, makeLab, makeMe, makeMember, makeMtaTemplate, makeRequest, makeShipmentDocument, makeStrain, makeStrainRow, makeUnit, makeUnitRow, page, problem } from '@/test/factories'
+import {
+  makeDeposit,
+  makeLab,
+  makeMe,
+  makeMember,
+  makeMtaTemplate,
+  makeRequest,
+  makeShipmentDocument,
+  makeStrain,
+  makeStrainRow,
+  makeUnit,
+  makeUnitRow,
+  page,
+  problem,
+} from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
@@ -31,7 +45,13 @@ const VRAT = '/api/v1/labs/{lab_public_id}/vrat-access/'
 const signedIn = (username = 'lab-tech') => void mockApi('get', '/api/v1/auth/me/', makeMe({ username }))
 /** The strain page's passages, batches and vials, and the boxes for its forms: all empty. */
 const material = () => {
-  for (const path of ['/api/v1/labs/{lab_public_id}/passages/', '/api/v1/labs/{lab_public_id}/batches/', '/api/v1/labs/{lab_public_id}/vials/', '/api/v1/labs/{lab_public_id}/destructions/'] as const) mockApi('get', path, page([]))
+  for (const path of [
+    '/api/v1/labs/{lab_public_id}/passages/',
+    '/api/v1/labs/{lab_public_id}/batches/',
+    '/api/v1/labs/{lab_public_id}/vials/',
+    '/api/v1/labs/{lab_public_id}/destructions/',
+  ] as const)
+    mockApi('get', path, page([]))
   mockApi('get', '/api/v1/labs/{lab_public_id}/storage-units/', [])
 }
 /** Every tab's data of the strain page (#19), so any of them may open. */
@@ -54,30 +74,82 @@ describe('page titles (WCAG 2.4.2)', () => {
     [`/labs/${LAB_ID}`, 'Lab not found', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), members())],
     [`/labs/${LAB_ID}`, 'Could not load the lab', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 500), members())],
     [`/labs/${LAB_ID}/strains`, 'Strains of Mycology', () => (signedIn(), lab(), mockApi('get', STRAINS, page([makeStrainRow()])))],
-    [`/labs/${LAB_ID}/strains`, 'Lab not found', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApi('get', STRAINS, page([])))],
-    [`/labs/${LAB_ID}/strains/${STRAIN_ID}`, 'MYC 42', () => (signedIn(), lab(), strainTabs(), mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42' })))],
-    [`/labs/${LAB_ID}/strains/${STRAIN_ID}/material`, 'MYC 42, material', () => (signedIn(), lab(), strainTabs(), mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42' })))],
-    [`/labs/${LAB_ID}/strains/${STRAIN_ID}/terms`, 'MYC 42, terms', () => (signedIn(), lab(), strainTabs(), mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42' })))],
-    [`/labs/${LAB_ID}/strains/${STRAIN_ID}/history`, 'MYC 42, history', () => (signedIn(), lab(), strainTabs(), mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42' })))],
-    [`/labs/${LAB_ID}/strains/${STRAIN_ID}/history`, 'Strain not found', () => (signedIn(), lab(), strainTabs(), mockApiError('get', STRAIN, 404, problem(404)))],
+    [
+      `/labs/${LAB_ID}/strains`,
+      'Lab not found',
+      () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApi('get', STRAINS, page([]))),
+    ],
+    [
+      `/labs/${LAB_ID}/strains/${STRAIN_ID}`,
+      'MYC 42',
+      () => (signedIn(), lab(), strainTabs(), mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42' }))),
+    ],
+    [
+      `/labs/${LAB_ID}/strains/${STRAIN_ID}/material`,
+      'MYC 42, material',
+      () => (signedIn(), lab(), strainTabs(), mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42' }))),
+    ],
+    [
+      `/labs/${LAB_ID}/strains/${STRAIN_ID}/terms`,
+      'MYC 42, terms',
+      () => (signedIn(), lab(), strainTabs(), mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42' }))),
+    ],
+    [
+      `/labs/${LAB_ID}/strains/${STRAIN_ID}/history`,
+      'MYC 42, history',
+      () => (signedIn(), lab(), strainTabs(), mockApi('get', STRAIN, makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42' }))),
+    ],
+    [
+      `/labs/${LAB_ID}/strains/${STRAIN_ID}/history`,
+      'Strain not found',
+      () => (signedIn(), lab(), strainTabs(), mockApiError('get', STRAIN, 404, problem(404))),
+    ],
     [`/labs/${LAB_ID}/strains/${STRAIN_ID}`, 'Strain not found', () => (signedIn(), lab(), strainTabs(), mockApiError('get', STRAIN, 404, problem(404)))],
     [`/labs/${LAB_ID}/strains/${STRAIN_ID}`, 'Could not load the strain', () => (signedIn(), lab(), strainTabs(), mockApiError('get', STRAIN, 500))],
     [`/labs/${LAB_ID}/depositors`, 'Depositors of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', DEPOSITORS, page([])))],
     [`/labs/${LAB_ID}/mta-templates`, 'MTA templates of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', MTAS, page([])))],
     [`/labs/${LAB_ID}/mta-templates/new`, 'Publish an MTA version in Mycology', () => (signedIn(), lab({ my_role: 'manager' }))],
     [`/labs/${LAB_ID}/mta-templates/${STRAIN_ID}`, 'STD version 1', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', MTA, makeMtaTemplate()))],
-    [`/labs/${LAB_ID}/mta-templates/${STRAIN_ID}`, 'MTA not found', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', MTA, 404, problem(404)))],
+    [
+      `/labs/${LAB_ID}/mta-templates/${STRAIN_ID}`,
+      'MTA not found',
+      () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', MTA, 404, problem(404))),
+    ],
     [`/labs/${LAB_ID}/mta-templates/${STRAIN_ID}`, 'MTA template', () => (signedIn(), lab({ my_role: 'viewer' }), mockApiError('get', MTA, 404, problem(404)))],
     [`/labs/${LAB_ID}/media`, 'Media of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', MEDIA, page([])))],
     [`/labs/${LAB_ID}/deposits`, 'Deposits of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', DEPOSITS, page([])))],
     [`/labs/${LAB_ID}/deposits/new`, 'Receive a deposit in Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', MTAS, page([])))],
-    [`/labs/${LAB_ID}/deposits/${STRAIN_ID}`, 'Deposit Testella K3', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', DEPOSIT, makeDeposit({ name_as_received: 'Testella K3' })))],
-    [`/labs/${LAB_ID}/deposits/${STRAIN_ID}`, 'Deposit not found', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', DEPOSIT, 404, problem(404)))],
+    [
+      `/labs/${LAB_ID}/deposits/${STRAIN_ID}`,
+      'Deposit Testella K3',
+      () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', DEPOSIT, makeDeposit({ name_as_received: 'Testella K3' }))),
+    ],
+    [
+      `/labs/${LAB_ID}/deposits/${STRAIN_ID}`,
+      'Deposit not found',
+      () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', DEPOSIT, 404, problem(404))),
+    ],
     [`/labs/${LAB_ID}/deposits/${STRAIN_ID}`, 'Could not load the deposit', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', DEPOSIT, 500))],
     [`/labs/${LAB_ID}/deposits/${STRAIN_ID}`, 'Deposit', () => (signedIn(), lab({ my_role: 'viewer' }), mockApiError('get', DEPOSIT, 404, problem(404)))],
     [`/labs/${LAB_ID}/storage`, 'Storage of Mycology', () => (signedIn(), lab(), mockApi('get', UNITS, [makeUnitRow()]))],
-    [`/labs/${LAB_ID}/storage`, 'Lab not found', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApi('get', UNITS, []))],
-    [`/labs/${LAB_ID}/storage/${UNIT_ID}`, 'Box 1 in Rack 1', () => (signedIn(), lab(), mockApi('get', UNIT, makeUnit({ public_id: UNIT_ID, name: 'Box 1', ancestors: [{ public_id: UNIT_ID.replace('b1', 'a1'), kind: 'rack', name: 'Rack 1' }] })))],
+    [
+      `/labs/${LAB_ID}/storage`,
+      'Lab not found',
+      () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApi('get', UNITS, [])),
+    ],
+    [
+      `/labs/${LAB_ID}/storage/${UNIT_ID}`,
+      'Box 1 in Rack 1',
+      () => (
+        signedIn(),
+        lab(),
+        mockApi(
+          'get',
+          UNIT,
+          makeUnit({ public_id: UNIT_ID, name: 'Box 1', ancestors: [{ public_id: UNIT_ID.replace('b1', 'a1'), kind: 'rack', name: 'Rack 1' }] }),
+        )
+      ),
+    ],
     [`/labs/${LAB_ID}/storage/${UNIT_ID}`, 'Unit not found', () => (signedIn(), lab(), mockApiError('get', UNIT, 404, problem(404)))],
     [`/labs/${LAB_ID}/storage/${UNIT_ID}`, 'Could not load the unit', () => (signedIn(), lab(), mockApiError('get', UNIT, 500))],
     [`/labs/${LAB_ID}/requests`, 'Requests of Mycology', () => (signedIn(), lab({ my_role: 'viewer' }), mockApi('get', REQUESTS, page([])))],
@@ -86,22 +158,54 @@ describe('page titles (WCAG 2.4.2)', () => {
     [`/labs/${LAB_ID}/requests/${STRAIN_ID}`, 'Request not found', () => (signedIn(), lab(), mockApiError('get', REQUEST, 404, problem(404)))],
     [`/labs/${LAB_ID}/requests/${STRAIN_ID}`, 'Could not load the request', () => (signedIn(), lab(), mockApiError('get', REQUEST, 500))],
     [`/labs/${LAB_ID}/requesters`, 'Requesters of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', REQUESTERS, page([])))],
-    [`/labs/${LAB_ID}/shipment-documents/${STRAIN_ID}`, 'Delivery note, request 2026/7', () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', SHIPMENT_DOCUMENT, makeShipmentDocument({ request_number: '2026/7' })))],
-    [`/labs/${LAB_ID}/shipment-documents/${STRAIN_ID}`, 'Document not found', () => (signedIn(), lab({ my_role: 'viewer' }), mockApiError('get', SHIPMENT_DOCUMENT, 404, problem(404)))],
-    [`/labs/${LAB_ID}/shipment-documents/${STRAIN_ID}`, 'Could not load the document', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', SHIPMENT_DOCUMENT, 500))],
+    [
+      `/labs/${LAB_ID}/shipment-documents/${STRAIN_ID}`,
+      'Delivery note, request 2026/7',
+      () => (signedIn(), lab({ my_role: 'curator' }), mockApi('get', SHIPMENT_DOCUMENT, makeShipmentDocument({ request_number: '2026/7' }))),
+    ],
+    [
+      `/labs/${LAB_ID}/shipment-documents/${STRAIN_ID}`,
+      'Document not found',
+      () => (signedIn(), lab({ my_role: 'viewer' }), mockApiError('get', SHIPMENT_DOCUMENT, 404, problem(404))),
+    ],
+    [
+      `/labs/${LAB_ID}/shipment-documents/${STRAIN_ID}`,
+      'Could not load the document',
+      () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', SHIPMENT_DOCUMENT, 500)),
+    ],
     [`/labs/${LAB_ID}/permits`, 'Permits of Mycology', () => (signedIn(), lab({ my_role: 'manager' }), mockApi('get', PERMITS, []))],
-    [`/labs/${LAB_ID}/vrat-access`, 'VRAT access list of Mycology', () => (signedIn(), lab({ my_role: 'manager' }), mockApi('get', VRAT, []), mockApi('get', PERMITS, []))],
+    [
+      `/labs/${LAB_ID}/vrat-access`,
+      'VRAT access list of Mycology',
+      () => (signedIn(), lab({ my_role: 'manager' }), mockApi('get', VRAT, []), mockApi('get', PERMITS, [])),
+    ],
     [`/labs/${LAB_ID}/vrat-access`, 'VRAT access list of Mycology', () => (signedIn(), lab({ my_role: 'curator' }))],
     [`/labs/${LAB_ID}/vrat-access`, 'Lab not found', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)))],
     [`/labs/${LAB_ID}/permits`, 'Permits of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', PERMITS, 403, problem(403)))],
     [`/labs/${LAB_ID}/reveals`, 'Reveals of Mycology', () => (signedIn(), lab({ my_role: 'manager' }), mockApi('get', REVEALS, page([])))],
     [`/labs/${LAB_ID}/reveals`, 'Reveals of Mycology', () => (signedIn(), lab({ my_role: 'manager' }), mockApiError('get', REVEALS, 500))],
     [`/labs/${LAB_ID}/reveals`, 'Reveals of Mycology', () => (signedIn(), lab({ my_role: 'technician' }), mockApiError('get', REVEALS, 403, problem(403)))],
-    [`/labs/${LAB_ID}/reveals`, 'Lab not found', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApiError('get', REVEALS, 404, problem(404)))],
-    [`/labs/${LAB_ID}/permits`, 'Lab not found', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApiError('get', PERMITS, 404, problem(404)))],
+    [
+      `/labs/${LAB_ID}/reveals`,
+      'Lab not found',
+      () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApiError('get', REVEALS, 404, problem(404))),
+    ],
+    [
+      `/labs/${LAB_ID}/permits`,
+      'Lab not found',
+      () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApiError('get', PERMITS, 404, problem(404))),
+    ],
     [`/labs/${LAB_ID}/classification`, 'Classification of Mycology', () => (signedIn(), lab({ my_role: 'manager' }), mockApi('get', DISAGREEMENTS, page([])))],
-    [`/labs/${LAB_ID}/classification`, 'Classification of Mycology', () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', DISAGREEMENTS, 403, problem(403)))],
-    [`/labs/${LAB_ID}/classification`, 'Lab not found', () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApiError('get', DISAGREEMENTS, 404, problem(404)))],
+    [
+      `/labs/${LAB_ID}/classification`,
+      'Classification of Mycology',
+      () => (signedIn(), lab({ my_role: 'curator' }), mockApiError('get', DISAGREEMENTS, 403, problem(403))),
+    ],
+    [
+      `/labs/${LAB_ID}/classification`,
+      'Lab not found',
+      () => (signedIn(), mockApiError('get', '/api/v1/labs/{public_id}/', 404, problem(404)), mockApiError('get', DISAGREEMENTS, 404, problem(404))),
+    ],
     ['/no-such-page', 'Page not found', () => undefined],
   ])('%s shows "%s | Culture collection"', async (path, title, setup) => {
     allowConsole(/API error 500/)
@@ -261,7 +365,11 @@ describe('the account menu', () => {
     const menu = await screen.findByRole('menu', { name: 'Account (lab-tech)' })
     expect(button).toHaveAttribute('aria-expanded', 'true')
     expect(button).toHaveAttribute('aria-controls', menu.id)
-    expect(within(menu).getAllByRole('menuitemradio').map((item) => item.textContent)).toEqual(['System', 'Light', 'Dark'])
+    expect(
+      within(menu)
+        .getAllByRole('menuitemradio')
+        .map((item) => item.textContent),
+    ).toEqual(['System', 'Light', 'Dark'])
     await waitFor(() => expect(within(menu).getByRole('menuitemradio', { name: 'System' })).toHaveFocus())
     await user.keyboard('{End}')
     expect(within(menu).getByRole('menuitem', { name: 'Sign out' })).toHaveFocus()

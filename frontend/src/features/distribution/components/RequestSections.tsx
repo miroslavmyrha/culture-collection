@@ -151,7 +151,9 @@ function LineRow({ line, shipped }: { line: Line; shipped: boolean }) {
       <TableCell sx={{ overflowWrap: 'anywhere' }}>
         Terms version {line.terms_version}, {mtaText(line)}
       </TableCell>
-      <TableCell sx={{ overflowWrap: 'anywhere' }}><Mono>{vialLabels(shipped ? line.shipped : line.reserved)}</Mono></TableCell>
+      <TableCell sx={{ overflowWrap: 'anywhere' }}>
+        <Mono>{vialLabels(shipped ? line.shipped : line.reserved)}</Mono>
+      </TableCell>
     </TableRow>
   )
 }
@@ -249,7 +251,8 @@ function AnswerItem({ labId, line, role, use }: { labId: string; line: Line; rol
         `${strain}: the terms allow ${use} only on request to the depositor. No answer is recorded yet.`
       ) : (
         <>
-          {strain}: the depositor {a.agreed ? 'agreed to' : 'declined'} {use} (answer of {a.answered_on}, recorded by {a.recorded_by} on {day(a.recorded_at)}){a.note ? `: ${a.note}` : '.'}
+          {strain}: the depositor {a.agreed ? 'agreed to' : 'declined'} {use} (answer of {a.answered_on}, recorded by {a.recorded_by} on {day(a.recorded_at)})
+          {a.note ? `: ${a.note}` : '.'}
           <AnswerDownload labId={labId} line={line} role={role} />
         </>
       )}

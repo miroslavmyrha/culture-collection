@@ -13,7 +13,9 @@ export function RecoveryCodes({ codes, onDone, doneLabel = 'I have saved them, c
       <Typography component="h2" variant="h6">
         Your recovery codes
       </Typography>
-      <Typography>Each code signs you in once if you lose your security key or phone. Keep them somewhere safe, away from this computer. They are not shown again.</Typography>
+      <Typography>
+        Each code signs you in once if you lose your security key or phone. Keep them somewhere safe, away from this computer. They are not shown again.
+      </Typography>
       <ol aria-label="Recovery codes">
         {codes.map((code) => (
           <li key={code}>

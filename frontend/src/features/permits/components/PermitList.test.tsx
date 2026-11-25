@@ -20,7 +20,13 @@ const valid = makeLabPermit({
 })
 const later = makeLabPermit({ permit_reference: 'DEV/VRAT/3', standing: 'not_yet_valid', valid_from: '2027-01-01' })
 const expired = makeLabPermit({ permit_reference: 'DEV/VRAT/4', standing: 'expired', expires_on: '2026-03-31', last_valid_day: '2026-03-31' })
-const ended = makeLabPermit({ permit_reference: 'DEV/VRAT/5', standing: 'ended', ended_on: '2025-06-01', end_reason: 'Revoked by decision DEV/9', last_valid_day: '2025-05-31' })
+const ended = makeLabPermit({
+  permit_reference: 'DEV/VRAT/5',
+  standing: 'ended',
+  ended_on: '2025-06-01',
+  end_reason: 'Revoked by decision DEV/9',
+  last_valid_day: '2025-05-31',
+})
 
 const toneOf = (reference: string) => rowOf(reference).querySelector('[data-tone]')?.getAttribute('data-tone') ?? null
 

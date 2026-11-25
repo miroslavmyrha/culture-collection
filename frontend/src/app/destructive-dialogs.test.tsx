@@ -12,7 +12,22 @@ import { ConfirmDeaccessionDialog, ConfirmEndDialog, DeaccessionDialog } from '@
 import { CheckErrorDialog } from '@/features/vials/components/CheckDialogs'
 import { ConfirmDestructionDialog, DestructionErrorDialog } from '@/features/vials/components/DestructionDialogs'
 import { ReviveDialog } from '@/features/vials/components/VialDialogs'
-import { makeCheck, makeDeposit, makeDestruction, makeMedium, makeMember, makePermit, makePreparation, makeRequest, makeRequestLine, makeStrain, makeUnit, makeVial, noGrowth, page } from '@/test/factories'
+import {
+  makeCheck,
+  makeDeposit,
+  makeDestruction,
+  makeMedium,
+  makeMember,
+  makePermit,
+  makePreparation,
+  makeRequest,
+  makeRequestLine,
+  makeStrain,
+  makeUnit,
+  makeVial,
+  noGrowth,
+  page,
+} from '@/test/factories'
 import { mockApi } from '@/test/mockApi'
 import { renderWithProviders } from '@/test/render'
 
@@ -136,7 +151,18 @@ const DESTRUCTIVE: Record<string, Entry | Entry[]> = {
       render: () => (
         <CancelDialog
           labId="00000000-0000-4000-8000-00000000000a"
-          request={makeRequest({ number: '2026/7', status: 'approved', lines: [makeRequestLine({ reserved: [{ public_id: '00000000-0000-4000-8000-0000000000e1', label: 'MYC 1 / 1 / 1' }, { public_id: '00000000-0000-4000-8000-0000000000e2', label: 'MYC 1 / 1 / 2' }] })] })}
+          request={makeRequest({
+            number: '2026/7',
+            status: 'approved',
+            lines: [
+              makeRequestLine({
+                reserved: [
+                  { public_id: '00000000-0000-4000-8000-0000000000e1', label: 'MYC 1 / 1 / 1' },
+                  { public_id: '00000000-0000-4000-8000-0000000000e2', label: 'MYC 1 / 1 / 2' },
+                ],
+              }),
+            ],
+          })}
           open
           onClose={() => {}}
           onExited={() => {}}
@@ -149,7 +175,11 @@ const DESTRUCTIVE: Record<string, Entry | Entry[]> = {
       render: () => (
         <ConfirmShipmentDialog
           labId="00000000-0000-4000-8000-00000000000a"
-          request={makeRequest({ number: '2026/7', status: 'awaiting_confirmation', lines: [makeRequestLine({ reserved: [{ public_id: '00000000-0000-4000-8000-0000000000e1', label: 'MYC 1 / 1 / 1' }] })] })}
+          request={makeRequest({
+            number: '2026/7',
+            status: 'awaiting_confirmation',
+            lines: [makeRequestLine({ reserved: [{ public_id: '00000000-0000-4000-8000-0000000000e1', label: 'MYC 1 / 1 / 1' }] })],
+          })}
           preparation={makePreparation({ prepared_by: 'curator' })}
           open
           onClose={() => {}}
@@ -159,7 +189,8 @@ const DESTRUCTIVE: Record<string, Entry | Entry[]> = {
         </ConfirmShipmentDialog>
       ),
       name: 'Confirm the shipment of request 2026/7?',
-      consequence: 'Its reserved vial leaves the collection today, as prepared by curator: recorded as distributed and out of their boxes. A shipment cannot be undone.',
+      consequence:
+        'Its reserved vial leaves the collection today, as prepared by curator: recorded as distributed and out of their boxes. A shipment cannot be undone.',
     },
     {
       render: () => (
@@ -177,7 +208,17 @@ const DESTRUCTIVE: Record<string, Entry | Entry[]> = {
     {
       render: () => {
         const request = makeRequest({ number: '2026/7', use: 'research_commercial', lines: [makeRequestLine({ on_request: true })] })
-        return <DepositorAnswerDialog labId="00000000-0000-4000-8000-00000000000a" request={request} lines={request.lines} agreed={false} open onClose={() => {}} onExited={() => {}} />
+        return (
+          <DepositorAnswerDialog
+            labId="00000000-0000-4000-8000-00000000000a"
+            request={request}
+            lines={request.lines}
+            agreed={false}
+            open
+            onClose={() => {}}
+            onExited={() => {}}
+          />
+        )
       },
       name: 'Record the depositor’s no and reject request 2026/7?',
       consequence: 'The depositor declined commercial research: request 2026/7 is rejected with the answer as the reason. It cannot be undone',
@@ -187,7 +228,17 @@ const DESTRUCTIVE: Record<string, Entry | Entry[]> = {
     {
       render: () => {
         const proposal = { public_id: '00000000-0000-4000-8000-0000000000e9', reason: 'Delisted.', proposed_at: '2026-10-20T10:00:00Z', confirm_refusal: null }
-        const restriction = { public_id: '00000000-0000-4000-8000-0000000000e1', kind: 'cz_vrat' as const, reference: 'Příloha 1, bod 2', act: '', gmo_category: null, created_at: '2026-02-01T10:00:00Z', ended_at: null, end_reason: '', end_proposal: proposal }
+        const restriction = {
+          public_id: '00000000-0000-4000-8000-0000000000e1',
+          kind: 'cz_vrat' as const,
+          reference: 'Příloha 1, bod 2',
+          act: '',
+          gmo_category: null,
+          created_at: '2026-02-01T10:00:00Z',
+          ended_at: null,
+          end_reason: '',
+          end_proposal: proposal,
+        }
         return (
           <ConfirmEndDialog
             labId="00000000-0000-4000-8000-00000000000a"
@@ -204,7 +255,15 @@ const DESTRUCTIVE: Record<string, Entry | Entry[]> = {
       consequence: "the strain leaves the rules of a regulated agent. Its vials' places show again",
     },
     {
-      render: () => <DeaccessionDialog labId="00000000-0000-4000-8000-00000000000a" strain={makeStrain({ accession_number: 'MYC 7' })} open onClose={() => {}} onExited={() => {}} />,
+      render: () => (
+        <DeaccessionDialog
+          labId="00000000-0000-4000-8000-00000000000a"
+          strain={makeStrain({ accession_number: 'MYC 7' })}
+          open
+          onClose={() => {}}
+          onExited={() => {}}
+        />
+      ),
       name: 'Deaccession MYC 7?',
       consequence: 'The strain leaves the collection for good. Its open requests are cancelled and its vials still in stock are marked for destruction.',
     },
@@ -213,7 +272,14 @@ const DESTRUCTIVE: Record<string, Entry | Entry[]> = {
         <ConfirmDeaccessionDialog
           labId="00000000-0000-4000-8000-00000000000a"
           strain={makeStrain({ accession_number: 'MYC 8' })}
-          proposal={{ public_id: '00000000-0000-4000-8000-0000000000e8', cause: 'lost', reason: 'Not in its box.', final_use: '', proposed_at: '2026-10-20T10:00:00Z', confirm_refusal: null }}
+          proposal={{
+            public_id: '00000000-0000-4000-8000-0000000000e8',
+            cause: 'lost',
+            reason: 'Not in its box.',
+            final_use: '',
+            proposed_at: '2026-10-20T10:00:00Z',
+            confirm_refusal: null,
+          }}
           open
           onClose={() => {}}
           onExited={() => {}}
@@ -254,7 +320,9 @@ describe('destructive confirmations (invariant)', () => {
     expect(found).toEqual(Object.keys(DESTRUCTIVE).toSorted())
   })
 
-  const entries = Object.entries(DESTRUCTIVE).flatMap(([file, entry]) => (Array.isArray(entry) ? entry : [entry]).map((e) => [`${file}: ${e.name}`, e] as const))
+  const entries = Object.entries(DESTRUCTIVE).flatMap(([file, entry]) =>
+    (Array.isArray(entry) ? entry : [entry]).map((e) => [`${file}: ${e.name}`, e] as const),
+  )
   it.each(entries)('%s describes its alertdialog by the consequence', async (_, { render, name, consequence }) => {
     // The revival dialog offers the lab's media.
     mockApi('get', '/api/v1/labs/{lab_public_id}/media/', page([]))

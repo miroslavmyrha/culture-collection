@@ -7,7 +7,6 @@ import { day } from '@/lib/dates'
 import { Facts, Section } from '@/components/DetailParts'
 import { DetailUnavailable } from '@/components/DetailUnavailable'
 
-
 /** A value that may be empty, or the words for empty. */
 const orElse = (value: string | null | undefined, empty: string): string => (value ? value : empty)
 

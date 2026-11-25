@@ -72,7 +72,13 @@ function Changes({ factors, onCodes }: { factors: Factors; onCodes: (codes: stri
   return (
     <Stack spacing={2}>
       {factors.security_keys.map((key) => (
-        <Button key={key.public_id} variant="outlined" color="error" aria-disabled={last || removeKey.isPending} onClick={() => !last && removeKey.mutate(key.public_id)}>
+        <Button
+          key={key.public_id}
+          variant="outlined"
+          color="error"
+          aria-disabled={last || removeKey.isPending}
+          onClick={() => !last && removeKey.mutate(key.public_id)}
+        >
           Remove the key {key.name}
         </Button>
       ))}
@@ -82,7 +88,11 @@ function Changes({ factors, onCodes }: { factors: Factors; onCodes: (codes: stri
         </Button>
       )}
       {last && <Typography variant="body2">Your last second factor stays. Add another one before removing it.</Typography>}
-      <Button variant="outlined" aria-disabled={newCodes.isPending} onClick={() => !newCodes.isPending && newCodes.mutate(undefined, { onSuccess: (r) => onCodes(r.recovery_codes) })}>
+      <Button
+        variant="outlined"
+        aria-disabled={newCodes.isPending}
+        onClick={() => !newCodes.isPending && newCodes.mutate(undefined, { onSuccess: (r) => onCodes(r.recovery_codes) })}
+      >
         New recovery codes
       </Button>
       {failure && <Alert severity="error">{factorError(failure)}</Alert>}

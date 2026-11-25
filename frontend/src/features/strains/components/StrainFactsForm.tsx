@@ -46,7 +46,6 @@ const FIELDS = [
 ] as const satisfies readonly Path<Values>[]
 const RESTRICTION_FIELDS = ['kind', 'reference', 'act', 'gmo_category'] as const
 
-
 /**
  * For curators: what the check of a deposit found, which the new strain takes. The server
  * numbers the strain ("MYC 42") and it is active at once. A risk group 4 agent and a VRAT or
@@ -71,7 +70,12 @@ function factsBody(values: StrainFactsValues, taxon: string): StrainFactsBody {
 }
 
 /** A refused permit lands on the restriction's own field, in the form's words for its kind. */
-function permitRefusal(error: unknown, restrictions: StrainFactsValues['restrictions'], nested: readonly Path<Values>[], setError: UseFormSetError<Values>): boolean {
+function permitRefusal(
+  error: unknown,
+  restrictions: StrainFactsValues['restrictions'],
+  nested: readonly Path<Values>[],
+  setError: UseFormSetError<Values>,
+): boolean {
   const field = nested.find((name) => name === problemField(error))
   if (!field || !isApiError(error, 422) || error.code !== 'lab_authorisation_required') return false
   const kind = restrictions[Number(field.split('.')[1])]?.kind ?? ''
@@ -143,7 +147,14 @@ export function StrainFactsForm({ label, submitLabel, nameAsReceived, submit, on
         <IdentityFields nameAsReceived={nameAsReceived} taxon={taxon} register={register} errors={errors} />
         <BiosafetyFields register={register} errors={errors} />
         <OriginFields register={register} errors={errors} />
-        <RestrictionFields rows={restrictions} kinds={kinds} addButton={addButton} onRemoved={() => addButton.current?.focus()} register={register} errors={errors} />
+        <RestrictionFields
+          rows={restrictions}
+          kinds={kinds}
+          addButton={addButton}
+          onRemoved={() => addButton.current?.focus()}
+          register={register}
+          errors={errors}
+        />
 
         {message && <Alert severity="error">{message}</Alert>}
         <Box>

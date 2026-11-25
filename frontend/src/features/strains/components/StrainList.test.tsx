@@ -22,7 +22,11 @@ const testella = makeTaxon({ public_id: '00000000-0000-4000-8000-0000000000b1', 
 function renderList(params: StrainListParams = PARAMS) {
   const onOffsetChange = vi.fn<(offset: number) => void>()
   const onClearFilters = vi.fn<() => void>()
-  return { onOffsetChange, onClearFilters, view: renderWithProviders(<StrainList labId={LAB_ID} params={params} onOffsetChange={onOffsetChange} onClearFilters={onClearFilters} />) }
+  return {
+    onOffsetChange,
+    onClearFilters,
+    view: renderWithProviders(<StrainList labId={LAB_ID} params={params} onOffsetChange={onOffsetChange} onClearFilters={onClearFilters} />),
+  }
 }
 
 describe('StrainList', () => {
@@ -40,15 +44,11 @@ describe('StrainList', () => {
     const table = await screen.findByRole('table', { name: 'Strains' })
     const first = within(table).getAllByRole('row')[1]
     if (!first) throw new Error('no row')
-    expect(within(first).getAllByRole('cell').map((cell) => cell.textContent)).toEqual([
-      'MYC 7',
-      'T. exempli T1',
-      strain.taxon.name,
-      '2',
-      'Dual-use item',
-      '4',
-      'Active',
-    ])
+    expect(
+      within(first)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual(['MYC 7', 'T. exempli T1', strain.taxon.name, '2', 'Dual-use item', '4', 'Active'])
     expect(within(first).getByRole('link', { name: 'MYC 7' })).toHaveAttribute('href', `/labs/${LAB_ID}/strains/${strain.public_id}`)
   })
 
@@ -101,7 +101,18 @@ describe('StrainList', () => {
 
   it('asks for the lab and every filter of the URL, and keeps them in the query key', async () => {
     const calls = mockApi('get', LIST, page([]))
-    const params: StrainListParams = { ...PARAMS, taxon: testella.public_id, risk_group: 2, status: 'active', restriction: 'gmo', search: 'MYC', isolation_source: 'soil', country: 'CZ', depositor: JANA.public_id, distributable: true }
+    const params: StrainListParams = {
+      ...PARAMS,
+      taxon: testella.public_id,
+      risk_group: 2,
+      status: 'active',
+      restriction: 'gmo',
+      search: 'MYC',
+      isolation_source: 'soil',
+      country: 'CZ',
+      depositor: JANA.public_id,
+      distributable: true,
+    }
     const { view } = renderList(params)
     const { client } = await view
     await screen.findByText(/No strain matches/)
@@ -285,11 +296,15 @@ describe('the strains page', () => {
       }),
     )
     const { unmount } = renderApp({ path: `/labs/${LAB_ID}/strains`, search: { distributable: true } })
-    expect(await within(await screen.findByRole('form', { name: 'Filter strains' })).findByRole('checkbox', { name: 'Only with vials for distribution' })).toBeChecked()
+    expect(
+      await within(await screen.findByRole('form', { name: 'Filter strains' })).findByRole('checkbox', { name: 'Only with vials for distribution' }),
+    ).toBeChecked()
     unmount()
     asked.length = 0
     const { router } = renderApp({ path: `/labs/${LAB_ID}/strains`, search: { distributable: 'yes' } })
-    expect(await within(await screen.findByRole('form', { name: 'Filter strains' })).findByRole('checkbox', { name: 'Only with vials for distribution' })).not.toBeChecked()
+    expect(
+      await within(await screen.findByRole('form', { name: 'Filter strains' })).findByRole('checkbox', { name: 'Only with vials for distribution' }),
+    ).not.toBeChecked()
     await waitFor(() => expect(asked.length).toBeGreaterThan(0))
     expect(asked.every((url) => !url.searchParams.has('distributable'))).toBe(true)
     expect(router.state.location.search).toEqual({})
@@ -354,7 +369,10 @@ describe('the strains page', () => {
   it('falls back to no filter for a junk value in the URL', async () => {
     signedIn()
     const calls = mockApi('get', LIST, page([makeStrainRow()]))
-    const { router } = renderApp({ path: `/labs/${LAB_ID}/strains`, search: { risk_group: 9, status: 'lost', taxon: 'x', country: 'XX', depositor: 'y', limit: 'many' } })
+    const { router } = renderApp({
+      path: `/labs/${LAB_ID}/strains`,
+      search: { risk_group: 9, status: 'lost', taxon: 'x', country: 'XX', depositor: 'y', limit: 'many' },
+    })
     await screen.findByRole('table', { name: 'Strains' })
     expect(router.state.location.search).toEqual({})
     expect(calls[0]?.url.searchParams.toString()).toBe('limit=25&offset=0')

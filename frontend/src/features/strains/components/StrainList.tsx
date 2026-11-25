@@ -24,9 +24,27 @@ export function StrainList({ labId, params, onOffsetChange, onClearFilters }: Pr
   }
   const stale = <StaleNotice what="the strains" query={list} />
   const { count, results } = list.data
-  if (count === 0 && hasFilters(params)) return <>{stale}<NoMatch onClearFilters={onClearFilters} /></>
-  if (count === 0) return <>{stale}<Typography>The lab has no strains yet.</Typography></>
-  if (results.length === 0) return <>{stale}<PastTheEnd onFirstPage={() => onOffsetChange(0)} /></>
+  if (count === 0 && hasFilters(params))
+    return (
+      <>
+        {stale}
+        <NoMatch onClearFilters={onClearFilters} />
+      </>
+    )
+  if (count === 0)
+    return (
+      <>
+        {stale}
+        <Typography>The lab has no strains yet.</Typography>
+      </>
+    )
+  if (results.length === 0)
+    return (
+      <>
+        {stale}
+        <PastTheEnd onFirstPage={() => onOffsetChange(0)} />
+      </>
+    )
   return (
     <section aria-label="Strains" aria-busy={list.isPlaceholderData}>
       {stale}
@@ -56,7 +74,15 @@ export function StrainList({ labId, params, onOffsetChange, onClearFilters }: Pr
                   <i>{strain.taxon.name}</i>
                 </TableCell>
                 <TableCell>{strain.risk_group}</TableCell>
-                <TableCell>{strain.restrictions.length === 0 ? 'None' : strain.restrictions.map((r) => <StatusChip key={r.kind} tone="regulated">{RESTRICTION_LABELS[r.kind]}</StatusChip>)}</TableCell>
+                <TableCell>
+                  {strain.restrictions.length === 0
+                    ? 'None'
+                    : strain.restrictions.map((r) => (
+                        <StatusChip key={r.kind} tone="regulated">
+                          {RESTRICTION_LABELS[r.kind]}
+                        </StatusChip>
+                      ))}
+                </TableCell>
                 <TableCell align="right">{strain.vials_distributable}</TableCell>
                 <TableCell>
                   <StatusChip tone={STRAIN_TONES[strain.status]}>{STATUS_LABELS[strain.status]}</StatusChip>

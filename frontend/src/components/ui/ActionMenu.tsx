@@ -53,12 +53,7 @@ export function ActionMenu({ label, name, items, size = 'medium' }: Props) {
         {label}
       </Button>
       {/* The id on the list: Menu's own id lands on the popover root, not on role="menu". */}
-      <Menu
-        anchorEl={anchor}
-        open={open}
-        onClose={() => setAnchor(null)}
-        slotProps={{ list: { id: menuId, 'aria-labelledby': buttonId } }}
-      >
+      <Menu anchorEl={anchor} open={open} onClose={() => setAnchor(null)} slotProps={{ list: { id: menuId, 'aria-labelledby': buttonId } }}>
         {items.map((item) => (
           <MenuItem
             key={item.label}

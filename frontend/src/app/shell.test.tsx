@@ -10,8 +10,10 @@ const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const OTHER_ID = '00000000-0000-4000-8000-00000000000b'
 const STRAINS = '/api/v1/labs/{lab_public_id}/strains/'
 const signedIn = () => void mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))
-const labs = () => mockApi('get', '/api/v1/labs/', page([makeLab({ public_id: LAB_ID, name: 'Mycology' }), makeLab({ public_id: OTHER_ID, name: 'Bacteriology' })]))
-const lab = (role: 'viewer' | 'curator' | 'manager' = 'viewer') => mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: role }))
+const labs = () =>
+  mockApi('get', '/api/v1/labs/', page([makeLab({ public_id: LAB_ID, name: 'Mycology' }), makeLab({ public_id: OTHER_ID, name: 'Bacteriology' })]))
+const lab = (role: 'viewer' | 'curator' | 'manager' = 'viewer') =>
+  mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: role }))
 const scheme = () => document.documentElement.getAttribute('data-color-scheme')
 
 /** jsdom has no matchMedia: the stub answers the prefers-color-scheme query. */
@@ -223,7 +225,13 @@ describe('the lab tabs', () => {
     mockApi('get', STRAINS, page([]))
     renderApp({ path: `/labs/${LAB_ID}/strains` })
     const nav = await screen.findByRole('navigation', { name: 'Lab sections' })
-    await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests', 'Deposits', 'Depositors', 'MTA templates', 'Media']))
+    await waitFor(() =>
+      expect(
+        within(nav)
+          .getAllByRole('link')
+          .map((link) => link.textContent),
+      ).toEqual(['Strains', 'Storage', 'Requests', 'Deposits', 'Depositors', 'MTA templates', 'Media']),
+    )
   })
 
   it('adds Classification, Permits and Reveals for a manager, after the curator sections (#82, #83, #169)', async () => {
@@ -233,7 +241,13 @@ describe('the lab tabs', () => {
     mockApi('get', STRAINS, page([]))
     renderApp({ path: `/labs/${LAB_ID}/strains` })
     const nav = await screen.findByRole('navigation', { name: 'Lab sections' })
-    await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests', 'Deposits', 'Depositors', 'MTA templates', 'Media', 'Classification', 'Permits', 'Reveals']))
+    await waitFor(() =>
+      expect(
+        within(nav)
+          .getAllByRole('link')
+          .map((link) => link.textContent),
+      ).toEqual(['Strains', 'Storage', 'Requests', 'Deposits', 'Depositors', 'MTA templates', 'Media', 'Classification', 'Permits', 'Reveals']),
+    )
     expect(within(nav).getByRole('link', { name: 'Classification' })).toHaveAttribute('href', `/labs/${LAB_ID}/classification`)
     expect(within(nav).getByRole('link', { name: 'Permits' })).toHaveAttribute('href', `/labs/${LAB_ID}/permits`)
     expect(within(nav).getByRole('link', { name: 'Reveals' })).toHaveAttribute('href', `/labs/${LAB_ID}/reveals`)
@@ -244,7 +258,11 @@ describe('the lab tabs', () => {
     labs()
     lab('curator')
     mockApi('get', STRAINS, page([]))
-    const overview = mockApi('get', '/api/v1/me/overview/', makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, role: 'curator', requests_to_decide: 3, deposits_to_check: 1 })] }))
+    const overview = mockApi(
+      'get',
+      '/api/v1/me/overview/',
+      makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, role: 'curator', requests_to_decide: 3, deposits_to_check: 1 })] }),
+    )
     renderApp({ path: `/labs/${LAB_ID}/strains` })
     const nav = await screen.findByRole('navigation', { name: 'Lab sections' })
     // The pill is for the eye; the label is what a screen reader reads, after the visible name.
@@ -260,10 +278,20 @@ describe('the lab tabs', () => {
     labs()
     lab('viewer')
     mockApi('get', STRAINS, page([]))
-    mockApi('get', '/api/v1/me/overview/', makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, role: 'viewer', requests_to_decide: null, open_requests: 4 })] }))
+    mockApi(
+      'get',
+      '/api/v1/me/overview/',
+      makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, role: 'viewer', requests_to_decide: null, open_requests: 4 })] }),
+    )
     renderApp({ path: `/labs/${LAB_ID}/strains` })
     const nav = await screen.findByRole('navigation', { name: 'Lab sections' })
-    await waitFor(() => expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Strains', 'Storage', 'Requests']))
+    await waitFor(() =>
+      expect(
+        within(nav)
+          .getAllByRole('link')
+          .map((link) => link.textContent),
+      ).toEqual(['Strains', 'Storage', 'Requests']),
+    )
   })
 
   it('is not there outside a lab', async () => {
