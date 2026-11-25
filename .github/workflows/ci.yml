@@ -151,6 +151,18 @@ jobs:
       - name: deploy/e2e-restore.sh
         run: deploy/e2e-restore.sh
 
+  # Performance at collection scale (#71): the main screens' API on seed_dev plus 50 strains, then
+  # plus 500. Query counts must not grow with the data; time only against a generous budget, as a
+  # shared runner varies too much for a tight one. The tables land in the job summary.
+  scale:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: tools/scale-check.sh
+        run: tools/scale-check.sh | tee -a "$GITHUB_STEP_SUMMARY"
+
   # The scheduled jobs through the production stack (#180): supercronic runs the heartbeat, every
   # line of backend/crontab runs once, and each reports to a Healthchecks stand-in as it should.
   jobs:
