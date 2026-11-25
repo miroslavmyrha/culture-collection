@@ -5,6 +5,7 @@ import { useMe } from '@/features/auth/api/queries'
 import { isApiError } from '@/lib/api'
 import { reportError } from '@/lib/report'
 import { authenticatedRoute } from '@/routes/authenticated'
+import { catalogueImportRoute } from '@/routes/catalogue'
 import { classificationRoute } from '@/routes/classification'
 import { depositDetailRoute, depositListRoute, depositorListRoute, depositReceiveRoute, mtaDetailRoute, mtaListRoute, mtaNewRoute } from '@/routes/deposits'
 import { requestDetailRoute, requesterListRoute, requestListRoute, requestNewRoute, shipmentDocumentRoute } from '@/routes/distribution'
@@ -21,7 +22,7 @@ import { strainDetailRoute, strainHistoryRoute, strainListRoute, strainMaterialR
 
 export const routeTree = rootRoute.addChildren([
   loginRoute,
-  authenticatedRoute.addChildren([homeRoute, labListRoute, labDetailRoute, strainListRoute, strainDetailRoute.addChildren([strainOverviewRoute, strainMaterialRoute, strainTermsRoute, strainHistoryRoute]), depositorListRoute, mtaListRoute, mtaNewRoute, mtaDetailRoute, depositListRoute, depositReceiveRoute, depositDetailRoute, storageRoute, storageUnitRoute, requestListRoute, requestNewRoute, requestDetailRoute, requesterListRoute, shipmentDocumentRoute, permitListRoute, mediaListRoute, revealListRoute, vratAccessRoute, classificationRoute, securityRoute]),
+  authenticatedRoute.addChildren([homeRoute, labListRoute, labDetailRoute, strainListRoute, strainDetailRoute.addChildren([strainOverviewRoute, strainMaterialRoute, strainTermsRoute, strainHistoryRoute]), depositorListRoute, mtaListRoute, mtaNewRoute, mtaDetailRoute, depositListRoute, depositReceiveRoute, depositDetailRoute, storageRoute, storageUnitRoute, requestListRoute, requestNewRoute, requestDetailRoute, requesterListRoute, shipmentDocumentRoute, permitListRoute, mediaListRoute, revealListRoute, vratAccessRoute, classificationRoute, catalogueImportRoute, securityRoute]),
 ])
 
 /**

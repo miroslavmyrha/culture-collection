@@ -2633,6 +2633,185 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
           description: ''
+  /api/v1/labs/{lab_public_id}/deposits/catalogue-check/:
+    post:
+      operationId: labs_deposits_catalogue_check_create
+      description: Every row tried, every error reported, nothing written (#70).
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CatalogueCheckInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogueCheckOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, named by its field
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'catalogue_refused: not a CSV UTF-8 in the template''s columns,
+            too large or empty; catalogue_changed: not the file that was checked;
+            catalogue_has_errors: a row failed, nothing was imported'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/deposits/catalogue-import/:
+    post:
+      operationId: labs_deposits_catalogue_import_create
+      description: The checked file, all rows or none (#70).
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CatalogueImportInputRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogueImportOutput'
+          description: ''
+        '400':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: Invalid input, named by its field
+        '422':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: 'catalogue_refused: not a CSV UTF-8 in the template''s columns,
+            too large or empty; catalogue_changed: not the file that was checked;
+            catalogue_has_errors: a row failed, nothing was imported'
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+  /api/v1/labs/{lab_public_id}/deposits/catalogue-template/:
+    get:
+      operationId: labs_deposits_catalogue_template_retrieve
+      description: 'The CSV file to fill in for a catalogue import (#70): the header
+        and one example.'
+      parameters:
+      - in: path
+        name: lab_public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - labs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            text/csv:
+              schema:
+                type: string
+          description: ''
+        '401':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '403':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '404':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
+        '429':
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+          description: ''
   /api/v1/labs/{lab_public_id}/destructions/:
     get:
       operationId: labs_destructions_list
@@ -12113,6 +12292,91 @@ components:
       - status
       - strain
       - taxon_name
+    CatalogueCheckInputRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+          description: CSV UTF-8 in the template's columns.
+      required:
+      - file
+    CatalogueCheckOutput:
+      type: object
+      properties:
+        sha256:
+          type: string
+        rows:
+          type: integer
+        row_errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogueRowError'
+      required:
+      - row_errors
+      - rows
+      - sha256
+    CatalogueImportInputRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+          description: The file the check returned the hash of.
+        sha256:
+          type: string
+          minLength: 1
+          description: The SHA-256 the check returned.
+          pattern: ^[0-9a-f]{64}$
+        reason:
+          type: string
+          minLength: 1
+          description: 'Why, in a sentence. Stored for good: name no person.'
+          maxLength: 2000
+      required:
+      - file
+      - reason
+      - sha256
+    CatalogueImportOutput:
+      type: object
+      properties:
+        strains:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogueStrain'
+      required:
+      - strains
+    CatalogueRowError:
+      type: object
+      properties:
+        row:
+          type: integer
+          description: The line of the file, the header being line 1.
+        column:
+          type: string
+          description: The column, empty when the row as a whole is refused.
+        message:
+          type: string
+      required:
+      - column
+      - message
+      - row
+    CatalogueStrain:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        accession_number:
+          type: string
+          nullable: true
+          maxLength: 40
+        former_number:
+          type: string
+          maxLength: 60
+      required:
+      - public_id
     CauseEnum:
       enum:
       - non_viable
@@ -17221,6 +17485,9 @@ components:
         isolation_date:
           type: string
           readOnly: true
+        former_number:
+          type: string
+          readOnly: true
         growth:
           allOf:
           - $ref: '#/components/schemas/GrowthOutput'
@@ -17273,6 +17540,7 @@ components:
       - deaccession
       - deaccession_proposal
       - deposit
+      - former_number
       - growth
       - identifications
       - isolation_date

@@ -165,6 +165,9 @@ class StrainFacts:
     country_of_origin: str = ""
     isolation_date: str = ""
     restrictions: Sequence[strains.RestrictionInput] = field(default_factory=tuple)
+    # #70: the number in the catalogue a strain is imported from (strains.NewStrain).
+    legacy_seq: int | None = None
+    former_number: str = ""
 
 
 # Checks on the input alone: no query, so they run before any lock.
@@ -620,6 +623,8 @@ def deposit_accept(*, access: Access, deposit: Deposit, facts: StrainFacts) -> D
                 country_of_origin=facts.country_of_origin,
                 isolation_date=facts.isolation_date,
                 restrictions=facts.restrictions,
+                legacy_seq=facts.legacy_seq,
+                former_number=facts.former_number,
             ),
         )
         locked.status, locked.strain, locked.decided_at = (

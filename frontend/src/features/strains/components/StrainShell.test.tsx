@@ -77,6 +77,16 @@ async function action(user: ReturnType<typeof userEvent.setup>, name: string) {
 }
 
 describe('StrainShell with the Overview tab', () => {
+  it('shows the number an imported strain had in its former catalogue, after its name (#70)', async () => {
+    mockApi('get', DETAIL, { ...strain, former_number: 'CCM 4517' })
+    terms()
+    await render()
+    await screen.findByRole('heading', { level: 1, name: 'MYC 42' })
+    const names = [...document.querySelectorAll('dt')].map((dt) => dt.textContent)
+    expect(names.slice(0, 2)).toEqual(['Name as received', 'Former number'])
+    expect(screen.getByText('CCM 4517')).toBeInTheDocument()
+  })
+
   it('shows the number, the taxon, the facts, the restrictions and the identification history', async () => {
     mockApi('get', DETAIL, strain)
     terms()

@@ -90,6 +90,7 @@ def test_the_detail_of_a_strain(
         "isolation_source": "garden soil",
         "country_of_origin": "CZ",
         "isolation_date": "2019-05",
+        "former_number": "",
         "growth": {
             "medium": None,
             "temperature_low_c": None,

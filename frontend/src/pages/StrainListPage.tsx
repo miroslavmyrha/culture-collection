@@ -2,7 +2,7 @@ import { getRouteApi } from '@tanstack/react-router'
 import { Link, PageTitle, Stack, Typography } from '@/components/ui'
 import { DepositorFilterField } from '@/features/deposits/components/DepositorFilterField'
 import { LabGate } from '@/features/labs/components/LabGate'
-import { canHandleDeposits } from '@/lib/roles'
+import { canHandleDeposits, canImportCatalogue } from '@/lib/roles'
 import { StrainFilters } from '@/features/strains/components/StrainFilters'
 import { StrainList } from '@/features/strains/components/StrainList'
 
@@ -29,6 +29,11 @@ export function StrainListPage() {
                 <Link to="/labs/$labId/deposits/new" params={{ labId }}>
                   Receive a deposit
                 </Link>
+                {canImportCatalogue(lab.my_role) && (
+                  <Link to="/labs/$labId/catalogue-import" params={{ labId }}>
+                    Import a catalogue
+                  </Link>
+                )}
               </Stack>
             )}
             <StrainFilters

@@ -241,6 +241,24 @@ and the rules and duties it decides are changed in the same commit.
   VRAT or RAT restriction does not ask for the dual-use one, because the export duty falls on
   the exporter and not on holding the strain. Issue: none
 
+#### R-KIND-12 A strain imported from a former catalogue passes the checks of a strain entered by hand, and its restrictions name entries of their lists
+
+- Kind: own control
+- Source: #70, decided by the collection on 2026-11-25. A strain comes from an accepted deposit
+  (ADR 0008, amendment of 2026-10-19), so each row of the file is a deposit received, checked and
+  accepted through the same services, and passage 0 comes from that deposit. A row the lab could
+  not enter by hand is an error, and one error imports nothing. What a person typed into the
+  former catalogue was never checked here, so a restriction other than a GMO must name the code
+  of an entry of its list, where a person entering it by hand may use the annex's words
+  (R-KIND-10). Missing terms are the safe ones: every use on request, ABS scope unknown. The
+  import is one audit event with the file's SHA-256, the rows and a reason, and only a manager
+  makes it.
+- Code: `backend/cultures/deposits/catalogue.py::_restriction`, `backend/cultures/deposits/catalogue.py::_accept`, `backend/cultures/deposits/catalogue.py::catalogue_check`, `backend/cultures/deposits/catalogue.py::catalogue_import`, `backend/cultures/labs/permissions.py::Perm`
+- Tests: `backend/cultures/deposits/tests/test_catalogue.py::TestImport::test_a_clean_file_imports_every_row_as_an_accepted_deposit_with_passage_0`, `backend/cultures/deposits/tests/test_catalogue.py::TestImport::test_one_bad_row_imports_none`, `backend/cultures/deposits/tests/test_catalogue.py::TestImport::test_a_row_the_lab_could_not_enter_by_hand_is_an_error_on_its_column`, `backend/cultures/deposits/tests/test_catalogue.py::TestImport::test_a_restriction_names_an_entry_of_its_list_not_words_of_ones_own`, `backend/cultures/deposits/tests/test_catalogue.py::TestImport::test_a_regulated_strain_passes_the_gates_of_a_strain_by_hand`, `backend/cultures/deposits/tests/test_catalogue.py::TestImport::test_the_import_is_one_event_with_the_hash_the_rows_and_the_reason`, `backend/cultures/deposits/tests/test_catalogue.py::TestImport::test_a_file_changed_after_the_check_is_refused`, `backend/cultures/deposits/tests/test_catalogue.py::TestImport::test_every_row_is_explained_to_the_reconcile`, `backend/cultures/deposits/tests/test_catalogue.py::test_a_curator_does_not_import`
+- Limits: the depositor, the taxon, the MTA and the list entries must exist before the import;
+  the file cannot create them. The received condition is recorded as "other" with a note that
+  the strain was imported, since nobody saw the parcel arrive. Issue: none
+
 #### R-KIND-09 A strain is regulated while it has any active restriction, one definition in Python and SQL
 
 - Kind: own control

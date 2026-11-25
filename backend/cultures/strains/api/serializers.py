@@ -289,6 +289,8 @@ class StrainDetailOutputSerializer(StrainListOutputSerializer):
             "isolation_source",
             "country_of_origin",
             "isolation_date",
+            # #70: the number in the catalogue it was imported from, when it had another form.
+            "former_number",
             "growth",
             "identifications",
             "restriction_history",

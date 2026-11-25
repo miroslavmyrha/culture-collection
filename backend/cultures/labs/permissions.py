@@ -111,6 +111,9 @@ class Perm(StrEnum):
     # lab's permits, and only a person settles a disagreement, so the list is theirs. It
     # reads strains every role already sees, gathered into a question.
     VIEW_LIST_DISAGREEMENTS = "strains.view_list_disagreements"
+    # #70: importing an existing catalogue, many strains at once with a reason. Managers answer
+    # for what enters the collection in bulk; each row still passes the curators' own gates.
+    IMPORT_CATALOGUE = "strains.import_catalogue"
 
 
 # What each role adds to the roles below it.
@@ -151,6 +154,7 @@ GRANTS: dict[Role, frozenset[Perm]] = {
             Perm.VIEW_REVEALS,
             Perm.VIEW_LAB_FIGURES,
             Perm.VIEW_LIST_DISAGREEMENTS,
+            Perm.IMPORT_CATALOGUE,
         }
     ),
 }
