@@ -29,7 +29,18 @@ import { today } from '@/lib/dates'
 type Base = { labId: string; open: boolean; onClose: () => void; onExited: () => void }
 const CHOOSE = { value: '', label: 'Choose' }
 
-const REQUESTER_FIELDS = ['institution', 'legal_form', 'registration_number', 'seat', 'country', 'lab_evidence', 'lab_confirmed_on', 'name', 'email', 'postal_address'] as const
+const REQUESTER_FIELDS = [
+  'institution',
+  'legal_form',
+  'registration_number',
+  'seat',
+  'country',
+  'lab_evidence',
+  'lab_confirmed_on',
+  'name',
+  'email',
+  'postal_address',
+] as const
 
 const BLANK_REQUESTER: RequesterForm = {
   institution: '',
@@ -80,11 +91,41 @@ function InstitutionFields({ register, errors, countries }: RequesterFieldsProps
     <>
       {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
       <TextField label="Institution" autoFocus autoComplete="off" error={errors.institution?.message} {...register('institution')} />
-      <SelectField label="Legal form" options={[CHOOSE, ...options(LEGAL_FORM_LABELS, LEGAL_FORMS)]} error={errors.legal_form?.message} {...register('legal_form')} />
-      <TextField label="Company number" hint="The IČO or its equivalent, if it has one." autoComplete="off" error={errors.registration_number?.message} {...register('registration_number')} />
-      <TextField label="Registered office" hint="The address of the institution in the business register. Not the delivery address." autoComplete="off" error={errors.seat?.message} {...register('seat')} />
-      <SelectField label="Country" hint="Where the laboratory is: the destination of its requests." options={countries} error={errors.country?.message} {...register('country')} />
-      <TextField label="How the laboratory was confirmed" hint="The page, document or call that shows a microbiology laboratory. Name no person." multiline minRows={2} error={errors.lab_evidence?.message} {...register('lab_evidence')} />
+      <SelectField
+        label="Legal form"
+        options={[CHOOSE, ...options(LEGAL_FORM_LABELS, LEGAL_FORMS)]}
+        error={errors.legal_form?.message}
+        {...register('legal_form')}
+      />
+      <TextField
+        label="Company number"
+        hint="The IČO or its equivalent, if it has one."
+        autoComplete="off"
+        error={errors.registration_number?.message}
+        {...register('registration_number')}
+      />
+      <TextField
+        label="Registered office"
+        hint="The address of the institution in the business register. Not the delivery address."
+        autoComplete="off"
+        error={errors.seat?.message}
+        {...register('seat')}
+      />
+      <SelectField
+        label="Country"
+        hint="Where the laboratory is: the destination of its requests."
+        options={countries}
+        error={errors.country?.message}
+        {...register('country')}
+      />
+      <TextField
+        label="How the laboratory was confirmed"
+        hint="The page, document or call that shows a microbiology laboratory. Name no person."
+        multiline
+        minRows={2}
+        error={errors.lab_evidence?.message}
+        {...register('lab_evidence')}
+      />
       <TextField label="Confirmed on" hint="YYYY-MM-DD" autoComplete="off" error={errors.lab_confirmed_on?.message} {...register('lab_confirmed_on')} />
     </>
   )
@@ -96,7 +137,14 @@ function ScientistFields({ register, errors }: Omit<RequesterFieldsProps, 'count
     <>
       <TextField label="Responsible scientist" autoComplete="off" error={errors.name?.message} {...register('name')} />
       <TextField label="E-mail" type="email" autoComplete="off" error={errors.email?.message} {...register('email')} />
-      <TextField label="Delivery address of the laboratory" multiline minRows={2} autoComplete="off" error={errors.postal_address?.message} {...register('postal_address')} />
+      <TextField
+        label="Delivery address of the laboratory"
+        multiline
+        minRows={2}
+        autoComplete="off"
+        error={errors.postal_address?.message}
+        {...register('postal_address')}
+      />
     </>
   )
 }
@@ -113,7 +161,10 @@ export function RequesterDialog({ labId, requester, open, onClose, onExited }: B
   const formId = useId()
   const [failure, setFailure] = useState<string>()
   const countries = useMemo(() => [CHOOSE, ...countryOptions().slice(1)], [])
-  const { register, handleSubmit, formState, setError } = useForm<RequesterForm, unknown, RequesterValues>({ resolver: zodResolver(requesterSchema), defaultValues: requesterDefaults(requester) })
+  const { register, handleSubmit, formState, setError } = useForm<RequesterForm, unknown, RequesterValues>({
+    resolver: zodResolver(requesterSchema),
+    defaultValues: requesterDefaults(requester),
+  })
   const errors = formState.errors
   const onSubmit = handleSubmit((values) => {
     if (save.isPending) return
@@ -139,7 +190,22 @@ export function RequesterDialog({ labId, requester, open, onClose, onExited }: B
   )
 }
 
-const PERMIT_FIELDS = ['kind', 'issuer', 'issuer_country', 'reference', 'valid_from', 'expires_on', 'covers', 'endorsement_reference', 'endorsed_on', 'quantity_allowed', 'sendings_allowed', 'gmo_category', 'risk_group', 'file'] as const
+const PERMIT_FIELDS = [
+  'kind',
+  'issuer',
+  'issuer_country',
+  'reference',
+  'valid_from',
+  'expires_on',
+  'covers',
+  'endorsement_reference',
+  'endorsed_on',
+  'quantity_allowed',
+  'sendings_allowed',
+  'gmo_category',
+  'risk_group',
+  'file',
+] as const
 const orNull = (value: string) => (value === '' ? null : Number(value))
 
 const BLANK_PERMIT: PermitForm = {
@@ -166,7 +232,12 @@ const NO_LETTER = { endorsement_reference: '', endorsed_on: null, quantity_allow
 /** What only a Letter of Authority carries: its endorsement with the day, and the quantity and sendings it allows. */
 const letterFacts = (values: PermitValues) =>
   values.kind === 'plant_health_loa'
-    ? { endorsement_reference: values.endorsement_reference, endorsed_on: values.endorsed_on || null, quantity_allowed: orNull(values.quantity_allowed), sendings_allowed: orNull(values.sendings_allowed) }
+    ? {
+        endorsement_reference: values.endorsement_reference,
+        endorsed_on: values.endorsed_on || null,
+        quantity_allowed: orNull(values.quantity_allowed),
+        sendings_allowed: orNull(values.sendings_allowed),
+      }
     : NO_LETTER
 
 /** What goes to the server: the facts of the kind the permit is, and none of another kind's. */
@@ -192,8 +263,20 @@ function LetterFields({ register, errors }: Omit<PermitFieldsProps, 'countries' 
     <>
       <TextField label="Quantity allowed" inputMode="numeric" autoComplete="off" error={errors.quantity_allowed?.message} {...register('quantity_allowed')} />
       <TextField label="Sendings allowed" inputMode="numeric" autoComplete="off" error={errors.sendings_allowed?.message} {...register('sendings_allowed')} />
-      <TextField label="Endorsement by the state of origin" hint="Its reference, as on the letter. Nothing goes out on a letter with no endorsement (Regulation (EU) 2019/829, Art. 6(2))." autoComplete="off" error={errors.endorsement_reference?.message} {...register('endorsement_reference')} />
-      <TextField label="Endorsed on" hint="YYYY-MM-DD, the day of the endorsement." autoComplete="off" error={errors.endorsed_on?.message} {...register('endorsed_on')} />
+      <TextField
+        label="Endorsement by the state of origin"
+        hint="Its reference, as on the letter. Nothing goes out on a letter with no endorsement (Regulation (EU) 2019/829, Art. 6(2))."
+        autoComplete="off"
+        error={errors.endorsement_reference?.message}
+        {...register('endorsement_reference')}
+      />
+      <TextField
+        label="Endorsed on"
+        hint="YYYY-MM-DD, the day of the endorsement."
+        autoComplete="off"
+        error={errors.endorsed_on?.message}
+        {...register('endorsed_on')}
+      />
     </>
   )
 }
@@ -203,11 +286,36 @@ function PermitKindFields({ register, errors, kind }: Omit<PermitFieldsProps, 'c
   return (
     <>
       {NAMES_AGENTS.some((k) => k === kind) && (
-        <TextField label="Agents or pests it names" hint="As written on the document, with their scientific names." multiline minRows={2} error={errors.covers?.message} {...register('covers')} />
+        <TextField
+          label="Agents or pests it names"
+          hint="As written on the document, with their scientific names."
+          multiline
+          minRows={2}
+          error={errors.covers?.message}
+          {...register('covers')}
+        />
       )}
       {kind === 'plant_health_loa' && <LetterFields register={register} errors={errors} />}
-      {kind === 'gmo_contained_use' && <TextField label="Category" hint="1 to 4, act 78/2004 Sb." inputMode="numeric" autoComplete="off" error={errors.gmo_category?.message} {...register('gmo_category')} />}
-      {kind === 'pathogen_work_permit' && <TextField label="Highest risk group" hint="1 to 4." inputMode="numeric" autoComplete="off" error={errors.risk_group?.message} {...register('risk_group')} />}
+      {kind === 'gmo_contained_use' && (
+        <TextField
+          label="Category"
+          hint="1 to 4, act 78/2004 Sb."
+          inputMode="numeric"
+          autoComplete="off"
+          error={errors.gmo_category?.message}
+          {...register('gmo_category')}
+        />
+      )}
+      {kind === 'pathogen_work_permit' && (
+        <TextField
+          label="Highest risk group"
+          hint="1 to 4."
+          inputMode="numeric"
+          autoComplete="off"
+          error={errors.risk_group?.message}
+          {...register('risk_group')}
+        />
+      )}
     </>
   )
 }
@@ -220,7 +328,13 @@ function PermitFields({ register, errors, countries, kind }: PermitFieldsProps) 
       <SelectField label="Country of the issuer" options={countries} error={errors.issuer_country?.message} {...register('issuer_country')} />
       <TextField label="Reference" autoComplete="off" error={errors.reference?.message} {...register('reference')} />
       <TextField label="Valid from" hint="YYYY-MM-DD" autoComplete="off" error={errors.valid_from?.message} {...register('valid_from')} />
-      <TextField label="Expires on" hint="The last valid day, YYYY-MM-DD. Empty when the document states none." autoComplete="off" error={errors.expires_on?.message} {...register('expires_on')} />
+      <TextField
+        label="Expires on"
+        hint="The last valid day, YYYY-MM-DD. Empty when the document states none."
+        autoComplete="off"
+        error={errors.expires_on?.message}
+        {...register('expires_on')}
+      />
       <PermitKindFields register={register} errors={errors} kind={kind} />
       <FileField label="File of the document" error={errors.file?.message} {...register('file')} />
     </>
@@ -233,13 +347,19 @@ export function PermitDialog({ labId, requester, open, onClose, onExited }: Base
   const formId = useId()
   const [failure, setFailure] = useState<string>()
   const countries = useMemo(() => [CHOOSE, ...countryOptions().slice(1)], [])
-  const { register, handleSubmit, formState, setError, control } = useForm<PermitForm, unknown, PermitValues>({ resolver: zodResolver(permitSchema), defaultValues: permitDefaults(requester) })
+  const { register, handleSubmit, formState, setError, control } = useForm<PermitForm, unknown, PermitValues>({
+    resolver: zodResolver(permitSchema),
+    defaultValues: permitDefaults(requester),
+  })
   const kind = useWatch({ control, name: 'kind' })
   const errors = formState.errors
   const onSubmit = handleSubmit((values) => {
     if (add.isPending) return
     setFailure(undefined)
-    add.mutate({ body: permitBody(requester, values), file: values.file }, { onSuccess: onClose, onError: (error) => setFailure(submitFailure(error, PERMIT_FIELDS, setError)) })
+    add.mutate(
+      { body: permitBody(requester, values), file: values.file },
+      { onSuccess: onClose, onError: (error) => setFailure(submitFailure(error, PERMIT_FIELDS, setError)) },
+    )
   })
   return (
     <ConfirmDialog
@@ -267,7 +387,10 @@ export function EndPermitDialog({ labId, permit, open, onClose, onExited }: Base
   const end = useEndPermit(labId, permit.public_id)
   const formId = useId()
   const [failure, setFailure] = useState<string>()
-  const { register, handleSubmit, formState, setError } = useForm<EndPermitForm>({ resolver: zodResolver(endPermitSchema), defaultValues: { ended_on: today(), reason: '' } })
+  const { register, handleSubmit, formState, setError } = useForm<EndPermitForm>({
+    resolver: zodResolver(endPermitSchema),
+    defaultValues: { ended_on: today(), reason: '' },
+  })
   const onSubmit = handleSubmit((values) => {
     setFailure(undefined)
     end.mutate(
@@ -292,8 +415,21 @@ export function EndPermitDialog({ labId, permit, open, onClose, onExited }: Base
       onExited={onExited}
     >
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="End of the permit" spacing={2} sx={{ mt: 2 }}>
-        <TextField label="First day it no longer holds" hint="YYYY-MM-DD" autoComplete="off" error={formState.errors.ended_on?.message} {...register('ended_on')} />
-        <TextField label="Reason" hint="Stored for good. Name no person." multiline minRows={2} error={formState.errors.reason?.message} {...register('reason')} />
+        <TextField
+          label="First day it no longer holds"
+          hint="YYYY-MM-DD"
+          autoComplete="off"
+          error={formState.errors.ended_on?.message}
+          {...register('ended_on')}
+        />
+        <TextField
+          label="Reason"
+          hint="Stored for good. Name no person."
+          multiline
+          minRows={2}
+          error={formState.errors.reason?.message}
+          {...register('reason')}
+        />
       </Stack>
     </ConfirmDialog>
   )

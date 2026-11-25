@@ -21,8 +21,7 @@ export const labDetailOptions = (labId: string) =>
 export const memberListOptions = (labId: string, params: PageParams) =>
   queryOptions({
     queryKey: labKeys.memberList(labId, params),
-    queryFn: ({ signal }) =>
-      unwrap(api.GET('/api/v1/labs/{lab_public_id}/members/', { signal, params: { path: { lab_public_id: labId }, query: params } })),
+    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/labs/{lab_public_id}/members/', { signal, params: { path: { lab_public_id: labId }, query: params } })),
     placeholderData: keepPreviousData,
   })
 

@@ -85,7 +85,10 @@ export function useReplaceTerms(labId: string, depositId: string) {
       return Promise.all([
         settleDeposit(qc, labId, deposit),
         ...(strain
-          ? [qc.invalidateQueries({ queryKey: sharedKeys.strainTerms(labId, strain) }), qc.invalidateQueries({ queryKey: sharedKeys.strainHistory(labId, strain) })]
+          ? [
+              qc.invalidateQueries({ queryKey: sharedKeys.strainTerms(labId, strain) }),
+              qc.invalidateQueries({ queryKey: sharedKeys.strainHistory(labId, strain) }),
+            ]
           : []),
       ])
     },

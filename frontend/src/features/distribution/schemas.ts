@@ -129,7 +129,13 @@ export const TRANSPORT_CLASS_LABELS: Record<TransportClass, string> = {
   un3373: 'UN 3373, Biological substance, Category B',
   un3245: 'UN 3245, Genetically modified micro-organisms',
 }
-export const CLASSIFICATION_BASES = ['exempt_non_pathogenic', 'exempt_inactivated', 'indicative_list', 'professional_judgement', 'gmo_not_infectious'] as const satisfies readonly ClassificationBasis[]
+export const CLASSIFICATION_BASES = [
+  'exempt_non_pathogenic',
+  'exempt_inactivated',
+  'indicative_list',
+  'professional_judgement',
+  'gmo_not_infectious',
+] as const satisfies readonly ClassificationBasis[]
 export const BASIS_LABELS: Record<ClassificationBasis, string> = {
   exempt_non_pathogenic: 'Exempt: not pathogenic to humans or animals',
   exempt_inactivated: 'Exempt: neutralised or inactivated',
@@ -208,7 +214,14 @@ const wholeNumber = (min: number, max: number, message: string) =>
     .transform(Number)
     .refine((n) => n >= min && n <= max, message)
 const optionalNumber = (min: number, max: number, message: string) =>
-  z.union([z.literal(''), z.string().trim().regex(/^\d+$/, message).refine((v) => Number(v) >= min && Number(v) <= max, message)])
+  z.union([
+    z.literal(''),
+    z
+      .string()
+      .trim()
+      .regex(/^\d+$/, message)
+      .refine((v) => Number(v) >= min && Number(v) <= max, message),
+  ])
 
 export const reasonSchema = required('Say why').max(2000, 'Use at most 2000 characters')
 export const decisionSchema = z.object({ reason: reasonSchema })
@@ -268,7 +281,12 @@ const PERMIT_RULES: readonly Rule<PermitFields>[] = [
   (v) => issueIf(NAMES_AGENTS.some((k) => k === v.kind) && !v.covers, 'covers', 'Write the agents or pests it names, as on the document'),
   (v) => issueIf(isLoa(v) && !v.quantity_allowed, 'quantity_allowed', 'Enter the quantity the letter allows'),
   (v) => issueIf(isLoa(v) && !v.sendings_allowed, 'sendings_allowed', 'Enter the number of sendings'),
-  (v) => issueIf(Boolean(v.endorsement_reference) !== Boolean(v.endorsed_on), v.endorsement_reference ? 'endorsed_on' : 'endorsement_reference', 'Give the endorsement with its day'),
+  (v) =>
+    issueIf(
+      Boolean(v.endorsement_reference) !== Boolean(v.endorsed_on),
+      v.endorsement_reference ? 'endorsed_on' : 'endorsement_reference',
+      'Give the endorsement with its day',
+    ),
   (v) => issueIf(v.kind === 'gmo_contained_use' && !v.gmo_category, 'gmo_category', 'Enter the category'),
   (v) => issueIf(v.kind === 'pathogen_work_permit' && !v.risk_group, 'risk_group', 'Enter the risk group it covers'),
 ]
@@ -315,7 +333,13 @@ const shipFields = z.object({
   basis_note: optionalText(2000),
   packing_instruction: choice(PACKING_INSTRUCTIONS, 'Choose the packing'),
   coolant: z.union([z.literal(''), choice(COOLANTS, 'Choose the coolant')]),
-  coolant_kg: z.union([z.literal(''), z.string().trim().regex(/^\d{1,4}([.,]\d{1,2})?$/, 'Enter kilograms, for example 2.5')]),
+  coolant_kg: z.union([
+    z.literal(''),
+    z
+      .string()
+      .trim()
+      .regex(/^\d{1,4}([.,]\d{1,2})?$/, 'Enter kilograms, for example 2.5'),
+  ]),
   responsible_name: required('Enter the responsible person').max(200, 'Use at most 200 characters'),
   responsible_phone: z.string().trim().max(40, 'Use at most 40 characters').regex(PHONE, 'Enter a phone number: digits, spaces, + ( ) and -'),
   carrier: required('Enter the carrier').max(200, 'Use at most 200 characters'),

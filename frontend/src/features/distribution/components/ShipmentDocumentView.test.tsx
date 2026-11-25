@@ -29,7 +29,10 @@ describe('a document of a shipment', () => {
     await waitFor(() => expect(document.title).toBe('Delivery note, request 2026/7 | Culture collection'))
     expect(screen.getByLabelText('Document text').textContent).toBe(TEXT)
     expect(screen.getByText('a'.repeat(64))).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Download as text' })).toHaveAttribute('href', `${window.location.origin}/api/v1/labs/${LAB_ID}/shipment-documents/${DOCUMENT_ID}/download/`)
+    expect(screen.getByRole('link', { name: 'Download as text' })).toHaveAttribute(
+      'href',
+      `${window.location.origin}/api/v1/labs/${LAB_ID}/shipment-documents/${DOCUMENT_ID}/download/`,
+    )
     expect(screen.getByRole('link', { name: 'Back to request 2026/7' })).toHaveAttribute('href', `/labs/${LAB_ID}/requests/${REQUEST_ID}`)
     const print = vi.spyOn(window, 'print').mockImplementation(() => undefined)
     await userEvent.setup().click(screen.getByRole('button', { name: 'Print' }))

@@ -16,7 +16,13 @@ const VIALS = '/api/v1/labs/{lab_public_id}/vials/'
 
 // Fixed ids: the factory counter starts again in every test, so a vial made inside a test would get these.
 const first = makeBoxVial({ public_id: '00000000-0000-4000-8000-0000000000f1', label: 'MYC 42 / 1 / 1' })
-const second = makeBoxVial({ public_id: '00000000-0000-4000-8000-0000000000f2', label: 'MYC 43 / 1 / 2', accession_number: 'MYC 43', taxon_name: 'Fictivibrio exempli', status: 'quarantined' })
+const second = makeBoxVial({
+  public_id: '00000000-0000-4000-8000-0000000000f2',
+  label: 'MYC 43 / 1 / 2',
+  accession_number: 'MYC 43',
+  taxon_name: 'Fictivibrio exempli',
+  status: 'quarantined',
+})
 /** B3 holds a vial of MYC 42, B4 one of MYC 43, C4 a vial of a regulated strain: the API sent no vial and no organism for it. */
 const FULL = makeBoxGrid({
   public_id: BOX_ID,

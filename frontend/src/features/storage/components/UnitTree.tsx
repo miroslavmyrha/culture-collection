@@ -15,6 +15,18 @@ export function UnitTree({ labId, labName, canManage, onOpen }: Props) {
   }
   const stale = <StaleNotice what="the storage" query={tree} />
   if (tree.data.length === 0)
-    return <>{stale}<Typography>{canManage ? 'No storage yet. Start with a freezer or an LN2 tank.' : 'No storage yet. Curators and managers add freezers and tanks.'}</Typography></>
-  return <>{stale}<StorageTree label={`Storage of ${labName}`} rows={tree.data} onOpen={onOpen} /></>
+    return (
+      <>
+        {stale}
+        <Typography>
+          {canManage ? 'No storage yet. Start with a freezer or an LN2 tank.' : 'No storage yet. Curators and managers add freezers and tanks.'}
+        </Typography>
+      </>
+    )
+  return (
+    <>
+      {stale}
+      <StorageTree label={`Storage of ${labName}`} rows={tree.data} onOpen={onOpen} />
+    </>
+  )
 }

@@ -26,8 +26,26 @@ const rack = makeUnit({
   counts: { boxes: 1, vials: 5, free_positions: 76 },
   ancestors: [freezer],
   children: [
-    { public_id: '00000000-0000-4000-8000-0000000000b1', kind: 'box', name: 'Box 1', slot: 1, status: 'active', rows: 9, cols: 9, counts: { boxes: 0, vials: 5, free_positions: 76 } },
-    { public_id: '00000000-0000-4000-8000-0000000000b2', kind: 'box', name: 'Box 2', slot: null, status: 'retired', rows: 10, cols: 10, counts: { boxes: 0, vials: 0, free_positions: 0 } },
+    {
+      public_id: '00000000-0000-4000-8000-0000000000b1',
+      kind: 'box',
+      name: 'Box 1',
+      slot: 1,
+      status: 'active',
+      rows: 9,
+      cols: 9,
+      counts: { boxes: 0, vials: 5, free_positions: 76 },
+    },
+    {
+      public_id: '00000000-0000-4000-8000-0000000000b2',
+      kind: 'box',
+      name: 'Box 2',
+      slot: null,
+      status: 'retired',
+      rows: 10,
+      cols: 10,
+      counts: { boxes: 0, vials: 0, free_positions: 0 },
+    },
   ],
 })
 const box = makeUnit({
@@ -61,13 +79,32 @@ describe('UnitDetail', () => {
     expect(document.title).toBe('Rack 1 in Freezer A | Culture collection')
     const crumbs = within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getAllByRole('listitem')
     expect(crumbs.map((li) => li.textContent)).toEqual(['Storage of Mycology/', 'Freezer A/', 'Rack 1'])
-    expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByRole('link', { name: 'Freezer A' })).toHaveAttribute('href', `/labs/${LAB_ID}/storage/${freezer.public_id}`)
+    expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByRole('link', { name: 'Freezer A' })).toHaveAttribute(
+      'href',
+      `/labs/${LAB_ID}/storage/${freezer.public_id}`,
+    )
     expect(crumbs[2]).toHaveAttribute('aria-current', 'page')
-    expect(facts()).toEqual({ Kind: 'Rack', Status: 'Active', Slot: '1', 'Highest risk group': '2, set above it', Contents: '1 box, 5 vials, 76 free positions', Barcode: 'None' })
+    expect(facts()).toEqual({
+      Kind: 'Rack',
+      Status: 'Active',
+      Slot: '1',
+      'Highest risk group': '2, set above it',
+      Contents: '1 box, 5 vials, 76 free positions',
+      Barcode: 'None',
+    })
     const holds = screen.getByRole('table', { name: 'What Rack 1 holds' })
     // Only boxes held: no boxes column.
-    expect(within(holds).getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['Slot', 'Name', 'Kind', 'Size', 'Vials', 'Free positions', 'Status'])
-    expect(within(holds).getAllByRole('row').slice(1).map((row) => row.textContent)).toEqual(['1Box 1Box9 x 9576Active', 'Box 2Box10 x 1000Retired'])
+    expect(
+      within(holds)
+        .getAllByRole('columnheader')
+        .map((th) => th.textContent),
+    ).toEqual(['Slot', 'Name', 'Kind', 'Size', 'Vials', 'Free positions', 'Status'])
+    expect(
+      within(holds)
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => row.textContent),
+    ).toEqual(['1Box 1Box9 x 9576Active', 'Box 2Box10 x 1000Retired'])
     expect(screen.getByRole('region', { name: 'Holds table' })).toHaveAttribute('tabindex', '0')
   })
 
@@ -77,8 +114,26 @@ describe('UnitDetail', () => {
       name: 'Freezer A',
       counts: { boxes: 2, vials: 6, free_positions: 156 },
       children: [
-        { public_id: rack.public_id, kind: 'rack', name: 'Rack 1', slot: 1, status: 'active', rows: null, cols: null, counts: { boxes: 1, vials: 5, free_positions: 76 } },
-        { public_id: '00000000-0000-4000-8000-0000000000b3', kind: 'box', name: 'Box F', slot: 2, status: 'active', rows: 9, cols: 9, counts: { boxes: 0, vials: 1, free_positions: 80 } },
+        {
+          public_id: rack.public_id,
+          kind: 'rack',
+          name: 'Rack 1',
+          slot: 1,
+          status: 'active',
+          rows: null,
+          cols: null,
+          counts: { boxes: 1, vials: 5, free_positions: 76 },
+        },
+        {
+          public_id: '00000000-0000-4000-8000-0000000000b3',
+          kind: 'box',
+          name: 'Box F',
+          slot: 2,
+          status: 'active',
+          rows: 9,
+          cols: 9,
+          counts: { boxes: 0, vials: 1, free_positions: 80 },
+        },
       ],
     })
     mockApi('get', DETAIL, whole)
@@ -86,9 +141,18 @@ describe('UnitDetail', () => {
     await screen.findByRole('heading', { level: 1, name: 'Freezer A' })
     expect(facts()).toMatchObject({ Contents: '2 boxes, 6 vials, 156 free positions' })
     const holds = screen.getByRole('table', { name: 'What Freezer A holds' })
-    expect(within(holds).getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['Slot', 'Name', 'Kind', 'Size', 'Boxes', 'Vials', 'Free positions', 'Status'])
+    expect(
+      within(holds)
+        .getAllByRole('columnheader')
+        .map((th) => th.textContent),
+    ).toEqual(['Slot', 'Name', 'Kind', 'Size', 'Boxes', 'Vials', 'Free positions', 'Status'])
     // A box has no boxes of its own: its cell stays empty.
-    expect(within(holds).getAllByRole('row').slice(1).map((row) => [...row.querySelectorAll('td')].map((td) => td.textContent))).toEqual([
+    expect(
+      within(holds)
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => [...row.querySelectorAll('td')].map((td) => td.textContent)),
+    ).toEqual([
       ['1', 'Rack 1', 'Rack', '', '1', '5', '76', 'Active'],
       ['2', 'Box F', 'Box', '9 x 9', '', '1', '80', 'Active'],
     ])
@@ -98,7 +162,12 @@ describe('UnitDetail', () => {
     mockApi('get', DETAIL, box)
     await render(box)
     await screen.findByRole('heading', { level: 1, name: 'Box 1' })
-    expect(facts()).toMatchObject({ Size: '9 x 9, A1 to I9', 'Box type': '81-place cryobox (9 x 9)', 'Highest risk group': '2, lower above it than its own 3', Contents: '5 vials, 76 free positions' })
+    expect(facts()).toMatchObject({
+      Size: '9 x 9, A1 to I9',
+      'Box type': '81-place cryobox (9 x 9)',
+      'Highest risk group': '2, lower above it than its own 3',
+      Contents: '5 vials, 76 free positions',
+    })
     expect(screen.queryByRole('heading', { name: 'Holds' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Add a/ })).not.toBeInTheDocument() // a box holds no unit
   })
@@ -156,7 +225,16 @@ describe('UnitDetail', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Add' }))
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(box))
     expect(calls[0]?.headers.get('X-CSRFToken')).toBe('test-token')
-    expect(calls[0]?.body).toEqual({ kind: 'box', parent: rack.public_id, slot: 1, name: 'Box 1', barcode: '', temperature_c: null, max_risk_group: null, box_type: cryobox.public_id })
+    expect(calls[0]?.body).toEqual({
+      kind: 'box',
+      parent: rack.public_id,
+      slot: 1,
+      name: 'Box 1',
+      barcode: '',
+      temperature_c: null,
+      max_risk_group: null,
+      box_type: cryobox.public_id,
+    })
   })
 
   it('checks the box type before any request, and puts a taken name on its field', async () => {
@@ -183,7 +261,12 @@ describe('UnitDetail', () => {
   it('shows a refused parent, which has no field here, as the dialog message', async () => {
     mockApi('get', DETAIL, rack)
     mockApi('get', '/api/v1/box-types/', page([cryobox]))
-    mockApiError('post', TREE, 400, validationProblem([{ attr: 'parent', code: 'parent_not_active', detail: 'This unit is out of service or retired: nothing goes in.' }]))
+    mockApiError(
+      'post',
+      TREE,
+      400,
+      validationProblem([{ attr: 'parent', code: 'parent_not_active', detail: 'This unit is out of service or retired: nothing goes in.' }]),
+    )
     await render()
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Add a box' }))
@@ -235,7 +318,11 @@ describe('UnitDetail', () => {
     const into = within(dialog).getByRole('combobox', { name: 'Into' })
     await within(dialog).findByRole('option', { name: 'Tank B' })
     // Freezer A is where it is now; Rack 1 and Box 1 are itself and below it.
-    expect(within(into).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Tank B'])
+    expect(
+      within(into)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Choose', 'Tank B'])
     await user.selectOptions(into, tank.public_id)
     await user.type(within(dialog).getByRole('textbox', { name: 'Slot' }), '3')
     await user.click(within(dialog).getByRole('button', { name: 'Move' }))
@@ -271,7 +358,15 @@ describe('UnitDetail', () => {
   })
 
   it('saves no temperature while the field shows an invalid one (#111)', async () => {
-    const frozen = makeUnit({ public_id: freezer.public_id, kind: 'freezer', name: 'Freezer A', temperature_c: -80, max_risk_group: 2, parent: null, slot: null })
+    const frozen = makeUnit({
+      public_id: freezer.public_id,
+      kind: 'freezer',
+      name: 'Freezer A',
+      temperature_c: -80,
+      max_risk_group: 2,
+      parent: null,
+      slot: null,
+    })
     mockApi('get', DETAIL, frozen)
     const calls = mockApi('post', `${DETAIL}edit/` as '/api/v1/labs/{lab_public_id}/storage-units/{public_id}/edit/', frozen)
     await render(frozen)

@@ -15,6 +15,9 @@ export const revealListRoute = createRoute({
   search: { middlewares: [stripSearchParams(revealListDefaults)] },
   loaderDeps: ({ search }) => search,
   loader: ({ context, params, deps, cause }) =>
-    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetchFor(cause, context.queryClient, revealListOptions(params.labId, deps))]),
+    Promise.all([
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      prefetchFor(cause, context.queryClient, revealListOptions(params.labId, deps)),
+    ]),
   component: lazyRouteComponent(() => import('@/pages/RevealListPage'), 'RevealListPage'),
 })

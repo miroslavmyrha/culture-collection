@@ -1,0 +1,6 @@
+# Generated: openapi-typescript writes it (npm run api:types).
+src/api/schema.d.ts
+dist
+coverage
+test-results
+playwright-report

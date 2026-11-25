@@ -62,7 +62,10 @@ test('a manager sees their lab and role, then adds, changes and removes a member
   // The last manager stays. In E2E solo lab, where no spec adds a second manager: in E2E lab a
   // temporary one (distribution.spec.ts, reveals.spec.ts) would let the removal through (#267).
   await openLabList(page)
-  await page.getByRole('row', { name: /E2E solo lab/ }).getByRole('link', { name: 'E2E solo lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E solo lab/ })
+    .getByRole('link', { name: 'E2E solo lab' })
+    .click()
   await expect(page.getByRole('heading', { level: 1, name: 'E2E solo lab' })).toBeVisible()
   await page.getByRole('button', { name: `Remove ${username}` }).click()
   const own = page.getByRole('alertdialog', { name: `Remove ${username}?` })
@@ -81,7 +84,10 @@ test('a manager removes a member with the keyboard only; the dialog passes axe a
   const violations = await watchCsp(page)
   await signIn(page)
   await openLabList(page)
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
   const form = page.getByRole('form', { name: 'Add a member' })
   await form.getByLabel('Username').fill('e2e-colleague')

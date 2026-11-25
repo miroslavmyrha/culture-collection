@@ -8,6 +8,7 @@ also names that rule's id in [docs/compliance.md](docs/compliance.md), so the pa
 to the law the rule rests on is one hop.
 
 ## Unreleased
+- The frontend has one format: Prettier 3.10.1 with a print width of 160, single quotes and no semicolons as before, run once over `src`, `e2e` and `tools`; `check.sh` fails on an unformatted file (`npm run format` fixes it) (#237).
 - Shared building blocks in place of copies (#67): `useDialogSlot` for the open dialog and its focus return (11 copies), `placeError` and `REASON_HINT` in `lib/forms.ts` (3 and 7), `Section` and `Facts` in `components/DetailParts.tsx` (3 each), `day` and `today` in `lib/dates.ts` (9), `DetailUnavailable` for the loading, not found and error states of a detail page (4); every feature keeps its error mapper in `<feature>/<name>Errors.ts`. Behaviour, texts and focus handling unchanged.
 - A manager imports a former catalogue from a CSV file: a check lists every row error and writes nothing, then the checked file is imported all or nothing with a reason. Each row is a deposit accepted through the services, a lab number is kept, any other number becomes the strain's former number, which search finds and the strain page shows (#70, R-KIND-12).
 - A viewer opening the MTA templates or the new deposit page no longer sends the API a request for the templates it would refuse: the loaders ask for them only for curators and managers (#65).

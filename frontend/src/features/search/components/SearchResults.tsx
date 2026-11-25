@@ -87,7 +87,8 @@ function Results({ query, sections, entries, active, listId, text, onPick, onHov
     if (query.isError) return <Message>Search failed. {errorMessage(query.error)} Press Enter to try again.</Message>
     return <Message>Searching…</Message>
   }
-  if (sections.length === 0) return <Message>No results for “{text}”. Try an accession number, a vial label or barcode, or a request number such as 2026/7.</Message>
+  if (sections.length === 0)
+    return <Message>No results for “{text}”. Try an accession number, a vial label or barcode, or a request number such as 2026/7.</Message>
   return (
     // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a select cannot hold grouped rich options: the APG listbox pattern
     <Box component="ul" role="listbox" id={listId} aria-label="Search results" sx={{ listStyle: 'none', m: 0, p: 0.5 }}>
@@ -102,13 +103,25 @@ function Results({ query, sections, entries, active, listId, text, onPick, onHov
           <Box component="li" role="presentation" key={group.kind}>
             {/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a group of options inside the listbox (APG grouped listbox) */}
             <Box component="ul" role="group" aria-labelledby={labelId} sx={{ listStyle: 'none', m: 0, p: 0 }}>
-              <Box component="li" role="presentation" id={labelId} sx={{ px: 1.5, pt: 1, pb: 0.5, typography: 'overline', color: 'text.secondary', lineHeight: 1.5 }}>
+              <Box
+                component="li"
+                role="presentation"
+                id={labelId}
+                sx={{ px: 1.5, pt: 1, pb: 0.5, typography: 'overline', color: 'text.secondary', lineHeight: 1.5 }}
+              >
                 {groupLabel(group)}
               </Box>
               {own.map((entry) => {
                 const index = entries.indexOf(entry)
                 return (
-                  <Option key={entry.id} entry={entry} id={`${listId}-${entry.id}`} active={index === active} onPick={() => onPick(entry.target)} onHover={() => onHover(index)} />
+                  <Option
+                    key={entry.id}
+                    entry={entry}
+                    id={`${listId}-${entry.id}`}
+                    active={index === active}
+                    onPick={() => onPick(entry.target)}
+                    onHover={() => onHover(index)}
+                  />
                 )
               })}
             </Box>
@@ -188,4 +201,3 @@ function Message({ children }: { children: ReactNode }) {
     </Typography>
   )
 }
-

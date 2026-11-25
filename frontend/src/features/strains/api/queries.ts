@@ -9,7 +9,12 @@ export const strainListOptions = (labId: string, params: StrainListParams) =>
   queryOptions({
     queryKey: strainKeys.list(labId, params),
     queryFn: ({ signal }) =>
-      unwrap(api.GET('/api/v1/labs/{lab_public_id}/strains/', { signal, params: { path: { lab_public_id: labId }, query: { ...params, distributable: params.distributable ? 'true' : undefined } } })),
+      unwrap(
+        api.GET('/api/v1/labs/{lab_public_id}/strains/', {
+          signal,
+          params: { path: { lab_public_id: labId }, query: { ...params, distributable: params.distributable ? 'true' : undefined } },
+        }),
+      ),
     // The previous page or filter stays on screen while the next one loads.
     placeholderData: keepPreviousData,
   })
@@ -18,9 +23,7 @@ export const strainDetailOptions = (labId: string, strainId: string) =>
   queryOptions({
     queryKey: strainKeys.detail(labId, strainId),
     queryFn: ({ signal }) =>
-      unwrap(
-        api.GET('/api/v1/labs/{lab_public_id}/strains/{public_id}/', { signal, params: { path: { lab_public_id: labId, public_id: strainId } } }),
-      ),
+      unwrap(api.GET('/api/v1/labs/{lab_public_id}/strains/{public_id}/', { signal, params: { path: { lab_public_id: labId, public_id: strainId } } })),
   })
 
 /** Every version of the strain's terms of use, newest first, with the MTA each names (#19). */

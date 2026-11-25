@@ -18,7 +18,10 @@ async function as(browser: Browser, user: string) {
 
 async function openLab(page: Page) {
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
 }
 
@@ -29,9 +32,15 @@ async function offTheList(page: Page, person: string) {
     const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
     const lab = location.pathname.split('/')[2] ?? ''
     const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
-    const entries: { public_id: string; username: string; ended_at: string | null }[] = await (await fetch(`/api/v1/labs/${lab}/vrat-access/`, { headers })).json()
+    const entries: { public_id: string; username: string; ended_at: string | null }[] = await (
+      await fetch(`/api/v1/labs/${lab}/vrat-access/`, { headers })
+    ).json()
     for (const entry of entries.filter((e) => e.username === who && e.ended_at === null)) {
-      const response = await fetch(`/api/v1/labs/${lab}/vrat-access/${entry.public_id}/end/`, { method: 'POST', headers, body: JSON.stringify({ reason: 'Reset before an end to end run.' }) })
+      const response = await fetch(`/api/v1/labs/${lab}/vrat-access/${entry.public_id}/end/`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ reason: 'Reset before an end to end run.' }),
+      })
       if (!response.ok) throw new Error(`end: ${response.status}`)
     }
   }, person)
@@ -52,7 +61,9 @@ test('a manager puts a member on the VRAT access list, prints it for SÚJB and t
   await form.getByRole('textbox', { name: 'Username' }).fill('e2e-outsider')
   await form.getByRole('textbox', { name: 'Reason' }).fill(`Works in the BSL-3 suite (${RUN}).`)
   await form.getByRole('button', { name: 'Put on the list' }).click()
-  await expect(form.getByRole('textbox', { name: 'Username' })).toHaveAccessibleDescription('An active member of this lab No active member of this lab has this username')
+  await expect(form.getByRole('textbox', { name: 'Username' })).toHaveAccessibleDescription(
+    'An active member of this lab No active member of this lab has this username',
+  )
   await form.getByRole('textbox', { name: 'Username' }).fill(PERSON)
   await form.getByRole('button', { name: 'Put on the list' }).click()
   await expect(form.getByText(`Put ${PERSON} on the VRAT access list.`)).toBeVisible()
@@ -70,7 +81,9 @@ test('a manager puts a member on the VRAT access list, prints it for SÚJB and t
   await expect(facts).toContainText('E2E lab (E2E)')
   await expect(facts).toContainText('None in force on record')
   await expect(facts).toContainText(`Printed on${new Date().toLocaleDateString('sv')}`)
-  const printed = page.getByRole('table', { name: 'VRAT access list', exact: true }).getByRole('row', { name: new RegExp(`Works in the BSL-3 suite \\(${RUN}\\)`) })
+  const printed = page
+    .getByRole('table', { name: 'VRAT access list', exact: true })
+    .getByRole('row', { name: new RegExp(`Works in the BSL-3 suite \\(${RUN}\\)`) })
   await expect(printed).toContainText('has access')
   expect(await axe(page, 'main')).toEqual([])
   // On paper only the list: no top bar, no lab tabs, no buttons or back link.
@@ -90,7 +103,9 @@ test('a manager puts a member on the VRAT access list, prints it for SÚJB and t
   await dialog.getByRole('button', { name: 'End access' }).click()
   await expect(dialog).toBeHidden()
   await expect(current.getByRole('row', { name: new RegExp(`^${PERSON} `) })).toHaveCount(0)
-  const ended = section.getByRole('table', { name: 'Ended entries of the VRAT access list' }).getByRole('row', { name: new RegExp(`Moved to another project \\(${RUN}\\)`) })
+  const ended = section
+    .getByRole('table', { name: 'Ended entries of the VRAT access list' })
+    .getByRole('row', { name: new RegExp(`Moved to another project \\(${RUN}\\)`) })
   await expect(ended).toContainText(PERSON)
   await expect(ended).toContainText(username)
   expect(violations()).toEqual([])

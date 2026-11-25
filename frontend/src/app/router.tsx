@@ -22,7 +22,34 @@ import { strainDetailRoute, strainHistoryRoute, strainListRoute, strainMaterialR
 
 export const routeTree = rootRoute.addChildren([
   loginRoute,
-  authenticatedRoute.addChildren([homeRoute, labListRoute, labDetailRoute, strainListRoute, strainDetailRoute.addChildren([strainOverviewRoute, strainMaterialRoute, strainTermsRoute, strainHistoryRoute]), depositorListRoute, mtaListRoute, mtaNewRoute, mtaDetailRoute, depositListRoute, depositReceiveRoute, depositDetailRoute, storageRoute, storageUnitRoute, requestListRoute, requestNewRoute, requestDetailRoute, requesterListRoute, shipmentDocumentRoute, permitListRoute, mediaListRoute, revealListRoute, vratAccessRoute, classificationRoute, catalogueImportRoute, securityRoute]),
+  authenticatedRoute.addChildren([
+    homeRoute,
+    labListRoute,
+    labDetailRoute,
+    strainListRoute,
+    strainDetailRoute.addChildren([strainOverviewRoute, strainMaterialRoute, strainTermsRoute, strainHistoryRoute]),
+    depositorListRoute,
+    mtaListRoute,
+    mtaNewRoute,
+    mtaDetailRoute,
+    depositListRoute,
+    depositReceiveRoute,
+    depositDetailRoute,
+    storageRoute,
+    storageUnitRoute,
+    requestListRoute,
+    requestNewRoute,
+    requestDetailRoute,
+    requesterListRoute,
+    shipmentDocumentRoute,
+    permitListRoute,
+    mediaListRoute,
+    revealListRoute,
+    vratAccessRoute,
+    classificationRoute,
+    catalogueImportRoute,
+    securityRoute,
+  ]),
 ])
 
 /**

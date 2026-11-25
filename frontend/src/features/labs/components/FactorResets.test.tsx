@@ -6,8 +6,20 @@ import { renderWithProviders } from '@/test/render'
 import { FactorResets } from './FactorResets'
 
 const LAB = '00000000-0000-4000-8000-000000000001'
-const RESET = { public_id: 'r1', member: 'm1', username: 'lost-key', proposed_by: 'first-manager', proposed_at: '2026-11-21T10:00:00Z', reason: 'Lost the phone.' }
-const MEMBERS = { count: 1, next: null, previous: null, results: [{ public_id: 'm1', username: 'lost-key', first_name: '', last_name: '', role: 'technician' as const, created_at: '2026-11-01T10:00:00Z' }] }
+const RESET = {
+  public_id: 'r1',
+  member: 'm1',
+  username: 'lost-key',
+  proposed_by: 'first-manager',
+  proposed_at: '2026-11-21T10:00:00Z',
+  reason: 'Lost the phone.',
+}
+const MEMBERS = {
+  count: 1,
+  next: null,
+  previous: null,
+  results: [{ public_id: 'm1', username: 'lost-key', first_name: '', last_name: '', role: 'technician' as const, created_at: '2026-11-01T10:00:00Z' }],
+}
 
 describe('FactorResets', () => {
   it('lets another manager confirm, with a reason', async () => {

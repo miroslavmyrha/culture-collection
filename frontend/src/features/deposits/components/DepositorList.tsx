@@ -35,15 +35,7 @@ export function DepositorList({ labId, params, onOffsetChange, onSearch }: Props
       </Box>
       <Rows list={list} params={params} onOffsetChange={onOffsetChange} onEdit={show} />
       {/* Outside the list's states, mounted until faded out, so onExited can place the focus. */}
-      {open && (
-        <DepositorDialog
-          labId={labId}
-          depositor={open.depositor}
-          open={open.open}
-          onClose={close}
-          onExited={exited}
-        />
-      )}
+      {open && <DepositorDialog labId={labId} depositor={open.depositor} open={open.open} onClose={close} onExited={exited} />}
     </>
   )
 }
@@ -65,8 +57,20 @@ function Rows({
   }
   const stale = <StaleNotice what="the depositors" query={list} />
   const { count, results } = list.data
-  if (count === 0) return <>{stale}<Typography>{params.search ? 'No depositor matches this search.' : 'The lab has no depositors yet.'}</Typography></>
-  if (results.length === 0) return <>{stale}<PastTheEnd onFirstPage={() => onOffsetChange(0)} /></>
+  if (count === 0)
+    return (
+      <>
+        {stale}
+        <Typography>{params.search ? 'No depositor matches this search.' : 'The lab has no depositors yet.'}</Typography>
+      </>
+    )
+  if (results.length === 0)
+    return (
+      <>
+        {stale}
+        <PastTheEnd onFirstPage={() => onOffsetChange(0)} />
+      </>
+    )
   return (
     <section aria-label="Depositors" aria-busy={list.isPlaceholderData}>
       {stale}
@@ -98,7 +102,15 @@ function Rows({
           </TableBody>
         </Table>
       </TableContainer>
-      <Pager label="Depositor pages" count={count} shown={results.length} limit={params.limit} offset={params.offset} loading={list.isPlaceholderData} onOffsetChange={onOffsetChange} />
+      <Pager
+        label="Depositor pages"
+        count={count}
+        shown={results.length}
+        limit={params.limit}
+        offset={params.offset}
+        loading={list.isPlaceholderData}
+        onOffsetChange={onOffsetChange}
+      />
     </section>
   )
 }

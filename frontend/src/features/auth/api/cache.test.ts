@@ -10,7 +10,10 @@ describe('resetSessionCache', () => {
     const client = new QueryClient()
     client.setQueryData(['labs', 'list'], ['secret'])
     client.setQueryData(authKeys.me(), makeMe({ username: 'before' }))
-    await client.getMutationCache().build(client, { mutationFn: () => Promise.resolve('done') }).execute(undefined)
+    await client
+      .getMutationCache()
+      .build(client, { mutationFn: () => Promise.resolve('done') })
+      .execute(undefined)
     notify.error('Something from before.')
     const meQuery = client.getQueryCache().find({ queryKey: authKeys.me() })
 

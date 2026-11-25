@@ -122,7 +122,7 @@ describe('redirect sinks (invariant)', () => {
 describe('redirect sink checker', () => {
   it.each([
     ['throw redirect({ href: search.redirect })', 'redirect({ href })'],
-    ["void navigate({ href: raw, replace: true })", 'navigate({ href })'],
+    ['void navigate({ href: raw, replace: true })', 'navigate({ href })'],
     ['void navigate({ href })', 'navigate({ href })'],
     ["void router.navigate({ to: '/login', search: { redirect: href } })", 'router.navigate({ search: { redirect } })'],
     ["throw redirect({ to: '/login', search: { redirect: location.href } })", 'redirect({ search: { redirect } })'],

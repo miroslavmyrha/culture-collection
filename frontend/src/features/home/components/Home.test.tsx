@@ -40,18 +40,36 @@ describe('Home', () => {
     noActivity()
     await renderWithProviders(<Home />)
     expect(screen.getByText('Loading what waits for you…')).toBeInTheDocument()
-    held.release(200, makeOverview({
-      labs: [curatorLab],
-      waiting: [
-        makeWaitingGroup({ kind: 'deposit_received', items: [makeWaitingItem({ lab: BAC, subject: 'Testella exempli DEP-3', target: 'deposit', target_id: DEPOSIT, since: '2026-10-05' })] }),
-        makeWaitingGroup({
-          kind: 'request_to_decide',
-          total: 25,
-          items: [makeWaitingItem({ lab: BAC, subject: 'Request 2026/1, Example Institute', reason: 'A regulated strain: a manager approves it', target: 'request', target_id: REQUEST, needs_manager: true })],
-        }),
-        makeWaitingGroup({ kind: 'lab_permit_expiring', items: [makeWaitingItem({ lab: BAC, subject: 'SÚJB DEV/VRAT/7', target: 'permits', target_id: null, due: '2026-11-05' })] }),
-      ],
-    }))
+    held.release(
+      200,
+      makeOverview({
+        labs: [curatorLab],
+        waiting: [
+          makeWaitingGroup({
+            kind: 'deposit_received',
+            items: [makeWaitingItem({ lab: BAC, subject: 'Testella exempli DEP-3', target: 'deposit', target_id: DEPOSIT, since: '2026-10-05' })],
+          }),
+          makeWaitingGroup({
+            kind: 'request_to_decide',
+            total: 25,
+            items: [
+              makeWaitingItem({
+                lab: BAC,
+                subject: 'Request 2026/1, Example Institute',
+                reason: 'A regulated strain: a manager approves it',
+                target: 'request',
+                target_id: REQUEST,
+                needs_manager: true,
+              }),
+            ],
+          }),
+          makeWaitingGroup({
+            kind: 'lab_permit_expiring',
+            items: [makeWaitingItem({ lab: BAC, subject: 'SÚJB DEV/VRAT/7', target: 'permits', target_id: null, due: '2026-11-05' })],
+          }),
+        ],
+      }),
+    )
     const waiting = await screen.findByRole('region', { name: 'Waiting for you (27)' })
     const deposits = within(waiting).getByRole('region', { name: 'Deposits received (1)' })
     expect(within(deposits).getByRole('link', { name: 'Testella exempli DEP-3' })).toHaveAttribute('href', `/labs/${BAC}/deposits/${DEPOSIT}`)
@@ -67,27 +85,31 @@ describe('Home', () => {
     expect(within(permits).getByRole('link', { name: 'SÚJB DEV/VRAT/7' })).toHaveAttribute('href', `/labs/${BAC}/permits`)
   })
 
-  it('lists a loss to report to the police, linked to the vial on its strain\'s Material tab (#159)', async () => {
+  it("lists a loss to report to the police, linked to the vial on its strain's Material tab (#159)", async () => {
     const vial = '00000000-0000-4000-8000-0000000000f2'
-    mockApi('get', OVERVIEW, makeOverview({
-      labs: [makeMyLab({ public_id: BAC, code: 'BAC', role: 'manager' })],
-      waiting: [
-        makeWaitingGroup({
-          kind: 'loss_to_report',
-          items: [
-            makeWaitingItem({
-              lab: BAC,
-              subject: 'BAC 7 / 1 / 2',
-              reason: 'Lost: report it to the police without undue delay (act 281/2002 Sb., § 5(5)), then record the day and the reference',
-              target: 'strain',
-              target_id: STRAIN,
-              vial,
-              since: '2026-11-02',
-            }),
-          ],
-        }),
-      ],
-    }))
+    mockApi(
+      'get',
+      OVERVIEW,
+      makeOverview({
+        labs: [makeMyLab({ public_id: BAC, code: 'BAC', role: 'manager' })],
+        waiting: [
+          makeWaitingGroup({
+            kind: 'loss_to_report',
+            items: [
+              makeWaitingItem({
+                lab: BAC,
+                subject: 'BAC 7 / 1 / 2',
+                reason: 'Lost: report it to the police without undue delay (act 281/2002 Sb., § 5(5)), then record the day and the reference',
+                target: 'strain',
+                target_id: STRAIN,
+                vial,
+                since: '2026-11-02',
+              }),
+            ],
+          }),
+        ],
+      }),
+    )
     noActivity()
     await renderWithProviders(<Home />)
     const losses = await screen.findByRole('region', { name: 'Losses to report to the police (1)' })
@@ -125,7 +147,11 @@ describe('Home', () => {
       vials_available: 7,
       vials: { available: 7, reserved: 1, consumed: 0, quarantined: 2, to_destroy: 0, destroyed: 0, lost: 1, distributed: 0, entered_in_error: 0 },
     })
-    mockApi('get', OVERVIEW, makeOverview({ labs: [managed, curatorLab].map((lab, i) => (i === 1 ? { ...lab, public_id: MYC, name: 'Mycology', code: 'MYC' } : lab)) }))
+    mockApi(
+      'get',
+      OVERVIEW,
+      makeOverview({ labs: [managed, curatorLab].map((lab, i) => (i === 1 ? { ...lab, public_id: MYC, name: 'Mycology', code: 'MYC' } : lab)) }),
+    )
     noActivity()
     await renderWithProviders(<Home />)
     const bac = await within(await screen.findByRole('region', { name: 'My labs' })).findByRole('article', { name: 'Bacteriology' })
@@ -142,7 +168,9 @@ describe('Home', () => {
     noActivity()
     await renderWithProviders(<Home />)
     const actions = await screen.findByRole('region', { name: 'Quick actions' })
-    const names = within(actions).getAllByRole('link').map((link) => [link.textContent, link.getAttribute('href')])
+    const names = within(actions)
+      .getAllByRole('link')
+      .map((link) => [link.textContent, link.getAttribute('href')])
     expect(names).toEqual([
       ['Receive a deposit', `/labs/${BAC}/deposits/new`],
       ['Record a check in BAC', `/labs/${BAC}/strains`],
@@ -174,8 +202,23 @@ describe('Home', () => {
     mockApi('get', OVERVIEW, makeOverview({ labs: [curatorLab] }))
     mockApi('get', ACTIVITY, {
       results: [
-        makeActivityLine({ lab: BAC, lab_code: 'BAC', actor: 'you', summary: 'set BAC 29 batch 3 to released', target: 'strain', target_id: STRAIN, occurred_at: '2026-10-23T12:05:00Z' }),
-        makeActivityLine({ lab: BAC, lab_code: 'BAC', actor: 'user:1c870e86-fe96-4324-8705-cbbbb8ef0cfa', summary: 'added a member', target: 'lab', target_id: null }),
+        makeActivityLine({
+          lab: BAC,
+          lab_code: 'BAC',
+          actor: 'you',
+          summary: 'set BAC 29 batch 3 to released',
+          target: 'strain',
+          target_id: STRAIN,
+          occurred_at: '2026-10-23T12:05:00Z',
+        }),
+        makeActivityLine({
+          lab: BAC,
+          lab_code: 'BAC',
+          actor: 'user:1c870e86-fe96-4324-8705-cbbbb8ef0cfa',
+          summary: 'added a member',
+          target: 'lab',
+          target_id: null,
+        }),
         makeActivityLine({ lab: BAC, lab_code: 'BAC', actor: 'command:seed_dev', summary: 'generated a shipment document', target: null, target_id: null }),
       ],
     })

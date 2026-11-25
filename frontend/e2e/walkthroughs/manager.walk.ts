@@ -1,5 +1,22 @@
 import { type Page, expect, test } from '@playwright/test'
-import { RUN, Walk, acceptedStrain, api, batchOf, field, labId, openLab, openWaiting, passAll, release, requestFor, rows, searchStrain, setupAs, supplyStrain } from './walk.js'
+import {
+  RUN,
+  Walk,
+  acceptedStrain,
+  api,
+  batchOf,
+  field,
+  labId,
+  openLab,
+  openWaiting,
+  passAll,
+  release,
+  requestFor,
+  rows,
+  searchStrain,
+  setupAs,
+  supplyStrain,
+} from './walk.js'
 
 // A manager of Bacteriology and of Regulated agents (seed_dev): people, rights, the VRAT access
 // list and the lab's legal texts. dev-no-lab is a user in no lab, reg-technician works in Regulated agents,
@@ -37,7 +54,12 @@ async function offVratList(page: Page, lab: string, username: string) {
   for (const entry of open) await api(page, lab, `vrat-access/${field(entry, 'public_id')}/end/`, { reason: 'Reset before a walkthrough.' })
 }
 
-async function prepare(browser: Parameters<typeof setupAs>[0], user: 'bac-manager' | 'reg-manager' | 'reg-deputy', lab: string, step: (page: Page, lab: string) => Promise<void>) {
+async function prepare(
+  browser: Parameters<typeof setupAs>[0],
+  user: 'bac-manager' | 'reg-manager' | 'reg-deputy',
+  lab: string,
+  step: (page: Page, lab: string) => Promise<void>,
+) {
   const setup = await setupAs(browser, user)
   await step(setup.page, await labId(setup.page, lab))
   await setup.close()
@@ -170,7 +192,9 @@ test('M7 see how the lab stands: strains, vials, batches waiting', async ({ brow
   }).toPass()
   w.look()
   await w.shot('strains-with-vials')
-  w.note('The figures are of today: no trend. The vials left of each strain are the column of the strain list (#13), the lab\'s vials by state are on its card (#81)')
+  w.note(
+    "The figures are of today: no trend. The vials left of each strain are the column of the strain list (#13), the lab's vials by state are on its card (#81)",
+  )
   await w.done()
 })
 
@@ -187,8 +211,8 @@ test('M8 review who revealed regulated locations this month', async ({ browser }
   await w.done()
 })
 
-test('M9 check the lab\'s permits and when they expire', async ({ browser }, info) => {
-  const w = await Walk.as(browser, info, 'reg-manager', manager('M9', 'Check the lab\'s permits and when they expire'))
+test("M9 check the lab's permits and when they expire", async ({ browser }, info) => {
+  const w = await Walk.as(browser, info, 'reg-manager', manager('M9', "Check the lab's permits and when they expire"))
   await w.start()
   await openLab(w, REG)
   // The permits screen for managers (#82). seed_dev: REG holds one SÚJB VRAT permit with no expiry.
@@ -229,7 +253,7 @@ test('M12 put a colleague on the VRAT access list and print it for SÚJB', async
   await expect(w.page.locator('main dl')).toContainText('SÚJB/DEV/0001')
   w.look()
   await w.shot('vrat-access-list')
-  w.note('The printed list is the browser\'s print of the page: no PDF of its own, no signature line')
+  w.note("The printed list is the browser's print of the page: no PDF of its own, no signature line")
   await w.done()
 })
 
@@ -239,7 +263,15 @@ test('M11 approve a request for a regulated strain', async ({ browser }, info) =
   // manager may approve it.
   const setup = await setupAs(browser, 'bac-curator')
   const lab = await labId(setup.page, BAC)
-  const strain = await supplyStrain(setup.page, lab, `Clostridium perfringens supply ${RUN}`, 'Clostridium perfringens', [{ kind: 'cz_rat', reference: 'annex-2 I.II 2', act: '' }], 4, 2)
+  const strain = await supplyStrain(
+    setup.page,
+    lab,
+    `Clostridium perfringens supply ${RUN}`,
+    'Clostridium perfringens',
+    [{ kind: 'cz_rat', reference: 'annex-2 I.II 2', act: '' }],
+    4,
+    2,
+  )
   const made = await batchOf(setup.page, lab, strain.passage, 4)
   await setup.close()
   const bench = await setupAs(browser, 'bac-technician')
@@ -308,7 +340,9 @@ test('M14 check where the record and the official lists disagree', async ({ brow
   await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Classification' }))
   await expect(w.page.getByRole('heading', { level: 1, name: /^Classification of / })).toBeVisible()
   w.look()
-  await expect(w.page.getByText('No strain of this lab disagrees with the official lists.').or(w.page.getByRole('table', { name: 'Classification check' }))).toBeVisible()
+  await expect(
+    w.page.getByText('No strain of this lab disagrees with the official lists.').or(w.page.getByRole('table', { name: 'Classification check' })),
+  ).toBeVisible()
   w.note('A line is a question, not a fault: the taxon may be wrong, and an agent annex 7 does not list is not thereby group 1', '#169')
   await w.done()
 })

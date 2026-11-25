@@ -3,9 +3,31 @@ import { StaleNotice } from '@/components/StaleNotice'
 import { PageTitle, Typography, Mono } from '@/components/ui'
 import { useRequest } from '../api/queries'
 import { awaitingAnswer, type Line, openPreparation, type Preparation, type Request, type Role, STATUS_LABELS } from '../schemas'
-import { AcceptanceDialog, ApproveAgainDialog, ApproveDialog, CancelDialog, type Common, ConfirmShipmentDialog, DepositorAnswerDialog, RejectDialog, ShipDialog, WithdrawShipmentDialog } from './RequestDialogs'
+import {
+  AcceptanceDialog,
+  ApproveAgainDialog,
+  ApproveDialog,
+  CancelDialog,
+  type Common,
+  ConfirmShipmentDialog,
+  DepositorAnswerDialog,
+  RejectDialog,
+  ShipDialog,
+  WithdrawShipmentDialog,
+} from './RequestDialogs'
 import { type Kind } from './RequestDecision'
-import { AcceptancesSection, AnswersSection, AskedSection, DecisionSection, FindingsSection, PreparedSection, ShipmentSections, StrainsSection, VialsSection, WithdrawnSection } from './RequestSections'
+import {
+  AcceptancesSection,
+  AnswersSection,
+  AskedSection,
+  DecisionSection,
+  FindingsSection,
+  PreparedSection,
+  ShipmentSections,
+  StrainsSection,
+  VialsSection,
+  WithdrawnSection,
+} from './RequestSections'
 import { PackageFacts } from './requestParts'
 import { useDialogSlot } from '@/lib/dialog'
 import { DetailUnavailable } from '@/components/DetailUnavailable'
@@ -33,9 +55,14 @@ export function RequestDetail({ labId, requestId, role, renderVials }: Props) {
   const request = useRequest(labId, requestId)
   const { slot: open, openFrom, close, exited } = useDialogSlot<NonNullable<Open>>()
   const show = (kind: Kind) => (event: MouseEvent<HTMLButtonElement>) => {
-        // The confirmation keeps the preparation it was opened on: a refetch does not swap it.
+    // The confirmation keeps the preparation it was opened on: a refetch does not swap it.
     // The answer keeps the strains it was opened on: a refetch does not change the choice.
-openFrom(event.currentTarget, { kind, open: true, preparation: request.data && openPreparation(request.data), lines: request.data && awaitingAnswer(request.data) })
+    openFrom(event.currentTarget, {
+      kind,
+      open: true,
+      preparation: request.data && openPreparation(request.data),
+      lines: request.data && awaitingAnswer(request.data),
+    })
   }
 
   const r = request.data

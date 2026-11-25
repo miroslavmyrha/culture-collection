@@ -190,7 +190,11 @@ describe('ReceiveDepositForm', () => {
     await user.click(select('Depositor'))
     await user.keyboard('vzor')
     const listbox = await screen.findByRole('listbox')
-    expect(within(listbox).getAllByRole('option').map((o) => o.textContent)).toEqual(['Jana Vzorová, Example University'])
+    expect(
+      within(listbox)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Jana Vzorová, Example University'])
   })
 
   it('adds a new depositor in a dialog and chooses them, focus back on the button', async () => {
@@ -224,7 +228,6 @@ describe('ReceiveDepositForm', () => {
   })
 
   describe('leaving with unsaved changes', () => {
-
     it('lets a form nobody typed in go without asking', async () => {
       const { router } = await setup()
       away(router)

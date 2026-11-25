@@ -20,11 +20,20 @@ const source = (match: Match) => `${match.act}, ${match.version} of ${match.vers
 /** The basis a confirmed risk group suggestion carries: the entry, its list and its version. */
 const basisOf = (match: Match) => `${match.name} (${match.act}, entry ${match.code}, ${match.version})`
 
-type ItemProps = { match: Match; strain: Strain; held: ReadonlySet<string>; canManage: boolean; show: (next: NonNullable<Open>) => (event: React.MouseEvent<HTMLButtonElement>) => void }
+type ItemProps = {
+  match: Match
+  strain: Strain
+  held: ReadonlySet<string>
+  canManage: boolean
+  show: (next: NonNullable<Open>) => (event: React.MouseEvent<HTMLButtonElement>) => void
+}
 
 /** What a line suggests: the restriction kind it names and the risk group it states, each with whether the strain has it already. */
 function suggestion(match: Match, strain: Strain, held: ReadonlySet<string>): string {
-  const kind = match.restriction_kind !== '' ? `Suggests: ${RESTRICTION_LABELS[match.restriction_kind]}${held.has(match.restriction_kind) ? ' (the strain has one)' : ''}. ` : ''
+  const kind =
+    match.restriction_kind !== ''
+      ? `Suggests: ${RESTRICTION_LABELS[match.restriction_kind]}${held.has(match.restriction_kind) ? ' (the strain has one)' : ''}. `
+      : ''
   const group = match.risk_group !== null ? `States risk group ${match.risk_group}${match.risk_group === strain.risk_group ? ' (the strain has it)' : ''}.` : ''
   return kind + group
 }
@@ -41,16 +50,22 @@ function MatchItem({ match, strain, held, canManage, show }: ItemProps) {
       <Typography variant="body2">{source(match)}</Typography>
       <Typography variant="body2">{suggestion(match, strain, held)}</Typography>
       {match.through_synonym !== '' && (
-        <Typography variant="body2">Reached only through the synonym {match.through_synonym}, of another genus: a name the species may have left. Not counted as a disagreement.</Typography>
+        <Typography variant="body2">
+          Reached only through the synonym {match.through_synonym}, of another genus: a name the species may have left. Not counted as a disagreement.
+        </Typography>
       )}
       {recordKind && (
         <Box>
-          <Button onClick={show({ restriction: { kind: match.restriction_kind, reference: match.code, act: match.suggests_act }, open: true })}>Record {RESTRICTION_LABELS[match.restriction_kind]}</Button>
+          <Button onClick={show({ restriction: { kind: match.restriction_kind, reference: match.code, act: match.suggests_act }, open: true })}>
+            Record {RESTRICTION_LABELS[match.restriction_kind]}
+          </Button>
         </Box>
       )}
       {recordGroup && (
         <Box>
-          <Button onClick={show({ group: { risk_group: String(match.risk_group), basis: basisOf(match), entry: match.public_id }, open: true })}>Use as the risk group basis</Button>
+          <Button onClick={show({ group: { risk_group: String(match.risk_group), basis: basisOf(match), entry: match.public_id }, open: true })}>
+            Use as the risk group basis
+          </Button>
         </Box>
       )}
     </Stack>
@@ -96,8 +111,12 @@ export function StrainListMatches({ labId, strain, canManage }: Props) {
       )}
 
       {/* Mounted until they have faded out, so onExited can place the focus. */}
-      {open?.restriction !== undefined && <AddRestrictionDialog labId={labId} strain={strain} suggestion={open.restriction} open={open.open} onClose={close} onExited={exited} />}
-      {open?.group !== undefined && <RiskGroupDialog labId={labId} strain={strain} suggestion={open.group} open={open.open} onClose={close} onExited={exited} />}
+      {open?.restriction !== undefined && (
+        <AddRestrictionDialog labId={labId} strain={strain} suggestion={open.restriction} open={open.open} onClose={close} onExited={exited} />
+      )}
+      {open?.group !== undefined && (
+        <RiskGroupDialog labId={labId} strain={strain} suggestion={open.group} open={open.open} onClose={close} onExited={exited} />
+      )}
     </Section>
   )
 }

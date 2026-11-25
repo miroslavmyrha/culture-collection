@@ -34,7 +34,9 @@ export default class WalkthroughReporter implements Reporter {
       lines.push('|---|---|---|---|---|---|---|---|')
       for (const r of mine) {
         const friction = r.friction[0] ?? ''
-        lines.push(`| ${r.id} ${r.task} | ${r.possible ? 'yes' : 'no'} | ${r.steps} | ${r.pageLoads} | ${r.requests} | ${r.runSeconds} s | ${r.personSeconds} s | ${friction} |`)
+        lines.push(
+          `| ${r.id} ${r.task} | ${r.possible ? 'yes' : 'no'} | ${r.steps} | ${r.pageLoads} | ${r.requests} | ${r.runSeconds} s | ${r.personSeconds} s | ${friction} |`,
+        )
       }
       lines.push('')
     }

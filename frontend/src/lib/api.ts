@@ -52,7 +52,7 @@ export function readProblem(body: unknown): Problem | undefined {
   }
   const status: unknown = Reflect.get(body, 'status')
   if (typeof status === 'number') problem.status = status
-  return problem.type ?? problem.title ?? problem.code ?? problem.errors ? problem : undefined
+  return (problem.type ?? problem.title ?? problem.code ?? problem.errors) ? problem : undefined
 }
 
 /** Parses Retry-After (seconds or an HTTP date) into milliseconds. */
@@ -99,8 +99,7 @@ export class CsrfError extends ApiError {
   }
 }
 
-export const isApiError = (error: unknown, status?: number): error is ApiError =>
-  error instanceof ApiError && (status === undefined || error.status === status)
+export const isApiError = (error: unknown, status?: number): error is ApiError => error instanceof ApiError && (status === undefined || error.status === status)
 
 const isAbort = (error: unknown) => error instanceof DOMException && error.name === 'AbortError'
 
@@ -195,7 +194,8 @@ export function retryDelay(failureCount: number, error: unknown): number {
 /** A message that is safe to show to anyone. Never the raw server text or a stack. */
 export function errorMessage(error: unknown): string {
   if (!(error instanceof ApiError)) return 'Something went wrong. Try again.'
-  if (error instanceof CsrfError) return `Could not prepare the change: the security check of the page did not load. Nothing was saved. Reload the page and try again.${reference(error)}`
+  if (error instanceof CsrfError)
+    return `Could not prepare the change: the security check of the page did not load. Nothing was saved. Reload the page and try again.${reference(error)}`
   if (error.status === 0) return error.message
   if (error.status === 403) return 'You do not have permission to do that.'
   if (error.status === 404) return 'It no longer exists. Reload the page.'

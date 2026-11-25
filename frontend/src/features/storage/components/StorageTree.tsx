@@ -90,7 +90,9 @@ export function StorageTree({ label, rows, onOpen }: Props) {
           '&:focus-visible > div': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, py: 0.75, px: 1, cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } }}>
+        <Box
+          sx={{ display: 'flex', alignItems: 'baseline', gap: 1, py: 0.75, px: 1, cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } }}
+        >
           <Box component="span" data-toggle aria-hidden sx={{ width: '1em', flex: 'none', textAlign: 'center', color: 'text.secondary' }}>
             {hasChildren ? (isOpen ? '▾' : '▸') : ''}
           </Box>

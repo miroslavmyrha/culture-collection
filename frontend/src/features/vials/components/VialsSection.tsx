@@ -2,7 +2,23 @@ import { type MouseEvent, useId } from 'react'
 import { LoadError } from '@/components/LoadError'
 import { Pager, PastTheEnd } from '@/components/Pager'
 import { StaleNotice } from '@/components/StaleNotice'
-import { ActionMenu, type ActionItem, Box, Button, CheckboxField, Mono, SelectField, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
+import {
+  ActionMenu,
+  type ActionItem,
+  Box,
+  Button,
+  CheckboxField,
+  Mono,
+  SelectField,
+  StatusChip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+} from '@/components/ui'
 import { useFocusReturnOnUnmount } from '@/lib/focus'
 import { VIAL_TONES } from '@/lib/tones'
 import type { useBatches, useVialPage } from '../api/queries'
@@ -68,7 +84,11 @@ function noVialText(vialPage: VialPage): string {
 function VialsBody(props: Props) {
   const { vials, vialPage, onVialPage } = props
   if (vials.data === undefined) {
-    return vials.isPending ? <Typography>Loading the vials…</Typography> : <LoadError what="the vials" error={vials.error} onRetry={() => void vials.refetch()} />
+    return vials.isPending ? (
+      <Typography>Loading the vials…</Typography>
+    ) : (
+      <LoadError what="the vials" error={vials.error} onRetry={() => void vials.refetch()} />
+    )
   }
   if (vials.data.count === 0) return <Typography>{noVialText(vialPage)}</Typography>
   if (vials.data.results.length === 0) return <PastTheEnd onFirstPage={() => onVialPage({ offset: 0 })} />
@@ -77,7 +97,21 @@ function VialsBody(props: Props) {
 
 type PageProps = Props & { page: NonNullable<Props['vials']['data']> }
 
-function VialsPage({ page, vials, batches, vialPage, onVialPage, selection, moves, canHandle, materialDestroyed, canReportLoss, show, showFrom, labId }: PageProps) {
+function VialsPage({
+  page,
+  vials,
+  batches,
+  vialPage,
+  onVialPage,
+  selection,
+  moves,
+  canHandle,
+  materialDestroyed,
+  canReportLoss,
+  show,
+  showFrom,
+  labId,
+}: PageProps) {
   const { loose, selected } = selection
   return (
     <>
@@ -224,7 +258,13 @@ function PlaceSeveral({ loose, selected, onAll, onPlace }: PlaceSeveralProps) {
   return (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 2, rowGap: 1 }}>
       <CheckboxField label={`Every vial in no box on this page (${loose})`} checked={selected === loose} onChange={(event) => onAll(event.target.checked)} />
-      <Button variant="outlined" aria-disabled={none} aria-describedby={none ? hint : undefined} onClick={onPlace} sx={{ '&[aria-disabled="true"]': { color: 'text.disabled', cursor: 'not-allowed' } }}>
+      <Button
+        variant="outlined"
+        aria-disabled={none}
+        aria-describedby={none ? hint : undefined}
+        onClick={onPlace}
+        sx={{ '&[aria-disabled="true"]': { color: 'text.disabled', cursor: 'not-allowed' } }}
+      >
         {none ? 'Place in a box' : `Place ${selected} ${selected === 1 ? 'vial' : 'vials'} in a box`}
       </Button>
       {none && (
@@ -254,7 +294,12 @@ function Actions({ vial, materialDestroyed, canReportLoss, show }: ActionsProps)
   if (nextStates(vial, materialDestroyed).length > 0) add('Change state', 'status')
   if (vial.status === 'available') add('Revive', 'revive')
   if (canReportLoss && vial.police_report?.reported_on === null) add('Record the police report', 'loss-report')
-  if (items.length === 0) return <Typography variant="body2" color="text.secondary">None</Typography>
+  if (items.length === 0)
+    return (
+      <Typography variant="body2" color="text.secondary">
+        None
+      </Typography>
+    )
   return <ActionMenu label="Actions" name={`Actions for vial ${vial.label}`} items={items} size="small" />
 }
 

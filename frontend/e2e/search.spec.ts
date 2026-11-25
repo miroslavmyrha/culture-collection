@@ -11,7 +11,11 @@ const RUN = runId()
 
 async function as(browser: Browser, username: string, options: { width?: number; colorScheme?: 'light' | 'dark' } = {}) {
   const width = options.width ?? 1280
-  const context = await browser.newContext({ storageState: signedInAs(username), viewport: { width, height: width === 320 ? 640 : 900 }, colorScheme: options.colorScheme ?? 'light' })
+  const context = await browser.newContext({
+    storageState: signedInAs(username),
+    viewport: { width, height: width === 320 ? 640 : 900 },
+    colorScheme: options.colorScheme ?? 'light',
+  })
   const page = await context.newPage()
   return { page, close: () => context.close() }
 }
@@ -23,20 +27,29 @@ async function vialWithBarcode(page: Page, name: string, barcode: string) {
       await fetch('/api/v1/auth/csrf/')
       const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
       const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
-      const read = async <T,>(url: string): Promise<T> => {
+      const read = async <T>(url: string): Promise<T> => {
         const body: T = await (await fetch(url, { headers })).json()
         return body
       }
       const labs = await read<{ results: { public_id: string; code: string }[] }>('/api/v1/labs/')
       const lab = labs.results.find((l) => l.code === 'E2E')?.public_id ?? ''
-      const send = async <T,>(path: string, body: unknown): Promise<T> => {
+      const send = async <T>(path: string, body: unknown): Promise<T> => {
         const response = await fetch(`/api/v1/labs/${lab}/${path}`, { method: 'POST', headers, body: JSON.stringify(body) })
         if (!response.ok) throw new Error(`${path}: ${response.status} ${await response.text()}`)
         const created: T = await response.json()
         return created
       }
       const depositors = await read<{ results: { public_id: string }[] }>(`/api/v1/labs/${lab}/depositors/?search=E2E`)
-      const uses = ['research_noncommercial', 'research_commercial', 'teaching', 'diagnostics', 'production', 'reference_qc', 'patent_deposit_related', 'redistribution']
+      const uses = [
+        'research_noncommercial',
+        'research_commercial',
+        'teaching',
+        'diagnostics',
+        'production',
+        'reference_qc',
+        'patent_deposit_related',
+        'redistribution',
+      ]
       const deposit = await send<{ public_id: string }>('deposits/', {
         depositor: depositors.results[0]?.public_id,
         received_on: new Date().toLocaleDateString('sv'),
@@ -62,7 +75,14 @@ async function vialWithBarcode(page: Page, name: string, barcode: string) {
       const strain = accepted.strain
       if (!strain) throw new Error('the deposit made no strain')
       const passages = await read<{ results: { public_id: string }[] }>(`/api/v1/labs/${lab}/passages/?strain=${strain.public_id}`)
-      await send('batches/', { passage: passages.results[0]?.public_id, method: 'cryo_minus80', purpose: 'seed', cryoprotectant: '10 % glycerol', preserved_on: new Date().toLocaleDateString('sv'), vial_count: 2 })
+      await send('batches/', {
+        passage: passages.results[0]?.public_id,
+        method: 'cryo_minus80',
+        purpose: 'seed',
+        cryoprotectant: '10 % glycerol',
+        preserved_on: new Date().toLocaleDateString('sv'),
+        vial_count: 2,
+      })
       const vials = await read<{ results: { public_id: string; label: string; seq: number }[] }>(`/api/v1/labs/${lab}/vials/?strain=${strain.public_id}`)
       const second = vials.results.find((v) => v.seq === 2)
       if (!second) throw new Error('no second vial')

@@ -26,7 +26,8 @@ async function call<T>(page: Page, verb: 'GET' | 'POST' | 'DELETE', url: string,
       await fetch('/api/v1/auth/csrf/')
       const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
       const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
-      const response = how === 'POST' ? await fetch(where, { method: 'POST', headers, body: JSON.stringify(sent ?? {}) }) : await fetch(where, { method: how, headers })
+      const response =
+        how === 'POST' ? await fetch(where, { method: 'POST', headers, body: JSON.stringify(sent ?? {}) }) : await fetch(where, { method: how, headers })
       if (!response.ok) throw new Error(`${how} ${where}: ${response.status} ${await response.text()}`)
       return response.status === 204 ? null : response.json()
     },
@@ -40,7 +41,10 @@ test("a manager reads who revealed a regulated vial's place, without the place; 
   const page = manager.page
   const violations = await watchCsp(page)
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
   const labUrl = page.url()
   const lab = new URL(labUrl).pathname.split('/')[2] ?? ''
@@ -56,16 +60,26 @@ test("a manager reads who revealed a regulated vial's place, without the place; 
     try {
       const second = await as(browser, DEPUTY)
       await second.page.goto('/labs')
-      await call<unknown>(second.page, 'POST', `/api/v1/labs/${lab}/location-grants/${grant.public_id}/confirm/`, { reason: 'e2e of the reveal log, second manager' })
+      await call<unknown>(second.page, 'POST', `/api/v1/labs/${lab}/location-grants/${grant.public_id}/confirm/`, {
+        reason: 'e2e of the reveal log, second manager',
+      })
       await second.close()
     } finally {
       await call<unknown>(page, 'DELETE', `/api/v1/labs/${lab}/members/${deputy.public_id}/`)
     }
     const technician = await as(browser, TECHNICIAN)
     await technician.page.goto('/labs')
-    const strains = await call<{ results: { public_id: string }[] }>(technician.page, 'GET', `/api/v1/labs/${lab}/strains/?search=${encodeURIComponent(REGULATED)}`)
+    const strains = await call<{ results: { public_id: string }[] }>(
+      technician.page,
+      'GET',
+      `/api/v1/labs/${lab}/strains/?search=${encodeURIComponent(REGULATED)}`,
+    )
     const strain = strains.results[0]?.public_id ?? ''
-    const vials = await call<{ results: { public_id: string; label: string; seq: number }[] }>(technician.page, 'GET', `/api/v1/labs/${lab}/vials/?strain=${strain}`)
+    const vials = await call<{ results: { public_id: string; label: string; seq: number }[] }>(
+      technician.page,
+      'GET',
+      `/api/v1/labs/${lab}/vials/?strain=${strain}`,
+    )
     const vial = vials.results.find((v) => v.seq === 1)
     label = vial?.label ?? ''
     await call<unknown>(technician.page, 'POST', `/api/v1/labs/${lab}/vials/${vial?.public_id ?? ''}/reveal-location/`)

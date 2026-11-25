@@ -2,7 +2,24 @@ import { useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
 import { Pager, PastTheEnd } from '@/components/Pager'
-import { Box, Button, Link, Mono, Paper, SelectField, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@/components/ui'
+import {
+  Box,
+  Button,
+  Link,
+  Mono,
+  Paper,
+  SelectField,
+  Stack,
+  StatusChip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from '@/components/ui'
 import { DEPOSIT_TONES } from '@/lib/tones'
 import { useFocusReturnOnUnmount } from '@/lib/focus'
 import { useDepositList } from '../api/queries'
@@ -72,7 +89,12 @@ function DepositTable({ labId, rows }: { labId: string; rows: DepositRow[] }) {
 }
 
 /** What the list says in place of a table: no deposits at all, none that match the filters, or a page past the end. */
-function EmptyList({ count, filtered, onOffsetChange, onClearFilters }: { count: number; filtered: boolean } & Pick<Props, 'onOffsetChange' | 'onClearFilters'>) {
+function EmptyList({
+  count,
+  filtered,
+  onOffsetChange,
+  onClearFilters,
+}: { count: number; filtered: boolean } & Pick<Props, 'onOffsetChange' | 'onClearFilters'>) {
   if (count > 0) return <PastTheEnd onFirstPage={() => onOffsetChange(0)} />
   if (filtered) return <NoMatch onClearFilters={onClearFilters} />
   return <Typography>The lab has received no deposits yet.</Typography>
@@ -88,14 +110,27 @@ export function DepositList({ labId, params, onOffsetChange, onClearFilters }: P
     return (
       <>
         {stale}
-        <EmptyList count={count} filtered={params.status !== undefined || Boolean(params.search)} onOffsetChange={onOffsetChange} onClearFilters={onClearFilters} />
+        <EmptyList
+          count={count}
+          filtered={params.status !== undefined || Boolean(params.search)}
+          onOffsetChange={onOffsetChange}
+          onClearFilters={onClearFilters}
+        />
       </>
     )
   return (
     <section aria-label="Deposits" aria-busy={list.isPlaceholderData}>
       {stale}
       <DepositTable labId={labId} rows={results} />
-      <Pager label="Deposit pages" count={count} shown={results.length} limit={params.limit} offset={params.offset} loading={list.isPlaceholderData} onOffsetChange={onOffsetChange} />
+      <Pager
+        label="Deposit pages"
+        count={count}
+        shown={results.length}
+        limit={params.limit}
+        offset={params.offset}
+        loading={list.isPlaceholderData}
+        onOffsetChange={onOffsetChange}
+      />
     </section>
   )
 }
@@ -148,7 +183,14 @@ export function DepositFilters({ filters, onChange }: { filters: Filters; onChan
       sx={{ mb: 3 }}
     >
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ alignItems: { md: 'flex-start' }, flexWrap: 'wrap' }}>
-        <TextField ref={textField} label="Name, depositor or number" type="search" autoComplete="off" value={text} onChange={(event) => setText(event.target.value)} />
+        <TextField
+          ref={textField}
+          label="Name, depositor or number"
+          type="search"
+          autoComplete="off"
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+        />
         <SelectField
           sx={{ minWidth: { md: 160 } }}
           label="Status"

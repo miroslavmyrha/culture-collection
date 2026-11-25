@@ -25,9 +25,13 @@ export function StrainOverview({ labId, strain: s, canManage, canConfirm, canCon
   return (
     <>
       {s.deaccession && <DeaccessionSection deaccession={s.deaccession} />}
-      {s.deaccession_proposal && <ProposedDeaccession proposal={s.deaccession_proposal} canManage={canManage} canConfirm={canConfirmLeave} onSettle={dialogs.settle} />}
+      {s.deaccession_proposal && (
+        <ProposedDeaccession proposal={s.deaccession_proposal} canManage={canManage} canConfirm={canConfirmLeave} onSettle={dialogs.settle} />
+      )}
       {s.deaccession && <StrainShipments labId={labId} strainId={s.public_id} />}
-      {s.risk_group_proposal && <ProposedRiskGroup proposal={s.risk_group_proposal} canManage={canManage} canConfirm={canConfirmRisk} onSettle={dialogs.settleRisk} />}
+      {s.risk_group_proposal && (
+        <ProposedRiskGroup proposal={s.risk_group_proposal} canManage={canManage} canConfirm={canConfirmRisk} onSettle={dialogs.settleRisk} />
+      )}
       <FactsSection labId={labId} strain={s} />
       <GrowthSection growth={s.growth} />
       <RestrictionsSection history={s.restriction_history} act={dialogs.act} canManage={canManage} canConfirm={canConfirm} />

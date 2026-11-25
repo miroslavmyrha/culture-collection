@@ -2,7 +2,8 @@ import { readProblem } from '@/lib/api'
 import { type ErrorTable, lookupError } from '@/lib/errorTable'
 
 /** How a regulated request leaves (ADR 0009, the two-person rule). */
-export const SECOND_PERSON = 'A regulated strain leaves in two steps: one person prepares the shipment, and a second person, neither the approver nor the preparer, confirms it.'
+export const SECOND_PERSON =
+  'A regulated strain leaves in two steps: one person prepares the shipment, and a second person, neither the approver nor the preparer, confirms it.'
 
 /** A request that failed because someone else acted first, or the policy stopped it, by status and problem code. */
 export const STATE_ERRORS: ErrorTable = {

@@ -6,7 +6,8 @@ import type { Member } from '../schemas'
 
 type Props = { labId: string; member: Member; open: boolean; onClose: () => void; onExited: () => void }
 
-const refusal = (error: unknown) => (isApiError(error) && [400, 409, 422].includes(error.status) ? readProblem(error.body)?.detail : undefined) ?? errorMessage(error)
+const refusal = (error: unknown) =>
+  (isApiError(error) && [400, 409, 422].includes(error.status) ? readProblem(error.body)?.detail : undefined) ?? errorMessage(error)
 
 /**
  * A manager issues a member a one-time code for their first second factor (#176): without it a
@@ -18,7 +19,16 @@ export function EnrolmentCodeDialog({ member, open, onClose, onExited }: Props) 
   const title = `Issue an enrolment code for ${member.username}`
   if (issue.data) {
     return (
-      <ConfirmDialog open={open} title={title} description="Hand this code over in person. It is not shown again." confirmLabel="Done" pending={false} onClose={onClose} onExited={onExited} onConfirm={onClose}>
+      <ConfirmDialog
+        open={open}
+        title={title}
+        description="Hand this code over in person. It is not shown again."
+        confirmLabel="Done"
+        pending={false}
+        onClose={onClose}
+        onExited={onExited}
+        onConfirm={onClose}
+      >
         <Stack spacing={1}>
           <Typography>
             Code: <Mono>{issue.data.code}</Mono>

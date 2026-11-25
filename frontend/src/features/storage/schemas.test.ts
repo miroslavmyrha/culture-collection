@@ -18,7 +18,10 @@ describe('unitSummary', () => {
     [{ kind: 'freezer' as const, temperature_c: -80, counts: held }, 'freezer, -80\u00a0°C, 3 boxes, 7 vials, 255 free'],
     [{ kind: 'rack' as const, slot: 3, max_risk_group: null }, 'rack in slot 3, 0 boxes, 0 vials, 0 free'],
     [{ kind: 'box' as const, slot: 1, rows: 9, cols: 9, counts: { boxes: 0, vials: 1, free_positions: 80 } }, 'box in slot 1, 9 x 9, 1 vial, 80 free'],
-    [{ kind: 'ln2_tank' as const, status: 'out_of_service' as const, counts: { boxes: 1, vials: 0, free_positions: 81 } }, 'LN2 tank, 1 box, 0 vials, 81 free, out of service'],
+    [
+      { kind: 'ln2_tank' as const, status: 'out_of_service' as const, counts: { boxes: 1, vials: 0, free_positions: 81 } },
+      'LN2 tank, 1 box, 0 vials, 81 free, out of service',
+    ],
     [{ kind: 'box' as const, rows: 5, cols: 5, status: 'retired' as const }, 'box, 5 x 5, retired'],
   ])('describes %j as "%s"', (overrides, text) => {
     expect(unitSummary(makeUnitRow(overrides))).toBe(text)
@@ -83,12 +86,23 @@ describe('the unit form', () => {
       max_risk_group: 2,
       box_type: null,
     })
-    expect(createBody({ ...valid, kind: 'box', slot: '4', max_risk_group: '', box_type: 'bt' }, 'rack')).toMatchObject({ parent: 'rack', slot: 4, max_risk_group: null, box_type: 'bt' })
+    expect(createBody({ ...valid, kind: 'box', slot: '4', max_risk_group: '', box_type: 'bt' }, 'rack')).toMatchObject({
+      parent: 'rack',
+      slot: 4,
+      max_risk_group: null,
+      box_type: 'bt',
+    })
     expect(fieldsBody('rack', { ...emptyFields(), name: 'R' })).toEqual({ name: 'R', barcode: '', temperature_c: null, max_risk_group: null, box_type: null })
   })
 
   it('fills the edit form from a unit', () => {
-    const box = makeUnitRow({ kind: 'box', name: 'Box 1', barcode: 'BX-1', max_risk_group: 1, box_type: { public_id: 'bt', name: 'Cryobox', rows: 9, cols: 9 } })
+    const box = makeUnitRow({
+      kind: 'box',
+      name: 'Box 1',
+      barcode: 'BX-1',
+      max_risk_group: 1,
+      box_type: { public_id: 'bt', name: 'Cryobox', rows: 9, cols: 9 },
+    })
     expect(emptyFields(box)).toEqual({ name: 'Box 1', barcode: 'BX-1', temperature_c: '', max_risk_group: '1', box_type: 'bt' })
   })
 })

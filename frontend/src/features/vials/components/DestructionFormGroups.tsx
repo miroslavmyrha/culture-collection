@@ -52,7 +52,13 @@ export function MethodFields({ rules, register, errors }: Form & { rules: Destru
   return (
     <>
       <SelectField label="Method" hint={methodHint} options={METHOD_OPTIONS} error={errors.method?.message} {...register('method')} />
-      <TextField label="Method details" hint="The cycle or procedure, for example 121 °C, 20 min. Required for Other." autoComplete="off" error={errors.method_detail?.message} {...register('method_detail')} />
+      <TextField
+        label="Method details"
+        hint="The cycle or procedure, for example 121 °C, 20 min. Required for Other."
+        autoComplete="off"
+        error={errors.method_detail?.message}
+        {...register('method_detail')}
+      />
       <TextField
         label="Verification of the inactivation"
         hint={`${verified} The indicator and its result, or the cycle printout. Name no person.`}
@@ -66,7 +72,8 @@ export function MethodFields({ rules, register, errors }: Form & { rules: Destru
 
 /** The member who witnessed the destruction of a VRAT, once the members are loaded. */
 export function WitnessField({ witnesses, register, errors }: Form & { witnesses: ReturnType<typeof useWitnesses> }) {
-  if (witnesses.data === undefined) return <Typography>{witnesses.isError ? 'The members could not be loaded. Close this and try again.' : 'Loading the members…'}</Typography>
+  if (witnesses.data === undefined)
+    return <Typography>{witnesses.isError ? 'The members could not be loaded. Close this and try again.' : 'Loading the members…'}</Typography>
   return (
     <SelectField
       label="Witness"
@@ -84,7 +91,13 @@ export function OutsideFields({ register, errors }: Form) {
   return (
     <>
       <TextField label="Firm" hint="Its name and company number." autoComplete="off" error={errors.contractor?.message} {...register('contractor')} />
-      <TextField label="Handover document" hint="The number of the document the firm signed." autoComplete="off" error={errors.handover_document?.message} {...register('handover_document')} />
+      <TextField
+        label="Handover document"
+        hint="The number of the document the firm signed."
+        autoComplete="off"
+        error={errors.handover_document?.message}
+        {...register('handover_document')}
+      />
       <Box>
         <CheckboxField label="Inactivated in the lab before the handover" {...register('inactivated_in_lab')} />
         {note && (

@@ -136,7 +136,14 @@ export function StrainMaterial({
         showFrom={showFrom}
       />
       <MaterialSection title="Destruction">
-        <Destructions labId={labId} strainId={strainId} accession={accession} kinds={restrictionKinds} canHandle={canHandle} canConfirm={canConfirmDestruction} />
+        <Destructions
+          labId={labId}
+          strainId={strainId}
+          accession={accession}
+          kinds={restrictionKinds}
+          canHandle={canHandle}
+          canConfirm={canConfirmDestruction}
+        />
       </MaterialSection>
 
       {/* Mounted until they have faded out, so onExited can place the focus; outside the

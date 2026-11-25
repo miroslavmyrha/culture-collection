@@ -67,7 +67,12 @@ export function FactsSection({ labId, strain: s }: { labId: string; strain: Stra
           // #70: the number in the catalogue it was imported from, when it had another form.
           ...formerNumberRows(s),
           ...depositRows(labId, s.deposit),
-          ['Status', <StatusChip key="status" tone={STRAIN_TONES[s.status]}>{STATUS_LABELS[s.status]}</StatusChip>],
+          [
+            'Status',
+            <StatusChip key="status" tone={STRAIN_TONES[s.status]}>
+              {STATUS_LABELS[s.status]}
+            </StatusChip>,
+          ],
           ['Risk group', String(s.risk_group)],
           // #174 and #169: what the group rests on, in the person's words, and the entry of
           // annex 7 it was read in where it was read in one. Only a strain accessioned before

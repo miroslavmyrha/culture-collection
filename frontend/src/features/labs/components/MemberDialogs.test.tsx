@@ -188,7 +188,11 @@ async function remove(user: ReturnType<typeof userEvent.setup>, username: string
 describe('focus after a dialog', () => {
   it('goes to the same button in the next row after a removal', async () => {
     const { people, user } = await three()
-    await remove(user, 'bob', [people[0], people[2]].filter((m) => m !== undefined))
+    await remove(
+      user,
+      'bob',
+      [people[0], people[2]].filter((m) => m !== undefined),
+    )
     await waitFor(() => expect(screen.getByRole('button', { name: 'Remove carol' })).toHaveFocus())
   })
 
@@ -202,7 +206,13 @@ describe('focus after a dialog', () => {
     const bob = makeMember({ username: 'bob' })
     mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([bob], { count: 26 }))
     await renderWithProviders(
-      <MemberTable labId={LAB_ID} labName="Mycology" grantable={[...ROLES]} params={{ limit: 25, offset: 25 }} onOffsetChange={vi.fn<(offset: number) => void>()} />,
+      <MemberTable
+        labId={LAB_ID}
+        labName="Mycology"
+        grantable={[...ROLES]}
+        params={{ limit: 25, offset: 25 }}
+        onOffsetChange={vi.fn<(offset: number) => void>()}
+      />,
     )
     const user = userEvent.setup()
     await screen.findByRole('table', { name: 'Members' })

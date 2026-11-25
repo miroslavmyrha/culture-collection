@@ -7,7 +7,6 @@ import { Facts, Section } from '@/components/DetailParts'
 
 /** The small parts the request page is built from: a titled section, a list of facts, a row of buttons. */
 
-
 export const reason = (text: string) => (text ? `: ${text}` : '.')
 
 /** A curator or a manager may decide, record and ship. */
@@ -41,7 +40,8 @@ export function ShipmentFacts({ shipment: s }: { shipment: Shipment }) {
   return <PackageFacts package={s} people={people} />
 }
 
-const basisText = (s: Shipment | Preparation) => (s.basis_note ? `${BASIS_LABELS[s.classification_basis]}: ${s.basis_note}` : BASIS_LABELS[s.classification_basis])
+const basisText = (s: Shipment | Preparation) =>
+  s.basis_note ? `${BASIS_LABELS[s.classification_basis]}: ${s.basis_note}` : BASIS_LABELS[s.classification_basis]
 
 const coolantText = (s: Shipment | Preparation) => (s.coolant ? `${COOLANT_LABELS[s.coolant]}${s.coolant_kg ? `, ${s.coolant_kg} kg` : ''}` : 'None')
 

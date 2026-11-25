@@ -21,11 +21,23 @@ const EXPECTED: [string, string, string][] = [
   ['409', 'vial_not_to_destroy', 'A vial of the list is no longer marked to destroy. Reload and record again.'],
   ['409', 'vial_in_destruction', 'A vial of the list is in a record that waits for its confirmation already. Reload to see it.'],
   ['409', 'destruction_not_awaiting', 'This record waits for no confirmation any more: it was confirmed or entered in error. Reload to see it.'],
-  ['409', 'destruction_outdated', "The strain's restrictions changed since the destruction was recorded. Enter this record in error and record the destruction again."],
+  [
+    '409',
+    'destruction_outdated',
+    "The strain's restrictions changed since the destruction was recorded. Enter this record in error and record the destruction again.",
+  ],
   ['409', 'destruction_entered_in_error', 'This record was entered in error already. Reload to see it.'],
   ['403', 'confirm_own_destruction', 'You recorded this destruction: a different manager confirms it.'],
-  ['400', 'witness_without_vrat_access', "This member was not on the lab's VRAT access list on the day of the destruction. A manager keeps that list on the lab page."],
-  ['422', 'authorisation_method_missing', "The lab's ÚKZÚZ permit has no destruction method recorded here. Ask staff to record the permit again with the method its application declared."],
+  [
+    '400',
+    'witness_without_vrat_access',
+    "This member was not on the lab's VRAT access list on the day of the destruction. A manager keeps that list on the lab page.",
+  ],
+  [
+    '422',
+    'authorisation_method_missing',
+    "The lab's ÚKZÚZ permit has no destruction method recorded here. Ask staff to record the permit again with the method its application declared.",
+  ],
   ['403', 'location_grant_required', "Only people the lab's managers named may see where regulated strains are."],
 ]
 

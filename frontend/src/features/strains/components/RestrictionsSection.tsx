@@ -19,7 +19,13 @@ export function RestrictionsSection({ history, act, canManage, canConfirm }: Pro
       {active.length === 0 ? (
         <Typography>None. The agent is on no regulatory list.</Typography>
       ) : (
-        <RestrictionTable rows={active} caption="Current restrictions" act={canManage || canConfirm ? act : undefined} canManage={canManage} canConfirm={canConfirm} />
+        <RestrictionTable
+          rows={active}
+          caption="Current restrictions"
+          act={canManage || canConfirm ? act : undefined}
+          canManage={canManage}
+          canConfirm={canConfirm}
+        />
       )}
       {ended.length > 0 && <RestrictionTable rows={ended} caption="Ended restrictions" />}
     </Section>
@@ -52,7 +58,14 @@ function RestrictionTable({ rows, caption, act, canManage = false, canConfirm = 
         </TableHead>
         <TableBody>
           {rows.map((r) => (
-            <RestrictionRow key={r.public_id} restriction={r} columns={{ ended: isEnded, proposed: isProposed }} act={act} canManage={canManage} canConfirm={canConfirm} />
+            <RestrictionRow
+              key={r.public_id}
+              restriction={r}
+              columns={{ ended: isEnded, proposed: isProposed }}
+              act={act}
+              canManage={canManage}
+              canConfirm={canConfirm}
+            />
           ))}
         </TableBody>
       </Table>

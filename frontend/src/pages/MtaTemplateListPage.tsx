@@ -25,11 +25,7 @@ export function MtaTemplateListPage() {
                 </Link>
               </Stack>
             )}
-            {canHandleDeposits(lab.my_role) ? (
-              <MtaTemplateList labId={labId} />
-            ) : (
-              <Typography>Only curators and managers see the MTA templates.</Typography>
-            )}
+            {canHandleDeposits(lab.my_role) ? <MtaTemplateList labId={labId} /> : <Typography>Only curators and managers see the MTA templates.</Typography>}
           </>
         )}
       </LabGate>

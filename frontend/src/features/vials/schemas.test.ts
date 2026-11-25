@@ -42,7 +42,9 @@ describe('the release rule as the screen reads it (ADR 0008, D16)', () => {
 
   it('says why a batch is not released', () => {
     expect(batchStatusReason(makeBatch({ latest_checks: none }))).toBe('Waiting for a passed identity, purity and viability check.')
-    expect(batchStatusReason(makeBatch({ latest_checks: { identity: 'pass', purity: 'pass', viability: 'reduced' } }))).toBe('All checks passed. A curator releases it.')
+    expect(batchStatusReason(makeBatch({ latest_checks: { identity: 'pass', purity: 'pass', viability: 'reduced' } }))).toBe(
+      'All checks passed. A curator releases it.',
+    )
     expect(batchStatusReason(makeBatch({ status: 'on_hold', status_reason: 'A doubt.' }))).toBe('A doubt.')
   })
 
@@ -70,16 +72,30 @@ describe('a check as it reads', () => {
   })
 
   it('reads method, value, vial, stage and person in one line', () => {
-    expect(checkDetails(makeCheck({ method: 'other', method_detail: 'Flow cytometry', value: '87.5000', unit: 'percent', vial_label: 'MYC 42 / 1 / 2', stage: 'periodic' }))).toBe(
-      'Other (Flow cytometry), 87.5 %, vial MYC 42 / 1 / 2, periodic, by technician',
-    )
+    expect(
+      checkDetails(
+        makeCheck({ method: 'other', method_detail: 'Flow cytometry', value: '87.5000', unit: 'percent', vial_label: 'MYC 42 / 1 / 2', stage: 'periodic' }),
+      ),
+    ).toBe('Other (Flow cytometry), 87.5 %, vial MYC 42 / 1 / 2, periodic, by technician')
     expect(checkDetails(makeCheck())).toBe('Growth after revival, after preservation, by technician')
   })
 
   it('starts a new check with the first kind still waiting, after preservation when none exists', () => {
-    expect(emptyCheck(makeBatch({ latest_checks: none }))).toMatchObject({ kind: 'identity', stage: 'after_preservation', method: 'morphology', result: 'pass' })
-    expect(emptyCheck(makeBatch({ latest_checks: { identity: 'pass', purity: null, viability: 'pass' } }))).toMatchObject({ kind: 'purity', stage: 'periodic', method: 'streak_plate' })
-    expect(emptyCheck(makeBatch({ latest_checks: { identity: 'pass', purity: 'pass', viability: 'pass' } }))).toMatchObject({ kind: 'viability', method: 'growth' })
+    expect(emptyCheck(makeBatch({ latest_checks: none }))).toMatchObject({
+      kind: 'identity',
+      stage: 'after_preservation',
+      method: 'morphology',
+      result: 'pass',
+    })
+    expect(emptyCheck(makeBatch({ latest_checks: { identity: 'pass', purity: null, viability: 'pass' } }))).toMatchObject({
+      kind: 'purity',
+      stage: 'periodic',
+      method: 'streak_plate',
+    })
+    expect(emptyCheck(makeBatch({ latest_checks: { identity: 'pass', purity: 'pass', viability: 'pass' } }))).toMatchObject({
+      kind: 'viability',
+      method: 'growth',
+    })
   })
 })
 
@@ -93,7 +109,15 @@ describe('the passages as a tree from the deposit (#19)', () => {
   const revived = makePassage({ number: 3, source_kind: 'vial', parent: one.public_id, source_vial_label: 'MYC 42 / 1 / 4' })
 
   it('hangs each passage under its parent, in the order of the list', () => {
-    expect(shape(passageTree([zero, one, two, revived]))).toEqual([[0, [[1, [[3, []]]], [2, []]]]])
+    expect(shape(passageTree([zero, one, two, revived]))).toEqual([
+      [
+        0,
+        [
+          [1, [[3, []]]],
+          [2, []],
+        ],
+      ],
+    ])
   })
 
   it('keeps a passage whose parent is not in the list as a root of its own, dropping none', () => {
@@ -104,7 +128,12 @@ describe('the passages as a tree from the deposit (#19)', () => {
 
   it('says where each passage came from', () => {
     const all = [zero, one, two, revived]
-    expect(all.map((p) => sourceLabel(p, all))).toEqual(['As received', 'Subculture of passage 0', 'Subculture of passage 0', 'Revived from vial MYC 42 / 1 / 4'])
+    expect(all.map((p) => sourceLabel(p, all))).toEqual([
+      'As received',
+      'Subculture of passage 0',
+      'Subculture of passage 0',
+      'Revived from vial MYC 42 / 1 / 4',
+    ])
   })
 })
 

@@ -46,7 +46,9 @@ export function ListDisagreements({ labId, params, onOffsetChange }: Props) {
   return (
     <section aria-label="Classification check" aria-busy={list.isPlaceholderData}>
       {stale}
-      <Typography sx={{ mb: 2 }}>{count === 1 ? '1 strain disagrees with the official lists.' : `${count} strains disagree with the official lists.`}</Typography>
+      <Typography sx={{ mb: 2 }}>
+        {count === 1 ? '1 strain disagrees with the official lists.' : `${count} strains disagree with the official lists.`}
+      </Typography>
       <TableContainer component={Paper} variant="outlined">
         <Table aria-label="Classification check">
           <TableHead>
@@ -79,7 +81,15 @@ export function ListDisagreements({ labId, params, onOffsetChange }: Props) {
           </TableBody>
         </Table>
       </TableContainer>
-      <Pager label="Classification check pages" count={count} shown={results.length} limit={params.limit} offset={params.offset} loading={list.isPlaceholderData} onOffsetChange={onOffsetChange} />
+      <Pager
+        label="Classification check pages"
+        count={count}
+        shown={results.length}
+        limit={params.limit}
+        offset={params.offset}
+        loading={list.isPlaceholderData}
+        onOffsetChange={onOffsetChange}
+      />
     </section>
   )
 }

@@ -8,7 +8,6 @@ const ALL_MEMBERS = { limit: 200, offset: 0 }
 
 type Handover = { username: string; code: string }
 
-
 /**
  * For managers, on the lab page (#176): a member who lost every second factor and every
  * recovery code gets them reset by two managers, one proposes and another confirms, never the
@@ -25,8 +24,8 @@ export function FactorResets({ labId }: { labId: string }) {
         Second factor resets
       </Typography>
       <Typography sx={{ mb: 2 }}>
-        When a member lost their security key, their authenticator app and their recovery codes, one manager proposes a reset and another confirms it. The member then signs in with their
-        password and adds a new second factor.
+        When a member lost their security key, their authenticator app and their recovery codes, one manager proposes a reset and another confirms it. The
+        member then signs in with their password and adds a new second factor.
       </Typography>
       {handover && (
         // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- MUI Alert owns its root element; role="status" is what <output> would give
@@ -52,7 +51,10 @@ function OpenReset({ labId, reset, onHandover }: { labId: string; reset: FactorR
   const failure = confirm.error ?? withdraw.error
   const decide = (action: typeof confirm) => {
     if (action.isPending) return
-    action.mutate({ publicId: reset.public_id, reason }, { onSuccess: (done) => done.enrolment_code && onHandover({ username: done.username, code: done.enrolment_code }) })
+    action.mutate(
+      { publicId: reset.public_id, reason },
+      { onSuccess: (done) => done.enrolment_code && onHandover({ username: done.username, code: done.enrolment_code }) },
+    )
   }
   return (
     <Box component="article" aria-label={`Reset for ${reset.username}`} sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>

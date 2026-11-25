@@ -23,7 +23,9 @@ const viewer = makeMember({ username: 'viewer', role: 'viewer' })
 type Options = { kinds?: readonly string[]; canHandle?: boolean; canConfirm?: boolean }
 
 function render({ kinds = [], canHandle = true, canConfirm = false }: Options = {}) {
-  return renderWithProviders(<Destructions labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" kinds={kinds} canHandle={canHandle} canConfirm={canConfirm} />)
+  return renderWithProviders(
+    <Destructions labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" kinds={kinds} canHandle={canHandle} canConfirm={canConfirm} />,
+  )
 }
 
 async function openRecord() {
@@ -42,11 +44,21 @@ const fieldNames = (dialog: HTMLElement) =>
 
 describe('the destruction record (#160)', () => {
   it('lists the records with where each stands, and nothing to change for a viewer', async () => {
-    mockApi('get', DESTRUCTIONS, page([
-      makeDestruction({ number: '2026/2', awaits_confirmation: true, completed_at: null, recorded_by: 'tech', witness: 'witness' }),
-      makeDestruction({ number: '2026/1', confirmed_by: 'boss', confirmed_at: '2026-10-05T10:00:00Z', contractor: 'Spalovna s.r.o.', handover_document: 'PP-7' }),
-      makeDestruction({ number: '2025/9', status: 'entered_in_error', error_reason: 'Wrong vials.', entered_in_error_by: 'tech' }),
-    ]))
+    mockApi(
+      'get',
+      DESTRUCTIONS,
+      page([
+        makeDestruction({ number: '2026/2', awaits_confirmation: true, completed_at: null, recorded_by: 'tech', witness: 'witness' }),
+        makeDestruction({
+          number: '2026/1',
+          confirmed_by: 'boss',
+          confirmed_at: '2026-10-05T10:00:00Z',
+          contractor: 'Spalovna s.r.o.',
+          handover_document: 'PP-7',
+        }),
+        makeDestruction({ number: '2025/9', status: 'entered_in_error', error_reason: 'Wrong vials.', entered_in_error_by: 'tech' }),
+      ]),
+    )
     await render({ canHandle: false })
     const table = await screen.findByRole('table', { name: 'Destruction records' })
     const rows = within(table).getAllByRole('row').slice(1)
@@ -59,9 +71,24 @@ describe('the destruction record (#160)', () => {
   })
 
   it.each([
-    ['without restrictions', [], ['Destroyed on', 'Method', 'Method details', 'Verification of the inactivation', 'Handed to an outside firm', 'Run', 'Reason'], 'Record and destroy'],
-    ['regulated (dual-use)', ['dual_use'], ['Destroyed on', 'Method', 'Method details', 'Verification of the inactivation', 'Handed to an outside firm', 'Run', 'Reason'], 'Record for confirmation'],
-    ['a VRAT', ['cz_vrat'], ['Destroyed on', 'Method', 'Method details', 'Verification of the inactivation', 'Witness', 'Handed to an outside firm', 'Run', 'Reason'], 'Record for confirmation'],
+    [
+      'without restrictions',
+      [],
+      ['Destroyed on', 'Method', 'Method details', 'Verification of the inactivation', 'Handed to an outside firm', 'Run', 'Reason'],
+      'Record and destroy',
+    ],
+    [
+      'regulated (dual-use)',
+      ['dual_use'],
+      ['Destroyed on', 'Method', 'Method details', 'Verification of the inactivation', 'Handed to an outside firm', 'Run', 'Reason'],
+      'Record for confirmation',
+    ],
+    [
+      'a VRAT',
+      ['cz_vrat'],
+      ['Destroyed on', 'Method', 'Method details', 'Verification of the inactivation', 'Witness', 'Handed to an outside firm', 'Run', 'Reason'],
+      'Record for confirmation',
+    ],
   ])('asks a strain %s for its fields', async (_case, kinds, fields, confirm) => {
     mockApi('get', DESTRUCTIONS, page([]))
     mockApi('get', VIALS, page([first, second]))
@@ -107,12 +134,18 @@ describe('the destruction record (#160)', () => {
     const { user, dialog } = await openRecord()
     const witness = await within(dialog).findByRole('combobox', { name: 'Witness' })
     // Only members who handle vials witness.
-    expect(within(witness).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose a member', 'tech', 'witness (Wanda Wit)'])
+    expect(
+      within(witness)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Choose a member', 'tech', 'witness (Wanda Wit)'])
     await user.click(within(dialog).getByRole('checkbox', { name: 'Handed to an outside firm' }))
     await user.click(within(dialog).getByRole('checkbox', { name: 'Inactivated in the lab before the handover' }))
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'Activity ended.')
     await user.click(within(dialog).getByRole('button', { name: 'Record for confirmation' }))
-    expect(within(dialog).getByRole('textbox', { name: 'Verification of the inactivation' })).toHaveAccessibleDescription(/Say how the inactivation was verified/)
+    expect(within(dialog).getByRole('textbox', { name: 'Verification of the inactivation' })).toHaveAccessibleDescription(
+      /Say how the inactivation was verified/,
+    )
     expect(witness).toHaveAccessibleDescription(/Choose the member who witnessed it/)
     expect(within(dialog).getByText('A highly risky or risky agent (VRAT, RAT) is inactivated in the lab before a firm takes it')).toBeInTheDocument()
     expect(calls).toHaveLength(0)
@@ -135,7 +168,15 @@ describe('the destruction record (#160)', () => {
   it("names the server's refusal of a quarantine pest's method on the method field", async () => {
     mockApi('get', DESTRUCTIONS, page([]))
     mockApi('get', VIALS, page([first]))
-    mockApiError('post', DESTRUCTIONS, 400, problem(400, { code: 'invalid', errors: [{ attr: 'method', code: 'method_not_authorised', detail: "The lab's ÚKZÚZ permit P-1 declares autoclaving." }] }))
+    mockApiError(
+      'post',
+      DESTRUCTIONS,
+      400,
+      problem(400, {
+        code: 'invalid',
+        errors: [{ attr: 'method', code: 'method_not_authorised', detail: "The lab's ÚKZÚZ permit P-1 declares autoclaving." }],
+      }),
+    )
     await render({ kinds: ['quarantine_pest'] })
     const { user, dialog } = await openRecord()
     await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Method' }), 'incineration')
@@ -173,7 +214,11 @@ describe('the destruction record (#160)', () => {
   })
 
   it('leaves vials of a record that waits for its confirmation out of a new one', async () => {
-    mockApi('get', DESTRUCTIONS, page([makeDestruction({ awaits_confirmation: true, completed_at: null, vials: [{ public_id: first.public_id, label: first.label }] })]))
+    mockApi(
+      'get',
+      DESTRUCTIONS,
+      page([makeDestruction({ awaits_confirmation: true, completed_at: null, vials: [{ public_id: first.public_id, label: first.label }] })]),
+    )
     mockApi('get', VIALS, page([first, second]))
     await render({ kinds: ['dual_use'] })
     const { dialog } = await openRecord()

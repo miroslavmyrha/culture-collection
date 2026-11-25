@@ -52,7 +52,14 @@ const viability = makeCheck({
   note: 'A tenth of the count at preservation.',
   checked_on: '2026-10-03',
 })
-const wrong = makeCheck({ batch: pending.public_id, kind: 'purity', method: 'streak_plate', result: 'fail', status: 'entered_in_error', reason: 'recorded on the wrong batch' })
+const wrong = makeCheck({
+  batch: pending.public_id,
+  kind: 'purity',
+  method: 'streak_plate',
+  result: 'fail',
+  status: 'entered_in_error',
+  reason: 'recorded on the wrong batch',
+})
 const identity = makeCheck({ batch: pending.public_id, kind: 'identity', method: 'sequencing', performed_by: 'tech-two' })
 
 function mockMaterial(batches: Batch[] = [pending, ready, released, held]) {
@@ -66,7 +73,23 @@ function mockMaterial(batches: Batch[] = [pending, ready, released, held]) {
 
 const FIRST_PAGE = { limit: 50, offset: 0, batch: undefined }
 const render = ({ canHandle = true, canRelease = false } = {}) =>
-  renderWithProviders(<StrainMaterial labId={LAB_ID} strainId={STRAIN_ID} accession="MYC 42" canHandle={canHandle} canRelease={canRelease} materialDestroyed={false} restrictionKinds={[]} canConfirmDestruction={false} lossReported={false} canReportLoss={false} strainGrowth={noGrowth()} vialPage={FIRST_PAGE} onVialPage={() => undefined} />)
+  renderWithProviders(
+    <StrainMaterial
+      labId={LAB_ID}
+      strainId={STRAIN_ID}
+      accession="MYC 42"
+      canHandle={canHandle}
+      canRelease={canRelease}
+      materialDestroyed={false}
+      restrictionKinds={[]}
+      canConfirmDestruction={false}
+      lossReported={false}
+      canReportLoss={false}
+      strainGrowth={noGrowth()}
+      vialPage={FIRST_PAGE}
+      onVialPage={() => undefined}
+    />,
+  )
 
 async function openChecks(number: number) {
   const user = userEvent.setup()
@@ -106,7 +129,11 @@ describe('the checks of a batch', () => {
     expect(panel).not.toBeNull()
     expect(within(panel ?? document.body).getByRole('heading', { level: 3 })).toHaveTextContent('Batch 1: Pending check')
     const latest = within(panel ?? document.body).getByRole('list', { name: 'Latest checks of batch 1' })
-    expect(within(latest).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Identity: Passed', 'Purity: not checked yet', 'Viability: Reduced'])
+    expect(
+      within(latest)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['Identity: Passed', 'Purity: not checked yet', 'Viability: Reduced'])
     const history = await screen.findByRole('list', { name: 'Checks of batch 1' })
     expect(loads[0]?.url.searchParams.get('batch')).toBe(pending.public_id)
     const items = within(history).getAllByRole('listitem')
@@ -183,16 +210,28 @@ describe('the checks of a batch', () => {
     expect(kind).toHaveValue('purity') // the kind it waits for
     expect(within(dialog).getByRole('combobox', { name: 'Stage' })).toHaveValue('periodic') // it has checks
     const method = () => within(dialog).getByRole('combobox', { name: 'Method' })
-    expect(within(method()).getAllByRole('option').map((o) => o.textContent)).toEqual(['Streak plate', 'Microscopy', 'Other'])
+    expect(
+      within(method())
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Streak plate', 'Microscopy', 'Other'])
     await user.selectOptions(kind, 'viability')
-    expect(within(method()).getAllByRole('option').map((o) => o.textContent)).toEqual(['Growth after revival', 'Plate count', 'Live and dead staining', 'Other'])
+    expect(
+      within(method())
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Growth after revival', 'Plate count', 'Live and dead staining', 'Other'])
     expect(method()).toHaveValue('growth')
     await user.selectOptions(method(), 'plate_count')
     await user.type(within(dialog).getByRole('textbox', { name: 'Value' }), '2.1e8')
     await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Unit' }), 'cfu_per_ml')
     const vial = within(dialog).getByRole('combobox', { name: 'Vial checked' })
     // Available vials of this batch, and the one an earlier check of it used; no other batch's.
-    expect(within(vial).getAllByRole('option').map((o) => o.textContent)).toEqual(['None named', 'MYC 42 / 1 / 1', 'MYC 42 / 1 / 3, used by an earlier check'])
+    expect(
+      within(vial)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['None named', 'MYC 42 / 1 / 1', 'MYC 42 / 1 / 3, used by an earlier check'])
     await user.selectOptions(vial, vialOne.public_id)
     await user.type(within(dialog).getByRole('textbox', { name: 'Note' }), ' grew well ')
     await user.click(within(dialog).getByRole('button', { name: 'Record check' }))
@@ -279,7 +318,12 @@ describe('the checks of a batch', () => {
 
   it('puts a server field error on its field and a conflict in the dialog', async () => {
     mockMaterial()
-    mockApiError('post', CHECKS, 400, validationProblem([{ attr: 'checked_on', code: 'invalid', detail: 'The batch was preserved on 2026-10-01: a check is not dated before.' }]))
+    mockApiError(
+      'post',
+      CHECKS,
+      400,
+      validationProblem([{ attr: 'checked_on', code: 'invalid', detail: 'The batch was preserved on 2026-10-01: a check is not dated before.' }]),
+    )
     await render()
     const { user } = await openChecks(1)
     await user.click(await screen.findByRole('button', { name: 'Record a check' }))

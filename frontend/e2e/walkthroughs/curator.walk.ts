@@ -1,5 +1,27 @@
 import { expect, test } from '@playwright/test'
-import { RISK_GROUP_BASIS, RUN, Walk, acceptedStrain, api, batch, batchOf, freezerWithBoxes, labId, openLab, openStrains, openTab, openWaiting, openUnit, strainAction, passAll, receivedDeposit, release, searchStrain, setupAs, supplyStrain } from './walk.js'
+import {
+  RISK_GROUP_BASIS,
+  RUN,
+  Walk,
+  acceptedStrain,
+  api,
+  batch,
+  batchOf,
+  freezerWithBoxes,
+  labId,
+  openLab,
+  openStrains,
+  openTab,
+  openWaiting,
+  openUnit,
+  strainAction,
+  passAll,
+  receivedDeposit,
+  release,
+  searchStrain,
+  setupAs,
+  supplyStrain,
+} from './walk.js'
 
 // A curator of Bacteriology (seed_dev): intake, identification, storage and the strain's record.
 const LAB = 'Bacteriology'
@@ -69,7 +91,9 @@ test('C3 see what waits for me today', async ({ browser }, info) => {
     await w.read(waiting.getByRole('region', { name: new RegExp(`^${group} \\(\\d+\\)$`) }))
   }
   await w.shot('home-waiting')
-  w.note('Everything waits in one list on Home, but in groups by kind, not by what is most urgent: a manager-only request and an expiring permit sit in their own groups')
+  w.note(
+    'Everything waits in one list on Home, but in groups by kind, not by what is most urgent: a manager-only request and an expiring permit sit in their own groups',
+  )
   await w.done()
 })
 
@@ -151,7 +175,9 @@ test('C7 move the racks out of a failing freezer and put it out of service', asy
   await w.read(rack)
   await expect(rack.getByRole('cell')).toHaveText(['1', 'Rack 1', 'Rack', '', '1', '3', '78', 'Active'])
   await w.shot('freezer-page')
-  w.note('The freezer page counts the boxes, vials and free positions, its own and each rack\'s, but not which strains the vials are of: that is on the grid of each box')
+  w.note(
+    "The freezer page counts the boxes, vials and free positions, its own and each rack's, but not which strains the vials are of: that is on the grid of each box",
+  )
   await w.click(w.page.getByRole('table', { name: `What ${failing} holds` }).getByRole('link', { name: 'Rack 1' }))
   await w.click(w.page.getByRole('button', { name: 'Move' }))
   const move = w.page.getByRole('dialog', { name: 'Move Rack 1' })
@@ -213,7 +239,10 @@ test('C9 answer a request: may the strain go out for commercial research, then s
   await w.start()
   await openLab(w, LAB)
   await w.click(w.page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Requests' }))
-  const row = w.page.getByRole('table', { name: 'Requests' }).getByRole('row', { name: /Commercial research/ }).first()
+  const row = w.page
+    .getByRole('table', { name: 'Requests' })
+    .getByRole('row', { name: /Commercial research/ })
+    .first()
   await w.read(row)
   await w.click(row.getByRole('link').first())
   const blocks = w.page.getByRole('list', { name: 'Blocks the approval' })

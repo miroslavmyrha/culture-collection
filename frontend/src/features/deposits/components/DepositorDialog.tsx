@@ -56,7 +56,10 @@ export function DepositorDialog({ labId, depositor, open, onClose, onExited, onS
   const save = depositor ? update : create
   const formId = useId()
   const [failure, setFailure] = useState<string>()
-  const { register, handleSubmit, formState, setError } = useForm<DepositorForm>({ resolver: zodResolver(depositorSchema), defaultValues: defaultsOf(depositor) })
+  const { register, handleSubmit, formState, setError } = useForm<DepositorForm>({
+    resolver: zodResolver(depositorSchema),
+    defaultValues: defaultsOf(depositor),
+  })
   const errors = formState.errors
   const words = TEXTS[depositor ? 'change' : 'add']
   const onSubmit = handleSubmit((values) => {
@@ -98,7 +101,13 @@ function DepositorFields({ register, errors }: FieldsProps) {
       <TextField label="Name" autoFocus autoComplete="off" error={errors.name?.message} {...register('name')} />
       <TextField label="E-mail" type="email" autoComplete="off" error={errors.email?.message} {...register('email')} />
       <TextField label="Postal address" multiline minRows={2} autoComplete="off" error={errors.postal_address?.message} {...register('postal_address')} />
-      <TextField label="Institution" hint="The organisation the depositor deposits for. Empty for a private person." autoComplete="off" error={errors.institution?.message} {...register('institution')} />
+      <TextField
+        label="Institution"
+        hint="The organisation the depositor deposits for. Empty for a private person."
+        autoComplete="off"
+        error={errors.institution?.message}
+        {...register('institution')}
+      />
     </>
   )
 }

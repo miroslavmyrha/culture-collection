@@ -96,7 +96,9 @@ describe('the shipment form', () => {
   })
 
   it('packs UN 3373 to P650', () => {
-    expect(shipIssues(shipment({ transport_class: 'un3373', classification_basis: 'indicative_list' }))).toEqual(['packing_instruction: UN 3373 is packed to P650'])
+    expect(shipIssues(shipment({ transport_class: 'un3373', classification_basis: 'indicative_list' }))).toEqual([
+      'packing_instruction: UN 3373 is packed to P650',
+    ])
   })
 
   it('asks dry ice for its quantity and a quantity for its coolant', () => {

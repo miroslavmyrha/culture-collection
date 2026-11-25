@@ -10,7 +10,11 @@ const RUN = runId()
 
 async function as(browser: Browser, username: string, options: { width?: number; colorScheme?: 'light' | 'dark' } = {}) {
   const width = options.width ?? 1280
-  const context = await browser.newContext({ storageState: signedInAs(username), viewport: { width, height: width === 320 ? 640 : 900 }, colorScheme: options.colorScheme ?? 'light' })
+  const context = await browser.newContext({
+    storageState: signedInAs(username),
+    viewport: { width, height: width === 320 ? 640 : 900 },
+    colorScheme: options.colorScheme ?? 'light',
+  })
   const page = await context.newPage()
   return { page, close: () => context.close() }
 }
@@ -23,7 +27,10 @@ async function call(page: Page, path: string, body?: Row): Promise<Row> {
     async ([url, payload]) => {
       await fetch('/api/v1/auth/csrf/')
       const token = /(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
-      const init: RequestInit = payload === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': decodeURIComponent(token) }, body: JSON.stringify(payload) }
+      const init: RequestInit =
+        payload === undefined
+          ? {}
+          : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': decodeURIComponent(token) }, body: JSON.stringify(payload) }
       const response = await fetch(url, init)
       return { status: response.status, text: await response.text() }
     },
@@ -39,7 +46,16 @@ const results = (json: Row): Row[] => {
   const list: unknown = json.results
   return Array.isArray(list) ? list.filter(isRow) : []
 }
-const USES = ['research_noncommercial', 'research_commercial', 'teaching', 'diagnostics', 'production', 'reference_qc', 'patent_deposit_related', 'redistribution']
+const USES = [
+  'research_noncommercial',
+  'research_commercial',
+  'teaching',
+  'diagnostics',
+  'production',
+  'reference_qc',
+  'patent_deposit_related',
+  'redistribution',
+]
 
 /** A deposit received today in the seeded lab, as the page's user: its lab and id. */
 async function receive(page: Page, name: string) {
@@ -51,7 +67,9 @@ async function receive(page: Page, name: string) {
   return { lab, id: String(deposit.public_id) }
 }
 
-test('a curator finds a waiting deposit on Home and follows it to the deposit, by keyboard; Home passes axe in both schemes and fits 320 px', async ({ browser }) => {
+test('a curator finds a waiting deposit on Home and follows it to the deposit, by keyboard; Home passes axe in both schemes and fits 320 px', async ({
+  browser,
+}) => {
   const { page, close } = await as(browser, 'e2e-curator')
   const violations = await watchCsp(page)
   await page.goto('/')
@@ -73,7 +91,10 @@ test('a curator finds a waiting deposit on Home and follows it to the deposit, b
   // The lab tabs count it among the deposits to check.
   await expect(page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: /^Deposits, \d+ to check$/ })).toBeVisible()
 
-  for (const [width, colorScheme] of [[1280, 'dark'], [320, 'light']] as const) {
+  for (const [width, colorScheme] of [
+    [1280, 'dark'],
+    [320, 'light'],
+  ] as const) {
     const other = await as(browser, 'e2e-curator', { width, colorScheme })
     await other.page.goto('/')
     await expect(other.page.getByRole('region', { name: /^Deposits received/ }).getByRole('link', { name })).toBeVisible()

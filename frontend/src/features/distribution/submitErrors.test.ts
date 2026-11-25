@@ -10,22 +10,32 @@ const fieldError = (attr: string, detail: string) => ({ code: 'invalid', errors:
 describe('submitFailure', () => {
   it('answers a conflict with the message the dialog owns', () => {
     const setError = setter()
-    expect(submitFailure(answer(409, { code: 'acceptance_exists' }), ['mta'], setError, ACCEPTANCE_ERRORS)).toBe('An acceptance of this MTA version is recorded already.')
+    expect(submitFailure(answer(409, { code: 'acceptance_exists' }), ['mta'], setError, ACCEPTANCE_ERRORS)).toBe(
+      'An acceptance of this MTA version is recorded already.',
+    )
     expect(submitFailure(answer(409, { code: 'depositor_answer_exists' }), ['line'], setError, ANSWER_ERRORS)).toBe(
       'The depositor’s answer for this strain is recorded already. Close this and look at it again.',
     )
-    expect(submitFailure(answer(409, { code: 'contact_erased' }), ['name'], setError, REQUESTER_ERRORS)).toBe('This contact was erased. The requester can no longer be changed.')
+    expect(submitFailure(answer(409, { code: 'contact_erased' }), ['name'], setError, REQUESTER_ERRORS)).toBe(
+      'This contact was erased. The requester can no longer be changed.',
+    )
     expect(submitFailure(answer(409, { code: 'permit_ended' }), ['reason'], setError, END_PERMIT_ERRORS)).toBe('This permit was ended already.')
     expect(setError).not.toHaveBeenCalled()
   })
 
   it('keeps the own answer to its own status', () => {
-    expect(submitFailure(answer(422, { code: 'permit_ended' }), ['reason'], setter(), END_PERMIT_ERRORS)).toBe('The request was rejected. Check the form and try again.')
+    expect(submitFailure(answer(422, { code: 'permit_ended' }), ['reason'], setter(), END_PERMIT_ERRORS)).toBe(
+      'The request was rejected. Check the form and try again.',
+    )
   })
 
   it('adds the request state errors to the answers of the dialogs that record against a request', () => {
-    expect(submitFailure(answer(409, { code: 'request_state' }), ['mta'], setter(), ACCEPTANCE_ERRORS)).toBe('The request changed meanwhile. Close this and look at it again.')
-    expect(submitFailure(answer(409, { code: 'request_state' }), ['line'], setter(), ANSWER_ERRORS)).toBe('The request changed meanwhile. Close this and look at it again.')
+    expect(submitFailure(answer(409, { code: 'request_state' }), ['mta'], setter(), ACCEPTANCE_ERRORS)).toBe(
+      'The request changed meanwhile. Close this and look at it again.',
+    )
+    expect(submitFailure(answer(409, { code: 'request_state' }), ['line'], setter(), ANSWER_ERRORS)).toBe(
+      'The request changed meanwhile. Close this and look at it again.',
+    )
     expect(submitFailure(answer(409, { code: 'request_state' }), ['name'], setter(), REQUESTER_ERRORS)).toBe('Someone else changed it. Reload and try again.')
   })
 

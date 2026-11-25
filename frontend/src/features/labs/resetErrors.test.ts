@@ -5,7 +5,9 @@ import { resetError } from './resetErrors'
 
 describe('resetError', () => {
   it.each([400, 409, 422])("gives the server's words for a refused reset (%i)", (status) => {
-    expect(resetError(new ApiError(status, problem(status, { detail: 'Another manager confirms a reset you proposed.' })))).toBe('Another manager confirms a reset you proposed.')
+    expect(resetError(new ApiError(status, problem(status, { detail: 'Another manager confirms a reset you proposed.' })))).toBe(
+      'Another manager confirms a reset you proposed.',
+    )
   })
 
   it('falls back to the general message without words of its own', () => {

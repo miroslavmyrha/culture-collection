@@ -35,7 +35,8 @@ async function call(page: Page, lab: string, path: string, body?: Row) {
       const token = /(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
       const target = url.startsWith('/') ? url : `/api/v1/labs/${labId}/${url}`
       const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': decodeURIComponent(token) }
-      const response = payload === undefined ? await fetch(target, { headers }) : await fetch(target, { method: 'POST', headers, body: JSON.stringify(payload) })
+      const response =
+        payload === undefined ? await fetch(target, { headers }) : await fetch(target, { method: 'POST', headers, body: JSON.stringify(payload) })
       return { status: response.status, text: await response.text() }
     },
     [lab, path, body] as const,
@@ -53,11 +54,23 @@ async function ok(page: Page, lab: string, path: string, body?: Row) {
 async function strainWithBatch(browser: Browser, tag: string) {
   const { page, close } = await as(browser, 'e2e-curator')
   await page.goto('/labs')
-  const href = await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).getAttribute('href')
+  const href = await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .getAttribute('href')
   const lab = (href ?? '').split('/')[2] ?? ''
   const name = `B. subtilis ${tag} ${RUN}`
   const depositor = rows(await ok(page, lab, 'depositors/'))[0]
-  const uses = ['research_noncommercial', 'research_commercial', 'teaching', 'diagnostics', 'production', 'reference_qc', 'patent_deposit_related', 'redistribution']
+  const uses = [
+    'research_noncommercial',
+    'research_commercial',
+    'teaching',
+    'diagnostics',
+    'production',
+    'reference_qc',
+    'patent_deposit_related',
+    'redistribution',
+  ]
   const deposit = text(
     await ok(page, lab, 'deposits/', {
       depositor: text(depositor, 'public_id'),
@@ -82,7 +95,14 @@ async function strainWithBatch(browser: Browser, tag: string) {
   const strain = text(rows(await ok(page, lab, `strains/?search=${encodeURIComponent(name)}`))[0], 'public_id')
   const passage = text(rows(await ok(page, lab, `passages/?strain=${strain}`))[0], 'public_id')
   const batch = text(
-    await ok(page, lab, 'batches/', { passage, method: 'cryo_minus80', purpose: 'distribution', cryoprotectant: '10 % glycerol', preserved_on: today(), vial_count: 3 }),
+    await ok(page, lab, 'batches/', {
+      passage,
+      method: 'cryo_minus80',
+      purpose: 'distribution',
+      cryoprotectant: '10 % glycerol',
+      preserved_on: today(),
+      vial_count: 3,
+    }),
     'public_id',
   )
   const vials = rows(await ok(page, lab, `vials/?batch=${batch}`)).map((v) => text(v, 'label'))
@@ -161,7 +181,14 @@ test('a technician records three passed checks by keyboard and a curator release
   await expect(status(viewer.page)).toHaveText('Released')
   await expect(viewer.page.getByRole('list', { name: 'Checks of batch 1', exact: true }).getByRole('listitem')).toHaveCount(3)
   await expect(viewer.page.getByRole('button', { name: /Record a check|^Release$|^Hold$|in error/ })).toHaveCount(0)
-  const refused = await call(viewer.page, s.lab, 'batch-checks/', { batch: s.batch, kind: 'purity', stage: 'periodic', checked_on: today(), method: 'streak_plate', result: 'fail' })
+  const refused = await call(viewer.page, s.lab, 'batch-checks/', {
+    batch: s.batch,
+    kind: 'purity',
+    stage: 'periodic',
+    checked_on: today(),
+    method: 'streak_plate',
+    result: 'fail',
+  })
   expect(refused.status).toBe(403)
   const hold = await call(viewer.page, s.lab, `batches/${s.batch}/hold/`, { reason: 'no' })
   expect(hold.status).toBe(403)

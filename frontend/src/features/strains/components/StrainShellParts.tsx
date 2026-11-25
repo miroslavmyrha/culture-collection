@@ -35,7 +35,14 @@ export function StrainHeader({ strain: s, actions }: HeaderProps) {
         </Box>
         {actions && <ActionMenu label="Actions" name={`Actions for ${number}`} items={actions} />}
       </Stack>
-      <Stack component="ul" aria-label="Biosafety and status" direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', listStyle: 'none', p: 0, m: 0, mt: 1 }}>
+      <Stack
+        component="ul"
+        aria-label="Biosafety and status"
+        direction="row"
+        spacing={1}
+        useFlexGap
+        sx={{ flexWrap: 'wrap', listStyle: 'none', p: 0, m: 0, mt: 1 }}
+      >
         <li>
           <StatusChip tone={RISK_TONES[s.risk_group] ?? 'neutral'}>Risk group {s.risk_group}</StatusChip>
         </li>

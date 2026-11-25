@@ -84,7 +84,15 @@ function Rows({ labId, query, page, onOffsetChange }: RowsProps) {
           </TableBody>
         </Table>
       </TableContainer>
-      <Pager label="Pages of the shipments" count={count} shown={results.length} limit={page.limit} offset={page.offset} loading={query.isPlaceholderData} onOffsetChange={onOffsetChange} />
+      <Pager
+        label="Pages of the shipments"
+        count={count}
+        shown={results.length}
+        limit={page.limit}
+        offset={page.offset}
+        loading={query.isPlaceholderData}
+        onOffsetChange={onOffsetChange}
+      />
     </>
   )
 }

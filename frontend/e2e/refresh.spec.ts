@@ -14,66 +14,86 @@ test("ending a restriction shows the vial's place on the strain page without a r
   const context = await browser.newContext({ storageState: signedInAs(username) })
   const page = await context.newPage()
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
 
-  const made = await page.evaluate(async ({ run, basis }) => {
-    await fetch('/api/v1/auth/csrf/')
-    const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
-    const lab = location.pathname.split('/')[2] ?? ''
-    const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
-    const send = async (path: string, body: unknown) => {
-      const response = await fetch(`/api/v1/labs/${lab}/${path}`, { method: 'POST', headers, body: JSON.stringify(body) })
-      if (!response.ok) throw new Error(`${path}: ${response.status} ${await response.text()}`)
-      const created: { public_id: string; strain?: { public_id: string } | null } = await response.json()
-      return created
-    }
-    const read = async <T>(url: string): Promise<T> => {
-      const body: T = await (await fetch(url, { headers })).json()
-      return body
-    }
-    const depositors = await read<{ results: { public_id: string }[] }>(`/api/v1/labs/${lab}/depositors/?search=E2E`)
-    const uses = ['research_noncommercial', 'research_commercial', 'teaching', 'diagnostics', 'production', 'reference_qc', 'patent_deposit_related', 'redistribution']
-    const deposit = await send('deposits/', {
-      depositor: depositors.results[0]?.public_id,
-      received_on: new Date().toLocaleDateString('sv'),
-      condition: 'intact',
-      name_as_received: `Escherichia coli refresh ${run}`,
-      terms: { mta: null, abs_scope: 'unknown', uses: uses.map((use) => ({ use, decision: 'on_request' })) },
-    })
-    await send(`deposits/${deposit.public_id}/start-check/`, {})
-    const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=coli')
-    const reference = `MŽP/DEV/${run} (invented example)`
-    const accepted = await send(`deposits/${deposit.public_id}/accept/`, {
-      taxon: taxa.results.find((t) => t.name === 'Escherichia coli')?.public_id,
-      identified_on: new Date().toLocaleDateString('sv'),
-      identification_method: 'MALDI-TOF MS',
-      risk_group: 1,
-      risk_group_basis: basis,
-      animal_pathogenicity: 'unknown',
-      plant_pathogenicity: 'unknown',
-      isolation_source: '',
-      country_of_origin: '',
-      isolation_date: '',
-      restrictions: [{ kind: 'gmo', reference, act: '', gmo_category: 1 }],
-    })
-    const strain = accepted.strain?.public_id ?? ''
-    const freezer = await send('storage-units/', { kind: 'freezer', name: `Freezer r${run}`, max_risk_group: 2 })
-    const rack = await send('storage-units/', { kind: 'rack', name: 'Rack 1', parent: freezer.public_id })
-    const types = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/box-types/')
-    const box = await send('storage-units/', { kind: 'box', name: 'Box 1', parent: rack.public_id, box_type: types.results.find((t) => t.name === '81-place cryobox (9 x 9)')?.public_id })
-    const passages = await read<{ results: { public_id: string }[] }>(`/api/v1/labs/${lab}/passages/?strain=${strain}`)
-    await send('batches/', {
-      passage: passages.results[0]?.public_id,
-      method: 'cryo_minus80',
-      purpose: 'seed',
-      cryoprotectant: '10 % glycerol',
-      preserved_on: new Date().toLocaleDateString('sv'),
-      vial_count: 1,
-      box: box.public_id,
-    })
-    return { lab, strain, reference }
-  }, { run: RUN, basis: riskGroupBasis })
+  const made = await page.evaluate(
+    async ({ run, basis }) => {
+      await fetch('/api/v1/auth/csrf/')
+      const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
+      const lab = location.pathname.split('/')[2] ?? ''
+      const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
+      const send = async (path: string, body: unknown) => {
+        const response = await fetch(`/api/v1/labs/${lab}/${path}`, { method: 'POST', headers, body: JSON.stringify(body) })
+        if (!response.ok) throw new Error(`${path}: ${response.status} ${await response.text()}`)
+        const created: { public_id: string; strain?: { public_id: string } | null } = await response.json()
+        return created
+      }
+      const read = async <T>(url: string): Promise<T> => {
+        const body: T = await (await fetch(url, { headers })).json()
+        return body
+      }
+      const depositors = await read<{ results: { public_id: string }[] }>(`/api/v1/labs/${lab}/depositors/?search=E2E`)
+      const uses = [
+        'research_noncommercial',
+        'research_commercial',
+        'teaching',
+        'diagnostics',
+        'production',
+        'reference_qc',
+        'patent_deposit_related',
+        'redistribution',
+      ]
+      const deposit = await send('deposits/', {
+        depositor: depositors.results[0]?.public_id,
+        received_on: new Date().toLocaleDateString('sv'),
+        condition: 'intact',
+        name_as_received: `Escherichia coli refresh ${run}`,
+        terms: { mta: null, abs_scope: 'unknown', uses: uses.map((use) => ({ use, decision: 'on_request' })) },
+      })
+      await send(`deposits/${deposit.public_id}/start-check/`, {})
+      const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=coli')
+      const reference = `MŽP/DEV/${run} (invented example)`
+      const accepted = await send(`deposits/${deposit.public_id}/accept/`, {
+        taxon: taxa.results.find((t) => t.name === 'Escherichia coli')?.public_id,
+        identified_on: new Date().toLocaleDateString('sv'),
+        identification_method: 'MALDI-TOF MS',
+        risk_group: 1,
+        risk_group_basis: basis,
+        animal_pathogenicity: 'unknown',
+        plant_pathogenicity: 'unknown',
+        isolation_source: '',
+        country_of_origin: '',
+        isolation_date: '',
+        restrictions: [{ kind: 'gmo', reference, act: '', gmo_category: 1 }],
+      })
+      const strain = accepted.strain?.public_id ?? ''
+      const freezer = await send('storage-units/', { kind: 'freezer', name: `Freezer r${run}`, max_risk_group: 2 })
+      const rack = await send('storage-units/', { kind: 'rack', name: 'Rack 1', parent: freezer.public_id })
+      const types = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/box-types/')
+      const box = await send('storage-units/', {
+        kind: 'box',
+        name: 'Box 1',
+        parent: rack.public_id,
+        box_type: types.results.find((t) => t.name === '81-place cryobox (9 x 9)')?.public_id,
+      })
+      const passages = await read<{ results: { public_id: string }[] }>(`/api/v1/labs/${lab}/passages/?strain=${strain}`)
+      await send('batches/', {
+        passage: passages.results[0]?.public_id,
+        method: 'cryo_minus80',
+        purpose: 'seed',
+        cryoprotectant: '10 % glycerol',
+        preserved_on: new Date().toLocaleDateString('sv'),
+        vial_count: 1,
+        box: box.public_id,
+      })
+      return { lab, strain, reference }
+    },
+    { run: RUN, basis: riskGroupBasis },
+  )
 
   // A restriction ends by two people (#105): e2e-curator proposes it, the e2e user (a manager)
   // confirms it on the page.

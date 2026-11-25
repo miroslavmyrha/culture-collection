@@ -73,7 +73,15 @@ const proposed = { ...regulated, restriction_history: [{ ...GMO, end_proposal: P
 const free = { ...regulated, restriction_history: [{ ...GMO, ended_at: '2026-10-20T10:00:00Z', end_reason: 'destroyed' }] }
 
 const freezer = makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000f1', name: 'Freezer A' })
-const box = makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000f3', kind: 'box', name: 'Box 1', parent: freezer.public_id, rows: 9, cols: 9, max_risk_group: null })
+const box = makeUnitRow({
+  public_id: '00000000-0000-4000-8000-0000000000f3',
+  kind: 'box',
+  name: 'Box 1',
+  parent: freezer.public_id,
+  rows: 9,
+  cols: 9,
+  max_risk_group: null,
+})
 const where = (freezerName: string) => ({ box: box.public_id, box_name: 'Box 1', path: [freezerName, 'Box 1'], row: 1, col: 1, label: 'A1' })
 const VIAL_ID = '00000000-0000-4000-8000-0000000000b1'
 const masked = makeVial({ public_id: VIAL_ID, label: 'MYC 42 / 1 / 1', placed: true, location_masked: true })
@@ -136,7 +144,10 @@ const STRAIN_WRITES: [string, (user: UserEvent) => Promise<void>][] = [
   [
     'adding a restriction',
     async (user) => {
-      mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/', { ...regulated, restriction_history: [GMO, { ...GMO, public_id: '00000000-0000-4000-8000-0000000000e2', reference: 'MŽP 2026/13' }] })
+      mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/', {
+        ...regulated,
+        restriction_history: [GMO, { ...GMO, public_id: '00000000-0000-4000-8000-0000000000e2', reference: 'MŽP 2026/13' }],
+      })
       await inDialog(
         user,
         'Add a restriction',
@@ -210,21 +221,24 @@ beforeEach(() => {
 })
 
 describe('a write refreshes the data other features show', () => {
-  it.each(STRAIN_WRITES.filter(([name]) => name !== 'ending a restriction'))("%s on the strain page refetches the strain's material and marks the lab's box grids stale", async (_, write) => {
-    const { client, user } = await openStrainPage('manager')
-    const grid = vialKeys.box(LAB_ID, box.public_id)
-    client.setQueryData(grid, makeBoxGrid({ public_id: box.public_id }))
-    client.setQueryData(pulled(), [masked])
-    const vials = mockApi('get', VIALS, page([masked]))
-    const passages = mockApi('get', PASSAGES, page([makePassage({ number: 0 })]))
-    await write(user)
-    // The dialog closes only once the material is fresh: the requests are already made.
-    expect(vials).toHaveLength(1)
-    expect(passages).toHaveLength(1)
-    expect(client.getQueryState(grid)?.isInvalidated).toBe(true)
-    // A vial placed, moved or masked: a request's vials to pull show it (#143).
-    expect(client.getQueryState(pulled())?.isInvalidated).toBe(true)
-  })
+  it.each(STRAIN_WRITES.filter(([name]) => name !== 'ending a restriction'))(
+    "%s on the strain page refetches the strain's material and marks the lab's box grids stale",
+    async (_, write) => {
+      const { client, user } = await openStrainPage('manager')
+      const grid = vialKeys.box(LAB_ID, box.public_id)
+      client.setQueryData(grid, makeBoxGrid({ public_id: box.public_id }))
+      client.setQueryData(pulled(), [masked])
+      const vials = mockApi('get', VIALS, page([masked]))
+      const passages = mockApi('get', PASSAGES, page([makePassage({ number: 0 })]))
+      await write(user)
+      // The dialog closes only once the material is fresh: the requests are already made.
+      expect(vials).toHaveLength(1)
+      expect(passages).toHaveLength(1)
+      expect(client.getQueryState(grid)?.isInvalidated).toBe(true)
+      // A vial placed, moved or masked: a request's vials to pull show it (#143).
+      expect(client.getQueryState(pulled())?.isInvalidated).toBe(true)
+    },
+  )
 
   it("ending a restriction on Overview marks the strain's material and the box grids stale", async () => {
     const { client, router, user } = await openStrainPage('manager', proposed)
@@ -340,7 +354,30 @@ describe('a write refreshes the data other features show', () => {
     await waitFor(() => expect(vialRow()).toHaveTextContent('Freezer A / Box 1, A1'))
     expect(vials).toHaveLength(1)
 
-    const grids = mockApi('get', BOX, makeBoxGrid({ public_id: box.public_id, positions: [{ row: 1, col: 1, label: 'A1', masked: false, vial: { public_id: VIAL_ID, label: 'MYC 42 / 1 / 1', status: 'available', barcode: null, strain: STRAIN_ID, accession_number: 'MYC 42', taxon_name: 'Testella exempli' } }] }))
+    const grids = mockApi(
+      'get',
+      BOX,
+      makeBoxGrid({
+        public_id: box.public_id,
+        positions: [
+          {
+            row: 1,
+            col: 1,
+            label: 'A1',
+            masked: false,
+            vial: {
+              public_id: VIAL_ID,
+              label: 'MYC 42 / 1 / 1',
+              status: 'available',
+              barcode: null,
+              strain: STRAIN_ID,
+              accession_number: 'MYC 42',
+              taxon_name: 'Testella exempli',
+            },
+          },
+        ],
+      }),
+    )
     await router.navigate({ to: '/labs/$labId/storage/$unitId', params: { labId: LAB_ID, unitId: box.public_id } })
     await waitFor(() => expect(grids).toHaveLength(1))
     expect(await screen.findByText(/Position A1: MYC 42 \/ 1 \/ 1, Testella exempli, available\./)).toBeInTheDocument()
@@ -377,7 +414,11 @@ describe('a write refreshes the data other features show', () => {
     await vialAction(user, 'MYC 42 / 1 / 2', 'Place')
     const dialog = await screen.findByRole('dialog')
     const choices = await within(dialog).findByRole('combobox', { name: 'Box' })
-    expect(within(choices).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Freezer A / Box 1, 81 free'])
+    expect(
+      within(choices)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Choose', 'Freezer A / Box 1, 81 free'])
     expect(units).toHaveLength(1)
   })
 
@@ -406,7 +447,11 @@ describe('a write refreshes the data other features show', () => {
     expect(vials).toHaveLength(1)
     await vialAction(user, 'MYC 42 / 1 / 1', 'Move')
     const choices = await within(await screen.findByRole('dialog')).findByRole('combobox', { name: 'Box' })
-    expect(within(choices).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Freezer B / Box 1, 81 free'])
+    expect(
+      within(choices)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Choose', 'Freezer B / Box 1, 81 free'])
     expect(units).toHaveLength(1)
   })
 
@@ -421,12 +466,21 @@ describe('a write refreshes the data other features show', () => {
     const member = makeMember({ username: holder, role: 'manager' })
     mockApi('get', '/api/v1/labs/{lab_public_id}/members/', page([member]))
     const asProposal = holder === 'bob'
-    const grant = makeLocationGrant({ member: member.public_id, username: holder, ...(asProposal ? { confirmed_by: null, confirmed_at: null, may_confirm: true } : {}) })
+    const grant = makeLocationGrant({
+      member: member.public_id,
+      username: holder,
+      ...(asProposal ? { confirmed_by: null, confirmed_at: null, may_confirm: true } : {}),
+    })
     mockApi('get', GRANTS, [grant])
     mockApi('get', '/api/v1/labs/{lab_public_id}/vrat-access/', [])
     await router.navigate({ to: '/labs/$labId', params: { labId: LAB_ID } })
     await screen.findByRole('table', { name: 'Members' })
-    if (step === 'confirm') mockApi('post', '/api/v1/labs/{lab_public_id}/location-grants/{public_id}/confirm/', { ...grant, confirmed_by: 'alice', confirmed_at: '2026-10-02T09:00:00Z' })
+    if (step === 'confirm')
+      mockApi('post', '/api/v1/labs/{lab_public_id}/location-grants/{public_id}/confirm/', {
+        ...grant,
+        confirmed_by: 'alice',
+        confirmed_at: '2026-10-02T09:00:00Z',
+      })
     else mockApi('post', '/api/v1/labs/{lab_public_id}/location-grants/{public_id}/revoke/', undefined)
     await user.click(await screen.findByRole('button', { name: button }))
     const dialog = await screen.findByRole('dialog')
@@ -441,7 +495,7 @@ describe('a write refreshes the data other features show', () => {
     await waitFor(() => expect(within(vialRow() ?? document.body).queryAllByRole('button', { name: /Reveal the location/ })).toHaveLength(after ? 1 : 0))
   })
 
-  it('a reveal on the strain page refreshes the lab\'s reveal log (#83)', async () => {
+  it("a reveal on the strain page refreshes the lab's reveal log (#83)", async () => {
     signedIn('manager')
     const REVEALS = '/api/v1/labs/{public_id}/reveals/'
     const before = mockApi('get', REVEALS, page([]))
@@ -462,7 +516,7 @@ describe('a write refreshes the data other features show', () => {
     expect(await screen.findByRole('link', { name: 'MYC 42 / 1 / 1' })).toBeInTheDocument()
   })
 
-  it('accepting a deposit refreshes the lab\'s strain lists', async () => {
+  it("accepting a deposit refreshes the lab's strain lists", async () => {
     signedIn('curator')
     mockApi('get', STRAINS, page([]))
     const { router } = renderApp({ path: `/labs/${LAB_ID}/strains` })
@@ -480,7 +534,11 @@ describe('a write refreshes the data other features show', () => {
     await user.type(within(form).getByRole('textbox', { name: 'Identification method' }), '16S rRNA gene sequence')
     await user.selectOptions(within(form).getByRole('combobox', { name: 'Risk group' }), '1')
     await user.type(within(form).getByRole('textbox', { name: 'Risk group basis' }), 'NV 361/2007 Sb., Příloha 7.')
-    const accepted = mockApi('post', '/api/v1/labs/{lab_public_id}/deposits/{public_id}/accept/', { ...deposit, status: 'accepted', strain: { public_id: STRAIN_ID, accession_number: 'MYC 42' } })
+    const accepted = mockApi('post', '/api/v1/labs/{lab_public_id}/deposits/{public_id}/accept/', {
+      ...deposit,
+      status: 'accepted',
+      strain: { public_id: STRAIN_ID, accession_number: 'MYC 42' },
+    })
     const strains = mockApi('get', STRAINS, page([makeStrainRow({ public_id: STRAIN_ID, accession_number: 'MYC 42' })]))
     await user.click(within(form).getByRole('button', { name: 'Accept and add the strain' }))
     await waitFor(() => expect(accepted).toHaveLength(1))
@@ -616,7 +674,7 @@ describe('a write refreshes the data other features show', () => {
     expect(waiting.length - waitingBefore).toBe(1)
   })
 
-  it('recording a destruction refreshes the strain\'s vials and marks the box grids and what waits stale (#160)', async () => {
+  it("recording a destruction refreshes the strain's vials and marks the box grids and what waits stale (#160)", async () => {
     const plain = { ...regulated, restriction_history: [], restrictions: [], regulated: false }
     const marked = { ...masked, status: 'to_destroy' as const, status_changed_at: '2026-10-21T10:00:00Z' }
     const { client, user } = await openStrainPage('technician', plain, marked)

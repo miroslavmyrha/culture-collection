@@ -35,7 +35,15 @@ function rulesText(kinds: readonly string[]): string {
 }
 
 /** The records, or what stands in their place: the wait, the load error, or none yet. */
-function RecordsBody({ records, rights, actions }: { records: ReturnType<typeof useDestructions>; rights: Rights; actions: Parameters<typeof DestructionTable>[0]['actions'] }) {
+function RecordsBody({
+  records,
+  rights,
+  actions,
+}: {
+  records: ReturnType<typeof useDestructions>
+  rights: Rights
+  actions: Parameters<typeof DestructionTable>[0]['actions']
+}) {
   if (records.data === undefined) {
     if (records.isPending) return <Typography>Loading the destructions…</Typography>
     return <LoadError what="the destructions" error={records.error} onRetry={() => void records.refetch()} />
@@ -45,15 +53,29 @@ function RecordsBody({ records, rights, actions }: { records: ReturnType<typeof 
 }
 
 /** The dialog the person opened, if any. Mounted until it has faded out, so onExited can place the focus. */
-function DestructionDialogHost({ open, kinds, accession, waiting, common }: { open: Open; kinds: readonly string[] | undefined; accession: string; waiting: ReadonlySet<string>; common: Common }) {
+function DestructionDialogHost({
+  open,
+  kinds,
+  accession,
+  waiting,
+  common,
+}: {
+  open: Open
+  kinds: readonly string[] | undefined
+  accession: string
+  waiting: ReadonlySet<string>
+  common: Common
+}) {
   if (open === null) return null
-  if (open.kind === 'record') return kinds === undefined ? null : <RecordDestructionDialog {...common} rules={destructionRules(kinds)} waiting={waiting} open={open.open} />
+  if (open.kind === 'record')
+    return kinds === undefined ? null : <RecordDestructionDialog {...common} rules={destructionRules(kinds)} waiting={waiting} open={open.open} />
   if (open.kind === 'confirm') return <ConfirmDestructionDialog {...common} record={open.record} accession={accession} open={open.open} />
   return <DestructionErrorDialog {...common} record={open.record} accession={accession} open={open.open} />
 }
 
 /** The vials in a record that waits for its confirmation: no second record takes them. */
-const waitingVials = (rows: readonly Destruction[] | undefined) => new Set((rows ?? []).filter((d) => d.awaits_confirmation).flatMap((d) => d.vials.map((v) => v.public_id)))
+const waitingVials = (rows: readonly Destruction[] | undefined) =>
+  new Set((rows ?? []).filter((d) => d.awaits_confirmation).flatMap((d) => d.vials.map((v) => v.public_id)))
 
 /**
  * The strain's destructions (#160): the only way a vial becomes destroyed. Technicians and up
@@ -75,9 +97,7 @@ export function Destructions({ labId, strainId, accession, kinds, canHandle, can
   }
   return (
     <Stack spacing={2}>
-      <Typography>
-        A vial marked to destroy is destroyed with a record of the destruction. {kinds !== undefined && rulesText(kinds)}
-      </Typography>
+      <Typography>A vial marked to destroy is destroyed with a record of the destruction. {kinds !== undefined && rulesText(kinds)}</Typography>
       {canHandle && kinds !== undefined && (
         <Box>
           <Button variant="outlined" onClick={show({ kind: 'record', open: true })}>

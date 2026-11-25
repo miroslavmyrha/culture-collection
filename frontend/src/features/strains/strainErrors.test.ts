@@ -20,7 +20,11 @@ const EXPECTED: [string, string, string][] = [
   ['409', 'deaccession_not_proposed', 'The proposal changed meanwhile. Close this and read it again before you decide.'],
   ['409', 'deaccession_proposal_changed', 'The proposal changed meanwhile. Close this and read it again before you decide.'],
   ['409', 'deaccession_proposal_outdated', "The strain's restrictions changed since the proposal. Withdraw it and propose the deaccession again."],
-  ['409', 'request_awaits_confirmation', 'A shipment of this strain waits for its second person. Withdraw the prepared shipment on its request first, then deaccession the strain.'],
+  [
+    '409',
+    'request_awaits_confirmation',
+    'A shipment of this strain waits for its second person. Withdraw the prepared shipment on its request first, then deaccession the strain.',
+  ],
   ['403', 'confirm_own_deaccession', 'You proposed to deaccession this strain: a different manager confirms it.'],
   ['*', 'risk_group_step_too_big', RISK_GROUP_STEP_TOO_BIG],
   ['422', 'risk_group_second_person_required', 'A lower risk group is not set in one step: close this and propose it, a manager other than you confirms it.'],

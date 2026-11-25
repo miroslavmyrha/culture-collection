@@ -22,7 +22,8 @@ type Props = {
 const TEXTS = {
   grant: {
     title: (u: string) => `Propose that ${u} see regulated locations`,
-    description: 'Another manager confirms it before they may reveal where vials of regulated strains are stored, one vial at a time. Every reveal is recorded.',
+    description:
+      'Another manager confirms it before they may reveal where vials of regulated strains are stored, one vial at a time. Every reveal is recorded.',
     confirm: 'Propose',
   },
   confirm: {

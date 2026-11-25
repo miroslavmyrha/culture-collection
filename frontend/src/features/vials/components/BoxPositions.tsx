@@ -96,7 +96,11 @@ export function BoxPositions({ labId, boxId, boxName, canHandle }: Props) {
         onSuccess: (placed) => {
           setMoving(null)
           // A regulated vial's place is not kept on screen (ADR 0009): the position shows only as taken.
-          setMessage(placed.location_masked ? `${vial.label} ${vial.verb}. Its position is hidden: the strain is regulated.` : `${vial.label} ${vial.verb === 'moved' ? 'moved to' : 'placed in'} ${here}.`)
+          setMessage(
+            placed.location_masked
+              ? `${vial.label} ${vial.verb}. Its position is hidden: the strain is regulated.`
+              : `${vial.label} ${vial.verb === 'moved' ? 'moved to' : 'placed in'} ${here}.`,
+          )
           // The next tube comes from the scanner: its field takes the focus again.
           if (vial.scanned) form.setFocus('code')
         },
@@ -159,7 +163,14 @@ export function BoxPositions({ labId, boxId, boxName, canHandle }: Props) {
         Positions
       </Typography>
       <Stack spacing={2}>
-        {canHandle && <FindVialForm code={form.register('code')} error={form.formState.errors.code?.message} onSubmit={(event) => void form.handleSubmit(findVial)(event)} finding={find.isPending} />}
+        {canHandle && (
+          <FindVialForm
+            code={form.register('code')}
+            error={form.formState.errors.code?.message}
+            onSubmit={(event) => void form.handleSubmit(findVial)(event)}
+            finding={find.isPending}
+          />
+        )}
         <Typography>{HELP[canHandle ? 'handle' : 'read']}</Typography>
         {canHandle && <MoveBar message={message} moving={moving !== null} onCancel={cancel} />}
         <StaleNotice what="the positions" query={grid} />
@@ -204,15 +215,17 @@ type FindProps = { code: UseFormRegisterReturn<'code'>; error: string | undefine
 /** The scanner's field: a tube scanned or typed is placed the same way a picked one is. */
 function FindVialForm({ code, error, onSubmit, finding }: FindProps) {
   return (
-    <Stack component="form" onSubmit={onSubmit} noValidate aria-label="Place a vial" direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
-      <TextField
-        label="Vial label or barcode"
-        hint="Scan the tube, or type its label."
-        autoComplete="off"
-        size="small"
-        error={error}
-        {...code}
-      />
+    <Stack
+      component="form"
+      onSubmit={onSubmit}
+      noValidate
+      aria-label="Place a vial"
+      direction="row"
+      spacing={1}
+      useFlexGap
+      sx={{ flexWrap: 'wrap', alignItems: 'flex-start' }}
+    >
+      <TextField label="Vial label or barcode" hint="Scan the tube, or type its label." autoComplete="off" size="small" error={error} {...code} />
       <Button type="submit" variant="outlined" aria-disabled={finding} sx={{ '&[aria-disabled="true"]': { color: 'text.disabled', cursor: 'progress' } }}>
         Find
       </Button>

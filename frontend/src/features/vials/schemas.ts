@@ -329,10 +329,16 @@ const checkFields = z.object({
   kind: z.enum(['identity', 'purity', 'viability'], 'Choose the kind'),
   stage: z.enum(['after_preservation', 'periodic', 'before_dispatch'], 'Choose the stage'),
   checked_on: z.iso.date('Enter a date as YYYY-MM-DD').refine((d) => d <= today(), 'This date is in the future'),
-  method: z.enum(['morphology', 'biochemical', 'maldi_tof', 'sequencing', 'streak_plate', 'microscopy', 'growth', 'plate_count', 'live_dead_stain', 'other'], 'Choose the method'),
+  method: z.enum(
+    ['morphology', 'biochemical', 'maldi_tof', 'sequencing', 'streak_plate', 'microscopy', 'growth', 'plate_count', 'live_dead_stain', 'other'],
+    'Choose the method',
+  ),
   method_detail: z.string().trim().max(200, 'Use at most 200 characters'),
   result: z.enum(['pass', 'reduced', 'fail'], 'Choose the result'),
-  value: z.string().trim().refine((v) => v === '' || NUMBER.test(v), 'Enter a number, as 12.5 or 2.1e8'),
+  value: z
+    .string()
+    .trim()
+    .refine((v) => v === '' || NUMBER.test(v), 'Enter a number, as 12.5 or 2.1e8'),
   unit: z.enum(['', 'cfu_per_ml', 'percent']),
   vial: z.string(),
   note: z.string().trim().max(2000, 'Use at most 2000 characters'),
@@ -434,7 +440,11 @@ const destructionIssues = (rules: DestructionRules): readonly Rule<z.output<type
   [(v) => rules.witness && v.witness === '', 'witness', 'Choose the member who witnessed it'],
   [(v) => v.outside && v.contractor === '', 'contractor', 'Name the firm'],
   [(v) => v.outside && v.handover_document === '', 'handover_document', 'Give the number of the handover document'],
-  [(v) => v.outside && rules.inactivatedBeforeHandover && !v.inactivated_in_lab, 'inactivated_in_lab', 'A highly risky or risky agent (VRAT, RAT) is inactivated in the lab before a firm takes it'],
+  [
+    (v) => v.outside && rules.inactivatedBeforeHandover && !v.inactivated_in_lab,
+    'inactivated_in_lab',
+    'A highly risky or risky agent (VRAT, RAT) is inactivated in the lab before a firm takes it',
+  ],
 ]
 
 export const destructionSchema = (rules: DestructionRules) => destructionFields.superRefine((v, ctx) => addIssues(destructionIssues(rules), v, ctx))

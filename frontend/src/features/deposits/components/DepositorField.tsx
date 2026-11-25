@@ -50,7 +50,17 @@ function useDepositorOptions(labId: string, value: Depositor | null, text: strin
 }
 
 /** A depositor of the lab, found by name or institution. Erased contacts cannot deposit. */
-export function DepositorField({ labId, label = 'Depositor', hint = 'Type part of the name or institution, then choose. Or add a new one.', error, value, onChange, onBlur, name, ref }: Props) {
+export function DepositorField({
+  labId,
+  label = 'Depositor',
+  hint = 'Type part of the name or institution, then choose. Or add a new one.',
+  error,
+  value,
+  onChange,
+  onBlur,
+  name,
+  ref,
+}: Props) {
   const [text, setText] = useBoxText(value)
   const found = useDepositorOptions(labId, value, text)
   return (

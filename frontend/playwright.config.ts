@@ -30,11 +30,13 @@ export default defineConfig({
     { name: 'setup', testMatch: /auth\.setup\.ts/ },
     { name: 'chromium', use: { ...devices['Desktop Chrome'] }, dependencies: ['setup'] },
   ],
-  webServer: external ? undefined : {
-    command: `npm run build && npx vite preview --port ${port} --strictPort`,
-    url: `http://localhost:${port}`,
-    reuseExistingServer: false,
-    // The command builds the app first, which is real work: on a busy machine it ran past 120 s (#60).
-    timeout: 600_000,
-  },
+  webServer: external
+    ? undefined
+    : {
+        command: `npm run build && npx vite preview --port ${port} --strictPort`,
+        url: `http://localhost:${port}`,
+        reuseExistingServer: false,
+        // The command builds the app first, which is real work: on a busy machine it ran past 120 s (#60).
+        timeout: 600_000,
+      },
 })

@@ -20,7 +20,9 @@ describe('the request list', () => {
     mockApi('get', LIST, page([makeRequestRow({ number: '2026/2', regulated: true, line_count: 2, vial_count: 3, status: 'approved' })]))
     renderApp({ path: `/labs/${LAB_ID}/requests` })
     const table = await screen.findByRole('table', { name: 'Requests' })
-    expect(within(table).getAllByRole('row')[1]).toHaveTextContent('2026/2Example Institute of Microbiology, CzechiaNon-commercial research2 strains, 3 vials, regulatedApproved, vials reserved')
+    expect(within(table).getAllByRole('row')[1]).toHaveTextContent(
+      '2026/2Example Institute of Microbiology, CzechiaNon-commercial research2 strains, 3 vials, regulatedApproved, vials reserved',
+    )
     expect(within(table).getByRole('link', { name: 'Request 2026/2' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Enter a request' })).not.toBeInTheDocument()
   })

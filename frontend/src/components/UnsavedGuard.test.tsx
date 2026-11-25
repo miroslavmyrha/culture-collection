@@ -25,7 +25,8 @@ async function mount(dirty: boolean) {
   return { registered, allowLeaving: () => handle.allowLeaving?.() }
 }
 
-const closesTab = (blocker: { enableBeforeUnload?: boolean | (() => boolean) }) => (typeof blocker.enableBeforeUnload === 'function' ? blocker.enableBeforeUnload() : blocker.enableBeforeUnload)
+const closesTab = (blocker: { enableBeforeUnload?: boolean | (() => boolean) }) =>
+  typeof blocker.enableBeforeUnload === 'function' ? blocker.enableBeforeUnload() : blocker.enableBeforeUnload
 
 // jsdom has no tab to close, and a memory history never listens for beforeunload: the guard hands
 // the browser history a condition, and this checks the condition.

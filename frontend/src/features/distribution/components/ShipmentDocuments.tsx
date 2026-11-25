@@ -20,7 +20,8 @@ export function ShipmentDocuments({ labId, documents, role }: Props) {
           const title = documentTitle(d)
           return (
             <Typography component="li" key={d.public_id} sx={{ overflowWrap: 'anywhere' }}>
-              {title}, SHA-256 <span title={d.text_sha256}>
+              {title}, SHA-256{' '}
+              <span title={d.text_sha256}>
                 <Mono>{shortSha(d.text_sha256)}</Mono>
               </span>
               {read && (

@@ -39,11 +39,16 @@ export function StrainListPage() {
             <StrainFilters
               filters={filters}
               renderDepositor={
-                canHandleDeposits(lab.my_role)
-                  ? (value, onPick) => <DepositorFilterField labId={labId} value={value} onChange={onPick} />
-                  : undefined
+                canHandleDeposits(lab.my_role) ? (value, onPick) => <DepositorFilterField labId={labId} value={value} onChange={onPick} /> : undefined
               }
-              onChange={(update) => void navigate({ search: (prev) => { const { limit: keep, offset: _dropped, ...current } = prev; return { ...update(current), limit: keep, offset: 0 } } })}
+              onChange={(update) =>
+                void navigate({
+                  search: (prev) => {
+                    const { limit: keep, offset: _dropped, ...current } = prev
+                    return { ...update(current), limit: keep, offset: 0 }
+                  },
+                })
+              }
             />
             <StrainList
               labId={labId}

@@ -1,6 +1,16 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { type Ref, useEffect, useState } from 'react'
-import { type Control, Controller, type FieldErrors, useFieldArray, type UseFieldArrayReturn, useForm, type UseFormRegister, type UseFormRegisterReturn, type UseFormSetError } from 'react-hook-form'
+import {
+  type Control,
+  Controller,
+  type FieldErrors,
+  useFieldArray,
+  type UseFieldArrayReturn,
+  useForm,
+  type UseFormRegister,
+  type UseFormRegisterReturn,
+  type UseFormSetError,
+} from 'react-hook-form'
 import { Alert, AutocompleteField, Box, Button, SelectField, Stack, TextField, Typography } from '@/components/ui'
 import { errorMessage, isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
@@ -47,13 +57,10 @@ export function NewRequestForm({ labId, onSubmitted }: Props) {
   const onSubmit = handleSubmit((values) => {
     if (submit.isPending) return // aria-disabled keeps focus on the button, so guard here
     setFailure(undefined)
-    submit.mutate(
-      requestBody(values),
-      {
-        onSuccess: onSubmitted,
-        onError: (error) => setFailure(requestFailure(error, [...REQUEST_FIELDS, ...lineFields(lines.fields.length)], setError)),
-      },
-    )
+    submit.mutate(requestBody(values), {
+      onSuccess: onSubmitted,
+      onError: (error) => setFailure(requestFailure(error, [...REQUEST_FIELDS, ...lineFields(lines.fields.length)], setError)),
+    })
   })
   const message = errors.root?.server?.message ?? failure
 
@@ -62,8 +69,21 @@ export function NewRequestForm({ labId, onSubmitted }: Props) {
       <Stack spacing={2} sx={{ maxWidth: 640 }}>
         <RequesterSelect query={requesters} error={errors.requester?.message} registration={register('requester')} />
         <SelectField label="Use" options={[{ value: '', label: 'Choose' }, ...options(USE_LABELS, USES)]} error={errors.use?.message} {...register('use')} />
-        <TextField label="End use" hint="What the recipient will do with it, in words. Name no person." multiline minRows={2} error={errors.end_use?.message} {...register('end_use')} />
-        <SelectField label="Declared containment level" hint="The level of the requester's laboratory, as it declares it." options={LEVELS} error={errors.containment_level?.message} {...register('containment_level')} />
+        <TextField
+          label="End use"
+          hint="What the recipient will do with it, in words. Name no person."
+          multiline
+          minRows={2}
+          error={errors.end_use?.message}
+          {...register('end_use')}
+        />
+        <SelectField
+          label="Declared containment level"
+          hint="The level of the requester's laboratory, as it declares it."
+          options={LEVELS}
+          error={errors.containment_level?.message}
+          {...register('containment_level')}
+        />
 
         <LinesFieldset labId={labId} control={control} register={register} errors={errors} lines={lines} />
 
@@ -83,7 +103,11 @@ const lineFields = (count: number) => Array.from({ length: count }, (_, i) => [`
 const OUTSIDE_EU = ['export_not_supported', 'export_of_regulated_strain']
 
 /** An export the collection does not make lands on the requester; anything else on its field, or as a banner. */
-function requestFailure(error: Error, fields: readonly Parameters<typeof applyServerErrors<RequestForm>>[1][number][], setError: UseFormSetError<RequestForm>): string | undefined {
+function requestFailure(
+  error: Error,
+  fields: readonly Parameters<typeof applyServerErrors<RequestForm>>[1][number][],
+  setError: UseFormSetError<RequestForm>,
+): string | undefined {
   if (isApiError(error, 422) && OUTSIDE_EU.includes(String(error.code))) {
     setError('requester', { type: 'server', message: 'This requester is outside the EU: the collection ships only inside the EU.' }, { shouldFocus: true })
     return undefined
@@ -92,8 +116,17 @@ function requestFailure(error: Error, fields: readonly Parameters<typeof applySe
 }
 
 /** Mounted once the requesters are loaded: a native select keeps its value only if the option exists. */
-function RequesterSelect({ query, error, registration }: { query: ReturnType<typeof useRequesterList>; error: string | undefined; registration: UseFormRegisterReturn<'requester'> }) {
-  if (query.data === undefined) return <Typography>{query.isError ? 'The requesters could not be loaded. Reload the page.' : 'Loading the requesters…'}</Typography>
+function RequesterSelect({
+  query,
+  error,
+  registration,
+}: {
+  query: ReturnType<typeof useRequesterList>
+  error: string | undefined
+  registration: UseFormRegisterReturn<'requester'>
+}) {
+  if (query.data === undefined)
+    return <Typography>{query.isError ? 'The requesters could not be loaded. Reload the page.' : 'Loading the requesters…'}</Typography>
   const usable = query.data.results.filter((r) => !r.erased)
   if (usable.length === 0) return <Typography>No requester is recorded yet: add one on the requesters page first.</Typography>
   return (
@@ -124,11 +157,27 @@ function LineRow({ labId, index: i, control, register, errors, onRemove }: LineR
           control={control}
           name={`lines.${i}.strain`}
           render={({ field }) => (
-            <StrainField labId={labId} label={`Strain ${i + 1}`} value={field.value ?? null} onChange={field.onChange} onBlur={field.onBlur} name={field.name} ref={field.ref} error={errors.lines?.[i]?.strain?.message} />
+            <StrainField
+              labId={labId}
+              label={`Strain ${i + 1}`}
+              value={field.value ?? null}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              name={field.name}
+              ref={field.ref}
+              error={errors.lines?.[i]?.strain?.message}
+            />
           )}
         />
       </Box>
-      <TextField label={`Vials of strain ${i + 1}`} inputMode="numeric" autoComplete="off" sx={{ width: { sm: 140 } }} error={errors.lines?.[i]?.quantity?.message} {...register(`lines.${i}.quantity`)} />
+      <TextField
+        label={`Vials of strain ${i + 1}`}
+        inputMode="numeric"
+        autoComplete="off"
+        sx={{ width: { sm: 140 } }}
+        error={errors.lines?.[i]?.quantity?.message}
+        {...register(`lines.${i}.quantity`)}
+      />
       {onRemove && (
         <Button onClick={onRemove} sx={{ mt: { sm: 1 } }}>
           Remove strain {i + 1}
@@ -149,7 +198,15 @@ function LinesFieldset({ labId, control, register, errors, lines }: LinesFieldse
       </Typography>
       <Stack spacing={2}>
         {lines.fields.map((line, i) => (
-          <LineRow key={line.id} labId={labId} index={i} control={control} register={register} errors={errors} onRemove={lines.fields.length > 1 ? () => lines.remove(i) : undefined} />
+          <LineRow
+            key={line.id}
+            labId={labId}
+            index={i}
+            control={control}
+            register={register}
+            errors={errors}
+            onRemove={lines.fields.length > 1 ? () => lines.remove(i) : undefined}
+          />
         ))}
       </Stack>
       {errors.lines?.message && <Typography color="error">{errors.lines.message}</Typography>}

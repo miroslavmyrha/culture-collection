@@ -105,9 +105,17 @@ describe('CatalogueImportPage', () => {
     expect(post.mock.calls.map((call: unknown[]) => call[0])).toEqual([CHECK, IMPORT])
     const sent = sentForm(post, 1)
     const sentFile = sent.get('file')
-    expect([sent.get('sha256'), sent.get('reason'), sentFile instanceof File ? sentFile.name : sentFile]).toEqual([SHA, 'The former paper catalogue.', 'catalogue.csv'])
+    expect([sent.get('sha256'), sent.get('reason'), sentFile instanceof File ? sentFile.name : sentFile]).toEqual([
+      SHA,
+      'The former paper catalogue.',
+      'catalogue.csv',
+    ])
     const list = screen.getByRole('list', { name: 'Imported strains' })
-    expect(within(list).getAllByRole('listitem').map((i) => i.textContent)).toEqual(['MYC 40', 'MYC 41 (formerly CCM 4517)'])
+    expect(
+      within(list)
+        .getAllByRole('listitem')
+        .map((i) => i.textContent),
+    ).toEqual(['MYC 40', 'MYC 41 (formerly CCM 4517)'])
   })
 
   it('shows the import’s own refusal in its words', async () => {

@@ -7,8 +7,7 @@ import { requesterKeys, requestKeys, shipmentDocumentKeys, strainChoiceKeys } fr
 export const requestListOptions = (labId: string, params: RequestListParams) =>
   queryOptions({
     queryKey: requestKeys.list(labId, params),
-    queryFn: ({ signal }) =>
-      unwrap(api.GET('/api/v1/labs/{lab_public_id}/requests/', { signal, params: { path: { lab_public_id: labId }, query: params } })),
+    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/labs/{lab_public_id}/requests/', { signal, params: { path: { lab_public_id: labId }, query: params } })),
     placeholderData: keepPreviousData,
   })
 
@@ -16,16 +15,13 @@ export const requestDetailOptions = (labId: string, requestId: string) =>
   queryOptions({
     queryKey: requestKeys.detail(labId, requestId),
     queryFn: ({ signal }) =>
-      unwrap(
-        api.GET('/api/v1/labs/{lab_public_id}/requests/{public_id}/', { signal, params: { path: { lab_public_id: labId, public_id: requestId } } }),
-      ),
+      unwrap(api.GET('/api/v1/labs/{lab_public_id}/requests/{public_id}/', { signal, params: { path: { lab_public_id: labId, public_id: requestId } } })),
   })
 
 export const requesterListOptions = (labId: string, params: RequesterListParams) =>
   queryOptions({
     queryKey: requesterKeys.list(labId, params),
-    queryFn: ({ signal }) =>
-      unwrap(api.GET('/api/v1/labs/{lab_public_id}/requesters/', { signal, params: { path: { lab_public_id: labId }, query: params } })),
+    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/labs/{lab_public_id}/requesters/', { signal, params: { path: { lab_public_id: labId }, query: params } })),
     placeholderData: keepPreviousData,
   })
 
@@ -36,9 +32,7 @@ export const strainChoicesOptions = (labId: string, search: string) =>
   queryOptions({
     queryKey: strainChoiceKeys.search(labId, search),
     queryFn: ({ signal }) =>
-      unwrap(
-        api.GET('/api/v1/labs/{lab_public_id}/strains/', { signal, params: { path: { lab_public_id: labId }, query: { limit: 20, offset: 0, search } } }),
-      ),
+      unwrap(api.GET('/api/v1/labs/{lab_public_id}/strains/', { signal, params: { path: { lab_public_id: labId }, query: { limit: 20, offset: 0, search } } })),
     placeholderData: keepPreviousData,
   })
 

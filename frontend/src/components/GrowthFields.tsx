@@ -29,7 +29,14 @@ function mediumOptions(media: readonly Medium[] | undefined, current: MediumBrie
 type FieldProps = Pick<Props, 'register' | 'errors'>
 
 /** The medium of the lab, or the words that the media did not load. */
-function MediumField({ register, errors, media, mediaFailed, current, focusFirst }: FieldProps & Pick<Props, 'media' | 'current'> & { mediaFailed: boolean; focusFirst: boolean }) {
+function MediumField({
+  register,
+  errors,
+  media,
+  mediaFailed,
+  current,
+  focusFirst,
+}: FieldProps & Pick<Props, 'media' | 'current'> & { mediaFailed: boolean; focusFirst: boolean }) {
   if (mediaFailed) return <Typography role="alert">Could not load the media. Close this dialog and try again.</Typography>
   return (
     <SelectField
@@ -48,8 +55,22 @@ function MediumField({ register, errors, media, mediaFailed, current, focusFirst
 function TemperatureFields({ register, errors }: FieldProps) {
   return (
     <Stack direction="row" spacing={2}>
-      <TextField label="Temperature °C" hint="Whole degrees, 0 to 125." inputMode="numeric" autoComplete="off" error={errors.temperature_low_c?.message} {...register('temperature_low_c')} />
-      <TextField label="Up to °C" hint="Only for a range." inputMode="numeric" autoComplete="off" error={errors.temperature_high_c?.message} {...register('temperature_high_c')} />
+      <TextField
+        label="Temperature °C"
+        hint="Whole degrees, 0 to 125."
+        inputMode="numeric"
+        autoComplete="off"
+        error={errors.temperature_low_c?.message}
+        {...register('temperature_low_c')}
+      />
+      <TextField
+        label="Up to °C"
+        hint="Only for a range."
+        inputMode="numeric"
+        autoComplete="off"
+        error={errors.temperature_high_c?.message}
+        {...register('temperature_high_c')}
+      />
     </Stack>
   )
 }
