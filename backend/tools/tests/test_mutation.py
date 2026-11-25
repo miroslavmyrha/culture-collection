@@ -117,10 +117,18 @@ def test_a_run_that_checked_no_mutant_fails(
 
 def test_a_module_reading_test_is_deselected_in_its_area() -> None:
     parser = ConfigParser()
-    parser.read_string(mutation.setup_cfg(mutation.AREAS["strains"]))
+    parser.read_string(mutation.setup_cfg(mutation.AREAS["strains-risk_group"]))
     args = [line for line in parser.get("mutmut", "pytest_add_cli_args").split("\n") if line]
     assert args[-2:] == [
         "--deselect",
         "cultures/strains/tests/test_services.py"
         "::test_every_public_strain_service_has_a_strain_id_scenario",
     ]
+
+
+def test_every_group_file_is_its_own_area_but_the_small_ones() -> None:
+    sources = sorted(path for area in mutation.AREAS.values() for path in area.sources)
+    assert sources == sorted(path for group in mutation.GROUPS.values() for path in group.sources)
+    assert mutation.AREAS["audit"] == mutation.GROUPS["audit"]
+    assert mutation.AREAS["users-factors"].sources == ("cultures/users/factors.py",)
+    assert mutation.AREAS["users-factors"].tests == mutation.GROUPS["users"].tests

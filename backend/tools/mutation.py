@@ -43,7 +43,7 @@ def _tests(app: str, *names: str) -> tuple[str, ...]:
     return tuple(f"cultures/{app}/tests/{name}" for name in names)
 
 
-AREAS: dict[str, Area] = {
+GROUPS: dict[str, Area] = {
     "audit": Area(
         ("cultures/audit/events.py", "cultures/audit/context.py"),
         _tests(
@@ -103,6 +103,26 @@ AREAS: dict[str, Area] = {
         ),
     ),
 }
+
+
+def _split(groups: dict[str, Area]) -> dict[str, Area]:
+    """One area a source file, each with its group's tests: one child a job, the files of a
+    group side by side on their own runners. Four children on one test database ran each other's
+    transactions into locks and failures, which read as kills: the audit group kept 31 survivors
+    with one child and 1 with four (2026-11-25), so the night runs one child per job."""
+    areas: dict[str, Area] = {}
+    for name, group in groups.items():
+        if len(group.sources) == 1 or name in WHOLE:
+            areas[name] = group
+            continue
+        for source in group.sources:
+            areas[f"{name}-{Path(source).stem}"] = Area((source,), group.tests, group.deselect)
+    return areas
+
+
+# Small enough to run as one job (174 mutants, 27 minutes on a runner, 2026-11-25).
+WHOLE = frozenset({"audit"})
+AREAS = _split(GROUPS)
 
 
 PYTEST_ARGS = ("-p", "no:cacheprovider", "--ds=config.settings.test", "-m", "not slow")
