@@ -83,6 +83,7 @@ export function makeStrain(overrides: Partial<Strain> = {}): Strain {
     isolation_source: '',
     country_of_origin: '',
     isolation_date: '',
+    former_number: '',
     identifications: [
       {
         public_id: uuid(n),

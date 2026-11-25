@@ -84,6 +84,11 @@ class NewStrain:
     country_of_origin: str = ""
     isolation_date: str = ""
     restrictions: Sequence[RestrictionInput] = field(default_factory=tuple)
+    # #70, a catalogue import: the number it had there. In the lab's own "<code> <seq>" form it
+    # keeps that sequence (legacy_seq) and the counter moves past it; in any other form it is
+    # kept as former_number and the strain takes the next number.
+    legacy_seq: int | None = None
+    former_number: str = ""
 
 
 def _checked(data: NewStrain) -> NewStrain:
@@ -127,6 +132,8 @@ def _checked(data: NewStrain) -> NewStrain:
         country_of_origin=data.country_of_origin,
         isolation_date=data.isolation_date,
         restrictions=tuple(restrictions),
+        legacy_seq=data.legacy_seq,
+        former_number=normalised(data.former_number),
     )
 
 
@@ -144,6 +151,18 @@ def _next_seq(lab: Lab) -> int:
     return counter.last_seq
 
 
+def _taken_seq(lab: Lab, seq: int) -> int:
+    """A sequence the strain brings from a catalogue import (#70): the counter moves past it, so
+    the next strain by hand never takes it. Caller holds the lab lock."""
+    counter = StrainCounter.objects.select_for_update().filter(lab=lab).first()
+    if counter is None:
+        counter = StrainCounter.objects.create(lab=lab, last_seq=0)
+    if seq > counter.last_seq:
+        counter.last_seq = seq
+        counter.save(update_fields=["last_seq"])
+    return seq
+
+
 def strain_create(*, access: Access, lab: Lab, data: NewStrain) -> Strain:
     """A curator's direct accession (ADR 0008, D8, until deposit intake exists): the strain
     is active at once and gets its number, "<lab code> <seq>", which never changes."""
@@ -155,7 +174,11 @@ def strain_create(*, access: Access, lab: Lab, data: NewStrain) -> Strain:
             lab_id=locked_lab.pk,
             kinds=[(r.kind, f"restrictions.{i}.kind") for i, r in enumerate(data.restrictions)],
         )
-        seq = _next_seq(locked_lab)
+        seq = (
+            _next_seq(locked_lab)
+            if data.legacy_seq is None
+            else _taken_seq(locked_lab, data.legacy_seq)
+        )
         strain = Strain(
             lab=locked_lab,
             accession_number=f"{locked_lab.code} {seq}",
@@ -173,6 +196,7 @@ def strain_create(*, access: Access, lab: Lab, data: NewStrain) -> Strain:
             isolation_source=data.isolation_source,
             country_of_origin=data.country_of_origin,
             isolation_date=data.isolation_date,
+            former_number=data.former_number,
         )
         taken = AccessionTaken()
         save_arbitrated(strain, {ACCESSION_NUMBER_UNIQUE: taken, ACCESSION_SEQ_UNIQUE: taken})
@@ -204,6 +228,7 @@ def strain_create(*, access: Access, lab: Lab, data: NewStrain) -> Strain:
             "isolation_source": strain.isolation_source,
             "country_of_origin": strain.country_of_origin,
             "isolation_date": strain.isolation_date,
+            "former_number": strain.former_number,
             "identification": {
                 "public_id": str(identification.public_id),
                 "identified_on": data.identified_on.isoformat(),

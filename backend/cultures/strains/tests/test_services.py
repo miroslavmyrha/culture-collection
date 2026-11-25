@@ -160,6 +160,7 @@ def test_a_curator_accessions_a_strain_with_its_first_identification(
         "isolation_source": [None, "garden soil"],
         "country_of_origin": [None, "CZ"],
         "isolation_date": [None, "2019-05"],
+        "former_number": [None, ""],
         "identification": [
             None,
             {

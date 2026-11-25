@@ -182,7 +182,8 @@ def with_restriction(strains: QuerySet[Strain], kind: RestrictionKind) -> QueryS
 
 
 def matching(strains: QuerySet[Strain], text: str) -> QuerySet[Strain]:
-    """The accession number, the name as received or the current taxon's name contains the text."""
+    """The accession number, the name as received, the current taxon's name or the number in a
+    catalogue it was imported from (#70) contains the text."""
     text = " ".join(text.split())
     if not text:
         return strains
@@ -190,6 +191,7 @@ def matching(strains: QuerySet[Strain], text: str) -> QuerySet[Strain]:
         Q(accession_number__icontains=text)
         | Q(name_as_received__icontains=text)
         | Q(taxon__name__icontains=text)
+        | Q(former_number__icontains=text)
     )
 
 

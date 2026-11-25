@@ -747,6 +747,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/labs/{lab_public_id}/deposits/catalogue-check/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Every row tried, every error reported, nothing written (#70). */
+        post: operations["labs_deposits_catalogue_check_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/deposits/catalogue-import/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The checked file, all rows or none (#70). */
+        post: operations["labs_deposits_catalogue_import_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labs/{lab_public_id}/deposits/catalogue-template/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The CSV file to fill in for a catalogue import (#70): the header and one example. */
+        get: operations["labs_deposits_catalogue_template_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/labs/{lab_public_id}/destructions/": {
         parameters: {
             query?: never;
@@ -2471,6 +2522,45 @@ export interface components {
             strain: string;
             accession_number: string;
             taxon_name: string;
+        };
+        CatalogueCheckInputRequest: {
+            /**
+             * Format: binary
+             * @description CSV UTF-8 in the template's columns.
+             */
+            file: string;
+        };
+        CatalogueCheckOutput: {
+            sha256: string;
+            rows: number;
+            row_errors: components["schemas"]["CatalogueRowError"][];
+        };
+        CatalogueImportInputRequest: {
+            /**
+             * Format: binary
+             * @description The file the check returned the hash of.
+             */
+            file: string;
+            /** @description The SHA-256 the check returned. */
+            sha256: string;
+            /** @description Why, in a sentence. Stored for good: name no person. */
+            reason: string;
+        };
+        CatalogueImportOutput: {
+            strains: components["schemas"]["CatalogueStrain"][];
+        };
+        CatalogueRowError: {
+            /** @description The line of the file, the header being line 1. */
+            row: number;
+            /** @description The column, empty when the row as a whole is refused. */
+            column: string;
+            message: string;
+        };
+        CatalogueStrain: {
+            /** Format: uuid */
+            readonly public_id: string;
+            accession_number?: string | null;
+            former_number?: string;
         };
         /**
          * @description * `non_viable` - No longer grows
@@ -4734,6 +4824,7 @@ export interface components {
             readonly isolation_source: string;
             readonly country_of_origin: string;
             readonly isolation_date: string;
+            readonly former_number: string;
             readonly growth: components["schemas"]["GrowthOutput"];
             readonly identifications: components["schemas"]["IdentificationOutput"][];
             readonly restriction_history: components["schemas"]["RestrictionOutput"][];
@@ -8213,6 +8304,209 @@ export interface operations {
             };
             /** @description lab_authorisation_required: the lab holds no valid permit for a restriction's kind; reason_required */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_deposits_catalogue_check_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["CatalogueCheckInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueCheckOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description catalogue_refused: not a CSV UTF-8 in the template's columns, too large or empty; catalogue_changed: not the file that was checked; catalogue_has_errors: a row failed, nothing was imported */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_deposits_catalogue_import_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["CatalogueImportInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueImportOutput"];
+                };
+            };
+            /** @description Invalid input, named by its field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description catalogue_refused: not a CSV UTF-8 in the template's columns, too large or empty; catalogue_changed: not the file that was checked; catalogue_has_errors: a row failed, nothing was imported */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    labs_deposits_catalogue_template_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

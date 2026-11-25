@@ -76,6 +76,7 @@ RQ = Perm.VIEW_REQUESTERS
 SHOWN: dict[str, Shown] = {
     "lab_created": Shown(V, "created the lab", LAB),
     "lab_updated": Shown(V, "changed the lab", LAB),
+    "catalogue_imported": Shown(V, "imported a catalogue", LAB),
     "member_added": Shown(Perm.VIEW_MEMBERS, "added a member", LAB),
     "member_role_changed": Shown(Perm.VIEW_MEMBERS, "changed a member's role", LAB),
     "member_removed": Shown(Perm.VIEW_MEMBERS, "removed a member", LAB),

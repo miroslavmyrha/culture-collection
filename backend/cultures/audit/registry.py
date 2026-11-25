@@ -65,6 +65,14 @@ RECOVERY_CODES_ISSUED = register(
 RECOVERY_CODE_USED = register(
     EventType("recovery_code_used", "{actor} signed in with a recovery code")
 )
+# #70: an existing catalogue imported at once, with the file's hash, its row count and why.
+CATALOGUE_IMPORTED = register(
+    EventType(
+        "catalogue_imported",
+        "{actor} imported a catalogue into {subject}",
+        reason_required=True,
+    )
+)
 ENROLMENT_CODE_ISSUED = register(
     EventType(
         "enrolment_code_issued",
@@ -572,6 +580,8 @@ ROW_AUDITED_TABLES: dict[str, RowAudit] = {
             "isolation_source",
             "country_of_origin",
             "isolation_date",
+            # #70: the number in the catalogue it was imported from, when it had another form.
+            "former_number",
             # #174: what the current risk group rests on, free text naming nobody, and when it
             # was set. #169: the entry of annex 7 of government order 361/2007 Sb. the basis was
             # read in, where it was read in one.
