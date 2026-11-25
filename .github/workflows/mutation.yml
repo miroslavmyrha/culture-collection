@@ -1,0 +1,63 @@
+# The mutation run over the audit and the regulated services (#239, ADR 0005): every night, one
+# job per area. A mutant outside tools/mutation_baseline.toml that was not killed fails its job;
+# the summary lists it with its diff in the log. Run it by hand from the Actions tab too.
+name: Mutation
+
+on:
+  schedule:
+    - cron: "41 1 * * *"
+  workflow_dispatch:
+  push:
+    branches: ["fix/#239-mutation-on-ci"] # TRIAL ONLY: removed before the pull request
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  areas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      areas: ${{ steps.list.outputs.areas }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: list
+        name: The areas of tools/mutation.py
+        run: echo "areas=$(python3 backend/tools/mutation.py areas | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().split()))')" >> "$GITHUB_OUTPUT"
+
+  mutation:
+    needs: areas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180 # TRIAL: set from the measured runs
+    strategy:
+      fail-fast: false
+      matrix:
+        area: ${{ fromJSON(needs.areas.outputs.areas) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Database and the backend image
+        run: |
+          # The checkout belongs to the runner's user: the container writes mutants/ as that uid.
+          APP_UID=$(id -u)
+          export APP_UID
+          echo "APP_UID=$APP_UID" >> "$GITHUB_ENV"
+          docker compose up -d --wait db
+          docker compose build backend
+
+      - name: mutmut over ${{ matrix.area }}
+        run: >-
+          docker compose run --rm -T backend
+          python tools/mutation.py run ${{ matrix.area }} --max-children 1 --summary .reports/mutation.md
+
+      - name: Survivors on the job page
+        if: ${{ !cancelled() }}
+        env:
+          AREA: ${{ matrix.area }}
+        run: |
+          cat backend/.reports/mutation.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null \
+            || echo "### Mutation $AREA: no report" >> "$GITHUB_STEP_SUMMARY"

@@ -32,6 +32,7 @@ dev = [
     "mypy",
     "django-stubs[compatible-mypy]",
     "djangorestframework-stubs[compatible-mypy]",
+    "mutmut==3.8.1",
 ]
 
 [tool.ruff]
