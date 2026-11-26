@@ -101,7 +101,10 @@ export const mtaSchema = z.object({
     .trim()
     .regex(/^[A-Za-z0-9][A-Za-z0-9-]{0,19}$/, 'Use up to 20 letters, digits and hyphens, for example STD'),
   title: required('Enter the title').max(200, 'Use at most 200 characters'),
-  text: z.string().refine((value) => value.trim().length > 0, 'Enter the text of the agreement').refine((value) => value.length <= 100_000, 'Use at most 100000 characters'),
+  text: z
+    .string()
+    .refine((value) => value.trim().length > 0, 'Enter the text of the agreement')
+    .refine((value) => value.length <= 100_000, 'Use at most 100000 characters'),
 })
 export type MtaForm = z.input<typeof mtaSchema>
 
@@ -173,8 +176,7 @@ export const receiveSchema = z
     terms: termsSchema,
   })
   .superRefine((value, ctx) => {
-    if (value.condition !== 'intact' && !value.condition_note)
-      ctx.addIssue({ code: 'custom', path: ['condition_note'], message: 'Say what was wrong with it' })
+    if (value.condition !== 'intact' && !value.condition_note) ctx.addIssue({ code: 'custom', path: ['condition_note'], message: 'Say what was wrong with it' })
   })
 export type ReceiveForm = z.input<typeof receiveSchema>
 export type ReceiveValues = z.output<typeof receiveSchema>

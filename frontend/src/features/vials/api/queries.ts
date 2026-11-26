@@ -34,7 +34,16 @@ export const vialPageOptions = (labId: string, strainId: string, page: VialPage)
       unwrap(
         api.GET('/api/v1/labs/{lab_public_id}/vials/', {
           signal,
-          params: { path: { lab_public_id: labId }, query: { strain: strainId, limit: page.limit, offset: page.offset, ...(page.batch ? { batch: page.batch } : {}), ...(page.vial ? { vial: page.vial } : {}) } },
+          params: {
+            path: { lab_public_id: labId },
+            query: {
+              strain: strainId,
+              limit: page.limit,
+              offset: page.offset,
+              ...(page.batch ? { batch: page.batch } : {}),
+              ...(page.vial ? { vial: page.vial } : {}),
+            },
+          },
         }),
       ),
     // The page before stays on screen while the next one loads.
@@ -64,7 +73,12 @@ export const checksOptions = (labId: string, strainId: string, batchId: string) 
   queryOptions({
     queryKey: vialKeys.checks(labId, strainId, batchId),
     queryFn: ({ signal }) =>
-      unwrap(api.GET('/api/v1/labs/{lab_public_id}/batch-checks/', { signal, params: { path: { lab_public_id: labId }, query: { batch: batchId, limit: MATERIAL_PAGE } } })),
+      unwrap(
+        api.GET('/api/v1/labs/{lab_public_id}/batch-checks/', {
+          signal,
+          params: { path: { lab_public_id: labId }, query: { batch: batchId, limit: MATERIAL_PAGE } },
+        }),
+      ),
   })
 
 /** Loaded when the batch's checks are opened, not with the page. */

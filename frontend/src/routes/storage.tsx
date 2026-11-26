@@ -12,10 +12,7 @@ export const storageRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: 'labs/$labId/storage',
   loader: ({ context, params }) =>
-    Promise.all([
-      prefetch(context.queryClient, labDetailOptions(params.labId)),
-      prefetch(context.queryClient, unitTreeOptions(params.labId)),
-    ]),
+    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetch(context.queryClient, unitTreeOptions(params.labId))]),
   component: lazyRouteComponent(() => import('@/pages/StoragePage'), 'StoragePage'),
 })
 
@@ -23,9 +20,6 @@ export const storageUnitRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: 'labs/$labId/storage/$unitId',
   loader: ({ context, params }) =>
-    Promise.all([
-      prefetch(context.queryClient, labDetailOptions(params.labId)),
-      prefetch(context.queryClient, unitDetailOptions(params.labId, params.unitId)),
-    ]),
+    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetch(context.queryClient, unitDetailOptions(params.labId, params.unitId))]),
   component: lazyRouteComponent(() => import('@/pages/StorageUnitPage'), 'StorageUnitPage'),
 })

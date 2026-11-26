@@ -38,19 +38,28 @@ function post(page: Page, path: string, body: Record<string, unknown>) {
 
 async function openLab(page: Page) {
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
 }
 
 async function openStrain(page: Page) {
   await openLab(page)
   await page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Strains', exact: true }).click()
-  await page.getByRole('row', { name: /B\. subtilis e2e seed/ }).getByRole('link').first().click()
+  await page
+    .getByRole('row', { name: /B\. subtilis e2e seed/ })
+    .getByRole('link')
+    .first()
+    .click()
 }
 
 const section = (page: Page, tab: string) => page.getByRole('navigation', { name: 'Strain sections' }).getByRole('link', { name: tab })
 
-test('V9 and T6: a curator lists a medium and sets the conditions, a technician revives with and without an override, a viewer reads them', async ({ browser }) => {
+test('V9 and T6: a curator lists a medium and sets the conditions, a technician revives with and without an override, a viewer reads them', async ({
+  browser,
+}) => {
   const curator = await as(browser, 'e2e-curator')
   const page = curator.page
   const violations = await watchCsp(page)
@@ -59,7 +68,10 @@ test('V9 and T6: a curator lists a medium and sets the conditions, a technician 
   await openLab(page)
   await page.getByRole('navigation', { name: 'Lab sections' }).getByRole('link', { name: 'Media', exact: true }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Media of E2E lab' })).toBeVisible()
-  for (const [name, reference] of [[MEDIUM, 'DSMZ medium 1'], [OTHER, '']] as const) {
+  for (const [name, reference] of [
+    [MEDIUM, 'DSMZ medium 1'],
+    [OTHER, ''],
+  ] as const) {
     await page.getByRole('button', { name: 'Add a medium' }).click()
     const dialog = page.getByRole('dialog', { name: 'Add a medium' })
     await dialog.getByRole('textbox', { name: 'Name' }).fill(name)
@@ -98,7 +110,14 @@ test('V9 and T6: a curator lists a medium and sets the conditions, a technician 
     const list: { results: { public_id: string; number: number }[] } = await (await fetch(`/api/v1/labs/${lab}/passages/?strain=${id}`)).json()
     return list.results.find((p) => p.number === 0)?.public_id ?? ''
   }, strain)
-  const batch = await post(page, 'batches/', { passage: zero, method: 'cryo_minus80', purpose: 'distribution', cryoprotectant: '10 % glycerol', preserved_on: new Date().toLocaleDateString('sv'), vial_count: 2 })
+  const batch = await post(page, 'batches/', {
+    passage: zero,
+    method: 'cryo_minus80',
+    purpose: 'distribution',
+    cryoprotectant: '10 % glycerol',
+    preserved_on: new Date().toLocaleDateString('sv'),
+    vial_count: 2,
+  })
   expect(batch.status).toBe(201)
   const labels = await page.evaluate(async (id) => {
     const lab = location.pathname.split('/')[2] ?? ''

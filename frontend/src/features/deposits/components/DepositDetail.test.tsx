@@ -32,7 +32,11 @@ describe('the deposit page', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Deposit Testella exempli K3' })).toBeInTheDocument()
     await waitFor(() => expect(document.title).toBe('Deposit Testella exempli K3 | Culture collection'))
     const steps = screen.getByRole('list', { name: 'Intake steps' })
-    expect(within(steps).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Received on 2026-10-01 (done)', 'Start the check (now)', 'Accept or reject (to come)'])
+    expect(
+      within(steps)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['Received on 2026-10-01 (done)', 'Start the check (now)', 'Accept or reject (to come)'])
     expect(screen.getByText('cracked ampoule')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: 'Terms, version 1' })).toBeInTheDocument()
     expect(within(screen.getByRole('table', { name: 'Uses' })).getAllByRole('row')).toHaveLength(9)
@@ -75,7 +79,11 @@ describe('the deposit page', () => {
   it('accepts with the facts and links the new strain, the focus on the section', async () => {
     signedIn()
     mockApi('get', DETAIL, deposit({ status: 'checking', terms: makeTerms({ country_of_origin: 'CZ' }) }))
-    const accepted = deposit({ status: 'accepted', strain: { public_id: '00000000-0000-4000-8000-0000000000f1', accession_number: 'MYC 9' }, decided_at: '2026-10-02T10:00:00Z' })
+    const accepted = deposit({
+      status: 'accepted',
+      strain: { public_id: '00000000-0000-4000-8000-0000000000f1', accession_number: 'MYC 9' },
+      decided_at: '2026-10-02T10:00:00Z',
+    })
     const calls = mockApi('post', ACTION('accept'), accepted)
     open()
     const user = userEvent.setup()
@@ -167,7 +175,15 @@ describe('the deposit page', () => {
   })
 
   it.each([
-    ['accepted', () => deposit({ status: 'accepted', strain: { public_id: '00000000-0000-4000-8000-0000000000f1', accession_number: 'MYC 9' }, decided_at: '2026-10-02T10:00:00Z' })],
+    [
+      'accepted',
+      () =>
+        deposit({
+          status: 'accepted',
+          strain: { public_id: '00000000-0000-4000-8000-0000000000f1', accession_number: 'MYC 9' },
+          decided_at: '2026-10-02T10:00:00Z',
+        }),
+    ],
     ['rejected', () => deposit({ status: 'rejected', rejection_reason: 'Mixed.', decided_at: '2026-10-02T10:00:00Z' })],
   ])('offers no action on a %s deposit but the terms of an accepted one', async (status, make) => {
     signedIn()

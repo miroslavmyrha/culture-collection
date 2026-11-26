@@ -172,6 +172,9 @@ class Strain(PublicModel, GrowthConditions):
     isolation_source = models.CharField(max_length=200, blank=True)
     country_of_origin = models.CharField(max_length=2, blank=True)  # ISO 3166-1 alpha-2
     isolation_date = models.CharField(max_length=10, blank=True)  # PARTIAL_DATE
+    # #70: the number a strain had in the catalogue it was imported from, when it was not of the
+    # lab's own "<code> <seq>" form; it then got a new number and this stays searchable.
+    former_number = models.CharField(max_length=60, blank=True, default="", db_default="")
     # Deaccession (#20): all set, or none, with the status deaccessioned (the check below). The
     # one who deaccessioned it, or for a regulated strain the manager who confirmed the proposal
     # (StrainDeaccessionProposal). No index: users are never deleted and nothing reads by it.

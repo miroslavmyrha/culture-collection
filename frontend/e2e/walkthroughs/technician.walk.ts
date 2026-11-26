@@ -1,5 +1,29 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, acceptedStrain, api, batch, batchOf, expandUnit, field, freezerWithBoxes, labId, openLab, openTab, openWaiting, openUnit, vialAction, passAll, release, requestFor, rows, searchStrain, searchVial, setupAs, supplyStrain } from './walk.js'
+import {
+  RUN,
+  Walk,
+  acceptedStrain,
+  api,
+  batch,
+  batchOf,
+  expandUnit,
+  field,
+  freezerWithBoxes,
+  labId,
+  openLab,
+  openTab,
+  openWaiting,
+  openUnit,
+  vialAction,
+  passAll,
+  release,
+  requestFor,
+  rows,
+  searchStrain,
+  searchVial,
+  setupAs,
+  supplyStrain,
+} from './walk.js'
 
 // A technician of Bacteriology (seed_dev): the bench work with batches, vials and boxes. The rows
 // each task needs are made first by the lab's curator, through the API, named for the run.
@@ -262,6 +286,9 @@ test('T10 see what waits for me today', async ({ browser }, info) => {
   await w.read(waiting.getByRole('region', { name: /^Batches waiting for their checks \(\d+\)$/ }))
   await expect(waiting.getByRole('region', { name: /^Deposits/ })).toHaveCount(0)
   await w.shot('home-waiting')
-  w.note('Vials to destroy and unplaced vials are not listed for a technician: destroying is a curator\'s decision, and unplaced vials are not counted yet', '#69')
+  w.note(
+    "Vials to destroy and unplaced vials are not listed for a technician: destroying is a curator's decision, and unplaced vials are not counted yet",
+    '#69',
+  )
   await w.done()
 })

@@ -80,7 +80,15 @@ type Role = 'technician' | 'curator' | 'manager'
 type Get = PathFor<'get'>
 
 const freezer = makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000f1', name: 'Freezer A' })
-const box = makeUnitRow({ public_id: '00000000-0000-4000-8000-0000000000f3', kind: 'box', name: 'Box 1', parent: freezer.public_id, rows: 9, cols: 9, max_risk_group: null })
+const box = makeUnitRow({
+  public_id: '00000000-0000-4000-8000-0000000000f3',
+  kind: 'box',
+  name: 'Box 1',
+  parent: freezer.public_id,
+  rows: 9,
+  cols: 9,
+  max_risk_group: null,
+})
 const strain = makeStrain({ public_id: STRAIN_ID, accession_number: 'MYC 42', taxon: makeTaxon({ name: 'Testella exempli' }) })
 const depositor = makeDepositor({ name: 'Jan Novák' })
 const template = makeMtaTemplate({ code: 'MTA-A', version: 1, text: 'The recipient keeps the material in the lab.' })
@@ -99,7 +107,17 @@ function strainPage() {
 
 /** A strain that left the collection (#20), still with an active restriction of an invented taxon. */
 function leftPage() {
-  const gmo = { public_id: '00000000-0000-4000-8000-0000000000e1', kind: 'gmo' as const, reference: 'MŽP 2026/12', act: '', gmo_category: 2, created_at: '2026-02-01T10:00:00Z', ended_at: null, end_reason: '', end_proposal: null }
+  const gmo = {
+    public_id: '00000000-0000-4000-8000-0000000000e1',
+    kind: 'gmo' as const,
+    reference: 'MŽP 2026/12',
+    act: '',
+    gmo_category: 2,
+    created_at: '2026-02-01T10:00:00Z',
+    ended_at: null,
+    end_reason: '',
+    end_proposal: null,
+  }
   mockApi('get', STRAIN, {
     ...strain,
     status: 'deaccessioned',
@@ -108,7 +126,20 @@ function leftPage() {
     deaccession: { deaccessioned_at: '2026-10-21T10:00:00Z', cause: 'contaminated', reason: 'Mixed culture.', final_use: '' },
   })
   mockApi('get', TERMS, { deposit: null, versions: [makeTerms()] })
-  mockApi('get', SHIPMENTS, page([{ request: '00000000-0000-4000-8000-0000000000a1', number: '2026/3', institution: 'Example Institute', country: 'DE', shipped_at: '2026-06-01T10:00:00Z', vials: 2 }]))
+  mockApi(
+    'get',
+    SHIPMENTS,
+    page([
+      {
+        request: '00000000-0000-4000-8000-0000000000a1',
+        number: '2026/3',
+        institution: 'Example Institute',
+        country: 'DE',
+        shipped_at: '2026-06-01T10:00:00Z',
+        vials: 2,
+      },
+    ]),
+  )
 }
 
 type Screen = {
@@ -452,10 +483,38 @@ describe('a failed background refresh keeps the screen (#63)', () => {
   })
 
   it.each([
-    ['MtaTemplateDetail', `/labs/${LAB_ID}/mta-templates/${template.public_id}`, MTA, 'the MTA', () => mockApi('get', MTA, template), () => screen.findByText(template.text)],
-    ['MtaTemplateList', `/labs/${LAB_ID}/mta-templates`, MTAS, 'the MTA templates', () => mockApi('get', MTAS, page([template])), () => screen.findByRole('link', { name: 'MTA-A version 1' })],
-    ['MediaList', `/labs/${LAB_ID}/media`, MEDIA, 'the media', () => mockApi('get', MEDIA, page([makeMedium({ name: 'LB' })])), () => screen.findByRole('cell', { name: 'LB' })],
-    ['PermitList', `/labs/${LAB_ID}/permits`, PERMITS, 'the permits', () => mockApi('get', PERMITS, [makeLabPermit({ permit_reference: 'DEV/VRAT/1' })]), () => screen.findByText('SÚJB DEV/VRAT/1')],
+    [
+      'MtaTemplateDetail',
+      `/labs/${LAB_ID}/mta-templates/${template.public_id}`,
+      MTA,
+      'the MTA',
+      () => mockApi('get', MTA, template),
+      () => screen.findByText(template.text),
+    ],
+    [
+      'MtaTemplateList',
+      `/labs/${LAB_ID}/mta-templates`,
+      MTAS,
+      'the MTA templates',
+      () => mockApi('get', MTAS, page([template])),
+      () => screen.findByRole('link', { name: 'MTA-A version 1' }),
+    ],
+    [
+      'MediaList',
+      `/labs/${LAB_ID}/media`,
+      MEDIA,
+      'the media',
+      () => mockApi('get', MEDIA, page([makeMedium({ name: 'LB' })])),
+      () => screen.findByRole('cell', { name: 'LB' }),
+    ],
+    [
+      'PermitList',
+      `/labs/${LAB_ID}/permits`,
+      PERMITS,
+      'the permits',
+      () => mockApi('get', PERMITS, [makeLabPermit({ permit_reference: 'DEV/VRAT/1' })]),
+      () => screen.findByText('SÚJB DEV/VRAT/1'),
+    ],
     [
       'VratAccessSheet',
       `/labs/${LAB_ID}/vrat-access`,
@@ -489,7 +548,14 @@ describe('a failed background refresh keeps the screen (#63)', () => {
       },
       () => screen.findByText('1C351.c.99'),
     ],
-    ['RevealLog', `/labs/${LAB_ID}/reveals`, REVEALS, 'the reveals', () => mockApi('get', REVEALS, page([makeReveal({ vial_label: 'MYC 42 / 1 / 1' })])), () => screen.findByRole('link', { name: 'MYC 42 / 1 / 1' })],
+    [
+      'RevealLog',
+      `/labs/${LAB_ID}/reveals`,
+      REVEALS,
+      'the reveals',
+      () => mockApi('get', REVEALS, page([makeReveal({ vial_label: 'MYC 42 / 1 / 1' })])),
+      () => screen.findByRole('link', { name: 'MYC 42 / 1 / 1' }),
+    ],
     [
       'ListDisagreements',
       `/labs/${LAB_ID}/classification`,
@@ -498,14 +564,25 @@ describe('a failed background refresh keeps the screen (#63)', () => {
       () => mockApi('get', DISAGREEMENTS, page([makeStrainDisagreement({ strain: makeStrainRow({ accession_number: 'MYC 42' }) })])),
       () => screen.findByRole('link', { name: 'MYC 42' }),
     ],
-    ['LabList', '/labs', '/api/v1/labs/', 'your labs', () => mockApi('get', '/api/v1/labs/', page([makeLab({ public_id: LAB_ID, name: 'Mycology' })])), () => screen.findByRole('link', { name: 'Mycology' })],
+    [
+      'LabList',
+      '/labs',
+      '/api/v1/labs/',
+      'your labs',
+      () => mockApi('get', '/api/v1/labs/', page([makeLab({ public_id: LAB_ID, name: 'Mycology' })])),
+      () => screen.findByRole('link', { name: 'Mycology' }),
+    ],
     [
       'VialsToPull',
       `/labs/${LAB_ID}/requests/${DEPOSIT_ID}`,
       '/api/v1/labs/{lab_public_id}/requests/{public_id}/vials/',
       'the vials to pull',
       () => {
-        mockApi('get', '/api/v1/labs/{lab_public_id}/requests/{public_id}/', makeRequest({ public_id: DEPOSIT_ID, status: 'approved', decided_by: 'curator', decided_at: '2026-10-20T10:00:00Z' }))
+        mockApi(
+          'get',
+          '/api/v1/labs/{lab_public_id}/requests/{public_id}/',
+          makeRequest({ public_id: DEPOSIT_ID, status: 'approved', decided_by: 'curator', decided_at: '2026-10-20T10:00:00Z' }),
+        )
         mockApi('get', '/api/v1/labs/{lab_public_id}/requests/{public_id}/vials/', [makeVial({ label: 'MYC 42 / 1 / 1', status: 'reserved' })])
       },
       () => screen.findByRole('cell', { name: 'MYC 42 / 1 / 1' }),
@@ -527,7 +604,14 @@ describe('a failed background refresh keeps the screen (#63)', () => {
   // notice says so in its own words.
   it.each([
     ['StrainShell', `/labs/${LAB_ID}/strains/${STRAIN_ID}`, STRAIN, 'the strain', strainPage, () => screen.findByRole('heading', { level: 1, name: 'MYC 42' })],
-    ['StrainList', `/labs/${LAB_ID}/strains`, STRAINS, 'the strains', () => mockApi('get', STRAINS, page([makeStrainRow({ accession_number: 'MYC 42' })])), () => screen.findByRole('link', { name: 'MYC 42' })],
+    [
+      'StrainList',
+      `/labs/${LAB_ID}/strains`,
+      STRAINS,
+      'the strains',
+      () => mockApi('get', STRAINS, page([makeStrainRow({ accession_number: 'MYC 42' })])),
+      () => screen.findByRole('link', { name: 'MYC 42' }),
+    ],
   ] as const)('%s says a 404 on a refresh means it no longer exists', async (_, path, fails, what, data, shown) => {
     signedIn('manager')
     data()
@@ -610,7 +694,11 @@ describe('a failed background refresh keeps the screen (#63)', () => {
     await refreshAll(client)
     await waitFor(() => expect(client.getQueryState(['storage', LAB_ID, 'tree'])?.status).toBe('error'))
     expect(within(dialog).getByRole('combobox', { name: 'Box' })).toHaveValue(box.public_id)
-    expect(within(within(dialog).getByRole('combobox', { name: 'Box' })).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Freezer A / Box 1, 81 free'])
+    expect(
+      within(within(dialog).getByRole('combobox', { name: 'Box' }))
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Choose', 'Freezer A / Box 1, 81 free'])
   })
 
   it('keeps the grant buttons of the members when the grants fail to refresh', async () => {
@@ -680,7 +768,14 @@ describe('a failed background refresh keeps the screen (#63)', () => {
 
 // Home (#69) has no form: what stays is what was read, with a notice for each failed read.
 function homeData() {
-  mockApi('get', '/api/v1/me/overview/', makeOverview({ labs: [makeMyLab({ public_id: LAB_ID, name: 'Mycology', code: 'MYC' })], waiting: [makeWaitingGroup({ items: [makeWaitingItem({ lab: LAB_ID, subject: 'Testella exempli W1' })] })] }))
+  mockApi(
+    'get',
+    '/api/v1/me/overview/',
+    makeOverview({
+      labs: [makeMyLab({ public_id: LAB_ID, name: 'Mycology', code: 'MYC' })],
+      waiting: [makeWaitingGroup({ items: [makeWaitingItem({ lab: LAB_ID, subject: 'Testella exempli W1' })] })],
+    }),
+  )
   mockApi('get', '/api/v1/me/activity/', { results: [makeActivityLine({ lab: LAB_ID, summary: 'accessioned MYC 42' })] })
 }
 

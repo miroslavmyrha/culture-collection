@@ -24,7 +24,10 @@ export function RequestNewPage() {
               </Link>
             </Typography>
             {canManageRequests(lab.my_role) ? (
-              <NewRequestForm labId={labId} onSubmitted={(request) => void navigate({ to: '/labs/$labId/requests/$requestId', params: { labId, requestId: request.public_id } })} />
+              <NewRequestForm
+                labId={labId}
+                onSubmitted={(request) => void navigate({ to: '/labs/$labId/requests/$requestId', params: { labId, requestId: request.public_id } })}
+              />
             ) : (
               <Typography>Only curators and managers enter requests. Your role lets you read them.</Typography>
             )}

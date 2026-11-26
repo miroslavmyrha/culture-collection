@@ -135,10 +135,7 @@ describe('the risk group on the strain page', () => {
   })
 
   it('does not offer the confirmation to the manager who proposed it', async () => {
-    await render(
-      { ...group2, risk_group_proposal: { ...PROPOSAL, confirm_refusal: 'confirm_own_risk_group' as const } },
-      { canConfirmRisk: true },
-    )
+    await render({ ...group2, risk_group_proposal: { ...PROPOSAL, confirm_refusal: 'confirm_own_risk_group' as const } }, { canConfirmRisk: true })
     const proposed = await screen.findByRole('region', { name: 'Proposed risk group' })
     expect(within(proposed).getByText('You proposed it: a different manager confirms.')).toBeInTheDocument()
     expect(within(proposed).queryByRole('button', { name: 'Confirm the lower risk group' })).not.toBeInTheDocument()

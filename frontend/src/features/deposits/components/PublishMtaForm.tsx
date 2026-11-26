@@ -26,7 +26,9 @@ function failureOf(error: unknown, setError: UseFormSetError<MtaForm>): string |
 
 /** What publishing does: the next version of the one to start from, or version 1 of a new code. */
 function PublishIntro({ from }: { from: MtaTemplate | undefined }) {
-  const effect = from ? `This publishes version ${from.version + 1} of ${from.code}.` : 'A new code starts at version 1; an existing code gets its next version.'
+  const effect = from
+    ? `This publishes version ${from.version + 1} of ${from.code}.`
+    : 'A new code starts at version 1; an existing code gets its next version.'
   return <Typography>{effect} Once published, the text never changes.</Typography>
 }
 

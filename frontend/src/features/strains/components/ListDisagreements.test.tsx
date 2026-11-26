@@ -24,7 +24,12 @@ describe('ListDisagreements', () => {
           findings: [
             { disagreement: 'restriction_missing', restriction_kind: 'dual_use', entry: makeListMatch({ code: '1C351.c.99' }), accepted_because: '' },
             { disagreement: 'restriction_unlisted', restriction_kind: 'cz_rat', entry: null, accepted_because: '' },
-            { disagreement: 'risk_group_differs', restriction_kind: '', entry: makeListMatch({ list: 'cz-361-2007-annex-7', act: '361/2007', code: '1.99', risk_group: 3, restriction_kind: '' }), accepted_because: 'Recorded as group 2 after the lab test.' },
+            {
+              disagreement: 'risk_group_differs',
+              restriction_kind: '',
+              entry: makeListMatch({ list: 'cz-361-2007-annex-7', act: '361/2007', code: '1.99', risk_group: 3, restriction_kind: '' }),
+              accepted_because: 'Recorded as group 2 after the lab test.',
+            },
           ],
         }),
       ]),

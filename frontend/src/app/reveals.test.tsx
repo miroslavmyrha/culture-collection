@@ -27,7 +27,11 @@ describe('the reveal log', () => {
       REVEALS,
       page([
         makeReveal({ occurred_at: '2026-10-20T08:05:00Z', person: hana, vial_label: 'MYC 42 / 1 / 2' }),
-        makeReveal({ occurred_at: '2026-10-19T08:05:00Z', person: { ...hana, public_id: '00000000-0000-4000-8000-0000000000a2', username: 'erased-x', first_name: '', last_name: '', erased: true }, vial_label: 'MYC 42 / 1 / 1' }),
+        makeReveal({
+          occurred_at: '2026-10-19T08:05:00Z',
+          person: { ...hana, public_id: '00000000-0000-4000-8000-0000000000a2', username: 'erased-x', first_name: '', last_name: '', erased: true },
+          vial_label: 'MYC 42 / 1 / 1',
+        }),
       ]),
     )
     renderApp({ path: `/labs/${LAB_ID}/reveals` })
@@ -38,14 +42,21 @@ describe('the reveal log', () => {
     const [first] = rows
     if (first === undefined) throw new Error('no row')
     expect(within(first).getByRole('link', { name: 'MYC 42 / 1 / 2' })).toHaveAttribute('href', expect.stringContaining('/material?vial='))
-    expect(within(first).getByText(new Date('2026-10-20T08:05:00Z').toLocaleString('sv', { dateStyle: 'short', timeStyle: 'short' }))).toHaveAttribute('datetime', '2026-10-20T08:05:00Z')
+    expect(within(first).getByText(new Date('2026-10-20T08:05:00Z').toLocaleString('sv', { dateStyle: 'short', timeStyle: 'short' }))).toHaveAttribute(
+      'datetime',
+      '2026-10-20T08:05:00Z',
+    )
   })
 
   it('renders no location, even if an answer carried one', async () => {
     signedIn()
     // Not what the server sends: a row with place fields added, to prove the screen names only
     // the fields it knows.
-    const leaking = { ...makeReveal({ person: hana, vial_label: 'MYC 42 / 1 / 2' }), location: { path: ['Freezer Secret', 'Rack 9', 'Box Hidden'], label: 'C7' }, box_name: 'Box Hidden' }
+    const leaking = {
+      ...makeReveal({ person: hana, vial_label: 'MYC 42 / 1 / 2' }),
+      location: { path: ['Freezer Secret', 'Rack 9', 'Box Hidden'], label: 'C7' },
+      box_name: 'Box Hidden',
+    }
     mockApi('get', REVEALS, page([leaking]))
     renderApp({ path: `/labs/${LAB_ID}/reveals` })
     await screen.findByRole('table', { name: 'Reveals' })

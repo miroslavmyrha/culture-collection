@@ -72,12 +72,7 @@ const JUMPS: Readonly<Record<string, <T>(rows: readonly VisibleRow<T>[], index: 
  * - `*`: opens every sibling of the node.
  * - A printable character: the next visible node whose label starts with it, wrapping.
  */
-export function treeKey<T>(
-  rows: readonly VisibleRow<T>[],
-  focused: string,
-  key: string,
-  expanded: ReadonlySet<string>,
-): TreeAction | null {
+export function treeKey<T>(rows: readonly VisibleRow<T>[], focused: string, key: string, expanded: ReadonlySet<string>): TreeAction | null {
   const index = rows.findIndex((row) => row.node.id === focused)
   const current = rows[index]
   if (current === undefined) return null

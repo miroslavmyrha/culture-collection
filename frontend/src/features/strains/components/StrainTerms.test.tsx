@@ -31,7 +31,8 @@ const second = makeTerms({
 
 const render = () => renderWithProviders(<StrainTerms labId={LAB_ID} strainId={STRAIN_ID} />)
 /** A version's facts, label to value. */
-const facts = (article: HTMLElement) => Object.fromEntries([...article.querySelectorAll('dt')].map((dt) => [dt.textContent, dt.nextElementSibling?.textContent]))
+const facts = (article: HTMLElement) =>
+  Object.fromEntries([...article.querySelectorAll('dt')].map((dt) => [dt.textContent, dt.nextElementSibling?.textContent]))
 
 describe('StrainTerms', () => {
   it('shows every version, newest first, the one in force marked, with what each allowed', async () => {
@@ -49,9 +50,19 @@ describe('StrainTerms', () => {
       'Certificate of compliance (IRCC)': 'ABSCH-IRCC-XX-000000-1',
       'Uses the MAT covers': 'Non-commercial research',
     })
-    expect(facts(screen.getByRole('article', { name: 'Version 1' }))).toMatchObject({ Valid: 'from 2026-02-01 to 2026-05-01', MTA: 'No MTA.', 'Country of origin': 'Czechia', 'Collection date': '2019-05' })
+    expect(facts(screen.getByRole('article', { name: 'Version 1' }))).toMatchObject({
+      Valid: 'from 2026-02-01 to 2026-05-01',
+      MTA: 'No MTA.',
+      'Country of origin': 'Czechia',
+      'Collection date': '2019-05',
+    })
     const uses = screen.getByRole('table', { name: 'Uses of version 2' })
-    expect(within(uses).getAllByRole('row').slice(1).map((row) => row.textContent)).toEqual(['Non-commercial researchPermitted', 'TeachingNot permitted'])
+    expect(
+      within(uses)
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => row.textContent),
+    ).toEqual(['Non-commercial researchPermitted', 'TeachingNot permitted'])
     expect(screen.getByText('2 versions, newest first.')).toBeInTheDocument()
   })
 

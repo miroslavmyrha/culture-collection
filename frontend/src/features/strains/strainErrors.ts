@@ -4,7 +4,8 @@ import { type ErrorTable, lookupError } from '@/lib/errorTable'
 /** The permit a kind needs (ADR 0009), for the refusal the server sends. */
 export const PERMIT_REFUSED = 'This lab holds no valid permit for this restriction. Staff record permits; until then the strain cannot be added with it.'
 export const PERMIT_REFUSED_BY_KIND: Record<string, string> = {
-  cz_vrat: 'This lab holds no valid SÚJB permit for highly risky agents (VRAT). Staff record the permit; until then the strain cannot be added with this restriction.',
+  cz_vrat:
+    'This lab holds no valid SÚJB permit for highly risky agents (VRAT). Staff record the permit; until then the strain cannot be added with this restriction.',
   quarantine_pest:
     'This lab holds no valid ÚKZÚZ permit for quarantine pests. Staff record the permit; until then the strain cannot be added with this restriction.',
 }
@@ -34,7 +35,8 @@ export const STRAIN_ERRORS: ErrorTable = {
   '409:deaccession_not_proposed': PROPOSAL_CHANGED,
   '409:deaccession_proposal_changed': PROPOSAL_CHANGED,
   '409:deaccession_proposal_outdated': "The strain's restrictions changed since the proposal. Withdraw it and propose the deaccession again.",
-  '409:request_awaits_confirmation': 'A shipment of this strain waits for its second person. Withdraw the prepared shipment on its request first, then deaccession the strain.',
+  '409:request_awaits_confirmation':
+    'A shipment of this strain waits for its second person. Withdraw the prepared shipment on its request first, then deaccession the strain.',
   '403:confirm_own_deaccession': 'You proposed to deaccession this strain: a different manager confirms it.',
   '*:risk_group_step_too_big': RISK_GROUP_STEP_TOO_BIG,
   '422:risk_group_second_person_required': 'A lower risk group is not set in one step: close this and propose it, a manager other than you confirms it.',

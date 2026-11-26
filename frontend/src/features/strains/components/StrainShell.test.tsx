@@ -16,7 +16,13 @@ const TERMS = '/api/v1/labs/{lab_public_id}/strains/{public_id}/terms/'
 // Invented taxa: the tests pair them with restrictions and risk groups, which no real
 // organism should be shown with unless the facts hold.
 const mockia = makeTaxon({ public_id: '00000000-0000-4000-8000-0000000000c3', name: 'Mockia vulgaris' })
-const exempli = { public_id: '00000000-0000-4000-8000-0000000000c1', name: 'Testella exempli', authority: 'Roe 1999', rank: 'species' as const, status: 'accepted' as const }
+const exempli = {
+  public_id: '00000000-0000-4000-8000-0000000000c1',
+  name: 'Testella exempli',
+  authority: 'Roe 1999',
+  rank: 'species' as const,
+  status: 'accepted' as const,
+}
 const GMO = {
   public_id: '00000000-0000-4000-8000-0000000000e1',
   kind: 'gmo' as const,
@@ -40,12 +46,36 @@ const strain = makeStrain({
   isolation_date: '2019-05',
   created_at: '2026-01-10T23:30:00Z',
   identifications: [
-    { public_id: '00000000-0000-4000-8000-0000000000f2', taxon: exempli, identified_on: '2026-03-01', method: 'MALDI-TOF MS', reason: 'confirmed', is_current: true, created_at: '2026-03-01T10:00:00Z' },
-    { public_id: '00000000-0000-4000-8000-0000000000f1', taxon: { ...exempli, name: 'Testella sp.' }, identified_on: '2026-01-10', method: '16S', reason: 'Identification at accession', is_current: false, created_at: '2026-01-10T10:00:00Z' },
+    {
+      public_id: '00000000-0000-4000-8000-0000000000f2',
+      taxon: exempli,
+      identified_on: '2026-03-01',
+      method: 'MALDI-TOF MS',
+      reason: 'confirmed',
+      is_current: true,
+      created_at: '2026-03-01T10:00:00Z',
+    },
+    {
+      public_id: '00000000-0000-4000-8000-0000000000f1',
+      taxon: { ...exempli, name: 'Testella sp.' },
+      identified_on: '2026-01-10',
+      method: '16S',
+      reason: 'Identification at accession',
+      is_current: false,
+      created_at: '2026-01-10T10:00:00Z',
+    },
   ],
   restriction_history: [
     GMO,
-    { ...GMO, public_id: '00000000-0000-4000-8000-0000000000e2', kind: 'cz_rat', reference: 'Příloha 2, bod 3', gmo_category: null, ended_at: '2026-04-01T10:00:00Z', end_reason: 'delisted' },
+    {
+      ...GMO,
+      public_id: '00000000-0000-4000-8000-0000000000e2',
+      kind: 'cz_rat',
+      reference: 'Příloha 2, bod 3',
+      gmo_category: null,
+      ended_at: '2026-04-01T10:00:00Z',
+      end_reason: 'delisted',
+    },
   ],
 })
 
@@ -77,6 +107,16 @@ async function action(user: ReturnType<typeof userEvent.setup>, name: string) {
 }
 
 describe('StrainShell with the Overview tab', () => {
+  it('shows the number an imported strain had in its former catalogue, after its name (#70)', async () => {
+    mockApi('get', DETAIL, { ...strain, former_number: 'CCM 4517' })
+    terms()
+    await render()
+    await screen.findByRole('heading', { level: 1, name: 'MYC 42' })
+    const names = [...document.querySelectorAll('dt')].map((dt) => dt.textContent)
+    expect(names.slice(0, 2)).toEqual(['Name as received', 'Former number'])
+    expect(screen.getByText('CCM 4517')).toBeInTheDocument()
+  })
+
   it('shows the number, the taxon, the facts, the restrictions and the identification history', async () => {
     mockApi('get', DETAIL, strain)
     terms()
@@ -86,10 +126,12 @@ describe('StrainShell with the Overview tab', () => {
     // The header: the taxon, then the risk group, the active restrictions and the status as chips.
     expect(screen.getByText('Testella exempli', { selector: 'header i' }).closest('p')).toHaveTextContent('Testella exempli Roe 1999')
     const chips = screen.getByRole('list', { name: 'Biosafety and status' })
-    expect(within(chips).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Risk group 2', 'GMO in contained use', 'Active'])
-    const facts = Object.fromEntries(
-      [...document.querySelectorAll('dt')].map((dt) => [dt.textContent, dt.nextElementSibling?.textContent]),
-    )
+    expect(
+      within(chips)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Risk group 2', 'GMO in contained use', 'Active'])
+    const facts = Object.fromEntries([...document.querySelectorAll('dt')].map((dt) => [dt.textContent, dt.nextElementSibling?.textContent]))
     expect(facts).toEqual({
       'Name as received': 'T. exempli T1',
       Status: 'Active',
@@ -115,17 +157,20 @@ describe('StrainShell with the Overview tab', () => {
       expect(screen.getByRole('region', { name: `${name} table` })).toHaveAttribute('tabindex', '0')
     }
     const history = screen.getByRole('table', { name: 'Identification history' })
-    expect(within(history).getAllByRole('row').slice(1).map((row) => row.textContent)).toEqual([
-      '2026-03-01 (current)Testella exempli Roe 1999MALDI-TOF MSconfirmed',
-      '2026-01-10Testella sp. Roe 199916SIdentification at accession',
-    ])
+    expect(
+      within(history)
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => row.textContent),
+    ).toEqual(['2026-03-01 (current)Testella exempli Roe 1999MALDI-TOF MSconfirmed', '2026-01-10Testella sp. Roe 199916SIdentification at accession'])
     // The terms in force, by their own read: what the strain may be used for, under which MTA.
     const uses = await screen.findByRole('table', { name: 'Uses of the terms in force' })
-    expect(within(uses).getAllByRole('row').slice(1).map((row) => row.textContent)).toEqual([
-      'Non-commercial researchPermitted',
-      'TeachingNot permitted',
-      'Commercial researchOn request to the depositor',
-    ])
+    expect(
+      within(uses)
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => row.textContent),
+    ).toEqual(['Non-commercial researchPermitted', 'TeachingNot permitted', 'Commercial researchOn request to the depositor'])
     expect(screen.getByText(/^Version 2, in force since/)).toHaveTextContent('Version 2, in force since 2026-01-01. MTA STD version 2, Standard MTA')
     // The server gave no deposit (the reader may not open deposits): no link to the MTA's page.
     expect(screen.queryByRole('link', { name: /MTA STD/ })).not.toBeInTheDocument()
@@ -208,7 +253,11 @@ describe('StrainShell with the Overview tab', () => {
     const menu = await screen.findByRole('menu', { name: 'Actions for MYC 42' })
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
     expect(trigger).toHaveAttribute('aria-controls', menu.id)
-    expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Reclassify', 'Change risk group', 'Add a restriction', 'Change growth conditions', 'Propose deaccession'])
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Reclassify', 'Change risk group', 'Add a restriction', 'Change growth conditions', 'Propose deaccession'])
     await waitFor(() => expect(within(menu).getByRole('menuitem', { name: 'Reclassify' })).toHaveFocus())
     await user.keyboard('{Enter}')
     const dialog = await screen.findByRole('dialog', { name: 'Reclassify MYC 42' })
@@ -221,7 +270,12 @@ describe('StrainShell with the Overview tab', () => {
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'the sequence differs')
     await user.click(within(dialog).getByRole('button', { name: 'Save identification' }))
     await waitFor(() => expect(dialog).not.toBeInTheDocument())
-    expect(calls[0]?.body).toEqual({ taxon: mockia.public_id, identified_on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), method: 'MALDI-TOF MS', reason: 'the sequence differs' })
+    expect(calls[0]?.body).toEqual({
+      taxon: mockia.public_id,
+      identified_on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      method: 'MALDI-TOF MS',
+      reason: 'the sequence differs',
+    })
     expect(client.getQueryData(strainKeys.detail(LAB_ID, STRAIN_ID))).toEqual(reclassified)
     await waitFor(() => expect(trigger).toHaveFocus())
   })
@@ -277,7 +331,11 @@ describe('StrainShell with the Overview tab', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Growth conditions of MYC 42' })
     const medium = within(dialog).getByRole('combobox', { name: 'Medium' })
     await waitFor(() => expect(medium).toHaveFocus())
-    expect(within(medium).getAllByRole('option').map((o) => o.textContent)).toEqual(['No medium', 'LB'])
+    expect(
+      within(medium)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['No medium', 'LB'])
     await user.selectOptions(medium, 'LB')
     await user.type(within(dialog).getByRole('textbox', { name: 'Temperature °C' }), '28')
     await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Atmosphere' }), 'Aerobic')
@@ -287,7 +345,13 @@ describe('StrainShell with the Overview tab', () => {
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'DSMZ medium 381 at 28 °C')
     await user.click(within(dialog).getByRole('button', { name: 'Save growth conditions' }))
     await waitFor(() => expect(dialog).not.toBeInTheDocument())
-    expect(calls[0]?.body).toEqual({ medium: lb.public_id, temperature_low_c: 28, temperature_high_c: null, atmosphere: 'aerobic', reason: 'DSMZ medium 381 at 28 °C' })
+    expect(calls[0]?.body).toEqual({
+      medium: lb.public_id,
+      temperature_low_c: 28,
+      temperature_high_c: null,
+      atmosphere: 'aerobic',
+      reason: 'DSMZ medium 381 at 28 °C',
+    })
     expect(client.getQueryData(strainKeys.detail(LAB_ID, STRAIN_ID))).toEqual(grown)
     expect(await screen.findByText('28 °C')).toBeInTheDocument()
   })
@@ -296,7 +360,12 @@ describe('StrainShell with the Overview tab', () => {
     mockApi('get', DETAIL, strain)
     mockApi('get', '/api/v1/labs/{lab_public_id}/media/', page([]))
     terms()
-    mockApiError('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/growth/', 400, validationProblem([{ attr: 'temperature_high_c', code: 'invalid', detail: 'The high end is below the low end.' }]))
+    mockApiError(
+      'post',
+      '/api/v1/labs/{lab_public_id}/strains/{public_id}/growth/',
+      400,
+      validationProblem([{ attr: 'temperature_high_c', code: 'invalid', detail: 'The high end is below the low end.' }]),
+    )
     await render()
     const user = userEvent.setup()
     await action(user, 'Change growth conditions')
@@ -389,7 +458,12 @@ describe('StrainShell with the Overview tab', () => {
   it('maps a field error of an added restriction to its field', async () => {
     mockApi('get', DETAIL, strain)
     terms()
-    mockApiError('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/', 400, validationProblem([{ attr: 'reference', code: 'unique', detail: 'The strain has this restriction already.' }]))
+    mockApiError(
+      'post',
+      '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/',
+      400,
+      validationProblem([{ attr: 'reference', code: 'unique', detail: 'The strain has this restriction already.' }]),
+    )
     await render()
     const user = userEvent.setup()
     await action(user, 'Add a restriction')
@@ -405,7 +479,12 @@ describe('StrainShell with the Overview tab', () => {
   it('proposes to end a restriction with a reason; it stays in force until a manager confirms', async () => {
     mockApi('get', DETAIL, strain)
     terms()
-    const proposal = { public_id: '00000000-0000-4000-8000-0000000000e9', reason: 'destroyed', proposed_at: '2026-05-01T10:00:00Z', confirm_refusal: 'confirm_own_end_proposal' as const }
+    const proposal = {
+      public_id: '00000000-0000-4000-8000-0000000000e9',
+      reason: 'destroyed',
+      proposed_at: '2026-05-01T10:00:00Z',
+      confirm_refusal: 'confirm_own_end_proposal' as const,
+    }
     const proposed = { ...strain, restriction_history: [{ ...GMO, end_proposal: proposal }, strain.restriction_history[1]!] }
     const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/', proposed)
     await render(true, true)
@@ -432,7 +511,14 @@ describe('StrainShell with the Overview tab', () => {
     const proposal = { public_id: '00000000-0000-4000-8000-0000000000e9', reason: 'destroyed', proposed_at: '2026-05-01T10:00:00Z', confirm_refusal: null }
     mockApi('get', DETAIL, { ...strain, restriction_history: [{ ...GMO, end_proposal: proposal }, strain.restriction_history[1]!] })
     terms()
-    const ended = { ...strain, restriction_history: strain.restriction_history.map((r) => ({ ...r, ended_at: r.ended_at ?? '2026-05-02T10:00:00Z', end_reason: r.end_reason || 'destroyed' })) }
+    const ended = {
+      ...strain,
+      restriction_history: strain.restriction_history.map((r) => ({
+        ...r,
+        ended_at: r.ended_at ?? '2026-05-02T10:00:00Z',
+        end_reason: r.end_reason || 'destroyed',
+      })),
+    }
     const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/confirm/', ended)
     await render(true, true)
     const user = userEvent.setup()
@@ -470,7 +556,12 @@ describe('StrainShell with the Overview tab', () => {
     const proposal = { public_id: '00000000-0000-4000-8000-0000000000e9', reason: 'destroyed', proposed_at: '2026-05-01T10:00:00Z', confirm_refusal: null }
     mockApi('get', DETAIL, { ...strain, restriction_history: [{ ...GMO, end_proposal: proposal }, strain.restriction_history[1]!] })
     terms()
-    mockApiError('post', '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/confirm/', 409, problem(409, { code: 'end_proposal_changed' }))
+    mockApiError(
+      'post',
+      '/api/v1/labs/{lab_public_id}/strains/{public_id}/restrictions/{restriction_id}/end-proposal/confirm/',
+      409,
+      problem(409, { code: 'end_proposal_changed' }),
+    )
     await render(true, true)
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Confirm the end of restriction MŽP 2026/12' }))

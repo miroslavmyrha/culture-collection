@@ -35,7 +35,13 @@ export function LatestChecks({ batch }: { batch: Batch }) {
   )
 }
 
-type ActionsProps = { record: boolean; release: boolean; hold: boolean; onDecide: (event: Click, decision: 'release' | 'hold') => void; onRecordClick: (event: Click) => void }
+type ActionsProps = {
+  record: boolean
+  release: boolean
+  hold: boolean
+  onDecide: (event: Click, decision: 'release' | 'hold') => void
+  onRecordClick: (event: Click) => void
+}
 
 /** The bench and curator actions the person may take on the batch, none at all when there are none. */
 export function BatchActions({ record, release, hold, onRecordClick, onDecide }: ActionsProps) {
@@ -64,7 +70,15 @@ export function BatchActions({ record, release, hold, onRecordClick, onDecide }:
 const isWrong = (check: BatchCheck) => check.status === 'entered_in_error'
 
 /** One check of the history: what, when and the result, its details and note, and for a wrong one why. */
-function CheckItem({ check, canEnterInError, onEnterInError }: { check: BatchCheck; canEnterInError: boolean; onEnterInError: (event: Click, check: BatchCheck) => void }) {
+function CheckItem({
+  check,
+  canEnterInError,
+  onEnterInError,
+}: {
+  check: BatchCheck
+  canEnterInError: boolean
+  onEnterInError: (event: Click, check: BatchCheck) => void
+}) {
   return (
     <Box component="li" sx={{ py: 0.75, borderTop: 1, borderColor: 'divider' }}>
       <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -77,7 +91,11 @@ function CheckItem({ check, canEnterInError, onEnterInError }: { check: BatchChe
       {check.note && <Typography variant="body2">{check.note}</Typography>}
       {isWrong(check) && <Typography variant="body2">Why it was entered in error: {check.reason}</Typography>}
       {canEnterInError && check.status === 'valid' && (
-        <Button size="small" aria-label={`Enter the ${KIND_LABELS[check.kind].toLowerCase()} check of ${check.checked_on} in error`} onClick={(event) => onEnterInError(event, check)}>
+        <Button
+          size="small"
+          aria-label={`Enter the ${KIND_LABELS[check.kind].toLowerCase()} check of ${check.checked_on} in error`}
+          onClick={(event) => onEnterInError(event, check)}
+        >
           Enter in error
         </Button>
       )}

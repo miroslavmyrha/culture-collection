@@ -60,20 +60,38 @@ const one = (found: Row[], key: string, value: string) => {
 
 /** The request of this run, entered and accepted by the curator: its id and number. */
 async function enterRequest(page: Page, lab: string) {
-  const requester = one(rows(await api(page, lab, `requesters/?search=${encodeURIComponent('E2E Institute of Microbiology')}`)), 'institution', 'E2E Institute of Microbiology')
-  const strain = async (name: string) => text(one(rows(await api(page, lab, `strains/?search=${encodeURIComponent(name)}`)), 'name_as_received', name), 'public_id')
+  const requester = one(
+    rows(await api(page, lab, `requesters/?search=${encodeURIComponent('E2E Institute of Microbiology')}`)),
+    'institution',
+    'E2E Institute of Microbiology',
+  )
+  const strain = async (name: string) =>
+    text(one(rows(await api(page, lab, `strains/?search=${encodeURIComponent(name)}`)), 'name_as_received', name), 'public_id')
   const lines = [
     { strain: await strain(SUPPLY), quantity: 2 },
     { strain: await strain(REGULATED), quantity: 1 },
   ]
-  const made = await api(page, lab, 'requests/', { requester: text(requester, 'public_id'), use: 'research_noncommercial', end_use: `Pulled in run ${RUN}.`, containment_level: 2, lines })
+  const made = await api(page, lab, 'requests/', {
+    requester: text(requester, 'public_id'),
+    use: 'research_noncommercial',
+    end_use: `Pulled in run ${RUN}.`,
+    containment_level: 2,
+    lines,
+  })
   const mtaId = text(rows(made, 'lines')[0]?.mta, 'public_id')
   const status = await page.evaluate(
     async ([url, id]) => {
       await fetch('/api/v1/auth/csrf/')
       const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
       const data = new FormData()
-      for (const [k, v] of Object.entries({ mta: id, signer_name: 'E2E Signatory', signer_role: 'head_of_institution', authorised_signatory: 'true', accepted_on: new Date().toLocaleDateString('sv') })) data.append(k, v)
+      for (const [k, v] of Object.entries({
+        mta: id,
+        signer_name: 'E2E Signatory',
+        signer_role: 'head_of_institution',
+        authorised_signatory: 'true',
+        accepted_on: new Date().toLocaleDateString('sv'),
+      }))
+        data.append(k, v)
       data.append('file', new Blob(['%PDF-1.4\n% an invented signed copy of an e2e run\n%%EOF\n'], { type: 'application/pdf' }), 'signed.pdf')
       return (await fetch(url, { method: 'POST', headers: { 'X-CSRFToken': token }, body: data })).status
     },
@@ -89,7 +107,8 @@ async function freezerWithBoxes(page: Page, lab: string, freezer: string, boxes:
   const rack = text(await api(page, lab, 'storage-units/', { kind: 'rack', name: 'Rack 1', parent: unit, slot: 1 }), 'public_id')
   const nine = text(one(rows(await api(page, lab, '/api/v1/box-types/')), 'name', '81-place cryobox (9 x 9)'), 'public_id')
   const ids: string[] = []
-  for (const [i, name] of boxes.entries()) ids.push(text(await api(page, lab, 'storage-units/', { kind: 'box', name, parent: rack, slot: i + 1, box_type: nine }), 'public_id'))
+  for (const [i, name] of boxes.entries())
+    ids.push(text(await api(page, lab, 'storage-units/', { kind: 'box', name, parent: rack, slot: i + 1, box_type: nine }), 'public_id'))
   return ids
 }
 
@@ -104,13 +123,15 @@ test('a technician reads where the reserved vials lie, in walk order, and a regu
   const manager = await as(browser, username)
   await api(manager.page, lab, `requests/${request.id}/approve/`, { reason: 'The institute notified SÚJB of this agent (invented example).' })
   const lines = rows(await api(curator.page, lab, `requests/${request.id}/`), 'lines')
-  const reserved = (line: Row | undefined) => rows(line, 'reserved').toSorted((a, b) => text(a, 'label').localeCompare(text(b, 'label'), 'en', { numeric: true }))
+  const reserved = (line: Row | undefined) =>
+    rows(line, 'reserved').toSorted((a, b) => text(a, 'label').localeCompare(text(b, 'label'), 'en', { numeric: true }))
   const [first, second] = reserved(lines[0])
   const [masked] = reserved(lines[1])
   expect([first, second, masked].every((v) => v !== undefined)).toBe(true)
 
   const technician = await as(browser, 'e2e-technician')
-  const place = (vial: Row | undefined, box: string, row: number, col: number) => api(technician.page, lab, `vials/${text(vial, 'public_id')}/place/`, { box, row, col })
+  const place = (vial: Row | undefined, box: string, row: number, col: number) =>
+    api(technician.page, lab, `vials/${text(vial, 'public_id')}/place/`, { box, row, col })
   await place(first, box2, 1, 1)
   await place(second, box1, 3, 3)
   await place(masked, box1, 2, 1)

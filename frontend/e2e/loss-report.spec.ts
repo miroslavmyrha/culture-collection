@@ -15,7 +15,10 @@ test('a manager is told to report a lost RAT vial to the police, and records the
   const page = await context.newPage()
   const violations = await watchCsp(page)
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
 
   const made = await page.evaluate(
@@ -36,7 +39,16 @@ test('a manager is told to report a lost RAT vial to the police, and records the
       }
       const today = new Date().toLocaleDateString('sv')
       const depositors = await read<{ results: { public_id: string }[] }>(`/api/v1/labs/${lab}/depositors/?search=E2E`)
-      const uses = ['research_noncommercial', 'research_commercial', 'teaching', 'diagnostics', 'production', 'reference_qc', 'patent_deposit_related', 'redistribution']
+      const uses = [
+        'research_noncommercial',
+        'research_commercial',
+        'teaching',
+        'diagnostics',
+        'production',
+        'reference_qc',
+        'patent_deposit_related',
+        'redistribution',
+      ]
       const deposit = await send('deposits/', {
         depositor: depositors.results[0]?.public_id,
         received_on: today,
@@ -63,7 +75,12 @@ test('a manager is told to report a lost RAT vial to the police, and records the
       const freezer = await send('storage-units/', { kind: 'freezer', name: `Freezer l${run}`, max_risk_group: 2 })
       const rack = await send('storage-units/', { kind: 'rack', name: 'Rack 1', parent: freezer.public_id })
       const types = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/box-types/')
-      const box = await send('storage-units/', { kind: 'box', name: 'Box 1', parent: rack.public_id, box_type: types.results.find((t) => t.name === '81-place cryobox (9 x 9)')?.public_id })
+      const box = await send('storage-units/', {
+        kind: 'box',
+        name: 'Box 1',
+        parent: rack.public_id,
+        box_type: types.results.find((t) => t.name === '81-place cryobox (9 x 9)')?.public_id,
+      })
       const passages = await read<{ results: { public_id: string }[] }>(`/api/v1/labs/${lab}/passages/?strain=${strain}`)
       await send('batches/', {
         passage: passages.results[0]?.public_id,

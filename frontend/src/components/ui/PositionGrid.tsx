@@ -193,7 +193,20 @@ type CellProps = {
  * React Compiler keeps the elements of a loop only as one block, it cannot keep one per cell.
  * `content` must keep its identity between renders for that to hold.
  */
-const PositionCell = memo(function PositionCell({ row, col, label, name, tone, selected, disabled, content, isActive, readOnly, onActivate, onActive }: CellProps) {
+const PositionCell = memo(function PositionCell({
+  row,
+  col,
+  label,
+  name,
+  tone,
+  selected,
+  disabled,
+  content,
+  isActive,
+  readOnly,
+  onActivate,
+  onActive,
+}: CellProps) {
   return (
     <TableCell
       // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- explicit: jsdom and aria-query map td to cell, not gridcell

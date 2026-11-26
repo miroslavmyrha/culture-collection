@@ -19,7 +19,10 @@ async function as(browser: Browser, username: string, width = 1280) {
 
 async function openLab(page: Page) {
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
 }
 
@@ -172,7 +175,16 @@ async function receiveAndCheck(page: Page, name: string) {
     const lab = location.pathname.split('/')[2] ?? ''
     const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': token }
     const depositors: { results: { public_id: string }[] } = await (await fetch(`/api/v1/labs/${lab}/depositors/?search=E2E`)).json()
-    const uses = ['research_noncommercial', 'research_commercial', 'teaching', 'diagnostics', 'production', 'reference_qc', 'patent_deposit_related', 'redistribution']
+    const uses = [
+      'research_noncommercial',
+      'research_commercial',
+      'teaching',
+      'diagnostics',
+      'production',
+      'reference_qc',
+      'patent_deposit_related',
+      'redistribution',
+    ]
     const body = {
       depositor: depositors.results[0]?.public_id,
       received_on: new Date().toLocaleDateString('sv'),

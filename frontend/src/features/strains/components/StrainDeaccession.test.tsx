@@ -51,7 +51,14 @@ const gone = (from = plain) =>
     deaccession: { deaccessioned_at: '2026-10-21T10:00:00Z', cause: 'non_viable' as const, reason: 'No growth after three revivals.', final_use: '' as const },
     deaccession_proposal: null,
   }) satisfies typeof plain
-const SHIPPED = { request: '00000000-0000-4000-8000-0000000000a1', number: '2026/3', institution: 'Example Institute of Microbiology', country: 'DE', shipped_at: '2026-06-01T10:00:00Z', vials: 2 }
+const SHIPPED = {
+  request: '00000000-0000-4000-8000-0000000000a1',
+  number: '2026/3',
+  institution: 'Example Institute of Microbiology',
+  country: 'DE',
+  shipped_at: '2026-06-01T10:00:00Z',
+  vials: 2,
+}
 
 function render(strain: typeof plain, { canManage = true, canConfirmLeave = false } = {}) {
   mockApi('get', DETAIL, strain)
@@ -79,7 +86,9 @@ describe('deaccession on the strain page', () => {
     const user = userEvent.setup()
     await menu(user, 'Deaccession')
     const dialog = await screen.findByRole('alertdialog', { name: 'Deaccession MYC 42?' })
-    expect(dialog).toHaveAccessibleDescription(/leaves the collection for good. Its open requests are cancelled and its vials still in stock are marked for destruction/)
+    expect(dialog).toHaveAccessibleDescription(
+      /leaves the collection for good. Its open requests are cancelled and its vials still in stock are marked for destruction/,
+    )
     // A destructive dialog opens on Cancel.
     await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus())
     // No cause yet: the form says so and nothing is sent.
@@ -109,7 +118,10 @@ describe('deaccession on the strain page', () => {
   })
 
   it('a regulated strain is proposed, and a quarantine pest states its final use', async () => {
-    const calls = mockApi('post', PROPOSE, { ...pest, deaccession_proposal: { ...PROPOSAL, final_use: 'destruction', confirm_refusal: 'confirm_own_deaccession' } })
+    const calls = mockApi('post', PROPOSE, {
+      ...pest,
+      deaccession_proposal: { ...PROPOSAL, final_use: 'destruction', confirm_refusal: 'confirm_own_deaccession' },
+    })
     await render(pest)
     const user = userEvent.setup()
     expect(await screen.findByRole('heading', { level: 1, name: 'MYC 42' })).toBeInTheDocument()

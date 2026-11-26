@@ -7,11 +7,7 @@ import { ApiError, isApiError, readProblem } from './api'
  * message. Accepts problem details {errors: [{attr, code, detail}]} and DRF's {"field": ["msg"]}.
  * Returns false when nothing was mapped, so the caller shows its generic message.
  */
-export function applyServerErrors<T extends FieldValues>(
-  error: unknown,
-  fields: readonly Path<T>[],
-  setError: UseFormSetError<T>,
-): boolean {
+export function applyServerErrors<T extends FieldValues>(error: unknown, fields: readonly Path<T>[], setError: UseFormSetError<T>): boolean {
   if (!(error instanceof ApiError) || error.status !== 400) return false
   const names: readonly string[] = fields
   const isField = (key: string): key is Path<T> => names.includes(key)

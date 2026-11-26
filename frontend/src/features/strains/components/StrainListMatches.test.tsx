@@ -63,7 +63,12 @@ describe('the official lists on the strain page', () => {
   })
 
   it('says when a genus-wide entry is reached only through a synonym of another genus (#220)', async () => {
-    const borrowed = makeListMatch({ public_id: '00000000-0000-4000-8000-0000000000e3', code: '1.199', match_scope: 'genus', through_synonym: 'Vibrio subtilis' })
+    const borrowed = makeListMatch({
+      public_id: '00000000-0000-4000-8000-0000000000e3',
+      code: '1.199',
+      match_scope: 'genus',
+      through_synonym: 'Vibrio subtilis',
+    })
     mockApi('get', MATCHES, page([borrowed, riskGroup]))
     await render()
     const section = within(await screen.findByRole('region', { name: 'Official lists' }))

@@ -102,7 +102,6 @@ const calls = () => {
 }
 
 describe('placeError (#67)', () => {
-
   it('puts a refused empty reason on the reason field when the dialog has one', () => {
     const { set, setError } = calls()
     expect(placeError(new ApiError(422, { code: 'reason_required', title: 'x' }), ['reason'], setError, describeIt, 'reason')).toBeUndefined()

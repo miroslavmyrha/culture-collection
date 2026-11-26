@@ -35,6 +35,7 @@ MATRIX = [
     (Perm.VIEW_TERMS, {V, T, C, M}),
     (Perm.MANAGE_DEPOSITS, {C, M}),
     (Perm.MANAGE_MTA, {M}),
+    (Perm.IMPORT_CATALOGUE, {M}),
     (Perm.VIEW_DISTRIBUTION, {V, T, C, M}),
     (Perm.VIEW_REQUESTERS, {C, M}),
     (Perm.MANAGE_DISTRIBUTION, {C, M}),

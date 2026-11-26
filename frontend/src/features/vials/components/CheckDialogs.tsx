@@ -66,7 +66,9 @@ const checkBody = (batch: Batch, values: CheckValues) => ({
 /** What the dialog says of the batch: what it waits for, or that its latest checks passed. */
 function checkDescription(batch: Batch): string {
   const missing = notPassed(batch)
-  return missing.length > 0 ? `It waits for a passed ${kindsText(missing)} check. A vial named here is used up by the check.` : 'Its latest checks passed. A vial named here is used up by the check.'
+  return missing.length > 0
+    ? `It waits for a passed ${kindsText(missing)} check. A vial named here is used up by the check.`
+    : 'Its latest checks passed. A vial named here is used up by the check.'
 }
 
 /** Records one check of a batch (technicians and up). The vial named is used up by the check. */
@@ -96,7 +98,16 @@ export function RecordCheckDialog({ labId, strainId, batch, vials, vialsTotal, c
       onExited={onExited}
     >
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="New check" spacing={2} sx={{ mt: 2 }}>
-        <CheckFields register={register} errors={formState.errors} setValue={setValue} kind={kind} batch={batch} vials={vials} vialsTotal={vialsTotal} checks={checks} />
+        <CheckFields
+          register={register}
+          errors={formState.errors}
+          setValue={setValue}
+          kind={kind}
+          batch={batch}
+          vials={vials}
+          vialsTotal={vialsTotal}
+          checks={checks}
+        />
       </Stack>
     </ConfirmDialog>
   )

@@ -289,12 +289,26 @@ export async function labId(page: Page, name: string) {
 }
 
 const today = () => new Date().toLocaleDateString('sv')
-const USES = ['research_noncommercial', 'research_commercial', 'teaching', 'diagnostics', 'production', 'reference_qc', 'patent_deposit_related', 'redistribution']
+const USES = [
+  'research_noncommercial',
+  'research_commercial',
+  'teaching',
+  'diagnostics',
+  'production',
+  'reference_qc',
+  'patent_deposit_related',
+  'redistribution',
+]
 
 /** A deposit as received, with terms that leave commercial research on request. */
 export async function receivedDeposit(page: Page, lab: string, name: string) {
   const depositor = rows(await api(page, lab, 'depositors/?search=Vzor'))[0]
-  const terms = { mta: null, abs_scope: 'not_in_scope', country_of_origin: 'CZ', uses: USES.map((use) => ({ use, decision: use === 'research_commercial' ? 'on_request' : 'permit' })) }
+  const terms = {
+    mta: null,
+    abs_scope: 'not_in_scope',
+    country_of_origin: 'CZ',
+    uses: USES.map((use) => ({ use, decision: use === 'research_commercial' ? 'on_request' : 'permit' })),
+  }
   const body = { depositor: field(depositor, 'public_id'), received_on: today(), condition: 'intact', name_as_received: name, terms }
   return field(await api(page, lab, 'deposits/', body), 'public_id')
 }
@@ -310,7 +324,18 @@ export async function acceptedStrain(page: Page, lab: string, name: string, taxo
   const deposit = await receivedDeposit(page, lab, name)
   await api(page, lab, `deposits/${deposit}/start-check/`, {})
   const taxa = rows(await api(page, lab, `/api/v1/taxa/?search=${encodeURIComponent(taxon)}`))
-  const accepted = { taxon: field(taxa.find((t) => t.name === taxon), 'public_id'), identified_on: today(), identification_method: '16S rRNA gene sequence', risk_group: 1, risk_group_basis: RISK_GROUP_BASIS, country_of_origin: 'CZ', restrictions: [] }
+  const accepted = {
+    taxon: field(
+      taxa.find((t) => t.name === taxon),
+      'public_id',
+    ),
+    identified_on: today(),
+    identification_method: '16S rRNA gene sequence',
+    risk_group: 1,
+    risk_group_basis: RISK_GROUP_BASIS,
+    country_of_origin: 'CZ',
+    restrictions: [],
+  }
   await api(page, lab, `deposits/${deposit}/accept/`, accepted)
   const strain = rows(await api(page, lab, `strains/?search=${encodeURIComponent(name)}`))[0]
   const passage = rows(await api(page, lab, `passages/?strain=${field(strain, 'public_id')}`)).find((p) => p.number === 0)
@@ -322,7 +347,10 @@ export async function freezerWithBoxes(page: Page, lab: string, freezer: string,
   const unit = field(await api(page, lab, 'storage-units/', { kind: 'freezer', name: freezer, temperature_c: -80, max_risk_group: 2 }), 'public_id')
   const rack = field(await api(page, lab, 'storage-units/', { kind: 'rack', name: 'Rack 1', parent: unit, slot: 1 }), 'public_id')
   const types = rows(await api(page, lab, '/api/v1/box-types/'))
-  const nine = field(types.find((t) => t.name === '81-place cryobox (9 x 9)'), 'public_id')
+  const nine = field(
+    types.find((t) => t.name === '81-place cryobox (9 x 9)'),
+    'public_id',
+  )
   const ids: string[] = []
   for (const [i, name] of boxes.entries()) {
     ids.push(field(await api(page, lab, 'storage-units/', { kind: 'box', name, parent: rack, slot: i + 1, box_type: nine }), 'public_id'))
@@ -332,7 +360,14 @@ export async function freezerWithBoxes(page: Page, lab: string, freezer: string,
 
 /** A batch of the passage, into the box when given. Answers its vials' labels in seq order. */
 export async function batch(page: Page, lab: string, passage: string, options: { count: number; method?: string; box?: string }) {
-  const body: Row = { passage, method: options.method ?? 'cryo_minus80', purpose: 'distribution', cryoprotectant: '10 % glycerol', preserved_on: today(), vial_count: options.count }
+  const body: Row = {
+    passage,
+    method: options.method ?? 'cryo_minus80',
+    purpose: 'distribution',
+    cryoprotectant: '10 % glycerol',
+    preserved_on: today(),
+    vial_count: options.count,
+  }
   if (options.box !== undefined) body.box = options.box
   const created = field(await api(page, lab, 'batches/', body), 'public_id')
   const vials = rows(await api(page, lab, `vials/?batch=${created}&limit=200`))
@@ -477,10 +512,24 @@ export async function supplyStrain(page: Page, lab: string, name: string, taxon:
   const depositor = rows(await api(page, lab, 'depositors/?search=Vzor'))[0]
   const mta = rows(await api(page, lab, 'mta-templates/')).find((t) => t.code === 'STD' && t.version === 2)
   const terms = { mta: field(mta, 'public_id'), abs_scope: 'not_in_scope', country_of_origin: 'CZ', uses: USES.map((use) => ({ use, decision: 'permit' })) }
-  const deposit = field(await api(page, lab, 'deposits/', { depositor: field(depositor, 'public_id'), received_on: today(), condition: 'intact', name_as_received: name, terms }), 'public_id')
+  const deposit = field(
+    await api(page, lab, 'deposits/', { depositor: field(depositor, 'public_id'), received_on: today(), condition: 'intact', name_as_received: name, terms }),
+    'public_id',
+  )
   await api(page, lab, `deposits/${deposit}/start-check/`, {})
   const taxa = rows(await api(page, lab, `/api/v1/taxa/?search=${encodeURIComponent(taxon)}`))
-  const facts = { taxon: field(taxa.find((t) => t.name === taxon), 'public_id'), identified_on: today(), identification_method: '16S rRNA gene sequence', risk_group: riskGroup, risk_group_basis: RISK_GROUP_BASIS, country_of_origin: 'CZ', restrictions }
+  const facts = {
+    taxon: field(
+      taxa.find((t) => t.name === taxon),
+      'public_id',
+    ),
+    identified_on: today(),
+    identification_method: '16S rRNA gene sequence',
+    risk_group: riskGroup,
+    risk_group_basis: RISK_GROUP_BASIS,
+    country_of_origin: 'CZ',
+    restrictions,
+  }
   await api(page, lab, `deposits/${deposit}/accept/`, facts)
   const strain = rows(await api(page, lab, `strains/?search=${encodeURIComponent(name)}`))[0]
   const passage = rows(await api(page, lab, `passages/?strain=${field(strain, 'public_id')}`)).find((p) => p.number === 0)
@@ -495,7 +544,13 @@ export async function release(page: Page, lab: string, batchId: string) {
 /** A request of the seeded requester for the strain, with an accepted MTA (signed copy uploaded). */
 export async function requestFor(page: Page, lab: string, strain: string, quantity: number, endUse: string) {
   const requester = rows(await api(page, lab, 'requesters/?search=Example%20Institute'))[0]
-  const made = await api(page, lab, 'requests/', { requester: field(requester, 'public_id'), use: 'research_noncommercial', end_use: endUse, containment_level: 2, lines: [{ strain, quantity }] })
+  const made = await api(page, lab, 'requests/', {
+    requester: field(requester, 'public_id'),
+    use: 'research_noncommercial',
+    end_use: endUse,
+    containment_level: 2,
+    lines: [{ strain, quantity }],
+  })
   const id = field(made, 'public_id')
   const mta = rows(await api(page, lab, 'mta-templates/')).find((t) => t.code === 'STD' && t.version === 2)
   const status = await page.evaluate(
@@ -503,7 +558,14 @@ export async function requestFor(page: Page, lab: string, strain: string, quanti
       await fetch('/api/v1/auth/csrf/')
       const token = /(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? ''
       const data = new FormData()
-      for (const [k, v] of Object.entries({ mta: mtaId, signer_name: 'Walk Signatory', signer_role: 'head_of_institution', authorised_signatory: 'true', accepted_on: new Date().toLocaleDateString('sv') })) data.append(k, v)
+      for (const [k, v] of Object.entries({
+        mta: mtaId,
+        signer_name: 'Walk Signatory',
+        signer_role: 'head_of_institution',
+        authorised_signatory: 'true',
+        accepted_on: new Date().toLocaleDateString('sv'),
+      }))
+        data.append(k, v)
       data.append('file', new Blob(['%PDF-1.4\n% walkthrough\n'], { type: 'application/pdf' }), 'signed.pdf')
       const response = await fetch(url, { method: 'POST', headers: { 'X-CSRFToken': decodeURIComponent(token) }, body: data })
       return response.status

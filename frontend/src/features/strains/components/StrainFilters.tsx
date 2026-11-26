@@ -2,15 +2,7 @@ import { type ReactNode, useRef, useState } from 'react'
 import { Box, Button, CheckboxField, SelectField, Stack, TextField } from '@/components/ui'
 import { COUNTRY_CODES, countryOptions } from '@/lib/countries'
 import { useTaxon } from '../api/queries'
-import {
-  options,
-  RESTRICTION_KINDS,
-  RESTRICTION_LABELS,
-  RISK_GROUPS,
-  STATUS_LABELS,
-  type StrainFilters as Filters,
-  type StrainStatus,
-} from '../schemas'
+import { options, RESTRICTION_KINDS, RESTRICTION_LABELS, RISK_GROUPS, STATUS_LABELS, type StrainFilters as Filters, type StrainStatus } from '../schemas'
 import { TaxonField } from './TaxonField'
 
 type Props = {
@@ -146,7 +138,14 @@ export function StrainFilters({ filters, onChange, renderDepositor }: Props) {
         <TextField ref={textField} label="Number or name" type="search" autoComplete="off" value={text} onChange={(event) => setText(event.target.value)} />
         <TaxonFilter taxonId={filters.taxon} set={set} />
         <ClassSelects filters={filters} set={set} />
-        <TextField label="Isolation source" hint="For example soil or river water" type="search" autoComplete="off" value={source} onChange={(event) => setSource(event.target.value)} />
+        <TextField
+          label="Isolation source"
+          hint="For example soil or river water"
+          type="search"
+          autoComplete="off"
+          value={source}
+          onChange={(event) => setSource(event.target.value)}
+        />
         <SelectField
           sx={{ minWidth: { md: 180 } }}
           label="Country of origin"

@@ -16,7 +16,12 @@ export const DEBOUNCE_MS = 250
 export const normalise = (text: string) => text.split(/\s+/).filter(Boolean).join(' ')
 
 export const KIND_TITLES: Record<Kind, string> = { strain: 'Strains', vial: 'Vials', deposit: 'Deposits', request: 'Requests' }
-const KIND_NOUNS: Record<Kind, [string, string]> = { strain: ['strain', 'strains'], vial: ['vial', 'vials'], deposit: ['deposit', 'deposits'], request: ['request', 'requests'] }
+const KIND_NOUNS: Record<Kind, [string, string]> = {
+  strain: ['strain', 'strains'],
+  vial: ['vial', 'vials'],
+  deposit: ['deposit', 'deposits'],
+  request: ['request', 'requests'],
+}
 
 /**
  * Each kind's status words, as its own pages say them. The search feature may not import those
@@ -68,7 +73,8 @@ export function detailOf(kind: Kind, hit: SearchHit): string {
 }
 
 /** The whole option as one sentence (a name assembled from parts reads with stray commas). */
-export const optionName = (kind: Kind, hit: SearchHit) => `${identifierOf(kind, hit)}, ${hit.lab_code}, ${statusLabel(kind, hit.status)}. ${detailOf(kind, hit)}`
+export const optionName = (kind: Kind, hit: SearchHit) =>
+  `${identifierOf(kind, hit)}, ${hit.lab_code}, ${statusLabel(kind, hit.status)}. ${detailOf(kind, hit)}`
 
 /** Where a hit opens: a strain, a vial on its strain's Material tab, a deposit, a request. */
 export type Target =
@@ -81,7 +87,10 @@ export type Target =
 export function targetOf(kind: Kind, hit: SearchHit): Target | null {
   const labId = hit.lab
   if (kind === 'strain') return { to: '/labs/$labId/strains/$strainId', params: { labId, strainId: hit.public_id } }
-  if (kind === 'vial') return hit.strain === null ? null : { to: '/labs/$labId/strains/$strainId/material', params: { labId, strainId: hit.strain }, search: { vial: hit.public_id } }
+  if (kind === 'vial')
+    return hit.strain === null
+      ? null
+      : { to: '/labs/$labId/strains/$strainId/material', params: { labId, strainId: hit.strain }, search: { vial: hit.public_id } }
   if (kind === 'deposit') return { to: '/labs/$labId/deposits/$depositId', params: { labId, depositId: hit.public_id } }
   void (kind satisfies 'request')
   return { to: '/labs/$labId/requests/$requestId', params: { labId, requestId: hit.public_id } }
@@ -101,14 +110,27 @@ export type Entry =
  */
 export function entriesOf(groups: readonly SearchGroup[], text: string): { group: SearchGroup; entries: Entry[] }[] {
   return groups.map((group) => {
-    const entries: Entry[] = group.hits.map((hit) => ({ type: 'hit', id: `${group.kind}-${hit.public_id}`, kind: group.kind, hit, name: optionName(group.kind, hit), target: targetOf(group.kind, hit) }))
+    const entries: Entry[] = group.hits.map((hit) => ({
+      type: 'hit',
+      id: `${group.kind}-${hit.public_id}`,
+      kind: group.kind,
+      hit,
+      name: optionName(group.kind, hit),
+      target: targetOf(group.kind, hit),
+    }))
     if (group.kind !== 'vial') {
       const to = LISTS[group.kind]
       for (const lab of group.labs) {
         const shown = group.hits.filter((hit) => hit.lab === lab.lab).length
         if (lab.total <= shown) continue
         const [, plural] = KIND_NOUNS[group.kind]
-        entries.push({ type: 'all', id: `${group.kind}-all-${lab.lab}`, kind: group.kind, name: `All ${lab.total} ${plural} in ${lab.lab_code}`, target: { to, params: { labId: lab.lab }, search: { search: text } } })
+        entries.push({
+          type: 'all',
+          id: `${group.kind}-all-${lab.lab}`,
+          kind: group.kind,
+          name: `All ${lab.total} ${plural} in ${lab.lab_code}`,
+          target: { to, params: { labId: lab.lab }, search: { search: text } },
+        })
       }
     }
     return { group, entries }

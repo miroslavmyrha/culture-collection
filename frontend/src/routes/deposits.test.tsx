@@ -10,7 +10,7 @@ const signedIn = () => mockApi('get', '/api/v1/auth/me/', makeMe())
 // The MTA templates are read by curators and managers only (#65): the loaders ask for them only
 // when the caller's role may read them, so a viewer's page sends no request the API would refuse.
 describe.each([`/labs/${LAB_ID}/mta-templates`, `/labs/${LAB_ID}/deposits/new`])('%s', (path) => {
-  it('asks a viewer\'s browser for no MTA template', async () => {
+  it("asks a viewer's browser for no MTA template", async () => {
     signedIn()
     mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: 'viewer' }))
     const templates = mockApi('get', '/api/v1/labs/{lab_public_id}/mta-templates/', page([]))

@@ -20,7 +20,12 @@ const a = makeVial({ public_id: '00000000-0000-4000-8000-0000000000f1', label: '
 const b = makeVial({ public_id: '00000000-0000-4000-8000-0000000000f2', label: 'MYC 42 / 2 / 2' })
 const c = makeVial({ public_id: '00000000-0000-4000-8000-0000000000f3', label: 'MYC 42 / 2 / 3' })
 /** Box 1, 3 x 3: A1 holds a vial of MYC 42, A3 one of a regulated strain (no vial sent). */
-const grid = makeBoxGrid({ public_id: ONE.public_id, rows: 3, cols: 3, positions: [makePosition('A1', makeBoxVial({ label: 'MYC 42 / 1 / 1' })), makePosition('A3', 'masked')] })
+const grid = makeBoxGrid({
+  public_id: ONE.public_id,
+  rows: 3,
+  cols: 3,
+  positions: [makePosition('A1', makeBoxVial({ label: 'MYC 42 / 1 / 1' })), makePosition('A3', 'masked')],
+})
 
 const placed = (vials: readonly Vial[], masked = false) => ({ vials: vials.map((v) => ({ ...v, placed: true, location_masked: masked })) })
 
@@ -33,7 +38,10 @@ async function render(vials: readonly Vial[] = [a, b, c], { boxes = [ONE, TWO] a
 
 const dialog = () => screen.getByRole('dialog', { name: /^Place \d+ vials? in a box$/ })
 const positions = () => screen.getByRole('grid', { name: 'Free positions of Freezer A / Rack 1 / Box 1' })
-const plan = () => within(screen.getByRole('list', { name: 'Where each vial goes' })).getAllByRole('listitem').map((li) => li.textContent)
+const plan = () =>
+  within(screen.getByRole('list', { name: 'Where each vial goes' }))
+    .getAllByRole('listitem')
+    .map((li) => li.textContent)
 
 async function chooseBoxOne(user: ReturnType<typeof userEvent.setup>) {
   await user.selectOptions(await within(dialog()).findByRole('combobox', { name: 'Box' }), ONE.public_id)
@@ -50,7 +58,11 @@ describe('PlaceVialsDialog', () => {
     const user = userEvent.setup()
     // Each box says how many positions it has free before it is chosen (#80, walkthrough T3).
     const boxes = await within(dialog()).findByRole('combobox', { name: 'Box' })
-    expect(within(boxes).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Freezer A / Rack 1 / Box 1, 7 free', 'Freezer A / Rack 1 / Box 2, 9 free'])
+    expect(
+      within(boxes)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Choose', 'Freezer A / Rack 1 / Box 1, 7 free', 'Freezer A / Rack 1 / Box 2, 9 free'])
     await chooseBoxOne(user)
     expect(screen.getByText('7 of 9 positions free.')).toBeInTheDocument()
     // Taken says only taken, a regulated vial's place too.
@@ -94,7 +106,12 @@ describe('PlaceVialsDialog', () => {
   it('names the vial a refusal is about, from the index the server sends, and shows the position as taken', async () => {
     allowConsole(/API error 409/)
     mockApi('get', BOX, grid)
-    mockApiError('post', PLACE, 409, problem(409, { code: 'position_taken', detail: 'x', errors: [{ attr: 'placements.1', code: 'position_taken', detail: 'x' }] }))
+    mockApiError(
+      'post',
+      PLACE,
+      409,
+      problem(409, { code: 'position_taken', detail: 'x', errors: [{ attr: 'placements.1', code: 'position_taken', detail: 'x' }] }),
+    )
     await render()
     const user = userEvent.setup()
     await chooseBoxOne(user)
@@ -110,8 +127,16 @@ describe('PlaceVialsDialog', () => {
   })
 
   it.each([
-    [400, validationProblem([{ attr: 'placements.2.vial', code: 'risk_group_above_cap', detail: 'x' }]), "Vial MYC 42 / 2 / 3: This box may not hold this strain's risk group."],
-    [409, problem(409, { code: 'vial_already_placed', errors: [{ attr: 'placements.0.vial', code: 'vial_already_placed', detail: 'x' }] }), 'Vial MYC 42 / 2 / 1: This vial is in a box already. Move it from its own row.'],
+    [
+      400,
+      validationProblem([{ attr: 'placements.2.vial', code: 'risk_group_above_cap', detail: 'x' }]),
+      "Vial MYC 42 / 2 / 3: This box may not hold this strain's risk group.",
+    ],
+    [
+      409,
+      problem(409, { code: 'vial_already_placed', errors: [{ attr: 'placements.0.vial', code: 'vial_already_placed', detail: 'x' }] }),
+      'Vial MYC 42 / 2 / 1: This vial is in a box already. Move it from its own row.',
+    ],
     [400, problem(400, { code: 'unit_not_active', detail: 'x' }), 'This box or a unit holding it is out of service or retired.'],
   ])('maps a %i refusal to its words (%#)', async (status, body, text) => {
     allowConsole(new RegExp(`API error ${status}`))
@@ -125,9 +150,19 @@ describe('PlaceVialsDialog', () => {
   })
 
   it.each([
-    [400, validationProblem([{ attr: 'placements.2.vial', code: 'risk_group_above_cap', detail: 'x' }]), 'MYC 42 / 2 / 3', "This box may not hold this strain's risk group."],
-    [409, problem(409, { code: 'vial_already_placed', errors: [{ attr: 'placements.0.vial', code: 'vial_already_placed', detail: 'x' }] }), 'MYC 42 / 2 / 1', 'This vial is in a box already. Move it from its own row.'],
-  ])('keeps a %i refusal that is not about the position on its vial\'s line (%#)', async (status, body, label, text) => {
+    [
+      400,
+      validationProblem([{ attr: 'placements.2.vial', code: 'risk_group_above_cap', detail: 'x' }]),
+      'MYC 42 / 2 / 3',
+      "This box may not hold this strain's risk group.",
+    ],
+    [
+      409,
+      problem(409, { code: 'vial_already_placed', errors: [{ attr: 'placements.0.vial', code: 'vial_already_placed', detail: 'x' }] }),
+      'MYC 42 / 2 / 1',
+      'This vial is in a box already. Move it from its own row.',
+    ],
+  ])("keeps a %i refusal that is not about the position on its vial's line (%#)", async (status, body, label, text) => {
     allowConsole(new RegExp(`API error ${status}`))
     mockApi('get', BOX, grid)
     mockApiError('post', PLACE, status, body)

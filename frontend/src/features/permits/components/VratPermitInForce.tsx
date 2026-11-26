@@ -16,9 +16,7 @@ export function VratPermitInForce({ labId }: { labId: string }) {
   if (held.length === 0) return <>None in force on record</>
   return (
     <>
-      {held
-        .map((p) => `${p.issuer_label} ${p.permit_reference}, valid from ${p.valid_from}${p.last_valid_day ? ` until ${p.last_valid_day}` : ''}`)
-        .join('; ')}
+      {held.map((p) => `${p.issuer_label} ${p.permit_reference}, valid from ${p.valid_from}${p.last_valid_day ? ` until ${p.last_valid_day}` : ''}`).join('; ')}
     </>
   )
 }

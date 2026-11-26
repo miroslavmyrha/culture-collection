@@ -2,7 +2,24 @@ import { useRef, useState } from 'react'
 import { LoadError } from '@/components/LoadError'
 import { Pager, PastTheEnd } from '@/components/Pager'
 import { StaleNotice } from '@/components/StaleNotice'
-import { Box, Button, Link, Mono, Paper, SelectField, Stack, StatusChip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@/components/ui'
+import {
+  Box,
+  Button,
+  Link,
+  Mono,
+  Paper,
+  SelectField,
+  Stack,
+  StatusChip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from '@/components/ui'
 import { REQUEST_TONES } from '@/lib/tones'
 import { countryName } from '@/lib/countries'
 import { useFocusReturnOnUnmount } from '@/lib/focus'
@@ -27,9 +44,27 @@ export function RequestList({ labId, params, onOffsetChange, onClearFilters }: P
   const stale = <StaleNotice what="the requests" query={list} />
   const { count, results } = list.data
   const filtered = params.status !== undefined || Boolean(params.search)
-  if (count === 0 && filtered) return <>{stale}<NoMatch onClearFilters={onClearFilters} /></>
-  if (count === 0) return <>{stale}<Typography>No request has been entered yet.</Typography></>
-  if (results.length === 0) return <>{stale}<PastTheEnd onFirstPage={() => onOffsetChange(0)} /></>
+  if (count === 0 && filtered)
+    return (
+      <>
+        {stale}
+        <NoMatch onClearFilters={onClearFilters} />
+      </>
+    )
+  if (count === 0)
+    return (
+      <>
+        {stale}
+        <Typography>No request has been entered yet.</Typography>
+      </>
+    )
+  if (results.length === 0)
+    return (
+      <>
+        {stale}
+        <PastTheEnd onFirstPage={() => onOffsetChange(0)} />
+      </>
+    )
   return (
     <section aria-label="Requests" aria-busy={list.isPlaceholderData}>
       {stale}
@@ -68,7 +103,15 @@ export function RequestList({ labId, params, onOffsetChange, onClearFilters }: P
           </TableBody>
         </Table>
       </TableContainer>
-      <Pager label="Request pages" count={count} shown={results.length} limit={params.limit} offset={params.offset} loading={list.isPlaceholderData} onOffsetChange={onOffsetChange} />
+      <Pager
+        label="Request pages"
+        count={count}
+        shown={results.length}
+        limit={params.limit}
+        offset={params.offset}
+        loading={list.isPlaceholderData}
+        onOffsetChange={onOffsetChange}
+      />
     </section>
   )
 }
@@ -115,7 +158,14 @@ export function RequestFilters({ filters, onChange }: { filters: Filters; onChan
       sx={{ mb: 3 }}
     >
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} useFlexGap sx={{ alignItems: { md: 'flex-start' }, flexWrap: 'wrap' }}>
-        <TextField ref={textField} label="Number, requester or strain" type="search" autoComplete="off" value={text} onChange={(event) => setText(event.target.value)} />
+        <TextField
+          ref={textField}
+          label="Number, requester or strain"
+          type="search"
+          autoComplete="off"
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+        />
         <SelectField
           sx={{ minWidth: { md: 200 } }}
           label="Status"

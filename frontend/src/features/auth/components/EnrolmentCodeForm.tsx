@@ -22,7 +22,9 @@ export function EnrolmentCodeForm({ onAccepted, onRestart }: Props) {
         <Typography component="h2" variant="h6">
           Add a second factor
         </Typography>
-        <Typography>Every account signs in with a second factor. Enter the enrolment code a manager of your lab gave you, then add your security key or app.</Typography>
+        <Typography>
+          Every account signs in with a second factor. Enter the enrolment code a manager of your lab gave you, then add your security key or app.
+        </Typography>
         <TextField label="Enrolment code" autoComplete="off" value={code} onChange={(event) => setCode(event.target.value)} />
         <Button type="submit" variant="contained" aria-disabled={check.isPending}>
           Continue

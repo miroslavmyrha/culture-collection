@@ -78,7 +78,11 @@ describe('who may see regulated locations (ADR 0009)', () => {
 
   it('lets a second manager confirm a proposal with a reason, and then it reveals (#267)', async () => {
     mockApi('get', GRANTS, [{ ...proposal, may_confirm: true }])
-    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/location-grants/{public_id}/confirm/', { ...proposal, confirmed_by: 'carol', confirmed_at: '2026-10-02T09:00:00Z' })
+    const calls = mockApi('post', '/api/v1/labs/{lab_public_id}/location-grants/{public_id}/confirm/', {
+      ...proposal,
+      confirmed_by: 'carol',
+      confirmed_at: '2026-10-02T09:00:00Z',
+    })
     const { user } = await render()
     await waitFor(() => expect(cellOf('bob')).toHaveTextContent('Awaits a second manager'))
     await user.click(screen.getByRole('button', { name: 'Confirm regulated locations for bob' }))
@@ -93,9 +97,14 @@ describe('who may see regulated locations (ADR 0009)', () => {
     expect(screen.getByRole('button', { name: 'Revoke regulated locations for bob' })).toBeInTheDocument()
   })
 
-  it('says in the dialog when the server refuses the confirmation as the proposer\'s own', async () => {
+  it("says in the dialog when the server refuses the confirmation as the proposer's own", async () => {
     mockApi('get', GRANTS, [{ ...proposal, may_confirm: true }])
-    mockApiError('post', '/api/v1/labs/{lab_public_id}/location-grants/{public_id}/confirm/', 422, problem(422, { code: 'confirm_own_proposal', detail: 'server text' }))
+    mockApiError(
+      'post',
+      '/api/v1/labs/{lab_public_id}/location-grants/{public_id}/confirm/',
+      422,
+      problem(422, { code: 'confirm_own_proposal', detail: 'server text' }),
+    )
     const { user } = await render()
     await user.click(await screen.findByRole('button', { name: 'Confirm regulated locations for bob' }))
     const dialog = await screen.findByRole('dialog')

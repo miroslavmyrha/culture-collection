@@ -136,6 +136,8 @@ echo "== frontend"
     || fail "openapi-typescript could not read backend/openapi.yml: run npm ci, then ./sync-api.sh"
   cmp -s src/api/schema.d.ts /tmp/schema.d.ts || fail "TypeScript API types out of date: run ./sync-api.sh"
   # npm run check, with the coverage the code risk score needs (#196).
+  # One format for the frontend (#237): Prettier, print width 160 (.prettierrc.json).
+  npm run format:check || fail "unformatted files: run (cd frontend && npm run format)"
   npm run typecheck || fail "tsc: fix the type errors above"
   npm run lint || fail "oxlint: fix the findings above"
   risk=$(mktemp -d)

@@ -89,8 +89,16 @@ export function ApproveDialog({ labId, request, open, onClose, onExited }: Commo
       onExited={onExited}
     >
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="Approval" spacing={2} sx={{ mt: 2 }}>
-        {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
-        <TextField label={needsManager ? 'Reason' : 'Reason (optional)'} autoFocus hint={REASON_HINT} multiline minRows={2} error={formState.errors.reason?.message} {...register('reason')} />
+        <TextField
+          label={needsManager ? 'Reason' : 'Reason (optional)'}
+          // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
+          autoFocus
+          hint={REASON_HINT}
+          multiline
+          minRows={2}
+          error={formState.errors.reason?.message}
+          {...register('reason')}
+        />
       </Stack>
     </ConfirmDialog>
   )
@@ -128,7 +136,18 @@ function ReasonDialog({
     })
   })
   return (
-    <ConfirmDialog open={open} destructive title={title} description={description} confirmLabel={confirmLabel} form={formId} pending={pending} error={failure} onClose={onClose} onExited={onExited}>
+    <ConfirmDialog
+      open={open}
+      destructive
+      title={title}
+      description={description}
+      confirmLabel={confirmLabel}
+      form={formId}
+      pending={pending}
+      error={failure}
+      onClose={onClose}
+      onExited={onExited}
+    >
       <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label={label} spacing={2} sx={{ mt: 2 }}>
         <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} error={formState.errors.reason?.message} {...register('reason')} />
       </Stack>
@@ -215,7 +234,12 @@ function AcceptanceFields({ register, errors, mtas }: AcceptanceFieldsProps) {
       />
       <TextField label="Signed by" autoComplete="off" error={errors.signer_name?.message} {...register('signer_name')} />
       <TextField label="Signer's e-mail" type="email" autoComplete="off" error={errors.signer_email?.message} {...register('signer_email')} />
-      <SelectField label="Signer's role" options={[{ value: '', label: 'Choose' }, ...options(SIGNER_ROLE_LABELS, SIGNER_ROLES)]} error={errors.signer_role?.message} {...register('signer_role')} />
+      <SelectField
+        label="Signer's role"
+        options={[{ value: '', label: 'Choose' }, ...options(SIGNER_ROLE_LABELS, SIGNER_ROLES)]}
+        error={errors.signer_role?.message}
+        {...register('signer_role')}
+      />
       <CheckboxField label="The signer may bind the institution" {...register('authorised_signatory')} />
       <TextField label="Accepted on" hint="YYYY-MM-DD" autoComplete="off" error={errors.accepted_on?.message} {...register('accepted_on')} />
       <FileField label="Signed copy" error={errors.file?.message} {...register('file')} />
@@ -288,12 +312,28 @@ function AnswerFields({ register, errors, lines }: AnswerFieldsProps) {
     <>
       <SelectField
         label="Strain"
-        options={[{ value: '', label: 'Choose' }, ...lines.map((l) => ({ value: l.public_id, label: `${l.strain.accession_number ?? ''}, ${l.strain.taxon}` }))]}
+        options={[
+          { value: '', label: 'Choose' },
+          ...lines.map((l) => ({ value: l.public_id, label: `${l.strain.accession_number ?? ''}, ${l.strain.taxon}` })),
+        ]}
         error={errors.line?.message}
         {...register('line')}
       />
-      <TextField label="Answered on" hint="YYYY-MM-DD, the day the depositor gave the answer" autoComplete="off" error={errors.answered_on?.message} {...register('answered_on')} />
-      <TextField label="Note" hint="What the depositor said, and how. Stored for good: name no person." multiline minRows={2} error={errors.note?.message} {...register('note')} />
+      <TextField
+        label="Answered on"
+        hint="YYYY-MM-DD, the day the depositor gave the answer"
+        autoComplete="off"
+        error={errors.answered_on?.message}
+        {...register('answered_on')}
+      />
+      <TextField
+        label="Note"
+        hint="What the depositor said, and how. Stored for good: name no person."
+        multiline
+        minRows={2}
+        error={errors.note?.message}
+        {...register('note')}
+      />
       <FileField label="Depositor’s letter or e-mail" error={errors.file?.message} {...register('file')} />
     </>
   )
@@ -304,7 +344,8 @@ type AnswerText = { title: (number: string) => string; description: (use: string
 const ANSWER_TEXT: Record<'yes' | 'no', AnswerText> = {
   yes: {
     title: () => 'Record the depositor’s yes',
-    description: (use: string) => `The depositor agreed to ${use}: the strain may go out for it once nothing else stands in the way. The answer is kept for good and cannot be changed.`,
+    description: (use: string) =>
+      `The depositor agreed to ${use}: the strain may go out for it once nothing else stands in the way. The answer is kept for good and cannot be changed.`,
     confirmLabel: 'Record the yes',
   },
   no: {
@@ -361,7 +402,12 @@ export function DepositorAnswerDialog({ labId, request, lines, agreed, open, onC
 
 /** A file input with its label and error wired like the other fields. PDF, PNG or JPEG.
  * Spread register('file') on it: react-hook-form reads its FileList and focuses it. */
-export function FileField({ label, error, ref, ...props }: { label: string; error?: string | undefined; ref?: React.Ref<HTMLInputElement> } & UseFormRegisterReturn) {
+export function FileField({
+  label,
+  error,
+  ref,
+  ...props
+}: { label: string; error?: string | undefined; ref?: React.Ref<HTMLInputElement> } & UseFormRegisterReturn) {
   const id = useId()
   const hint = `${id}-hint`
   return (
@@ -369,7 +415,15 @@ export function FileField({ label, error, ref, ...props }: { label: string; erro
       <Typography component="label" htmlFor={id}>
         {label}
       </Typography>
-      <input {...props} id={id} ref={ref} type="file" accept="application/pdf,image/png,image/jpeg" aria-describedby={hint} aria-invalid={error !== undefined} />
+      <input
+        {...props}
+        id={id}
+        ref={ref}
+        type="file"
+        accept="application/pdf,image/png,image/jpeg"
+        aria-describedby={hint}
+        aria-invalid={error !== undefined}
+      />
       <Typography id={hint} variant="body2" color={error ? 'error' : 'text.secondary'}>
         {['PDF, PNG or JPEG, at most 10 MB.', error].filter(Boolean).join(' ')}
       </Typography>
@@ -472,7 +526,14 @@ function ClassificationFields({ register, transportClass, errors, bases }: ShipF
         error={errors.classification_basis?.message}
         {...register('classification_basis')}
       />
-      <TextField label="What the classification rests on" hint={`${REASON_HINT} Required for a professional judgement.`} multiline minRows={2} error={errors.basis_note?.message} {...register('basis_note')} />
+      <TextField
+        label="What the classification rests on"
+        hint={`${REASON_HINT} Required for a professional judgement.`}
+        multiline
+        minRows={2}
+        error={errors.basis_note?.message}
+        {...register('basis_note')}
+      />
     </>
   )
 }
@@ -481,11 +542,40 @@ function ClassificationFields({ register, transportClass, errors, bases }: ShipF
 function PackageFields({ register, errors }: Pick<ShipFieldsProps, 'register' | 'errors'>) {
   return (
     <>
-      <SelectField label="Packing" options={options(PACKING_LABELS, PACKING_INSTRUCTIONS)} error={errors.packing_instruction?.message} {...register('packing_instruction')} />
-      <SelectField label="Coolant" options={[{ value: '', label: 'None' }, ...options(COOLANT_LABELS, COOLANTS)]} error={errors.coolant?.message} {...register('coolant')} />
-      <TextField label="Coolant in kg" hint="Required for dry ice: it is marked on the package." autoComplete="off" inputMode="decimal" error={errors.coolant_kg?.message} {...register('coolant_kg')} />
-      <TextField label="Responsible person" hint="Answers the phone about the package at all times." autoComplete="off" error={errors.responsible_name?.message} {...register('responsible_name')} />
-      <TextField label="Phone of the responsible person" type="tel" autoComplete="off" error={errors.responsible_phone?.message} {...register('responsible_phone')} />
+      <SelectField
+        label="Packing"
+        options={options(PACKING_LABELS, PACKING_INSTRUCTIONS)}
+        error={errors.packing_instruction?.message}
+        {...register('packing_instruction')}
+      />
+      <SelectField
+        label="Coolant"
+        options={[{ value: '', label: 'None' }, ...options(COOLANT_LABELS, COOLANTS)]}
+        error={errors.coolant?.message}
+        {...register('coolant')}
+      />
+      <TextField
+        label="Coolant in kg"
+        hint="Required for dry ice: it is marked on the package."
+        autoComplete="off"
+        inputMode="decimal"
+        error={errors.coolant_kg?.message}
+        {...register('coolant_kg')}
+      />
+      <TextField
+        label="Responsible person"
+        hint="Answers the phone about the package at all times."
+        autoComplete="off"
+        error={errors.responsible_name?.message}
+        {...register('responsible_name')}
+      />
+      <TextField
+        label="Phone of the responsible person"
+        type="tel"
+        autoComplete="off"
+        error={errors.responsible_phone?.message}
+        {...register('responsible_phone')}
+      />
       <TextField label="Carrier" autoComplete="off" error={errors.carrier?.message} {...register('carrier')} />
       <TextField label="Tracking number" autoComplete="off" error={errors.tracking_number?.message} {...register('tracking_number')} />
     </>
@@ -506,7 +596,10 @@ export function ShipDialog({ labId, request, open, onClose, onExited, prepare = 
   const text = SHIP_TEXT[prepare ? 'prepare' : 'ship']
   const formId = useId()
   const [failure, setFailure] = useState<string>()
-  const { register, handleSubmit, formState, setError, setValue, control } = useForm<ShipForm, unknown, ShipValues>({ resolver: zodResolver(shipSchema), defaultValues: SHIP_DEFAULTS })
+  const { register, handleSubmit, formState, setError, setValue, control } = useForm<ShipForm, unknown, ShipValues>({
+    resolver: zodResolver(shipSchema),
+    defaultValues: SHIP_DEFAULTS,
+  })
   const chosen = useWatch({ control, name: 'transport_class' })
   const bases = isTransportClass(chosen) ? BASES[chosen] : []
   const transportClass = register('transport_class', {
@@ -545,7 +638,15 @@ export function ShipDialog({ labId, request, open, onClose, onExited, prepare = 
  * that will be recorded, and the vials leave. The server refuses the approver and the
  * preparer, and a preparation other than the one shown.
  */
-export function ConfirmShipmentDialog({ labId, request, preparation, open, onClose, onExited, children }: Common & { preparation: Preparation; children: React.ReactNode }) {
+export function ConfirmShipmentDialog({
+  labId,
+  request,
+  preparation,
+  open,
+  onClose,
+  onExited,
+  children,
+}: Common & { preparation: Preparation; children: React.ReactNode }) {
   const confirm = useConfirmShipment(labId, request.public_id)
   const [failure, setFailure] = useState<string>()
   const vials = request.lines.reduce((sum, line) => sum + line.reserved.length, 0)
@@ -557,7 +658,8 @@ export function ConfirmShipmentDialog({ labId, request, preparation, open, onClo
       {
         onSuccess: onClose,
         // A risk group raised since the preparation: the culture is no longer exempt (not_exempt).
-        onError: (error) => setFailure(stateError(error) ?? (isApiError(error, 400) ? readProblem(error.body)?.errors?.[0]?.detail : undefined) ?? errorMessage(error)),
+        onError: (error) =>
+          setFailure(stateError(error) ?? (isApiError(error, 400) ? readProblem(error.body)?.errors?.[0]?.detail : undefined) ?? errorMessage(error)),
       },
     )
   }

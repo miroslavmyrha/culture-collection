@@ -33,14 +33,24 @@ function Lines({ labId, query, page, onOffsetChange }: LinesProps) {
   }
   const { count, results } = query.data
   const stale = <StaleNotice what="the history" query={query} />
-  if (count === 0) return <>{stale}<Typography>Nothing you may read has happened to the strain yet.</Typography></>
-  if (results.length === 0) return <>{stale}<PastTheEnd onFirstPage={() => onOffsetChange(0)} /></>
+  if (count === 0)
+    return (
+      <>
+        {stale}
+        <Typography>Nothing you may read has happened to the strain yet.</Typography>
+      </>
+    )
+  if (results.length === 0)
+    return (
+      <>
+        {stale}
+        <PastTheEnd onFirstPage={() => onOffsetChange(0)} />
+      </>
+    )
   return (
     <>
       {stale}
-      <Typography>
-        {count === 1 ? 'One event.' : `${count} events, newest first.`}
-      </Typography>
+      <Typography>{count === 1 ? 'One event.' : `${count} events, newest first.`}</Typography>
       <Paper variant="outlined">
         <Box component="ol" aria-label="History, newest first" sx={{ listStyle: 'none', m: 0, p: 0 }}>
           {keyed(results).map(([key, line]) => (
@@ -48,7 +58,15 @@ function Lines({ labId, query, page, onOffsetChange }: LinesProps) {
           ))}
         </Box>
       </Paper>
-      <Pager label="Pages of the history" count={count} shown={results.length} limit={page.limit} offset={page.offset} loading={query.isPlaceholderData} onOffsetChange={onOffsetChange} />
+      <Pager
+        label="Pages of the history"
+        count={count}
+        shown={results.length}
+        limit={page.limit}
+        offset={page.offset}
+        loading={query.isPlaceholderData}
+        onOffsetChange={onOffsetChange}
+      />
     </>
   )
 }
@@ -66,8 +84,17 @@ function keyed(lines: HistoryLine[]): [string, HistoryLine][] {
 
 function Line({ labId, line }: { labId: string; line: HistoryLine }) {
   return (
-    <Box component="li" sx={{ px: 2, py: 0.75, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 1, '& + &': { borderTop: 1, borderColor: 'divider' } }}>
-      <Typography component="time" variant="body2" color="text.secondary" dateTime={line.occurred_at} sx={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+    <Box
+      component="li"
+      sx={{ px: 2, py: 0.75, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 1, '& + &': { borderTop: 1, borderColor: 'divider' } }}
+    >
+      <Typography
+        component="time"
+        variant="body2"
+        color="text.secondary"
+        dateTime={line.occurred_at}
+        sx={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}
+      >
         {moment(line.occurred_at)}
       </Typography>
       <Typography component="span" variant="body2" sx={{ overflowWrap: 'anywhere' }}>

@@ -20,10 +20,7 @@ type Register = UseFormRegister<Values>
 type Errors = FieldErrors<Values>
 
 const PATHOGENICITY = options(PATHOGENICITY_LABELS, ['unknown', 'none_known', 'pathogenic'])
-const RISK_GROUP_OPTIONS = [
-  { value: '', label: 'Choose' },
-  ...['1', '2', '3', '4'].map((value) => ({ value, label: value })),
-]
+const RISK_GROUP_OPTIONS = [{ value: '', label: 'Choose' }, ...['1', '2', '3', '4'].map((value) => ({ value, label: value }))]
 const KIND_OPTIONS = options(RESTRICTION_LABELS, RESTRICTION_KINDS)
 const CATEGORY_OPTIONS = [{ value: '', label: 'Choose' }, ...GMO_CATEGORIES.map((value) => ({ value: String(value), label: GMO_CATEGORY_LABELS[value] ?? '' }))]
 
@@ -158,7 +155,10 @@ export function RestrictionFields({ rows, kinds, addButton, onRemoved, register,
       {errors.restrictions?.message && <Typography color="error">{errors.restrictions.message}</Typography>}
       <Box>
         {/* aria-disabled and a guard: at ten rows a disabled button would drop the focus. */}
-        <Button ref={addButton} aria-disabled={rows.fields.length >= 10} onClick={() => {
+        <Button
+          ref={addButton}
+          aria-disabled={rows.fields.length >= 10}
+          onClick={() => {
             if (rows.fields.length < 10) rows.append({ ...emptyRestriction })
           }}
         >

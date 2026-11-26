@@ -93,7 +93,13 @@ function LabMenu({ anchor, ids, labs, failed, labId, onPick, onAll, onClose }: L
   return (
     <Menu anchorEl={anchor} open={anchor !== null} onClose={onClose} slotProps={{ list: { id: ids.menu, 'aria-labelledby': ids.button, dense: true } }}>
       {labs?.map((lab) => (
-        <MenuItem key={lab.public_id} role="menuitemradio" aria-checked={lab.public_id === labId} selected={lab.public_id === labId} onClick={() => onPick(lab.public_id)}>
+        <MenuItem
+          key={lab.public_id}
+          role="menuitemradio"
+          aria-checked={lab.public_id === labId}
+          selected={lab.public_id === labId}
+          onClick={() => onPick(lab.public_id)}
+        >
           {lab.name}
         </MenuItem>
       ))}

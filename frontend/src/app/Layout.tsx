@@ -51,13 +51,34 @@ export function Layout({ children }: { children: ReactNode }) {
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <SkipLink target={MAIN_ID} />
       {/* Not printed: a printed page (a shipment's document) shows only what it is about. */}
-      <AppBar position="static" color="default" elevation={0} sx={{ displayPrint: 'none', bgcolor: 'background.paper', color: 'text.primary', borderBottom: 1, borderColor: 'divider' }}>
+      <AppBar
+        position="static"
+        color="default"
+        elevation={0}
+        sx={{ displayPrint: 'none', bgcolor: 'background.paper', color: 'text.primary', borderBottom: 1, borderColor: 'divider' }}
+      >
         <Toolbar disableGutters sx={{ gap: 1.5, py: 0.75, px: { xs: 1, sm: 2 }, minHeight: 48, flexWrap: 'wrap' }}>
-          <Link to="/" aria-label="Culture Collection" underline="none" color="text.primary" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 600 }}>
+          <Link
+            to="/"
+            aria-label="Culture Collection"
+            underline="none"
+            color="text.primary"
+            sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 600 }}
+          >
             <Box
               component="span"
               aria-hidden
-              sx={{ display: 'grid', placeItems: 'center', width: 28, height: 28, borderRadius: 1, bgcolor: 'primary.main', color: 'primary.contrastText', fontSize: '0.8rem', fontWeight: 700 }}
+              sx={{
+                display: 'grid',
+                placeItems: 'center',
+                width: 28,
+                height: 28,
+                borderRadius: 1,
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+              }}
             >
               CC
             </Box>

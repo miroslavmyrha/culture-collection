@@ -16,7 +16,11 @@ describe('the entries of the search results', () => {
       ],
     })
     const [section] = entriesOf([group], 'Bacillus')
-    expect(section?.entries.map((entry) => entry.name)).toEqual([expect.stringMatching(/^BAC \d+, BAC, Active\./), expect.stringMatching(/^BAC \d+, MYC, Active\./), 'All 3 strains in MYC'])
+    expect(section?.entries.map((entry) => entry.name)).toEqual([
+      expect.stringMatching(/^BAC \d+, BAC, Active\./),
+      expect.stringMatching(/^BAC \d+, MYC, Active\./),
+      'All 3 strains in MYC',
+    ])
     const all = section?.entries[2]
     expect(all?.target).toEqual({ to: '/labs/$labId/strains', params: { labId: OTHER }, search: { search: 'Bacillus' } })
   })

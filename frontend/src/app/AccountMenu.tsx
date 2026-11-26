@@ -53,7 +53,7 @@ export function AccountMenu({ username, pending, onSignOut, ref }: Props) {
           }
         }}
         // A long username is cut off with an ellipsis here; the accessible name keeps all of it.
-        sx={{ minWidth: 0, maxWidth: '100%', }}
+        sx={{ minWidth: 0, maxWidth: '100%' }}
       >
         <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {username}

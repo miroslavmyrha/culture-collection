@@ -9,7 +9,8 @@ export type OnShow = (kind: Kind) => (event: MouseEvent<HTMLButtonElement>) => v
 
 type Props = { request: Request; role: Role; onShow: OnShow }
 
-const approvalText = (request: Request) => `Approved by ${request.decided_by ?? ''} on ${day(request.decided_at ?? request.created_at)}${reason(request.decision_reason)}`
+const approvalText = (request: Request) =>
+  `Approved by ${request.decided_by ?? ''} on ${day(request.decided_at ?? request.created_at)}${reason(request.decision_reason)}`
 
 /**
  * What the approval of a submitted request waits for. A finding that blocks stops it for everyone,
@@ -36,11 +37,21 @@ export function Decision({ request, role, onShow }: Props) {
 }
 
 function Rejected({ request }: { request: Request }) {
-  return <Typography sx={{ overflowWrap: 'anywhere' }}>Rejected by {request.decided_by} on {day(request.decided_at ?? request.created_at)}{reason(request.decision_reason)}</Typography>
+  return (
+    <Typography sx={{ overflowWrap: 'anywhere' }}>
+      Rejected by {request.decided_by} on {day(request.decided_at ?? request.created_at)}
+      {reason(request.decision_reason)}
+    </Typography>
+  )
 }
 
 function Cancelled({ request }: { request: Request }) {
-  return <Typography sx={{ overflowWrap: 'anywhere' }}>Cancelled by {request.cancelled_by} on {day(request.cancelled_at ?? request.created_at)}{reason(request.cancel_reason)}</Typography>
+  return (
+    <Typography sx={{ overflowWrap: 'anywhere' }}>
+      Cancelled by {request.cancelled_by} on {day(request.cancelled_at ?? request.created_at)}
+      {reason(request.cancel_reason)}
+    </Typography>
+  )
 }
 
 function shipText(request: Request) {
@@ -61,10 +72,13 @@ function Prepared({ request, prepared, manage, onShow }: { request: Request; pre
   return (
     <KeepsFocus>
       <Typography sx={{ overflowWrap: 'anywhere' }}>
-        {approvalText(request)} The shipment was prepared by {prepared.prepared_by} on {day(prepared.prepared_at)} and waits for a second person to confirm it. The vials stay reserved until then.
+        {approvalText(request)} The shipment was prepared by {prepared.prepared_by} on {day(prepared.prepared_at)} and waits for a second person to confirm it.
+        The vials stay reserved until then.
       </Typography>
       {manage && prepared.confirm_refusal && <Alert severity="info">{CONFIRM_REFUSALS[prepared.confirm_refusal]}</Alert>}
-      {manage && sinceApproval(request) && <Alert severity="info">A finding since the approval needs a manager: withdraw the prepared shipment, and a manager approves the request again.</Alert>}
+      {manage && sinceApproval(request) && (
+        <Alert severity="info">A finding since the approval needs a manager: withdraw the prepared shipment, and a manager approves the request again.</Alert>
+      )}
       {manage && (
         <ButtonRow>
           {!prepared.confirm_refusal && !sinceApproval(request) && (
@@ -120,7 +134,11 @@ function ApproveAgainFirst({ request, role, onShow }: Props) {
       <Typography sx={{ overflowWrap: 'anywhere' }}>{approvalText(request)} The vials stay reserved until the shipment or a cancellation.</Typography>
       {canManage(role) && (
         <>
-          <Alert severity="info">{manager ? 'A finding since the approval needs a manager: approve the request again before it ships.' : 'A finding since the approval needs a manager: a manager approves the request again before it ships.'}</Alert>
+          <Alert severity="info">
+            {manager
+              ? 'A finding since the approval needs a manager: approve the request again before it ships.'
+              : 'A finding since the approval needs a manager: a manager approves the request again before it ships.'}
+          </Alert>
           <ButtonRow>
             {manager && (
               <Button variant="contained" onClick={onShow('again')}>

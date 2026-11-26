@@ -58,6 +58,20 @@ The rules about regulated material (VRAT, RAT, dual-use, quarantine pests, GMOs,
 each with the law it rests on, the code and the tests, the legal duties not enforced yet and the
 questions still open with the authorities: [docs/compliance.md](docs/compliance.md).
 
+## Importing a former catalogue
+A manager moves a lab's existing catalogue in from Strains, Import a catalogue (#70):
+- download the template (CSV UTF-8, one row per strain, at most 2000 rows and 2 MB);
+- check the file: every row is tried through the services and rolled back, and every error is
+  listed by line and column;
+- import the file that was checked, with a reason: all rows or none, one audit event with the
+  file's SHA-256.
+
+Each row is a deposit from a depositor already in the lab, received, checked and accepted, so
+passage 0 comes from it. The taxon, the MTA and the list entries must exist too. A number of the
+form `<lab code> <number>` is kept and the counter moves past it. Any other number is kept as
+the former number, which strain search finds, and the strain gets the next number. Missing terms
+are the safe ones: every use on request, ABS scope unknown. The rule: R-KIND-12.
+
 ## Check
 ```bash
 tools/install-hooks.sh   # once per clone: secrets + ./check.sh, commit message and branch name checks

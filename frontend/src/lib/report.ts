@@ -18,8 +18,7 @@ export function setReporter(next: Reporter): () => void {
   }
 }
 
-export const isAbortError = (error: unknown) =>
-  (error instanceof DOMException || error instanceof Error) && error.name === 'AbortError'
+export const isAbortError = (error: unknown) => (error instanceof DOMException || error instanceof Error) && error.name === 'AbortError'
 
 export function reportError(error: unknown, context: Record<string, string> = {}): void {
   if (isAbortError(error)) return

@@ -44,7 +44,14 @@ export function ProposedDeaccession({ proposal, canManage, canConfirm, onSettle 
   const own = proposal.confirm_refusal === 'confirm_own_deaccession'
   return (
     <Section title="Proposed deaccession">
-      <Facts rows={[['Proposed', day(proposal.proposed_at)], ['Cause', CAUSE_LABELS[proposal.cause]], ['Reason', proposal.reason], ...finalUseRows(proposal.final_use)]} />
+      <Facts
+        rows={[
+          ['Proposed', day(proposal.proposed_at)],
+          ['Cause', CAUSE_LABELS[proposal.cause]],
+          ['Reason', proposal.reason],
+          ...finalUseRows(proposal.final_use),
+        ]}
+      />
       <Typography color="text.secondary">{waitingText(own, canConfirm)}</Typography>
       <SettleButtons proposal={proposal} own={own} canManage={canManage} canConfirm={canConfirm} confirmLabel="Confirm deaccession" onSettle={onSettle} />
     </Section>
@@ -66,7 +73,14 @@ export function ProposedRiskGroup({ proposal, canManage, canConfirm, onSettle }:
       />
       <Typography color="text.secondary">{waitingText(own, canConfirm)}</Typography>
       <Typography>Until then every rule reads the risk group the strain has now.</Typography>
-      <SettleButtons proposal={proposal} own={own} canManage={canManage} canConfirm={canConfirm} confirmLabel="Confirm the lower risk group" onSettle={onSettle} />
+      <SettleButtons
+        proposal={proposal}
+        own={own}
+        canManage={canManage}
+        canConfirm={canConfirm}
+        confirmLabel="Confirm the lower risk group"
+        onSettle={onSettle}
+      />
     </Section>
   )
 }

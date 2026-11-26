@@ -6,7 +6,13 @@ import { useStartCheck } from '../api/mutations'
 import type { Deposit } from '../schemas'
 import { day } from './DepositParts'
 
-type Props = { deposit: Deposit; labId: string; canManage: boolean; renderAccept: (deposit: Deposit) => ReactNode; onReject: (event: MouseEvent<HTMLButtonElement>) => void }
+type Props = {
+  deposit: Deposit
+  labId: string
+  canManage: boolean
+  renderAccept: (deposit: Deposit) => ReactNode
+  onReject: (event: MouseEvent<HTMLButtonElement>) => void
+}
 
 /** What a person without the manager role is told while the intake waits on someone else. */
 const WAITING_TEXT = { received: 'The check has not started.', other: 'The deposit is being checked.' }

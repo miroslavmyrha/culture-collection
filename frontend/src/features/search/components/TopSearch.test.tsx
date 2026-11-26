@@ -15,7 +15,10 @@ const strains = () =>
   makeSearchGroup({
     kind: 'strain',
     total: 12,
-    hits: [makeSearchHit({ public_id: STRAIN, identifier: 'BAC 2', exact: true, detail: 'Received as hay isolate' }), makeSearchHit({ identifier: 'BAC 20', title: 'Micrococcus luteus' })],
+    hits: [
+      makeSearchHit({ public_id: STRAIN, identifier: 'BAC 2', exact: true, detail: 'Received as hay isolate' }),
+      makeSearchHit({ identifier: 'BAC 20', title: 'Micrococcus luteus' }),
+    ],
   })
 const vials = () =>
   makeSearchGroup({
@@ -27,14 +30,32 @@ const vials = () =>
         status: 'available',
         exact: true,
         strain: STRAIN,
-        location: { box: '00000000-0000-4000-8000-0000000000b1', box_name: 'Seed stock 1', path: ['LN2 tank 1', 'Canister A', 'Seed stock 1'], row: 1, col: 3, label: 'A3' },
+        location: {
+          box: '00000000-0000-4000-8000-0000000000b1',
+          box_name: 'Seed stock 1',
+          path: ['LN2 tank 1', 'Canister A', 'Seed stock 1'],
+          row: 1,
+          col: 3,
+          label: 'A3',
+        },
       }),
     ],
   })
 const masked = () =>
   makeSearchGroup({
     kind: 'vial',
-    hits: [makeSearchHit({ identifier: 'REG 1 / 1 / 1', lab_code: 'REG', title: 'Mockia vulgaris', status: 'available', exact: true, strain: STRAIN, detail: 'Barcode TUBE-R', location_masked: true })],
+    hits: [
+      makeSearchHit({
+        identifier: 'REG 1 / 1 / 1',
+        lab_code: 'REG',
+        title: 'Mockia vulgaris',
+        status: 'available',
+        exact: true,
+        strain: STRAIN,
+        detail: 'Barcode TUBE-R',
+        location_masked: true,
+      }),
+    ],
   })
 
 const box = () => screen.getByRole('combobox', { name: 'Search' })
@@ -69,13 +90,15 @@ describe('the top bar search', () => {
     await user.type(box(), 'BAC 2')
     const list = await listbox()
     const strainGroup = within(list).getByRole('group', { name: 'Strains, 12 strains' })
-    expect(within(strainGroup).getAllByRole('option').map((o) => o.getAttribute('aria-label'))).toEqual([
-      'BAC 2, BAC, Active. Bacillus subtilis, Received as hay isolate',
-      'BAC 20, BAC, Active. Micrococcus luteus',
-      'All 12 strains in BAC',
-    ])
+    expect(
+      within(strainGroup)
+        .getAllByRole('option')
+        .map((o) => o.getAttribute('aria-label')),
+    ).toEqual(['BAC 2, BAC, Active. Bacillus subtilis, Received as hay isolate', 'BAC 20, BAC, Active. Micrococcus luteus', 'All 12 strains in BAC'])
     const vialGroup = within(list).getByRole('group', { name: 'Vials, 1 vial' })
-    expect(within(vialGroup).getByRole('option')).toHaveAccessibleName('BAC 29 / 1 / 3, BAC, Available. Bacillus subtilis, LN2 tank 1 / Canister A / Seed stock 1, A3')
+    expect(within(vialGroup).getByRole('option')).toHaveAccessibleName(
+      'BAC 29 / 1 / 3, BAC, Available. Bacillus subtilis, LN2 tank 1 / Canister A / Seed stock 1, A3',
+    )
     // Vials have no list page: no "All" entry.
     expect(within(vialGroup).getAllByRole('option')).toHaveLength(1)
     expect(await screen.findByRole('status')).toHaveTextContent('13 results: 12 strains, 1 vial.')

@@ -235,7 +235,13 @@ export function TopSearch({ compact }: Props) {
 
 function SearchIcon() {
   return (
-    <Box component="svg" viewBox="0 0 24 24" aria-hidden focusable="false" sx={{ width: 20, height: 20, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' }}>
+    <Box
+      component="svg"
+      viewBox="0 0 24 24"
+      aria-hidden
+      focusable="false"
+      sx={{ width: 20, height: 20, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' }}
+    >
       <circle cx="11" cy="11" r="6.5" />
       <path d="M16 16l4.5 4.5" />
     </Box>

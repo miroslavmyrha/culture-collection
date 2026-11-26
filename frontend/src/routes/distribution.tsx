@@ -16,7 +16,10 @@ export const requestListRoute = createRoute({
   search: { middlewares: [stripSearchParams(requestListDefaults)] },
   loaderDeps: ({ search }) => search,
   loader: ({ context, params, deps, cause }) =>
-    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetchFor(cause, context.queryClient, requestListOptions(params.labId, deps))]),
+    Promise.all([
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      prefetchFor(cause, context.queryClient, requestListOptions(params.labId, deps)),
+    ]),
   component: lazyRouteComponent(() => import('@/pages/RequestListPage'), 'RequestListPage'),
 })
 
@@ -24,7 +27,10 @@ export const requestNewRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: 'labs/$labId/requests/new',
   loader: ({ context, params }) =>
-    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetch(context.queryClient, requesterListOptions(params.labId, ALL_REQUESTERS))]),
+    Promise.all([
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      prefetch(context.queryClient, requesterListOptions(params.labId, ALL_REQUESTERS)),
+    ]),
   component: lazyRouteComponent(() => import('@/pages/RequestNewPage'), 'RequestNewPage'),
 })
 
@@ -46,7 +52,10 @@ export const requesterListRoute = createRoute({
   search: { middlewares: [stripSearchParams(requesterListDefaults)] },
   loaderDeps: ({ search }) => search,
   loader: ({ context, params, deps, cause }) =>
-    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetchFor(cause, context.queryClient, requesterListOptions(params.labId, deps))]),
+    Promise.all([
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      prefetchFor(cause, context.queryClient, requesterListOptions(params.labId, deps)),
+    ]),
   component: lazyRouteComponent(() => import('@/pages/RequesterListPage'), 'RequesterListPage'),
 })
 

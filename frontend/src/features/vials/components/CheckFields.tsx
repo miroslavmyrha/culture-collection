@@ -51,7 +51,15 @@ type Props = {
 /** The vial the check used up. Mounted once its options are there, so a chosen vial is never lost to a late list. */
 function VialField({ register, errors, batch, vials, vialsTotal, checks }: Pick<Props, 'register' | 'errors' | 'batch' | 'vials' | 'vialsTotal' | 'checks'>) {
   if (vials === undefined) return <Typography>Loading the vials of the batch…</Typography>
-  return <SelectField label="Vial checked" hint={vialHint(vials.length, vialsTotal)} options={vialOptionsOf(batch, vials, checks)} error={errors.vial?.message} {...register('vial')} />
+  return (
+    <SelectField
+      label="Vial checked"
+      hint={vialHint(vials.length, vialsTotal)}
+      options={vialOptionsOf(batch, vials, checks)}
+      error={errors.vial?.message}
+      {...register('vial')}
+    />
+  )
 }
 
 /** The kind of check. A new kind brings its own methods, so the method follows it. */
@@ -89,14 +97,33 @@ export function CheckFields({ register, errors, setValue, kind, batch, vials, vi
         error={errors.method?.message}
         {...register('method')}
       />
-      <TextField label="Method details" hint="Medium, temperature, gene. Required for Other." autoComplete="off" error={errors.method_detail?.message} {...register('method_detail')} />
-      <SelectField label="Result" hint="Reduced counts as passed for a release. Say in the note what was seen." options={RESULT_OPTIONS} error={errors.result?.message} {...register('result')} />
+      <TextField
+        label="Method details"
+        hint="Medium, temperature, gene. Required for Other."
+        autoComplete="off"
+        error={errors.method_detail?.message}
+        {...register('method_detail')}
+      />
+      <SelectField
+        label="Result"
+        hint="Reduced counts as passed for a release. Say in the note what was seen."
+        options={RESULT_OPTIONS}
+        error={errors.result?.message}
+        {...register('result')}
+      />
       <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: 'wrap' }}>
         <TextField label="Value" hint="Optional, as 2.1e8" inputMode="decimal" autoComplete="off" error={errors.value?.message} {...register('value')} />
         <SelectField label="Unit" options={UNIT_OPTIONS} error={errors.unit?.message} {...register('unit')} />
       </Stack>
       <VialField register={register} errors={errors} batch={batch} vials={vials} vialsTotal={vialsTotal} checks={checks} />
-      <TextField label="Note" hint="What was seen. Required for a reduced result. Name no person." multiline minRows={2} error={errors.note?.message} {...register('note')} />
+      <TextField
+        label="Note"
+        hint="What was seen. Required for a reduced result. Name no person."
+        multiline
+        minRows={2}
+        error={errors.note?.message}
+        {...register('note')}
+      />
     </>
   )
 }

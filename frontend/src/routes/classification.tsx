@@ -16,6 +16,9 @@ export const classificationRoute = createRoute({
   search: { middlewares: [stripSearchParams(pageDefaults)] },
   loaderDeps: ({ search }) => search,
   loader: ({ context, params, deps, cause }) =>
-    Promise.all([prefetch(context.queryClient, labDetailOptions(params.labId)), prefetchFor(cause, context.queryClient, strainDisagreementsOptions(params.labId, deps))]),
+    Promise.all([
+      prefetch(context.queryClient, labDetailOptions(params.labId)),
+      prefetchFor(cause, context.queryClient, strainDisagreementsOptions(params.labId, deps)),
+    ]),
   component: lazyRouteComponent(() => import('@/pages/ClassificationPage'), 'ClassificationPage'),
 })

@@ -2,10 +2,12 @@ from functools import cached_property
 from typing import Any
 
 from django.db.models import Model, QuerySet
+from django.http import HttpResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import Serializer
@@ -14,7 +16,8 @@ from cultures.biosafety.models import RestrictionKind
 from cultures.core.api import ScopedReadOnlyViewSet
 from cultures.core.errors import PROBLEM_CONTENT_TYPE as PROBLEM
 from cultures.core.errors import ProblemSerializer
-from cultures.deposits import selectors, services
+from cultures.core.parsers import LimitedJSONParser
+from cultures.deposits import catalogue, selectors, services
 from cultures.deposits.filters import DepositFilter, DepositorFilter
 from cultures.deposits.models import AbsScope, Condition, Decision, Deposit, Depositor, Use
 from cultures.labs import selectors as labs
@@ -26,6 +29,10 @@ from cultures.strains.api.serializers import StrainFactsInputSerializer
 from cultures.strains.models import Pathogenicity
 
 from .serializers import (
+    CatalogueCheckInputSerializer,
+    CatalogueCheckOutputSerializer,
+    CatalogueImportInputSerializer,
+    CatalogueImportOutputSerializer,
     DepositDetailOutputSerializer,
     DepositListOutputSerializer,
     DepositorInputSerializer,
@@ -191,6 +198,26 @@ class MtaTemplateViewSet(LabNested):
         )
 
 
+# The views that take a file read multipart; every other view reads JSON only (#41).
+UPLOAD_PARSERS = [MultiPartParser, LimitedJSONParser]
+CATALOGUE_REFUSED = OpenApiResponse(
+    ProblemSerializer,
+    "catalogue_refused: not a CSV UTF-8 in the template's columns, too large or empty;"
+    " catalogue_changed: not the file that was checked; catalogue_has_errors: a row failed,"
+    " nothing was imported",
+)
+
+
+def _catalogue_file(values: dict[str, Any]) -> bytes:
+    """The file's bytes, refused before they are read when it is too large."""
+    upload = values["file"]
+    if upload.size is not None and upload.size > catalogue.MAX_BYTES:
+        raise catalogue.CatalogueRefused(
+            f"The file is larger than {catalogue.MAX_BYTES // (1024 * 1024)} MB.", attr="file"
+        )
+    return b"".join(upload.chunks())
+
+
 @extend_schema(parameters=[LAB_PARAMETER])
 class DepositViewSet(LabNested):
     action_perms = {
@@ -201,6 +228,9 @@ class DepositViewSet(LabNested):
         "start_check": Perm.MANAGE_DEPOSITS,
         "accept": Perm.MANAGE_DEPOSITS,
         "reject": Perm.MANAGE_DEPOSITS,
+        "catalogue_template": Perm.IMPORT_CATALOGUE,
+        "catalogue_check": Perm.IMPORT_CATALOGUE,
+        "catalogue_import": Perm.IMPORT_CATALOGUE,
     }
     filterset_class = DepositFilter
 
@@ -315,6 +345,60 @@ class DepositViewSet(LabNested):
             ),
         )
         return self._detail(deposit)
+
+    @extend_schema(responses={(200, "text/csv"): OpenApiTypes.STR})
+    @action(detail=False, methods=["get"], url_path="catalogue-template")
+    def catalogue_template(self, request: Request, *args: Any, **kwargs: Any) -> HttpResponse:
+        """The CSV file to fill in for a catalogue import (#70): the header and one example."""
+        self.lab  # noqa: B018 (a lab the caller is not in is a 404, as for every lab view)
+        response = HttpResponse(catalogue.template(), content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = 'attachment; filename="catalogue-template.csv"'
+        return response
+
+    @extend_schema(
+        request={"multipart/form-data": CatalogueCheckInputSerializer},
+        responses={
+            200: CatalogueCheckOutputSerializer,
+            (400, PROBLEM): INVALID,
+            (422, PROBLEM): CATALOGUE_REFUSED,
+        },
+    )
+    @action(
+        detail=False, methods=["post"], url_path="catalogue-check", parser_classes=UPLOAD_PARSERS
+    )
+    def catalogue_check(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Every row tried, every error reported, nothing written (#70)."""
+        values = _input(CatalogueCheckInputSerializer, self, request)
+        checked = catalogue.catalogue_check(
+            access=access_of(request), lab=self.lab, content=_catalogue_file(values)
+        )
+        return Response(CatalogueCheckOutputSerializer(checked).data)
+
+    @extend_schema(
+        request={"multipart/form-data": CatalogueImportInputSerializer},
+        responses={
+            201: CatalogueImportOutputSerializer,
+            (400, PROBLEM): INVALID,
+            (422, PROBLEM): CATALOGUE_REFUSED,
+        },
+    )
+    @action(
+        detail=False, methods=["post"], url_path="catalogue-import", parser_classes=UPLOAD_PARSERS
+    )
+    def catalogue_import(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """The checked file, all rows or none (#70)."""
+        values = _input(CatalogueImportInputSerializer, self, request)
+        created = catalogue.catalogue_import(
+            access=access_of(request),
+            lab=self.lab,
+            content=_catalogue_file(values),
+            sha256=values["sha256"],
+            reason=values["reason"],
+        )
+        return Response(
+            CatalogueImportOutputSerializer({"strains": created}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
     @extend_schema(
         request=RejectInputSerializer,

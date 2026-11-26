@@ -17,7 +17,10 @@ test('a manager opens the permits from the lab tabs and reads them; a viewer has
   const page = manager.page
   const violations = await watchCsp(page)
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
   const labUrl = page.url()
 

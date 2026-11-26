@@ -17,9 +17,16 @@ async function as(browser: Browser, name: string) {
 /** From the labs list to the Material tab of the seeded B. subtilis strain. */
 async function openStrain(page: Page) {
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await page.getByRole('link', { name: 'Strains' }).click()
-  await page.getByRole('row', { name: /B\. subtilis e2e seed/ }).getByRole('link').first().click()
+  await page
+    .getByRole('row', { name: /B\. subtilis e2e seed/ })
+    .getByRole('link')
+    .first()
+    .click()
   await page.getByRole('navigation', { name: 'Strain sections' }).getByRole('link', { name: 'Material' }).click()
   await expect(page.getByRole('heading', { level: 2, name: 'Vials' })).toBeVisible()
 }
@@ -33,7 +40,8 @@ async function call(page: Page, path: string, body?: Record<string, unknown>) {
       const lab = location.pathname.split('/')[2] ?? ''
       const target = url.startsWith('/') ? url : `/api/v1/labs/${lab}/${url}`
       const headers = { 'Content-Type': 'application/json', 'X-CSRFToken': decodeURIComponent(token) }
-      const response = payload === undefined ? await fetch(target, { headers }) : await fetch(target, { method: 'POST', headers, body: JSON.stringify(payload) })
+      const response =
+        payload === undefined ? await fetch(target, { headers }) : await fetch(target, { method: 'POST', headers, body: JSON.stringify(payload) })
       const json: unknown = await response.json()
       return { status: response.status, json }
     },
@@ -70,7 +78,13 @@ test('a technician places three vials in no box into one box in one step, by key
   await openStrain(page)
   const passages = await call(page, 'passages/')
   const passage = field(results(passages.json)[0], 'public_id')
-  const batch = await call(page, 'batches/', { passage, method: 'lyophilised', purpose: 'seed', preserved_on: new Date().toLocaleDateString('sv'), vial_count: 3 })
+  const batch = await call(page, 'batches/', {
+    passage,
+    method: 'lyophilised',
+    purpose: 'seed',
+    preserved_on: new Date().toLocaleDateString('sv'),
+    vial_count: 3,
+  })
   expect(batch.status).toBe(201)
   const vials = page.getByRole('table', { name: 'Vials' })
   const number = field(batch.json, 'number')
@@ -103,14 +117,24 @@ test('a technician places three vials in no box into one box in one step, by key
   await dialog.getByRole('button', { name: 'Place vials' }).focus()
   await page.keyboard.press('Enter')
   await expect(dialog).toBeHidden()
-  for (const [seq, pos] of [[1, 'A1'], [2, 'A2'], [3, 'A3']] as const) {
+  for (const [seq, pos] of [
+    [1, 'A1'],
+    [2, 'A2'],
+    [3, 'A3'],
+  ] as const) {
     await expect(vials.getByRole('row', { name: new RegExp(` / ${number} / ${seq} .*${where}, ${pos}`) })).toBeVisible()
   }
   // Focus is back on the page, not on the body.
   expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true)
 
   // The next time the dialog opens on the same box.
-  const more = await call(page, 'batches/', { passage, method: 'lyophilised', purpose: 'seed', preserved_on: new Date().toLocaleDateString('sv'), vial_count: 1 })
+  const more = await call(page, 'batches/', {
+    passage,
+    method: 'lyophilised',
+    purpose: 'seed',
+    preserved_on: new Date().toLocaleDateString('sv'),
+    vial_count: 1,
+  })
   const next = field(more.json, 'number')
   await page.goto(`${material}?batch=${field(more.json, 'public_id')}`)
   await vials.getByRole('checkbox', { name: new RegExp(` / ${next} / 1$`) }).check()

@@ -158,7 +158,10 @@ def _strains(access: Access, text: str) -> Group | None:
         .annotate(
             relevance=_rank(
                 When(accession_number__iexact=text, then=Value(0)),
-                When(accession_number__istartswith=text, then=Value(1)),
+                When(
+                    Q(accession_number__istartswith=text) | Q(former_number__iexact=text),
+                    then=Value(1),
+                ),
                 When(
                     Q(name_as_received__istartswith=text) | Q(taxon__name__istartswith=text),
                     then=Value(2),

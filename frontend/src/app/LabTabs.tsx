@@ -38,7 +38,13 @@ export function LabTabs({ labId }: { labId: string }) {
           <Link to="/labs/$labId/storage" params={params} underline="none" sx={tabSx}>
             Storage
           </Link>
-          <Link to="/labs/$labId/requests" params={params} underline="none" sx={tabSx} aria-label={counted('Requests', figures?.requests_to_decide, 'to decide')}>
+          <Link
+            to="/labs/$labId/requests"
+            params={params}
+            underline="none"
+            sx={tabSx}
+            aria-label={counted('Requests', figures?.requests_to_decide, 'to decide')}
+          >
             Requests
             <TabCount count={figures?.requests_to_decide} />
           </Link>
@@ -106,7 +112,22 @@ function RoleTabs({ labId, role }: { labId: string; role: Parameters<typeof canM
 function TabCount({ count }: { count: number | null | undefined }) {
   if (!count) return null
   return (
-    <Box component="span" aria-hidden sx={{ ml: 0.75, px: 0.75, minWidth: 20, borderRadius: '999px', bgcolor: 'action.selected', color: 'text.primary', fontSize: '0.75rem', fontWeight: 600, lineHeight: '20px', textAlign: 'center' }}>
+    <Box
+      component="span"
+      aria-hidden
+      sx={{
+        ml: 0.75,
+        px: 0.75,
+        minWidth: 20,
+        borderRadius: '999px',
+        bgcolor: 'action.selected',
+        color: 'text.primary',
+        fontSize: '0.75rem',
+        fontWeight: 600,
+        lineHeight: '20px',
+        textAlign: 'center',
+      }}
+    >
       {count}
     </Box>
   )

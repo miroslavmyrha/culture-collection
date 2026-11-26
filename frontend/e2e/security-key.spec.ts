@@ -24,7 +24,8 @@ async function call<T>(page: Page, url: string, payload?: unknown): Promise<T> {
     async ({ where, sent }) => {
       await fetch('/api/v1/auth/csrf/')
       const token = decodeURIComponent(/(?:^|; )(?:__Host-)?csrftoken=([^;]+)/.exec(document.cookie)?.[1] ?? '')
-      const init = sent === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token }, body: JSON.stringify(sent) }
+      const init =
+        sent === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token }, body: JSON.stringify(sent) }
       const response = await fetch(where, init)
       if (!response.ok) throw new Error(`${where}: ${response.status} ${await response.text()}`)
       return response.json()
@@ -42,8 +43,13 @@ async function freshEnrolmentCode(browser: Browser): Promise<string> {
     const lab = labs.results.find((l) => l.code === OTHER_LAB)?.public_id ?? ''
     const members = await call<{ results: { public_id: string; username: string }[] }>(manager.page, `/api/v1/labs/${lab}/members/?limit=200`)
     const member = members.results.find((m) => m.username === USER)?.public_id ?? ''
-    const reset = await call<{ public_id: string }>(manager.page, '/api/v1/auth/factor-resets/propose/', { member, reason: 'e2e: the virtual key of the last run is gone' })
-    const confirmed = await call<{ enrolment_code: string | null }>(deputy.page, `/api/v1/auth/factor-resets/${reset.public_id}/confirm/`, { reason: 'e2e: checked by the second manager' })
+    const reset = await call<{ public_id: string }>(manager.page, '/api/v1/auth/factor-resets/propose/', {
+      member,
+      reason: 'e2e: the virtual key of the last run is gone',
+    })
+    const confirmed = await call<{ enrolment_code: string | null }>(deputy.page, `/api/v1/auth/factor-resets/${reset.public_id}/confirm/`, {
+      reason: 'e2e: checked by the second manager',
+    })
     expect(confirmed.enrolment_code).toBeTruthy()
     return confirmed.enrolment_code ?? ''
   } finally {

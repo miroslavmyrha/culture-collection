@@ -36,3 +36,9 @@ export const canSeeReveals = (role: Role | undefined): boolean => role === 'mana
  * as they do for the permits. The server decides; this only hides what it would refuse.
  */
 export const canSeeListDisagreements = (role: Role | undefined): boolean => role === 'manager'
+
+/**
+ * Managers import a former catalogue (strains.import_catalogue, #70): it accessions many strains
+ * at once. The server decides; this only hides what it would refuse.
+ */
+export const canImportCatalogue = (role: Role | undefined): boolean => role === 'manager'

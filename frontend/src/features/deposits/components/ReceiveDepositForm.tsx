@@ -7,7 +7,18 @@ import { errorMessage } from '@/lib/api'
 import { type FocusReturn, rememberFocus } from '@/lib/focus'
 import { applyServerErrors } from '@/lib/forms'
 import { useReceiveDeposit } from '../api/mutations'
-import { CONDITION_LABELS, CONDITIONS, type Deposit, type Depositor, emptyTerms, options, type ReceiveForm, type ReceiveValues, receiveSchema, termsBody } from '../schemas'
+import {
+  CONDITION_LABELS,
+  CONDITIONS,
+  type Deposit,
+  type Depositor,
+  emptyTerms,
+  options,
+  type ReceiveForm,
+  type ReceiveValues,
+  receiveSchema,
+  termsBody,
+} from '../schemas'
 import { DepositorDialog } from './DepositorDialog'
 import { DepositorField } from './DepositorField'
 import { TERMS_FIELDS, TermsFields } from './TermsFields'
@@ -50,7 +61,13 @@ function ReceiptFields({ register, errors, condition }: ReceiptProps) {
   return (
     <>
       <TextField label="Received on" hint="YYYY-MM-DD" autoComplete="off" error={errors.received_on?.message} {...register('received_on')} />
-      <TextField label="Name as received" hint="As the depositor gave it. The strain keeps it unchanged." autoComplete="off" error={errors.name_as_received?.message} {...register('name_as_received')} />
+      <TextField
+        label="Name as received"
+        hint="As the depositor gave it. The strain keeps it unchanged."
+        autoComplete="off"
+        error={errors.name_as_received?.message}
+        {...register('name_as_received')}
+      />
       <SelectField label="Condition on arrival" options={options(CONDITION_LABELS, CONDITIONS)} error={errors.condition?.message} {...register('condition')} />
       <TextField
         label="Note on the condition"
@@ -60,7 +77,14 @@ function ReceiptFields({ register, errors, condition }: ReceiptProps) {
         error={errors.condition_note?.message}
         {...register('condition_note')}
       />
-      <TextField label="Passages stated by the depositor" hint="Optional. How many times it was subcultured before it came." inputMode="numeric" autoComplete="off" error={errors.depositor_passages?.message} {...register('depositor_passages')} />
+      <TextField
+        label="Passages stated by the depositor"
+        hint="Optional. How many times it was subcultured before it came."
+        inputMode="numeric"
+        autoComplete="off"
+        error={errors.depositor_passages?.message}
+        {...register('depositor_passages')}
+      />
     </>
   )
 }
@@ -110,7 +134,15 @@ export function ReceiveDepositForm({ labId, onReceived }: Props) {
           <Typography component="h2" variant="h6">
             Depositor
           </Typography>
-          <DepositorField labId={labId} error={errors.depositor?.message} value={depositor ?? null} onChange={onDepositorChange} onBlur={onDepositorBlur} name={depositorName} ref={depositorRef} />
+          <DepositorField
+            labId={labId}
+            error={errors.depositor?.message}
+            value={depositor ?? null}
+            onChange={onDepositorChange}
+            onBlur={onDepositorBlur}
+            name={depositorName}
+            ref={depositorRef}
+          />
           <Box>
             <Button
               onClick={(event) => {

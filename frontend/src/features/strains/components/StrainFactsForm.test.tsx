@@ -26,9 +26,7 @@ function Harness({ onDone, country }: { onDone: () => void; country?: 'CZ' }) {
     },
     meta: { handlesError: true },
   })
-  return (
-    <StrainFactsForm label="Accept the deposit" submitLabel="Accept" nameAsReceived="T. exempli T1" submit={accept} onDone={onDone} country={country} />
-  )
+  return <StrainFactsForm label="Accept the deposit" submitLabel="Accept" nameAsReceived="T. exempli T1" submit={accept} onDone={onDone} country={country} />
 }
 
 async function setup(country?: 'CZ') {
@@ -119,10 +117,11 @@ describe('StrainFactsForm', () => {
     await user.click(taxon)
     await user.keyboard('exem')
     const listbox = await screen.findByRole('listbox')
-    expect(within(listbox).getAllByRole('option').map((o) => o.textContent)).toEqual([
-      'Testella exempli Doe 2001 (species)',
-      'Fictivibrio exempli  (synonym, species)',
-    ])
+    expect(
+      within(listbox)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Testella exempli Doe 2001 (species)', 'Fictivibrio exempli  (synonym, species)'])
     await user.keyboard('{ArrowDown}{ArrowDown}')
     expect(taxon).toHaveAttribute('aria-activedescendant', expect.stringMatching(/option-1$/))
     await user.keyboard('{Enter}')
@@ -183,7 +182,10 @@ describe('StrainFactsForm', () => {
 
   it('shows the risk group 4 refusal on the risk group, focused, in its own words', async () => {
     // The domain code on top, as the API sends it for this refusal.
-    mockApiError('post', PATH, 400, { ...problem(400, { code: 'risk_group_4_refused', detail: 'server words' }), errors: [{ attr: 'risk_group', code: 'risk_group_4_refused', detail: 'server words' }] })
+    mockApiError('post', PATH, 400, {
+      ...problem(400, { code: 'risk_group_4_refused', detail: 'server words' }),
+      errors: [{ attr: 'risk_group', code: 'risk_group_4_refused', detail: 'server words' }],
+    })
     const { user } = await setup()
     await fillRequired(user)
     await user.selectOptions(select('Risk group'), '4')

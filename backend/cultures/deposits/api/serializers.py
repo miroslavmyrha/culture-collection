@@ -257,3 +257,44 @@ class TermsReplaceInputSerializer(serializers.Serializer[None]):
 
 class RejectInputSerializer(serializers.Serializer[None]):
     reason = serializers.CharField(max_length=2000, help_text=REASON_HELP)
+
+
+# Catalogue import (#70).
+
+
+class CatalogueCheckInputSerializer(serializers.Serializer[None]):
+    file = serializers.FileField(
+        allow_empty_file=False, help_text="CSV UTF-8 in the template's columns."
+    )
+
+
+class CatalogueImportInputSerializer(serializers.Serializer[None]):
+    file = serializers.FileField(
+        allow_empty_file=False, help_text="The file the check returned the hash of."
+    )
+    sha256 = serializers.RegexField(r"^[0-9a-f]{64}$", help_text="The SHA-256 the check returned.")
+    reason = serializers.CharField(max_length=2000, help_text=REASON_HELP)
+
+
+class CatalogueRowErrorSerializer(serializers.Serializer[Any]):
+    row = serializers.IntegerField(help_text="The line of the file, the header being line 1.")
+    column = serializers.CharField(
+        help_text="The column, empty when the row as a whole is refused."
+    )
+    message = serializers.CharField()
+
+
+class CatalogueCheckOutputSerializer(serializers.Serializer[Any]):
+    sha256 = serializers.CharField()
+    rows = serializers.IntegerField()
+    row_errors = CatalogueRowErrorSerializer(many=True, source="errors")
+
+
+class CatalogueStrainSerializer(serializers.ModelSerializer[Strain]):
+    class Meta:
+        model = Strain
+        fields = ["public_id", "accession_number", "former_number"]
+
+
+class CatalogueImportOutputSerializer(serializers.Serializer[Any]):
+    strains = CatalogueStrainSerializer(many=True)

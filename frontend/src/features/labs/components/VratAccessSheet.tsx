@@ -79,7 +79,11 @@ function Rows({ list }: { list: ReturnType<typeof useVratAccess> }) {
           component="section"
           tabIndex={0}
           aria-label="VRAT access table"
-          sx={{ overflowX: 'auto', '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 }, '@media print': { overflow: 'visible' } }}
+          sx={{
+            overflowX: 'auto',
+            '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+            '@media print': { overflow: 'visible' },
+          }}
         >
           <Table size="small" aria-label="VRAT access list" sx={{ '@media print': { '& th, & td': { color: '#000', borderColor: '#000', fontSize: '10pt' } } }}>
             <TableHead>
@@ -129,7 +133,9 @@ function AccessRow({ entry }: { entry: VratAccess }) {
       <TableCell sx={{ whiteSpace: 'nowrap' }}>
         <time dateTime={entry.granted_at}>{moment(entry.granted_at)}</time>
       </TableCell>
-      <TableCell sx={{ whiteSpace: 'nowrap' }}>{entry.ended_at === null ? 'has access' : <time dateTime={entry.ended_at}>{moment(entry.ended_at)}</time>}</TableCell>
+      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+        {entry.ended_at === null ? 'has access' : <time dateTime={entry.ended_at}>{moment(entry.ended_at)}</time>}
+      </TableCell>
       <TableCell sx={{ overflowWrap: 'break-word' }}>
         {entry.granted_by}: {entry.reason}
       </TableCell>

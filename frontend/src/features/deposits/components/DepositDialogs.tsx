@@ -5,7 +5,16 @@ import { ConfirmDialog, Stack, TextField } from '@/components/ui'
 import { errorMessage, isApiError } from '@/lib/api'
 import { applyServerErrors } from '@/lib/forms'
 import { useRejectDeposit, useReplaceTerms } from '../api/mutations'
-import { type Deposit, type RejectForm, rejectSchema, type ReplaceTermsForm, replaceTermsSchema, type ReplaceTermsValues, termsBody, termsForm } from '../schemas'
+import {
+  type Deposit,
+  type RejectForm,
+  rejectSchema,
+  type ReplaceTermsForm,
+  replaceTermsSchema,
+  type ReplaceTermsValues,
+  termsBody,
+  termsForm,
+} from '../schemas'
 import { TERMS_FIELDS, TermsFields } from './TermsFields'
 
 type Common = { labId: string; deposit: Deposit; open: boolean; onClose: () => void; onExited: () => void }
@@ -95,7 +104,14 @@ export function ReplaceTermsDialog({ labId, deposit, open, onClose, onExited }: 
       <FormProvider {...form}>
         <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label="New terms" spacing={2} sx={{ mt: 2 }}>
           <TermsFields labId={labId} />
-          <TextField label="Reason" hint="Why the terms change. Stored for good: name no person." multiline minRows={2} error={formState.errors.reason?.message} {...register('reason')} />
+          <TextField
+            label="Reason"
+            hint="Why the terms change. Stored for good: name no person."
+            multiline
+            minRows={2}
+            error={formState.errors.reason?.message}
+            {...register('reason')}
+          />
         </Stack>
       </FormProvider>
     </ConfirmDialog>

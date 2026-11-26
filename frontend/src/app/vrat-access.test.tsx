@@ -19,7 +19,14 @@ const signedIn = (role: Role) => {
   mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', code: 'MYC', my_role: role }))
 }
 
-const alice = makeVratAccess({ username: 'alice', first_name: 'Alice', last_name: 'Adams', granted_at: '2026-05-04T08:00:00Z', granted_by: 'carol', reason: 'works in the BSL-3 suite' })
+const alice = makeVratAccess({
+  username: 'alice',
+  first_name: 'Alice',
+  last_name: 'Adams',
+  granted_at: '2026-05-04T08:00:00Z',
+  granted_by: 'carol',
+  reason: 'works in the BSL-3 suite',
+})
 const erased = makeVratAccess({
   username: 'erased-00000000-0000-4000-8000-0000000000e1',
   granted_at: '2026-01-10T08:00:00Z',
@@ -49,10 +56,20 @@ describe('the printable VRAT access list', () => {
     const rows = within(table)
       .getAllByRole('row')
       .slice(1)
-      .map((row) => within(row).getAllByRole('cell').map((cell) => cell.textContent))
+      .map((row) =>
+        within(row)
+          .getAllByRole('cell')
+          .map((cell) => cell.textContent),
+      )
     expect(rows).toEqual([
       ['Alice Adamsalice', expect.stringMatching(/^2026-05-04/), 'has access', 'carol: works in the BSL-3 suite', ''],
-      ['erased-00000000-0000-4000-8000-0000000000e1', expect.stringMatching(/^2026-01-10/), expect.stringMatching(/^2026-06-30/), 'alice: works with the VRAT strains', 'the system: The account was erased.'],
+      [
+        'erased-00000000-0000-4000-8000-0000000000e1',
+        expect.stringMatching(/^2026-01-10/),
+        expect.stringMatching(/^2026-06-30/),
+        'alice: works with the VRAT strains',
+        'the system: The account was erased.',
+      ],
     ])
     expect(screen.getByText(/^1 person has access now\. Entries that ended stay on the list with their end\.$/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Print' }))

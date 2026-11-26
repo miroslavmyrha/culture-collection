@@ -118,7 +118,9 @@ export function EditUnitDialog({ labId, unit, open, onClose, onExited }: UnitPro
     <ConfirmDialog
       open={open}
       title={`Change ${unit.name}`}
-      description={unit.kind === 'box' ? 'A box takes the size of a new type only while no position in it is occupied.' : 'Its name, temperature, risk group and barcode.'}
+      description={
+        unit.kind === 'box' ? 'A box takes the size of a new type only while no position in it is occupied.' : 'Its name, temperature, risk group and barcode.'
+      }
       confirmLabel="Save"
       form={formId}
       pending={edit.isPending}
@@ -204,7 +206,14 @@ export function MoveUnitDialog({ labId, unit, open, onClose, onExited }: UnitPro
           error={errors.parent?.message}
           {...register('parent')}
         />
-        <TextField label="Slot" hint="Its numbered place there, if it has one." inputMode="numeric" autoComplete="off" error={errors.slot?.message} {...register('slot')} />
+        <TextField
+          label="Slot"
+          hint="Its numbered place there, if it has one."
+          inputMode="numeric"
+          autoComplete="off"
+          error={errors.slot?.message}
+          {...register('slot')}
+        />
       </Stack>
     </ConfirmDialog>
   )
@@ -245,8 +254,16 @@ export function UnitStatusDialog({ labId, unit, to, open, onClose, onExited }: S
   })
   const form = (
     <Stack component="form" id={formId} onSubmit={onSubmit} noValidate aria-label={text.title(unit.name)} spacing={2} sx={{ mt: 2 }}>
-      {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog) */}
-      <TextField label="Reason" hint={REASON_HINT} multiline minRows={2} autoFocus={to !== 'retired'} error={formState.errors.reason?.message} {...register('reason')} />
+      <TextField
+        label="Reason"
+        hint={REASON_HINT}
+        multiline
+        minRows={2}
+        // oxlint-disable-next-line jsx-a11y/no-autofocus -- a form dialog opens on its first field (WAI-ARIA dialog)
+        autoFocus={to !== 'retired'}
+        error={formState.errors.reason?.message}
+        {...register('reason')}
+      />
     </Stack>
   )
   const common = { open, title: text.title(unit.name), confirmLabel: text.confirm, form: formId, pending: change.isPending, error: failure, onClose, onExited }

@@ -24,7 +24,19 @@ export function OverviewDialogs({ labId, strain, dialogs }: Props) {
   )
 }
 
-function EndDialog({ labId, strain, at, onClose, onExited }: { labId: string; strain: Strain; at: NonNullable<OpenEnd>; onClose: () => void; onExited: () => void }) {
+function EndDialog({
+  labId,
+  strain,
+  at,
+  onClose,
+  onExited,
+}: {
+  labId: string
+  strain: Strain
+  at: NonNullable<OpenEnd>
+  onClose: () => void
+  onExited: () => void
+}) {
   const common = { labId, strain, restriction: at.restriction, open: at.open, onClose, onExited }
   const proposal = at.restriction.end_proposal
   if (at.step === 'propose' || proposal === null) return <ProposeEndDialog {...common} />

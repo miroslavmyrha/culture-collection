@@ -35,7 +35,13 @@ export function PermitList({ labId }: { labId: string }) {
         component="section"
         tabIndex={0}
         aria-label="Permits table"
-        sx={{ border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'background.paper', '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 } }}
+        sx={{
+          border: 1,
+          borderColor: 'divider',
+          borderRadius: 1,
+          bgcolor: 'background.paper',
+          '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+        }}
       >
         <Table aria-label="Permits">
           <TableHead>

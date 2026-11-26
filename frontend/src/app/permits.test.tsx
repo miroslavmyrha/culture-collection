@@ -16,7 +16,9 @@ const signedIn = (role: 'viewer' | 'technician' | 'curator' | 'manager') => {
 describe('the permits page', () => {
   it('shows a manager the permits and says that staff change them in the Django admin', async () => {
     signedIn('manager')
-    mockApi('get', PERMITS, [makeLabPermit({ permit_reference: 'DEV/VRAT/1', standing: 'expires_soon', expires_on: '2026-11-05', last_valid_day: '2026-11-05', days_left: 10 })])
+    mockApi('get', PERMITS, [
+      makeLabPermit({ permit_reference: 'DEV/VRAT/1', standing: 'expires_soon', expires_on: '2026-11-05', last_valid_day: '2026-11-05', days_left: 10 }),
+    ])
     renderApp({ path: `/labs/${LAB_ID}/permits` })
     expect(await screen.findByRole('heading', { level: 1, name: 'Permits of Mycology' })).toBeInTheDocument()
     expect(screen.getByText(/This list is read only: staff record a permit and its end in the Django admin\./)).toBeInTheDocument()

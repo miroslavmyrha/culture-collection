@@ -15,7 +15,13 @@ export function takenOf(positions: readonly BoxPosition[] | undefined): Map<stri
  * Where each vial goes: a picked position first, the others into the free positions in fill
  * order (row by row), skipping taken and picked ones. A vial without a free position is missing.
  */
-export function planOf(vials: readonly Vial[], picks: ReadonlyMap<string, GridPos>, taken: ReadonlyMap<string, unknown>, rows: number, cols: number): Map<string, GridPos> {
+export function planOf(
+  vials: readonly Vial[],
+  picks: ReadonlyMap<string, GridPos>,
+  taken: ReadonlyMap<string, unknown>,
+  rows: number,
+  cols: number,
+): Map<string, GridPos> {
   const plan = new Map<string, GridPos>()
   const used = new Set<string>(taken.keys())
   for (const v of vials) {
@@ -54,7 +60,13 @@ export function noRoomText(free: number, count: number): string {
 }
 
 /** What the grid shows at a position: taken (never by what, ADR 0009), a planned vial, or free. */
-export function cellOf(pos: GridPos, taken: ReadonlyMap<string, unknown>, planned: ReadonlyMap<string, string>, vials: readonly Vial[], currentVial: Vial | undefined): GridCell {
+export function cellOf(
+  pos: GridPos,
+  taken: ReadonlyMap<string, unknown>,
+  planned: ReadonlyMap<string, string>,
+  vials: readonly Vial[],
+  currentVial: Vial | undefined,
+): GridCell {
   const here = gridLabel(pos)
   if (taken.has(keyOf(pos))) return { name: `${here}, taken`, tone: 'masked', content: 'Taken', disabled: true }
   const vial = vials.find((v) => v.public_id === planned.get(keyOf(pos)))

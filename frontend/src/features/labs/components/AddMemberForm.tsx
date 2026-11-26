@@ -41,13 +41,7 @@ export function AddMemberForm({ labId, roles }: Props) {
         Add a member
       </Typography>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: 'flex-start' }}>
-        <TextField
-          label="Username"
-          autoComplete="off"
-          hint="An existing, active user"
-          error={formState.errors.username?.message}
-          {...register('username')}
-        />
+        <TextField label="Username" autoComplete="off" hint="An existing, active user" error={formState.errors.username?.message} {...register('username')} />
         <SelectField label="Role" options={roleOptions(roles)} error={formState.errors.role?.message} {...register('role')} />
         <Button type="submit" variant="contained" aria-disabled={add.isPending} sx={{ mt: 1 }}>
           Add member

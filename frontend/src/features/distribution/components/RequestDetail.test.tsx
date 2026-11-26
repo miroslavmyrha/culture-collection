@@ -3,7 +3,21 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '@/lib/api'
 import { allowConsole } from '@/test/console'
-import { makeAcceptance, makeDepositorAnswer, makeFinding, makeLab, makeMe, makePreparation, makeRequest, makeRequestLine, makeShipment, makeShipmentDocument, makeVial, problem, validationProblem } from '@/test/factories'
+import {
+  makeAcceptance,
+  makeDepositorAnswer,
+  makeFinding,
+  makeLab,
+  makeMe,
+  makePreparation,
+  makeRequest,
+  makeRequestLine,
+  makeShipment,
+  makeShipmentDocument,
+  makeVial,
+  problem,
+  validationProblem,
+} from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
 
@@ -11,19 +25,32 @@ const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const REQUEST_ID = '00000000-0000-4000-8000-0000000000a1'
 const DETAIL = '/api/v1/labs/{lab_public_id}/requests/{public_id}/'
 const VIALS = '/api/v1/labs/{lab_public_id}/requests/{public_id}/vials/'
-const ACTION = (name: 'approve' | 'approve-again' | 'reject' | 'cancel' | 'ship' | 'prepare-shipment' | 'confirm-shipment' | 'withdraw-shipment') => `/api/v1/labs/{lab_public_id}/requests/{public_id}/${name}/` as const
+const ACTION = (name: 'approve' | 'approve-again' | 'reject' | 'cancel' | 'ship' | 'prepare-shipment' | 'confirm-shipment' | 'withdraw-shipment') =>
+  `/api/v1/labs/{lab_public_id}/requests/{public_id}/${name}/` as const
 
 function signedIn(role: 'viewer' | 'technician' | 'curator' | 'manager' = 'curator') {
   mockApi('get', '/api/v1/auth/me/', makeMe())
   mockApi('get', '/api/v1/labs/{public_id}/', makeLab({ public_id: LAB_ID, name: 'Mycology', my_role: role }))
 }
 
-const line = makeRequestLine({ public_id: '00000000-0000-4000-8000-0000000000b1', strain: { public_id: '00000000-0000-4000-8000-0000000000c1', accession_number: 'MYC 3', taxon: 'Mockia vulgaris', risk_group: 2 } })
+const line = makeRequestLine({
+  public_id: '00000000-0000-4000-8000-0000000000b1',
+  strain: { public_id: '00000000-0000-4000-8000-0000000000c1', accession_number: 'MYC 3', taxon: 'Mockia vulgaris', risk_group: 2 },
+})
 const request = (overrides = {}) => makeRequest({ public_id: REQUEST_ID, number: '2026/7', lines: [line], ...overrides })
 const open = () => renderApp({ path: `/labs/${LAB_ID}/requests/${REQUEST_ID}` })
-const blocked = [makeFinding({ code: 'loa_missing', sentence: 'MYC 3 is a quarantine pest: the requester shows no valid Letter of Authority that names Mockia vulgaris.', line: line.public_id })]
-const regulated = [makeFinding({ code: 'regulated', severity: 'manager', sentence: 'MYC 3 is regulated (dual_use): a manager approves it.', line: line.public_id })]
-const preparation = (overrides = {}) => makePreparation({ public_id: '00000000-0000-4000-8000-0000000000f1', prepared_at: '2026-10-21T08:00:00Z', ...overrides })
+const blocked = [
+  makeFinding({
+    code: 'loa_missing',
+    sentence: 'MYC 3 is a quarantine pest: the requester shows no valid Letter of Authority that names Mockia vulgaris.',
+    line: line.public_id,
+  }),
+]
+const regulated = [
+  makeFinding({ code: 'regulated', severity: 'manager', sentence: 'MYC 3 is regulated (dual_use): a manager approves it.', line: line.public_id }),
+]
+const preparation = (overrides = {}) =>
+  makePreparation({ public_id: '00000000-0000-4000-8000-0000000000f1', prepared_at: '2026-10-21T08:00:00Z', ...overrides })
 
 async function openShipDialog() {
   const user = userEvent.setup()
@@ -41,7 +68,11 @@ async function fillPerson(user: ReturnType<typeof userEvent.setup>, dialog: HTML
 function reservedOn(status: 'approved' | 'awaiting_confirmation' | 'submitted' | 'shipped' | 'cancelled') {
   signedIn('technician')
   const asked = mockApi('get', VIALS, [makeVial({ label: 'MYC 3 / 1 / 1', status: 'reserved', placed: true, location_masked: true })])
-  mockApi('get', DETAIL, request({ status, decided_by: 'curator', decided_at: '2026-10-20T10:00:00Z', preparations: status === 'awaiting_confirmation' ? [preparation()] : [] }))
+  mockApi(
+    'get',
+    DETAIL,
+    request({ status, decided_by: 'curator', decided_at: '2026-10-20T10:00:00Z', preparations: status === 'awaiting_confirmation' ? [preparation()] : [] }),
+  )
   open()
   return asked
 }
@@ -115,7 +146,11 @@ describe('the request page', () => {
     await user.click(await screen.findByRole('button', { name: 'Reject the request' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Reject request 2026/7?' })
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
-    const calls = mockApi('post', ACTION('reject'), request({ status: 'rejected', decided_by: 'curator', decision_reason: 'No laboratory.', decided_at: '2026-10-20T10:00:00Z' }))
+    const calls = mockApi(
+      'post',
+      ACTION('reject'),
+      request({ status: 'rejected', decided_by: 'curator', decision_reason: 'No laboratory.', decided_at: '2026-10-20T10:00:00Z' }),
+    )
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'No laboratory.')
     await user.click(within(dialog).getByRole('button', { name: 'Reject the request' }))
     await waitFor(() => expect(calls[0]?.body).toEqual({ reason: 'No laboratory.' }))
@@ -259,7 +294,6 @@ describe('the request page', () => {
     })
   })
 
-
   it('says so when an acceptance of the MTA version was recorded meanwhile', async () => {
     allowConsole(/API error 409/)
     signedIn('curator')
@@ -271,7 +305,11 @@ describe('the request page', () => {
     await user.type(within(dialog).getByRole('textbox', { name: 'Signed by' }), 'Karel Podpisový')
     await user.selectOptions(within(dialog).getByRole('combobox', { name: "Signer's role" }), 'responsible_scientist')
     await user.upload(within(dialog).getByLabelText('Signed copy'), new File(['%PDF-1.4'], 'signed.pdf', { type: 'application/pdf' }))
-    vi.spyOn(api, 'POST').mockResolvedValue({ data: undefined, error: problem(409, { code: 'acceptance_exists' }), response: new Response('{}', { status: 409 }) })
+    vi.spyOn(api, 'POST').mockResolvedValue({
+      data: undefined,
+      error: problem(409, { code: 'acceptance_exists' }),
+      response: new Response('{}', { status: 409 }),
+    })
     await user.click(within(dialog).getByRole('button', { name: 'Record the acceptance' }))
     expect(await within(dialog).findByText('An acceptance of this MTA version is recorded already.')).toBeInTheDocument()
   })
@@ -303,7 +341,14 @@ describe('the request page', () => {
   describe('the depositor’s answer (#144)', () => {
     const ANSWERS = '/api/v1/labs/{lab_public_id}/requests/{public_id}/depositor-answers/'
     const asked = makeRequestLine({ ...line, on_request: true })
-    const onRequest = [makeFinding({ code: 'use_on_request', sentence: 'MYC 3: the terms allow commercial research only on request to the depositor, and no answer of the depositor is recorded. Record it on the strain’s line.', line: line.public_id })]
+    const onRequest = [
+      makeFinding({
+        code: 'use_on_request',
+        sentence:
+          'MYC 3: the terms allow commercial research only on request to the depositor, and no answer of the depositor is recorded. Record it on the strain’s line.',
+        line: line.public_id,
+      }),
+    ]
     const commercial = (overrides = {}) => request({ use: 'research_commercial', lines: [asked], findings: onRequest, ...overrides })
 
     it('shows the strain on request with no answer, and offers a curator the yes and the no', async () => {
@@ -312,7 +357,9 @@ describe('the request page', () => {
       open()
       const answers = await screen.findByRole('list', { name: 'Depositor’s answers' })
       expect(answers).toHaveTextContent('MYC 3: the terms allow commercial research only on request to the depositor. No answer is recorded yet.')
-      expect(within(screen.getByRole('list', { name: 'Blocks the approval' })).getByRole('listitem')).toHaveTextContent(/no answer of the depositor is recorded/)
+      expect(within(screen.getByRole('list', { name: 'Blocks the approval' })).getByRole('listitem')).toHaveTextContent(
+        /no answer of the depositor is recorded/,
+      )
       expect(screen.getByRole('button', { name: 'Record the depositor’s yes' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Record the depositor’s no' })).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Approve and reserve the vials' })).not.toBeInTheDocument()
@@ -383,14 +430,23 @@ describe('the request page', () => {
       expect(dialog).toHaveAccessibleDescription(/request 2026\/7 is rejected with the answer as the reason/)
       expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
       const reason = 'The depositor declined commercial research of MYC 3 (answer of 2026-10-28): Kept for their own company.'
-      const answered = makeRequestLine({ ...asked, depositor_answer: makeDepositorAnswer({ agreed: false, answered_on: '2026-10-28', note: 'Kept for their own company.' }) })
-      const calls = mockApi('post', ANSWERS, commercial({ status: 'rejected', decided_by: 'curator', decided_at: '2026-10-28T10:00:00Z', decision_reason: reason, findings: [], lines: [answered] }))
+      const answered = makeRequestLine({
+        ...asked,
+        depositor_answer: makeDepositorAnswer({ agreed: false, answered_on: '2026-10-28', note: 'Kept for their own company.' }),
+      })
+      const calls = mockApi(
+        'post',
+        ANSWERS,
+        commercial({ status: 'rejected', decided_by: 'curator', decided_at: '2026-10-28T10:00:00Z', decision_reason: reason, findings: [], lines: [answered] }),
+      )
       await user.type(within(dialog).getByRole('textbox', { name: 'Note' }), 'Kept for their own company.')
       await user.click(within(dialog).getByRole('button', { name: 'Record the no and reject' }))
       await waitFor(() => expect(calls).toHaveLength(1))
       expect(await screen.findByText(`Rejected by curator on 2026-10-28: ${reason}`)).toBeInTheDocument()
       await waitFor(() => expect(dialog).not.toBeInTheDocument())
-      expect(screen.getByRole('list', { name: 'Depositor’s answers' })).toHaveTextContent(/MYC 3: the depositor declined commercial research \(answer of 2026-10-28, recorded by curator on .*\): Kept for their own company\./)
+      expect(screen.getByRole('list', { name: 'Depositor’s answers' })).toHaveTextContent(
+        /MYC 3: the depositor declined commercial research \(answer of 2026-10-28, recorded by curator on .*\): Kept for their own company\./,
+      )
       expect(screen.queryByRole('button', { name: 'Record the depositor’s no' })).not.toBeInTheDocument()
     })
 
@@ -405,18 +461,31 @@ describe('the request page', () => {
       mockApiError('post', ANSWERS, 409, problem(409, { code: 'depositor_answer_exists' }))
       await user.type(within(dialog).getByRole('textbox', { name: 'Note' }), 'Agreed by phone, confirmed by e-mail.')
       await user.click(within(dialog).getByRole('button', { name: 'Record the yes' }))
-      expect(await within(dialog).findByText('The depositor’s answer for this strain is recorded already. Close this and look at it again.')).toBeInTheDocument()
+      expect(
+        await within(dialog).findByText('The depositor’s answer for this strain is recorded already. Close this and look at it again.'),
+      ).toBeInTheDocument()
     })
 
     it('shows a recorded yes with its file to a curator, and without the file to a viewer', async () => {
-      const document = { public_id: '00000000-0000-4000-8000-0000000000d9', content_type: 'application/pdf' as const, size_bytes: 9, sha256: 'a'.repeat(64), created_at: '2026-10-27T09:00:00Z' }
+      const document = {
+        public_id: '00000000-0000-4000-8000-0000000000d9',
+        content_type: 'application/pdf' as const,
+        size_bytes: 9,
+        sha256: 'a'.repeat(64),
+        created_at: '2026-10-27T09:00:00Z',
+      }
       const yes = makeRequestLine({ ...asked, depositor_answer: makeDepositorAnswer({ document }) })
       signedIn('curator')
       mockApi('get', DETAIL, commercial({ lines: [yes], findings: [] }))
       const { unmount } = open()
       const answers = await screen.findByRole('list', { name: 'Depositor’s answers' })
-      expect(answers).toHaveTextContent(/MYC 3: the depositor agreed to commercial research \(answer of 2026-10-27, recorded by curator on 2026-10-27\): The depositor’s e-mail of the same day\./)
-      expect(within(answers).getByRole('link', { name: 'Download the depositor’s answer for MYC 3' })).toHaveAttribute('href', `${window.location.origin}/api/v1/labs/${LAB_ID}/documents/${document.public_id}/`)
+      expect(answers).toHaveTextContent(
+        /MYC 3: the depositor agreed to commercial research \(answer of 2026-10-27, recorded by curator on 2026-10-27\): The depositor’s e-mail of the same day\./,
+      )
+      expect(within(answers).getByRole('link', { name: 'Download the depositor’s answer for MYC 3' })).toHaveAttribute(
+        'href',
+        `${window.location.origin}/api/v1/labs/${LAB_ID}/documents/${document.public_id}/`,
+      )
       expect(screen.queryByRole('button', { name: 'Record the depositor’s yes' })).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Approve and reserve the vials' })).toBeInTheDocument()
       unmount()
@@ -431,7 +500,13 @@ describe('the request page', () => {
   describe('the shipment', () => {
     const vial = { public_id: '00000000-0000-4000-8000-0000000000e1', label: 'MYC 3 / 1 / 1' }
     const approved = (overrides = {}) =>
-      request({ status: 'approved', decided_by: 'curator', decided_at: '2026-10-20T10:00:00Z', lines: [makeRequestLine({ ...line, reserved: [vial] })], ...overrides })
+      request({
+        status: 'approved',
+        decided_by: 'curator',
+        decided_at: '2026-10-20T10:00:00Z',
+        lines: [makeRequestLine({ ...line, reserved: [vial] })],
+        ...overrides,
+      })
     const shipped = (shipment = {}) =>
       request({
         status: 'shipped',
@@ -452,10 +527,25 @@ describe('the request page', () => {
       await user.selectOptions(transport, 'un3373')
       expect(within(dialog).getByRole('combobox', { name: 'Packing' })).toHaveValue('p650')
       const basis = within(dialog).getByRole('combobox', { name: 'Basis of the classification' })
-      expect(within(basis).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'Not on the indicative list of Category A', 'Professional judgement'])
+      expect(
+        within(basis)
+          .getAllByRole('option')
+          .map((o) => o.textContent),
+      ).toEqual(['Choose', 'Not on the indicative list of Category A', 'Professional judgement'])
       await user.selectOptions(basis, 'professional_judgement')
       await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Coolant' }), 'dry_ice')
-      const calls = mockApi('post', ACTION('ship'), shipped({ transport_class: 'un3373', classification_basis: 'professional_judgement', basis_note: 'Category B.', packing_instruction: 'p650', coolant: 'dry_ice', coolant_kg: '2.50' }))
+      const calls = mockApi(
+        'post',
+        ACTION('ship'),
+        shipped({
+          transport_class: 'un3373',
+          classification_basis: 'professional_judgement',
+          basis_note: 'Category B.',
+          packing_instruction: 'p650',
+          coolant: 'dry_ice',
+          coolant_kg: '2.50',
+        }),
+      )
       await user.click(within(dialog).getByRole('button', { name: 'Ship' }))
       // The first field in the form's order that is wrong gets the focus; nothing is sent.
       const note = within(dialog).getByRole('textbox', { name: 'What the classification rests on' })
@@ -537,14 +627,22 @@ describe('the request page', () => {
       open()
       const { user, dialog } = await openShipDialog()
       const transport = within(dialog).getByRole('combobox', { name: 'Transport class' })
-      expect(within(transport).getAllByRole('option').map((o) => o.textContent)).toEqual([
+      expect(
+        within(transport)
+          .getAllByRole('option')
+          .map((o) => o.textContent),
+      ).toEqual([
         'Not subject to the dangerous goods rules (exempt)',
         'UN 3373, Biological substance, Category B',
         'UN 3245, Genetically modified micro-organisms',
       ])
       await user.selectOptions(transport, 'un3245')
       const basis = within(dialog).getByRole('combobox', { name: 'Basis of the classification' })
-      expect(within(basis).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose', 'A genetically modified micro-organism that is not an infectious substance'])
+      expect(
+        within(basis)
+          .getAllByRole('option')
+          .map((o) => o.textContent),
+      ).toEqual(['Choose', 'A genetically modified micro-organism that is not an infectious substance'])
       await user.selectOptions(basis, 'gmo_not_infectious')
       await fillPerson(user, dialog)
       allowConsole(/API error 400/)
@@ -552,7 +650,13 @@ describe('the request page', () => {
         'post',
         ACTION('ship'),
         400,
-        validationProblem([{ attr: 'transport_class', code: 'un3245_without_a_gmo', detail: 'UN 3245 is for a genetically modified micro-organism, and no strain of this request is one.' }]),
+        validationProblem([
+          {
+            attr: 'transport_class',
+            code: 'un3245_without_a_gmo',
+            detail: 'UN 3245 is for a genetically modified micro-organism, and no strain of this request is one.',
+          },
+        ]),
       )
       await user.click(within(dialog).getByRole('button', { name: 'Ship' }))
       expect(await within(dialog).findByRole('combobox', { name: 'Transport class', description: /no strain of this request is one/ })).toBeInTheDocument()
@@ -580,10 +684,18 @@ describe('the request page', () => {
         'post',
         ACTION('ship'),
         400,
-        validationProblem([{ attr: 'classification_basis', code: 'not_exempt', detail: 'MYC 3: it is recorded as pathogenic to animals. The culture is not exempt as non-pathogenic.' }]),
+        validationProblem([
+          {
+            attr: 'classification_basis',
+            code: 'not_exempt',
+            detail: 'MYC 3: it is recorded as pathogenic to animals. The culture is not exempt as non-pathogenic.',
+          },
+        ]),
       )
       await user.click(within(dialog).getByRole('button', { name: 'Ship' }))
-      expect(await within(dialog).findByRole('combobox', { name: 'Basis of the classification', description: /recorded as pathogenic to animals/ })).toBeInTheDocument()
+      expect(
+        await within(dialog).findByRole('combobox', { name: 'Basis of the classification', description: /recorded as pathogenic to animals/ }),
+      ).toBeInTheDocument()
     })
 
     describe('in two steps (#89)', () => {
@@ -636,8 +748,18 @@ describe('the request page', () => {
 
       it('shows the preparation not withdrawn as the one waiting, whatever the order of the list', async () => {
         signedIn('manager')
-        const withdrawn = preparation({ public_id: '00000000-0000-4000-8000-0000000000f9', carrier: 'Withdrawn Courier', withdrawn_by: 'curator', withdrawn_at: '2026-10-21T09:00:00Z', withdraw_reason: 'Wrong carrier.' })
-        mockApi('get', DETAIL, approved({ status: 'awaiting_confirmation', regulated: true, decided_by: 'approver', lines: [vialLine], preparations: [withdrawn, preparation()] }))
+        const withdrawn = preparation({
+          public_id: '00000000-0000-4000-8000-0000000000f9',
+          carrier: 'Withdrawn Courier',
+          withdrawn_by: 'curator',
+          withdrawn_at: '2026-10-21T09:00:00Z',
+          withdraw_reason: 'Wrong carrier.',
+        })
+        mockApi(
+          'get',
+          DETAIL,
+          approved({ status: 'awaiting_confirmation', regulated: true, decided_by: 'approver', lines: [vialLine], preparations: [withdrawn, preparation()] }),
+        )
         open()
         const prepared = await screen.findByRole('region', { name: 'Prepared shipment' })
         expect(prepared).toHaveTextContent('Example Courier')
@@ -688,7 +810,13 @@ describe('the request page', () => {
             regulated: true,
             lines: [makeRequestLine({ ...line, reserved: [], shipped: [vial] })],
             preparations: [preparation()],
-            shipment: makeShipment({ classified_by: 'curator', classified_at: '2026-10-21T08:00:00Z', shipped_by: 'manager', shipped_at: '2026-10-22T09:00:00Z', preparation: '00000000-0000-4000-8000-0000000000f1' }),
+            shipment: makeShipment({
+              classified_by: 'curator',
+              classified_at: '2026-10-21T08:00:00Z',
+              shipped_by: 'manager',
+              shipped_at: '2026-10-22T09:00:00Z',
+              preparation: '00000000-0000-4000-8000-0000000000f1',
+            }),
           }),
         )
         await user.click(within(dialog).getByRole('button', { name: 'Confirm and ship' }))
@@ -741,7 +869,6 @@ describe('the request page', () => {
     })
   })
 
-
   it('lists the documents of the shipment to everyone and opens them only for curators and managers', async () => {
     const note = makeShipmentDocument({ public_id: '00000000-0000-4000-8000-0000000000e1', text_sha256: '0123456789ab'.repeat(5) + 'cdef' })
     const entry = makeShipmentDocument({ public_id: '00000000-0000-4000-8000-0000000000e2', kind: 'register_entry', strain: 'MYC 3' })
@@ -750,10 +877,11 @@ describe('the request page', () => {
     mockApi('get', DETAIL, shipped)
     const { unmount } = open()
     const listed = await screen.findByRole('list', { name: 'Documents of the shipment' })
-    expect(within(listed).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
-      'Delivery note, SHA-256 0123456789ab',
-      `Register entry and handover protocol for MYC 3, SHA-256 ${'3f'.repeat(6)}`,
-    ])
+    expect(
+      within(listed)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Delivery note, SHA-256 0123456789ab', `Register entry and handover protocol for MYC 3, SHA-256 ${'3f'.repeat(6)}`])
     expect(within(listed).queryAllByRole('link')).toHaveLength(0)
     expect(screen.getByText('Curators and managers open the documents: they name the responsible person.')).toBeInTheDocument()
     unmount()
@@ -761,7 +889,10 @@ describe('the request page', () => {
     mockApi('get', DETAIL, shipped)
     open()
     const own = await screen.findByRole('list', { name: 'Documents of the shipment' })
-    expect(within(own).getByRole('link', { name: 'View and print: Delivery note' })).toHaveAttribute('href', `/labs/${LAB_ID}/shipment-documents/${note.public_id}`)
+    expect(within(own).getByRole('link', { name: 'View and print: Delivery note' })).toHaveAttribute(
+      'href',
+      `/labs/${LAB_ID}/shipment-documents/${note.public_id}`,
+    )
     expect(within(own).getByRole('link', { name: 'Download: Register entry and handover protocol for MYC 3' })).toHaveAttribute(
       'href',
       `${window.location.origin}/api/v1/labs/${LAB_ID}/shipment-documents/${entry.public_id}/download/`,
@@ -777,7 +908,8 @@ describe('the request page', () => {
   })
 })
 
-const approvedSince = (overrides = {}) => request({ status: 'approved', decided_by: 'curator', decided_at: '2026-10-20T10:00:00Z', findings: regulated, ...overrides })
+const approvedSince = (overrides = {}) =>
+  request({ status: 'approved', decided_by: 'curator', decided_at: '2026-10-20T10:00:00Z', findings: regulated, ...overrides })
 
 describe('a finding that arose after the approval (#263)', () => {
   it('shows the finding, hides the shipment and lets a manager approve again with a reason', async () => {
@@ -810,11 +942,16 @@ describe('a finding that arose after the approval (#263)', () => {
 
   it('offers no confirmation of a prepared shipment while the finding stands', async () => {
     signedIn('manager')
-    mockApi('get', DETAIL, approvedSince({ status: 'awaiting_confirmation', regulated: true, preparations: [preparation({ prepared_by: 'other', confirm_refusal: null })] }))
+    mockApi(
+      'get',
+      DETAIL,
+      approvedSince({ status: 'awaiting_confirmation', regulated: true, preparations: [preparation({ prepared_by: 'other', confirm_refusal: null })] }),
+    )
     open()
-    expect(await screen.findByText('A finding since the approval needs a manager: withdraw the prepared shipment, and a manager approves the request again.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('A finding since the approval needs a manager: withdraw the prepared shipment, and a manager approves the request again.'),
+    ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Confirm the shipment' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Withdraw the prepared shipment' })).toBeInTheDocument()
   })
 })
-

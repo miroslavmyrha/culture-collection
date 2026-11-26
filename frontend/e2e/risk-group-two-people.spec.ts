@@ -14,7 +14,10 @@ test('a curator proposes a lower risk group and a manager confirms it', async ({
   const curator = await browser.newContext({ storageState: signedInAs('e2e-curator') })
   const page = await curator.newPage()
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await expect(page.getByRole('heading', { level: 1, name: 'E2E lab' })).toBeVisible()
 
   const made = await page.evaluate(
@@ -35,7 +38,16 @@ test('a curator proposes a lower risk group and a manager confirms it', async ({
       }
       const today = new Date().toLocaleDateString('sv')
       const depositors = await read<{ results: { public_id: string }[] }>(`/api/v1/labs/${lab}/depositors/?search=E2E`)
-      const uses = ['research_noncommercial', 'research_commercial', 'teaching', 'diagnostics', 'production', 'reference_qc', 'patent_deposit_related', 'redistribution']
+      const uses = [
+        'research_noncommercial',
+        'research_commercial',
+        'teaching',
+        'diagnostics',
+        'production',
+        'reference_qc',
+        'patent_deposit_related',
+        'redistribution',
+      ]
       const deposit = await send('deposits/', {
         depositor: depositors.results[0]?.public_id,
         received_on: today,

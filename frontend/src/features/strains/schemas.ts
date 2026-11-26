@@ -43,7 +43,15 @@ export const canConfirmDeaccession = (role: Role | undefined): boolean => role =
  */
 export const canConfirmRiskGroup = (role: Role | undefined): boolean => role === 'manager'
 
-export const CAUSES = ['non_viable', 'contaminated', 'misidentified', 'duplicate', 'depositor_request', 'legal', 'lost'] as const satisfies readonly DeaccessionCause[]
+export const CAUSES = [
+  'non_viable',
+  'contaminated',
+  'misidentified',
+  'duplicate',
+  'depositor_request',
+  'legal',
+  'lost',
+] as const satisfies readonly DeaccessionCause[]
 export const CAUSE_LABELS: Record<DeaccessionCause, string> = {
   non_viable: 'No longer grows',
   contaminated: 'Contaminated',

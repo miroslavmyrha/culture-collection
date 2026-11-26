@@ -27,8 +27,16 @@ const masked = makeVial({ label: 'MYC 7 / 1 / 1', status: 'reserved', placed: tr
 const loose = makeVial({ label: 'MYC 42 / 2 / 1', status: 'reserved' })
 
 const render = () => renderWithProviders(<VialsToPull labId={LAB_ID} requestId={REQUEST_ID} />)
-const rows = () => within(screen.getByRole('table', { name: 'Vials to pull' })).getAllByRole('row').slice(1)
-const cells = (row: HTMLElement | undefined) => (row ? within(row).getAllByRole('cell').map((c) => c.textContent) : [])
+const rows = () =>
+  within(screen.getByRole('table', { name: 'Vials to pull' }))
+    .getAllByRole('row')
+    .slice(1)
+const cells = (row: HTMLElement | undefined) =>
+  row
+    ? within(row)
+        .getAllByRole('cell')
+        .map((c) => c.textContent)
+    : []
 
 describe('the vials to pull for a request', () => {
   it('lists the reserved vials in the order the server walks them, each with its place', async () => {

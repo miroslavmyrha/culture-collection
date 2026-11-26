@@ -17,7 +17,10 @@ async function as(browser: Browser, name: string, width = 1280) {
 /** From the labs list to the seeded lab's storage, by its links. */
 async function openStorage(page: Page) {
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await page.getByRole('link', { name: 'Storage' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Storage of E2E lab' })).toBeVisible()
 }

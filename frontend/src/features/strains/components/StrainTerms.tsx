@@ -85,8 +85,7 @@ function Version({ labId, terms: t, until, opens }: { labId: string; terms: Term
   return (
     <Paper component="article" variant="outlined" aria-label={title} sx={{ p: 2 }}>
       <Typography component="h3" variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-        {title}{' '}
-        {t.is_active ? <StatusChip tone="success">In force</StatusChip> : <StatusChip tone="neutral">Replaced</StatusChip>}
+        {title} {t.is_active ? <StatusChip tone="success">In force</StatusChip> : <StatusChip tone="neutral">Replaced</StatusChip>}
       </Typography>
       <Facts
         rows={[

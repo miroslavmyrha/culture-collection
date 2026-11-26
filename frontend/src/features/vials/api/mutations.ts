@@ -49,7 +49,9 @@ export function usePlace(labId: string, strainId: string) {
 /** Several vials in no box into one box at once (#77), all or nothing. */
 export function usePlaceMany(labId: string, strainId: string) {
   return useStrainWrite(labId, strainId, ({ boxId, placements }: { boxId: string; placements: Schemas['PlacementInputRequest'][] }) =>
-    unwrap(api.POST('/api/v1/labs/{lab_public_id}/boxes/{public_id}/place/', { params: { path: { lab_public_id: labId, public_id: boxId } }, body: { placements } })),
+    unwrap(
+      api.POST('/api/v1/labs/{lab_public_id}/boxes/{public_id}/place/', { params: { path: { lab_public_id: labId, public_id: boxId } }, body: { placements } }),
+    ),
   )
 }
 
@@ -81,7 +83,12 @@ export function useRecordCheck(labId: string, strainId: string) {
 
 export function useEnterCheckInError(labId: string, strainId: string) {
   return useStrainWrite(labId, strainId, ({ checkId, reason }: { checkId: string; reason: string }) =>
-    unwrap(api.POST('/api/v1/labs/{lab_public_id}/batch-checks/{public_id}/enter-in-error/', { params: { path: { lab_public_id: labId, public_id: checkId } }, body: { reason } })),
+    unwrap(
+      api.POST('/api/v1/labs/{lab_public_id}/batch-checks/{public_id}/enter-in-error/', {
+        params: { path: { lab_public_id: labId, public_id: checkId } },
+        body: { reason },
+      }),
+    ),
   )
 }
 

@@ -37,7 +37,10 @@ function StateCell({ record: d }: { record: Destruction }) {
   )
 }
 
-type Actions = { onConfirm: (record: Destruction) => (event: MouseEvent<HTMLButtonElement>) => void; onError: (record: Destruction) => (event: MouseEvent<HTMLButtonElement>) => void }
+type Actions = {
+  onConfirm: (record: Destruction) => (event: MouseEvent<HTMLButtonElement>) => void
+  onError: (record: Destruction) => (event: MouseEvent<HTMLButtonElement>) => void
+}
 
 /** A record waiting for its confirmation is confirmed by a manager. */
 const mayConfirm = (d: Destruction, rights: Rights) => rights.canConfirm && d.awaits_confirmation

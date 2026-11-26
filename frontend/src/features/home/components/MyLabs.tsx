@@ -15,7 +15,10 @@ export function MyLabs({ labs }: { labs: MyLab[] }) {
       {labs.length === 0 ? (
         <Typography>You are not a member of any lab yet. Staff add new labs and their first manager.</Typography>
       ) : (
-        <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 2, gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))' }}>
+        <Box
+          component="ul"
+          sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 2, gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))' }}
+        >
           {labs.map((lab) => (
             <Box component="li" key={lab.public_id}>
               <LabCard lab={lab} />
@@ -42,7 +45,18 @@ function LabCard({ lab }: { lab: MyLab }) {
           <Mono>{lab.code}</Mono> · {ROLE_LABELS[lab.role]}
         </Typography>
       </Box>
-      <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 2, rowGap: 0.25, '& dt': { color: 'text.secondary', display: 'flex', alignItems: 'center', minHeight: 24 }, '& dd': { m: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }}>
+      <Box
+        component="dl"
+        sx={{
+          m: 0,
+          display: 'grid',
+          gridTemplateColumns: 'auto 1fr',
+          columnGap: 2,
+          rowGap: 0.25,
+          '& dt': { color: 'text.secondary', display: 'flex', alignItems: 'center', minHeight: 24 },
+          '& dd': { m: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', textAlign: 'right', fontVariantNumeric: 'tabular-nums' },
+        }}
+      >
         <Figure label="Strains">
           <Link to="/labs/$labId/strains" params={{ labId }} aria-label={`Strains: ${lab.strains}`} sx={figureLink}>
             {lab.strains}
@@ -63,7 +77,13 @@ function LabCard({ lab }: { lab: MyLab }) {
         </Figure>
         {lab.requests_to_decide !== null && (
           <Figure label="Requests to decide">
-            <Link to="/labs/$labId/requests" params={{ labId }} search={{ status: 'submitted' }} aria-label={`Requests to decide: ${lab.requests_to_decide}`} sx={figureLink}>
+            <Link
+              to="/labs/$labId/requests"
+              params={{ labId }}
+              search={{ status: 'submitted' }}
+              aria-label={`Requests to decide: ${lab.requests_to_decide}`}
+              sx={figureLink}
+            >
               {lab.requests_to_decide}
             </Link>
           </Figure>

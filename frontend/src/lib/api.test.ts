@@ -101,7 +101,9 @@ describe('retry policy', () => {
 
   it('makes exactly one call for a 404', async () => {
     const calls = mockApiError('get', '/api/v1/auth/me/', 404, problem(404))
-    await makeQueryClient().query({ queryKey: ['me'], queryFn: getMe }).catch(() => undefined)
+    await makeQueryClient()
+      .query({ queryKey: ['me'], queryFn: getMe })
+      .catch(() => undefined)
     expect(calls).toHaveLength(1)
   })
 
@@ -135,7 +137,9 @@ describe('errorMessage', () => {
   })
 
   it('says a write was not sent when the security token did not load (#43)', () => {
-    expect(errorMessage(new CsrfError(new ApiError(0, undefined)))).toMatch(/^Could not prepare the change: the security check of the page did not load\. Nothing was saved\./)
+    expect(errorMessage(new CsrfError(new ApiError(0, undefined)))).toMatch(
+      /^Could not prepare the change: the security check of the page did not load\. Nothing was saved\./,
+    )
   })
 
   it('never shows a raw error', () => {

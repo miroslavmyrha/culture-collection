@@ -16,7 +16,11 @@ function signedIn(role: 'curator' | 'viewer' = 'curator') {
 describe('the deposits page', () => {
   it('shows each deposit linked, its depositor, status and strain', async () => {
     signedIn()
-    const accepted = makeDepositRow({ name_as_received: 'Testella exempli K3', status: 'accepted', strain: { public_id: '00000000-0000-4000-8000-0000000000f1', accession_number: 'MYC 9' } })
+    const accepted = makeDepositRow({
+      name_as_received: 'Testella exempli K3',
+      status: 'accepted',
+      strain: { public_id: '00000000-0000-4000-8000-0000000000f1', accession_number: 'MYC 9' },
+    })
     mockApi('get', LIST, page([accepted, makeDepositRow({ name_as_received: 'Mockia D2' })]))
     renderApp({ path: `/labs/${LAB_ID}/deposits` })
     const table = await screen.findByRole('table', { name: 'Deposits' })
@@ -38,7 +42,9 @@ describe('the deposits page', () => {
     await waitFor(() => expect(router.state.location.search).toEqual({ status: 'checking' }))
     await user.type(screen.getByRole('searchbox', { name: 'Name, depositor or number' }), 'K3{Enter}')
     await waitFor(() => expect(router.state.location.search).toEqual({ status: 'checking', search: 'K3' }))
-    await waitFor(() => expect(Object.fromEntries(calls.at(-1)?.url.searchParams ?? [])).toEqual({ limit: '25', offset: '0', status: 'checking', search: 'K3' }))
+    await waitFor(() =>
+      expect(Object.fromEntries(calls.at(-1)?.url.searchParams ?? [])).toEqual({ limit: '25', offset: '0', status: 'checking', search: 'K3' }),
+    )
   })
 
   it('keeps the status when Search is pressed right after choosing it', async () => {
@@ -51,7 +57,9 @@ describe('the deposits page', () => {
     // No wait between the two: the navigation of the status has not reached the form yet.
     fireEvent.click(screen.getByRole('button', { name: 'Search' }))
     await waitFor(() => expect(router.state.location.search).toEqual({ status: 'checking', search: 'K3' }))
-    await waitFor(() => expect(Object.fromEntries(calls.at(-1)?.url.searchParams ?? [])).toEqual({ limit: '25', offset: '0', status: 'checking', search: 'K3' }))
+    await waitFor(() =>
+      expect(Object.fromEntries(calls.at(-1)?.url.searchParams ?? [])).toEqual({ limit: '25', offset: '0', status: 'checking', search: 'K3' }),
+    )
     expect(screen.getByRole('combobox', { name: 'Status' })).toHaveValue('checking')
   })
 

@@ -259,7 +259,10 @@ describe('session expiry (401)', () => {
     mockApi('get', '/api/v1/auth/me/', makeMe({ username: 'lab-tech' }))
     const { router, client } = renderApp({ path: '/', search: { tab: 'b' } })
     expect(await account('lab-tech')).toBeInTheDocument()
-    await client.getMutationCache().build(client, { mutationFn: () => Promise.resolve('earlier write') }).execute(undefined)
+    await client
+      .getMutationCache()
+      .build(client, { mutationFn: () => Promise.resolve('earlier write') })
+      .execute(undefined)
     // The session ends: every API call now answers 401.
     mockApiError('get', '/api/v1/auth/me/', 401, problem(401))
     mockApiError('get', '/api/v1/auth/csrf/', 401, problem(401))

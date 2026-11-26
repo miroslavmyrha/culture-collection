@@ -22,7 +22,8 @@ export async function settleRouters() {
   try {
     for (const router of routers) {
       await waitFor(() => {
-        if (router.state.isLoading) throw new Error(`A navigation to ${router.state.location.href} is still loading: wait for the page it opens before the test ends.`)
+        if (router.state.isLoading)
+          throw new Error(`A navigation to ${router.state.location.href} is still loading: wait for the page it opens before the test ends.`)
       })
     }
   } finally {

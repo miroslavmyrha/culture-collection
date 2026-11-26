@@ -18,7 +18,10 @@ async function as(browser: Browser, name: string, width = 1280) {
 /** From the labs list to the material of a strain of the seeded lab, by its links and its name as received. */
 async function openStrain(page: Page, received: RegExp) {
   await page.goto('/labs')
-  await page.getByRole('row', { name: /E2E lab/ }).getByRole('link', { name: 'E2E lab' }).click()
+  await page
+    .getByRole('row', { name: /E2E lab/ })
+    .getByRole('link', { name: 'E2E lab' })
+    .click()
   await page.getByRole('link', { name: 'Strains' }).click()
   await page.getByRole('row', { name: received }).getByRole('link').first().click()
   // The material is the strain page's Material tab (#19).

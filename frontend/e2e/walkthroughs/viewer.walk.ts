@@ -1,5 +1,24 @@
 import { expect, test } from '@playwright/test'
-import { RUN, Walk, api, batchOf, expandUnit, labId, openLab, findStrain, openStrains, openTab, openUnit, passAll, release, requestFor, searchStrain, searchVial, setupAs, supplyStrain } from './walk.js'
+import {
+  RUN,
+  Walk,
+  api,
+  batchOf,
+  expandUnit,
+  labId,
+  openLab,
+  findStrain,
+  openStrains,
+  openTab,
+  openUnit,
+  passAll,
+  release,
+  requestFor,
+  searchStrain,
+  searchVial,
+  setupAs,
+  supplyStrain,
+} from './walk.js'
 
 // A viewer of Bacteriology (seed_dev): someone who reads the catalogue and the stock, a student,
 // a colleague from another group or a quality officer, and changes nothing.
@@ -54,7 +73,7 @@ test('V4 can the collection supply this strain now', async ({ browser }, info) =
   await w.done()
 })
 
-test('V5 see a strain\'s history', async ({ browser }, info) => {
+test("V5 see a strain's history", async ({ browser }, info) => {
   const w = await Walk.as(browser, info, 'bac-viewer', viewer('V5', 'See the history of a reclassified strain'))
   await w.start()
   await openStrains(w, LAB)
