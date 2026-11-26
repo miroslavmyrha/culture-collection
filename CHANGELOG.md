@@ -8,6 +8,7 @@ also names that rule's id in [docs/compliance.md](docs/compliance.md), so the pa
 to the law the rule rests on is one hop.
 
 ## Unreleased
+- The audit and the regulated services are mutation-tested every night, one job per area; a survivor outside the baseline fails the run and is listed in its summary. The first run checked 5,089 mutants and 977 survived, kept as not triaged (#308) (#239).
 - Shared building blocks in place of copies (#67): `useDialogSlot` for the open dialog and its focus return (11 copies), `placeError` and `REASON_HINT` in `lib/forms.ts` (3 and 7), `Section` and `Facts` in `components/DetailParts.tsx` (3 each), `day` and `today` in `lib/dates.ts` (9), `DetailUnavailable` for the loading, not found and error states of a detail page (4); every feature keeps its error mapper in `<feature>/<name>Errors.ts`. Behaviour, texts and focus handling unchanged.
 - A viewer opening the MTA templates or the new deposit page no longer sends the API a request for the templates it would refuse: the loaders ask for them only for curators and managers (#65).
 - Frontend tests check what lists ask for (the strain of passages, batches and vials, the depositor search), who handles vials and manages strains for every role, the no-match and retry states their names promise, the MTA form refused to a curator and offered to a manager, a refresh counted only after the first load; the redirect sink walk scans the api folders of features and skips only the generated src/api (#65).

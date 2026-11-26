@@ -7,8 +7,6 @@ on:
   schedule:
     - cron: "41 1 * * *"
   workflow_dispatch:
-  push:
-    branches: ["fix/#239-mutation-on-ci"] # TRIAL ONLY: removed before the pull request
 
 permissions:
   contents: read
@@ -32,7 +30,9 @@ jobs:
   mutation:
     needs: areas
     runs-on: ubuntu-24.04
-    timeout-minutes: 330 # TRIAL: set from the measured runs
+    # Measured 2026-11-25: 18 to 162 min per area (distribution-policy the longest), half as long
+    # again on a slow runner plus room (#280).
+    timeout-minutes: 250
     strategy:
       fail-fast: false
       matrix:
