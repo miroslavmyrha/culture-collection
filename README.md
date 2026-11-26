@@ -79,6 +79,10 @@ tools/install-hooks.sh   # once per clone: secrets + ./check.sh, commit message 
 ./check.sh e2e           # plus Playwright against the real API (backend running, seeded below)
 ./check.sh audit         # plus pip-audit and npm audit (network)
 ```
+
+The audit and the regulated services are mutation-tested every night (the Mutation workflow, one
+job per area of `backend/tools/mutation.py`); its summary lists any survivor outside
+`backend/tools/mutation_baseline.toml`. Run one area from the Actions tab.
 The e2e tests sign in as `e2e-user`, who manages the lab "E2E lab". Seed it the way CI does,
 and again after a failed run (it resets what the tests change):
 ```bash

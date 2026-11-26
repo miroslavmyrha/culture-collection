@@ -29,7 +29,9 @@ Considered (facts as of 2026-10-17, PyPI and GitHub):
   reads as `''` after the first local `set_config` in a session, and TRUNCATE
   fires no row trigger.
 - Own code: about 900 lines of Python and SQL including comments, every
-  path tested and proven by mutations.
+  path tested and proven by mutations. Since #239 the proof runs every night
+  (`.github/workflows/mutation.yml`, `backend/tools/mutation.py`): a survivor outside
+  `backend/tools/mutation_baseline.toml` fails the run.
 
 ## Decision
 

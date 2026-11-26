@@ -16,3 +16,5 @@ deploy/secrets/
 deploy/certs/
 deploy/tsa/
 deploy/state/
+backend/setup.cfg
+backend/mutants/
