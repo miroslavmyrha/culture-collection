@@ -18,6 +18,10 @@ from cultures.biosafety.policy import PERMIT_TIME_ZONE, permit_today
 from cultures.core.exceptions import DomainError, Forbidden, RuleViolation
 from cultures.core.testing import QueryBaseline, Write, assert_problem, logged_in
 from cultures.core.testing.contract import ViewsetContract
+from cultures.deposits import services as deposits
+from cultures.deposits.models import Condition
+from cultures.deposits.services import NewDeposit
+from cultures.deposits.tests.support import MakeDepositor, as_actor, facts, terms
 from cultures.labs import services as labs
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab, Membership, VratAccess
@@ -45,6 +49,7 @@ from cultures.strains.tests.conftest import (
     VRAT,
     make_permit,
 )
+from cultures.taxonomy.models import Taxon
 from cultures.users.models import User
 
 from .support import (
@@ -96,12 +101,67 @@ def marked(
     return mark_to_destroy(technician, vials_of(make_batch(passage, vial_count=count, **batch)))
 
 
-def refused(error: type[DomainError], code: str, call: Any, attr: str | None = None) -> DomainError:
-    """Refused with the code on the field, and nothing written: no row, no event."""
+# What the form shows beside the field, word for word: a field error is read by a person, so its
+# text is behaviour too (#308). A refusal on a field with two texts names its own (`detail`).
+DETAILS: dict[tuple[str, str | None], str] = {
+    ("invalid", "method"): "Choose how the material was destroyed.",
+    ("required", "method_detail"): "Describe the method.",
+    ("max_length", "method_detail"): "At most 200 characters.",
+    ("max_length", "verification"): "At most 500 characters.",
+    ("max_length", "contractor"): "At most 200 characters.",
+    ("max_length", "handover_document"): "At most 100 characters.",
+    ("max_length", "run"): "At most 100 characters.",
+    ("required", "handover_document"): (
+        "Give the number of the document the firm signed for the material."
+    ),
+    ("required", "contractor"): "Name the firm the material was handed to.",
+    ("invalid", "inactivated_in_lab"): (
+        "Without an outside firm the lab destroyed the material itself."
+    ),
+    ("required", "vials"): "Choose at least one vial.",
+    ("duplicate", "vials.1"): "This vial is in the list twice.",
+    ("does_not_exist", "vials.0"): "Invalid vial.",
+    ("required", "verification"): "Say how the inactivation was verified: the strain is regulated.",
+    ("required", "witness"): (
+        "Name the member who witnessed the destruction: the strain is a highly risky agent (VRAT)."
+    ),
+    ("witness_is_recorder", "witness"): "The witness is a member other than you.",
+    ("does_not_exist", "witness"): "Invalid member.",
+    ("witness_without_vrat_access", "witness"): (
+        "This member was not on the lab's VRAT access list on the day of the destruction: a highly"
+        " risky agent (VRAT) is witnessed by a person with access to it (act 281/2002 Sb.,"
+        " § 14a(4))."
+    ),
+    ("inactivate_before_handover", "inactivated_in_lab"): (
+        "A highly risky or risky agent (VRAT, RAT) is inactivated in the lab before a firm takes"
+        " it: the act gives VRAT only to a permit holder (act 281/2002 Sb., § 13 h)), and RAT only"
+        " to persons who notified RAT handling (§ 17a)."
+    ),
+    ("lab_authorisation_required", "destroyed_on"): (
+        "The lab held no ÚKZÚZ permit for quarantine pests on that day."
+    ),
+}
+FUTURE_DAY = "This date is in the future."
+BEFORE_MARKED = "The destruction is not dated before the vial was marked to destroy."
+
+
+def refused(
+    error: type[DomainError],
+    code: str,
+    call: Any,
+    attr: str | None = None,
+    *,
+    detail: str | None = None,
+) -> DomainError:
+    """Refused with the code on the field, and nothing written: no row, no event. A field error
+    of a destruction says its text of DETAILS, or `detail`; the declared method's names the
+    permit, and its test reads it."""
     before = snapshot()
     with pytest.raises(error) as raised:
         call()
     assert (raised.value.code, raised.value.attr) == (code, attr)
+    if error is services.InvalidDestruction and code != "method_not_authorised":
+        assert raised.value.detail == (detail or DETAILS[(code, attr)])
     assert snapshot() == before
     return raised.value
 
@@ -308,7 +368,13 @@ def test_input_is_checked_before_anything(
         return lambda: services.destruction_record(access=access, strain=strain, data=data)
 
     tomorrow = permit_today() + timedelta(days=1)
-    refused(services.InvalidDestruction, "invalid", call(destroyed_on=tomorrow), "destroyed_on")
+    refused(
+        services.InvalidDestruction,
+        "invalid",
+        call(destroyed_on=tomorrow),
+        "destroyed_on",
+        detail=FUTURE_DAY,
+    )
     refused(RuleViolation, "reason_required", call(reason="  "), "reason")
     other = DestructionMethod.OTHER
     refused(services.InvalidDestruction, "required", call(method=other), "method_detail")
@@ -325,6 +391,26 @@ def test_input_is_checked_before_anything(
     refused(services.InvalidDestruction, "required", call(vials=[]), "vials")
     refused(services.InvalidDestruction, "duplicate", call(vials=vials * 2), "vials.1")
     refused(services.InvalidDestruction, "max_length", call(run="x" * 101), "run")
+    refused(services.InvalidDestruction, "invalid", call(method=""), "method")
+    refused(
+        services.InvalidDestruction,
+        "max_length",
+        call(method=other, method_detail="x" * 201),
+        "method_detail",
+    )
+    refused(services.InvalidDestruction, "max_length", call(verification="x" * 501), "verification")
+    refused(
+        services.InvalidDestruction,
+        "max_length",
+        call(contractor="x" * 201, handover_document="PP-1"),
+        "contractor",
+    )
+    refused(
+        services.InvalidDestruction,
+        "max_length",
+        call(contractor="Firm s.r.o.", handover_document="x" * 101),
+        "handover_document",
+    )
 
 
 @pytest.mark.rule("R-END-05")
@@ -351,7 +437,11 @@ def test_the_vials_are_of_the_strain_to_destroy_and_in_no_waiting_record(
     yesterday = permit_today() - timedelta(days=1)
     mine = marked(make_batch, passage0, technician, count=1)
     refused(
-        services.InvalidDestruction, "invalid", call(mine, destroyed_on=yesterday), "destroyed_on"
+        services.InvalidDestruction,
+        "invalid",
+        call(mine, destroyed_on=yesterday),
+        "destroyed_on",
+        detail=BEFORE_MARKED,
     )
     # The regulated strain's vial waits in a record: no second record takes it.
     services.destruction_record(access=access, strain=regulated, data=new_destruction(other))
@@ -515,6 +605,7 @@ def test_a_vrat_names_a_witness_other_than_the_recorder(
     def call(**changes: Any) -> Callable[[], DestructionRecord]:
         return lambda: record_as(technician, vrat_vials, **changes)
 
+    refused(services.InvalidDestruction, "required", call(verification=""), "verification")
     refused(services.InvalidDestruction, "required", call(witness=None), "witness")
     refused(services.InvalidDestruction, "witness_is_recorder", call(witness=technician), "witness")
     # Only a member who handles vials: a viewer and an outsider are unknown alike.
@@ -732,8 +823,10 @@ def test_a_quarantine_pest_is_destroyed_by_the_method_its_permit_declares(
         lambda: record_as(technician, vials, method=DestructionMethod.INCINERATION),
         "method",
     )
-    assert f"permit {permit.permit_reference} declares autoclaving" in error.detail
-    assert "notified to ÚKZÚZ first" in error.detail
+    assert error.detail == (
+        f"The lab's ÚKZÚZ permit {permit.permit_reference} declares autoclaving: a quarantine pest"
+        " is destroyed by that method. A change of method is notified to ÚKZÚZ first."
+    )
     made = record_as(technician, vials)
     assert made.authorisation == permit
     confirm_as(manager, made)
@@ -1034,3 +1127,258 @@ class TestDestructionConfirmContract(Readers, ViewsetContract):
     @pytest.fixture
     def writer(self, manager: User) -> User:
         return manager
+
+
+# What the mutation testing of services.destructions found unpinned (#308).
+
+
+@pytest.mark.rule("R-END-05")
+def test_the_texts_are_stored_trimmed_and_up_to_their_limit(
+    passage0: Passage, make_batch: MakeBatch, technician: User
+) -> None:
+    """Each text is stored as normalised, a text of exactly its limit passes, and a firm that
+    took the material alive is stored so, also for a strain the rule does not hold to it."""
+    vials = marked(make_batch, passage0, technician, count=1)
+    made = record_as(
+        technician,
+        vials,
+        reason="  Contaminated.  ",
+        method=DestructionMethod.OTHER,
+        method_detail=" Burnt  on site ",
+        verification="  Strip   negative ",
+        contractor=" Firm  s.r.o. ",
+        handover_document=" PP-1 ",
+        inactivated_in_lab=False,
+        run="x" * 100,
+    )
+    made.refresh_from_db()
+    assert (
+        made.reason,
+        made.method_detail,
+        made.verification,
+        made.contractor,
+        made.handover_document,
+        made.inactivated_in_lab,
+        made.run,
+    ) == (
+        "Contaminated.",
+        "Burnt on site",
+        "Strip negative",
+        "Firm s.r.o.",
+        "PP-1",
+        False,
+        "x" * 100,
+    )
+    recorded = AuditEvent.objects.get(event_type="destruction_recorded").changes["destruction"][1]
+    assert (recorded["outside_firm"], recorded["inactivated_in_lab"]) == (True, False)
+
+
+@pytest.mark.rule("R-END-07")
+def test_a_deactivated_member_witnesses_nothing(
+    vrat_vials: list[Vial], technician: User, lab: Lab
+) -> None:
+    """Unknown as any other: refused before the access list is asked (an inactive account holds
+    no open entry on it)."""
+    person = member_of(lab, Role.TECHNICIAN, "deactivated", is_active=False)
+    refused(
+        services.InvalidDestruction,
+        "does_not_exist",
+        lambda: record_as(technician, vrat_vials, witness=person),
+        "witness",
+    )
+
+
+@pytest.mark.rule("R-END-07")
+def test_the_day_of_the_destruction_ends_at_midnight_in_prague(
+    *,
+    strain: Strain,
+    passage0: Passage,
+    make_batch: MakeBatch,
+    lab: Lab,
+    curator: User,
+    technician: User,
+    manager: User,
+) -> None:
+    """Taken off the list half an hour after Prague's midnight: on the list for the whole Czech
+    day, though the UTC day had not ended yet."""
+    restrict(strain, curator, "cz_vrat")
+    person = member_of(lab, Role.TECHNICIAN, "past-midnight")
+    day = permit_today() - timedelta(days=5)
+    with time_machine.travel(_prague_noon(day - timedelta(days=1)), tick=False):
+        entry = with_vrat_access(person, lab, manager)
+    after_midnight = datetime.combine(day + timedelta(days=1), time(0, 30), tzinfo=PERMIT_TIME_ZONE)
+    with time_machine.travel(after_midnight, tick=False):
+        end_vrat_access(entry, manager)
+    with time_machine.travel(_prague_noon(day), tick=False):
+        vials = marked(make_batch, passage0, technician, count=1)
+    assert record_as(technician, vials, witness=person, destroyed_on=day).witness == person
+
+
+@pytest.mark.rule("R-END-09")
+def test_after_its_permit_a_quarantine_pest_takes_the_method_of_the_last_one_that_started(
+    quarantine_pest: Strain, make_batch: MakeBatch, technician: User, lab: Lab
+) -> None:
+    """Material is destroyed when the activity ends, after the permit too: the permit that
+    started last declares the method, though an older one was entered after it."""
+    vials = marked(make_batch, Passage.objects.get(strain=quarantine_pest, number=0), technician)
+    last = lab.authorisations.get(kind=AuthorisationKind.QUARANTINE_PEST)
+    type(last).objects.filter(pk=last.pk).update(expires_on=permit_today() - timedelta(days=30))
+    make_permit(
+        lab,
+        AuthorisationKind.QUARANTINE_PEST,
+        permit_reference="older-permit",
+        valid_from=date(2019, 1, 1),
+        expires_on=date(2019, 12, 31),
+        destruction_method=DestructionMethod.CHEMICAL,
+    )
+    refused(
+        services.InvalidDestruction,
+        "method_not_authorised",
+        lambda: record_as(technician, vials, method=DestructionMethod.CHEMICAL),
+        "method",
+    )
+    made = record_as(technician, vials)
+    assert made.authorisation == last
+    recorded = AuditEvent.objects.get(event_type="destruction_recorded").changes["destruction"][1]
+    assert recorded["authorisation"] == str(last.public_id)
+
+
+@pytest.mark.rule("R-END-09")
+def test_of_two_permits_that_started_the_same_day_the_later_entered_declares_the_method(
+    quarantine_pest: Strain, make_batch: MakeBatch, technician: User, lab: Lab
+) -> None:
+    vials = marked(make_batch, Passage.objects.get(strain=quarantine_pest, number=0), technician)
+    first = lab.authorisations.get(kind=AuthorisationKind.QUARANTINE_PEST)
+    ended = permit_today() - timedelta(days=30)
+    type(first).objects.filter(pk=first.pk).update(expires_on=ended)
+    later = make_permit(
+        lab,
+        AuthorisationKind.QUARANTINE_PEST,
+        permit_reference="re-entered",
+        valid_from=first.valid_from,
+        expires_on=ended,
+        destruction_method=DestructionMethod.CHEMICAL,
+    )
+    assert later.pk > first.pk
+    made = record_as(technician, vials, method=DestructionMethod.CHEMICAL)
+    assert made.authorisation == later
+
+
+@pytest.mark.rule("R-END-09")
+def test_only_the_labs_own_quarantine_permit_declares_the_method(
+    *,
+    quarantine_pest: Strain,
+    make_batch: MakeBatch,
+    technician: User,
+    lab: Lab,
+    other_lab: Lab,
+) -> None:
+    """Another lab's permit and the lab's VRAT permit, both in force, declare nothing here."""
+    vials = marked(make_batch, Passage.objects.get(strain=quarantine_pest, number=0), technician)
+    own = lab.authorisations.get(kind=AuthorisationKind.QUARANTINE_PEST)
+    type(own).objects.filter(pk=own.pk).update(valid_from=permit_today() + timedelta(days=1))
+    make_permit(lab, AuthorisationKind.CZ_VRAT)
+    make_permit(other_lab, AuthorisationKind.QUARANTINE_PEST)
+    refused(
+        services.InvalidDestruction,
+        "lab_authorisation_required",
+        lambda: record_as(technician, vials),
+        "destroyed_on",
+    )
+
+
+@pytest.mark.rule("R-END-03")
+def test_records_are_numbered_per_lab_and_from_one_each_year(
+    *,
+    passage0: Passage,
+    make_batch: MakeBatch,
+    technician: User,
+    other_lab: Lab,
+    outsider: User,
+    make_depositor: MakeDepositor,
+    exempli: Taxon,
+) -> None:
+    access = access_for(outsider)
+    with as_actor(outsider):
+        deposit = deposits.deposit_receive(
+            access=access,
+            lab=other_lab,
+            data=NewDeposit(
+                depositor=make_depositor(lab=other_lab, actor=outsider),
+                received_on=date(2026, 10, 1),
+                condition=Condition.INTACT,
+                name_as_received="Testella exempli B1",
+                terms=terms(),
+            ),
+        )
+        deposit = deposits.deposit_start_check(access=access, deposit=deposit)
+        deposit = deposits.deposit_accept(access=access, deposit=deposit, facts=facts(exempli))
+    elsewhere = Passage.objects.get(strain=deposit.strain, number=0)
+    record_as(outsider, marked(make_batch, elsewhere, outsider, actor=outsider))
+    assert record_as(technician, marked(make_batch, passage0, technician)).number == 1
+    next_year = datetime.combine(
+        date(permit_today().year + 1, 1, 15), time(12), tzinfo=PERMIT_TIME_ZONE
+    )
+    with time_machine.travel(next_year, tick=False):
+        made = record_as(technician, marked(make_batch, passage0, technician))
+    assert (made.year, made.number) == (permit_today().year + 1, 1)
+
+
+@pytest.mark.rule("R-END-06", "R-END-08")
+def test_a_firm_that_took_it_alive_outdates_a_record_whose_strain_became_a_rat(
+    *,
+    strain: Strain,
+    passage0: Passage,
+    make_batch: MakeBatch,
+    curator: User,
+    technician: User,
+    manager: User,
+) -> None:
+    """A dual-use strain may go to a firm alive; a RAT may not: the confirmation asks the rules
+    of the record as recorded, its firm and the inactivation too."""
+    restrict(strain, curator, "dual_use")
+    made = record_as(
+        technician,
+        marked(make_batch, passage0, technician, count=1),
+        contractor="Spalovna s.r.o., IČO 12345678",
+        handover_document="PP-2026-9",
+        inactivated_in_lab=False,
+    )
+    with audit_context(channel=Channel.API, actor=curator, request_id="req-rat"):
+        strains.strain_restriction_add(
+            access=access_for(curator), strain=strain, restriction=RAT, reason="r"
+        )
+    refused(services.DestructionOutdated, "destruction_outdated", lambda: confirm_as(manager, made))
+
+
+@pytest.mark.rule("R-END-05", "R-END-06")
+def test_a_confirmation_takes_the_vials_out_of_their_places_by_the_manager(
+    *,
+    strain: Strain,
+    passage0: Passage,
+    make_batch: MakeBatch,
+    curator: User,
+    technician: User,
+    manager: User,
+    tree: Tree,
+) -> None:
+    restrict(strain, curator, "cz_rat")
+    vials = marked(make_batch, passage0, technician, box=tree.box)
+    made = record_as(technician, vials)
+    done = confirm_as(manager, made)
+    placements = VialPlacement.objects.filter(vial__in=vials)
+    assert {(p.removed_at, p.removal_reason, p.removed_by_id) for p in placements} == {
+        (done.completed_at, "destroyed", manager.pk)
+    }
+    event = AuditEvent.objects.get(event_type="destruction_confirmed")
+    assert (event.strain_id, event.lab_id) == (strain.public_id, strain.lab_id)
+
+
+@pytest.mark.rule("R-END-05")
+def test_entered_in_error_is_an_event_of_the_strain_and_its_lab(
+    waiting_record: DestructionRecord, technician: User
+) -> None:
+    in_error_as(technician, waiting_record)
+    event = AuditEvent.objects.get(event_type="destruction_entered_in_error")
+    strain = waiting_record.strain
+    assert (event.strain_id, event.lab_id) == (strain.public_id, strain.lab_id)
