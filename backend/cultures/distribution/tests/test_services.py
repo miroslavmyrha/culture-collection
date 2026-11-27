@@ -9,16 +9,18 @@ from collections.abc import Callable
 from datetime import date, timedelta
 
 import pytest
+from django.utils import timezone
 
 from cultures.audit.context import AuditContext, MissingAuditContext
 from cultures.audit.models import AuditEvent
 from cultures.audit.registry import EVENT_TYPES
 from cultures.biosafety.policy import permit_today
 from cultures.core.exceptions import DomainError, Forbidden, RuleViolation
+from cultures.core.testing import run_before
 from cultures.deposits import services as deposits
 from cultures.deposits.models import Contact, Deposit, DepositTerms, MtaTemplate
 from cultures.deposits.tests.support import DUAL_USE, terms
-from cultures.distribution import services
+from cultures.distribution import policy, services
 from cultures.distribution.models import (
     LinePermit,
     PermitKind,
@@ -920,3 +922,110 @@ def test_the_cancellation_and_rejection_events_require_their_reason() -> None:
         "request_shipment_withdrawn",
     }
     assert {c for c in required if EVENT_TYPES[c].reason_required} == required
+
+
+# What the decisions record and say (#308): each event's change and reason, each refusal's text.
+
+
+def test_the_decision_events_carry_their_change_and_reason(
+    as_curator: AuditContext, curator: User, lab: Lab, requester: Requester, supply: Supply
+) -> None:
+    strain = supply(risk_group=2)
+    work = add_permit(curator, requester, PermitKind.PATHOGEN_WORK_PERMIT)
+    request = submit(curator, lab, requester, [(strain, 2)])
+    accept_mtas(curator, request)
+    start = last_pk()
+    services.request_approve(access=access_for(curator), request=request)  # no reason given
+    request.refresh_from_db()
+    assert request.decision_reason == ""
+    vials = [str(v.public_id) for v in reserved(request)]
+    line = AuditEvent.objects.get(pk__gt=start, event_type="request_line_reserved")
+    assert line.changes == {"vials": [None, vials], "permits": [None, [str(work.public_id)]]}
+    approved = AuditEvent.objects.get(pk__gt=start, event_type="request_approved")
+    assert approved.changes["status"] == ["submitted", "approved"]
+    assert set(approved.changes) == {"status", "findings"}
+
+    start = last_pk()
+    services.request_cancel(access=access_for(curator), request=request, reason="Withdrawn.")
+    released = AuditEvent.objects.get(pk__gt=start, event_type="request_line_released")
+    assert (released.changes, released.reason) == ({"vials": [vials, None]}, "Withdrawn.")
+    cancelled = AuditEvent.objects.get(pk__gt=start, event_type="request_cancelled")
+    assert cancelled.changes == {"status": ["approved", "cancelled"]}
+
+    other = submit(curator, lab, requester, [(strain, 1)])
+    services.request_reject(access=access_for(curator), request=other, reason="No laboratory.")
+    rejected = AuditEvent.objects.get(event_type="request_rejected")
+    assert rejected.changes == {"status": ["submitted", "rejected"]}
+
+
+@pytest.mark.rule("R-DIST-03")
+def test_a_regulated_approval_keeps_its_reason_in_the_event_and_says_what_is_missing(
+    *,
+    as_curator: AuditContext,
+    curator: User,
+    manager: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+    mockia: Taxon,
+) -> None:
+    request = submit(curator, lab, requester, [(supply(mockia, restrictions=[DUAL_USE]), 1)])
+    accept_mtas(curator, request)
+    error = refused(RuleViolation, "reason_required", lambda: approve(manager, request), "reason")
+    assert error.detail == "Say why the findings allow it."
+    approve(manager, request, reason="Dual-use inside the EU: no licence needed.")
+    event = AuditEvent.objects.get(event_type="request_approved")
+    assert event.reason == "Dual-use inside the EU: no licence needed."
+
+    waiting = submit(curator, lab, requester, [(supply(), 1)])
+
+    def again() -> object:
+        with as_actor(manager):
+            return services.request_approve_again(
+                access=access_for(manager), request=waiting, reason="Checked again."
+            )
+
+    error = refused(services.WrongState, "request_state", again)
+    assert error.detail == "A submitted request is not approved again."
+
+
+def test_a_blocked_approval_names_its_findings_one_after_another(
+    as_curator: AuditContext, curator: User, lab: Lab, requester: Requester, supply: Supply
+) -> None:
+    request = submit(curator, lab, requester, [(supply(), 9)])
+    blockers = policy.evaluate(request, permit_today()).blockers
+    assert len(blockers) >= 2
+    error = refused(services.RequestBlocked, "request_blocked", lambda: approve(curator, request))
+    assert error.detail == " ".join(f.sentence for f in blockers)
+
+
+def test_approval_takes_only_vials_of_the_request_lab(
+    *,
+    as_curator: AuditContext,
+    curator: User,
+    lab: Lab,
+    other_lab: Lab,
+    requester: Requester,
+    supply: Supply,
+) -> None:
+    """A vial row of another lab on this lab's batch is never reserved: the vials chosen keep the
+    lab filter of the gates' count. One of the lab's own two goes between the count and the
+    choice, so the line is short and says how many are free."""
+    strain = supply(vials=2)
+    own = list(Vial.objects.filter(batch__strain=strain).order_by("pk"))
+    Vial.objects.create(lab=other_lab, batch=own[0].batch, seq=99)
+    request = submit(curator, lab, requester, [(strain, 2)])
+    accept_mtas(curator, request)
+
+    def taken() -> None:
+        Vial.objects.filter(pk=own[0].pk).update(
+            status=VialStatus.QUARANTINED, status_changed_at=timezone.now()
+        )
+
+    with run_before(services.decisions, "_chosen_vials", taken):
+        error = refused(
+            services.NotEnoughVials, "not_enough_vials", lambda: approve(curator, request)
+        )
+    assert error.detail == (
+        f"{strain.accession_number}: 1 vials are free now, the line asks for 2."
+    )

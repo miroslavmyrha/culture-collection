@@ -305,3 +305,35 @@ def test_the_strain_lists_where_its_distributed_vials_went(
     # The other strain went nowhere.
     other = client.get(f"{STRAINS_URL}{busy['other'].public_id}/shipments/")
     assert other.json()["results"] == []
+
+
+def test_only_the_requests_that_ask_for_the_strain_are_cancelled(
+    curator: User, lab: Lab, requester: Requester, busy: dict[str, Any]
+) -> None:
+    elsewhere = submit(curator, lab, requester, [(busy["other"], 1)])
+    leave(curator, busy["strain"])
+    assert DistributionRequest.objects.get(pk=elsewhere.pk).status == RequestStatus.SUBMITTED
+
+
+def test_the_refusal_names_every_request_waiting_for_its_second_person(
+    curator: User, manager: User, approver: User, regulated: Regulated
+) -> None:
+    alone = regulated(prepared_by=approver)
+    first = regulated(prepared_by=approver)
+    second = regulated(prepared_by=approver, strain=first.lines.get().strain)
+
+    def refusal(request: DistributionRequest) -> str:
+        strain = request.lines.get().strain
+        with as_actor(curator):
+            proposal = strains.strain_deaccession_propose(
+                access=access_for(curator), strain=strain, data=DEAD
+            )
+        with as_actor(manager), pytest.raises(services.RequestAwaitsConfirmation) as raised:
+            strains.strain_deaccession_confirm(
+                access=access_for(manager), strain=strain, proposal=proposal.public_id
+            )
+        return str(raised.value.detail)
+
+    then = "for the confirmation of the shipment: withdraw the prepared shipment first."
+    assert refusal(alone) == f"Request {alone.label} waits {then}"
+    assert refusal(first) == f"Requests {first.label}, {second.label} wait {then}"

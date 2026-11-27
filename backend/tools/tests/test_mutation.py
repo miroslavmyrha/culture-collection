@@ -132,3 +132,13 @@ def test_every_group_file_is_its_own_area_but_the_small_ones() -> None:
     assert mutation.AREAS["audit"] == mutation.GROUPS["audit"]
     assert mutation.AREAS["users-factors"].sources == ("cultures/users/factors.py",)
     assert mutation.AREAS["users-factors"].tests == mutation.GROUPS["users"].tests
+
+
+def test_a_source_with_extra_tests_runs_them_and_its_siblings_do_not() -> None:
+    decisions = mutation.AREAS["distribution-decisions"]
+    group = mutation.GROUPS["distribution"]
+    extra = mutation.EXTRA["cultures/distribution/services/decisions.py"]
+    assert decisions.tests == group.tests + extra.tests
+    assert decisions.deselect == group.deselect + extra.deselect
+    assert mutation.AREAS["distribution-policy"].tests == group.tests
+    assert set(mutation.EXTRA) <= {p for g in mutation.GROUPS.values() for p in g.sources}
