@@ -33,8 +33,11 @@ def test_without_a_relying_party_id_the_first_origin_names_it(production: Settin
 
 def test_nothing_configured_and_no_localhost_refuses(settings: Settings) -> None:
     settings.WEBAUTHN_ORIGINS, settings.WEBAUTHN_ALLOW_LOCALHOST = [], False
-    with pytest.raises(KeyRefused):
+    with pytest.raises(KeyRefused) as refused:
         site(RequestFactory().post("/", HTTP_ORIGIN="http://localhost:5173"))
+    assert refused.value.detail == (
+        "Security keys are not set up on this server (WEBAUTHN_ORIGINS)."
+    )
 
 
 @pytest.fixture

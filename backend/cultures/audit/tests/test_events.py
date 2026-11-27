@@ -1,5 +1,6 @@
 """Service events: same transaction as the change, fail closed, nested contexts, batches."""
 
+import re
 import uuid
 from typing import Any
 
@@ -251,3 +252,67 @@ def test_a_batch_writes_all_its_events_in_one_insert(
     with django_assert_num_queries(BATCH_QUERIES):
         users_deactivate(users=members)
     assert AuditEvent.objects.count() == count + 1
+
+
+# --- the writers, rule by rule (#308) -----------------------------------------------------------
+
+
+def test_a_blank_reason_is_refused_in_words(admin: User, member: User) -> None:
+    with audit_context(channel=Channel.COMMAND, actor=admin), pytest.raises(RuleViolation) as error:
+        user_deactivate(user=member, reason=" ")
+    assert error.value.detail == "A reason is required."
+
+
+def test_a_user_kind_without_an_actor_is_refused_in_words(member: User) -> None:
+    with audit_context(channel=Channel.COMMAND), pytest.raises(MissingAuditContext) as error:
+        record_event(USER_DEACTIVATED, Change("user", member.public_id, {}), reason="x")
+    assert str(error.value) == "an audited write needs an actor: nobody is signed in"
+
+
+def test_a_write_outside_any_context_is_refused_in_words(member: User) -> None:
+    with pytest.raises(MissingAuditContext) as error:
+        record_event(USER_DEACTIVATED, Change("user", member.public_id, {}), reason="x")
+    assert str(error.value) == "audited write outside a request: wrap it in audit_context()"
+
+
+def test_a_user_actor_is_recorded_as_a_user_whatever_the_context_says(
+    admin: User, member: User
+) -> None:
+    with audit_context(channel=Channel.TASK, actor=admin, actor_kind=ActorKind.SYSTEM):
+        record_event(USER_DEACTIVATED, Change("user", member.public_id, {}), reason="x")
+    event = AuditEvent.objects.get()
+    assert (event.actor, event.actor_kind, event.actor_label) == (
+        admin,
+        "user",
+        f"user:{admin.public_id}",
+    )
+
+
+def test_a_personal_field_is_stored_as_changed_only(member: User, audited: AuditContext) -> None:
+    change = Change(
+        "user",
+        member.public_id,
+        {"email": ["old@example.org", "new@example.org"], "is_active": [True, False]},
+    )
+    record_event(USER_DEACTIVATED, change)
+    assert AuditEvent.objects.get().changes == {
+        "email": "changed",
+        "is_active": [True, False],
+    }
+
+
+def test_a_batch_takes_its_explicit_reason_over_a_context_without_one(admin: User) -> None:
+    members = baker.make(User, _quantity=2)
+    with audit_context(channel=Channel.COMMAND, actor=admin):
+        assert users_deactivate(users=members, reason="asked to leave") == 2
+    assert set(AuditEvent.objects.values_list("reason", flat=True)) == {"asked to leave"}
+    assert AuditEvent.objects.count() == 3
+
+
+def test_a_context_outside_a_request_gets_a_new_request_id(admin: User) -> None:
+    with audit_context(channel=Channel.COMMAND, actor=admin) as first:
+        pass
+    with audit_context(channel=Channel.COMMAND, actor=admin) as second:
+        pass
+    assert re.fullmatch(r"[0-9a-f]{32}", first.request_id)
+    assert first.request_id != second.request_id

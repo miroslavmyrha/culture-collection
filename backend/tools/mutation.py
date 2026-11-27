@@ -53,6 +53,7 @@ GROUPS: dict[str, Area] = {
             "test_row_changes.py",
             "test_append_only.py",
             "test_claims.py",
+            "test_strain_root.py",
         ),
     ),
     "distribution": Area(
@@ -115,6 +116,8 @@ EXTRA: dict[str, Area] = {
             "cultures/distribution/tests/test_services.py::test_every_service_has_a_scenario_here",
         ),
     ),
+    "cultures/users/signin.py": Area((), _tests("users", "test_webauthn_site.py")),
+    "cultures/users/login_limits.py": Area((), _tests("users", "test_login_limits_clear.py")),
 }
 
 
