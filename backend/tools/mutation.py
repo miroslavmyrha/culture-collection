@@ -105,18 +105,35 @@ GROUPS: dict[str, Area] = {
 }
 
 
+# Tests one source's area runs beside its group's: they reach that source, and in the group
+# they would slow its other areas (distribution-policy ran 162 of its 250 minutes, 2026-11-25).
+EXTRA: dict[str, Area] = {
+    "cultures/distribution/services/decisions.py": Area(
+        (),
+        _tests("distribution", "test_services.py", "test_deaccession.py", "test_concurrency.py"),
+        deselect=(
+            "cultures/distribution/tests/test_services.py::test_every_service_has_a_scenario_here",
+        ),
+    ),
+}
+
+
 def _split(groups: dict[str, Area]) -> dict[str, Area]:
-    """One area a source file, each with its group's tests: one child a job, the files of a
-    group side by side on their own runners. Four children on one test database ran each other's
-    transactions into locks and failures, which read as kills: the audit group kept 31 survivors
-    with one child and 1 with four (2026-11-25), so the night runs one child per job."""
+    """One area a source file, each with its group's tests and its EXTRA: one child a job, the
+    files of a group side by side on their own runners. Four children on one test database ran
+    each other's transactions into locks and failures, which read as kills: the audit group kept
+    31 survivors with one child and 1 with four (2026-11-25), so the night runs one child per
+    job."""
     areas: dict[str, Area] = {}
     for name, group in groups.items():
         if len(group.sources) == 1 or name in WHOLE:
             areas[name] = group
             continue
         for source in group.sources:
-            areas[f"{name}-{Path(source).stem}"] = Area((source,), group.tests, group.deselect)
+            extra = EXTRA.get(source, Area((), ()))
+            areas[f"{name}-{Path(source).stem}"] = Area(
+                (source,), group.tests + extra.tests, group.deselect + extra.deselect
+            )
     return areas
 
 

@@ -8,6 +8,7 @@ also names that rule's id in [docs/compliance.md](docs/compliance.md), so the pa
 to the law the rule rests on is one hop.
 
 ## Unreleased
+- The mutation run of a request's decisions (approval, rejection, cancellation, deaccession) keeps 18 of its 164 survivors, each with its reason: its area also runs test_services, test_deaccession and test_concurrency, and new tests check each event's change and reason, each refusal's text, that only vials of the request's lab are reserved, that a deaccession cancels only the requests for its strain and that a cancellation locks only its own reservations (#308).
 - The audit and the regulated services are mutation-tested every night, one job per area; a survivor outside the baseline fails the run and is listed in its summary. The first run checked 5,089 mutants and 977 survived, kept as not triaged (#308) (#239).
 - Performance at collection scale (#71): `seed_scale` adds thousands of strains with placed vials through the services (5,000 strains and 50,000 vials in about 11 minutes, `audit_reconcile` clean); `tools/measure_scale.py` and a Playwright timing script measure the main screens; the CI job `scale` fails when a screen's query count grows from 50 to 500 strains or a screen takes over 1.5 s. The numbers are in docs/performance.md.
 - The frontend has one format: Prettier 3.10.1 with a print width of 160, single quotes and no semicolons as before, run once over `src`, `e2e` and `tools`; `check.sh` fails on an unformatted file (`npm run format` fixes it) (#237).

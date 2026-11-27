@@ -286,3 +286,41 @@ def test_two_confirmations_of_one_preparation_one_ships(
     assert ShipmentVial.objects.filter(shipment__request=request).count() == 2
     assert Vial.objects.filter(status="distributed").count() == 2
     assert AuditEvent.objects.filter(event_type="request_shipped").count() == 1
+
+
+@pytest.mark.slow
+@pytest.mark.django_db(transaction=True)
+def test_a_cancellation_locks_only_its_own_reservations(
+    curator: User, lab: Lab, requester: Any, supply: Supply
+) -> None:
+    """The reservations another request holds stay out of a cancellation's locks (#308): with
+    them locked elsewhere, the cancellation still ends at once."""
+    strain = supply(vials=4)
+    with audit_context(channel=Channel.API, actor=curator, request_id="req-setup"):
+        mine, rival = (submit(curator, lab, requester, [(strain, 2)]) for _ in range(2))
+        for request in (mine, rival):
+            accept_mtas(curator, request)
+            approve(curator, request)
+    locked, release = threading.Event(), threading.Event()
+
+    def hold() -> None:
+        try:
+            with transaction.atomic():
+                list(VialReservation.objects.select_for_update().filter(line__request=rival))
+                locked.set()
+                release.wait(timeout=5)
+        finally:
+            connection.close()
+
+    holder = threading.Thread(target=hold)
+    holder.start()
+    assert locked.wait(timeout=10)
+    try:
+        with audit_context(channel=Channel.API, actor=curator, request_id="req-cancel"):
+            services.request_cancel(access=access_for(curator), request=mine, reason="Withdrawn.")
+        assert holder.is_alive()  # the rival's rows were never waited for
+    finally:
+        release.set()
+        holder.join(timeout=30)
+    assert reserved(mine) == []
+    assert len(reserved(rival)) == 2
