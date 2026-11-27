@@ -870,3 +870,49 @@ def test_a_viewer_access_object_is_not_enough(
             access=access_for(viewer), strain=strain, risk_group=2, basis="b", reason="x"
         ),
     )
+
+
+# The mutation run's survivors (#308).
+
+
+@pytest.mark.rule("R-KIND-05")
+def test_a_restriction_twice_says_so(
+    make_strain: MakeStrain, as_curator: AuditContext, curator_access: Access
+) -> None:
+    strain = make_strain(restrictions=[GMO])
+    same = RestrictionInput(RestrictionKind.GMO, "MŽP notification 2026/12", gmo_category=2)
+    error = refused(
+        services.InvalidStrain,
+        "unique",
+        lambda: services.strain_restriction_add(
+            access=curator_access, strain=strain, restriction=same, reason="again"
+        ),
+        attr="reference",
+    )
+    assert error.detail == "The strain has this restriction already."
+
+
+@pytest.mark.rule("R-KIND-08")
+def test_the_events_of_a_restriction_hold_it_whole(
+    make_strain: MakeStrain,
+    as_curator: AuditContext,
+    curator: User,
+    manager: User,
+    curator_access: Access,
+) -> None:
+    strain = make_strain()
+    added = services.strain_restriction_add(
+        access=curator_access, strain=strain, restriction=DUAL_USE, reason="Annex I 2025"
+    )
+    values = {
+        "public_id": str(added.public_id),
+        "kind": "dual_use",
+        "reference": "1C351.c",
+        "act": "(EU) 2025/2003",
+        "gmo_category": None,
+    }
+    event = AuditEvent.objects.get(event_type="strain_restriction_added")
+    assert event.changes == {"restriction": [None, values]}
+    end_restriction(added, proposer=curator, confirmer=manager, reason="no longer listed")
+    ended = AuditEvent.objects.get(event_type="strain_restriction_ended")
+    assert ended.changes["restriction"] == [values, None]

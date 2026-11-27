@@ -34,6 +34,7 @@ from .conftest import (
     GMO,
     MakeStrain,
     at_commit,
+    end_restriction,
     make_permit,
     new_strain,
     refused_at_commit,
@@ -326,3 +327,64 @@ def test_the_decrees_restriction_does_not_end_while_the_dual_use_entry_asks_for_
         )
     vrat.refresh_from_db()
     assert vrat.ended_at is None
+
+
+# The mutation run's survivors (#308): only the strain's own, active dual-use entry of the
+# same agent holds the decree's restriction.
+
+
+@pytest.mark.rule("R-KIND-11")
+def test_a_dual_use_entry_of_another_strain_holds_nothing(
+    make_strain: MakeStrain, curator_access: Access, as_curator: Any
+) -> None:
+    entry, cz_code = a_dual_use_entry_also_listed_as(RestrictionKind.CZ_VRAT)
+    held, free = make_strain(), make_strain()
+    make_permit(held.lab, AuthorisationKind.CZ_VRAT)
+    with at_commit():
+        add(curator_access, held, RestrictionInput(RestrictionKind.CZ_VRAT, cz_code))
+        add(curator_access, held, RestrictionInput(RestrictionKind.DUAL_USE, entry.code, act=ACT))
+        vrat = add(curator_access, free, RestrictionInput(RestrictionKind.CZ_VRAT, cz_code))
+    services.strain_restriction_end_propose(
+        access=curator_access, restriction=vrat, reason="No longer needed."
+    )
+
+
+@pytest.mark.rule("R-KIND-11")
+def test_an_ended_dual_use_entry_holds_nothing(
+    make_strain: MakeStrain, curator_access: Access, curator: User, manager: User, as_curator: Any
+) -> None:
+    entry, cz_code = a_dual_use_entry_also_listed_as(RestrictionKind.CZ_VRAT)
+    strain = make_strain()
+    make_permit(strain.lab, AuthorisationKind.CZ_VRAT)
+    with at_commit():
+        vrat = add(curator_access, strain, RestrictionInput(RestrictionKind.CZ_VRAT, cz_code))
+        dual_use = add(
+            curator_access, strain, RestrictionInput(RestrictionKind.DUAL_USE, entry.code, act=ACT)
+        )
+    end_restriction(dual_use, proposer=curator, confirmer=manager)
+    services.strain_restriction_end_propose(
+        access=curator_access, restriction=vrat, reason="No longer needed."
+    )
+
+
+@pytest.mark.rule("R-KIND-11")
+def test_a_dual_use_entry_holds_only_the_restriction_of_its_own_agent(
+    make_strain: MakeStrain, curator_access: Access, as_curator: Any
+) -> None:
+    """A dual-use entry the decree lists as a risky agent holds the RAT restriction, not a VRAT
+    restriction the strain has as well."""
+    entry, rat_code = a_dual_use_entry_also_listed_as(RestrictionKind.CZ_RAT)
+    _, vrat_code = a_dual_use_entry_also_listed_as(RestrictionKind.CZ_VRAT)
+    strain = make_strain()
+    make_permit(strain.lab, AuthorisationKind.CZ_VRAT)
+    with at_commit():
+        rat = add(curator_access, strain, RestrictionInput(RestrictionKind.CZ_RAT, rat_code))
+        vrat = add(curator_access, strain, RestrictionInput(RestrictionKind.CZ_VRAT, vrat_code))
+        add(curator_access, strain, RestrictionInput(RestrictionKind.DUAL_USE, entry.code, act=ACT))
+    with pytest.raises(services.RestrictionHeldByDualUse):
+        services.strain_restriction_end_propose(
+            access=curator_access, restriction=rat, reason="No longer needed."
+        )
+    services.strain_restriction_end_propose(
+        access=curator_access, restriction=vrat, reason="No longer needed."
+    )

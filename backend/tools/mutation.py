@@ -118,6 +118,14 @@ EXTRA: dict[str, Area] = {
     ),
     "cultures/users/signin.py": Area((), _tests("users", "test_webauthn_site.py")),
     "cultures/users/login_limits.py": Area((), _tests("users", "test_login_limits_clear.py")),
+    # The box caps a raise must fit live with the vials (20 s), the dual-use entries that hold a
+    # decree's restriction with the lists (19 s).
+    "cultures/strains/services/risk_group.py": Area(
+        (), _tests("lineage", "test_risk_group_caps.py")
+    ),
+    "cultures/strains/services/restrictions.py": Area(
+        (), _tests("strains", "test_list_entries.py")
+    ),
 }
 
 

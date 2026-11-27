@@ -460,3 +460,65 @@ def test_the_strain_page_shows_the_basis_and_the_entry_of_its_group(
     body = logged_in(viewer).get(f"{STRAINS_URL}{strain.public_id}/").json()
     assert body["risk_group_basis"] == ACCESSION_BASIS
     assert body["risk_group_entry"] is None
+
+
+# The mutation run's survivors (#308).
+
+
+@pytest.mark.rule("R-RISK-09")
+def test_a_raise_from_a_group_on_an_entry_records_the_old_entry_too(
+    curator_access: Access, lab: Lab, exempli: Taxon, as_curator: AuditContext
+) -> None:
+    old, new = an_entry(2), an_entry(3)
+    strain = accession(
+        curator_access,
+        lab,
+        taxon=exempli,
+        risk_group=2,
+        risk_group_basis=WORDS,
+        risk_group_entry=old,
+    )
+    services.strain_set_risk_group(
+        access=curator_access,
+        strain=strain,
+        risk_group=3,
+        basis=WORDS,
+        basis_entry=new,
+        reason="Read in the annex.",
+    )
+    event = AuditEvent.objects.get(event_type="strain_risk_group_changed")
+    assert event.changes == {
+        "risk_group": [2, 3],
+        "basis": [WORDS, WORDS],
+        "basis_entry": [old.code, new.code],
+    }
+
+
+@pytest.mark.rule("R-RISK-09")
+def test_the_proposal_event_names_the_entry_of_the_lower_group(
+    make_strain: MakeStrain, curator: User
+) -> None:
+    strain = make_strain(risk_group=3)
+    entry = an_entry(2)
+    with audit_context(channel=Channel.API, actor=curator, request_id="req-propose"):
+        proposal = services.strain_risk_group_lower_propose(
+            access=access_for(curator),
+            strain=strain,
+            risk_group=2,
+            basis=WORDS,
+            basis_entry=entry,
+            reason="Read in the annex.",
+        )
+    event = AuditEvent.objects.get(event_type="strain_risk_group_lower_proposed")
+    assert event.changes == {
+        "risk_group_proposal": [
+            None,
+            {
+                "public_id": str(proposal.public_id),
+                "risk_group": 2,
+                "from_risk_group": 3,
+                "basis": WORDS,
+                "basis_entry": entry.code,
+            },
+        ]
+    }
