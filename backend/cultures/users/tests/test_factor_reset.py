@@ -11,12 +11,15 @@ from django.test import Client
 
 from cultures.audit.context import audit_context
 from cultures.audit.models import AuditEvent, Channel
+from cultures.core.exceptions import Forbidden, RuleViolation
 from cultures.core.testing import assert_problem, logged_in
 from cultures.labs.models import Lab, Membership
 from cultures.labs.permissions import Role
 from cultures.labs.tests.conftest import make_lab, member_of
 from cultures.users import factors
-from cultures.users.models import FactorReset, RecoveryCode, TotpDevice, User
+from cultures.users.models import FactorReset, RecoveryCode, SecurityKey, TotpDevice, User
+
+from .soft_key import SoftKey
 
 pytestmark = pytest.mark.django_db
 PASSWORD = "correct horse battery"  # noqa: S105 (a test password)
@@ -217,3 +220,107 @@ def test_the_database_never_deletes_a_reset(lab: Lab, first: User, person: User)
     reset = open_reset(lab, first, person)
     with connection.cursor() as cursor, pytest.raises(DatabaseError, match="never deleted"):
         cursor.execute("DELETE FROM users_factorreset WHERE id = %s", [reset.pk])
+
+
+# --- the services, rule by rule (#308) ----------------------------------------------------------
+
+
+def as_user(user: User) -> Any:
+    return audit_context(channel=Channel.COMMAND, actor=user)
+
+
+def add_key(user: User) -> None:
+    """A security key next to the app, enrolled through the service."""
+    ceremony = factors.key_registration(user, "localhost")
+    credential = SoftKey().register(ceremony.options)
+    with as_user(user):
+        factors.key_enrol(
+            user=user,
+            credential=credential,
+            challenge=ceremony.challenge,
+            rp_id="localhost",
+            origins=["http://localhost"],
+            name="Blue key",
+        )
+
+
+def event(event_type: str) -> AuditEvent:
+    return AuditEvent.objects.filter(event_type=event_type).order_by("-pk").first() or pytest.fail(
+        f"no {event_type}"
+    )
+
+
+@pytest.mark.rule("R-ACCESS-04")
+def test_each_step_of_a_reset_leaves_its_exact_trail(
+    lab: Lab, first: User, second: User, person: User
+) -> None:
+    add_key(person)
+    add_key(person)
+    logged_in(person)
+    with as_user(first):
+        reset = factors.factor_reset_propose(actor=first, user=person, lab=lab, reason="Lost.")
+    proposed = event("factor_reset_proposed")
+    assert (proposed.changes, proposed.lab_id) == (
+        {"factor_reset": [None, str(reset.public_id)]},
+        lab.pk,
+    )
+    with as_user(second):
+        factors.factor_reset_confirm(actor=second, reset=reset, reason="Checked in person.")
+    confirmed = event("factor_reset_confirmed")
+    assert (confirmed.changes, confirmed.lab_id) == (
+        {
+            "factor_reset": [None, str(reset.public_id)],
+            "security_keys": [2, 0],
+            "totp": [1, 0],
+            "recovery_codes": [10, 0],
+            "sessions": [1, 0],
+        },
+        lab.pk,
+    )
+    assert not SecurityKey.objects.filter(user=person).exists()
+
+    with as_user(first):
+        again = factors.factor_reset_propose(actor=first, user=person, lab=lab, reason="Lost.")
+    with as_user(second):
+        factors.factor_reset_withdraw(actor=second, reset=again, reason="Found it.")
+    withdrawn = event("factor_reset_withdrawn")
+    assert (withdrawn.changes, withdrawn.lab_id) == (
+        {"factor_reset": [str(again.public_id), None]},
+        lab.pk,
+    )
+
+
+def test_a_reason_is_required_word_for_word(lab: Lab, first: User, person: User) -> None:
+    with as_user(first), pytest.raises(RuleViolation) as refused:
+        factors.factor_reset_propose(actor=first, user=person, lab=lab, reason="  ")
+    assert (refused.value.detail, refused.value.code, refused.value.attr) == (
+        "A reason is required.",
+        "reason_required",
+        "reason",
+    )
+
+
+@pytest.mark.rule("R-ACCESS-04")
+def test_an_inactive_manager_decides_nothing(lab: Lab, first: User, person: User) -> None:
+    first.is_active = False
+    first.save()
+    with as_user(first), pytest.raises(Forbidden):
+        factors.factor_reset_propose(actor=first, user=person, lab=lab, reason="Lost.")
+    assert not FactorReset.objects.exists()
+
+
+@pytest.mark.rule("R-ACCESS-04")
+def test_a_manager_decides_only_for_a_member_of_the_lab(lab: Lab, first: User) -> None:
+    stranger = member_of(make_lab(name="Bacteria", code="BAC"), Role.TECHNICIAN, "stranger")
+    with as_user(first), pytest.raises(Forbidden):
+        factors.factor_reset_propose(actor=first, user=stranger, lab=lab, reason="Lost.")
+    assert not FactorReset.objects.exists()
+
+
+@pytest.mark.rule("R-ACCESS-04")
+def test_a_curator_of_the_lab_decides_nothing(lab: Lab, first: User, person: User) -> None:
+    """The lab has a manager (first): the curator is not one."""
+    curator = member_of(lab, Role.CURATOR, "curator")
+    with as_user(curator), pytest.raises(Forbidden):
+        factors.factor_reset_propose(actor=curator, user=person, lab=lab, reason="Lost.")
+    assert not FactorReset.objects.exists()

@@ -203,3 +203,34 @@ def test_the_database_never_deletes_a_code(lab: Lab, manager: User, newcomer: Us
     code = stored_code(lab, manager, newcomer)
     with connection.cursor() as cursor, pytest.raises(DatabaseError, match="never deleted"):
         cursor.execute("DELETE FROM users_enrolmentcode WHERE id = %s", [code.pk])
+
+
+# --- the services, rule by rule (#308) ----------------------------------------------------------
+
+
+@pytest.mark.rule("R-ACCESS-05")
+def test_an_empty_enrolment_code_is_refused(lab: Lab, manager: User, newcomer: User) -> None:
+    assert issue(manager, newcomer, lab).status_code == 201
+    with audit_context(channel=Channel.COMMAND, actor=newcomer):
+        assert factors.enrolment_code_use(user=newcomer, code=" - ") is False
+    assert not AuditEvent.objects.filter(event_type="enrolment_code_used").exists()
+
+
+def test_the_enrolment_code_is_issued_and_used_in_the_trail(
+    lab: Lab, manager: User, newcomer: User
+) -> None:
+    with audit_context(channel=Channel.COMMAND, actor=manager):
+        code = factors.enrolment_code_issue(
+            actor=manager, user=newcomer, lab=lab, reason="Started today."
+        )
+    entry = EnrolmentCode.objects.get(user=newcomer)
+    issued = AuditEvent.objects.get(event_type="enrolment_code_issued")
+    assert (issued.changes, issued.lab_id, issued.reason) == (
+        {"enrolment_code": [None, entry.pk]},
+        lab.pk,
+        "Started today.",
+    )
+    with audit_context(channel=Channel.COMMAND, actor=newcomer):
+        assert factors.enrolment_code_use(user=newcomer, code=code)
+    used = AuditEvent.objects.get(event_type="enrolment_code_used")
+    assert used.changes == {"enrolment_code": [entry.pk, None]}

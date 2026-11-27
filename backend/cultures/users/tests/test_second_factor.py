@@ -1,8 +1,10 @@
 """The second factor (ADR 0009, #176): the sign-in in two steps, enrolment at the next sign-in,
 TOTP, security keys, recovery codes, removal, and what the login limits count."""
 
+import re
 from datetime import timedelta
 from typing import Any
+from urllib.parse import parse_qs, unquote, urlsplit
 
 import pyotp
 import pytest
@@ -16,12 +18,13 @@ from pytest_django.fixtures import Settings
 
 from cultures.audit.context import audit_context
 from cultures.audit.models import AuditEvent, Channel, RowChange
+from cultures.core.exceptions import NotFound
 from cultures.core.testing import assert_problem
 from cultures.users import factors
 from cultures.users.models import LoginFailures, RecoveryCode, SecurityKey, TotpDevice, User
 from cultures.users.signin import PENDING, VERIFIED_AT
 
-from .soft_key import SoftKey
+from .soft_key import SoftKey, b64url
 
 pytestmark = pytest.mark.django_db
 PASSWORD = "correct horse battery"  # noqa: S105 (a test password)
@@ -465,3 +468,296 @@ def test_the_second_step_does_not_spend_the_login_budget(
             code = pyotp.TOTP(secret).now()
             assert post(client, CODE, {"method": "totp", "code": code}).status_code == 200
     assert_problem(password_step(Client()), 429, "throttled")  # the third password waits
+
+
+# --- the services, rule by rule (#308) ----------------------------------------------------------
+
+RP, ORIGINS = "localhost", ["http://localhost"]
+RECOVERY_CODE = re.compile(
+    r"[abcdefghjkmnpqrstuvwxyz23456789]{5}-[abcdefghjkmnpqrstuvwxyz23456789]{5}"
+)
+
+
+def as_user(user: User) -> Any:
+    return audit_context(channel=Channel.COMMAND, actor=user)
+
+
+def last_event(event_type: str) -> AuditEvent:
+    event = AuditEvent.objects.filter(event_type=event_type).order_by("-pk").first()
+    assert event is not None
+    return event
+
+
+def key_of(
+    user: User, key: SoftKey, *, name: str = "Blue key", transports: list[str] | None = None
+) -> SecurityKey:
+    """A key enrolled through the service, with the transports the browser names."""
+    ceremony = factors.key_registration(user, RP)
+    credential = key.register(ceremony.options)
+    if transports is None:
+        del credential["response"]["transports"]
+    else:
+        credential["response"]["transports"] = transports
+    with as_user(user):
+        return factors.key_enrol(
+            user=user,
+            credential=credential,
+            challenge=ceremony.challenge,
+            rp_id=RP,
+            origins=ORIGINS,
+            name=name,
+        )
+
+
+def key_answer(user: User, key: SoftKey) -> bool:
+    ceremony = factors.key_authentication(user, RP)
+    with as_user(user):
+        return factors.key_verify(
+            user=user,
+            credential=key.sign(ceremony.options),
+            challenge=ceremony.challenge,
+            rp_id=RP,
+            origins=ORIGINS,
+        )
+
+
+def app_of(user: User) -> tuple[str, str]:
+    """An authenticator app enrolled through the service: its secret and the code it took."""
+    secret = pyotp.random_base32()
+    code = pyotp.TOTP(secret).now()
+    with as_user(user):
+        factors.totp_enrol(user=user, secret=secret, code=code)
+    return secret, code
+
+
+def test_a_key_keeps_its_counter_a_default_name_and_the_transports_it_knows(user: User) -> None:
+    key = SoftKey()
+    key.count = 7
+    stored = key_of(user, key, name="  ", transports=["nfc", "laser", *["usb"] * 6, "ble"])
+    stored.refresh_from_db()
+    assert (stored.sign_count, stored.name) == (7, "Security key")
+    # The first eight the browser named, those py_webauthn does not know left out.
+    assert stored.transports == ["nfc", *["usb"] * 6]
+    added = last_event("second_factor_added").changes
+    assert added == {"security_key": [None, str(stored.public_id)]}
+
+
+def test_a_key_whose_browser_names_no_transport_keeps_none(user: User) -> None:
+    assert key_of(user, SoftKey(), transports=None).transports == []
+
+
+@pytest.mark.rule("R-ACCESS-03")
+def test_one_key_enrols_for_one_person_once(user: User) -> None:
+    key = SoftKey()
+    key_of(user, key)
+    other = baker.make(User, username="other")
+    with pytest.raises(factors.KeyRefused):
+        key_of(other, key)
+    assert SecurityKey.objects.count() == 1
+
+
+def test_the_registration_names_the_user_and_excludes_their_keys(user: User) -> None:
+    key = SoftKey()
+    key_of(user, key, transports=["usb"])
+    options = factors.key_registration(user, RP).options
+    assert options["user"]["id"] == b64url(user.public_id.bytes)
+    assert options["excludeCredentials"] == [
+        {"id": b64url(key.credential_id), "type": "public-key", "transports": ["usb"]}
+    ]
+    # Preferred, not required: a key without a PIN is still a factor (ADR 0009).
+    assert options["authenticatorSelection"] == {
+        "residentKey": "discouraged",
+        "requireResidentKey": False,
+        "userVerification": "preferred",
+    }
+
+
+def test_the_sign_in_allows_only_the_users_own_keys(user: User) -> None:
+    mine = SoftKey()
+    key_of(user, mine, transports=["usb"])
+    key_of(baker.make(User, username="other"), SoftKey(), transports=["nfc"])
+    options = factors.key_authentication(user, RP).options
+    assert options["allowCredentials"] == [
+        {"id": b64url(mine.credential_id), "type": "public-key", "transports": ["usb"]}
+    ]
+    assert options["userVerification"] == "preferred"
+
+
+@pytest.mark.rule("R-ACCESS-03")
+def test_a_key_answers_only_for_its_own_person(user: User) -> None:
+    key_of(user, SoftKey())
+    theirs = SoftKey()
+    key_of(baker.make(User, username="other"), theirs)
+    assert key_answer(user, theirs) is False
+
+
+def test_either_key_of_a_person_answers(user: User) -> None:
+    first, second = SoftKey(), SoftKey()
+    key_of(user, first)
+    key_of(user, second)
+    assert key_answer(user, second) is True
+    assert key_answer(user, first) is True
+
+
+@pytest.mark.rule("R-ACCESS-03")
+def test_an_answer_that_is_no_credential_is_refused(user: User) -> None:
+    key_of(user, SoftKey())
+    ceremony = factors.key_authentication(user, RP)
+    with as_user(user):
+        answered = factors.key_verify(
+            user=user,
+            credential={"id": "not a key"},
+            challenge=ceremony.challenge,
+            rp_id=RP,
+            origins=ORIGINS,
+        )
+    assert answered is False
+
+
+def test_a_key_alone_is_a_second_factor(user: User) -> None:
+    key_of(user, SoftKey())
+    assert factors.has_second_factor(user)
+
+
+def test_removing_one_key_keeps_the_other_and_names_it(user: User) -> None:
+    first, second = key_of(user, SoftKey()), key_of(user, SoftKey())
+    with as_user(user):
+        factors.key_remove(user=user, key=second)
+    assert list(SecurityKey.objects.filter(user=user)) == [first]
+    removed = last_event("second_factor_removed").changes
+    assert removed == {"security_key": [str(second.public_id), None]}
+
+
+@pytest.mark.rule("R-ACCESS-03")
+def test_a_key_of_another_person_is_not_found(user: User) -> None:
+    key_of(user, SoftKey())
+    key_of(user, SoftKey())
+    other = baker.make(User, username="other")
+    theirs = key_of(other, SoftKey())
+    with as_user(user), pytest.raises(NotFound):
+        factors.key_remove(user=user, key=theirs)
+    assert SecurityKey.objects.filter(pk=theirs.pk).exists()
+
+
+@pytest.mark.rule("R-ACCESS-03")
+def test_the_last_key_stays(user: User) -> None:
+    only = key_of(user, SoftKey())
+    with as_user(user), pytest.raises(factors.LastFactor):
+        factors.key_remove(user=user, key=only)
+    assert SecurityKey.objects.filter(pk=only.pk).exists()
+
+
+@pytest.mark.rule("R-ACCESS-03")
+def test_a_code_two_steps_ahead_is_refused(user: User) -> None:
+    secret, _ = app_of(user)
+    ahead = pyotp.TOTP(secret).at(timezone.now() + timedelta(seconds=60))
+    with as_user(user):
+        assert factors.totp_verify(user=user, code=ahead) is False
+
+
+def test_a_code_with_a_letter_is_refused(user: User) -> None:
+    app_of(user)
+    with as_user(user):
+        assert factors.totp_verify(user=user, code="é12345") is False
+
+
+@pytest.mark.rule("R-ACCESS-03")
+def test_the_code_that_enrolled_the_app_does_not_sign_in(user: User) -> None:
+    _, code = app_of(user)
+    with as_user(user):
+        assert factors.totp_verify(user=user, code=code) is False
+
+
+@pytest.mark.rule("R-ACCESS-03")
+def test_an_app_sealed_with_another_key_takes_no_code(user: User, settings: Settings) -> None:
+    secret = pyotp.random_base32()
+    current = settings.MFA_SECRET_KEY
+    settings.MFA_SECRET_KEY = "the key before a rotation"  # noqa: S105 (a throwaway key)
+    sealed = factors.seal(secret)
+    settings.MFA_SECRET_KEY = current
+    assert factors.unseal(sealed) == ""
+    with as_user(user):
+        TotpDevice.objects.create(user=user, secret=sealed)
+        assert factors.totp_verify(user=user, code=pyotp.TOTP(secret).now()) is False
+
+
+def test_a_second_app_is_refused(user: User) -> None:
+    app_of(user)
+    with pytest.raises(factors.TotpExists):
+        app_of(user)
+
+
+def test_a_wrong_enrolment_code_names_the_code_field(user: User) -> None:
+    with as_user(user), pytest.raises(factors.WrongCode) as refused:
+        factors.totp_enrol(user=user, secret=pyotp.random_base32(), code="abc")
+    assert refused.value.attr == "code"
+
+
+def test_the_app_is_added_and_removed_in_the_trail(user: User) -> None:
+    app_of(user)
+    assert last_event("second_factor_added").changes == {"totp": [None, "added"]}
+    key_of(user, SoftKey())
+    with as_user(user):
+        factors.totp_remove(user=user)
+    assert last_event("second_factor_removed").changes == {"totp": ["added", None]}
+
+
+def test_the_app_link_names_the_person_and_the_issuer(user: User) -> None:
+    secret = pyotp.random_base32()
+    link = urlsplit(factors.totp_uri(user, secret))
+    issuer = settings.WEBAUTHN_RP_NAME
+    assert (link.scheme, link.netloc, unquote(link.path)) == (
+        "otpauth",
+        "totp",
+        f"/{issuer}:lab-tech",
+    )
+    assert parse_qs(link.query) == {"secret": [secret], "issuer": [issuer]}
+
+
+def test_recovery_codes_are_two_groups_of_five(user: User) -> None:
+    with as_user(user):
+        codes = factors.recovery_codes_issue(user=user)
+    assert all(RECOVERY_CODE.fullmatch(code) for code in codes), codes
+
+
+@pytest.mark.rule("R-ACCESS-03")
+def test_an_empty_recovery_code_is_refused(user: User) -> None:
+    with as_user(user):
+        factors.recovery_codes_issue(user=user)
+        assert factors.recovery_code_use(user=user, code=" - ") is False
+    assert not AuditEvent.objects.filter(event_type="recovery_code_used").exists()
+
+
+@pytest.mark.rule("R-ACCESS-03")
+def test_a_recovery_code_of_another_person_is_refused(user: User) -> None:
+    other = baker.make(User, username="other")
+    with as_user(other):
+        theirs = factors.recovery_codes_issue(user=other)
+    with as_user(user):
+        assert factors.recovery_code_use(user=user, code=theirs[0]) is False
+
+
+def test_a_used_recovery_code_counts_down_in_the_trail(user: User) -> None:
+    other = baker.make(User, username="other")
+    with as_user(other):
+        factors.recovery_codes_issue(user=other)
+    with as_user(user):
+        codes = factors.recovery_codes_issue(user=user)
+    assert last_event("recovery_codes_issued").changes == {"recovery_codes": [None, 10]}
+    with as_user(user):
+        assert factors.recovery_code_use(user=user, code=codes[0])
+    assert last_event("recovery_code_used").changes == {"recovery_codes": [10, 9]}
+    assert factors.unused_recovery_codes(user) == 9
+
+
+@pytest.mark.rule("R-ACCESS-03")
+def test_a_totp_code_in_non_ascii_digits_is_a_wrong_code(
+    user: User, with_totp: tuple[str, list[str]]
+) -> None:
+    # Full-width digits pass str.isdigit(); compare_digest refuses non-ASCII text with a TypeError.
+    secret, _ = with_totp
+    code = "".join(chr(ord(d) - ord("0") + 0xFF10) for d in pyotp.TOTP(secret).now())
+    assert code.isdigit() and not code.isascii()
+    client = Client()
+    password_step(client)
+    assert_problem(post(client, CODE, {"method": "totp", "code": code}), 422, "wrong_code")
