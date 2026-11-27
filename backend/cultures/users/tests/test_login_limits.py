@@ -18,7 +18,8 @@ import pytest
 import time_machine
 from django.conf import settings
 from django.core.cache import cache
-from django.test import Client
+from django.http import HttpResponse
+from django.test import Client, RequestFactory
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 from pytest_django.fixtures import Settings
@@ -642,3 +643,58 @@ def test_a_browser_is_read_for_five_entries_at_most(door: Door, alice: User) -> 
     assert door(browser, "alice", PASSWORD, NEW) == "limited"
     browser.cookies[settings.KNOWN_DEVICE_COOKIE_NAME] = valid
     assert door(browser, "alice", PASSWORD, NEW) == "in"
+
+
+# --- the helpers, rule by rule (#308) -----------------------------------------------------------
+
+
+def test_the_known_device_cookie_is_secure_where_the_settings_say_so(
+    alice: User, settings: Settings
+) -> None:
+    settings.KNOWN_DEVICE_COOKIE_SECURE = True
+    response = HttpResponse()
+    login_limits.remember_device(RequestFactory().get("/"), response, alice)
+    cookie = response.cookies[settings.KNOWN_DEVICE_COOKIE_NAME]
+    assert (cookie["secure"], cookie["httponly"], cookie["samesite"]) == (True, True, "Lax")
+
+
+def test_the_back_off_doubles_sixteen_times_at_most(settings: Settings) -> None:
+    settings.LOGIN_PAIR_MAX_FAILURES = 1
+    settings.LOGIN_PAIR_BACKOFF_SECONDS = 1
+    settings.LOGIN_PAIR_WINDOW_SECONDS = 10**6  # wide enough not to cap the doublings
+    assert login_limits._backoff(17) == timedelta(seconds=2**16)
+    assert login_limits._backoff(40) == timedelta(seconds=2**16)
+
+
+def test_a_refusal_ending_within_a_second_waits_one_second() -> None:
+    now = timezone.now()
+    refusal = login_limits.Refusal(Outcome.PAIR_LIMITED, now + timedelta(milliseconds=400))
+    assert refusal.wait_seconds(now) == 1
+    assert refusal.wait_seconds(now - timedelta(seconds=1)) == 2
+
+
+def test_the_account_counter_is_the_accounts_own_running_row(alice: User) -> None:
+    now = timezone.now()
+    mine, other = login_limits.account_key("alice"), login_limits.account_key("bob")
+    address = login_limits.address_key("198.51.100.0/24")
+    window = now + timedelta(minutes=5)
+    for account, row_address, ends in (
+        (other, "", window),  # another account's own row
+        (mine, address, window),  # alice's pair, not her own row
+    ):
+        LoginFailures.objects.create(
+            account=account,
+            address=row_address,
+            window_ends_at=ends,
+            last_failure_at=now,
+            failures=3,
+        )
+    assert login_limits.account_counter("alice", now) is None
+    LoginFailures.objects.create(
+        account=mine, address="", window_ends_at=now, last_failure_at=now, failures=3
+    )
+    assert login_limits.account_counter("alice", now) is None  # its window has ended
+    LoginFailures.objects.filter(account=mine, address="").update(window_ends_at=window)
+    counter = login_limits.account_counter("alice", now)
+    assert counter is not None
+    assert (counter.account, counter.address, counter.failures) == (mine, "", 3)

@@ -2,7 +2,7 @@
 TOTP, security keys, recovery codes, removal, and what the login limits count."""
 
 import re
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
@@ -10,8 +10,11 @@ import pyotp
 import pytest
 import time_machine
 from django.conf import settings
+from django.contrib.auth.models import AnonymousUser
+from django.contrib.sessions.backends.db import SessionStore
 from django.db import connection
-from django.test import Client
+from django.http import HttpRequest, HttpResponse
+from django.test import Client, RequestFactory
 from django.utils import timezone
 from model_bakery import baker
 from pytest_django.fixtures import Settings
@@ -20,9 +23,11 @@ from cultures.audit.context import audit_context
 from cultures.audit.models import AuditEvent, Channel, RowChange
 from cultures.core.exceptions import NotFound
 from cultures.core.testing import assert_problem
-from cultures.users import factors
+from cultures.users import factors, signin
+from cultures.users.login_limits import Surface
 from cultures.users.models import LoginFailures, RecoveryCode, SecurityKey, TotpDevice, User
-from cultures.users.signin import PENDING, VERIFIED_AT
+from cultures.users.signin import ENROLMENT, PENDING, VERIFIED_AT
+from cultures.users.signin import TOTP_SETUP as TOTP_SETUP_KEY
 
 from .soft_key import SoftKey, b64url
 
@@ -761,3 +766,125 @@ def test_a_totp_code_in_non_ascii_digits_is_a_wrong_code(
     client = Client()
     password_step(client)
     assert_problem(post(client, CODE, {"method": "totp", "code": code}), 422, "wrong_code")
+
+
+# --- the steps in the session, rule by rule (#308) ----------------------------------------------
+
+AT = datetime(2026, 1, 5, 9, 0, tzinfo=UTC)  # a whole second: time.time() differences are exact
+
+
+def bare_request() -> HttpRequest:
+    """A request with a session of its own and nobody signed in."""
+    request = RequestFactory().post(LOGIN)
+    request.session = SessionStore()
+    request.user = AnonymousUser()
+    return request
+
+
+@pytest.mark.rule("R-ACCESS-03")
+def test_a_deactivated_account_gets_no_second_step(
+    user: User, with_totp: tuple[str, list[str]]
+) -> None:
+    secret, _ = with_totp
+    client = Client()
+    password_step(client)
+    User.objects.filter(pk=user.pk).update(is_active=False)
+    code = next_code(secret)
+    with time_machine.travel(timezone.now() + timedelta(seconds=30)):
+        assert_problem(
+            post(client, CODE, {"method": "totp", "code": code}), 401, "not_authenticated"
+        )
+
+
+@pytest.mark.rule("R-ACCESS-03")
+def test_a_password_changed_after_the_first_step_ends_it(
+    user: User, with_totp: tuple[str, list[str]]
+) -> None:
+    secret, _ = with_totp
+    client = Client()
+    password_step(client)
+    user.set_password("another horse battery")
+    user.save()
+    code = next_code(secret)
+    with time_machine.travel(timezone.now() + timedelta(seconds=30)):
+        assert_problem(
+            post(client, CODE, {"method": "totp", "code": code}), 401, "not_authenticated"
+        )
+
+
+def test_the_password_step_starts_from_nothing_and_keeps_its_surface(user: User) -> None:
+    request = bare_request()
+    request.session[VERIFIED_AT] = 1.0
+    request.session[ENROLMENT] = user.pk
+    with time_machine.travel(AT, tick=False):
+        signin.begin(request, user, "Lab-Tech", Surface.ADMIN)
+    assert VERIFIED_AT not in request.session
+    assert ENROLMENT not in request.session
+    assert request.session[PENDING] == {
+        "user": user.pk,
+        "hash": user.get_session_auth_hash(),
+        "username": "Lab-Tech",
+        "surface": "admin",
+        "at": AT.timestamp(),
+    }
+    with time_machine.travel(AT, tick=False):
+        assert signin.pending(request) == signin.Pending(user, "Lab-Tech", Surface.ADMIN)
+
+
+def test_the_second_factor_ends_the_step_and_its_enrolment(user: User) -> None:
+    request = bare_request()
+    signin.begin(request, user, "lab-tech", Surface.API)
+    step = signin.pending(request)
+    assert step is not None
+    signin.allow_enrolment(request, step)
+    signin.finish(request, step, HttpResponse())
+    assert PENDING not in request.session
+    assert ENROLMENT not in request.session
+    assert isinstance(request.session[VERIFIED_AT], float)
+
+
+def test_the_app_set_up_ends_with_its_enrolment() -> None:
+    request = bare_request()
+    signin.keep_totp_setup(request, pyotp.random_base32())
+    signin.end_totp_setup(request)
+    assert TOTP_SETUP_KEY not in request.session
+
+
+def test_the_password_step_holds_to_its_last_second(user: User) -> None:
+    request = bare_request()
+    with time_machine.travel(AT, tick=False) as clock:
+        signin.begin(request, user, "lab-tech", Surface.API)
+        clock.shift(settings.MFA_PENDING_SECONDS)
+        assert signin.pending(request) is not None
+        clock.shift(1)
+        assert signin.pending(request) is None
+
+
+def test_a_second_factor_is_fresh_to_its_last_second() -> None:
+    request = bare_request()
+    with time_machine.travel(AT, tick=False) as clock:
+        signin.mark_verified(request)
+        clock.shift(settings.MFA_STEP_UP_SECONDS)
+        assert signin.fresh(request) is True
+        clock.shift(1)
+        assert signin.fresh(request) is False
+
+
+def test_a_key_challenge_holds_to_its_last_second() -> None:
+    for wait, kept in ((signin.CEREMONY_SECONDS, True), (signin.CEREMONY_SECONDS + 1, False)):
+        request = bare_request()
+        with time_machine.travel(AT, tick=False) as clock:
+            signin.keep_challenge(request, "sign-in", b"challenge")
+            clock.shift(wait)
+            assert (signin.take_challenge(request, "sign-in") == b"challenge") is kept
+
+
+def test_the_app_set_up_holds_to_its_last_second() -> None:
+    secret = pyotp.random_base32()
+    request = bare_request()
+    with time_machine.travel(AT, tick=False) as clock:
+        signin.keep_totp_setup(request, secret)
+        clock.shift(settings.MFA_PENDING_SECONDS)
+        assert signin.totp_setup(request) == secret
+        clock.shift(1)
+        assert signin.totp_setup(request) is None
