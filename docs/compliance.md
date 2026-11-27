@@ -677,7 +677,7 @@ and the rules and duties it decides are changed in the same commit.
   european-union.europa.eu on 2026-10-20.
 - Quote: "An authorisation shall be required for the export of dual-use items listed in Annex I."
 - Code: `backend/cultures/distribution/policy.py::EU_MEMBER_STATES`, `backend/cultures/distribution/policy.py::destination_finding`, `backend/cultures/distribution/services/requests.py::request_submit`
-- Tests: `backend/cultures/distribution/tests/test_api.py::test_a_request_to_a_requester_outside_the_eu_is_refused_at_entry`, `backend/cultures/distribution/tests/test_policy.py::test_the_destination_and_an_erased_contact_block_the_whole_request`, `backend/cultures/distribution/tests/test_policy.py::test_the_eu_is_its_27_member_states`
+- Tests: `backend/cultures/distribution/tests/test_api.py::test_a_request_to_a_requester_outside_the_eu_is_refused_at_entry`, `backend/cultures/distribution/tests/test_policy.py::test_the_destination_and_an_erased_contact_block_the_whole_request`, `backend/cultures/distribution/tests/test_policy.py::test_the_eu_is_its_27_member_states`, `backend/cultures/distribution/tests/test_policy.py::test_a_destination_outside_the_eu_says_why_it_blocks`
 - Gate codes: `export_of_regulated_strain`, `export_not_supported`
 
 #### R-DIST-02 Only an institution receives material: a legal person or a natural person licensed to do business
@@ -697,7 +697,7 @@ and the rules and duties it decides are changed in the same commit.
 - Kind: own control
 - Source: ADR 0009, amendment 2026-10-20. No law read asks it.
 - Code: `backend/cultures/distribution/services/decisions.py::request_approve`, `backend/cultures/distribution/services/errors.py::ManagerRequired`, `backend/cultures/distribution/services/decisions.py::request_approve_again`, `backend/cultures/distribution/policy.py::undecided`, `backend/cultures/distribution/services/shipment.py::_gates_today`, `backend/cultures/distribution/models.py::FindingDecision`
-- Tests: `backend/cultures/distribution/tests/test_services.py::test_a_regulated_line_needs_a_manager_and_a_reason`, `backend/cultures/distribution/tests/test_services.py::test_a_regulated_approval_keeps_its_reason_in_the_event_and_says_what_is_missing`, `backend/cultures/distribution/tests/test_policy.py::test_a_regulated_strain_needs_a_manager`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_restriction_added_after_the_approval_stops_the_preparation`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_risk_group_raised_after_the_approval_stops_the_one_step_shipment`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_work_permit_ended_after_the_approval_stops_the_one_step_shipment`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_finding_decided_at_the_approval_is_not_asked_again`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_finding_on_another_line_is_another_finding`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_manager_approves_again_and_two_other_people_ship_it`, `backend/cultures/distribution/tests/test_approve_again.py::test_who_approved_again_does_not_confirm`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_curator_does_not_approve_again_and_a_manager_gives_a_reason`
+- Tests: `backend/cultures/distribution/tests/test_services.py::test_a_regulated_line_needs_a_manager_and_a_reason`, `backend/cultures/distribution/tests/test_services.py::test_a_regulated_approval_keeps_its_reason_in_the_event_and_says_what_is_missing`, `backend/cultures/distribution/tests/test_policy.py::test_a_regulated_strain_needs_a_manager`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_restriction_added_after_the_approval_stops_the_preparation`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_risk_group_raised_after_the_approval_stops_the_one_step_shipment`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_work_permit_ended_after_the_approval_stops_the_one_step_shipment`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_finding_decided_at_the_approval_is_not_asked_again`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_finding_on_another_line_is_another_finding`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_manager_approves_again_and_two_other_people_ship_it`, `backend/cultures/distribution/tests/test_approve_again.py::test_who_approved_again_does_not_confirm`, `backend/cultures/distribution/tests/test_approve_again.py::test_a_curator_does_not_approve_again_and_a_manager_gives_a_reason`, `backend/cultures/distribution/tests/test_policy.py::test_a_finding_is_decided_by_its_code_and_its_line`
 - Limits: a finding that asks for a manager and arises after the approval (a restriction added,
   a risk group raised to 3, a requester's work permit ended) is decided by a manager approving
   the request again, with a reason, before it is prepared or shipped (#263); the approval itself
@@ -754,7 +754,7 @@ and the rules and duties it decides are changed in the same commit.
 - Source: Implementing Regulation (EU) 2019/829, Art. 6(1) and (4), Annex II
 - Quote: "This letter of authority shall always accompany the specified material concerned."
 - Code: `backend/cultures/distribution/policy.py::_LineCheck.letter_of_authority`, `backend/cultures/distribution/policy.py::COUNTING`
-- Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_quarantine_pest_needs_a_letter_with_quantity_and_sendings_left`, `backend/cultures/distribution/tests/test_policy.py::test_a_letter_runs_out_of_sendings`, `backend/cultures/distribution/tests/test_policy.py::test_two_lines_of_one_request_draw_on_one_letter_together`, `backend/cultures/distribution/tests/test_policy.py::test_a_cancelled_request_gives_its_quantity_back_to_the_letter`
+- Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_quarantine_pest_needs_a_letter_with_quantity_and_sendings_left`, `backend/cultures/distribution/tests/test_policy.py::test_a_letter_runs_out_of_sendings`, `backend/cultures/distribution/tests/test_policy.py::test_two_lines_of_one_request_draw_on_one_letter_together`, `backend/cultures/distribution/tests/test_policy.py::test_a_cancelled_request_gives_its_quantity_back_to_the_letter`, `backend/cultures/distribution/tests/test_policy.py::test_three_lines_of_one_request_add_up_on_one_letter`, `backend/cultures/distribution/tests/test_policy.py::test_a_sending_is_one_request_however_many_lines_it_has`
 - Gate codes: `loa_missing`, `loa_exhausted`
 - Limits: the quantity is counted in vials, and the letter may state another unit (not
   verified). The endorsement of Art. 6(2) is its own rule, R-DIST-15, and the authorisation of
@@ -780,7 +780,7 @@ and the rules and duties it decides are changed in the same commit.
 - Kind: own control
 - Source: ADR 0009, Context: one organism can be on several lists.
 - Code: `backend/cultures/distribution/policy.py::_LineCheck.run`
-- Tests: `backend/cultures/distribution/tests/test_policy.py::test_one_strain_with_several_kinds_meets_each`
+- Tests: `backend/cultures/distribution/tests/test_policy.py::test_one_strain_with_several_kinds_meets_each`, `backend/cultures/distribution/tests/test_policy.py::test_a_strains_restrictions_are_met_in_the_order_of_their_kinds`
 
 #### R-DIST-10 The requester's declared containment level reaches the risk group
 
@@ -816,7 +816,7 @@ and the rules and duties it decides are changed in the same commit.
 - Source: Regulation (EU) No 511/2014, Art. 4(3), read only through study s10. The text is not
   among the sources read.
 - Code: `backend/cultures/distribution/policy.py::_LineCheck.terms`
-- Tests: `backend/cultures/distribution/tests/test_policy.py::test_an_unknown_abs_scope_blocks`, `backend/cultures/distribution/tests/test_policy.py::test_material_in_scope_goes_out_only_for_uses_the_mat_covers`
+- Tests: `backend/cultures/distribution/tests/test_policy.py::test_an_unknown_abs_scope_blocks`, `backend/cultures/distribution/tests/test_policy.py::test_material_in_scope_goes_out_only_for_uses_the_mat_covers`, `backend/cultures/distribution/tests/test_policy.py::test_the_terms_gates_say_what_the_terms_do_not_allow`
 - Gate codes: `abs_scope_unknown`, `abs_use_not_covered`
 
 #### R-DIST-14 The gates run again on the Czech day of shipment
@@ -834,7 +834,7 @@ and the rules and duties it decides are changed in the same commit.
   the EU, so the gate reads the endorsement without asking which state gave it.
 - Quote: "It shall be officially endorsed by the Member State of origin, for movement of the respective specified material under quarantine or confinement conditions."
 - Code: `backend/cultures/distribution/policy.py::_LineCheck.letter_of_authority`, `backend/cultures/distribution/models.py::"distribution_permit_endorsement_of_loa"`
-- Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_letter_of_authority_without_its_endorsement_lets_nothing_out`, `backend/cultures/distribution/tests/test_policy.py::test_the_pest_goes_out_on_the_endorsed_letter_beside_an_unendorsed_one`, `backend/cultures/distribution/tests/test_models.py::test_permit_constraints`
+- Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_letter_of_authority_without_its_endorsement_lets_nothing_out`, `backend/cultures/distribution/tests/test_policy.py::test_the_pest_goes_out_on_the_endorsed_letter_beside_an_unendorsed_one`, `backend/cultures/distribution/tests/test_models.py::test_permit_constraints`, `backend/cultures/distribution/tests/test_policy.py::test_the_letter_gates_say_what_the_letters_lack`
 - Gate codes: `loa_not_endorsed`
 - Limits: the endorsement is the reference and the day a person copied from the letter. Which
   state endorsed it is not recorded, so a letter endorsed by another state than the material's
@@ -856,7 +856,7 @@ and the rules and duties it decides are changed in the same commit.
   (R-DIST-05): no manager overrides it.
 - Quote: "the specified activities have been confirmed to be performed in quarantine stations or confinement facilities indicated in the application and designated by the competent authority in compliance with Articles 60 and 61 of Regulation (EU) 2016/2031;"
 - Code: `backend/cultures/distribution/policy.py::isolation_facilities`, `backend/cultures/distribution/policy.py::isolation_facility_recorded`, `backend/cultures/distribution/policy.py::_LineCheck.isolation_facility`, `backend/cultures/distribution/models.py::PermitKind`, `backend/cultures/distribution/migrations/0018_isolation_facility_guards.py::"distribution_isolation_facility_recorded"`, `backend/cultures/distribution/migrations/0018_isolation_facility_guards.py::"distribution_check_quarantine_facility"`
-- Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_quarantine_pest_goes_only_to_a_recorded_isolation_facility`, `backend/cultures/distribution/tests/test_policy.py::test_a_letter_of_authority_is_no_authorisation_of_an_isolation_facility`, `backend/cultures/distribution/tests/test_policy.py::test_the_gate_and_the_trigger_agree_on_a_recorded_isolation_facility`, `backend/cultures/distribution/tests/test_shipment.py::test_the_table_refuses_a_quarantine_pest_package_without_its_isolation_facility`
+- Tests: `backend/cultures/distribution/tests/test_policy.py::test_a_quarantine_pest_goes_only_to_a_recorded_isolation_facility`, `backend/cultures/distribution/tests/test_policy.py::test_a_letter_of_authority_is_no_authorisation_of_an_isolation_facility`, `backend/cultures/distribution/tests/test_policy.py::test_the_gate_and_the_trigger_agree_on_a_recorded_isolation_facility`, `backend/cultures/distribution/tests/test_shipment.py::test_the_table_refuses_a_quarantine_pest_package_without_its_isolation_facility`, `backend/cultures/distribution/tests/test_policy.py::test_a_line_goes_out_on_the_oldest_permits_that_hold`
 - Gate codes: `isolation_facility_missing`
 - Limits: the authorisation is the reference, the authority and the days a person copied from the
   document, as every recipient permit is. Which facility it is is not recorded, so it is not
