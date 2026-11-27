@@ -194,7 +194,7 @@ def totp_uri(user: User, secret: str) -> str:
 
 def _matching_step(secret: str, code: str, now: float) -> int | None:
     """The time step whose code this is, within the window, or None."""
-    if not secret or len(code) != TOTP_DIGITS or not code.isdigit():
+    if not secret or len(code) != TOTP_DIGITS or not (code.isascii() and code.isdigit()):
         return None
     totp = pyotp.TOTP(secret, digits=TOTP_DIGITS, interval=TOTP_PERIOD)
     current = int(now // TOTP_PERIOD)
