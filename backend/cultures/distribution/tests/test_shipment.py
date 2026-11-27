@@ -20,7 +20,8 @@ from cultures.audit.registry import REQUEST_SHIPPED
 from cultures.biosafety.models import RestrictionKind
 from cultures.biosafety.policy import permit_today
 from cultures.core.testing import logged_in
-from cultures.deposits.models import Contact
+from cultures.core.testing.queries import QueryBaseline
+from cultures.deposits.models import AbsScope, Contact, Use
 from cultures.deposits.tests.support import DUAL_USE, GMO, QUARANTINE
 from cultures.distribution import services
 from cultures.distribution.models import (
@@ -39,7 +40,7 @@ from cultures.distribution.models import (
     TransportClass,
     VialReservation,
 )
-from cultures.distribution.policy import evaluate, recorded_transport_class
+from cultures.distribution.policy import evaluate, recorded_transport_class, undecided
 from cultures.labs.access import access_for
 from cultures.labs.models import Lab
 from cultures.lineage import services as lineage
@@ -55,6 +56,7 @@ from cultures.lineage.models import (
 )
 from cultures.lineage.tests.support import preserve
 from cultures.storage.tests.conftest import Tree
+from cultures.strains import services as strain_services
 from cultures.strains.models import Pathogenicity, Strain
 from cultures.strains.services import RestrictionInput
 from cultures.taxonomy.models import Taxon
@@ -75,6 +77,7 @@ from .support import (
     prepare,
     reserved,
     ship,
+    shipment_input,
     submit,
 )
 from .test_services import events_since, last_pk, refused
@@ -416,7 +419,10 @@ def test_un_3245_is_refused_for_a_request_with_no_gmo_line(
         ),
         attr="transport_class",
     )
-    assert "no strain of this request is one" in error.detail
+    assert error.detail == (
+        "UN 3245 is for a genetically modified micro-organism, and no strain of this request"
+        " is one."
+    )
 
 
 # The number a GMO travels under, which the records force where they say anything (#197).
@@ -592,12 +598,14 @@ def test_the_service_and_the_trigger_read_the_same_class_from_the_records(
 
 
 @pytest.mark.parametrize(
-    ("changes", "attr", "code"),
+    ("changes", "attr", "code", "text"),
     [
         (
             {"classification_basis": ClassificationBasis.INDICATIVE_LIST},
             "classification_basis",
             "invalid",
+            "Not on the indicative list of Category A is not a basis for"
+            " Not subject to the dangerous goods rules (exempt).",
         ),
         (
             {
@@ -606,6 +614,8 @@ def test_the_service_and_the_trigger_read_the_same_class_from_the_records(
             },
             "classification_basis",
             "invalid",
+            "Exempt: not pathogenic to humans or animals is not a basis for"
+            " UN 3373, Biological substance, Category B.",
         ),
         (
             {
@@ -616,6 +626,7 @@ def test_the_service_and_the_trigger_read_the_same_class_from_the_records(
             },
             "basis_note",
             "required",
+            "Say what the judgement rests on.",
         ),
         (
             {
@@ -624,29 +635,77 @@ def test_the_service_and_the_trigger_read_the_same_class_from_the_records(
             },
             "packing_instruction",
             "invalid",
+            "UN 3373 is packed to P650.",
         ),
-        ({"coolant": Coolant.DRY_ICE}, "coolant_kg", "required"),
-        ({"coolant_kg": Decimal(1)}, "coolant", "invalid"),
-        ({"coolant": Coolant.COLD_PACKS, "coolant_kg": Decimal(0)}, "coolant_kg", "invalid"),
+        (
+            {"coolant": Coolant.DRY_ICE},
+            "coolant_kg",
+            "required",
+            "Give the quantity of dry ice: it is marked on the package.",
+        ),
+        ({"coolant_kg": Decimal(1)}, "coolant", "invalid", "Choose the coolant of this quantity."),
+        (
+            {"coolant": Coolant.COLD_PACKS, "coolant_kg": Decimal(0)},
+            "coolant_kg",
+            "invalid",
+            "Give more than 0 and at most 9999.99 kg.",
+        ),
+        (
+            {"coolant": Coolant.COLD_PACKS, "coolant_kg": Decimal("10000")},
+            "coolant_kg",
+            "invalid",
+            "Give more than 0 and at most 9999.99 kg.",
+        ),
         (
             {"responsible": services.ContactInput("Jan Odpovědný", phone="call the lab")},
             "responsible_phone",
             "invalid",
+            "Enter a phone number: digits, spaces, + ( ) and -.",
         ),
         (
             {"responsible": services.ContactInput(" ", phone="+420 555 000 111")},
             "responsible_name",
             "invalid",
+            "Enter the responsible person.",
         ),
-        ({"carrier": "  "}, "carrier", "invalid"),
+        ({"carrier": "  "}, "carrier", "invalid", "Enter the carrier."),
     ],
 )
 @pytest.mark.rule("R-SHIP-04")
 def test_shipment_errors_name_their_field_and_change_nothing(
-    *, changes: dict[str, Any], attr: str, code: str, curator: User, supply: Supply, approved: Any
+    *,
+    changes: dict[str, Any],
+    attr: str,
+    code: str,
+    text: str,
+    curator: User,
+    supply: Supply,
+    approved: Any,
 ) -> None:
+    """Each refusal with the exact text the form shows under its field."""
     request = approved(supply(vials=6))
-    refused(services.InvalidDistribution, code, lambda: ship(curator, request, **changes), attr)
+    error = refused(
+        services.InvalidDistribution, code, lambda: ship(curator, request, **changes), attr
+    )
+    assert error.detail == text
+
+
+@pytest.mark.parametrize(
+    ("coolant", "kg", "stored"),
+    [
+        (Coolant.DRY_ICE, Decimal("0.01"), Decimal("0.01")),
+        (Coolant.DRY_ICE, Decimal("0.5"), Decimal("0.50")),
+        (Coolant.COLD_PACKS, Decimal("9999.99"), Decimal("9999.99")),
+    ],
+)
+@pytest.mark.rule("R-SHIP-04")
+def test_a_coolant_quantity_above_0_and_up_to_the_limit_is_accepted(
+    *, coolant: str, kg: Decimal, stored: Decimal, curator: User, supply: Supply, approved: Any
+) -> None:
+    """The bounds themselves: the least the form takes (two places) and the limit."""
+    request = approved(supply(vials=6))
+    ship(curator, request, coolant=coolant, coolant_kg=kg)
+    assert Shipment.objects.get(request=request).coolant_kg == stored
 
 
 # Exhausted: a distribution batch with no vial left available or reserved.
@@ -1156,3 +1215,290 @@ def test_an_erased_responsible_person_stays_only_in_the_documents_sent(
     assert ShipmentDocument.objects.get(shipment__request=request).text == note
     shown = logged_in(curator).get(f"{REQUESTS_URL}{request.public_id}/").json()["shipment"]
     assert (shown["responsible_name"], shown["responsible_phone"]) == ("", "")
+
+
+# What a shipment says and records, word for word (#308).
+
+GMO_REASON = "The recipient holds a contained-use authorisation."
+IN_SCOPE: dict[str, Any] = {
+    "abs_scope": AbsScope.IN_SCOPE,
+    "country_of_origin": "CZ",
+    "collection_date": "2024-05",
+    "pic_reference": "PIC/DEV/8 (invented example)",
+    "mat_reference": "MAT/DEV/8 (invented example)",
+    "ircc": "ABSCH-IRCC-XX-8 (invented example)",
+    "mat_uses": [Use.RESEARCH_NONCOMMERCIAL],
+}
+
+
+def approved_lines(
+    curator: User,
+    lab: Lab,
+    requester: Requester,
+    strains: list[Strain],
+    *,
+    by: User | None = None,
+    reason: str = "",
+    **changes: Any,
+) -> DistributionRequest:
+    """An approved request for one vial of each strain, in the order given."""
+    request = submit(curator, lab, requester, [(s, 1) for s in strains], **changes)
+    accept_mtas(curator, request)
+    return approve(by or curator, request, reason)
+
+
+@pytest.mark.rule("R-SHIP-03")
+def test_the_exempt_refusal_names_each_pathogen_in_one_sentence(
+    *,
+    as_curator: AuditContext,
+    curator: User,
+    manager: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+) -> None:
+    human = supply(vials=6, risk_group=2)
+    animal = supply(vials=6, animal_pathogenicity=Pathogenicity.PATHOGENIC)
+    request = approved_lines(
+        curator, lab, requester, [human, animal], by=manager, reason="No work permit is needed."
+    )
+    error = refused(
+        services.InvalidDistribution,
+        "not_exempt",
+        lambda: ship(curator, request),
+        attr="classification_basis",
+    )
+    assert error.detail == (
+        f"{human.accession_number}: risk group 2 or higher is pathogenic to humans;"
+        f" {animal.accession_number}: it is recorded as pathogenic to animals."
+        " The culture is not exempt as non-pathogenic."
+    )
+
+
+@pytest.mark.rule("R-SHIP-02")
+def test_the_gmo_exemption_refusal_names_every_gmo_strain(
+    *,
+    as_curator: AuditContext,
+    curator: User,
+    approver: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+    mockia: Taxon,
+) -> None:
+    add_permit(curator, requester, PermitKind.GMO_CONTAINED_USE)
+    first, second = (supply(mockia, restrictions=[GMO], vials=6) for _ in range(2))
+    request = approved_lines(
+        curator, lab, requester, [first, second], by=approver, reason=GMO_REASON
+    )
+    error = refused(
+        services.InvalidDistribution,
+        "gmo_not_exempt",
+        lambda: prepare(curator, request),
+        attr="transport_class",
+    )
+    assert error.detail == (
+        f"{first.accession_number}, {second.accession_number}: a genetically modified organism"
+        " is not exempt from the transport rules. It travels as UN 3245 when it is not an"
+        " infectious substance, else as UN 3373."
+    )
+
+
+@pytest.mark.rule("R-SHIP-10")
+def test_the_un_3245_refusal_names_each_pathogen_in_one_sentence(
+    *,
+    as_curator: AuditContext,
+    curator: User,
+    approver: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+    mockia: Taxon,
+) -> None:
+    add_permit(curator, requester, PermitKind.GMO_CONTAINED_USE)
+    human = supply(mockia, restrictions=[GMO], vials=6, risk_group=2)
+    animal = supply(
+        mockia, restrictions=[GMO], vials=6, animal_pathogenicity=Pathogenicity.PATHOGENIC
+    )
+    request = approved_lines(
+        curator, lab, requester, [human, animal], by=approver, reason=GMO_REASON
+    )
+    error = refused(
+        services.InvalidDistribution,
+        "un3245_for_a_pathogen",
+        lambda: prepare(curator, request, **UN3245_PACKAGE),
+        attr="transport_class",
+    )
+    assert error.detail == (
+        f"{human.accession_number}: risk group 2 or higher is pathogenic to humans;"
+        f" {animal.accession_number}: it is recorded as pathogenic to animals."
+        " The package is an infectious substance, so a genetically modified organism in it"
+        " travels as UN 3373, Category B."
+    )
+
+
+@pytest.mark.rule("R-SHIP-10")
+def test_the_un_3373_refusal_for_a_non_pathogen_says_why_word_for_word(
+    *, curator: User, gmo_approved: Any
+) -> None:
+    request = gmo_approved(animal_pathogenicity=Pathogenicity.NONE_KNOWN)
+    error = refused(
+        services.InvalidDistribution,
+        "un3373_for_a_non_pathogen",
+        lambda: prepare(curator, request, **UN3373_PACKAGE),
+        attr="transport_class",
+    )
+    assert error.detail == (
+        "Every strain of this request is recorded as pathogenic to neither humans nor animals,"
+        " so the package is no infectious substance: a genetically modified organism in it"
+        " travels as UN 3245."
+    )
+
+
+def test_every_blocker_on_the_ship_day_is_said_in_one_refusal(
+    *, as_curator: AuditContext, curator: User, lab: Lab, requester: Requester, supply: Supply
+) -> None:
+    strains = [supply(vials=6), supply(vials=6)]
+    request = approved_lines(curator, lab, requester, strains)
+    with as_actor(curator):
+        for strain in strains:
+            lineage.batch_hold(
+                access=access_for(curator), batch=batch_of(strain), reason="Contamination seen."
+            )
+    blockers = evaluate(request, permit_today()).blockers
+    assert len(blockers) == 2
+    error = refused(services.ShipmentBlocked, "shipment_blocked", lambda: ship(curator, request))
+    assert error.detail == " ".join(f.sentence for f in blockers)
+
+
+@pytest.mark.rule("R-DIST-03")
+def test_approving_again_is_asked_with_every_new_finding_in_one_refusal(
+    *,
+    as_curator: AuditContext,
+    curator: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+    exempli: Taxon,
+) -> None:
+    add_permit(curator, requester, PermitKind.PATHOGEN_WORK_PERMIT, risk_group=3)
+    strains = [supply(exempli, vials=6, risk_group=2) for _ in range(2)]
+    request = approved_lines(curator, lab, requester, strains, containment_level=3)
+    with as_actor(curator):
+        for strain in strains:
+            strain_services.strain_set_risk_group(
+                access=access_for(curator),
+                strain=strain,
+                risk_group=3,
+                basis="A new identification (invented example).",
+                reason="Identified again.",
+            )
+    new = undecided(evaluate(request, permit_today()), request)
+    assert len(new) == 2
+    error = refused(services.ApproveAgain, "approve_again", lambda: ship(curator, request))
+    assert error.detail == (
+        "Since the approval: "
+        + " ".join(f.sentence for f in new)
+        + " A manager approves the request again."
+    )
+
+
+def test_a_session_that_checks_at_once_still_ships(
+    *, curator: User, supply: Supply, approved: Any
+) -> None:
+    """The shipment is written before its vials and documents: the service defers those checks
+    to the commit, also in a session that set every check immediate."""
+    request = approved(supply(vials=6))
+    at_commit()
+    ship(curator, request)
+    at_commit()
+    assert Shipment.objects.filter(request=request).count() == 1
+
+
+def test_the_shipment_events_record_the_package_its_lines_and_its_documents(
+    *, as_curator: AuditContext, curator: User, lab: Lab, requester: Requester, supply: Supply
+) -> None:
+    """The request event holds every fact of the package, each line event its vials, each
+    document event its kind and SHA-256; each under the lab, a line's under its strain."""
+    plain, in_scope = supply(vials=6), supply(vials=6, **IN_SCOPE)
+    request = approved_lines(curator, lab, requester, [plain, in_scope])
+    vials = {
+        strain.pk: [
+            str(r.vial.public_id)
+            for r in VialReservation.objects.filter(line__request=request, line__strain=strain)
+            .select_related("vial")
+            .order_by("vial_id")
+        ]
+        for strain in (plain, in_scope)
+    }
+    start = last_pk()
+    ship(curator, request, coolant=Coolant.DRY_ICE, coolant_kg=Decimal("2.5"))
+    shipment = Shipment.objects.get(request=request)
+    sent = str(shipment.public_id)
+    recorded = events_since(start)
+    assert {e.lab_id for e in recorded} == {lab.pk}
+
+    lines = [e for e in recorded if e.event_type == "request_line_shipped"]
+    assert [(e.strain_id, e.changes) for e in lines] == [
+        (strain.public_id, {"shipment": [None, sent], "vials": [None, vials[strain.pk]]})
+        for strain in (plain, in_scope)
+    ]
+    (event,) = (e for e in recorded if e.event_type == "request_shipped")
+    assert event.changes == {
+        "status": ["approved", "shipped"],
+        "shipment": [None, sent],
+        "shipped_on": [None, permit_today().isoformat()],
+        "transport_class": [None, "not_subject"],
+        "classification_basis": [None, "exempt_non_pathogenic"],
+        "basis_note": [None, ""],
+        "packing_instruction": [None, "triple_packaging"],
+        "coolant": [None, "dry_ice"],
+        "coolant_kg": [None, "2.50"],
+        "responsible": "changed",
+        "carrier": [None, "Example Courier (invented example)"],
+        "tracking_number": [None, "EX123456789CZ"],
+    }
+    documents = {(d.kind, d.line_id): d for d in ShipmentDocument.objects.filter(shipment=shipment)}
+    in_scope_line = request.lines.get(strain=in_scope)
+    assert sorted(documents, key=str) == sorted(
+        [("delivery_note", None), ("abs_sheet", in_scope_line.pk)], key=str
+    )
+    assert [
+        (e.strain_id, e.changes) for e in recorded if e.event_type == "shipment_document_generated"
+    ] == [
+        (
+            None if line is None else in_scope.public_id,
+            {
+                "kind": [None, kind],
+                "shipment": [None, sent],
+                "text_sha256": [None, documents[kind, line].text_sha256],
+            },
+        )
+        for kind, line in [("delivery_note", None), ("abs_sheet", in_scope_line.pk)]
+    ]
+
+
+def test_a_shipment_with_no_coolant_records_no_quantity(
+    *, curator: User, supply: Supply, approved: Any
+) -> None:
+    request = approved(supply(vials=6))
+    start = last_pk()
+    ship(curator, request)
+    (event,) = (e for e in events_since(start) if e.event_type == "request_shipped")
+    assert (event.changes["coolant"], event.changes["coolant_kg"]) == ([None, ""], [None, None])
+
+
+def test_shipping_reads_its_lines_and_vials_in_a_fixed_number_of_queries(
+    *,
+    as_curator: AuditContext,
+    curator: User,
+    lab: Lab,
+    requester: Requester,
+    supply: Supply,
+    query_baseline: QueryBaseline,
+) -> None:
+    """Two lines of one vial each: a strain read per line or per vial shows in the count."""
+    request = approved_lines(curator, lab, requester, [supply(vials=6), supply(vials=6)])
+    fresh = DistributionRequest.objects.get(pk=request.pk)
+    with as_actor(curator), query_baseline("request_ship"):
+        services.request_ship(access=access_for(curator), request=fresh, data=shipment_input())
