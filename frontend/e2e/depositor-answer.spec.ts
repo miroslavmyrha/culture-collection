@@ -43,7 +43,7 @@ async function commercialRequest(page: Page, name: string): Promise<string> {
         return body
       }
       type Listing<T> = { results: T[] }
-      const today = new Date().toLocaleDateString('sv')
+      const today = new Date().toLocaleDateString('sv', { timeZone: 'Europe/Prague' })
       const depositor = (await read<Listing<{ public_id: string }>>('depositors/?search=E2E')).results[0]?.public_id
       const mta = (await read<Listing<{ public_id: string; code: string; version: number }>>('mta-templates/')).results
         .filter((t) => t.code === 'STD')

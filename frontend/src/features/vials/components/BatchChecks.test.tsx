@@ -9,6 +9,7 @@ import { server } from '@/test/server'
 import { renderWithProviders } from '@/test/render'
 import type { Batch } from '../schemas'
 import { StrainMaterial } from './StrainMaterial'
+import { today as czechToday } from '@/lib/dates'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const STRAIN_ID = '00000000-0000-4000-8000-0000000000d1'
@@ -294,7 +295,7 @@ describe('the checks of a batch', () => {
     await user.click(await screen.findByRole('button', { name: 'Record a check' }))
     const dialog = await screen.findByRole('dialog', { name: 'Record a check of batch 1' })
     await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Unit' }), 'cfu_per_ml')
-    const today = new Date().toLocaleDateString('sv')
+    const today = czechToday()
     const cases: readonly (readonly [string, string, readonly string[], string])[] = [
       ['Value', '12.5', ['12x', '-1', '1,5', '1.23456', '2e100'], 'Enter a number, as 12.5 or 2.1e8'],
       ['Checked on', today, ['2026-13-45', '12.10.2026'], 'Enter a date as YYYY-MM-DD'],

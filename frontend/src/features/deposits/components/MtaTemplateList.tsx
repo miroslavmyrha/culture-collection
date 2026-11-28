@@ -2,6 +2,7 @@ import { LoadError } from '@/components/LoadError'
 import { StaleNotice } from '@/components/StaleNotice'
 import { Link, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@/components/ui'
 import { useMtaList } from '../api/queries'
+import { day } from '@/lib/dates'
 
 /** Every version of every MTA of the lab, the newest of each code first. Texts are frozen. */
 export function MtaTemplateList({ labId }: { labId: string }) {
@@ -46,7 +47,7 @@ export function MtaTemplateList({ labId }: { labId: string }) {
                 </TableCell>
                 <TableCell sx={{ overflowWrap: 'break-word' }}>{t.title}</TableCell>
                 <TableCell sx={{ fontFamily: 'monospace' }}>{t.text_sha256.slice(0, 12)}…</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{new Date(t.created_at).toLocaleDateString('sv')}</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>{day(t.created_at)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

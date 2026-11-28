@@ -80,7 +80,7 @@ test('a manager puts a member on the VRAT access list, prints it for SÚJB and t
   const facts = page.locator('main dl')
   await expect(facts).toContainText('E2E lab (E2E)')
   await expect(facts).toContainText('None in force on record')
-  await expect(facts).toContainText(`Printed on${new Date().toLocaleDateString('sv')}`)
+  await expect(facts).toContainText(`Printed on${new Date().toLocaleDateString('sv', { timeZone: 'Europe/Prague' })}`)
   const printed = page
     .getByRole('table', { name: 'VRAT access list', exact: true })
     .getByRole('row', { name: new RegExp(`Works in the BSL-3 suite \\(${RUN}\\)`) })

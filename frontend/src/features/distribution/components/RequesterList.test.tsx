@@ -7,6 +7,7 @@ import { makeLab, makeMe, makePermit, makeRequester, page, problem, validationPr
 import { mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { renderApp, renderWithProviders } from '@/test/render'
 import { RequesterList } from './RequesterList'
+import { today as czechToday } from '@/lib/dates'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const LIST = '/api/v1/labs/{lab_public_id}/requesters/'
@@ -248,7 +249,7 @@ describe('the requesters page', () => {
     const dialog = await screen.findByRole('alertdialog', { name: 'End LoA DEV/1?' })
     await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'withdrawn')
     const day = within(dialog).getByRole('textbox', { name: 'First day it no longer holds' })
-    expect(day).toHaveValue(new Date().toLocaleDateString('sv'))
+    expect(day).toHaveValue(czechToday())
     for (const typed of ['2026-13-45', '12.10.2026']) {
       await user.clear(day)
       await user.type(day, typed)

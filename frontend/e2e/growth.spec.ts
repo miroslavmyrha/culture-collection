@@ -115,7 +115,7 @@ test('V9 and T6: a curator lists a medium and sets the conditions, a technician 
     method: 'cryo_minus80',
     purpose: 'distribution',
     cryoprotectant: '10 % glycerol',
-    preserved_on: new Date().toLocaleDateString('sv'),
+    preserved_on: new Date().toLocaleDateString('sv', { timeZone: 'Europe/Prague' }),
     vial_count: 2,
   })
   expect(batch.status).toBe(201)
