@@ -24,6 +24,7 @@ import { renderWithProviders } from '@/test/render'
 import { vialKeys } from '../api/keys'
 import { LOSS_DUTY, type VialPage } from '../schemas'
 import { StrainMaterial } from './StrainMaterial'
+import { today as czechToday } from '@/lib/dates'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const STRAIN_ID = '00000000-0000-4000-8000-0000000000d1'
@@ -371,7 +372,7 @@ describe('StrainMaterial', () => {
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Preserve a batch' }))
     const dialog = await screen.findByRole('dialog', { name: 'Preserve a batch of MYC 42' })
-    const today = new Date().toLocaleDateString('sv')
+    const today = czechToday()
     const cases: readonly (readonly [string, string, readonly string[], RegExp])[] = [
       ['Number of vials', '5', ['5x', '0', '-1', '1,5', '201'], /Enter a whole number|A batch has 1 to 200 vials/],
       ['Preserved on', today, ['2026-13-45', '12.10.2026', '2999-01-01'], /Enter a date as YYYY-MM-DD|This date is in the future/],

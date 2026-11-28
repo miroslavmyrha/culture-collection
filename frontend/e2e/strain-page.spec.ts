@@ -40,7 +40,7 @@ async function strainWithManyVials(page: Page, name: string) {
       ]
       const deposit = await send('deposits/', {
         depositor: depositors.results[0]?.public_id,
-        received_on: new Date().toLocaleDateString('sv'),
+        received_on: new Date().toLocaleDateString('sv', { timeZone: 'Europe/Prague' }),
         condition: 'intact',
         name_as_received: received,
         terms: { mta: null, abs_scope: 'unknown', uses: uses.map((use) => ({ use, decision: use === 'teaching' ? 'deny' : 'permit' })) },
@@ -49,7 +49,7 @@ async function strainWithManyVials(page: Page, name: string) {
       const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=subtilis')
       const accepted = await send(`deposits/${deposit.public_id}/accept/`, {
         taxon: taxa.results.find((t) => t.name === 'Bacillus subtilis')?.public_id,
-        identified_on: new Date().toLocaleDateString('sv'),
+        identified_on: new Date().toLocaleDateString('sv', { timeZone: 'Europe/Prague' }),
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,
         risk_group_basis: basis,
@@ -69,7 +69,7 @@ async function strainWithManyVials(page: Page, name: string) {
           method: 'cryo_minus80',
           purpose: 'seed',
           cryoprotectant: '10 % glycerol',
-          preserved_on: new Date().toLocaleDateString('sv'),
+          preserved_on: new Date().toLocaleDateString('sv', { timeZone: 'Europe/Prague' }),
           vial_count: count,
           box: null,
         })

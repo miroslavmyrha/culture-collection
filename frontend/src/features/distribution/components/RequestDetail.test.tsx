@@ -20,6 +20,7 @@ import {
 } from '@/test/factories'
 import { holdApi, mockApi, mockApiError } from '@/test/mockApi'
 import { renderApp } from '@/test/render'
+import { today as czechToday } from '@/lib/dates'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const REQUEST_ID = '00000000-0000-4000-8000-0000000000a1'
@@ -290,7 +291,7 @@ describe('the request page', () => {
       signer_email: '',
       signer_role: 'responsible_scientist',
       authorised_signatory: 'false',
-      accepted_on: new Date().toLocaleDateString('sv'),
+      accepted_on: czechToday(),
     })
   })
 
@@ -326,7 +327,7 @@ describe('the request page', () => {
     await user.upload(within(dialog).getByLabelText('Signed copy'), new File(['%PDF-1.4'], 'signed.pdf', { type: 'application/pdf' }))
     const post = vi.spyOn(api, 'POST').mockResolvedValue({ data: request(), response: new Response('{}', { status: 201 }) })
     const day = within(dialog).getByRole('textbox', { name: 'Accepted on' })
-    expect(day).toHaveValue(new Date().toLocaleDateString('sv'))
+    expect(day).toHaveValue(czechToday())
     for (const typed of ['2026-13-45', '12.10.2026']) {
       await user.clear(day)
       await user.type(day, typed)
@@ -398,7 +399,7 @@ describe('the request page', () => {
       expect(Object.fromEntries([...sent.entries()].filter(([k]) => k !== 'file'))).toEqual({
         line: line.public_id,
         agreed: 'true',
-        answered_on: new Date().toLocaleDateString('sv'),
+        answered_on: czechToday(),
         note: 'Agreed by e-mail.',
       })
       expect(sent.get('file')).toBeInstanceOf(File)

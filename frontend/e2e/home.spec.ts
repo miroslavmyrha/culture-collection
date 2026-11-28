@@ -62,7 +62,13 @@ async function receive(page: Page, name: string) {
   const lab = String(results(await call(page, '/api/v1/labs/?limit=200')).find((row) => row.name === 'E2E lab')?.public_id)
   const depositor = results(await call(page, `/api/v1/labs/${lab}/depositors/?search=E2E`))[0]
   const terms = { mta: null, abs_scope: 'not_in_scope', country_of_origin: 'CZ', uses: USES.map((use) => ({ use, decision: 'permit' })) }
-  const body = { depositor: depositor?.public_id, received_on: new Date().toLocaleDateString('sv'), condition: 'intact', name_as_received: name, terms }
+  const body = {
+    depositor: depositor?.public_id,
+    received_on: new Date().toLocaleDateString('sv', { timeZone: 'Europe/Prague' }),
+    condition: 'intact',
+    name_as_received: name,
+    terms,
+  }
   const deposit = await call(page, `/api/v1/labs/${lab}/deposits/`, body)
   return { lab, id: String(deposit.public_id) }
 }

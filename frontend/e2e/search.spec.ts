@@ -52,7 +52,7 @@ async function vialWithBarcode(page: Page, name: string, barcode: string) {
       ]
       const deposit = await send<{ public_id: string }>('deposits/', {
         depositor: depositors.results[0]?.public_id,
-        received_on: new Date().toLocaleDateString('sv'),
+        received_on: new Date().toLocaleDateString('sv', { timeZone: 'Europe/Prague' }),
         condition: 'intact',
         name_as_received: received,
         terms: { mta: null, abs_scope: 'unknown', uses: uses.map((use) => ({ use, decision: 'permit' })) },
@@ -61,7 +61,7 @@ async function vialWithBarcode(page: Page, name: string, barcode: string) {
       const taxa = await read<{ results: { public_id: string; name: string }[] }>('/api/v1/taxa/?search=subtilis')
       const accepted = await send<{ strain: { public_id: string; accession_number: string } | null }>(`deposits/${deposit.public_id}/accept/`, {
         taxon: taxa.results.find((t) => t.name === 'Bacillus subtilis')?.public_id,
-        identified_on: new Date().toLocaleDateString('sv'),
+        identified_on: new Date().toLocaleDateString('sv', { timeZone: 'Europe/Prague' }),
         identification_method: 'MALDI-TOF MS',
         risk_group: 1,
         risk_group_basis: basis,
@@ -80,7 +80,7 @@ async function vialWithBarcode(page: Page, name: string, barcode: string) {
         method: 'cryo_minus80',
         purpose: 'seed',
         cryoprotectant: '10 % glycerol',
-        preserved_on: new Date().toLocaleDateString('sv'),
+        preserved_on: new Date().toLocaleDateString('sv', { timeZone: 'Europe/Prague' }),
         vial_count: 2,
       })
       const vials = await read<{ results: { public_id: string; label: string; seq: number }[] }>(`/api/v1/labs/${lab}/vials/?strain=${strain.public_id}`)

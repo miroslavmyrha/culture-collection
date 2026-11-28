@@ -6,6 +6,7 @@ import { type Medium } from '@/lib/growth'
 import { useMediaList } from '../api/queries'
 import { MediumDialog, RetireMediumDialog } from './MediumDialogs'
 import { useDialogSlot } from '@/lib/dialog'
+import { day } from '@/lib/dates'
 
 type Open = { kind: 'new' | 'edit' | 'retire'; medium?: Medium; open: boolean } | null
 
@@ -47,7 +48,7 @@ type Show = (kind: 'new' | 'edit' | 'retire', medium?: Medium) => (event: MouseE
 
 /** Retired since when, or active. */
 function MediumStatus({ medium }: { medium: Medium }) {
-  if (medium.retired_at) return <StatusChip tone="neutral">{`Retired ${new Date(medium.retired_at).toLocaleDateString('sv')}`}</StatusChip>
+  if (medium.retired_at) return <StatusChip tone="neutral">{`Retired ${day(medium.retired_at)}`}</StatusChip>
   return <StatusChip>Active</StatusChip>
 }
 
