@@ -4,7 +4,7 @@ entered in error, its events and its API. The triggers that hold the same are in
 test_destruction_guards.py."""
 
 from collections.abc import Callable
-from datetime import date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
 import pytest
@@ -1382,3 +1382,29 @@ def test_entered_in_error_is_an_event_of_the_strain_and_its_lab(
     event = AuditEvent.objects.get(event_type="destruction_entered_in_error")
     strain = waiting_record.strain
     assert (event.strain_id, event.lab_id) == (strain.public_id, strain.lab_id)
+
+
+@pytest.mark.rule("R-END-03")
+def test_the_day_a_vial_was_marked_to_destroy_is_the_czech_day(
+    passage0: Passage, make_batch: MakeBatch, technician: User, as_technician: Any
+) -> None:
+    """Marked half an hour after Prague's midnight, still the previous day in UTC: a destruction
+    dated that UTC day is before the marking, one dated the Czech day is not (#317)."""
+    day = permit_today() - timedelta(days=5)
+    after_midnight = datetime.combine(day, time(0, 30), tzinfo=PERMIT_TIME_ZONE)
+    assert after_midnight.astimezone(UTC).date() == day - timedelta(days=1)
+    with time_machine.travel(after_midnight, tick=False):
+        vials = marked(make_batch, passage0, technician, count=1)
+    access = access_for(technician)
+    refused(
+        services.InvalidDestruction,
+        "invalid",
+        lambda: services.destruction_record(
+            access=access,
+            strain=passage0.strain,
+            data=new_destruction(vials, destroyed_on=day - timedelta(days=1)),
+        ),
+        "destroyed_on",
+        detail=BEFORE_MARKED,
+    )
+    assert record_as(technician, vials, destroyed_on=day).destroyed_on == day
