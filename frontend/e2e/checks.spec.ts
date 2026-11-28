@@ -8,7 +8,7 @@ import { axe, contrast, riskGroupBasis, runId, signedInAs, watchCsp } from './su
 // never meets another run's rows. It works as the sessions auth.setup.ts signed in.
 
 const RUN = runId()
-const today = () => new Date().toLocaleDateString('sv')
+const today = () => new Date().toLocaleDateString('sv', { timeZone: 'Europe/Prague' })
 
 async function as(browser: Browser, name: string, width = 1280) {
   const context = await browser.newContext({ storageState: signedInAs(name), viewport: { width, height: width === 320 ? 640 : 900 } })

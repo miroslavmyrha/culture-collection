@@ -7,6 +7,7 @@ import { holdApi, mockApi, mockApiError, recordRequests } from '@/test/mockApi'
 import { renderWithProviders } from '@/test/render'
 import { type Deposit, USES } from '../schemas'
 import { ReceiveDepositForm } from './ReceiveDepositForm'
+import { today as czechToday } from '@/lib/dates'
 
 const LAB_ID = '00000000-0000-4000-8000-00000000000a'
 const PATH = '/api/v1/labs/{lab_public_id}/deposits/'
@@ -85,7 +86,7 @@ describe('ReceiveDepositForm', () => {
     expect(calls[0]?.headers.get('X-CSRFToken')).toBe('test-token')
     expect(calls[0]?.body).toEqual({
       depositor: jana.public_id,
-      received_on: new Date().toLocaleDateString('sv'),
+      received_on: czechToday(),
       condition: 'damaged',
       condition_note: 'cracked ampoule',
       name_as_received: 'Testella exempli K3',
@@ -109,7 +110,7 @@ describe('ReceiveDepositForm', () => {
     const calls = mockApi('post', PATH, makeDeposit())
     const { user } = await setup()
     await fillRequired(user)
-    const today = new Date().toLocaleDateString('sv')
+    const today = czechToday()
     const cases: readonly (readonly [string, string, readonly string[], string])[] = [
       ['Passages stated by the depositor', '3', ['3x', '-1', '1,5', '123456'], 'Enter a whole number, or leave it empty'],
       ['Received on', today, ['2026-13-45', '12.10.2026', '2026-10'], 'Enter a date as YYYY-MM-DD'],

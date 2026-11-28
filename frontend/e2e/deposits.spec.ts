@@ -187,7 +187,7 @@ async function receiveAndCheck(page: Page, name: string) {
     ]
     const body = {
       depositor: depositors.results[0]?.public_id,
-      received_on: new Date().toLocaleDateString('sv'),
+      received_on: new Date().toLocaleDateString('sv', { timeZone: 'Europe/Prague' }),
       condition: 'intact',
       name_as_received: asReceived,
       terms: { mta: null, abs_scope: 'unknown', uses: uses.map((use) => ({ use, decision: 'on_request' })) },

@@ -89,7 +89,7 @@ async function enterRequest(page: Page, lab: string) {
         signer_name: 'E2E Signatory',
         signer_role: 'head_of_institution',
         authorised_signatory: 'true',
-        accepted_on: new Date().toLocaleDateString('sv'),
+        accepted_on: new Date().toLocaleDateString('sv', { timeZone: 'Europe/Prague' }),
       }))
         data.append(k, v)
       data.append('file', new Blob(['%PDF-1.4\n% an invented signed copy of an e2e run\n%%EOF\n'], { type: 'application/pdf' }), 'signed.pdf')

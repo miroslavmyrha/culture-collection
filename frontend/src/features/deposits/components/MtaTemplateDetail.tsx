@@ -3,6 +3,7 @@ import { StaleNotice } from '@/components/StaleNotice'
 import { Box, Link, PageTitle, Paper, Typography } from '@/components/ui'
 import { isApiError } from '@/lib/api'
 import { useMtaTemplate } from '../api/queries'
+import { day } from '@/lib/dates'
 
 type Props = { labId: string; templateId: string; canPublish: boolean }
 
@@ -45,7 +46,7 @@ export function MtaTemplateDetail({ labId, templateId, canPublish }: Props) {
       <StaleNotice what="the MTA" query={template} />
       <Typography sx={{ mb: 1, overflowWrap: 'anywhere' }}>{t.title}</Typography>
       <Typography sx={{ mb: 2 }}>
-        Published {new Date(t.created_at).toLocaleDateString('sv')}. SHA-256 of the text:{' '}
+        Published {day(t.created_at)}. SHA-256 of the text:{' '}
         <Box component="code" sx={{ overflowWrap: 'anywhere' }}>
           {t.text_sha256}
         </Box>

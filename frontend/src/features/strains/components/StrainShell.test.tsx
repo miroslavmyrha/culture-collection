@@ -143,7 +143,7 @@ describe('StrainShell with the Overview tab', () => {
       'Isolation source': 'Unknown',
       'Country of origin': 'Czechia',
       'Isolation date': '2019-05',
-      Accessioned: '2026-01-10',
+      Accessioned: '2026-01-11', // 23:30 UTC is 00:30 the next Czech day (#317)
       Medium: 'Not recorded',
       Temperature: 'Not recorded',
       Atmosphere: 'Not recorded',

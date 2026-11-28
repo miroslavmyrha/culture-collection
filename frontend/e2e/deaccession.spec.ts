@@ -35,7 +35,7 @@ test('C10: a curator deaccessions a strain that no longer grows; its vials are t
         const body: T = await (await fetch(url, { headers })).json()
         return body
       }
-      const today = new Date().toLocaleDateString('sv')
+      const today = new Date().toLocaleDateString('sv', { timeZone: 'Europe/Prague' })
       const depositors = await read<{ results: { public_id: string }[] }>(`/api/v1/labs/${lab}/depositors/?search=E2E`)
       const uses = [
         'research_noncommercial',

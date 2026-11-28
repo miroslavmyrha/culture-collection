@@ -82,7 +82,7 @@ test('a technician places three vials in no box into one box in one step, by key
     passage,
     method: 'lyophilised',
     purpose: 'seed',
-    preserved_on: new Date().toLocaleDateString('sv'),
+    preserved_on: new Date().toLocaleDateString('sv', { timeZone: 'Europe/Prague' }),
     vial_count: 3,
   })
   expect(batch.status).toBe(201)
@@ -132,7 +132,7 @@ test('a technician places three vials in no box into one box in one step, by key
     passage,
     method: 'lyophilised',
     purpose: 'seed',
-    preserved_on: new Date().toLocaleDateString('sv'),
+    preserved_on: new Date().toLocaleDateString('sv', { timeZone: 'Europe/Prague' }),
     vial_count: 1,
   })
   const next = field(more.json, 'number')
