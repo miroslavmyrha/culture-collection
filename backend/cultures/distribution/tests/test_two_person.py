@@ -715,3 +715,94 @@ def test_the_open_preparation_index_decides_when_a_writer_skipped_the_locks(
     request.refresh_from_db()
     assert request.status == RequestStatus.APPROVED
     assert last_pk() == events
+
+
+# The mutation run's survivors (#308).
+
+
+def test_each_request_awaiting_confirmation_has_its_own_preparation(
+    *, curator: User, manager: User, regulated: Regulated
+) -> None:
+    """With two requests awaiting confirmation, each step finds the preparation of its own."""
+    first, second = regulated(prepared_by=curator), regulated(prepared_by=curator)
+    kept = open_preparation(second)
+    withdraw(manager, first)
+    confirm(manager, second)
+    second.refresh_from_db()
+    assert second.status == RequestStatus.SHIPPED
+    assert Shipment.objects.get(request=second).preparation == kept
+    first.refresh_from_db()
+    assert first.status == RequestStatus.APPROVED
+
+
+def test_a_submitted_request_has_no_shipment_to_withdraw(
+    *, curator: User, lab: Lab, requester: Requester, supply: Supply
+) -> None:
+    """Withdrawal starts only from awaiting confirmation, though a submitted request may become
+    approved too."""
+    request = submit(curator, lab, requester, [(supply(vials=6), 1)])
+    refused(services.WrongState, "request_state", lambda: withdraw(curator, request))
+
+
+def test_a_confirmation_in_a_session_that_checks_at_once_still_ships(
+    *, curator: User, manager: User, regulated: Regulated
+) -> None:
+    """The shipment is written before its vials and documents: the confirmation defers those
+    checks to the commit, also in a session that set every check immediate."""
+    request = regulated(prepared_by=curator)
+    sql("SET CONSTRAINTS ALL IMMEDIATE", [])
+    confirm(manager, request)
+    sql("SET CONSTRAINTS ALL IMMEDIATE", [])
+    assert Shipment.objects.filter(request=request).count() == 1
+
+
+@pytest.mark.rule("R-SHIP-03")
+def test_a_pathogen_is_not_prepared_as_exempt(
+    *, curator: User, approver: User, requester: Requester, regulated: Regulated
+) -> None:
+    """The exemption is checked at the preparation already, not only at the confirmation."""
+    request = regulated()
+    add_permit(curator, requester, PermitKind.PATHOGEN_WORK_PERMIT, risk_group=2)
+    with as_actor(approver):
+        strains.strain_set_risk_group(
+            access=access_for(approver),
+            strain=request.lines.get().strain,
+            risk_group=2,
+            basis="NV 361/2007 Sb., Příloha 7",
+            reason="Reassessed.",
+        )
+    refused(
+        services.InvalidDistribution,
+        "not_exempt",
+        lambda: prepare(curator, request),
+        attr="classification_basis",
+    )
+
+
+def test_the_two_step_events_are_kept_under_the_lab(
+    *, curator: User, manager: User, lab: Lab, regulated: Regulated
+) -> None:
+    """Prepared, withdrawn and confirmed: each event under the request's lab, the confirmation
+    naming its shipment."""
+    request = regulated()
+    start = last_pk()
+    prepare(curator, request)
+    withdraw(manager, request)
+    prepare(curator, request)
+    confirm(manager, request)
+    recorded = events_since(start)
+    steps = [
+        e
+        for e in recorded
+        if e.event_type
+        in {"request_shipment_prepared", "request_shipment_withdrawn", "request_shipped"}
+    ]
+    assert [e.event_type for e in steps] == [
+        "request_shipment_prepared",
+        "request_shipment_withdrawn",
+        "request_shipment_prepared",
+        "request_shipped",
+    ]
+    assert {e.lab_id for e in steps} == {lab.pk}
+    shipment = Shipment.objects.get(request=request)
+    assert steps[-1].changes["shipment"] == [None, str(shipment.public_id)]

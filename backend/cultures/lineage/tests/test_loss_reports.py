@@ -3,10 +3,11 @@ one, that a manager records it once per loss with a reason, what the event holds
 list shows, and that the trigger (lineage 0012) and the Python definition
 (selectors.reportable_loss) agree for every restriction kind."""
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
 import pytest
+import time_machine
 from django.db import IntegrityError, InternalError, connection, transaction
 
 from cultures.audit.context import MissingAuditContext, audit_context
@@ -436,3 +437,87 @@ class TestLossReportContract(Readers, ViewsetContract):
     @pytest.fixture
     def writer(self, manager: User) -> User:
         return manager
+
+
+# The mutation run's survivors (#308).
+
+
+@pytest.mark.rule("R-END-04")
+def test_each_refusal_of_the_form_says_what_to_fix(lost: Vial, manager: User) -> None:
+    lost_on = permit_today()
+    for changes, code, attr, detail in (
+        (
+            {"reference": "  "},
+            "invalid",
+            "reference",
+            "Give the reference the police gave the report.",
+        ),
+        ({"reference": "x" * 101}, "max_length", "reference", "At most 100 characters."),
+        (
+            {"reported_on": lost_on + timedelta(days=1)},
+            "invalid",
+            "reported_on",
+            "This date is in the future.",
+        ),
+        (
+            {"reported_on": lost_on - timedelta(days=1)},
+            "invalid",
+            "reported_on",
+            "The report is not dated before the loss.",
+        ),
+    ):
+        with pytest.raises(services.InvalidVial) as refused:
+            report(lost, manager, **changes)
+        assert (refused.value.code, refused.value.attr, refused.value.detail) == (
+            code,
+            attr,
+            detail,
+        ), changes
+    assert not VialLossReport.objects.exists()
+
+
+def test_a_reference_of_exactly_the_limit_is_taken(lost: Vial, manager: User) -> None:
+    assert report(lost, manager, reference="x" * 100).reference == "x" * 100
+
+
+@pytest.mark.rule("R-END-04")
+def test_the_day_of_the_loss_is_the_czech_day(
+    *,
+    strain: Strain,
+    passage0: Passage,
+    make_batch: MakeBatch,
+    curator: User,
+    technician: User,
+    manager: User,
+) -> None:
+    """Lost at 23:30 UTC, which is already the next day in Prague: a report dated the UTC day is
+    dated before the loss."""
+    restrict(strain, curator)
+    vial = vials_of(make_batch(passage0, vial_count=1))[0]
+    utc_day = (datetime.now(UTC) + timedelta(days=30)).date()
+    with time_machine.travel(datetime.combine(utc_day, time(23, 30), UTC), tick=False):
+        move(vial, VialStatus.LOST, technician)
+        with pytest.raises(services.InvalidVial) as refused:
+            report(vial, manager, reported_on=utc_day)
+        assert refused.value.attr == "reported_on"
+        report(vial, manager, reported_on=utc_day + timedelta(days=1))
+
+
+@pytest.mark.rule("R-END-04")
+def test_two_vials_lost_at_one_moment_owe_a_report_each(
+    *,
+    strain: Strain,
+    passage0: Passage,
+    make_batch: MakeBatch,
+    curator: User,
+    technician: User,
+    manager: User,
+) -> None:
+    restrict(strain, curator)
+    first, second = vials_of(make_batch(passage0, vial_count=2))
+    with time_machine.travel(datetime.now(UTC) + timedelta(days=1), tick=False):
+        move(first, VialStatus.LOST, technician)
+        move(second, VialStatus.LOST, technician)
+        report(first, manager)
+        report(second, manager)
+    assert VialLossReport.objects.count() == 2
